@@ -120,8 +120,12 @@ impl RetainedLibrary {
         let provider = MetadataProvider::HttpPlugin {
             installation_id: installed.id,
         };
-        let settings = hito.catalog.metadata_settings(&listener).await.unwrap();
-        hito.catalog
+        let settings = hito
+            .artist_catalog
+            .metadata_settings(&listener)
+            .await
+            .unwrap();
+        hito.artist_catalog
             .set_metadata_settings(
                 &listener,
                 UpdateMetadataSettings {
@@ -199,8 +203,8 @@ impl RetainedLibrary {
             "activity": self.hito.collection.activity(&self.listener).await.unwrap(),
             "progress": self.hito.collection.saved_playback(&self.listener, &[Uuid::parse_str(&self.recording_id).unwrap()]).await.unwrap(),
             "events": self.hito.collection.events(&self.listener, 0).await.unwrap(),
-            "associations": self.hito.catalog.recording_artist_associations(&self.listener, &self.recording_id).await.unwrap(),
-            "settings": self.hito.catalog.metadata_settings(&self.listener).await.unwrap(),
+            "associations": self.hito.artist_catalog.recording_artist_associations(&self.listener, &self.recording_id).await.unwrap(),
+            "settings": self.hito.artist_catalog.metadata_settings(&self.listener).await.unwrap(),
             "plugins": self.hito.plugins.settings(&self.listener).await.unwrap(),
             "admin_recordings": self.hito.catalog.recordings(&self.admin, Default::default()).await.unwrap(),
             "admin_artists": self.hito.catalog.artists(&self.admin, Default::default()).await.unwrap(),

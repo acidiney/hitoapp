@@ -142,7 +142,7 @@ async fn provider_outage_and_missing_support_leave_the_library_untouched() {
 
     let cancelled = album
         .hito
-        .catalog
+        .artist_catalog
         .album_edition_track_list_until(
             &album.actor,
             &album.release_id,
@@ -158,13 +158,13 @@ async fn provider_outage_and_missing_support_leave_the_library_untouched() {
 
     let settings = album
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&album.actor)
         .await
         .unwrap();
     album
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &album.actor,
             UpdateMetadataSettings {
@@ -214,7 +214,7 @@ async fn other_accounts_and_unrelated_recordings_cannot_use_the_album_authority(
     let requests_before = server.requests().len();
     let denied = album
         .hito
-        .catalog
+        .artist_catalog
         .album_edition_track_list_until(
             &stranger,
             &album.release_id,
@@ -228,7 +228,7 @@ async fn other_accounts_and_unrelated_recordings_cannot_use_the_album_authority(
     elsewhere.recording_id = Uuid::new_v4().to_string();
     let unrelated = album
         .hito
-        .catalog
+        .artist_catalog
         .album_edition_track_list_until(
             &album.actor,
             &album.release_id,
@@ -242,7 +242,7 @@ async fn other_accounts_and_unrelated_recordings_cannot_use_the_album_authority(
     mismatched.recording_id = album.second.clone();
     let wrong_association = album
         .hito
-        .catalog
+        .artist_catalog
         .album_edition_track_list_until(
             &album.actor,
             &album.release_id,
@@ -259,7 +259,7 @@ async fn other_accounts_and_unrelated_recordings_cannot_use_the_album_authority(
 
     let detail = album
         .hito
-        .catalog
+        .artist_catalog
         .release(&album.actor, &album.release_id, Browse::default())
         .await
         .unwrap();

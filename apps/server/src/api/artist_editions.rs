@@ -34,7 +34,7 @@ pub async fn list(
 ) -> ApiResult<Json<ReleaseGroupEditionsAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_release_group_editions_until(
             &actor,
             &id,
@@ -82,7 +82,7 @@ pub async fn track_list(
 ) -> ApiResult<Json<EditionTrackListAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_edition_track_list_until(
             &actor,
             &id,

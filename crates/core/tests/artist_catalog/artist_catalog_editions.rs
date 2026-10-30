@@ -50,7 +50,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     assert_no_downloads(library).await;
 
     let groups = hito
-        .catalog
+        .artist_catalog
         .recording_artist_discography_until(
             actor,
             &library.recording_id,
@@ -152,7 +152,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         .find(|edition| edition.id == provider::BONUS_ID)
         .expect("The bonus edition must be explicitly selected by its returned identity");
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_edition_track_list_until(
             actor,
             &library.recording_id,
@@ -209,9 +209,9 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         json!({"release_group_id": group.id, "edition_id": selected.id})
     );
 
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let revised = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -242,13 +242,13 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     );
     assert_no_downloads(library).await;
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &library.recording_id)
         .await
         .unwrap();
     assert!(retained.len() == 1 && serde_json::to_value(&retained[0]).unwrap() == evidence);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.other_recording_id)
             .await
             .unwrap()
@@ -278,7 +278,7 @@ async fn read_editions(
 ) -> hito_core::Result<ReleaseGroupEditionsAvailability> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_release_group_editions_until(
             &library.actor,
             &library.recording_id,

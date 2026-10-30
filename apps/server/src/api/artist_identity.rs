@@ -29,7 +29,7 @@ pub async fn read(
 ) -> ApiResult<Json<RecordingArtistIdentityChoice>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(&actor, &id)
         .await;
     tracing::debug!(
@@ -62,7 +62,7 @@ pub async fn choose(
 ) -> ApiResult<Json<ArtistIdentityChoiceReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(&actor, &id, request)
         .await;
     tracing::info!(
@@ -94,7 +94,7 @@ pub async fn reset(
 ) -> ApiResult<Json<ArtistIdentityChoiceReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(&actor, &id, request)
         .await;
     tracing::info!(
@@ -127,7 +127,7 @@ pub async fn apply_to_credit(
 ) -> ApiResult<Json<ArtistIdentityCreditReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .apply_artist_identity_to_credit(&actor, &id, request)
         .await;
     tracing::info!(

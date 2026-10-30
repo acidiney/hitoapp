@@ -41,7 +41,7 @@ async fn unlink(
 ) -> Result<ArtistAssociationChangeReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             &library.recording_id,
@@ -61,7 +61,7 @@ async fn undo(
 ) -> Result<ArtistAssociationChangeReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .undo_recording_artist_change(
             &library.actor,
             &library.recording_id,
@@ -76,7 +76,7 @@ async fn undo(
 async fn revision(library: &library::Library) -> i64 {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, &library.recording_id)
         .await
         .unwrap()
@@ -86,7 +86,7 @@ async fn revision(library: &library::Library) -> i64 {
 async fn listed(library: &library::Library) -> Vec<String> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&library.actor, &library.recording_id)
         .await
         .unwrap()
@@ -101,7 +101,7 @@ async fn profile(
 ) -> Result<ArtistProfileAvailability, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             &library.actor,
             &library.recording_id,
@@ -118,13 +118,13 @@ async fn associate(
 ) -> Result<ArtistAssociation, Error> {
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             &library.actor,
             &library.recording_id,
@@ -192,7 +192,7 @@ async fn unlinking_denies_the_profile_and_undo_restores_the_same_evidence() {
 
             let offered = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(&library.actor, &library.recording_id)
                 .await
                 .unwrap();
@@ -278,7 +278,7 @@ async fn nothing_to_undo_and_foreign_accounts_are_rejected() {
             let hito = &library.hito;
             let admin = &library.admin;
             assert!(matches!(
-                hito.catalog
+                hito.artist_catalog
                     .undo_recording_artist_change(
                         admin,
                         &library.recording_id,
@@ -291,7 +291,7 @@ async fn nothing_to_undo_and_foreign_accounts_are_rejected() {
                 Err(Error::Conflict(_))
             ));
             assert!(matches!(
-                hito.catalog
+                hito.artist_catalog
                     .unlink_recording_artist(
                         admin,
                         &library.recording_id,
@@ -322,9 +322,9 @@ async fn nothing_to_undo_and_foreign_accounts_are_rejected() {
                 .unwrap()
                 .selected_observation
                 .unwrap();
-            let settings = hito.catalog.metadata_settings(admin).await.unwrap();
+            let settings = hito.artist_catalog.metadata_settings(admin).await.unwrap();
             let own = hito
-                .catalog
+                .artist_catalog
                 .associate_recording_artist(
                     admin,
                     &library.recording_id,
@@ -345,7 +345,7 @@ async fn nothing_to_undo_and_foreign_accounts_are_rejected() {
                 .await
                 .unwrap();
             assert_eq!(
-                hito.catalog
+                hito.artist_catalog
                     .recording_artist_associations(admin, &library.recording_id)
                     .await
                     .unwrap()
@@ -356,7 +356,7 @@ async fn nothing_to_undo_and_foreign_accounts_are_rejected() {
                 "another account keeps its own association"
             );
             assert_eq!(
-                hito.catalog
+                hito.artist_catalog
                     .recording_artist_association_changes(admin, &library.recording_id)
                     .await
                     .unwrap()
@@ -463,7 +463,7 @@ async fn unlinking_a_chosen_association_sends_the_identity_choice_back_to_review
                 .await;
             let context = library
                 .hito
-                .catalog
+                .artist_catalog
                 .begin_artist_review(
                     &library.actor,
                     &library.recording_id,
@@ -473,7 +473,7 @@ async fn unlinking_a_chosen_association_sends_the_identity_choice_back_to_review
                 .unwrap();
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .choose_recording_artist_identity(
                     &library.actor,
                     &library.recording_id,
@@ -491,7 +491,7 @@ async fn unlinking_a_chosen_association_sends_the_identity_choice_back_to_review
                 .unwrap();
             let choice = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_identity_choice(&library.actor, &library.recording_id)
                 .await
                 .unwrap();

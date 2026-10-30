@@ -37,12 +37,12 @@ async fn exercise(
     server: &discovery::DiscoveryServer,
 ) {
     let imported = imported::Imported::create(hito, actor, origin).await;
-    let defaults = hito.catalog.metadata_settings(actor).await.unwrap();
+    let defaults = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     assert!(defaults.enabled && defaults.providers == vec![MetadataProvider::BuiltinMusicBrainz]);
     let before_default = imported.snapshot(hito, actor).await;
     let origin_before = imported::request_counts(origin).await;
     let builtin = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(
             actor,
             &imported.recording_id,
@@ -90,7 +90,7 @@ async fn exercise(
         installation_id: installation.id.clone(),
     };
     let policy = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -114,13 +114,13 @@ async fn exercise(
         .unwrap();
     assert!(artists.total == 1 && artists.items[0].id == imported.artist_id);
     let associations_before = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &imported.recording_id)
         .await
         .unwrap();
     assert!(associations_before.is_empty());
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, selected.clone())
         .await
         .expect("The selected personal provider must capture the current imported credit");
@@ -156,7 +156,7 @@ async fn exercise(
         limit: 2,
     };
     let result = hito
-        .catalog
+        .artist_catalog
         .search_artist_candidates_until(actor, &context, request(), std::future::pending())
         .await
         .expect("Artist candidate discovery must succeed for the current reviewed context");
@@ -186,7 +186,7 @@ async fn exercise(
     );
     for recording in [&imported.recording_id, &imported.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()

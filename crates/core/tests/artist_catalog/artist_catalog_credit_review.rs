@@ -106,9 +106,9 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         "Different exact credits must retain distinct local artists"
     );
     let after_edit = library.snapshot().await;
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let reviewed = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             actor,
             &library.recording_id,
@@ -141,7 +141,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         "Re-review must retain explicit user-confirmed provenance"
     );
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &library.recording_id,
@@ -163,7 +163,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     );
     assert!(profile == provider::expected_profile());
     let associations = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &library.recording_id)
         .await
         .unwrap();
@@ -182,7 +182,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     let associations_before_repeat = serde_json::to_value(&associations).unwrap();
     let requests_before_repeat = server.counts().await;
     let repeated = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             actor,
             &library.recording_id,
@@ -207,7 +207,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         "An identical current-credit review must retain its exact immutable evidence"
     );
     let associations_after_repeat = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &library.recording_id)
         .await
         .unwrap();
@@ -221,7 +221,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     );
     assert_eq!(server.counts().await, requests_before_repeat);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.other_recording_id,)
             .await
             .unwrap()

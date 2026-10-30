@@ -55,21 +55,21 @@ async fn choose(
 ) {
     let hito = &library.hito;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, identity)
         .await
         .unwrap();
     let choice = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
-    hito.catalog
+    hito.artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,

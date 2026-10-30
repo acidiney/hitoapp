@@ -92,13 +92,13 @@ async fn exercise(
 
     let listing_gate = server.hold(CatalogEditionOperation::ReleaseGroupEditions);
     gates.push(listing_gate.clone());
-    let catalog = hito.catalog.clone();
+    let artist_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let recording = library.recording_id.clone();
     let association_id = association.id.clone();
     reads.spawn(
         async move {
-            let result = catalog
+            let result = artist_catalog
                 .recording_artist_release_group_editions_until(
                     &request_actor,
                     &recording,
@@ -118,10 +118,10 @@ async fn exercise(
         .await
         .expect("The edition list must reach the owned provider before policy changes");
     let admitted = server.requests();
-    let settings = hito.catalog.metadata_settings(&actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(&actor).await.unwrap();
     let revised = timeout(
         Duration::from_secs(3),
-        hito.catalog.set_metadata_settings(
+        hito.artist_catalog.set_metadata_settings(
             &actor,
             UpdateMetadataSettings {
                 revision: settings.revision,
@@ -201,14 +201,14 @@ async fn exercise(
     let track_gate = server.hold(CatalogEditionOperation::EditionTrackList);
     gates.push(track_gate.clone());
     let (cancel, cancelled) = oneshot::channel();
-    let catalog = hito.catalog.clone();
+    let artist_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let recording = library.recording_id.clone();
     let association_id = association.id.clone();
     let selected_id = selected.id.clone();
     reads.spawn(
         async move {
-            let result = catalog
+            let result = artist_catalog
                 .recording_artist_edition_track_list_until(
                     &request_actor,
                     &recording,
@@ -252,7 +252,7 @@ async fn exercise(
     );
     let retry = timeout(
         Duration::from_secs(3),
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_edition_track_list_until(
                 &actor,
                 &library.recording_id,
@@ -323,13 +323,13 @@ async fn exercise(
         events_before
     );
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&actor, &library.recording_id)
         .await
         .unwrap();
     assert!(retained.len() == 1 && serde_json::to_value(&retained[0]).unwrap() == evidence);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(&actor, &library.other_recording_id)
             .await
             .unwrap()
@@ -422,7 +422,7 @@ async fn read_editions(
 ) -> hito_core::Result<ReleaseGroupEditionsAvailability> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_release_group_editions_until(
             actor,
             &library.recording_id,

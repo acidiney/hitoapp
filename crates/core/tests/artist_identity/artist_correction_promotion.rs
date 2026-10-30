@@ -23,13 +23,13 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
     let mut library = library::Library::prepare().await;
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &library.actor,
             UpdateMetadataSettings {
@@ -93,12 +93,12 @@ async fn link(
     recording: &str,
     artist: &str,
 ) -> ArtistAssociation {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(actor, recording, MetadataProvider::BuiltinMusicBrainz)
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .associate_recording_artist(
             actor,
             recording,
@@ -123,17 +123,17 @@ async fn choose(
     artist: &str,
 ) -> String {
     let association = link(library, actor, recording, artist).await;
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(actor, recording, MetadataProvider::BuiltinMusicBrainz)
         .await
         .unwrap();
-    let revision = catalog
+    let revision = artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap()
         .revision;
-    catalog
+    artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -154,7 +154,7 @@ async fn choose(
 async fn listed(library: &library::Library, actor: &Actor, recording: &str) -> usize {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, recording)
         .await
         .unwrap()
@@ -165,7 +165,7 @@ async fn chosen(library: &library::Library, actor: &Actor, recording: &str) -> b
     matches!(
         library
             .hito
-            .catalog
+            .artist_catalog
             .recording_artist_identity_choice(actor, recording)
             .await
             .unwrap()
@@ -177,7 +177,7 @@ async fn chosen(library: &library::Library, actor: &Actor, recording: &str) -> b
 async fn groups(library: &library::Library, actor: &Actor) -> i64 {
     library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, Default::default())
         .await
         .unwrap()
@@ -187,14 +187,14 @@ async fn groups(library: &library::Library, actor: &Actor) -> i64 {
 async fn unlink(library: &library::Library, recording: &str, association: &str) {
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, recording)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             recording,
@@ -235,13 +235,17 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             link(library, &second, local, M1).await;
             let before = library.snapshot().await;
             assert!(matches!(
-                library.hito.catalog.shared_artist_corrections(peer).await,
+                library
+                    .hito
+                    .artist_catalog
+                    .shared_artist_corrections(peer)
+                    .await,
                 Err(Error::Forbidden)
             ));
             unlink(library, local, &mine.id).await;
             let offered = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(actor, local)
                 .await
                 .unwrap();
@@ -252,7 +256,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert!(
                 !library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .recording_artist_association_changes(peer, local)
                     .await
                     .unwrap()
@@ -262,7 +266,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .promote_artist_correction(peer, promote(0, unlinked(local, &mine.id)))
                     .await,
                 Err(Error::Forbidden)
@@ -276,7 +280,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             let request = promote(0, unlinked(local, &mine.id));
             let receipt = library
                 .hito
-                .catalog
+                .artist_catalog
                 .promote_artist_correction(actor, request.clone())
                 .await
                 .unwrap();
@@ -284,7 +288,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert_eq!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .promote_artist_correction(actor, request)
                     .await
                     .unwrap(),
@@ -294,7 +298,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .promote_artist_correction(
                         actor,
                         PromoteArtistCorrection {
@@ -309,7 +313,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .promote_artist_correction(actor, promote(0, unlinked(local, &mine.id)))
                         .await,
                     Err(Error::Conflict(_))
@@ -320,7 +324,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .promote_artist_correction(actor, promote(1, unlinked(local, &mine.id)))
                         .await,
                     Err(Error::Conflict(_))
@@ -332,7 +336,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert_eq!(listed(library, &second, local).await, 0);
             let offered = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(actor, local)
                 .await
                 .unwrap();
@@ -343,7 +347,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             );
             let list = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections(actor)
                 .await
                 .unwrap();
@@ -364,7 +368,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
 
             let undone = library
                 .hito
-                .catalog
+                .artist_catalog
                 .undo_shared_artist_correction(
                     actor,
                     &receipt.correction_id,
@@ -390,7 +394,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .undo_shared_artist_correction(
                         peer,
                         &receipt.correction_id,
@@ -405,7 +409,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .undo_shared_artist_correction(
                         actor,
                         &receipt.correction_id,
@@ -419,7 +423,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             ));
             let again = library
                 .hito
-                .catalog
+                .artist_catalog
                 .undo_shared_artist_correction(
                     actor,
                     &receipt.correction_id,
@@ -453,7 +457,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .undo_recording_artist_change(actor, local, undo_own())
                         .await,
                     Err(Error::Conflict(_))
@@ -462,7 +466,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             );
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .undo_shared_artist_correction(
                     actor,
                     &receipt.correction_id,
@@ -475,7 +479,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 .unwrap();
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .undo_recording_artist_change(actor, local, undo_own())
                 .await
                 .unwrap();
@@ -488,7 +492,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
             let http = {
                 let context = library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .begin_artist_review(
                         actor,
                         &library.imported,
@@ -498,7 +502,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                     .unwrap();
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .confirm_artist_review(actor, &context, catalog::ALPHA)
                     .await
                     .unwrap()
@@ -508,7 +512,7 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .promote_artist_correction(
                             actor,
                             promote(1, unlinked(&library.imported, &http.id))
@@ -549,7 +553,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
                 .id;
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .apply_artist_identity_to_credit(
                     actor,
                     &credit,
@@ -568,7 +572,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
 
             let moved = library
                 .hito
-                .catalog
+                .artist_catalog
                 .split_artist_identity_group(
                     actor,
                     &first,
@@ -587,7 +591,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
                 .unwrap();
             let state = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group_changes(actor, &first)
                 .await
                 .unwrap();
@@ -599,7 +603,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
 
             let receipt = library
                 .hito
-                .catalog
+                .artist_catalog
                 .promote_artist_correction(
                     actor,
                     promote(
@@ -625,7 +629,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
             );
             let latest = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group_changes(actor, &first)
                 .await
                 .unwrap()
@@ -640,7 +644,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .promote_artist_correction(
                         actor,
                         promote(
@@ -657,7 +661,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .promote_artist_correction(
                         actor,
                         promote(
@@ -676,7 +680,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .undo_artist_identity_change(
                             actor,
                             &first,
@@ -692,7 +696,7 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
             );
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .undo_shared_artist_correction(
                     actor,
                     &receipt.correction_id,
@@ -743,7 +747,7 @@ async fn precedence_survives_renumbered_rowids_and_vacuum() {
             unlink(library, local, &mine.id).await;
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .promote_artist_correction(actor, promote(0, unlinked(local, &mine.id)))
                 .await
                 .unwrap();

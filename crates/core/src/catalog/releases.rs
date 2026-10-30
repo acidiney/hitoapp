@@ -1,8 +1,5 @@
-use super::{
-    AlbumEditionChoice, Browse, Catalog, Page, Recording, SourceAccess, artist_catalog,
-    push_source_access,
-};
-use crate::{Actor, Error, Result, metadata};
+use super::{Browse, Catalog, Page, Recording, SourceAccess, push_source_access};
+use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
 use utoipa::ToSchema;
@@ -48,7 +45,6 @@ pub struct ReleaseDetail {
 }
 
 pub(super) const MAX_COMPARED_TRACKS: i64 = 1000;
-const MAX_ANCHOR_CANDIDATES: i64 = 16;
 
 const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
     OR EXISTS (SELECT 1 FROM provider_release_appearances appearance WHERE appearance.release_id = a.id))";
@@ -109,18 +105,15 @@ impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), release_id))]
     pub async fn release(&self, actor: &Actor, id: &str, browse: Browse) -> Result<ReleaseDetail> {
         let (offset, limit) = browse.bounds();
-        self.release_page(actor, id, offset, limit, offset == 0)
-            .await
+        self.release_page(actor, id, offset, limit).await
     }
 
-    pub(super) async fn release_for_comparison(
+    pub(crate) async fn release_for_comparison(
         &self,
         actor: &Actor,
         id: &str,
     ) -> Result<ReleaseDetail> {
-        let detail = self
-            .release_page(actor, id, 0, MAX_COMPARED_TRACKS, false)
-            .await?;
+        let detail = self.release_page(actor, id, 0, MAX_COMPARED_TRACKS).await?;
         if detail.tracks.total > MAX_COMPARED_TRACKS {
             return Err(Error::Invalid(
                 "Albums with more than 1,000 tracks cannot be compared with a catalog edition"
@@ -136,7 +129,6 @@ impl Catalog {
         id: &str,
         offset: i64,
         limit: i64,
-        with_anchor: bool,
     ) -> Result<ReleaseDetail> {
         let mut summary = selected(actor, &Browse::default(), Some(id))?;
         summary.push(SUMMARY);
@@ -172,37 +164,10 @@ impl Catalog {
             .push_bind(offset);
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         let total = release.track_count;
-        let saved_edition = if with_anchor {
-            Some(self.saved_album_edition(actor, &release.id).await?)
-        } else {
-            None
-        };
-        let catalog_anchor = if with_anchor {
-            let mut candidates = selected(actor, &Browse::default(), Some(&release.id))?;
-            candidates
-                .push(
-                    "SELECT assoc.recording_id, assoc.id AS association_id FROM entries m
-                    JOIN recording_artist_associations assoc ON assoc.recording_id = m.recording_id AND assoc.user_id = ",
-                )
-                .push_bind(actor.id().to_owned())
-                .push(" AND ")
-                .push(artist_catalog::LINKED)
-                .push(" ORDER BY (assoc.artist_id IS ")
-                .push_bind(release.artist_id.clone())
-                .push(") DESC, COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, assoc.created_at, assoc.id LIMIT ")
-                .push_bind(MAX_ANCHOR_CANDIDATES);
-            let candidates = candidates
-                .build_query_as()
-                .fetch_all(&self.store.pool)
-                .await?;
-            self.first_readable_anchor(actor, candidates).await?
-        } else {
-            None
-        };
         tracing::debug!(total, offset, limit, "Album detail loaded");
         Ok(ReleaseDetail {
-            catalog_anchor,
-            saved_edition,
+            catalog_anchor: None,
+            saved_edition: None,
             release,
             tracks: Page {
                 items,
@@ -214,7 +179,7 @@ impl Catalog {
     }
 }
 
-pub(super) async fn release_contains(
+pub(crate) async fn release_contains(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
     release: &str,
@@ -241,7 +206,7 @@ fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {
     }
 }
 
-pub(super) async fn releases_by_ids_on(
+pub(crate) async fn releases_by_ids_on(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
     ids: &[String],
@@ -295,7 +260,7 @@ pub(super) fn selected_among(actor: &Actor, wanted: &str) -> Result<QueryBuilder
     Ok(query)
 }
 
-fn selected(
+pub(crate) fn selected(
     actor: &Actor,
     browse: &Browse,
     id: Option<&str>,

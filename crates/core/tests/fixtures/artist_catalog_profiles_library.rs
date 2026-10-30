@@ -193,7 +193,7 @@ impl Library {
             .unwrap();
         let settings = self
             .hito
-            .catalog
+            .artist_catalog
             .metadata_settings(&self.actor)
             .await
             .unwrap();
@@ -202,7 +202,7 @@ impl Library {
         };
         let settings = self
             .hito
-            .catalog
+            .artist_catalog
             .set_metadata_settings(
                 &self.actor,
                 UpdateMetadataSettings {
@@ -214,7 +214,7 @@ impl Library {
             .await
             .unwrap();
         self.hito
-            .catalog
+            .artist_catalog
             .associate_recording_artist(
                 &self.actor,
                 &self.recording_id,

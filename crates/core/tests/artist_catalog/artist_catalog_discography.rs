@@ -67,12 +67,12 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         )
         .await
         .unwrap();
-    let defaults = hito.catalog.metadata_settings(actor).await.unwrap();
+    let defaults = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
     let settings = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -88,12 +88,12 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         serde_json::to_value(hito.collection.events(actor, 0).await.unwrap()).unwrap();
     assert_no_downloads(library).await;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &library.recording_id, selected.clone())
         .await
         .unwrap();
     let preview = hito
-        .catalog
+        .artist_catalog
         .preview_artist_candidate_until(
             actor,
             &context,
@@ -107,7 +107,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     };
     assert!(profile == provider::expected_profile());
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, &profile.artist.id)
         .await
         .unwrap();
@@ -117,7 +117,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     let before_invalid = server.requests();
     for limit in [0, 51] {
         let invalid = hito
-            .catalog
+            .artist_catalog
             .recording_artist_discography_until(
                 actor,
                 &library.recording_id,
@@ -245,7 +245,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     }
 
     let revised = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -272,13 +272,13 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         "Catalog reads must not append collection events"
     );
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &library.recording_id)
         .await
         .unwrap();
     assert!(retained.len() == 1 && serde_json::to_value(&retained[0]).unwrap() == evidence);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.other_recording_id)
             .await
             .unwrap()
@@ -305,7 +305,7 @@ async fn read(
 ) -> hito_core::Result<ArtistDiscographyAvailability> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_discography_until(
             &library.actor,
             &library.recording_id,
@@ -379,7 +379,7 @@ async fn exercise_session_change(library: &library::Library, server: &provider::
     let evidence = serde_json::to_value(&association).unwrap();
     assert_no_downloads(library).await;
     let first = hito
-        .catalog
+        .artist_catalog
         .recording_artist_discography_until(
             &actor_a,
             &library.recording_id,
@@ -422,7 +422,7 @@ async fn exercise_session_change(library: &library::Library, server: &provider::
     hito.identity.check_session(&actor_b).await.unwrap();
     let before_new_session_read = server.requests();
     let continued = hito
-        .catalog
+        .artist_catalog
         .recording_artist_discography_until(
             &actor_b,
             &library.recording_id,
@@ -447,7 +447,7 @@ async fn exercise_session_change(library: &library::Library, server: &provider::
         "Rejecting a prior-session continuation must not append collection events"
     );
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&actor_b, &library.recording_id)
         .await
         .unwrap();

@@ -58,10 +58,10 @@ async fn the_album_anchor_costs_work_proportional_to_the_first_page_album_only()
             ..Default::default()
         };
         let (first, with_anchor) = meter
-            .measure(hito.catalog.release(&actor, &id, page(0)))
+            .measure(hito.artist_catalog.release(&actor, &id, page(0)))
             .await;
         let (later, without_anchor) = meter
-            .measure(hito.catalog.release(&actor, &id, page(PAGE)))
+            .measure(hito.artist_catalog.release(&actor, &id, page(PAGE)))
             .await;
         assert_eq!(first.unwrap().tracks.items.len(), PAGE as usize);
         assert_eq!(later.unwrap().tracks.items.len(), PAGE as usize);
@@ -111,9 +111,9 @@ async fn associate_everything(hito: &Services, actor: &crate::Actor, server: &Al
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
-    let current = hito.catalog.metadata_settings(actor).await.unwrap();
+    let current = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let settings = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -152,7 +152,7 @@ async fn associate_everything(hito: &Services, actor: &crate::Actor, server: &Al
             .unwrap()
             .selected_observation
             .unwrap();
-        hito.catalog
+        hito.artist_catalog
             .associate_recording_artist(
                 actor,
                 &recording.id,

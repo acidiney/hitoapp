@@ -188,8 +188,8 @@ impl Library {
         let metadata_provider = MetadataProvider::HttpPlugin {
             installation_id: connection.id,
         };
-        let settings = hito.catalog.metadata_settings(&actor).await.unwrap();
-        hito.catalog
+        let settings = hito.artist_catalog.metadata_settings(&actor).await.unwrap();
+        hito.artist_catalog
             .set_metadata_settings(
                 &actor,
                 UpdateMetadataSettings {
@@ -283,7 +283,7 @@ impl Library {
                 Uuid::parse_str(&self.local).unwrap(), Uuid::parse_str(&self.imported).unwrap(), Uuid::parse_str(&self.namesake).unwrap(),
             ]).await.unwrap(),
             "events": self.hito.collection.events(&self.actor, 0).await.unwrap(),
-            "settings": self.hito.catalog.metadata_settings(&self.actor).await.unwrap(),
+            "settings": self.hito.artist_catalog.metadata_settings(&self.actor).await.unwrap(),
             "plugins": self.hito.plugins.settings(&self.actor).await.unwrap(),
             "peer_recordings": self.hito.catalog.recordings(&self.peer, Default::default()).await.unwrap(),
             "peer_artists": self.hito.catalog.artists(&self.peer, Default::default()).await.unwrap(),

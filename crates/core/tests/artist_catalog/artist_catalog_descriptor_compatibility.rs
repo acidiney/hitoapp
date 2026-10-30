@@ -71,7 +71,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
 
     server.set_descriptor_missing(true);
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             &library.actor,
             &library.recording_id,
@@ -101,7 +101,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
 
     server.set_descriptor_missing(false);
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             &library.actor,
             &library.recording_id,
@@ -163,9 +163,9 @@ async fn state(library: &library::Library) -> Value {
     let actor = &library.actor;
     json!({
         "library": library.snapshot().await,
-        "associations": hito.catalog.recording_artist_associations(actor, &library.recording_id).await.unwrap(),
-        "namesake_associations": hito.catalog.recording_artist_associations(actor, &library.other_recording_id).await.unwrap(),
-        "policy": hito.catalog.metadata_settings(actor).await.unwrap(),
+        "associations": hito.artist_catalog.recording_artist_associations(actor, &library.recording_id).await.unwrap(),
+        "namesake_associations": hito.artist_catalog.recording_artist_associations(actor, &library.other_recording_id).await.unwrap(),
+        "policy": hito.artist_catalog.metadata_settings(actor).await.unwrap(),
         "plugins": hito.plugins.settings(actor).await.unwrap(),
     })
 }

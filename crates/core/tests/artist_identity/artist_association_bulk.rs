@@ -40,20 +40,20 @@ async fn credits(library: &library::Library) -> Vec<Artist> {
 }
 
 async fn choose(library: &library::Library, recording: &str, identity: &str) -> String {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
-    let association = catalog
+    let association = artist_catalog
         .confirm_artist_review(&library.actor, &context, identity)
         .await
         .unwrap();
-    let choice = catalog
+    let choice = artist_catalog
         .recording_artist_identity_choice(&library.actor, recording)
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -78,7 +78,7 @@ async fn choice(
 ) -> RecordingArtistIdentityChoice {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap()
@@ -99,7 +99,7 @@ async fn apply(
 ) -> Result<ArtistIdentityCreditReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .apply_artist_identity_to_credit(actor, credit, request)
         .await
 }
@@ -125,7 +125,7 @@ async fn imported_credit(library: &library::Library) -> String {
 async fn association_of(library: &library::Library, recording: &str) -> String {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&library.actor, recording)
         .await
         .unwrap()
@@ -134,12 +134,12 @@ async fn association_of(library: &library::Library, recording: &str) -> String {
 }
 
 async fn unlink(library: &library::Library, recording: &str, association: &str) {
-    let catalog = &library.hito.catalog;
-    let state = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let state = artist_catalog
         .recording_artist_association_changes(&library.actor, recording)
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .unlink_recording_artist(
             &library.actor,
             recording,
@@ -174,7 +174,7 @@ async fn bulk_apply_does_not_relink_an_association_the_account_unlinked() {
             assert!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .recording_artist_associations(&library.actor, &library.imported)
                     .await
                     .unwrap()

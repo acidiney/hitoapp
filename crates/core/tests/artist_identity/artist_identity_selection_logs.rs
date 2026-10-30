@@ -38,12 +38,12 @@ async fn exercise(library: &library::Library) {
     let actor = hito.identity.authenticate(&session.token).await.unwrap();
     let recording = &library.local;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(&actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(&actor, &context, catalog::ALPHA)
         .await
         .unwrap();
@@ -57,7 +57,7 @@ async fn exercise(library: &library::Library) {
     let dispatch = tracing::Dispatch::new(captured.subscriber());
     let group = async {
         let chosen = hito
-            .catalog
+            .artist_catalog
             .choose_recording_artist_identity(
                 &actor,
                 recording,
@@ -71,12 +71,12 @@ async fn exercise(library: &library::Library) {
             .await
             .unwrap();
         let group = chosen.selection.unwrap().group_id;
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_group(&actor, &group, Default::default())
             .await
             .unwrap();
         assert!(matches!(
-            hito.catalog
+            hito.artist_catalog
                 .artist_identity_group(
                     &actor,
                     "private-artist-group-route-canary",
@@ -85,7 +85,7 @@ async fn exercise(library: &library::Library) {
                 .await,
             Err(Error::NotFound)
         ));
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(
                 &actor,
                 ArtistIdentityGroupQuery {
@@ -95,7 +95,7 @@ async fn exercise(library: &library::Library) {
             )
             .await
             .unwrap();
-        hito.catalog
+        hito.artist_catalog
             .reset_recording_artist_identity(
                 &actor,
                 recording,
@@ -106,7 +106,7 @@ async fn exercise(library: &library::Library) {
             )
             .await
             .unwrap();
-        hito.catalog
+        hito.artist_catalog
             .choose_recording_artist_identity(
                 &actor,
                 recording,
@@ -120,7 +120,7 @@ async fn exercise(library: &library::Library) {
             .await
             .unwrap();
         assert!(matches!(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     &actor,
                     recording,
@@ -134,7 +134,7 @@ async fn exercise(library: &library::Library) {
                 .await,
             Err(Error::Conflict(_))
         ));
-        hito.catalog
+        hito.artist_catalog
             .reset_recording_artist_identity(
                 &actor,
                 recording,
@@ -145,17 +145,17 @@ async fn exercise(library: &library::Library) {
             )
             .await
             .unwrap();
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_identity_choice(&actor, recording)
             .await
             .unwrap();
         assert!(matches!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_identity_choice(&actor, &missing_recording)
                 .await,
             Err(Error::NotFound)
         ));
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(&actor, Default::default())
             .await
             .unwrap();

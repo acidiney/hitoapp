@@ -31,7 +31,7 @@ fn request(album: &Album, occurrence: &str) -> FindAlbumTrackAudio {
 async fn find(album: &Album, occurrence: &str) -> hito_core::Result<AlbumTrackAudio> {
     album
         .hito
-        .catalog
+        .artist_catalog
         .find_album_track_audio_until(
             &album.actor,
             &album.release_id,
@@ -391,7 +391,7 @@ async fn only_audio_occurrences_of_the_chosen_edition_can_be_searched_and_cancel
     }
     let cancelled = tokio::time::timeout(
         Duration::from_secs(5),
-        album.hito.catalog.find_album_track_audio_until(
+        album.hito.artist_catalog.find_album_track_audio_until(
             &album.actor,
             &album.release_id,
             request(&album, BONUS_OCCURRENCE),
@@ -430,7 +430,7 @@ async fn only_audio_occurrences_of_the_chosen_edition_can_be_searched_and_cancel
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .find_album_track_audio_until(
                 &stranger,
                 &album.release_id,

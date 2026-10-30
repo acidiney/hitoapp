@@ -1,4 +1,3 @@
-pub(crate) mod artist_catalog;
 mod artists;
 mod artwork;
 mod availability;
@@ -12,10 +11,11 @@ pub use provider::{
     ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
+pub(crate) use provider::{AudioPermit, CatalogAudio, CatalogTrack};
 pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_metadata};
-mod release_availability;
-mod releases;
-mod search;
+pub(crate) mod release_availability;
+pub(crate) mod releases;
+pub(crate) mod search;
 mod selection;
 pub(crate) use selection::recordings_on;
 mod source_choice;
@@ -39,33 +39,6 @@ pub use timed_content::{
 mod types;
 
 use crate::{HostDeviceId, store::Store};
-pub use artist_catalog::{
-    AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState,
-    AlbumEditionTrackListAvailability, AlbumTrackAudio, ApplyArtistIdentityToCredit,
-    ArtistAssociation, ArtistAssociationChangeReceipt, ArtistAssociationChanges,
-    ArtistAssociationEvidence, ArtistAssociationRetirement, ArtistAssociationUndo,
-    ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability,
-    ArtistCorrectionRetirement, ArtistCreditRole, ArtistDiscographyAvailability,
-    ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
-    ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt, ArtistIdentityGroup,
-    ArtistIdentityGroupBrowse, ArtistIdentityGroupChanges, ArtistIdentityGroupDetail,
-    ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
-    ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistMatchReceipt, ArtistMatchSuggestion,
-    ArtistMatchSuggestions, ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch,
-    ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition, DiscographyLibrary,
-    DismissArtistMatchSuggestion, EditionTrackListAvailability, FindAlbumTrackAudio, LibraryAlbum,
-    LibraryReleaseGroup, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
-    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography,
-    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions, ReadSimilarArtists,
-    RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
-    ResetRecordingArtistIdentity, SavedAlbumEdition, SharedArtistCorrection,
-    SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt, SharedArtistCorrections,
-    SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView, SimilarArtistsAvailability,
-    SplitArtistIdentityGroup, SplitDestination, UndoArtistIdentityChange,
-    UndoRecordingArtistChange, UndoSharedArtistCorrection, UnlinkRecordingArtist,
-    UpdateMetadataSettings,
-};
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
@@ -83,7 +56,6 @@ pub struct Catalog {
     pub(crate) community: crate::Community,
     pub(crate) store: Store,
     pub(crate) plugins: crate::Plugins,
-    pub(crate) artist_catalog: artist_catalog::Host,
     pub(crate) host: HostDeviceId,
     pub(crate) artwork_slots: Arc<Semaphore>,
     pub(crate) provider_artwork_slots: Arc<Semaphore>,

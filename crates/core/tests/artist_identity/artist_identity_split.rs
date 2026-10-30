@@ -26,12 +26,12 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
 }
 
 async fn review(library: &library::Library, recording: &str, identity: &str) -> String {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .confirm_artist_review(&library.actor, &context, identity)
         .await
         .unwrap()
@@ -39,17 +39,17 @@ async fn review(library: &library::Library, recording: &str, identity: &str) -> 
 }
 
 async fn choose(library: &library::Library, recording: &str, identity: &str) -> String {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
-    let association = catalog
+    let association = artist_catalog
         .confirm_artist_review(&library.actor, &context, identity)
         .await
         .unwrap();
     let choice = choice(library, &library.actor, recording).await;
-    catalog
+    artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -74,7 +74,7 @@ async fn choice(
 ) -> RecordingArtistIdentityChoice {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap()
@@ -92,7 +92,7 @@ async fn merged(library: &library::Library) -> String {
     let credit = credit_of_imported(library).await;
     library
         .hito
-        .catalog
+        .artist_catalog
         .apply_artist_identity_to_credit(
             &library.actor,
             &credit,
@@ -165,7 +165,7 @@ async fn split(
 ) -> Result<ArtistIdentityChangeReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .split_artist_identity_group(actor, group, request)
         .await
 }
@@ -177,7 +177,7 @@ async fn undo(
 ) -> Result<ArtistIdentityChangeReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .undo_artist_identity_change(
             &library.actor,
             group,
@@ -192,7 +192,7 @@ async fn undo(
 async fn members(library: &library::Library, group: &str) -> i64 {
     library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(&library.actor, group, Default::default())
         .await
         .unwrap()
@@ -232,7 +232,7 @@ async fn a_split_moves_chosen_recordings_to_a_reviewed_artist_and_undo_restores_
             assert_eq!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .artist_identity_groups(&library.actor, Default::default())
                     .await
                     .unwrap()
@@ -248,7 +248,7 @@ async fn a_split_moves_chosen_recordings_to_a_reviewed_artist_and_undo_restores_
 
             let state = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group_changes(&library.actor, &alpha)
                 .await
                 .unwrap();
@@ -361,7 +361,7 @@ async fn selecting_releases_moves_only_the_recordings_that_appear_on_them() {
             let alpha = merged(library).await;
             let detail = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group(&library.actor, &alpha, Default::default())
                 .await
                 .unwrap();
@@ -485,7 +485,7 @@ async fn invalid_conflicting_and_foreign_splits_change_nothing() {
             assert_eq!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .artist_identity_group_changes(&library.actor, &alpha)
                     .await
                     .unwrap()
@@ -505,7 +505,7 @@ async fn invalid_conflicting_and_foreign_splits_change_nothing() {
             let current = choice(library, &library.actor, &library.namesake).await;
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .reset_recording_artist_identity(
                     &library.actor,
                     &library.namesake,
@@ -526,7 +526,7 @@ async fn invalid_conflicting_and_foreign_splits_change_nothing() {
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .artist_identity_group_changes(&library.peer, &alpha)
                     .await,
                 Err(Error::NotFound)
@@ -544,7 +544,7 @@ async fn undo_is_refused_when_an_association_it_would_restore_was_unlinked_since
             review(library, &library.namesake, catalog::BETA).await;
             let associations = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_associations(&library.actor, &library.namesake)
                 .await
                 .unwrap();
@@ -564,7 +564,7 @@ async fn undo_is_refused_when_an_association_it_would_restore_was_unlinked_since
             .unwrap();
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .unlink_recording_artist(
                     &library.actor,
                     &library.namesake,
@@ -572,7 +572,7 @@ async fn undo_is_refused_when_an_association_it_would_restore_was_unlinked_since
                         request_id: Uuid::new_v4(),
                         expected_revision: library
                             .hito
-                            .catalog
+                            .artist_catalog
                             .recording_artist_association_changes(&library.actor, &library.namesake)
                             .await
                             .unwrap()

@@ -29,7 +29,7 @@ pub async fn run(
 ) -> ApiResult<Json<ArtistMatchReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .match_artists_from_tags(&actor, request)
         .await;
     tracing::info!(
@@ -56,7 +56,10 @@ pub async fn suggestions(
     Path(id): Path<String>,
 ) -> ApiResult<Json<ArtistMatchSuggestions>> {
     let started = Instant::now();
-    let result = services.catalog.artist_match_suggestions(&actor, &id).await;
+    let result = services
+        .artist_catalog
+        .artist_match_suggestions(&actor, &id)
+        .await;
     tracing::debug!(
         outcome = result
             .as_ref()
@@ -85,7 +88,7 @@ pub async fn dismiss(
 ) -> ApiResult<Json<ArtistMatchSuggestions>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .dismiss_artist_match_suggestion(&actor, &id, request)
         .await;
     tracing::info!(

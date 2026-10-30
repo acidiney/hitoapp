@@ -24,17 +24,17 @@ async fn exercise(library: &library::Library) {
     let actor = &library.actor;
     let recording = &library.local;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, catalog::ALPHA)
         .await
         .unwrap();
     let receipt = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -87,7 +87,7 @@ async fn exercise(library: &library::Library) {
         original_observation
     );
     let choice = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -95,7 +95,7 @@ async fn exercise(library: &library::Library) {
         choice.revision == 1 && matches!(choice.state, RecordingArtistIdentityState::Selected(_))
     );
     let detail = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(actor, group, Default::default())
         .await
         .unwrap();
@@ -134,7 +134,7 @@ async fn exercise(library: &library::Library) {
         sources
     );
     let choice = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -143,7 +143,7 @@ async fn exercise(library: &library::Library) {
             && matches!(&choice.state, RecordingArtistIdentityState::NeedsReview(selection) if &selection.group_id == group)
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -152,7 +152,7 @@ async fn exercise(library: &library::Library) {
     );
     let after_edit = library.snapshot().await;
     assert!(matches!(
-        hito.catalog
+        hito.artist_catalog
             .choose_recording_artist_identity(
                 actor,
                 recording,
@@ -167,12 +167,12 @@ async fn exercise(library: &library::Library) {
         Err(Error::Conflict(_))
     ));
     let fresh = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let selected = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -188,7 +188,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(selected.revision, 3);
     assert_eq!(&selected.selection.unwrap().group_id, group);
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()

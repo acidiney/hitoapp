@@ -48,7 +48,9 @@ pub async fn release(
     Path(id): Path<String>,
     QueryParams(browse): QueryParams<Browse>,
 ) -> ApiResult<Json<ReleaseDetail>> {
-    Ok(Json(services.catalog.release(&actor, &id, browse).await?))
+    Ok(Json(
+        services.artist_catalog.release(&actor, &id, browse).await?,
+    ))
 }
 
 #[utoipa::path(get, path = "/api/v1/artists", params(

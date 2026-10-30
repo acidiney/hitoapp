@@ -80,7 +80,7 @@ pub(super) async fn album(request: PageRequest<'_>, id: &str) -> ApiResult<PageP
         .when("detail", async {
             Ok(request
                 .services
-                .catalog
+                .artist_catalog
                 .release(request.actor, id, browse(request.search.clone()))
                 .await?)
         })
@@ -109,11 +109,12 @@ pub(super) async fn album_details(request: PageRequest<'_>, id: &str) -> ApiResu
 
 pub(super) async fn artist_index(request: PageRequest<'_>) -> ApiResult<PageProps> {
     let catalog = &request.services.catalog;
+    let artist_catalog = &request.services.artist_catalog;
     let query = request.query();
     let identity_groups = request
         .when("identity_groups", async {
             Ok(ArtistIdentityGroupPage(
-                catalog
+                artist_catalog
                     .artist_identity_groups(
                         request.actor,
                         ArtistIdentityGroupQuery {
@@ -170,7 +171,7 @@ pub(super) async fn artist_identity_group(
         .when("detail", async {
             Ok(request
                 .services
-                .catalog
+                .artist_catalog
                 .artist_identity_group(
                     request.actor,
                     id,

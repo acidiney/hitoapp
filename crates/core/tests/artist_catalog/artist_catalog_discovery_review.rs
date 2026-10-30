@@ -66,11 +66,11 @@ async fn exercise(
         )
         .await
         .unwrap();
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let provider = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
-    hito.catalog
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -82,7 +82,7 @@ async fn exercise(
         .await
         .unwrap();
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, provider.clone())
         .await
         .unwrap();
@@ -98,7 +98,7 @@ async fn exercise(
         limit: 2,
     };
     let found = hito
-        .catalog
+        .artist_catalog
         .search_artist_candidates_until(actor, &context, request, std::future::pending())
         .await
         .unwrap();
@@ -121,7 +121,7 @@ async fn exercise(
     assert_eq!(server.requests().len(), 3);
 
     let preview = hito
-        .catalog
+        .artist_catalog
         .preview_artist_candidate_until(actor, &context, selected, std::future::pending())
         .await
         .expect("The chosen opaque artist identity must support a nonmutating profile preview");
@@ -146,7 +146,7 @@ async fn exercise(
     );
     for recording in [&imported.recording_id, &imported.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()
@@ -169,7 +169,7 @@ async fn exercise(
     );
 
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &preview_context, &profile.artist.id)
         .await
         .expect("Explicit confirmation must retain evidence for exactly the reviewed recording");
@@ -186,13 +186,13 @@ async fn exercise(
     assert!(association.evidence == ArtistAssociationEvidence::UserConfirmed);
     let confirmed = serde_json::to_value(&association).unwrap();
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &imported.recording_id)
         .await
         .unwrap();
     assert!(retained.len() == 1 && serde_json::to_value(&retained[0]).unwrap() == confirmed);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &imported.other_recording_id)
             .await
             .unwrap()
@@ -200,13 +200,13 @@ async fn exercise(
         "The other recording with the same credited artist must remain unassociated"
     );
     let duplicate = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &preview_context, &profile.artist.id)
         .await
         .expect("An identical explicit confirmation must return the retained immutable evidence");
     assert!(serde_json::to_value(duplicate).unwrap() == confirmed);
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &imported.recording_id)
             .await
             .unwrap()

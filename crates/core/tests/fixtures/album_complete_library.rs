@@ -109,12 +109,12 @@ impl Album {
             }],
         )
         .await;
-        let settings = hito.catalog.metadata_settings(&actor).await.unwrap();
+        let settings = hito.artist_catalog.metadata_settings(&actor).await.unwrap();
         let selected = MetadataProvider::HttpPlugin {
             installation_id: installation.id.clone(),
         };
         let settings = hito
-            .catalog
+            .artist_catalog
             .set_metadata_settings(
                 &actor,
                 UpdateMetadataSettings {
@@ -148,7 +148,7 @@ impl Album {
                     .recording_metadata(actor, &recording, Default::default())
                     .await
                     .unwrap();
-                hito.catalog
+                hito.artist_catalog
                     .associate_recording_artist(
                         actor,
                         &recording,
@@ -199,7 +199,7 @@ impl Album {
         edition: &str,
     ) -> hito_core::Result<AlbumEditionTrackListAvailability> {
         self.hito
-            .catalog
+            .artist_catalog
             .album_edition_track_list_until(
                 &self.actor,
                 &self.release_id,

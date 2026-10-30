@@ -59,12 +59,12 @@ async fn exercise(
         )
         .await
         .unwrap();
-    let current = hito.catalog.metadata_settings(actor).await.unwrap();
+    let current = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
     let policy = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -100,7 +100,7 @@ async fn exercise(
         policy_revision: policy.revision,
     };
     let association = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(actor, &imported.recording_id, request())
         .await
         .unwrap();
@@ -113,7 +113,7 @@ async fn exercise(
         "Metadata-only review must retain absent source provenance"
     );
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &imported.recording_id,
@@ -144,7 +144,7 @@ async fn exercise(
         }
     );
     let repeated = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(actor, &imported.recording_id, request())
         .await
         .unwrap();
@@ -158,13 +158,13 @@ async fn exercise(
     );
     assert_eq!(server.counts().await, requests_before_repeat);
     let associations = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &imported.recording_id)
         .await
         .unwrap();
     assert!(associations.len() == 1 && associations[0].id == association.id);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &imported.other_recording_id)
             .await
             .unwrap()

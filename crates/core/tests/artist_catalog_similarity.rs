@@ -33,7 +33,7 @@ async fn seed(library: &Library) -> Seed {
     library.run().await;
     let groups = library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(&library.actor, Default::default())
         .await
         .unwrap()
@@ -82,13 +82,13 @@ async fn connect(library: &Library, server: &SimilarityServer) -> MetadataProvid
 async fn choose(library: &Library, enabled: bool, providers: Vec<MetadataProvider>) {
     let current = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &library.actor,
             UpdateMetadataSettings {
@@ -108,7 +108,7 @@ async fn read(
 ) -> hito_core::Result<SimilarArtistsAvailability> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_similar_artists_until(
             &library.actor,
             &seed.recording,
@@ -310,7 +310,7 @@ async fn an_empty_answer_is_available_and_cancellation_stops_the_read() {
     let started = std::time::Instant::now();
     let cancelled = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_similar_artists_until(
             &library.actor,
             &seed.recording,
@@ -340,7 +340,7 @@ async fn other_accounts_and_unreviewed_credits_cannot_read_similar_artists() {
 
     let peer = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_similar_artists_until(
             &library.peer,
             &seed.recording,
@@ -352,7 +352,7 @@ async fn other_accounts_and_unreviewed_credits_cannot_read_similar_artists() {
     assert!(matches!(peer, Err(Error::NotFound)));
     let wrong = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_similar_artists_until(
             &library.actor,
             &seed.recording,

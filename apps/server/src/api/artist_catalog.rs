@@ -16,7 +16,9 @@ pub async fn settings(
     State(services): State<Services>,
     Account(actor): Account,
 ) -> ApiResult<Json<MetadataSettings>> {
-    Ok(Json(services.catalog.metadata_settings(&actor).await?))
+    Ok(Json(
+        services.artist_catalog.metadata_settings(&actor).await?,
+    ))
 }
 
 #[utoipa::path(put, path = "/api/v1/metadata/settings", operation_id = "update_metadata_settings",
@@ -35,7 +37,7 @@ pub async fn update_settings(
 ) -> ApiResult<Json<MetadataSettings>> {
     Ok(Json(
         services
-            .catalog
+            .artist_catalog
             .set_metadata_settings(&actor, request)
             .await?,
     ))

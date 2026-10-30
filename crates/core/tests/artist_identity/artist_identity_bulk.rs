@@ -45,20 +45,20 @@ async fn credits(library: &library::Library) -> Vec<Artist> {
 }
 
 async fn choose(library: &library::Library, recording: &str, identity: &str) -> String {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
-    let association = catalog
+    let association = artist_catalog
         .confirm_artist_review(&library.actor, &context, identity)
         .await
         .unwrap();
-    let choice = catalog
+    let choice = artist_catalog
         .recording_artist_identity_choice(&library.actor, recording)
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -83,7 +83,7 @@ async fn choice(
 ) -> RecordingArtistIdentityChoice {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap()
@@ -104,7 +104,7 @@ async fn apply(
 ) -> Result<ArtistIdentityCreditReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .apply_artist_identity_to_credit(actor, credit, request)
         .await
 }
@@ -181,7 +181,7 @@ async fn one_reviewed_identity_covers_every_accessible_recording_under_the_credi
             );
             let groups = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_groups(&library.actor, Default::default())
                 .await
                 .unwrap();
@@ -226,7 +226,7 @@ async fn one_reviewed_identity_covers_every_accessible_recording_under_the_credi
             let reset = choice(library, &library.actor, &library.imported).await;
             library
                 .hito
-                .catalog
+                .artist_catalog
                 .reset_recording_artist_identity(
                     &library.actor,
                     &library.imported,
@@ -364,7 +364,7 @@ async fn bounded_batches_resume_from_a_cursor_and_need_a_current_reviewed_member
                 let current = choice(library, &library.actor, recording).await;
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .reset_recording_artist_identity(
                         &library.actor,
                         recording,

@@ -53,17 +53,17 @@ async fn exercise(library: &library::Library) {
     let mut selections = Vec::new();
     for recording in [&library.local, &library.imported] {
         let context = hito
-            .catalog
+            .artist_catalog
             .begin_artist_review(actor, recording, library.metadata_provider.clone())
             .await
             .unwrap();
         let association = hito
-            .catalog
+            .artist_catalog
             .confirm_artist_review(actor, &context, catalog::ALPHA)
             .await
             .unwrap();
         selections.push(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     recording,
@@ -101,7 +101,7 @@ async fn exercise(library: &library::Library) {
             "A reviewed credit is represented by its group instead of the credit index"
         );
         let found = hito
-            .catalog
+            .artist_catalog
             .artist_identity_groups(actor, query(term, Some(&library.shared)))
             .await
             .unwrap();
@@ -129,7 +129,7 @@ async fn exercise(library: &library::Library) {
     }
     for (term, scope) in [(IMPORTED, &library.shared), ("evora", &imported_library)] {
         let found = hito
-            .catalog
+            .artist_catalog
             .artist_identity_groups(actor, query(term, Some(scope)))
             .await
             .unwrap();
@@ -137,7 +137,7 @@ async fn exercise(library: &library::Library) {
         assert!(found.items.is_empty());
     }
     let visible = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, Default::default())
         .await
         .unwrap();
@@ -155,7 +155,7 @@ async fn exercise(library: &library::Library) {
         "evora"
     };
     let other_member = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, query(hidden_term, None))
         .await
         .unwrap();
@@ -169,14 +169,14 @@ async fn exercise(library: &library::Library) {
         visible.items[0].name.value
     );
     let peer = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(&library.peer, query("evora", None))
         .await
         .unwrap();
     assert_eq!(peer.total, 0);
     assert!(peer.items.is_empty());
     assert!(matches!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, query(&"a".repeat(513), None))
             .await,
         Err(Error::Invalid(_))
@@ -186,7 +186,7 @@ async fn exercise(library: &library::Library) {
         .await
         .unwrap();
     let hidden = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, query("evora", None))
         .await
         .unwrap();
@@ -196,7 +196,7 @@ async fn exercise(library: &library::Library) {
     );
     assert!(hidden.items.is_empty());
     let remaining = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, query("private", None))
         .await
         .unwrap();

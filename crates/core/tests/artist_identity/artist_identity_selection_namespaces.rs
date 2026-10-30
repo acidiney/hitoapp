@@ -56,8 +56,8 @@ async fn exercise(library: &library::Library, other: &catalog::CatalogServer) {
     let provider = MetadataProvider::HttpPlugin {
         installation_id: installed.id,
     };
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
-    hito.catalog
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -78,17 +78,17 @@ async fn exercise(library: &library::Library, other: &catalog::CatalogServer) {
         (&library.imported, &provider),
     ] {
         let context = hito
-            .catalog
+            .artist_catalog
             .begin_artist_review(actor, recording, provider.clone())
             .await
             .unwrap();
         let association = hito
-            .catalog
+            .artist_catalog
             .confirm_artist_review(actor, &context, catalog::ALPHA)
             .await
             .unwrap();
         selected.push(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     recording,
@@ -108,7 +108,7 @@ async fn exercise(library: &library::Library, other: &catalog::CatalogServer) {
         selected[1].selection.as_ref().unwrap().group_id
     );
     let groups = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, Default::default())
         .await
         .unwrap();
@@ -124,7 +124,7 @@ async fn exercise(library: &library::Library, other: &catalog::CatalogServer) {
     assert_ne!(groups.items[0].provider, groups.items[1].provider);
     for (receipt, recording) in selected.iter().zip([&library.local, &library.imported]) {
         let group = hito
-            .catalog
+            .artist_catalog
             .artist_identity_group(
                 actor,
                 &receipt.selection.as_ref().unwrap().group_id,

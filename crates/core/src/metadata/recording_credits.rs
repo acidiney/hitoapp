@@ -94,10 +94,8 @@ pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) 
         ON CONFLICT(user_id, recording_id) DO UPDATE SET artist_id = excluded.artist_id
         WHERE artist_id IS NOT excluded.artist_id");
     let changed = bind.build().execute(&mut **tx).await?.rows_affected();
-    crate::catalog::artist_catalog::identity::retire_changed(tx, retirement_targets(&scope))
-        .await?;
-    crate::catalog::artist_catalog::reconcile::retire_stale(tx, || reconciliation_targets(&scope))
-        .await?;
+    crate::artist_catalog::identity::retire_changed(tx, retirement_targets(&scope)).await?;
+    crate::artist_catalog::reconcile::retire_stale(tx, || reconciliation_targets(&scope)).await?;
     tracing::trace!(changed, "Account recording credits refreshed");
     Ok(())
 }

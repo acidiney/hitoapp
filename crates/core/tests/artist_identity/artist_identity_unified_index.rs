@@ -37,25 +37,25 @@ async fn credits(library: &library::Library, actor: &hito_core::Actor) -> Vec<Ar
 async fn choose(library: &library::Library, recording: &str, identity: &str) -> String {
     let context = library
         .hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = library
         .hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(&library.actor, &context, identity)
         .await
         .unwrap();
     let choice = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(&library.actor, recording)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -123,7 +123,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(all_after.total, all_before.total - 2);
     assert!(all_after.items.iter().all(|a| a.name != catalog::CREDIT));
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -152,11 +152,11 @@ async fn exercise(library: &library::Library) {
     );
 
     let choice = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, &library.local)
         .await
         .unwrap();
-    hito.catalog
+    hito.artist_catalog
         .reset_recording_artist_identity(
             actor,
             &library.local,

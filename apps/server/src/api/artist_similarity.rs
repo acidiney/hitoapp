@@ -31,7 +31,7 @@ pub async fn read(
 ) -> ApiResult<Json<SimilarArtistsAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_similar_artists_until(&actor, &id, &association, request, std::future::pending())
         .await;
     tracing::debug!(

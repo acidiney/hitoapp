@@ -127,12 +127,12 @@ async fn exercise(
         )
         .await
         .unwrap();
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
     let policy = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -144,7 +144,7 @@ async fn exercise(
         .await
         .unwrap();
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &library.recording_id, selected)
         .await
         .unwrap();
@@ -166,7 +166,7 @@ async fn exercise(
         snapshot: None,
         limit: 2,
     };
-    let request_catalog = hito.catalog.clone();
+    let request_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let captured = context.clone();
     let search = request();
@@ -242,7 +242,7 @@ async fn exercise(
     discovery.release_search();
     let result = timeout(
         Duration::from_secs(3),
-        hito.catalog.search_artist_candidates_until(
+        hito.artist_catalog.search_artist_candidates_until(
             actor,
             &context,
             request(),
@@ -275,7 +275,7 @@ async fn exercise(
         }) == provider_before
     );
     assert!(
-        serde_json::to_value(hito.catalog.metadata_settings(actor).await.unwrap()).unwrap()
+        serde_json::to_value(hito.artist_catalog.metadata_settings(actor).await.unwrap()).unwrap()
             == serde_json::to_value(policy).unwrap()
     );
     for id in [
@@ -284,7 +284,7 @@ async fn exercise(
         &recording.id,
     ] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, id)
                 .await
                 .unwrap()

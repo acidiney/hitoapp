@@ -35,12 +35,12 @@ async fn exercise(library: &library::Library) {
         (&library.namesake, catalog::BETA),
     ] {
         let context = hito
-            .catalog
+            .artist_catalog
             .begin_artist_review(actor, recording, library.metadata_provider.clone())
             .await
             .unwrap();
         let found = hito
-            .catalog
+            .artist_catalog
             .search_artist_candidates_until(
                 actor,
                 &context,
@@ -61,7 +61,7 @@ async fn exercise(library: &library::Library) {
         assert_eq!(page.items[0].artist.name, page.items[1].artist.name);
         assert_ne!(page.items[0].artist.id, page.items[1].artist.id);
         let preview = hito
-            .catalog
+            .artist_catalog
             .preview_artist_candidate_until(actor, &context, identity, std::future::pending())
             .await
             .unwrap();
@@ -70,7 +70,7 @@ async fn exercise(library: &library::Library) {
         };
         assert_eq!(profile.artist.id, identity);
         let association = hito
-            .catalog
+            .artist_catalog
             .confirm_artist_review(actor, &context, identity)
             .await
             .unwrap();
@@ -78,7 +78,7 @@ async fn exercise(library: &library::Library) {
     }
     assert_eq!(library.snapshot().await, before);
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -91,7 +91,7 @@ async fn exercise(library: &library::Library) {
     let mut receipts = Vec::new();
     for (recording, context, association) in reviews {
         let choice = hito
-            .catalog
+            .artist_catalog
             .recording_artist_identity_choice(actor, recording)
             .await
             .unwrap();
@@ -100,7 +100,7 @@ async fn exercise(library: &library::Library) {
                 && matches!(choice.state, RecordingArtistIdentityState::Unselected)
         );
         let receipt = hito
-            .catalog
+            .artist_catalog
             .choose_recording_artist_identity(
                 actor,
                 recording,
@@ -124,7 +124,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(&receipts[1].selection.as_ref().unwrap().group_id, group_id);
     assert_ne!(&receipts[2].selection.as_ref().unwrap().group_id, group_id);
     let groups = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(
             actor,
             ArtistIdentityGroupQuery {
@@ -147,7 +147,7 @@ async fn exercise(library: &library::Library) {
                 && group.provider == library.metadata_provider)
     );
     let detail = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(actor, group_id, Default::default())
         .await
         .unwrap();
@@ -208,7 +208,7 @@ async fn exercise(library: &library::Library) {
     actual_releases.sort();
     assert_eq!(actual_releases, expected_releases);
     let scoped = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(
             actor,
             group_id,
@@ -233,7 +233,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(scoped.recordings.items[0].recording.id, library.local);
     assert_eq!(scoped.releases.items.len(), 1);
     let namesake = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(
             actor,
             &receipts[2].selection.as_ref().unwrap().group_id,
@@ -246,7 +246,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(namesake.recordings.items[0].recording.id, library.namesake);
     assert_eq!(namesake.releases.total, 0);
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(&library.peer, Default::default())
             .await
             .unwrap()

@@ -115,8 +115,12 @@ async fn http_similar_artists_use_the_chosen_plugin_and_link_exact_chosen_artist
     let plugin = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
-    let settings = hito.catalog.metadata_settings(&admin_actor).await.unwrap();
-    hito.catalog
+    let settings = hito
+        .artist_catalog
+        .metadata_settings(&admin_actor)
+        .await
+        .unwrap();
+    hito.artist_catalog
         .set_metadata_settings(
             &admin_actor,
             UpdateMetadataSettings {

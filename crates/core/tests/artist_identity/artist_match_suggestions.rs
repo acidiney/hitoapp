@@ -12,7 +12,7 @@ use uuid::Uuid;
 async fn suggestions(library: &Library, credit: &str) -> ArtistMatchSuggestions {
     library
         .hito
-        .catalog
+        .artist_catalog
         .artist_match_suggestions(&library.actor, credit)
         .await
         .unwrap()
@@ -21,7 +21,7 @@ async fn suggestions(library: &Library, credit: &str) -> ArtistMatchSuggestions 
 async fn group(library: &Library, mbid: &str) -> String {
     library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(&library.actor, Default::default())
         .await
         .unwrap()
@@ -50,7 +50,7 @@ async fn selected(library: &Library, recording: &str) -> bool {
     matches!(
         library
             .hito
-            .catalog
+            .artist_catalog
             .recording_artist_identity_choice(&library.actor, recording)
             .await
             .unwrap()
@@ -117,7 +117,7 @@ async fn dismissals_are_remembered_per_credit_and_do_not_hide_other_credits() {
     let credit = library.credit(CREDIT).await.unwrap().id;
     let dismissed = library
         .hito
-        .catalog
+        .artist_catalog
         .dismiss_artist_match_suggestion(
             &library.actor,
             &credit,
@@ -138,7 +138,7 @@ async fn dismissals_are_remembered_per_credit_and_do_not_hide_other_credits() {
     );
     let again = library
         .hito
-        .catalog
+        .artist_catalog
         .dismiss_artist_match_suggestion(
             &library.actor,
             &credit,
@@ -155,7 +155,7 @@ async fn dismissals_are_remembered_per_credit_and_do_not_hide_other_credits() {
     assert!(matches!(
         library
             .hito
-            .catalog
+            .artist_catalog
             .dismiss_artist_match_suggestion(
                 &library.actor,
                 &credit,
@@ -169,7 +169,7 @@ async fn dismissals_are_remembered_per_credit_and_do_not_hide_other_credits() {
     assert!(matches!(
         library
             .hito
-            .catalog
+            .artist_catalog
             .dismiss_artist_match_suggestion(
                 &library.actor,
                 "missing",
@@ -189,7 +189,7 @@ async fn accepting_a_suggestion_uses_the_reviewed_path_and_ends_the_suggestion()
     let credit = library.credit(CREDIT).await.unwrap().id;
     let receipt = library
         .hito
-        .catalog
+        .artist_catalog
         .apply_artist_identity_to_credit(
             &library.actor,
             &credit,
@@ -220,7 +220,7 @@ async fn tracks_the_apply_would_keep_are_not_counted_as_undecided() {
     let credit = library.credit(CREDIT).await.unwrap().id;
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
@@ -234,7 +234,7 @@ async fn tracks_the_apply_would_keep_are_not_counted_as_undecided() {
         .unwrap();
     let association = library
         .hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             &library.actor,
             &library.plain,
@@ -252,14 +252,14 @@ async fn tracks_the_apply_would_keep_are_not_counted_as_undecided() {
         .unwrap();
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, &library.plain)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             &library.plain,

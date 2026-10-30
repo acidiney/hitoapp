@@ -34,7 +34,7 @@ pub async fn read(
 ) -> ApiResult<Json<ArtistDiscographyAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_discography_until(
             &actor,
             &id,
@@ -81,7 +81,7 @@ pub async fn library(
 ) -> ApiResult<Json<DiscographyLibrary>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .discography_library(&actor, &id, &association, request)
         .await;
     tracing::debug!(

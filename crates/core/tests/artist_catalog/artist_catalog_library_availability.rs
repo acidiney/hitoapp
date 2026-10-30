@@ -16,7 +16,7 @@ const OTHER_GROUP: &str = "group:album/owned?kind=ALBUM";
 async fn read(album: &Album, ids: &[&str]) -> hito_core::Result<DiscographyLibrary> {
     album
         .hito
-        .catalog
+        .artist_catalog
         .discography_library(
             &album.actor,
             &album.first,
@@ -58,7 +58,7 @@ async fn only_an_exactly_linked_album_marks_a_release_group_as_in_the_library() 
 
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -89,7 +89,7 @@ async fn only_an_exactly_linked_album_marks_a_release_group_as_in_the_library() 
 
     album
         .hito
-        .catalog
+        .artist_catalog
         .clear_album_edition(
             &album.actor,
             &album.release_id,
@@ -114,7 +114,7 @@ async fn invalid_requests_unlinked_artists_and_other_accounts_reveal_nothing() {
     let album = Album::prepare(&server).await;
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -161,7 +161,7 @@ async fn invalid_requests_unlinked_artists_and_other_accounts_reveal_nothing() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .discography_library(
                 &stranger,
                 &album.first,
@@ -176,14 +176,14 @@ async fn invalid_requests_unlinked_artists_and_other_accounts_reveal_nothing() {
 
     let revision = album
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&album.actor, &album.first)
         .await
         .unwrap()
         .revision;
     album
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &album.actor,
             &album.first,
@@ -208,7 +208,7 @@ async fn stale_newer_choices_never_hide_a_valid_older_one() {
     let album = Album::prepare(&server).await;
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -252,7 +252,7 @@ async fn a_choice_that_the_album_page_would_reject_is_never_shown() {
     let featured = album.featured.clone().unwrap();
     let featured_association = album
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&album.actor, &featured)
         .await
         .unwrap()
@@ -260,7 +260,7 @@ async fn a_choice_that_the_album_page_would_reject_is_never_shown() {
     let ask = || async {
         album
             .hito
-            .catalog
+            .artist_catalog
             .discography_library(
                 &album.actor,
                 &featured,
@@ -274,7 +274,7 @@ async fn a_choice_that_the_album_page_would_reject_is_never_shown() {
     };
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -286,14 +286,14 @@ async fn a_choice_that_the_album_page_would_reject_is_never_shown() {
 
     let revision = album
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&album.actor, &album.first)
         .await
         .unwrap()
         .revision;
     album
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &album.actor,
             &album.first,
@@ -318,7 +318,7 @@ async fn a_deselected_provider_reveals_nothing() {
     let album = Album::prepare(&server).await;
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -328,13 +328,13 @@ async fn a_deselected_provider_reveals_nothing() {
         .unwrap();
     let settings = album
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&album.actor)
         .await
         .unwrap();
     album
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &album.actor,
             UpdateMetadataSettings {

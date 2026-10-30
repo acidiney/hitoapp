@@ -1,5 +1,5 @@
-use super::artist_catalog::identity::{chosen_recordings_cte, push_unrepresented_credit};
 use super::{Browse, Catalog, Page, Recording, Release, Search};
+use crate::artist_catalog::identity::{chosen_recordings_cte, push_unrepresented_credit};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};

@@ -64,11 +64,11 @@ async fn exercise(
         )
         .await
         .unwrap();
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let provider = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
-    hito.catalog
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -80,7 +80,7 @@ async fn exercise(
         .await
         .unwrap();
     let captured = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, provider.clone())
         .await
         .unwrap();
@@ -89,7 +89,7 @@ async fn exercise(
     let before_preview = imported.snapshot(hito, actor).await;
     let origin_before = imported::request_counts(origin).await;
     let preview = hito
-        .catalog
+        .artist_catalog
         .preview_artist_candidate_until(
             actor,
             &captured,
@@ -139,7 +139,7 @@ async fn exercise(
     );
     let after_edits = imported.snapshot(hito, actor).await;
     let stale = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &preview_context, &profile.artist.id)
         .await;
     assert!(
@@ -154,7 +154,7 @@ async fn exercise(
     );
     for recording in [&imported.recording_id, &imported.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()
@@ -164,7 +164,7 @@ async fn exercise(
     }
 
     let fresh = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, provider.clone())
         .await
         .unwrap();
@@ -176,7 +176,7 @@ async fn exercise(
     );
     assert_eq!(server.requests().len(), 3);
     let preview = hito
-        .catalog
+        .artist_catalog
         .preview_artist_candidate_until(
             actor,
             &fresh,
@@ -194,7 +194,7 @@ async fn exercise(
     };
     assert!(*fresh_preview == fresh && profile == discovery::expected_profile());
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &fresh_preview, &profile.artist.id)
         .await
         .expect("A new preview with the current artist operation must allow confirmation");
@@ -209,7 +209,7 @@ async fn exercise(
             && association.evidence == ArtistAssociationEvidence::UserConfirmed
     );
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &imported.recording_id)
         .await
         .unwrap();
@@ -219,7 +219,7 @@ async fn exercise(
                 == serde_json::to_value(association).unwrap()
     );
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &imported.other_recording_id)
             .await
             .unwrap()

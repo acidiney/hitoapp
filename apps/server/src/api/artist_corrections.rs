@@ -28,7 +28,7 @@ pub async fn list(
 ) -> ApiResult<Json<SharedArtistCorrections>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .shared_artist_corrections_page(&actor, query)
         .await;
     tracing::debug!(
@@ -57,7 +57,7 @@ pub async fn promote(
 ) -> ApiResult<Json<SharedArtistCorrectionReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .promote_artist_correction(&actor, request)
         .await;
     tracing::info!(
@@ -88,7 +88,7 @@ pub async fn undo(
 ) -> ApiResult<Json<SharedArtistCorrectionReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .undo_shared_artist_correction(&actor, &id, request)
         .await;
     tracing::info!(

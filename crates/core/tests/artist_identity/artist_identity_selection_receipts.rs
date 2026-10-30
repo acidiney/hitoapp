@@ -28,12 +28,12 @@ async fn exercise(library: &library::Library) {
     let actor = &library.actor;
     let recording = &library.local;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, catalog::ALPHA)
         .await
         .unwrap();
@@ -42,7 +42,7 @@ async fn exercise(library: &library::Library) {
     let origin = library.origin_requests().await;
     let choose_id = Uuid::new_v4();
     let chosen = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -59,7 +59,7 @@ async fn exercise(library: &library::Library) {
     for (request_id, expected_revision) in [(Uuid::new_v4(), 0), (choose_id, 1)] {
         assert!(
             matches!(
-                hito.catalog
+                hito.artist_catalog
                     .choose_recording_artist_identity(
                         actor,
                         recording,
@@ -79,7 +79,7 @@ async fn exercise(library: &library::Library) {
     for (request_id, expected_revision) in [(Uuid::new_v4(), 0), (choose_id, 1)] {
         assert!(
             matches!(
-                hito.catalog
+                hito.artist_catalog
                     .reset_recording_artist_identity(
                         actor,
                         recording,
@@ -96,7 +96,7 @@ async fn exercise(library: &library::Library) {
     }
     let reset_id = Uuid::new_v4();
     let reset = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             recording,
@@ -110,7 +110,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(reset.revision, 2);
     assert!(
         matches!(
-            hito.catalog
+            hito.artist_catalog
                 .reset_recording_artist_identity(
                     actor,
                     recording,
@@ -126,7 +126,7 @@ async fn exercise(library: &library::Library) {
     );
     assert!(
         matches!(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     recording,
@@ -144,7 +144,7 @@ async fn exercise(library: &library::Library) {
     );
     assert!(
         matches!(
-            hito.catalog
+            hito.artist_catalog
                 .reset_recording_artist_identity(
                     actor,
                     &library.imported,
@@ -159,7 +159,7 @@ async fn exercise(library: &library::Library) {
         "The receipt namespace must span recordings within the account"
     );
     let peer = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             &library.peer,
             recording,
@@ -175,7 +175,7 @@ async fn exercise(library: &library::Library) {
         "Another account retains its own request namespace"
     );
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -183,7 +183,7 @@ async fn exercise(library: &library::Library) {
         current.revision == 2 && matches!(current.state, RecordingArtistIdentityState::Unselected)
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_identity_choice(actor, &library.imported)
             .await
             .unwrap()
@@ -191,7 +191,7 @@ async fn exercise(library: &library::Library) {
         0
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()

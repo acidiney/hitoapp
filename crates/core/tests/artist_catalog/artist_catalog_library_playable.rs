@@ -29,7 +29,7 @@ async fn a_linked_album_with_owned_audio_reports_playable_tracks_per_exact_group
     let read = || async {
         library
             .hito
-            .catalog
+            .artist_catalog
             .discography_library(
                 &library.actor,
                 &library.recording_id,
@@ -49,7 +49,7 @@ async fn a_linked_album_with_owned_audio_reports_playable_tracks_per_exact_group
     let requests = server.requests();
     library
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &library.actor,
             &release,

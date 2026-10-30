@@ -35,7 +35,7 @@ pub async fn track_list(
 ) -> ApiResult<Json<AlbumEditionTrackListAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .album_edition_track_list_until(&actor, &id, request, std::future::pending())
         .await;
     tracing::debug!(
@@ -68,7 +68,7 @@ pub async fn track_audio(
 ) -> ApiResult<Json<AlbumTrackAudio>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .find_album_track_audio_until(&actor, &id, request, std::future::pending())
         .await;
     tracing::debug!(
@@ -97,7 +97,7 @@ pub async fn saved_track_list(
 ) -> ApiResult<Json<AlbumEditionTrackListAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .saved_album_edition_track_list_until(&actor, &id, std::future::pending())
         .await;
     tracing::debug!(
@@ -128,7 +128,7 @@ pub async fn choose(
 ) -> ApiResult<Json<AlbumEditionChoiceReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .choose_album_edition(&actor, &id, request)
         .await;
     tracing::info!(
@@ -159,7 +159,7 @@ pub async fn clear(
 ) -> ApiResult<Json<AlbumEditionChoiceReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .clear_album_edition(&actor, &id, request)
         .await;
     tracing::info!(

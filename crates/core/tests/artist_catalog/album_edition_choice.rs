@@ -25,7 +25,7 @@ fn choose(album: &Album, edition: &str, expected_revision: i64) -> ChooseAlbumEd
 async fn saved(album: &Album) -> AlbumEditionChoice {
     album
         .hito
-        .catalog
+        .artist_catalog
         .release(&album.actor, &album.release_id, Browse::default())
         .await
         .unwrap()
@@ -36,7 +36,7 @@ async fn saved(album: &Album) -> AlbumEditionChoice {
 async fn read_saved(album: &Album) -> hito_core::Result<AlbumEditionTrackListAvailability> {
     album
         .hito
-        .catalog
+        .artist_catalog
         .saved_album_edition_track_list_until(
             &album.actor,
             &album.release_id,
@@ -61,7 +61,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     let request = choose(&album, provider::EDITION_ID, 0);
     let receipt = album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(&album.actor, &album.release_id, request.clone())
         .await
         .unwrap();
@@ -74,7 +74,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     );
     let replayed = album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(&album.actor, &album.release_id, request.clone())
         .await
         .unwrap();
@@ -84,7 +84,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(&album.actor, &album.release_id, different)
             .await,
         Err(Error::Conflict(_))
@@ -92,7 +92,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(
                 &album.actor,
                 &album.release_id,
@@ -127,7 +127,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
 
     let changed = album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -143,7 +143,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     };
     let cleared = album
         .hito
-        .catalog
+        .artist_catalog
         .clear_album_edition(&album.actor, &album.release_id, clear.clone())
         .await
         .unwrap();
@@ -152,7 +152,7 @@ async fn a_chosen_edition_is_remembered_read_cleared_and_replayed_exactly_once()
     assert_eq!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .clear_album_edition(&album.actor, &album.release_id, clear)
             .await
             .unwrap(),
@@ -192,7 +192,7 @@ async fn invalid_choices_are_rejected_before_anything_is_saved() {
     ] {
         let error = album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(&album.actor, &album.release_id, request)
             .await
             .expect_err("An invalid choice must fail");
@@ -209,7 +209,7 @@ async fn invalid_choices_are_rejected_before_anything_is_saved() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(
                 &album.actor,
                 &Uuid::new_v4().to_string(),
@@ -231,7 +231,7 @@ async fn a_choice_is_private_to_its_account() {
     let album = Album::prepare(&server).await;
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -266,7 +266,7 @@ async fn a_choice_is_private_to_its_account() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .release(&stranger, &album.release_id, Browse::default())
             .await,
         Err(Error::NotFound)
@@ -274,7 +274,7 @@ async fn a_choice_is_private_to_its_account() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .saved_album_edition_track_list_until(
                 &stranger,
                 &album.release_id,
@@ -286,7 +286,7 @@ async fn a_choice_is_private_to_its_account() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(
                 &stranger,
                 &album.release_id,
@@ -298,7 +298,7 @@ async fn a_choice_is_private_to_its_account() {
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .clear_album_edition(
                 &stranger,
                 &album.release_id,
@@ -325,7 +325,7 @@ async fn a_link_that_can_no_longer_be_read_asks_for_a_new_choice_without_provide
     let album = Album::prepare(&server).await;
     album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(
             &album.actor,
             &album.release_id,
@@ -335,13 +335,13 @@ async fn a_link_that_can_no_longer_be_read_asks_for_a_new_choice_without_provide
         .unwrap();
     let settings = album
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&album.actor)
         .await
         .unwrap();
     let disabled = album
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &album.actor,
             UpdateMetadataSettings {
@@ -363,7 +363,7 @@ async fn a_link_that_can_no_longer_be_read_asks_for_a_new_choice_without_provide
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(
                 &album.actor,
                 &album.release_id,
@@ -375,7 +375,7 @@ async fn a_link_that_can_no_longer_be_read_asks_for_a_new_choice_without_provide
 
     album
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &album.actor,
             UpdateMetadataSettings {
@@ -426,7 +426,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     let request = choose(&album, provider::EDITION_ID, 0);
     let receipt = album
         .hito
-        .catalog
+        .artist_catalog
         .choose_album_edition(&album.actor, &album.release_id, request.clone())
         .await
         .unwrap();
@@ -439,7 +439,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     assert_eq!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(&album.actor, &album.release_id, request)
             .await
             .unwrap(),
@@ -449,7 +449,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .choose_album_edition(
                 &album.actor,
                 &album.release_id,
@@ -464,7 +464,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     };
     let cleared = album
         .hito
-        .catalog
+        .artist_catalog
         .clear_album_edition(&album.actor, &album.release_id, clear.clone())
         .await
         .unwrap();
@@ -473,7 +473,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     assert_eq!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .clear_album_edition(&album.actor, &album.release_id, clear)
             .await
             .unwrap(),
@@ -482,7 +482,7 @@ async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_beca
     assert!(matches!(
         album
             .hito
-            .catalog
+            .artist_catalog
             .clear_album_edition(
                 &album.actor,
                 &Uuid::new_v4().to_string(),

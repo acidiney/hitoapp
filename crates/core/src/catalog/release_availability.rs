@@ -3,7 +3,7 @@ use crate::{Actor, Result};
 use sqlx::SqliteConnection;
 
 #[derive(sqlx::FromRow)]
-pub(super) struct ReleaseCounts {
+pub(crate) struct ReleaseCounts {
     pub release_id: String,
     pub track_count: i64,
     pub playable_count: i64,
@@ -13,7 +13,7 @@ pub(super) struct ReleaseCounts {
 impl Catalog {
     /// Track and playable counts for the account's own albums. `wanted` holds
     /// `[release, recording]` pairs; an album reports whether it still lists that recording.
-    pub(super) async fn release_counts_on(
+    pub(crate) async fn release_counts_on(
         &self,
         connection: &mut SqliteConnection,
         actor: &Actor,

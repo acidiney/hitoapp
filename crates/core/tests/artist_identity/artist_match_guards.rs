@@ -14,7 +14,7 @@ use uuid::Uuid;
 async fn group_of(library: &Library, actor: &Actor, recording: &str) -> Option<String> {
     match library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap()
@@ -31,21 +31,21 @@ async fn a_shared_correction_is_not_undone_by_another_accounts_pass() {
     library.run().await;
     let association = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&library.actor, &library.a)
         .await
         .unwrap()
         .remove(0);
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, &library.a)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             &library.a,
@@ -59,7 +59,7 @@ async fn a_shared_correction_is_not_undone_by_another_accounts_pass() {
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .promote_artist_correction(
             &library.actor,
             PromoteArtistCorrection {
@@ -88,7 +88,7 @@ async fn a_shared_correction_is_not_undone_by_another_accounts_pass() {
     assert!(
         library
             .hito
-            .catalog
+            .artist_catalog
             .recording_artist_associations(&library.peer, &library.a)
             .await
             .unwrap()
@@ -108,13 +108,13 @@ async fn a_retagged_automatic_match_is_matched_again_but_a_user_decision_is_not(
     library.run().await;
     let choice = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(&library.actor, &library.b)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             &library.actor,
             &library.b,
@@ -188,7 +188,7 @@ async fn personal_edits_splits_and_retired_choices_are_left_alone() {
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .split_artist_identity_group(
             &library.actor,
             &group,

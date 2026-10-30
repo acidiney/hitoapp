@@ -56,7 +56,7 @@ pub async fn context(
 ) -> ApiResult<Json<ArtistReviewContext>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .begin_artist_review(&actor, &id, request.provider)
         .await;
     tracing::debug!(
@@ -91,7 +91,7 @@ pub async fn search(
     let result = async {
         require_recording(&id, &request.context)?;
         services
-            .catalog
+            .artist_catalog
             .search_artist_candidates_until(
                 &actor,
                 &request.context,
@@ -133,7 +133,7 @@ pub async fn preview(
     let result = async {
         require_recording(&id, &request.context)?;
         services
-            .catalog
+            .artist_catalog
             .preview_artist_candidate_until(
                 &actor,
                 &request.context,
@@ -175,7 +175,7 @@ pub async fn confirm(
     let result = async {
         require_recording(&id, &request.context)?;
         services
-            .catalog
+            .artist_catalog
             .confirm_artist_review(&actor, &request.context, &request.provider_artist_id)
             .await
     }

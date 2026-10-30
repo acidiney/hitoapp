@@ -36,7 +36,10 @@ pub async fn list(
     QueryParams(query): QueryParams<ArtistIdentityGroupQuery>,
 ) -> ApiResult<Json<ArtistIdentityGroupPage>> {
     let started = Instant::now();
-    let result = services.catalog.artist_identity_groups(&actor, query).await;
+    let result = services
+        .artist_catalog
+        .artist_identity_groups(&actor, query)
+        .await;
     tracing::debug!(
         outcome = result
             .as_ref()
@@ -67,7 +70,7 @@ pub async fn read(
 ) -> ApiResult<Json<ArtistIdentityGroupDetail>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .artist_identity_group(&actor, &id, query)
         .await;
     tracing::debug!(
@@ -95,7 +98,7 @@ pub async fn changes(
 ) -> ApiResult<Json<ArtistIdentityGroupChanges>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .artist_identity_group_changes(&actor, &id)
         .await;
     tracing::debug!(
@@ -126,7 +129,7 @@ pub async fn split(
 ) -> ApiResult<Json<ArtistIdentityChangeReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .split_artist_identity_group(&actor, &id, request)
         .await;
     tracing::info!(
@@ -157,7 +160,7 @@ pub async fn undo(
 ) -> ApiResult<Json<ArtistIdentityChangeReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .undo_artist_identity_change(&actor, &id, request)
         .await;
     tracing::info!(

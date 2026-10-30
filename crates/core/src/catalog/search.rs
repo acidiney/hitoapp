@@ -74,7 +74,7 @@ impl Catalog {
     }
 }
 
-pub(super) fn search_terms(query: &str) -> Result<String> {
+pub(crate) fn search_terms(query: &str) -> Result<String> {
     if query.len() > 512 {
         return Err(Error::Invalid("Search must be at most 512 bytes".into()));
     }

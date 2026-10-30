@@ -13,7 +13,7 @@ use uuid::Uuid;
 async fn group_of(library: &Library, recording: &str) -> Option<String> {
     match library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(&library.actor, recording)
         .await
         .unwrap()
@@ -27,7 +27,7 @@ async fn group_of(library: &Library, recording: &str) -> Option<String> {
 async fn associations(library: &Library, recording: &str) -> Vec<hito_core::ArtistAssociation> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&library.actor, recording)
         .await
         .unwrap()
@@ -78,7 +78,7 @@ async fn embedded_artist_ids_group_recordings_but_equal_names_and_ambiguous_tags
 
     let groups = library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(&library.actor, Default::default())
         .await
         .unwrap();
@@ -119,20 +119,20 @@ async fn a_request_replays_exactly_and_a_second_pass_changes_nothing() {
     };
     let first = library
         .hito
-        .catalog
+        .artist_catalog
         .match_artists_from_tags(&library.actor, request.clone())
         .await
         .unwrap();
     let replay = library
         .hito
-        .catalog
+        .artist_catalog
         .match_artists_from_tags(&library.actor, request.clone())
         .await
         .unwrap();
     assert_eq!(first, replay);
     let changed = library
         .hito
-        .catalog
+        .artist_catalog
         .match_artists_from_tags(
             &library.actor,
             MatchArtistsFromTags {
@@ -159,7 +159,7 @@ async fn batches_resume_from_a_cursor_until_every_recording_is_checked() {
     loop {
         let receipt = library
             .hito
-            .catalog
+            .artist_catalog
             .match_artists_from_tags(
                 &library.actor,
                 MatchArtistsFromTags {
@@ -189,13 +189,13 @@ async fn personal_resets_and_unlinks_are_never_overridden() {
     library.run().await;
     let choice = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(&library.actor, &library.b)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             &library.actor,
             &library.b,
@@ -209,13 +209,13 @@ async fn personal_resets_and_unlinks_are_never_overridden() {
     let linked = associations(&library, &library.namesake).await;
     let changes = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, &library.namesake)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             &library.namesake,
@@ -241,7 +241,7 @@ async fn an_earlier_unlink_without_a_choice_is_respected() {
     let library = Library::prepare().await;
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
@@ -255,7 +255,7 @@ async fn an_earlier_unlink_without_a_choice_is_respected() {
     let observation = metadata.selected_observation.unwrap();
     let association = library
         .hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             &library.actor,
             &library.a,
@@ -277,13 +277,13 @@ async fn an_earlier_unlink_without_a_choice_is_respected() {
     );
     let changes = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, &library.a)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             &library.a,
@@ -308,13 +308,13 @@ async fn disabled_metadata_enrichment_matches_nothing() {
     let library = Library::prepare().await;
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
     let off = library
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &library.actor,
             UpdateMetadataSettings {

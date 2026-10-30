@@ -28,7 +28,7 @@ pub async fn associations(
 ) -> ApiResult<Json<Vec<ArtistAssociation>>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&actor, &id)
         .await;
     tracing::debug!(
@@ -59,7 +59,7 @@ pub async fn profile(
 ) -> ApiResult<Json<ArtistProfileAvailability>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(&actor, &id, &association, std::future::pending())
         .await;
     tracing::debug!(
@@ -87,7 +87,7 @@ pub async fn changes(
 ) -> ApiResult<Json<ArtistAssociationChanges>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&actor, &id)
         .await;
     tracing::debug!(
@@ -118,7 +118,7 @@ pub async fn unlink(
 ) -> ApiResult<Json<ArtistAssociationChangeReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(&actor, &id, request)
         .await;
     tracing::info!(
@@ -149,7 +149,7 @@ pub async fn undo(
 ) -> ApiResult<Json<ArtistAssociationChangeReceipt>> {
     let started = Instant::now();
     let result = services
-        .catalog
+        .artist_catalog
         .undo_recording_artist_change(&actor, &id, request)
         .await;
     tracing::info!(

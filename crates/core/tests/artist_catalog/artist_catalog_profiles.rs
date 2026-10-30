@@ -30,7 +30,7 @@ async fn a_reviewed_profile_belongs_only_to_its_observed_recording_credit() {
 async fn exercise(library: &library::Library, server: &provider::CatalogServer) {
     let hito = &library.hito;
     let actor = &library.actor;
-    let defaults = hito.catalog.metadata_settings(actor).await.unwrap();
+    let defaults = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     assert!(defaults.enabled);
     assert_eq!(
         defaults.providers,
@@ -71,14 +71,14 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         .unwrap();
     let connected_counts = server.counts().await;
     assert_eq!(connected_counts.manifests, 1);
-    let unchanged = hito.catalog.metadata_settings(actor).await.unwrap();
+    let unchanged = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     assert_eq!(unchanged.providers, defaults.providers);
     assert_eq!(server.counts().await, connected_counts);
     let provider = MetadataProvider::HttpPlugin {
         installation_id: connection.id,
     };
     let settings = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -92,7 +92,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     assert_eq!(settings.providers, vec![provider.clone()]);
     for recording in [&library.recording_id, &library.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()
@@ -101,7 +101,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     }
     let before = library.snapshot().await;
     let association = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             actor,
             &library.recording_id,
@@ -131,7 +131,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         ArtistAssociationEvidence::UserConfirmed
     );
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &library.recording_id,
@@ -145,7 +145,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     };
     assert!(profile == provider::expected_profile());
     let associations = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, &library.recording_id)
         .await
         .unwrap();
@@ -156,7 +156,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         ArtistAssociationEvidence::UserConfirmed
     );
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.other_recording_id)
             .await
             .unwrap()
@@ -197,7 +197,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
         .review_artist(&server.url, provider::ARTIST_ID)
         .await;
     let available = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &library.recording_id,
@@ -212,16 +212,16 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert!(profile == provider::expected_profile());
     let before = library.snapshot().await;
     let associations_before = serde_json::to_value(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.recording_id)
             .await
             .unwrap(),
     )
     .unwrap();
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let counts_before = server.counts().await;
     let disabled = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -235,7 +235,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert!(!disabled.enabled);
     assert!(disabled.revision > settings.revision);
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &library.recording_id,
@@ -247,7 +247,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert!(matches!(result, ArtistProfileAvailability::Disabled));
     assert_eq!(server.counts().await, counts_before);
     let retained = serde_json::to_value(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.recording_id)
             .await
             .unwrap(),
@@ -257,7 +257,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert_eq!(library.snapshot().await, before);
     assert_eq!(server.counts().await, counts_before);
     let enabled = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -271,7 +271,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert!(enabled.enabled);
     assert!(enabled.revision > disabled.revision);
     let available = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             actor,
             &library.recording_id,
@@ -290,7 +290,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     assert_eq!(association_id, association.id);
     assert!(profile == provider::expected_profile());
     let retained = serde_json::to_value(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.recording_id)
             .await
             .unwrap(),
@@ -298,7 +298,7 @@ async fn exercise_disabled(library: &library::Library, server: &provider::Catalo
     .unwrap();
     assert_eq!(retained, associations_before);
     assert!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.other_recording_id,)
             .await
             .unwrap()
@@ -337,19 +337,19 @@ async fn exercise_revocation(
         .await;
     let before = library.snapshot().await;
     let associations_before = serde_json::to_value(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.recording_id)
             .await
             .unwrap(),
     )
     .unwrap();
     let gate = server.hold_profile().await;
-    let catalog = hito.catalog.clone();
+    let artist_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let recording_id = library.recording_id.clone();
     let association_id = association.id.clone();
     reads.spawn(async move {
-        catalog
+        artist_catalog
             .recording_artist_profile_until(
                 &request_actor,
                 &recording_id,
@@ -398,7 +398,7 @@ async fn exercise_revocation(
     );
     assert_eq!(server.counts().await, admitted);
     let retained = serde_json::to_value(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, &library.recording_id)
             .await
             .unwrap(),

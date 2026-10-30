@@ -204,7 +204,7 @@ impl Library {
 
     pub async fn run_as(&self, actor: &Actor) -> ArtistMatchReceipt {
         self.hito
-            .catalog
+            .artist_catalog
             .match_artists_from_tags(
                 actor,
                 MatchArtistsFromTags {

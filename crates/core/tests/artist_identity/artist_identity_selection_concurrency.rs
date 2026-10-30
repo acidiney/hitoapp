@@ -28,12 +28,12 @@ async fn exercise(library: &library::Library) {
     let hito = &library.hito;
     let actor = &library.actor;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &library.local, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, catalog::ALPHA)
         .await
         .unwrap();
@@ -50,14 +50,14 @@ async fn exercise(library: &library::Library) {
     let start = Arc::new(Barrier::new(6));
     let mut writers = JoinSet::new();
     for _ in 0..5 {
-        let catalog = hito.catalog.clone();
+        let artist_catalog = hito.artist_catalog.clone();
         let actor = actor.clone();
         let recording = library.local.clone();
         let request = serde_json::from_value(request.clone()).unwrap();
         let start = start.clone();
         writers.spawn(async move {
             start.wait().await;
-            catalog
+            artist_catalog
                 .choose_recording_artist_identity(&actor, &recording, request)
                 .await
         });
@@ -82,7 +82,7 @@ async fn exercise(library: &library::Library) {
     assert!(receipts.iter().all(|receipt| receipt == &receipts[0]));
     assert_eq!(receipts[0]["revision"], 1);
     let groups = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, Default::default())
         .await
         .unwrap();

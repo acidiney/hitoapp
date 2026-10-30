@@ -23,17 +23,17 @@ async fn exercise(library: &library::RetainedLibrary) {
     let actor = &library.listener;
     let recording = &library.recording_id;
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, catalog::ALPHA)
         .await
         .unwrap();
     let receipt = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -63,7 +63,7 @@ async fn exercise(library: &library::RetainedLibrary) {
 
     library.access(false).await;
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -71,14 +71,14 @@ async fn exercise(library: &library::RetainedLibrary) {
         0
     );
     assert!(matches!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_identity_choice(actor, recording)
             .await,
         Err(Error::NotFound)
     ));
     library.access(true).await;
     let unchanged = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -88,7 +88,7 @@ async fn exercise(library: &library::RetainedLibrary) {
         if selection.group_id == receipt.selection.as_ref().unwrap().group_id && selection.association_id == association.id)
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -96,13 +96,13 @@ async fn exercise(library: &library::RetainedLibrary) {
         1
     );
     let fresh = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.provider.clone())
         .await
         .unwrap();
     assert_ne!(context.access_grant_id, fresh.access_grant_id);
     let stale = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -154,7 +154,7 @@ async fn exercise(library: &library::RetainedLibrary) {
             .any(|observation| observation.id == intervening.id)
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -163,7 +163,7 @@ async fn exercise(library: &library::RetainedLibrary) {
     );
     library.access(true).await;
     let changed = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -174,7 +174,7 @@ async fn exercise(library: &library::RetainedLibrary) {
     );
     assert_eq!(changed.revision, receipt.revision + 1);
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()

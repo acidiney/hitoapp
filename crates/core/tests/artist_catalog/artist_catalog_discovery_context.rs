@@ -64,11 +64,11 @@ async fn exercise(
         )
         .await
         .unwrap();
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
-    hito.catalog
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -80,7 +80,7 @@ async fn exercise(
         .await
         .unwrap();
     let captured = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, selected.clone())
         .await
         .expect("The first current credit must provide a review context");
@@ -142,7 +142,7 @@ async fn exercise(
         "Personal credit edits must preserve the exact provider observation"
     );
     let fresh = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, &imported.recording_id, selected)
         .await
         .expect("The restored current credit must allow a new review context");
@@ -165,7 +165,7 @@ async fn exercise(
     };
 
     let stale = hito
-        .catalog
+        .artist_catalog
         .search_artist_candidates_until(actor, &captured, request(), std::future::pending())
         .await;
     assert!(
@@ -185,7 +185,7 @@ async fn exercise(
     assert_eq!(imported::request_counts(origin).await, origin_before);
     for recording in [&imported.recording_id, &imported.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()
@@ -195,7 +195,7 @@ async fn exercise(
     }
 
     let result = hito
-        .catalog
+        .artist_catalog
         .search_artist_candidates_until(actor, &fresh, request(), std::future::pending())
         .await
         .expect("A freshly captured current context must remain usable");
@@ -215,7 +215,7 @@ async fn exercise(
     );
     for recording in [&imported.recording_id, &imported.other_recording_id] {
         assert!(
-            hito.catalog
+            hito.artist_catalog
                 .recording_artist_associations(actor, recording)
                 .await
                 .unwrap()

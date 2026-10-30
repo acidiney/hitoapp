@@ -1,4 +1,5 @@
 mod admission;
+mod artist_catalog;
 mod catalog;
 mod collection;
 mod community;
@@ -20,40 +21,42 @@ mod store;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
-pub use catalog::{
-    AdoptProviderRecording, AlbumCatalogAnchor, AlbumEditionChoice, AlbumEditionChoiceReceipt,
-    AlbumEditionChoiceState, AlbumEditionTrackListAvailability, AlbumTrackAudio,
-    ApplyArtistIdentityToCredit, Artist, ArtistAssociation, ArtistAssociationChangeReceipt,
-    ArtistAssociationChanges, ArtistAssociationEvidence, ArtistAssociationRetirement,
-    ArtistAssociationUndo, ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability,
-    ArtistCorrectionRetirement, ArtistCreditRole, ArtistDetail, ArtistDiscographyAvailability,
+pub use artist_catalog::{
+    AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState,
+    AlbumEditionTrackListAvailability, AlbumTrackAudio, ApplyArtistIdentityToCredit,
+    ArtistAssociation, ArtistAssociationChangeReceipt, ArtistAssociationChanges,
+    ArtistAssociationEvidence, ArtistAssociationRetirement, ArtistAssociationUndo,
+    ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability, ArtistCatalog,
+    ArtistCorrectionRetirement, ArtistCreditRole, ArtistDiscographyAvailability,
     ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
     ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt, ArtistIdentityGroup,
     ArtistIdentityGroupBrowse, ArtistIdentityGroupChanges, ArtistIdentityGroupDetail,
     ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
     ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistMatchReceipt, ArtistMatchSuggestion,
     ArtistMatchSuggestions, ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus,
-    AssociateRecordingArtist, AttachReviewedProviderSource, Browse, Catalog, CatalogAdoption,
-    CatalogTrackMatch, ChooseAlbumEdition, ChooseRecordingArtistIdentity, ChooseSource,
-    ClearAlbumEdition, DiscographyLibrary, DismissArtistMatchSuggestion,
-    EditionTrackListAvailability, FindAlbumTrackAudio, LibraryAlbum, LibraryReleaseGroup,
-    LyricsLookup, MatchArtistsFromTags, MetadataProvider, MetadataSettings, Page,
-    PlaylistArtworkFetch, PrepareSource, PromoteArtistCorrection, PromotionSource,
-    ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadAlbumEditionTrackList,
-    ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadRecordingLyrics,
-    ReadReleaseGroupEditions, ReadSimilarArtists, Recording, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, RecordingLyricsProvider, RecordingLyricsProviders, Release,
-    ReleaseArtworkFetch, ReleaseDetail, ReleaseGroupEditionsAvailability, ReleaseTrack,
-    ResetRecordingArtistIdentity, ResetSourceChoice, ResolveSource, SavedAlbumEdition, Search,
-    SharedArtistCorrection, SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt,
-    SharedArtistCorrections, SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView,
-    SimilarArtistsAvailability, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
-    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
-    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch,
+    ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition, DiscographyLibrary,
+    DismissArtistMatchSuggestion, EditionTrackListAvailability, FindAlbumTrackAudio, LibraryAlbum,
+    LibraryReleaseGroup, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
+    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography,
+    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions, ReadSimilarArtists,
+    RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
+    ResetRecordingArtistIdentity, SavedAlbumEdition, SharedArtistCorrection,
+    SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt, SharedArtistCorrections,
+    SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView, SimilarArtistsAvailability,
     SplitArtistIdentityGroup, SplitDestination, UndoArtistIdentityChange,
     UndoRecordingArtistChange, UndoSharedArtistCorrection, UnlinkRecordingArtist,
     UpdateMetadataSettings,
+};
+pub use catalog::{
+    AdoptProviderRecording, AlbumCatalogAnchor, Artist, ArtistDetail, Artwork, ArtworkAvailability,
+    ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource, Browse, Catalog, ChooseSource,
+    LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
+    ProviderSourceReview, ReadRecordingLyrics, Recording, RecordingLyricsProvider,
+    RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack,
+    ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
+    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -119,6 +122,7 @@ use store::Store;
 pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
+    pub artist_catalog: ArtistCatalog,
     pub playback: PlaybackAccess,
     pub collection: Collection,
     pub community: Community,
@@ -166,7 +170,6 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let catalog = Catalog {
         community: community.clone(),
         plugins: plugins.clone(),
-        artist_catalog: catalog::artist_catalog::Host::new()?,
         store: store.clone(),
         host: config.host_device.clone(),
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
@@ -174,6 +177,12 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         resolution_callers: Default::default(),
         local_files: local_files.clone(),
     };
+    let artist_catalog = ArtistCatalog::new(
+        catalog.clone(),
+        store.clone(),
+        plugins.clone(),
+        config.host_device.clone(),
+    )?;
     let playback = PlaybackAccess {
         store: store.clone(),
         host: config.host_device.clone(),
@@ -208,6 +217,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             remote: podcast_remote.clone(),
         },
         catalog,
+        artist_catalog,
         playback,
         collection: Collection {
             store: store.clone(),

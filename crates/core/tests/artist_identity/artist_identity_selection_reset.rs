@@ -29,13 +29,13 @@ async fn exercise(library: &library::Library) {
     let requests = library.catalog.requests();
     let origin = library.origin_requests().await;
     let reset_id = Uuid::new_v4();
-    let initial = hito.catalog.reset_recording_artist_identity(actor, recording, ResetRecordingArtistIdentity {
+    let initial = hito.artist_catalog.reset_recording_artist_identity(actor, recording, ResetRecordingArtistIdentity {
         request_id: reset_id, expected_revision: 0,
     }).await.expect("Explicit reset must retain a revisioned unselected tombstone, including from revision zero");
     assert_eq!(initial.revision, 1);
     assert!(initial.selection.is_none());
     let choice = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -43,18 +43,18 @@ async fn exercise(library: &library::Library) {
         choice.revision == 1 && matches!(choice.state, RecordingArtistIdentityState::Unselected)
     );
     let context = hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(actor, &context, catalog::ALPHA)
         .await
         .unwrap();
     let choose_id = Uuid::new_v4();
     let selected = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -69,7 +69,7 @@ async fn exercise(library: &library::Library) {
         .unwrap();
     assert_eq!(selected.revision, 2);
     let replay = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             recording,
@@ -85,7 +85,7 @@ async fn exercise(library: &library::Library) {
         serde_json::to_value(initial).unwrap()
     );
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -95,7 +95,7 @@ async fn exercise(library: &library::Library) {
     );
     let final_id = Uuid::new_v4();
     let reset = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             recording,
@@ -109,7 +109,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(reset.revision, 3);
     assert!(reset.selection.is_none());
     let replay = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             recording,
@@ -127,7 +127,7 @@ async fn exercise(library: &library::Library) {
         serde_json::to_value(selected).unwrap()
     );
     let repeated = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             recording,
@@ -143,7 +143,7 @@ async fn exercise(library: &library::Library) {
         serde_json::to_value(reset).unwrap()
     );
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, recording)
         .await
         .unwrap();
@@ -151,7 +151,7 @@ async fn exercise(library: &library::Library) {
         current.revision == 3 && matches!(current.state, RecordingArtistIdentityState::Unselected)
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -159,7 +159,7 @@ async fn exercise(library: &library::Library) {
         0
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_associations(actor, recording)
             .await
             .unwrap()

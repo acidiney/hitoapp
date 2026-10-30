@@ -58,13 +58,13 @@ async fn exercise(
     let dispatch = tracing::Dispatch::new(captured.subscriber());
     let gate = server.hold_profile().await;
     let (cancel, cancelled) = oneshot::channel();
-    let catalog = hito.catalog.clone();
+    let artist_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let recording_id = library.recording_id.clone();
     let association_id = association.id.clone();
     reads.spawn(
         async move {
-            catalog
+            artist_catalog
                 .recording_artist_profile_until(
                     &request_actor,
                     &recording_id,
@@ -109,7 +109,7 @@ async fn exercise(
         .expect("The held provider handler must retire before its account retries");
     let result = timeout(
         Duration::from_secs(3),
-        hito.catalog
+        hito.artist_catalog
             .recording_artist_profile_until(
                 &actor,
                 &library.recording_id,
@@ -139,7 +139,7 @@ async fn exercise(
         }
     );
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&actor, &library.recording_id)
         .await
         .unwrap();

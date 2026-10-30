@@ -29,13 +29,13 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
     let mut library = library::Library::prepare().await;
     let settings = library
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&library.actor)
         .await
         .unwrap();
     library
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &library.actor,
             UpdateMetadataSettings {
@@ -58,8 +58,8 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
 }
 
 async fn link(library: &library::Library, recording: &str, artist: &str) -> ArtistAssociation {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(
             &library.actor,
             recording,
@@ -67,7 +67,7 @@ async fn link(library: &library::Library, recording: &str, artist: &str) -> Arti
         )
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .associate_recording_artist(
             &library.actor,
             recording,
@@ -87,8 +87,8 @@ async fn link(library: &library::Library, recording: &str, artist: &str) -> Arti
 
 async fn choose(library: &library::Library, recording: &str, artist: &str) -> String {
     let association = link(library, recording, artist).await;
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(
             &library.actor,
             recording,
@@ -96,12 +96,12 @@ async fn choose(library: &library::Library, recording: &str, artist: &str) -> St
         )
         .await
         .unwrap();
-    let revision = catalog
+    let revision = artist_catalog
         .recording_artist_identity_choice(&library.actor, recording)
         .await
         .unwrap()
         .revision;
-    catalog
+    artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -122,14 +122,14 @@ async fn choose(library: &library::Library, recording: &str, artist: &str) -> St
 async fn unlink(library: &library::Library, recording: &str, association: &str) {
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_association_changes(&library.actor, recording)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .unlink_recording_artist(
             &library.actor,
             recording,
@@ -146,14 +146,14 @@ async fn unlink(library: &library::Library, recording: &str, association: &str) 
 async fn share(library: &library::Library, source: PromotionSource) {
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .shared_artist_corrections(&library.actor)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .promote_artist_correction(
             &library.actor,
             PromoteArtistCorrection {
@@ -229,7 +229,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             unlink(library, imported, &kept.id).await;
             let moved = library
                 .hito
-                .catalog
+                .artist_catalog
                 .split_artist_identity_group(
                     actor,
                     &first,
@@ -272,7 +272,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             .await;
             let corrections = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections(actor)
                 .await
                 .unwrap();
@@ -295,7 +295,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
 
             let changes = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group_changes(actor, &first)
                 .await
                 .unwrap();
@@ -307,7 +307,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             assert!(!latest.undoable && !latest.shareable);
             let own = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(actor, local)
                 .await
                 .unwrap();
@@ -315,7 +315,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             assert_eq!(own.retired[0].association_id, stale_link.id);
             let valid = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(actor, imported)
                 .await
                 .unwrap();
@@ -326,7 +326,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             assert_eq!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .recording_artist_associations(actor, imported)
                     .await
                     .unwrap()
@@ -336,7 +336,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             );
             let corrections = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections(actor)
                 .await
                 .unwrap();
@@ -352,7 +352,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
                 matches!(
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .undo_artist_identity_change(
                             actor,
                             &first,
@@ -388,7 +388,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             assert_eq!(credit_of(library, actor, local).await, original);
             let again = library
                 .hito
-                .catalog
+                .artist_catalog
                 .artist_identity_group_changes(actor, &first)
                 .await
                 .unwrap();
@@ -398,7 +398,7 @@ async fn a_raw_retag_retires_stale_corrections_visibly_and_keeps_the_valid_ones(
             );
             let again = library
                 .hito
-                .catalog
+                .artist_catalog
                 .recording_artist_association_changes(actor, local)
                 .await
                 .unwrap();
@@ -467,12 +467,12 @@ async fn peer_account(library: &library::Library) -> Actor {
 }
 
 async fn peer_link(library: &library::Library, peer: &Actor, recording: &str) {
-    let catalog = &library.hito.catalog;
-    let context = catalog
+    let artist_catalog = &library.hito.artist_catalog;
+    let context = artist_catalog
         .begin_artist_review(peer, recording, MetadataProvider::BuiltinMusicBrainz)
         .await
         .unwrap();
-    catalog
+    artist_catalog
         .associate_recording_artist(
             peer,
             recording,
@@ -493,7 +493,7 @@ async fn peer_link(library: &library::Library, peer: &Actor, recording: &str) {
 async fn visible(library: &library::Library, actor: &Actor, recording: &str) -> usize {
     library
         .hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(actor, recording)
         .await
         .unwrap()
@@ -507,14 +507,14 @@ async fn share_unlink(
 ) -> Result<SharedArtistCorrectionReceipt, Error> {
     let revision = library
         .hito
-        .catalog
+        .artist_catalog
         .shared_artist_corrections(&library.actor)
         .await
         .unwrap()
         .revision;
     library
         .hito
-        .catalog
+        .artist_catalog
         .promote_artist_correction(
             &library.actor,
             PromoteArtistCorrection {
@@ -536,7 +536,7 @@ async fn toggle(
 ) -> Result<SharedArtistCorrectionReceipt, Error> {
     library
         .hito
-        .catalog
+        .artist_catalog
         .undo_shared_artist_correction(
             &library.actor,
             correction,
@@ -562,7 +562,7 @@ async fn retired_shared_subjects_stop_hiding_and_never_block_a_fresh_share_or_a_
             assert_eq!(visible(library, &peer, local).await, 0);
 
             retag(library, RETAGGED).await;
-            let listed = library.hito.catalog.shared_artist_corrections(actor).await.unwrap();
+            let listed = library.hito.artist_catalog.shared_artist_corrections(actor).await.unwrap();
             assert_eq!((listed.items[0].applied, listed.items[0].retired), (true, 1));
             assert_eq!(visible(library, &peer, local).await, 1, "A retired subject no longer hides an association");
             retag(library, TAGGED).await;
@@ -608,7 +608,7 @@ async fn an_unchanged_artist_with_a_new_metadata_observation_retires_the_shared_
             tag.save_to_path(&path, Default::default()).unwrap();
             support::scan(&library.hito, actor, &library.shared).await;
             assert_eq!(credit_of(library, actor, local).await, TAGGED);
-            let listed = library.hito.catalog.shared_artist_corrections(actor).await.unwrap();
+            let listed = library.hito.artist_catalog.shared_artist_corrections(actor).await.unwrap();
             assert_eq!(
                 (listed.items[0].applied, listed.items[0].retired),
                 (true, 1),
@@ -636,7 +636,7 @@ async fn shared_corrections_are_listed_newest_first_in_bounded_pages_without_pri
             };
             let newest = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections_page(actor, page(0, 1))
                 .await
                 .unwrap();
@@ -652,7 +652,7 @@ async fn shared_corrections_are_listed_newest_first_in_bounded_pages_without_pri
             assert_eq!(newest.items[0].id, second.correction_id);
             let older = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections_page(actor, page(1, 1))
                 .await
                 .unwrap();
@@ -660,14 +660,14 @@ async fn shared_corrections_are_listed_newest_first_in_bounded_pages_without_pri
             assert!(!older.items[0].applied && older.items[0].revision == 2);
             let clamped = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections_page(actor, page(0, 5000))
                 .await
                 .unwrap();
             assert_eq!((clamped.limit, clamped.items.len()), (100, 2));
             let past = library
                 .hito
-                .catalog
+                .artist_catalog
                 .shared_artist_corrections_page(actor, page(9, 10))
                 .await
                 .unwrap();
@@ -675,7 +675,7 @@ async fn shared_corrections_are_listed_newest_first_in_bounded_pages_without_pri
             assert!(matches!(
                 library
                     .hito
-                    .catalog
+                    .artist_catalog
                     .shared_artist_corrections_page(&library.peer, page(0, 1))
                     .await,
                 Err(Error::Forbidden)
@@ -703,7 +703,7 @@ async fn accounts_are_told_when_a_shared_correction_hides_their_saved_review() {
                 async move {
                     library
                         .hito
-                        .catalog
+                        .artist_catalog
                         .recording_artist_association_changes(&actor, &local)
                         .await
                         .unwrap()

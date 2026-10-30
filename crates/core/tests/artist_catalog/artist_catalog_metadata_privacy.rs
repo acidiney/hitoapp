@@ -72,7 +72,7 @@ async fn exercise(
         "Each account must have its own approved catalog installation"
     );
     let association = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             owner,
             &imported.recording_id,
@@ -96,7 +96,7 @@ async fn exercise(
     let origin_before = imported::request_counts(origin).await;
 
     let listed = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(&outsider, &imported.recording_id)
         .await;
     assert!(
@@ -104,7 +104,7 @@ async fn exercise(
         "Another account must not list a private recording's artist evidence"
     );
     let reviewed = hito
-        .catalog
+        .artist_catalog
         .associate_recording_artist(
             &outsider,
             &imported.recording_id,
@@ -116,7 +116,7 @@ async fn exercise(
         "Catalog approval must not authorize review of another account's observation"
     );
     let read = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             &outsider,
             &imported.recording_id,
@@ -132,7 +132,7 @@ async fn exercise(
     assert_eq!(imported::request_counts(origin).await, origin_before);
 
     let retained = hito
-        .catalog
+        .artist_catalog
         .recording_artist_associations(owner, &imported.recording_id)
         .await
         .unwrap();
@@ -172,12 +172,12 @@ async fn connect(
         )
         .await
         .unwrap();
-    let current = hito.catalog.metadata_settings(actor).await.unwrap();
+    let current = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let selected = MetadataProvider::HttpPlugin {
         installation_id: installation.id,
     };
     let policy = hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -209,7 +209,7 @@ fn request(
 
 async fn assert_owner_profile(hito: &Services, owner: &Actor, association: &ArtistAssociation) {
     let result = hito
-        .catalog
+        .artist_catalog
         .recording_artist_profile_until(
             owner,
             &association.recording_id,

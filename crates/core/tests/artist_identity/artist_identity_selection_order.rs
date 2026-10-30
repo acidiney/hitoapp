@@ -58,12 +58,12 @@ async fn exercise(library: &library::Library) {
     }
     let accepted_second = seconds();
     let first_receipt = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(actor, first, first_request)
         .await
         .unwrap();
     let second_receipt = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(actor, second, second_request)
         .await
         .unwrap();
@@ -83,7 +83,7 @@ async fn exercise(library: &library::Library) {
     reset(library, first, 1).await;
     assert_label(library, group, second, SECOND, FIRST, false).await;
     let replayed = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             first,
@@ -157,13 +157,13 @@ async fn exercise(library: &library::Library) {
 async fn review(library: &library::Library, recording: &str) -> ChooseRecordingArtistIdentity {
     let context = library
         .hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let association = library
         .hito
-        .catalog
+        .artist_catalog
         .confirm_artist_review(&library.actor, &context, catalog::ALPHA)
         .await
         .unwrap();
@@ -178,7 +178,7 @@ async fn review(library: &library::Library, recording: &str) -> ChooseRecordingA
 async fn reset(library: &library::Library, recording: &str, revision: i64) {
     let receipt = library
         .hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             &library.actor,
             recording,
@@ -196,13 +196,13 @@ async fn reset(library: &library::Library, recording: &str, revision: i64) {
 async fn rechoose(library: &library::Library, recording: &str, revision: i64, association: &str) {
     let context = library
         .hito
-        .catalog
+        .artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
         .await
         .unwrap();
     let receipt = library
         .hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             &library.actor,
             recording,
@@ -228,7 +228,7 @@ async fn assert_label(
 ) {
     let visible = library
         .hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(&library.actor, group, Default::default())
         .await
         .unwrap();
@@ -240,7 +240,7 @@ async fn assert_label(
     for (term, count) in [(name, 1), (other, i64::from(other_visible))] {
         let found = library
             .hito
-            .catalog
+            .artist_catalog
             .artist_identity_groups(
                 &library.actor,
                 ArtistIdentityGroupQuery {

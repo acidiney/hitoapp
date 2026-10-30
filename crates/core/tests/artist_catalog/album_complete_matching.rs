@@ -37,7 +37,7 @@ async fn merged(album: &Album) -> Merged {
 async fn anchor(album: &Album, offset: Option<i64>) -> Option<hito_core::AlbumCatalogAnchor> {
     album
         .hito
-        .catalog
+        .artist_catalog
         .release(
             &album.actor,
             &album.release_id,
@@ -58,13 +58,13 @@ async fn settings(
 ) {
     let current = album
         .hito
-        .catalog
+        .artist_catalog
         .metadata_settings(&album.actor)
         .await
         .unwrap();
     album
         .hito
-        .catalog
+        .artist_catalog
         .set_metadata_settings(
             &album.actor,
             UpdateMetadataSettings {
@@ -234,7 +234,7 @@ async fn the_anchor_prefers_the_album_artist_over_a_featured_credit() {
     let featured = album.featured.clone().unwrap();
     let detail = album
         .hito
-        .catalog
+        .artist_catalog
         .release(&album.actor, &album.release_id, Browse::default())
         .await
         .unwrap();

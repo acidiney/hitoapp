@@ -30,12 +30,12 @@ async fn exercise(library: &library::Library) {
     let mut receipts = Vec::new();
     for recording in [&library.local, &library.imported] {
         let context = hito
-            .catalog
+            .artist_catalog
             .begin_artist_review(actor, recording, library.metadata_provider.clone())
             .await
             .unwrap();
         let association = hito
-            .catalog
+            .artist_catalog
             .confirm_artist_review(actor, &context, catalog::ALPHA)
             .await
             .unwrap();
@@ -47,7 +47,7 @@ async fn exercise(library: &library::Library) {
         };
         let command = serde_json::to_value(&request).unwrap();
         receipts.push(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(actor, recording, request)
                 .await
                 .unwrap(),
@@ -60,8 +60,8 @@ async fn exercise(library: &library::Library) {
     let requests = library.catalog.requests();
     let origin = library.origin_requests().await;
     let group_id = &receipts[0].selection.as_ref().unwrap().group_id;
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
-    hito.catalog
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -73,14 +73,14 @@ async fn exercise(library: &library::Library) {
         .await
         .unwrap();
     let group = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(actor, group_id, Default::default())
         .await
         .unwrap();
     assert_eq!(group.recordings.total, 2);
     assert_eq!(group.releases.total, 2);
     let reset_imported = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             &library.imported,
@@ -93,7 +93,7 @@ async fn exercise(library: &library::Library) {
         .unwrap();
     assert_eq!(reset_imported.revision, 2);
     let replay = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             &library.imported,
@@ -110,7 +110,7 @@ async fn exercise(library: &library::Library) {
     new_command["expected_revision"] = 2.into();
     assert!(
         matches!(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     &library.imported,
@@ -122,15 +122,15 @@ async fn exercise(library: &library::Library) {
         "Disabled metadata must reject new selection while preserving acknowledgement recovery"
     );
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, &library.imported)
         .await
         .unwrap();
     assert!(
         current.revision == 2 && matches!(current.state, RecordingArtistIdentityState::Unselected)
     );
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
-    hito.catalog
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
+    hito.artist_catalog
         .set_metadata_settings(
             actor,
             UpdateMetadataSettings {
@@ -158,7 +158,7 @@ async fn exercise(library: &library::Library) {
         .await
         .unwrap();
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, &library.local)
         .await
         .unwrap();
@@ -166,7 +166,7 @@ async fn exercise(library: &library::Library) {
         current.revision == 1 && matches!(current.state, RecordingArtistIdentityState::Selected(_))
     );
     let group = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(actor, group_id, Default::default())
         .await
         .unwrap();
@@ -176,7 +176,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!(group.group.name.value, catalog::CREDIT);
     let reset_id = Uuid::new_v4();
     let reset = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             &library.local,
@@ -188,7 +188,7 @@ async fn exercise(library: &library::Library) {
         .await
         .unwrap();
     let replay = hito
-        .catalog
+        .artist_catalog
         .choose_recording_artist_identity(
             actor,
             &library.local,
@@ -201,7 +201,7 @@ async fn exercise(library: &library::Library) {
         serde_json::to_value(&receipts[0]).unwrap()
     );
     let replay = hito
-        .catalog
+        .artist_catalog
         .reset_recording_artist_identity(
             actor,
             &library.local,
@@ -221,7 +221,7 @@ async fn exercise(library: &library::Library) {
     new_command["expected_revision"] = 2.into();
     assert!(
         matches!(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     &library.local,
@@ -233,7 +233,7 @@ async fn exercise(library: &library::Library) {
         "A disconnected catalog must not authorize a new selection"
     );
     assert_eq!(
-        hito.catalog
+        hito.artist_catalog
             .artist_identity_groups(actor, Default::default())
             .await
             .unwrap()
@@ -241,14 +241,14 @@ async fn exercise(library: &library::Library) {
         0
     );
     let current = hito
-        .catalog
+        .artist_catalog
         .recording_artist_identity_choice(actor, &library.local)
         .await
         .unwrap();
     assert!(
         current.revision == 2 && matches!(current.state, RecordingArtistIdentityState::Unselected)
     );
-    let settings = hito.catalog.metadata_settings(actor).await.unwrap();
+    let settings = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     assert!(settings.enabled && settings.providers == vec![library.metadata_provider.clone()]);
     assert!(
         !hito

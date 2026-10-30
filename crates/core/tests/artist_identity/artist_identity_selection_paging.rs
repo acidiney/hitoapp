@@ -31,17 +31,17 @@ async fn exercise(library: &library::Library) {
         (&library.namesake, catalog::BETA),
     ] {
         let context = hito
-            .catalog
+            .artist_catalog
             .begin_artist_review(actor, recording, library.metadata_provider.clone())
             .await
             .unwrap();
         let association = hito
-            .catalog
+            .artist_catalog
             .confirm_artist_review(actor, &context, identity)
             .await
             .unwrap();
         selected.push(
-            hito.catalog
+            hito.artist_catalog
                 .choose_recording_artist_identity(
                     actor,
                     recording,
@@ -60,14 +60,14 @@ async fn exercise(library: &library::Library) {
     let requests = library.catalog.requests();
     let origin = library.origin_requests().await;
     let all = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(actor, Default::default())
         .await
         .unwrap();
     assert_eq!(all.total, 2);
     for index in 0..2 {
         let page = hito
-            .catalog
+            .artist_catalog
             .artist_identity_groups(
                 actor,
                 ArtistIdentityGroupQuery {
@@ -85,7 +85,7 @@ async fn exercise(library: &library::Library) {
         assert_eq!(page.items[0].id, all.items[index as usize].id);
     }
     let first = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(
             actor,
             ArtistIdentityGroupQuery {
@@ -99,7 +99,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!((first.offset, first.limit, first.items.len()), (0, 1, 1));
     assert_eq!(first.items[0].id, all.items[0].id);
     let large = hito
-        .catalog
+        .artist_catalog
         .artist_identity_groups(
             actor,
             ArtistIdentityGroupQuery {
@@ -112,7 +112,7 @@ async fn exercise(library: &library::Library) {
     assert_eq!((large.limit, large.total), (200, 2));
     let group = &selected[0].selection.as_ref().unwrap().group_id;
     let full = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(actor, group, Default::default())
         .await
         .unwrap();
@@ -126,7 +126,7 @@ async fn exercise(library: &library::Library) {
     );
     for (library_offset, recording_offset, release_offset) in [(1, 0, 1), (0, 1, 0)] {
         let page = hito
-            .catalog
+            .artist_catalog
             .artist_identity_group(
                 actor,
                 group,
@@ -191,7 +191,7 @@ async fn exercise(library: &library::Library) {
         );
     }
     let first = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(
             actor,
             group,
@@ -230,7 +230,7 @@ async fn exercise(library: &library::Library) {
         (1, 1, 1)
     );
     let empty = hito
-        .catalog
+        .artist_catalog
         .artist_identity_group(
             actor,
             group,

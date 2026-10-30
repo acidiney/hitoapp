@@ -13,7 +13,7 @@ pub struct AdoptProviderRecording {
 
 /// The provider recording a search accepted. Saving it is refused unless the
 /// provider still reports exactly these details and ready sources.
-pub(in crate::catalog) struct AcceptedRecording {
+pub(crate) struct AcceptedRecording {
     pub details: ProviderRecording,
     pub sources: Vec<(String, bool)>,
 }
@@ -33,7 +33,7 @@ impl Catalog {
 
     /// Saves a provider recording. With `accepted`, returns `None` and saves
     /// nothing when the provider's current answer differs from it.
-    pub(in crate::catalog) async fn adopt_accepted(
+    pub(crate) async fn adopt_accepted(
         &self,
         actor: &Actor,
         installation: &str,

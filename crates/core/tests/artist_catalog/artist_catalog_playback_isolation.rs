@@ -163,7 +163,7 @@ async fn exercise(
     let sources_before =
         serde_json::to_value(hito.catalog.sources(actor, &recording.id).await.unwrap()).unwrap();
     let gate = catalog_provider.hold_profile().await;
-    let request_catalog = hito.catalog.clone();
+    let request_catalog = hito.artist_catalog.clone();
     let request_actor = actor.clone();
     let reviewed_recording = library.recording_id.clone();
     reads.spawn(async move {
