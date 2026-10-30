@@ -55,6 +55,10 @@ On the next scan, unchanged version-2 files refresh metadata while retaining com
 
 This source slice is not yet deployed to the normal local server. Public fixtures verify raw assertions, tag-only changes, a truthful version-2 upgrade without redecoding, 70 KiB and 1 MiB optional values, shared deadlines, diagnostics combined with overflow, a proven natural failed exit, cancellation and private log values. The frozen full core run passes 316 distinct cases with one usual filesystem-fault case ignored; the later 1 MiB case passes separately. The server passes 144 distinct cases. Strict workspace Clippy, formatting, generated contracts and frontend checks pass. These Linux fixtures do not establish every container/tag format or other platform's process behavior.
 
+## ISRC tags in verified source
+
+Inspection version 4 also retains the first `isrc` (ID3 `TSRC`) tag as `InspectedTags.isrc`, a raw source assertion like the ordinary tags (null when absent or not yet inspected). Its value is normalized only when Hito uses it as [provider evidence](artist-matching.md#matching-from-provider-evidence); a malformed value is ignored there. Unchanged version-3 files refresh their tags on the next scan without decoding audio again, exactly as version 2 did. FLAC, Ogg Vorbis, MP3, M4A and WAV (ID3 chunk) fixtures verify the tag; other containers are unverified.
+
 ## Compressed ID3 tags and tag compatibility
 
 FFprobe reads tags from a private copy of each file. Before it runs, Hito looks at ID3v2.3 and v2.4 tags at the start of the file and in RIFF (WAV) and AIFF ID3 chunks. Only tags that contain at least one compressed frame are rewritten, in place and at the same length. Other files are untouched.

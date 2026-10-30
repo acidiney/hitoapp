@@ -2,18 +2,20 @@
 
 Hito can now group recordings under one reviewed artist without a user clicking through every track, but only when the data itself names that artist. Everything else stays a suggestion that the account accepts or dismisses. Equal names alone never merge artists.
 
-This page separates what runs today from what is planned. Current behavior is implemented in core, the authenticated API and the shared web app. It is not deployed to the normal local server. Provider-backed lookups are not implemented yet; see [open work](#open-work).
+This page separates what runs today from what is planned. Current behavior is implemented in core, the authenticated API and the shared web app. It is not deployed to the normal local server. Matching from provider evidence (ISRC and artist pages) is covered by owned protocol fakes only: the built-in MusicBrainz service has not been reached for this feature, and live acceptance remains blocked; see [what is verified](#verification) and [open work](#open-work).
 
 ## Two kinds of evidence
 
 | Evidence | Example | Effect |
 | --- | --- | --- |
 | Verified | One MusicBrainz performer artist identifier embedded in a local file's own tags | Applied automatically as a reviewed association and a chosen artist |
+| Verified through MusicBrainz | An ISRC stated by a provider or a file tag that MusicBrainz maps to exactly one recording credited to exactly one artist | Applied automatically with the same rules; provenance `matched_isrc` |
+| Verified through MusicBrainz | A lone credited artist page of an imported track that MusicBrainz links to exactly one artist | Applied automatically with the same rules; provenance `matched_provider_url` |
 | Uncertain | The same credit name, a shared album title, a track with the same title and length | Ranked suggestion only; nothing changes until the account confirms |
 
 ```mermaid
 flowchart TD
-    Page[Artists page opens] -->|silent, cancellable pass| Run[Match from file tags, batches of at most 100]
+    Page[Artists page opens] -->|silent, cancellable, local only| Run[Match from file tags, batches of at most 100]
     Run --> Policy{Built-in MusicBrainz selected and enabled?}
     Policy -->|no| Nothing[Nothing is matched]
     Policy -->|yes| Tags[Current observation: exactly one distinct valid performer id?]
@@ -28,6 +30,25 @@ flowchart TD
     Choice -->|Review suggestion| Existing[Existing apply-to-credit review path]
     Choice -->|Not the same artist| Dismiss[Remembered per account and credit]
 ```
+
+## Evidence sources and the match decision
+
+```mermaid
+flowchart TD
+    Tag[File tag: one performer MusicBrainz id] --> TagPass[Tag pass: no network]
+    Isrc[ISRC from a provider response or a file tag] --> Lookup
+    Page[Provider response: exactly one credited artist page] --> Lookup
+    Lookup[Provider pass: bounded, paced, cancellable MusicBrainz lookups] --> Answer{Exactly one recording, exactly one credited ordinary artist?}
+    Answer -->|no, zero, several or Various Artists| Uncertain[Stays separate and is remembered until the observation changes]
+    Answer -->|MusicBrainz unreachable| Retry[Not remembered, asked again by a later pass]
+    Answer -->|yes| Same
+    TagPass --> Same{Earlier personal decision?}
+    Same -->|choice, reset, split, unlink, personal edit, hiding correction| Left[Left alone and not looked up]
+    Same -->|none| Apply[Reviewed association plus chosen artist with provenance]
+    Apply --> Group[Same artist id joins the same chosen artist group]
+```
+
+The provider pass (`POST /api/v1/artist-matching/provider-evidence`, core `match_artists_from_provider_evidence`) never runs on its own: the account starts it with the **Find matches on MusicBrainz** button (see [consent](#consent-for-provider-lookups)). The ISRC decides first; the artist page is consulted only when the ISRC names no single artist. Everything below the decision node is shared code, so both passes obey the same personal-decision rules.
 
 ## Verified matching from file tags
 
@@ -48,6 +69,32 @@ Two differently spelled credits with the same identifier therefore land in one g
 
 Recordings that were examined and not matched (an ambiguous or valueless tag, a personal artist edit, an unlinked association or a hiding correction) are remembered in `artist_match_checks` with the observation and personal artist operation that were checked. They are not examined again until the observation or the personal artist edit changes, so a second pass over an unchanged library reads no candidates and takes no write lock. A recording that could not be read at that moment (its credit was not current) is not remembered. A later withdrawn shared correction or relinked association is therefore not noticed until the observation changes. A request is bounded by the standard 15-second budget and answers a conflict if it is exceeded; the work is resumable by cursor.
 
+## Matching from provider evidence
+
+Recordings carry two kinds of provider evidence. Both are stored as immutable rows beside the observation that stated them, so a later observation can never inherit an older answer.
+
+- ISRC. A provider states it on a recording (`ProviderRecording.isrc`; see the [plugin contract](plugin-catalog.md#recording-evidence)); a local file states it in a tag, retained since inspection version 4 as `InspectedTags.isrc` (ID3 `TSRC`, Vorbis `ISRC` and MP4 `----:com.apple.iTunes:ISRC`, read through FFprobe as `TSRC`, `ISRC` and `ISRC`; the raw value is kept like any other tag). The code is normalized (case and the hyphenated display form) and stored in `recording_isrc_observations` with its origin, `file_tag` or `provider_response`. A malformed code is ignored and never fails an import or scan.
+- Artist pages. A provider may list the canonical pages of every credited performer (`ProviderRecording.artist_urls`). Only an allowlisted shape is accepted: `https://open.spotify.com/artist/` followed by exactly 22 base62 characters. The allowlist is a small typed list in the plugin SDK (`artist_page_provider`), enforced when a plugin response is validated, when pages are stored, when the MusicBrainz client validates a request, and again before each lookup, so rows from earlier versions with any other address are never looked up. Another provider is added by adding one shape. Accepted pages are stored in `recording_artist_url_observations`. Only a recording that lists exactly one page is a candidate, because two pages would not say which artist a one-artist group should receive.
+
+A candidate is a recording of a library the account can read whose current observation has such evidence, which the account has not yet decided about and which no earlier provider pass settled for the same observation and personal artist operation. Candidates are read in recording-identifier order. The pass then asks the built-in MusicBrainz client:
+
+- `GET /ws/2/isrc/<ISRC>?inc=artist-credits` and requires exactly one returned recording whose credit names exactly one distinct artist. A 404 is an empty answer.
+- `GET /ws/2/url?resource=<page>&inc=artist-rels` and requires exactly one related artist. A 404 is an empty answer.
+
+The special-purpose artists Various Artists, [unknown], [no artist] and [anonymous] never count as the one artist. Names, titles and durations are never compared; the code or the page is the evidence. A recording with several credited artists, several recordings sharing a code, a code MusicBrainz does not know, or a page linked to several artists is *uncertain*: nothing changes, it stays separate, and it is not examined again until its observation changes. MusicBrainz may add data later; Hito does not poll for that yet.
+
+Bounds. One request examines at most 100 recordings but performs at most eight MusicBrainz lookups and checks the nine-second window and the three-consecutive-failure limit before each lookup, not only between recordings; a lookup still running 13 seconds after the pass started is abandoned as unavailable, so the pass ends inside the 15-second request budget. When the window closes during the first recording of a batch, its remaining lookup counts as unavailable (retried later); when it closes during a later recording, that recording waits for the next batch. The pass returns a cursor so the web app (or any client) continues. Every lookup goes through the shared one-request-per-second MusicBrainz gate, and the request is admitted through the same per-account and global slots as other metadata work. Dropping the request (a closed page) cancels the lookup in flight and writes nothing. A code asked in the same request is asked once; a code shared by recordings in different requests can be asked twice. MusicBrainz outages, timeouts, oversized or invalid answers are *unavailable*: they are counted, not remembered, and retried by a later pass. Disabled enrichment (or a selection without the built-in provider) makes the pass do nothing and ask nothing.
+
+What is sent. Only the normalized ISRC or the canonical artist page address, with the Hito user agent. No account, title, credit name, path, library or token leaves the host. A deployment that must not contact MusicBrainz turns metadata enrichment off for the account, which stops the pass before any lookup.
+
+## Consent for provider lookups
+
+The tag pass reads local files only, so the Artists page still runs it silently. The provider pass sends ISRC codes and provider artist links to a third party, so Hito never starts it by itself. The Artists page shows a **Find matches on MusicBrainz** button with the line "Sends ISRC codes and provider artist links from your library to MusicBrainz." Clicking it is the account's consent for that run. The button is disabled while the account's metadata settings are loading or disable MusicBrainz (enrichment off, or the built-in provider not selected), and the server enforces the same rule. After a run the page shows the receipt counts (matched, uncertain, unavailable) and says when to run it again to continue. Leaving the page cancels a run.
+
+Applying. Recordings are re-validated inside one immediate transaction exactly like the tag pass: the current observation must still be the one examined, a personal choice, reset, split, unlink, personal artist edit or hiding shared correction leaves it alone (and is never looked up in the first place), and a stale automatic match whose observation changed may be matched again. A match writes a reviewed association for the recording's own credit and the chosen artist; a new association gets a row in `artist_association_provider_matches` with `isrc` or `provider_url`, returned by the association API as `matched_isrc` or `matched_provider_url`. Exact retries replay the stored receipt without another lookup, only a request that matched something stores a receipt, and the receipt counts `matched`, `uncertain`, `declined` and `unavailable`.
+
+The reported example follows this path: the local C4 Pedro file carries one MusicBrainz artist id, so the tag pass groups it. An imported Spotify-style track with an ISRC that MusicBrainz maps to a recording credited only to that artist is matched by the provider pass and joins the same group without a click. The current public Spotify playlist response states no ISRC, so a real Spotify import supplies this evidence only through its credited artist page; see [the Spotify plugin](plugin-spotify.md#artist-pages-and-isrc).
+
 ## Suggestions for uncertain cases
 
 `GET /api/v1/artists/{id}/match-suggestions` lists chosen artists whose members carry this credit's name (compared without case or spacing). Each item states what supports it:
@@ -62,11 +109,11 @@ Accepting uses the existing confirmation and `POST /api/v1/artists/{id}/artist-i
 
 ## Web behavior
 
-The Artists page starts one silent pass per account at most every ten minutes across tabs of one browser (the pause is kept in local storage and starts with the pass, so a cancelled or failing pass is not retried by every tab). It walks the cursor, stops after 200 batches or 60 seconds, is cancelled when the page is left, ignores failures, and refreshes the artist lists only if something matched. The credit page loads suggestions without blocking the rest of the page; a failed read shows nothing and leaves the manual flow untouched. Neither workflow subscribes to playback position.
+The Artists page starts one silent tag pass per account at most every ten minutes across tabs of one browser (the pause is kept in local storage and starts with the pass, so a cancelled or failing pass is not retried by every tab). It walks the cursor, stops after 200 batches or 60 seconds, is cancelled when the page is left, ignores failures, and refreshes the artist lists only if something matched. It sends no provider request. The provider pass runs only from the button described above, walks its cursor (at most 200 batches or two minutes), stops when a batch reports an unavailable provider and refreshes the lists once if something matched. The saved artist reviews of a recording say how an automatic match was made (file tag identifier, ISRC or provider artist page); reviews the account confirmed itself carry no such note. The credit page loads suggestions without blocking the rest of the page; a failed read shows nothing and leaves the manual flow untouched. Neither workflow subscribes to playback position.
 
 ## Logging
 
-Every request logs an operation, a safe outcome, counts and elapsed time. Identifiers, credit names, titles, paths and tag values are never logged.
+Every request logs an operation, a safe outcome, counts and elapsed time. Identifiers, credit names, titles, paths, tag values, ISRCs, artist page addresses, MusicBrainz identifiers and response bodies are never logged. The MusicBrainz client logs one completion event per lookup with a static outcome, the item count and its elapsed time.
 
 ## Verification
 
@@ -79,12 +126,21 @@ Public core cases use real temporary SQLite and owned deterministic WAV files ta
 - Another account's pass cannot undo an administrator's shared correction; a retagged automatic match is matched again while a reset or split one is not; personal artist edits, splits and retired choices are left alone; two concurrent passes match each recording once; a second pass reads no candidates and writes nothing; and work-budget cases bound the pass and the suggestions.
 - Migration 0060 upgrades from 0059 with exact schema comparison, immutable provenance, a per-account dismissal key and no implied matches.
 
-HTTP cases use the real router for statuses, validation, replay, access, a second account without library access, two members of one shared library (separate matches, choices and dismissals) and 423 for all three routes while the session is locked. Web cases cover evidence text, confirmation before apply, dismissal, failed reads and the silent pass (batching, refresh only on a match, no repeat within the pause, cancellation).
+Provider evidence is covered at three boundaries:
+
+- Protocol: the MusicBrainz client against an owned loopback server for exact request targets and headers, 404 as empty, 503 as a typed failure without retry, wrong or malformed identifiers, over-long answers and log redaction; the plugin SDK for ISRC normalization and canonical artist page validation with old payloads keeping their exact bytes; the folder and Spotify plugins for what they publish; and FFmpeg-backed inspection of ISRC tags in FLAC, Ogg, MP3, M4A and WAV.
+- Core, with real temporary SQLite, deterministic WAV tags and an owned loopback MusicBrainz: a tagged local track and an imported track with an ISRC (written with hyphens and lower case) join one group without a click; ambiguous, multi-artist, unknown, Various Artists and outage answers do not; a file-tag ISRC matches; a lone artist page matches and falls through from an unknown ISRC; two pages are never looked up; a reset recording is never looked up or overridden; disabled enrichment asks nothing; outages are retried while settled answers are not asked again; exact replay does not ask again; a cursor walk examines every recording; and a pass dropped while the fake is slow writes nothing and can be repeated. Migrations 0061 and 0062 upgrade with exact schema comparison, immutable rows and no implied evidence.
+- HTTP and web: the reported scenario through the real router (statuses, validation, replay, conflict, 401 and 423 while locked, the `matched_isrc` association), and DOM cases for the explicit provider action (no provider request on page load, a click walks the cursor and shows the counts, one refresh, no retry on an unavailable provider, disabled when MusicBrainz is off, cancelled on leaving) and the provenance text. Further core cases cover an address outside the allowlist (never looked up, even when stored by an earlier version) and the per-lookup time window and deadline.
+
+Not verified: MusicBrainz itself. Every response in these tests is an owned fake that follows the documented JSON shapes; a live `isrc` or `url` lookup has not succeeded (the 2026-10-18 live attempts for the existing adapter received HTTP 503, see [the adapter](builtin-musicbrainz.md#live-integration-gate)), and the live gate does not yet cover these lookups. The Spotify artist page field relies on the `uri` of each artist in the undocumented public response, which the plugin's owned fixtures include but a live import has not confirmed. Work budgets for the candidate query were not measured (the tag pass has a measured budget).
+
+HTTP cases use the real router for statuses, validation, replay, access, a second account without library access, two members of one shared library (separate matches, choices and dismissals) and 423 for all three routes while the session is locked. Web cases cover evidence text, confirmation before apply, dismissal, failed reads and the silent tag pass (batching, refresh only on a match, no repeat within the pause, cancellation).
 
 ## Open work
 
-- Provider-backed identities. Imported playlist metadata carries a title, a credit name, a duration and an optional release, but no ISRC, no provider artist identifier and no MusicBrainz identifier, so nothing verified can link an imported recording to a local one today. ISRC needs a plugin-contract extension and producer changes, a file-tag ISRC observation (this needs a new inspection version) and an ISRC lookup in the built-in MusicBrainz client. Provider-structured identifiers that resolve to one MusicBrainz entity need the same contract work.
-- Background provider lookups for uncertain cases (name search with discography corroboration), through the existing provider contracts with admission limits, cancellation, per-provider pacing and offline tolerance. The pass above makes no provider request.
+- A persistent cache of MusicBrainz answers shared across accounts, re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
+- Providers that expose ISRCs or artist pages. The folder plugin publishes ISRC tags. The public Spotify response states no ISRC. No other bundled plugin has an ISRC field in its source API that Hito could verify; none was invented. Existing imported copies receive artist pages only when their metadata is refreshed from the provider.
+- Background provider lookups for uncertain cases (name search with discography corroboration), through the existing provider contracts with admission limits, cancellation, per-provider pacing and offline tolerance. The passes above make no name-based request.
 - Release and recording matching. File tags do not yet retain release or recording MusicBrainz identifiers.
-- A control to restore a dismissed suggestion (the data model supports it: dismissals are plain rows), and a visible note for the matched provenance in the saved artist reviews.
+- A control to restore a dismissed suggestion (the data model supports it: dismissals are plain rows).
 - Live MusicBrainz acceptance remains blocked by upstream HTTP 503 responses; see [the adapter](builtin-musicbrainz.md#live-integration-gate).

@@ -20,6 +20,15 @@ flowchart LR
 
 This diagram describes intended page ownership. The reviewed-profile host has separate source verification. Providers supply structured data. Hito renders it and never executes downloaded plugin code. These catalog responses have no audio, stream URL, HTML or custom UI fields.
 
+## Recording evidence
+
+`ProviderRecording` (search results, recording details, playlist entries and metadata) has two optional fields that let a host verify who performed a recording. Both are omitted from the wire when absent, so earlier plugins and earlier stored responses keep their exact bytes, and a host that predates them rejects them only through the usual unknown-field rule.
+
+- `isrc`: the ISO 3901 code of the recording, 12 characters (two country letters, three alphanumeric registrant characters, two year digits and five designation digits). A plugin may send lower case or the hyphenated display form (`US-RC1-76-07839`); `normalized_isrc()` and `normalize_isrc()` return the canonical upper-case form. A malformed value makes the recording invalid, so a producer omits a code it cannot validate. An ISRC is evidence, not identity: one code can name several recordings, and a recording can be re-released under another.
+- `artist_urls`: the canonical pages of **every** credited performer, at most 8, each at most 512 bytes, without repeats and in exactly the form the `url` crate serializes. Only allowlisted shapes are valid: today `https://open.spotify.com/artist/<22 base62 characters>`; any other address makes the recording invalid, so a producer omits pages it cannot place in the allowlist. A provider that cannot name every performer omits the list rather than listing some of them, because a host treats a list of one as "the" artist.
+
+Hosts must treat both as claims of the provider. Hito's built-in MusicBrainz lookups use them only as described in [artist matching](artist-matching.md#matching-from-provider-evidence). The bundled folder plugin publishes ISRC tags; the bundled Spotify plugin publishes artist pages and no ISRC ([why](plugin-spotify.md#artist-pages-and-isrc)). `RecordingAttribution` is now held behind a `Box` in `ProviderRecording` to keep the playlist item type small; its wire shape is unchanged.
+
 ## Identity and artist profiles
 
 Provider IDs are opaque, case-sensitive strings scoped to the selected provider connection. Equal strings from different providers are not evidence of equal artists. A host must retain provider provenance and verified associations rather than treating an external ID as a Hito UUID.

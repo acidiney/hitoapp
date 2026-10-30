@@ -30,6 +30,12 @@ All 23 owned TCP cases and strict all-target Clippy pass. They cover 101-entry o
 
 The producer is deployed to the normal local service. The server runs migration 0046 and offers **Find missing albums** on existing editable copies. A separate live upgrade test repairs an albumless 411-recording copy through its unchanged original connection, exposing 250 albums while preserving bindings, earlier observations, entries, receipts and personal data. Updating the plugin alone leaves copies unchanged; users start the lookup explicitly. See [repair behavior and acceptance](playlist-metadata-refresh.md).
 
+## Artist pages and ISRC
+
+Each recording also lists the canonical artist page (`https://open.spotify.com/artist/<id>`) of every credited performer, taken from the artist `uri` in the public response, so Hito can ask MusicBrainz whether that page belongs to exactly one artist (see [artist matching](artist-matching.md#matching-from-provider-evidence)). If any credited artist lacks a valid `spotify:artist:` URI the list is omitted rather than partial; a malformed artist URI never fails the snapshot. The playlist snapshot digest includes the pages, so the first refresh after this change reports a new revision for playlists whose artists carry identifiers.
+
+The public playlist response states **no ISRC**, so the plugin publishes none and never derives one. An ISRC would need Spotify's authenticated Web API (`external_ids.isrc`), which this public-link plugin deliberately does not use. Two owned cases (`public_artist_pages`) cover one and two credited artists, four kinds of unidentified artist, and the absence of an ISRC; the live shape of the artist `uri` is taken from the plugin's existing fixtures and has not been re-observed live for this change.
+
 ## Ownership and snapshot consistency
 
 ```mermaid
