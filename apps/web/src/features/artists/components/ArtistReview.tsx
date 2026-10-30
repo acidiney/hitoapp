@@ -1,5 +1,12 @@
 import type { Schema } from "../../../shared/schema";
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "@inertiajs/react";
 import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
 import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
@@ -57,6 +64,12 @@ export default function ArtistReview({
     () => void workflow.refreshAssociations(),
   );
   const [panel, setPanel] = useState(false);
+  const panelId = useId();
+  const panelHeading = useRef<HTMLHeadingElement>(null);
+  const panelOpen = panel && workflow.loaded;
+  useEffect(() => {
+    if (panelOpen) panelHeading.current?.focus();
+  }, [panelOpen]);
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
   function search(event: FormEvent) {
@@ -91,22 +104,29 @@ export default function ArtistReview({
         action={
           <Button
             type="button"
-            aria-expanded={panel}
+            aria-expanded={panelOpen}
+            aria-controls={panelId}
             disabled={workflow.pending !== null && !panel}
             onClick={() => {
               if (!workflow.loaded) void workflow.open();
               setPanel(workflow.loaded ? !panel : true);
             }}
           >
-            {workflow.pending === "load"
-              ? "Loading artist information…"
-              : "Change artist"}
+            Change artist
           </Button>
         }
       />
+      {workflow.pending === "load" && (
+        <p role="status" className="muted">
+          Loading artist information…
+        </p>
+      )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
-      {panel && workflow.loaded && (
-        <div className="rd-manual">
+      {panelOpen && (
+        <div className="rd-manual" id={panelId}>
+          <h3 ref={panelHeading} tabIndex={-1}>
+            Choose the artist
+          </h3>
           {workflow.loaded && (
             <ArtistIdentityChoice
               {...identity}
