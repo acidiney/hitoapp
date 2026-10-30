@@ -62,6 +62,7 @@ pub(super) fn valid_url(resource: &str) -> bool {
                 && url.fragment().is_none()
                 && url.as_str() == resource
         })
+        && hito_plugin_sdk::artist_page_provider(resource).is_some()
 }
 
 pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {

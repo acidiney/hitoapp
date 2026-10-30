@@ -1,3 +1,4 @@
+mod artist_page;
 mod artwork;
 mod attribution;
 mod authorization;
@@ -13,6 +14,7 @@ mod playlists;
 mod preparation;
 #[cfg(feature = "server")]
 pub mod server;
+pub use artist_page::{ArtistPageProvider, artist_page_provider};
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use attribution::RecordingAttribution;
 pub use authorization::Authorization;

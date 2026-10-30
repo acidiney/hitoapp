@@ -201,7 +201,8 @@ fn validate_artist_urls(urls: &[String]) -> Result<(), &'static str> {
                     && url.query().is_none()
                     && url.fragment().is_none()
                     && url.as_str() == value
-            });
+            })
+            && crate::artist_page_provider(value).is_some();
         if !canonical || !seen.insert(value) {
             return Err(MALFORMED);
         }

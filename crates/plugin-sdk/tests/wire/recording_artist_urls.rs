@@ -17,8 +17,26 @@ fn credited_artist_pages_are_optional_canonical_https_urls() {
             .validate()
             .is_ok()
     );
-    let two = ["https://example.com/a", "https://example.com/b"];
+    let two = [
+        "https://open.spotify.com/artist/0000000000000000000001",
+        "https://open.spotify.com/artist/0000000000000000000002",
+    ];
     assert!(recording(&two).validate().is_ok());
+    for unsupported in [
+        "https://example.com/a",
+        "https://open.spotify.com/artist/short",
+        "https://open.spotify.com/artist/00000000000000000000011",
+        "https://open.spotify.com/artist/000000000000000000000-",
+        "https://open.spotify.com/artist/0000000000000000000001/",
+        "https://open.spotify.com/user/0000000000000000000001",
+        "https://open.spotify.com.evil.example/artist/0000000000000000000001",
+        "https://play.spotify.com/artist/0000000000000000000001",
+    ] {
+        assert!(
+            recording(&[unsupported]).validate().is_err(),
+            "{unsupported}"
+        );
+    }
     for invalid in [
         "http://example.com/a",
         "https://user:secret@example.com/a",
@@ -32,17 +50,14 @@ fn credited_artist_pages_are_optional_canonical_https_urls() {
     ] {
         assert!(recording(&[invalid]).validate().is_err(), "{invalid}");
     }
-    assert!(
-        recording(&["https://example.com/a", "https://example.com/a"])
-            .validate()
-            .is_err()
-    );
+    let page = "https://open.spotify.com/artist/0000000000000000000001";
+    assert!(recording(&[page, page]).validate().is_err());
     let many: Vec<String> = (0..9)
-        .map(|index| format!("https://example.com/{index}"))
+        .map(|index| format!("https://open.spotify.com/artist/{index:022}"))
         .collect();
     let many: Vec<&str> = many.iter().map(String::as_str).collect();
     assert!(recording(&many).validate().is_err());
-    let long = format!("https://example.com/{}", "a".repeat(512));
+    let long = format!("https://open.spotify.com/artist/{}", "a".repeat(512));
     assert!(recording(&[&long]).validate().is_err());
 }
 
