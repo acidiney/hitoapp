@@ -1,12 +1,12 @@
 mod config;
-mod logging;
 
 use hito_plugin_jamendo::router;
+use hito_plugin_sdk::server::init_logging;
 use std::{process::ExitCode, time::Instant};
 use tracing::Instrument;
 
 pub(super) async fn run() -> ExitCode {
-    if logging::initialize().is_err() {
+    if init_logging(&["hito_plugin_jamendo"]).is_err() {
         return ExitCode::FAILURE;
     }
     let started = Instant::now();

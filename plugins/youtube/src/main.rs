@@ -1,19 +1,10 @@
+use hito_plugin_sdk::server::init_logging;
 use hito_plugin_youtube::{Config, Service};
 use std::{net::SocketAddr, path::PathBuf, process::ExitCode, time::Instant};
-use tracing_subscriber::prelude::*;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::filter_fn(|metadata| {
-            metadata.target() == "hito_plugin_youtube"
-                || metadata.target().starts_with("hito_plugin_youtube::")
-        }))
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+    init_logging(&["hito_plugin_youtube"]).expect("logging is initialised once");
     match run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(reason) => {

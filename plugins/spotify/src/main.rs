@@ -1,19 +1,10 @@
+use hito_plugin_sdk::server::init_logging;
 use hito_plugin_spotify::{Config, router};
 use std::{net::SocketAddr, time::Instant};
-use tracing_subscriber::prelude::*;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::filter_fn(|metadata| {
-            metadata.target() == "hito_plugin_spotify"
-                || metadata.target().starts_with("hito_plugin_spotify::")
-        }))
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+    init_logging(&["hito_plugin_spotify"]).expect("logging is initialised once");
     if let Err(reason) = run().await {
         tracing::error!(
             event = "spotify_service_failed",

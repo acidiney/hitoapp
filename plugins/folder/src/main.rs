@@ -1,19 +1,10 @@
 use hito_plugin_folder::Folder;
+use hito_plugin_sdk::server::init_logging;
 use std::{net::SocketAddr, path::PathBuf};
-use tracing_subscriber::prelude::*;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::filter_fn(|metadata| {
-            metadata.target() == "hito_plugin_folder"
-                || metadata.target().starts_with("hito_plugin_folder::")
-        }))
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+    init_logging(&["hito_plugin_folder"]).expect("logging is initialised once");
     if run().await.is_err() {
         tracing::error!(
             event = "folder_service_failed",

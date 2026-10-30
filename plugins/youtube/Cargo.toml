@@ -8,7 +8,7 @@ license.workspace = true
 [dependencies]
 axum.workspace = true
 futures-util.workspace = true
-hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk", features = ["server"] }
 http-body-util.workspace = true
 hyper = { workspace = true, features = ["client"] }
 hyper-util.workspace = true

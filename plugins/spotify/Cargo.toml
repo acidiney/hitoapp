@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk", features = ["server"] }
 image.workspace = true
 png = "0.18.1"
 zune-core = { version = "=0.5.3", features = ["std"] }
