@@ -14,6 +14,7 @@ mod collection_atomicity;
 mod collection_event_bytes;
 mod collection_event_upgrade;
 mod collection_saved_position;
+mod cover_art;
 mod device_scope;
 mod home_summary;
 mod pin_lock_authority;

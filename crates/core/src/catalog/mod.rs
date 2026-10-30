@@ -40,9 +40,10 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artists::{Artist, ArtistDetail};
+pub(crate) use artwork::enqueue_cover_art;
 pub use artwork::{
-    Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
-    ReleaseArtworkFetch,
+    Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, CoverArtKind, CoverArtLookup,
+    PlaylistArtworkFetch, ReleaseArtworkFetch,
 };
 pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_source_access,
@@ -65,4 +66,5 @@ pub struct Catalog {
     pub(crate) provider_artwork_slots: Arc<Semaphore>,
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) local_files: local_files::LocalFiles,
+    pub(crate) cover_art: hito_metadata_musicbrainz::CoverArtClient,
 }

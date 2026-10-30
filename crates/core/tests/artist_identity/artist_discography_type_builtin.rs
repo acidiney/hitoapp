@@ -100,6 +100,18 @@ async fn the_built_in_provider_pages_one_release_type_with_a_bounded_browse() {
             ]
     );
 
+    assert_eq!(
+        library.rows("cover_art_lookups").await,
+        3,
+        "Each card of the built-in discography queues one cover lookup"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT group_concat(DISTINCT kind) FROM cover_art_lookups")
+            .await,
+        "release_group"
+    );
+
     let requests = library.musicbrainz.requests();
     assert_eq!(requests.len(), before + 2, "one bounded browse per read");
     assert!(requests[before].contains("type=album") && requests[before].contains("limit=50"));

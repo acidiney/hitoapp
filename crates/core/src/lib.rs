@@ -53,13 +53,13 @@ pub use artist_catalog::{
 pub use catalog::{
     AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
-    Browse, Catalog, ChooseSource, LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource,
-    ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadRecordingLyrics, Recording,
-    RecordingLyricsProvider, RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail,
-    ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
-    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
-    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
-    SourceResolutionOutcome,
+    Browse, Catalog, ChooseSource, CoverArtKind, CoverArtLookup, LyricsLookup, Page,
+    PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
+    ReadRecordingLyrics, Recording, RecordingLyricsProvider, RecordingLyricsProviders, Release,
+    ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search,
+    Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
+    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
+    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -179,6 +179,20 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
         local_files: local_files.clone(),
+        cover_art: {
+            #[cfg(any(test, feature = "test-support"))]
+            let client = match config.cover_art_loopback_endpoint.clone() {
+                Some(endpoint) => {
+                    hito_metadata_musicbrainz::CoverArtClient::with_loopback_endpoint(endpoint)
+                }
+                None => hito_metadata_musicbrainz::CoverArtClient::new(),
+            };
+            #[cfg(not(any(test, feature = "test-support")))]
+            let client = hito_metadata_musicbrainz::CoverArtClient::new();
+            client.map_err(|_| {
+                Error::Internal("The cover art client could not be initialized".into())
+            })?
+        },
     };
     let artist_catalog = ArtistCatalog::new(
         catalog.clone(),

@@ -12,6 +12,14 @@ pub async fn library_with_musicbrainz(
     host: &str,
     musicbrainz: Option<url::Url>,
 ) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
+    library_with_services(host, musicbrainz, None).await
+}
+
+pub async fn library_with_services(
+    host: &str,
+    musicbrainz: Option<url::Url>,
+    cover_art: Option<url::Url>,
+) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");
     std::fs::create_dir(&music).unwrap();
@@ -21,6 +29,7 @@ pub async fn library_with_musicbrainz(
         HostDeviceId::new(host).unwrap(),
     );
     config.musicbrainz_loopback_endpoint = musicbrainz;
+    config.cover_art_loopback_endpoint = cover_art;
     let hito = open(config).await.unwrap();
     let session = hito
         .identity

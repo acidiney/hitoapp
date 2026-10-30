@@ -154,6 +154,17 @@ pub(super) fn stored((content_type, bytes): (String, Vec<u8>)) -> Result<Artwork
     })
 }
 
+pub(super) async fn store(
+    connection: &mut SqliteConnection,
+    account: &str,
+    image: ValidatedArtwork,
+) -> Result<String> {
+    sqlx::query("INSERT INTO artwork_assets(user_id,content_hash,content_type,width,height,bytes) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,content_hash) DO NOTHING")
+        .bind(account).bind(&image.content_hash).bind(image.content_type).bind(i64::from(image.width))
+        .bind(i64::from(image.height)).bind(&image.bytes).execute(&mut *connection).await?;
+    Ok(image.content_hash)
+}
+
 pub(super) async fn publish(
     connection: &mut SqliteConnection,
     account: &str,
@@ -161,9 +172,7 @@ pub(super) async fn publish(
     fetch: &str,
     image: ValidatedArtwork,
 ) -> Result<()> {
-    sqlx::query("INSERT INTO artwork_assets(user_id,content_hash,content_type,width,height,bytes) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,content_hash) DO NOTHING")
-        .bind(account).bind(&image.content_hash).bind(image.content_type).bind(i64::from(image.width))
-        .bind(i64::from(image.height)).bind(image.bytes).execute(&mut *connection).await?;
+    let hash = store(&mut *connection, account, image).await?;
     let retained = match target {
         Target::Recording { id, observation_id, .. } => sqlx::query(
             "INSERT INTO recording_artwork(user_id,recording_id,observation_id,fetch_id,content_hash) VALUES (?,?,?,?,?) ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id = excluded.observation_id,fetch_id = excluded.fetch_id,content_hash = excluded.content_hash",
@@ -177,7 +186,7 @@ pub(super) async fn publish(
     };
     retained
         .bind(fetch)
-        .bind(&image.content_hash)
+        .bind(&hash)
         .execute(&mut *connection)
         .await?;
     prune(connection, Some(account)).await?;
@@ -198,6 +207,8 @@ pub(super) async fn prune(connection: &mut SqliteConnection, account: Option<&st
         AND NOT EXISTS(SELECT 1 FROM release_artwork INDEXED BY release_artwork_asset
             WHERE user_id = artwork_assets.user_id AND content_hash = artwork_assets.content_hash)
         AND NOT EXISTS(SELECT 1 FROM playlist_artwork INDEXED BY playlist_artwork_asset
+            WHERE user_id = artwork_assets.user_id AND content_hash = artwork_assets.content_hash)
+        AND NOT EXISTS(SELECT 1 FROM cover_art_lookups
             WHERE user_id = artwork_assets.user_id AND content_hash = artwork_assets.content_hash)",
     );
     query.build().execute(connection).await?;

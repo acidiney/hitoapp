@@ -3,7 +3,7 @@ use super::{
     authority::{ReviewedRead, ReviewedReadState},
     continuation,
 };
-use crate::{Actor, ArtistCatalog, Error, Result};
+use crate::{Actor, ArtistCatalog, Error, MetadataProvider, Result};
 use hito_plugin_sdk::{ArtistDiscographyRequest, MAX_CATALOG_PAGE_ITEMS};
 use std::{future::Future, time::Instant};
 use uuid::Uuid;
@@ -112,6 +112,9 @@ impl ArtistCatalog {
         };
         page.validate_for(&provider_request)
             .map_err(|_| Error::Upstream("The provider returned an invalid artist discography"))?;
+        if read.association.provider == MetadataProvider::BuiltinMusicBrainz {
+            self.queue_covers(actor, &page.items).await;
+        }
         let continuation = page
             .next_cursor
             .as_ref()
@@ -133,5 +136,31 @@ impl ArtistCatalog {
             page,
             continuation,
         })
+    }
+
+    /// Queues the cover lookup of each card when the account allows automatic artwork. A failure
+    /// only means the cards show no cover yet.
+    async fn queue_covers(&self, actor: &Actor, groups: &[hito_plugin_sdk::CatalogReleaseGroup]) {
+        let queued = async {
+            let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            for group in groups {
+                crate::catalog::enqueue_cover_art(
+                    &mut tx,
+                    actor.id(),
+                    crate::CoverArtKind::ReleaseGroup,
+                    &group.id,
+                )
+                .await?;
+            }
+            tx.commit().await?;
+            Ok::<_, crate::Error>(())
+        }
+        .await;
+        if let Err(error) = queued {
+            tracing::debug!(
+                error_code = error.code(),
+                "Discography covers were not queued"
+            );
+        }
     }
 }

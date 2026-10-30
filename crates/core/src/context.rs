@@ -54,6 +54,9 @@ pub struct CoreConfig {
     /// Redirects built-in MusicBrainz requests to an owned loopback fake. Exists only in tests.
     #[cfg(any(test, feature = "test-support"))]
     pub musicbrainz_loopback_endpoint: Option<url::Url>,
+    /// Redirects Cover Art Archive requests to an owned loopback fake. Exists only in tests.
+    #[cfg(any(test, feature = "test-support"))]
+    pub cover_art_loopback_endpoint: Option<url::Url>,
 }
 
 impl CoreConfig {
@@ -93,6 +96,8 @@ impl CoreConfig {
             folder_watching: Default::default(),
             #[cfg(any(test, feature = "test-support"))]
             musicbrainz_loopback_endpoint: None,
+            #[cfg(any(test, feature = "test-support"))]
+            cover_art_loopback_endpoint: None,
         }
     }
 }

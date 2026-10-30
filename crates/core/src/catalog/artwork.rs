@@ -4,6 +4,7 @@ use sqlx::QueryBuilder;
 mod assets;
 mod availability;
 mod budget;
+mod cover_art;
 mod jobs;
 mod lease;
 mod playlist;
@@ -15,6 +16,8 @@ mod target;
 mod work;
 mod worker;
 pub use availability::ArtworkAvailability;
+pub(crate) use cover_art::enqueue as enqueue_cover_art;
+pub use cover_art::{CoverArtKind, CoverArtLookup};
 pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
 pub use playlist::PlaylistArtworkFetch;
 pub use release::ReleaseArtworkFetch;
@@ -76,7 +79,10 @@ impl Catalog {
         if local.is_some() {
             return Ok(local);
         }
-        self.retained_release_artwork(actor, release).await
+        if let Some(retained) = self.retained_release_artwork(actor, release).await? {
+            return Ok(Some(retained));
+        }
+        self.library_cover_art(actor, release).await
     }
 
     async fn read_source_artwork(
