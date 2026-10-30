@@ -211,6 +211,7 @@ flowchart TB
   subgraph Services[hito_core::Services]
     Identity
     Catalog
+    ArtistCatalog
     PlaybackAccess
     Collection
     Community
