@@ -491,3 +491,37 @@ async fn refusing_replies_mark_the_request_and_count_as_unexpected() {
     assert_eq!(handled, [Handled::Yes, Handled::Refused, Handled::No]);
     assert_eq!(plugin.unexpected(), 2);
 }
+
+#[tokio::test]
+async fn hold_next_parks_only_the_next_accepted_request() {
+    let plugin = FakePlugin::builder(manifest())
+        .post("v1/search", |request| {
+            if request.json()["ok"] == true {
+                Reply::Json(json!({}))
+            } else {
+                Reply::Refuse
+            }
+        })
+        .start()
+        .await;
+    let url = format!("{}v1/search", plugin.url);
+    let gate = plugin.hold_next("v1/search");
+    let send = |ok: bool| {
+        let request = client().post(&url).json(&json!({"ok": ok}));
+        async move { request.send().await.unwrap().status() }
+    };
+    assert_eq!(send(false).await, StatusCode::BAD_REQUEST);
+    let parked = tokio::spawn(send(true));
+    gate.entered().await;
+    assert_eq!(send(true).await, StatusCode::OK);
+    assert!(!gate.has_retired());
+    gate.release();
+    assert_eq!(parked.await.unwrap(), StatusCode::OK);
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while !gate.has_retired() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the released request must retire");
+}

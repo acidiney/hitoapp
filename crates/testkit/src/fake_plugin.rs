@@ -43,6 +43,7 @@ pub enum Fault {
     Malformed,
     DropConnection,
     Hold(Arc<Gate>),
+    HoldNext(Arc<Gate>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +88,18 @@ pub struct Gate {
 }
 
 impl Gate {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            entered: Semaphore::new(0),
+            release: Semaphore::new(0),
+            retired: Semaphore::new(0),
+        })
+    }
+
+    pub fn has_retired(&self) -> bool {
+        self.retired.available_permits() != 0
+    }
+
     pub async fn entered(&self) {
         self.entered.acquire().await.unwrap().forget();
     }
@@ -232,12 +245,14 @@ impl FakePlugin {
     }
 
     pub fn hold(&self, operation: &str) -> Arc<Gate> {
-        let gate = Arc::new(Gate {
-            entered: Semaphore::new(0),
-            release: Semaphore::new(0),
-            retired: Semaphore::new(0),
-        });
+        let gate = Gate::new();
         self.fault(operation, Fault::Hold(gate.clone()));
+        gate
+    }
+
+    pub fn hold_next(&self, operation: &str) -> Arc<Gate> {
+        let gate = Gate::new();
+        self.fault(operation, Fault::HoldNext(gate.clone()));
         gate
     }
 
@@ -415,18 +430,35 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
                 .into_response();
         }
         Some(Fault::DropConnection) => return dropped_connection(),
-        Some(Fault::Delay(_) | Fault::Hold(_)) | None => {}
+        Some(Fault::Delay(_) | Fault::Hold(_) | Fault::HoldNext(_)) | None => {}
     }
     let reply = handler(&recorded);
     if matches!(reply, Reply::Refuse) {
         shared.log.lock().unwrap()[index].handled = Handled::Refused;
+        return into_response(reply);
     }
     match fault {
         Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
         Some(Fault::Hold(gate)) => gate.wait().await,
+        Some(Fault::HoldNext(gate)) => {
+            if claim_next(&shared, &operation, &gate) {
+                gate.wait().await;
+            }
+        }
         _ => {}
     }
     into_response(reply)
+}
+
+fn claim_next(shared: &Shared, operation: &str, gate: &Arc<Gate>) -> bool {
+    let mut faults = shared.faults.lock().unwrap();
+    match faults.get(operation) {
+        Some(Fault::HoldNext(held)) if Arc::ptr_eq(held, gate) => {
+            faults.remove(operation);
+            true
+        }
+        _ => false,
+    }
 }
 
 fn refuses(shared: &Shared, prior: usize, request: &RecordedRequest) -> bool {
