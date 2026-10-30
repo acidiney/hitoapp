@@ -168,6 +168,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
             cursor: None,
             snapshot: None,
             limit: 1,
+        release_type: None,
         })
         .unwrap();
     assert!(first_page == provider::expected_page(false));
@@ -213,6 +214,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
             cursor: Some(provider::PROVIDER_CURSOR.into()),
             snapshot: None,
             limit: 1,
+        release_type: None,
         })
         .unwrap();
     assert!(last_page == provider::expected_page(true) && last_continuation.is_none());

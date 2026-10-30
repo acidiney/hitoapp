@@ -3,7 +3,8 @@
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, CatalogArtistKind,
     CatalogArtistProfile, CatalogArtistRef, CatalogCapabilities, CatalogCreditMember,
-    CatalogOperation, CatalogReleaseGroup, CatalogReleaseGroupKind,
+    CatalogDiscographyCapabilities, CatalogDiscographyOperation, CatalogOperation,
+    CatalogReleaseGroup, CatalogReleaseGroupKind, CatalogReleaseTypeFilter,
 };
 use serde_json::{Value, json};
 use utoipa::OpenApi;
@@ -20,7 +21,10 @@ use utoipa::OpenApi;
     CatalogCreditMember,
     CatalogOperation,
     CatalogReleaseGroup,
-    CatalogReleaseGroupKind
+    CatalogReleaseGroupKind,
+    CatalogReleaseTypeFilter,
+    CatalogDiscographyCapabilities,
+    CatalogDiscographyOperation
 )))]
 struct CatalogContract;
 
@@ -126,4 +130,31 @@ fn generated_discography_schema_uses_catalog_groups_and_structured_credit_member
         json!("string")
     );
     assert!(schemas.get("ProviderRecording").is_none());
+}
+
+#[test]
+fn generated_release_type_filter_schema_is_optional_closed_and_independently_negotiated() {
+    let document = serde_json::to_value(CatalogContract::openapi())
+        .expect("the public catalog schema must serialize");
+    let schemas = &document["components"]["schemas"];
+    let request = &schemas["ArtistDiscographyRequest"];
+    assert!(
+        !request["required"]
+            .as_array()
+            .expect("the request requires fields")
+            .contains(&json!("release_type")),
+        "the filter must stay optional so earlier requests remain valid"
+    );
+    assert_eq!(
+        schemas["CatalogReleaseTypeFilter"]["enum"],
+        json!(["album", "ep", "single", "other"])
+    );
+    assert_eq!(
+        schemas["CatalogDiscographyOperation"]["enum"],
+        json!(["release_type_filter"])
+    );
+    assert_eq!(
+        schemas["CatalogDiscographyCapabilities"]["additionalProperties"],
+        json!(false)
+    );
 }

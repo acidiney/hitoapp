@@ -87,6 +87,7 @@ fn oversized_discography_validation_bounds_its_largest_allocation_request() {
         cursor: None,
         snapshot: None,
         limit: 50,
+        release_type: None,
     };
     request.validate().expect("the owned request must be valid");
     let member = CatalogCreditMember {

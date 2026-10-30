@@ -218,6 +218,7 @@ impl Connection {
                         cursor: request.cursor.clone(),
                         snapshot: request.snapshot.clone(),
                         limit: request.limit,
+        release_type: None,
                     })
                     .await
                     .map_err(|_| {

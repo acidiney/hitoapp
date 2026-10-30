@@ -7,6 +7,7 @@ pub fn request() -> ArtistDiscographyRequest {
         cursor: None,
         snapshot: None,
         limit: 5,
+        release_type: None,
     }
 }
 

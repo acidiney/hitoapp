@@ -157,6 +157,7 @@ async fn exercise(
             cursor: None,
             snapshot: None,
             limit: 1,
+        release_type: None,
         })
         .unwrap();
     assert!(imported.snapshot(app, account).await == before);
@@ -241,6 +242,7 @@ async fn exercise(
             cursor: Some(catalog::PROVIDER_CURSOR.into()),
             snapshot: None,
             limit: 1,
+        release_type: None,
         })
         .unwrap();
     assert!(

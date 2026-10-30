@@ -56,6 +56,7 @@ async fn browse_wire_cap_accepts_exact_mib_and_rejects_declared_or_streamed_over
                     cursor: None,
                     snapshot: None,
                     limit: 50,
+        release_type: None,
                 })
                 .with_subscriber(dispatch.clone())
                 .await,

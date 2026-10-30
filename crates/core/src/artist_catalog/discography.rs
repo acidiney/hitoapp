@@ -74,6 +74,7 @@ impl ArtistCatalog {
                 cursor: None,
                 snapshot: None,
                 limit: request.limit,
+        release_type: None,
             },
         };
         if provider_request.artist_id != read.association.provider_artist_id {
@@ -109,6 +110,7 @@ impl ArtistCatalog {
                         cursor: Some(cursor.clone()),
                         snapshot: page.snapshot.clone(),
                         limit: provider_request.limit,
+        release_type: None,
                     },
                 )
             })

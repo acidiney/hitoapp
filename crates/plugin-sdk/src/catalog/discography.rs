@@ -41,6 +41,36 @@ pub struct CatalogReleaseGroup {
     pub revision: Option<String>,
 }
 
+/// Restricts a discography read to one release type. `Other` covers every group that is not an
+/// album, EP or single, including broadcasts and groups without a known type.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogReleaseTypeFilter {
+    Album,
+    Ep,
+    Single,
+    Other,
+}
+
+impl CatalogReleaseTypeFilter {
+    pub fn admits(self, kind: Option<CatalogReleaseGroupKind>) -> bool {
+        match self {
+            Self::Album => kind == Some(CatalogReleaseGroupKind::Album),
+            Self::Ep => kind == Some(CatalogReleaseGroupKind::Ep),
+            Self::Single => kind == Some(CatalogReleaseGroupKind::Single),
+            Self::Other => !matches!(
+                kind,
+                Some(
+                    CatalogReleaseGroupKind::Album
+                        | CatalogReleaseGroupKind::Ep
+                        | CatalogReleaseGroupKind::Single
+                )
+            ),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -49,6 +79,10 @@ pub struct ArtistDiscographyRequest {
     pub cursor: Option<String>,
     pub snapshot: Option<String>,
     pub limit: u16,
+    /// Only sent to providers that declare `release_type_filter`; absent from the wire otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schema(required = false))]
+    pub release_type: Option<CatalogReleaseTypeFilter>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,6 +189,12 @@ impl ArtistDiscographyPage {
         let mut groups = HashSet::new();
         for group in &self.items {
             group.validate()?;
+            if request
+                .release_type
+                .is_some_and(|filter| !filter.admits(group.kind))
+            {
+                return Err("The catalog page held a release group of another type");
+            }
             if !groups.insert(&group.id) {
                 return Err("The catalog page repeated a release group identity");
             }

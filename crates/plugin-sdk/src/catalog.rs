@@ -1,4 +1,5 @@
 mod discography;
+mod discography_filter;
 mod discovery;
 mod edition;
 mod edition_listing;
@@ -6,8 +7,12 @@ mod similarity;
 
 pub use discography::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogCreditMember, CatalogReleaseGroup,
-    CatalogReleaseGroupKind, MAX_CATALOG_CREDIT_MEMBERS, MAX_CATALOG_CURSOR_BYTES,
-    MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PAGE_ITEMS,
+    CatalogReleaseGroupKind, CatalogReleaseTypeFilter, MAX_CATALOG_CREDIT_MEMBERS,
+    MAX_CATALOG_CURSOR_BYTES, MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PAGE_ITEMS,
+};
+pub use discography_filter::{
+    CATALOG_DISCOGRAPHY_CAPABILITIES_PATH, CATALOG_DISCOGRAPHY_VERSION,
+    CatalogDiscographyCapabilities, CatalogDiscographyOperation,
 };
 pub use discovery::{
     ARTIST_SEARCH_PATH, ArtistSearchCandidate, ArtistSearchPage, ArtistSearchRequest,

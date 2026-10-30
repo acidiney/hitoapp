@@ -106,6 +106,7 @@ async fn exercise(
         cursor: None,
         snapshot: None,
         limit: 2,
+        release_type: None,
     };
     let first = client
         .artist_discography(ArtistDiscographyRequest {
@@ -113,6 +114,7 @@ async fn exercise(
             cursor: None,
             snapshot: None,
             limit: request.limit,
+        release_type: None,
         })
         .await
         .map_err(provider_error)?;
@@ -127,6 +129,7 @@ async fn exercise(
             cursor: Some(cursor.clone()),
             snapshot: first.snapshot.clone(),
             limit: request.limit,
+        release_type: None,
         };
         let next = client
             .artist_discography(ArtistDiscographyRequest {
@@ -134,6 +137,7 @@ async fn exercise(
                 cursor: continuation.cursor.clone(),
                 snapshot: continuation.snapshot.clone(),
                 limit: continuation.limit,
+        release_type: None,
             })
             .await
             .map_err(provider_error)?;

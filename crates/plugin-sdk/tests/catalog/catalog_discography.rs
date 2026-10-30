@@ -90,6 +90,7 @@ fn discography_pages_preserve_group_identity_credits_and_the_requested_context()
         cursor: None,
         snapshot: None,
         limit: 5,
+        release_type: None,
     };
     assert!(
         page.validate_for(&another).is_err(),
@@ -101,6 +102,7 @@ fn discography_pages_preserve_group_identity_credits_and_the_requested_context()
         cursor: Some("cursor:owned/previous".into()),
         snapshot: None,
         limit: 5,
+        release_type: None,
     };
     page.validate_for(&continuation)
         .expect("a live continuation must retain its unknown snapshot");

@@ -16,6 +16,7 @@ fn request(cursor: Option<String>) -> ArtistDiscographyRequest {
         cursor,
         snapshot: None,
         limit: 50,
+        release_type: None,
     }
 }
 
