@@ -123,3 +123,51 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
     ));
     assert!(world.server.finish().await);
 }
+
+#[tokio::test]
+async fn an_erased_file_that_cannot_be_removed_does_not_block_the_others() {
+    let world = World::empty().await;
+    let downloads = world.directory.path().join("hito.downloads");
+    let blocked = (
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-0000000000a1",
+    );
+    let removable = (
+        "ffffffff-0000-4000-8000-000000000002",
+        "ffffffff-0000-4000-8000-0000000000a2",
+    );
+    let stuck = downloads.join(format!("{}.{}.media", blocked.0, blocked.1));
+    std::fs::create_dir_all(&stuck).unwrap();
+    std::fs::write(stuck.join("keeps-it-a-directory"), b"x").unwrap();
+    let loose = downloads.join(format!("{}.{}.media", removable.0, removable.1));
+    std::fs::write(&loose, b"audio").unwrap();
+    let mut connection = connect(world.directory.path()).await;
+    for (file, attempt) in [blocked, removable] {
+        sqlx::query("INSERT INTO erased_download_files(file_id,attempt_id,host_device) VALUES(?,?,'account-deletion')")
+            .bind(file)
+            .bind(attempt)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
+    world
+        .hito
+        .downloads
+        .run_next_job_until(pending())
+        .await
+        .unwrap();
+    assert!(
+        !loose.exists(),
+        "a removable file is removed despite an earlier failing entry"
+    );
+    assert!(stuck.exists());
+    let left: Vec<String> = sqlx::query_scalar("SELECT file_id FROM erased_download_files")
+        .fetch_all(&mut connection)
+        .await
+        .unwrap();
+    assert_eq!(
+        left,
+        vec![blocked.0.to_string()],
+        "a ledger row is kept until its file is removed"
+    );
+}

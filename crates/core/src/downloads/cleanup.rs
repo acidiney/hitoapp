@@ -5,35 +5,53 @@ use std::time::Instant;
 
 impl Downloads {
     pub(super) async fn reclaim_pending(&self) -> Result<bool> {
-        if self.reclaim_erased().await? {
-            return Ok(true);
-        }
-        self.reclaim(None).await
+        let erased = match self.reclaim_erased().await {
+            Ok(erased) => erased,
+            Err(error) => {
+                tracing::debug!(
+                    error_code = error.code(),
+                    "Erased download cleanup deferred"
+                );
+                false
+            }
+        };
+        Ok(self.reclaim(None).await? || erased)
     }
 
-    /// Removes one managed file whose account was deleted, then forgets it.
+    /// Removes the managed files of deleted accounts that belong to this host. An entry whose
+    /// file cannot be removed stays in the ledger and never holds back the others.
     async fn reclaim_erased(&self) -> Result<bool> {
-        let file: Option<(String, String)> = sqlx::query_as(
-            "SELECT file_id,attempt_id FROM erased_download_files WHERE host_device=? ORDER BY file_id LIMIT 1",
+        let entries: Vec<(String, String)> = sqlx::query_as(
+            "SELECT file_id,attempt_id FROM erased_download_files WHERE host_device=? ORDER BY file_id LIMIT 256",
         )
         .bind(self.host.as_str())
-        .fetch_optional(&self.store.pool)
+        .fetch_all(&self.store.pool)
         .await?;
-        let Some((file, attempt)) = file else {
-            return Ok(false);
-        };
-        self.files
-            .remove_owned(stored_uuid(&file)?, stored_uuid(&attempt)?)
-            .await?;
-        sqlx::query("DELETE FROM erased_download_files WHERE file_id=?")
-            .bind(&file)
-            .execute(&self.store.pool)
-            .await?;
-        tracing::debug!(
-            outcome = "reclaimed",
-            "Erased account download file removed"
-        );
-        Ok(true)
+        let (mut removed, mut retained) = (0_u64, 0_u64);
+        for (file, attempt) in entries {
+            let outcome = match (stored_uuid(&file), stored_uuid(&attempt)) {
+                (Ok(file), Ok(attempt)) => self.files.remove_owned(file, attempt).await,
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            };
+            if outcome.is_err() {
+                retained += 1;
+                continue;
+            }
+            sqlx::query("DELETE FROM erased_download_files WHERE file_id=?")
+                .bind(&file)
+                .execute(&self.store.pool)
+                .await?;
+            removed += 1;
+        }
+        if retained > 0 {
+            tracing::warn!(
+                event = "erased_download_files_retained",
+                retained,
+                removed,
+                "Erased account download files could not be removed and stay queued"
+            );
+        }
+        Ok(removed > 0)
     }
 
     pub(super) async fn reclaim_file(&self, file: &str) -> Result<bool> {
