@@ -1,5 +1,9 @@
 use super::{ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, PlaylistEntry};
-use crate::{Actor, Error, HostDeviceId, Result, catalog::push_available, metadata};
+use crate::{
+    Actor, Error, HostDeviceId, Result,
+    catalog::{push_available, push_plays_from_services},
+    metadata,
+};
 use sqlx::{QueryBuilder, Row, SqliteConnection, sqlite::SqliteRow};
 
 pub(super) enum EntryAccess {
@@ -35,8 +39,10 @@ pub(super) async fn read(
                 (m.user_id IS NOT NULL AND ",
     );
     push_available(&mut query, host, actor.id());
+    query.push(") AS available, (m.user_id IS NOT NULL AND ");
+    push_plays_from_services(&mut query, actor.id());
     query.push(
-        ") AS available FROM playlist_entries e
+        ") AS plays_from_services FROM playlist_entries e
          LEFT JOIN playlist_import_entries imported ON imported.playlist_id = e.playlist_id AND imported.entry_id = e.id
          LEFT JOIN playlist_follow_entries followed ON followed.playlist_id = e.playlist_id AND followed.entry_id = e.id
          LEFT JOIN recordings r ON r.id = e.recording_id
@@ -99,6 +105,7 @@ fn entry(row: SqliteRow) -> Result<PlaylistEntry> {
         artist: row.try_get("artist")?,
         duration_ms: row.try_get("duration_ms")?,
         available: row.try_get("available")?,
+        plays_from_services: row.try_get("plays_from_services")?,
         origin,
     })
 }

@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod plays_from_services;
 mod provider_adoption;
 mod provider_adoption_fences;
 mod provider_binding_authority;

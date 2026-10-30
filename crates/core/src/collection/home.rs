@@ -1,5 +1,9 @@
 use super::{Collection, Home, HomeAlbum, UnheardOnAlbum};
-use crate::{Actor, HostDeviceId, Recording, Result, catalog::push_available, metadata};
+use crate::{
+    Actor, HostDeviceId, Recording, Result,
+    catalog::{push_available, push_plays_from_services},
+    metadata,
+};
 use sqlx::QueryBuilder;
 use std::time::Instant;
 
@@ -119,8 +123,10 @@ impl Collection {
             .push(metadata::RECORDING_ARTIST)
             .push(" AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ");
         push_available(&mut query, &self.host, actor.id());
+        query.push(" AS available, ");
+        push_plays_from_services(&mut query, actor.id());
         query
-            .push(" AS available, COALESCE(l.liked, 0) AS liked FROM recordings r LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ")
+            .push(" AS plays_from_services, COALESCE(l.liked, 0) AS liked FROM recordings r LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ")
             .push_bind(actor.id().to_owned())
             .push(" LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ")
             .push_bind(actor.id().to_owned());

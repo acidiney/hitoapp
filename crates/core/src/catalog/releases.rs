@@ -1,5 +1,5 @@
 use super::{
-    Browse, Catalog, Page, Recording, SourceAccess, push_source_access,
+    Browse, Catalog, Page, Recording, SourceAccess, push_plays_from_services, push_source_access,
     release_availability::WantedRecording,
 };
 use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
@@ -188,10 +188,11 @@ impl Catalog {
             .push(" AS artist, m.artist AS inherited_artist, a.title AS album, m.duration_ms, ");
         query.push("EXISTS (SELECT 1 FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id = r.id AND ");
         push_source_access(&mut query, &self.host, actor.id(), SourceAccess::Playable);
-        query.push(")");
+        query.push(") AS available, ");
+        push_plays_from_services(&mut query, actor.id());
         query
             .push(
-                " AS available, COALESCE(l.liked, 0) AS liked, m.entry_id, m.disc_number, m.track_number FROM entries m
+                " AS plays_from_services, COALESCE(l.liked, 0) AS liked, m.entry_id, m.disc_number, m.track_number FROM entries m
             JOIN selected a ON a.id = m.release_id JOIN recordings r ON r.id = m.recording_id
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
             )

@@ -80,6 +80,20 @@ pub(super) fn push_managed_access(
         );
 }
 
+/// True when a connected, enabled service of the account holds a binding that can resolve
+/// sources for the recording. Reads only stored bindings and connection state.
+pub(crate) fn push_plays_from_services(query: &mut QueryBuilder<'_, Sqlite>, account: &str) {
+    query
+        .push(
+            "EXISTS (SELECT 1 FROM provider_items item
+            JOIN plugin_installations p ON p.id = item.installation_id AND p.active = 1
+            JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
+            WHERE item.recording_id = r.id AND item.retired = 0 AND p.user_id = ",
+        )
+        .push_bind(account.to_owned())
+        .push(" AND EXISTS (SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources'))");
+}
+
 pub(crate) fn push_available(
     query: &mut QueryBuilder<'_, Sqlite>,
     host: &HostDeviceId,

@@ -13,6 +13,8 @@ pub struct Recording {
     pub album: Option<String>,
     pub duration_ms: i64,
     pub available: bool,
+    /// A connected, enabled service of this account can resolve sources for the recording.
+    pub plays_from_services: bool,
     pub liked: bool,
 }
 

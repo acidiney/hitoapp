@@ -1,4 +1,4 @@
-use super::{Catalog, Recording, push_available};
+use super::{Catalog, Recording, push_available, push_plays_from_services};
 use crate::{Actor, Error, Result, metadata};
 use sqlx::QueryBuilder;
 use uuid::Uuid;
@@ -58,7 +58,9 @@ pub(crate) async fn recordings_on(
         .push(metadata::RECORDING_ARTIST)
         .push(" AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ");
     push_available(&mut query, host, actor.id());
-    query.push(" AS available, COALESCE(l.liked, 0) AS liked FROM json_each(")
+    query.push(" AS available, ");
+    push_plays_from_services(&mut query, actor.id());
+    query.push(" AS plays_from_services, COALESCE(l.liked, 0) AS liked FROM json_each(")
             .push_bind(requested)
             .push(") requested CROSS JOIN recordings r ON r.id = requested.value
                 JOIN library_members member ON member.library_id = r.library_id AND member.user_id = ")

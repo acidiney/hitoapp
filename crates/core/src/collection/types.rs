@@ -214,6 +214,7 @@ pub struct PlaylistEntry {
     pub artist: String,
     pub duration_ms: i64,
     pub available: bool,
+    pub plays_from_services: bool,
     pub origin: Option<ImportedPlaylistEntryOrigin>,
 }
 
@@ -234,6 +235,7 @@ pub struct HistoryEntry {
     pub speed: f64,
     pub updated_at: i64,
     pub available: bool,
+    pub plays_from_services: bool,
     pub liked: bool,
 }
 

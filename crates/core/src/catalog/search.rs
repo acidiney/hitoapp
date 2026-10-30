@@ -1,4 +1,4 @@
-use super::{Catalog, Page, Recording, Search, push_available};
+use super::{Catalog, Page, Recording, Search, push_available, push_plays_from_services};
 use crate::{Actor, Error, Library, Result};
 use sqlx::{QueryBuilder, Sqlite};
 
@@ -55,7 +55,9 @@ impl Catalog {
                     " AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ",
                 );
             push_available(&mut query, &self.host, actor.id());
-            query.push(" AS available, COALESCE(l.liked, 0) AS liked");
+            query.push(" AS available, ");
+            push_plays_from_services(&mut query, actor.id());
+            query.push(" AS plays_from_services, COALESCE(l.liked, 0) AS liked");
             filters(&mut query, actor, &search, &terms, personal, true);
         }
         query

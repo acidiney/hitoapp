@@ -44,7 +44,9 @@ pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
     ReleaseArtworkFetch,
 };
-pub(crate) use availability::{SourceAccess, push_available, push_source_access};
+pub(crate) use availability::{
+    SourceAccess, push_available, push_plays_from_services, push_source_access,
+};
 pub use browse::Browse;
 pub use releases::{
     AlbumArtistInference, AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack,

@@ -1,5 +1,9 @@
 use super::{Activity, Collection};
-use crate::{Actor, Result, catalog::push_available, metadata};
+use crate::{
+    Actor, Result,
+    catalog::{push_available, push_plays_from_services},
+    metadata,
+};
 use sqlx::QueryBuilder;
 
 impl Collection {
@@ -11,8 +15,10 @@ impl Collection {
             .push(" AS title, r.title AS inherited_title, ").push(metadata::RECORDING_ARTIST)
             .push(" AS artist, r.artist AS inherited_artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
         push_available(&mut query, &self.host, actor.id());
+        query.push(" AS available, ");
+        push_plays_from_services(&mut query, actor.id());
         query.push(
-            " AS available, COALESCE(l.liked, 0) AS liked
+            " AS plays_from_services, COALESCE(l.liked, 0) AS liked
               FROM listening_progress p
               JOIN recordings r ON p.recording_id = r.id
               JOIN library_members m ON m.library_id = r.library_id AND m.user_id = p.user_id
