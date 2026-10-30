@@ -1,4 +1,7 @@
-use super::{Browse, Catalog, Page, Recording, SourceAccess, push_source_access};
+use super::{
+    Browse, Catalog, Page, Recording, SourceAccess, push_source_access,
+    release_availability::WantedRecording,
+};
 use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
@@ -239,13 +242,17 @@ pub(crate) async fn releases_by_ids_on(
     Ok(releases)
 }
 
-/// The `entries` view of the account's own albums among `wanted`, a JSON array of
-/// `[release, recording]` pairs, after the `wanted` CTE that lists those pairs.
-pub(super) fn selected_among(actor: &Actor, wanted: &str) -> Result<QueryBuilder<'static, Sqlite>> {
+/// The `entries` view of the account's own albums among the wanted recordings.
+pub(super) fn selected_among(
+    actor: &Actor,
+    wanted: &[WantedRecording<'_>],
+) -> Result<QueryBuilder<'static, Sqlite>> {
+    let wanted = serde_json::to_string(wanted)
+        .map_err(|_| Error::Internal("Library albums could not be encoded".into()))?;
     let mut query = QueryBuilder::new(
-        "WITH wanted AS (SELECT json_extract(value, '$[0]') AS release_id, json_extract(value, '$[1]') AS recording_id FROM json_each(",
+        "WITH wanted AS (SELECT json_extract(value, '$.release_id') AS release_id, json_extract(value, '$.recording_id') AS recording_id FROM json_each(",
     );
-    query.push_bind(wanted.to_owned());
+    query.push_bind(wanted);
     query.push(")), selected AS (SELECT a.* FROM account_releases a");
     Browse::default().filter(
         &mut query,

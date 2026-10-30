@@ -1,5 +1,5 @@
 use super::{album_editions::readable_association, authority::provider_columns, policy};
-use crate::{Actor, ArtistCatalog, Error, Result};
+use crate::{Actor, ArtistCatalog, Error, Result, catalog::release_availability::WantedRecording};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -109,13 +109,13 @@ impl ArtistCatalog {
                 usable.push(choice);
             }
         }
-        let wanted = serde_json::to_string(
-            &usable
-                .iter()
-                .map(|choice| [&choice.1, &choice.3])
-                .collect::<Vec<_>>(),
-        )
-        .map_err(|_| Error::Internal("Library albums could not be encoded".into()))?;
+        let wanted: Vec<WantedRecording<'_>> = usable
+            .iter()
+            .map(|choice| WantedRecording {
+                release_id: &choice.1,
+                recording_id: &choice.3,
+            })
+            .collect();
         let counts: HashMap<String, (i64, i64)> = if usable.is_empty() {
             HashMap::new()
         } else {
