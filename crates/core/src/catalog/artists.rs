@@ -1,8 +1,7 @@
 use super::{Browse, Catalog, Page, Recording, Release, Search};
-use crate::artist_catalog::identity::{chosen_recordings_cte, push_unrepresented_credit};
+use crate::artist_catalog::identity::{ChosenRecordings, CreditAlias};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
-use sqlx::{QueryBuilder, Sqlite};
 use utoipa::ToSchema;
 
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
@@ -37,15 +36,17 @@ const SUMMARY: &str = "), associations AS (
     (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id
     FROM counts c ORDER BY c.name COLLATE NOCASE, c.id";
 
+const ACCOUNT_ARTIST: CreditAlias = CreditAlias::new("c");
+
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn artists(&self, actor: &Actor, browse: Browse) -> Result<Page<Artist>> {
         let (offset, limit) = browse.bounds();
-        let mut count = chosen_recordings_cte(actor);
+        let mut count = ChosenRecordings::new(actor);
         count.push(" SELECT count(*) FROM account_artists c");
         browse.filter(&mut count, actor, "c", "account_artists_fts", "name")?;
         count.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
-        push_unrepresented_credit(&mut count, "c");
+        count.exclude_represented(ACCOUNT_ARTIST);
         let total = count
             .build_query_scalar()
             .fetch_one(&self.store.pool)
@@ -104,19 +105,15 @@ impl Catalog {
     }
 }
 
-fn selected(
-    actor: &Actor,
-    browse: &Browse,
-    id: Option<&str>,
-) -> Result<QueryBuilder<'static, Sqlite>> {
-    let mut query = chosen_recordings_cte(actor);
+fn selected(actor: &Actor, browse: &Browse, id: Option<&str>) -> Result<ChosenRecordings> {
+    let mut query = ChosenRecordings::new(actor);
     query.push(", selected AS (SELECT c.* FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;
     query.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
     if let Some(id) = id {
         query.push(" AND c.id = ").push_bind(id.to_owned());
     } else {
-        push_unrepresented_credit(&mut query, "c");
+        query.exclude_represented(ACCOUNT_ARTIST);
         let (offset, limit) = browse.bounds();
         query
             .push(" ORDER BY c.name COLLATE NOCASE, c.id LIMIT ")

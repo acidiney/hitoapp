@@ -251,23 +251,35 @@ pub(in crate::artist_catalog) fn current_choices() -> String {
     )
 }
 
-/// Starts a query with the actor's current chosen recordings as one materialized set.
-pub(crate) fn chosen_recordings_cte(actor: &Actor) -> QueryBuilder<'static, Sqlite> {
-    let mut query = QueryBuilder::new(format!(
-        "WITH chosen AS MATERIALIZED (SELECT choice.recording_id,choice.artist_id {}",
-        current_choices()
-    ));
-    query.push_bind(actor.id().to_owned()).push(")");
-    query
+/// A library-credit table alias, always a literal chosen by the caller.
+#[derive(Clone, Copy)]
+pub(crate) struct CreditAlias(&'static str);
+
+impl CreditAlias {
+    pub(crate) const fn new(alias: &'static str) -> Self {
+        Self(alias)
+    }
 }
 
-/// Restricts a library-credit query that starts from `chosen_recordings_cte` to credits that no
-/// reviewed identity fully represents. A credit is represented when it has a chosen recording,
-/// every recording it holds is chosen, and every release it holds contains a chosen recording of
-/// that same credit.
-pub(crate) fn push_unrepresented_credit(query: &mut QueryBuilder<'static, Sqlite>, credit: &str) {
-    query.push(format!(
-        " AND NOT (EXISTS (SELECT 1 FROM chosen WHERE chosen.artist_id={credit}.id)
+/// A query that starts with the actor's current chosen recordings as one materialized set.
+pub(crate) struct ChosenRecordings(QueryBuilder<'static, Sqlite>);
+
+impl ChosenRecordings {
+    pub(crate) fn new(actor: &Actor) -> Self {
+        let mut query = QueryBuilder::new(format!(
+            "WITH chosen AS MATERIALIZED (SELECT choice.recording_id,choice.artist_id {}",
+            current_choices()
+        ));
+        query.push_bind(actor.id().to_owned()).push(")");
+        Self(query)
+    }
+
+    /// Keeps only library credits that no reviewed identity fully represents: a credit is
+    /// represented when every recording and every release it holds has a chosen recording.
+    pub(crate) fn exclude_represented(&mut self, credit: CreditAlias) {
+        let credit = credit.0;
+        self.0.push(format!(
+            " AND NOT (EXISTS (SELECT 1 FROM chosen WHERE chosen.artist_id={credit}.id)
             AND NOT EXISTS (SELECT 1 FROM account_recording_credits rc
                 WHERE rc.user_id={credit}.user_id AND rc.artist_id={credit}.id
                 AND NOT EXISTS (SELECT 1 FROM chosen WHERE chosen.recording_id=rc.recording_id))
@@ -278,7 +290,22 @@ pub(crate) fn push_unrepresented_credit(query: &mut QueryBuilder<'static, Sqlite
                             WHERE source.recording_id=k.recording_id AND m.release_id=ar.release_id)
                         OR EXISTS (SELECT 1 FROM provider_release_appearances p
                             WHERE p.recording_id=k.recording_id AND p.release_id=ar.release_id)))))"
-    ));
+        ));
+    }
+}
+
+impl std::ops::Deref for ChosenRecordings {
+    type Target = QueryBuilder<'static, Sqlite>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ChosenRecordings {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 pub(in crate::artist_catalog) fn visible(
