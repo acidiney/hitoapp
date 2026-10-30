@@ -34,10 +34,11 @@ export default function ArtistCreditIdentity({
         suggested.suggestions && (
           <ArtistMatchSuggestionList
             items={suggested.suggestions.items}
-            dismissed={suggested.suggestions.dismissed}
+            dismissed={suggested.suggestions.dismissed_items}
             busy={suggested.busy}
             onChoose={identity.choose}
             onDismiss={(group) => void suggested.dismiss(group)}
+            onRestore={(group) => void suggested.restore(group)}
           />
         )}
       {identity.step === "closed" && (

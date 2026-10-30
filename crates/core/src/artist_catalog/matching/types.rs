@@ -56,12 +56,20 @@ pub struct ArtistMatchSuggestion {
 pub struct ArtistMatchSuggestions {
     pub artist_id: String,
     pub items: Vec<ArtistMatchSuggestion>,
-    /// Suggestions the account dismissed for this credit; they are not listed.
+    /// Suggestions the account dismissed for this credit; they are not in `items`.
     pub dismissed: i64,
+    /// The dismissed suggestions that could still apply to undecided tracks, so each can be restored.
+    pub dismissed_items: Vec<ArtistMatchSuggestion>,
 }
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DismissArtistMatchSuggestion {
+    pub group_id: String,
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RestoreArtistMatchSuggestion {
     pub group_id: String,
 }

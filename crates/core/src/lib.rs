@@ -42,12 +42,12 @@ pub use artist_catalog::{
     MetadataSettings, PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList,
     ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions,
     ReadSimilarArtists, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
-    ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, SavedAlbumEdition,
-    SharedArtistCorrection, SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt,
-    SharedArtistCorrections, SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView,
-    SimilarArtistsAvailability, SplitArtistIdentityGroup, SplitDestination,
-    UndoArtistIdentityChange, UndoRecordingArtistChange, UndoSharedArtistCorrection,
-    UnlinkRecordingArtist, UpdateMetadataSettings,
+    ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, RestoreArtistMatchSuggestion,
+    SavedAlbumEdition, SharedArtistCorrection, SharedArtistCorrectionQuery,
+    SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
+    SharedCorrectionRef, SimilarArtistView, SimilarArtistsAvailability, SplitArtistIdentityGroup,
+    SplitDestination, UndoArtistIdentityChange, UndoRecordingArtistChange,
+    UndoSharedArtistCorrection, UnlinkRecordingArtist, UpdateMetadataSettings,
 };
 pub use catalog::{
     AdoptProviderRecording, AlbumCatalogAnchor, Artist, ArtistDetail, Artwork, ArtworkAvailability,

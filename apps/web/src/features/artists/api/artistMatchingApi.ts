@@ -13,7 +13,8 @@ async function json<T>(
     body?:
       | Schema<"MatchArtistsFromTags">
       | Schema<"MatchArtistsFromProviderEvidence">
-      | Schema<"DismissArtistMatchSuggestion">;
+      | Schema<"DismissArtistMatchSuggestion">
+      | Schema<"RestoreArtistMatchSuggestion">;
   },
 ): Promise<T> {
   const response = await request(path, options);
@@ -70,6 +71,23 @@ export const artistMatchingApi = {
       `/artists/${part(artist)}/match-suggestions/dismiss`,
       {
         action: "artist_matching.dismiss",
+        account,
+        signal,
+        method: "POST",
+        body,
+      },
+    );
+  },
+  restore(
+    account: string,
+    artist: string,
+    body: Schema<"RestoreArtistMatchSuggestion">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistMatchSuggestions">>(
+      `/artists/${part(artist)}/match-suggestions/restore`,
+      {
+        action: "artist_matching.restore",
         account,
         signal,
         method: "POST",

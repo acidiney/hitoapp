@@ -140,6 +140,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_matching::run_provider_evidence))
         .routes(routes!(api::artist_matching::suggestions))
         .routes(routes!(api::artist_matching::dismiss))
+        .routes(routes!(api::artist_matching::restore))
         .routes(routes!(api::artist_identity_groups::list))
         .routes(routes!(api::artist_identity_groups::read))
         .routes(routes!(api::artist_identity_groups::changes))

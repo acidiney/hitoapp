@@ -2672,6 +2672,113 @@
         ]
       }
     },
+    "/api/v1/artists/{id}/match-suggestions/restore": {
+      "post": {
+        "operationId": "restore_artist_match_suggestion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreArtistMatchSuggestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistMatchSuggestions"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artwork-fetches/{id}": {
       "get": {
         "operationId": "artwork_fetch",
@@ -16108,7 +16215,8 @@
         "required": [
           "artist_id",
           "items",
-          "dismissed"
+          "dismissed",
+          "dismissed_items"
         ],
         "properties": {
           "artist_id": {
@@ -16117,7 +16225,14 @@
           "dismissed": {
             "type": "integer",
             "format": "int64",
-            "description": "Suggestions the account dismissed for this credit; they are not listed."
+            "description": "Suggestions the account dismissed for this credit; they are not in `items`."
+          },
+          "dismissed_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistMatchSuggestion"
+            },
+            "description": "The dismissed suggestions that could still apply to undecided tracks, so each can be restored."
           },
           "items": {
             "type": "array",
@@ -22928,6 +23043,18 @@
           "request_id": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreArtistMatchSuggestion": {
+        "type": "object",
+        "required": [
+          "group_id"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
           }
         },
         "additionalProperties": false

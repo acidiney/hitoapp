@@ -4,7 +4,7 @@ mod library;
 
 use hito_core::{
     ApplyArtistIdentityToCredit, ArtistMatchSuggestions, DismissArtistMatchSuggestion, Error,
-    RecordingArtistIdentityState,
+    RecordingArtistIdentityState, RestoreArtistMatchSuggestion,
 };
 use library::{CREDIT, Library, M1, M2};
 use uuid::Uuid;
@@ -178,6 +178,100 @@ async fn dismissals_are_remembered_per_credit_and_do_not_hide_other_credits() {
             .await,
         Err(Error::NotFound)
     ));
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_dismissed_suggestion_is_listed_and_restored_for_its_credit_and_account_only() {
+    let library = Library::prepare().await;
+    library.run().await;
+    let (g1, g2) = (group(&library, M1).await, group(&library, M2).await);
+    let credit = library.credit(CREDIT).await.unwrap().id;
+    let catalog = &library.hito.artist_catalog;
+    let restore = |actor, credit: String, group: String| async move {
+        catalog
+            .restore_artist_match_suggestion(
+                actor,
+                &credit,
+                RestoreArtistMatchSuggestion { group_id: group },
+            )
+            .await
+    };
+    assert!(
+        suggestions(&library, &credit)
+            .await
+            .dismissed_items
+            .is_empty()
+    );
+    let dismissed = catalog
+        .dismiss_artist_match_suggestion(
+            &library.actor,
+            &credit,
+            DismissArtistMatchSuggestion {
+                group_id: g2.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let listed: Vec<(&str, i64)> = dismissed
+        .dismissed_items
+        .iter()
+        .map(|item| (item.group.id.as_str(), item.undecided_tracks))
+        .collect();
+    assert_eq!(listed, vec![(g2.as_str(), 1)]);
+    assert_eq!(dismissed.dismissed, 1);
+    let before = library.snapshot().await;
+
+    let other = imported_credit(&library).await;
+    assert!(
+        suggestions(&library, &other)
+            .await
+            .dismissed_items
+            .is_empty(),
+        "A dismissal belongs to one credit"
+    );
+    let peer = restore(&library.peer, credit.clone(), g2.clone()).await;
+    assert!(matches!(peer, Err(Error::NotFound)));
+    assert_eq!(suggestions(&library, &credit).await.dismissed, 1);
+
+    let restored = restore(&library.actor, credit.clone(), g2.clone())
+        .await
+        .unwrap();
+    assert_eq!(restored.dismissed, 0);
+    assert!(restored.dismissed_items.is_empty());
+    assert_eq!(
+        restored
+            .items
+            .iter()
+            .map(|item| item.group.id.clone())
+            .collect::<Vec<_>>(),
+        vec![g1.clone(), g2.clone()]
+    );
+    let again = restore(&library.actor, credit.clone(), g2.clone())
+        .await
+        .unwrap();
+    assert_eq!(again.items.len(), 2, "Restoring twice is the same restore");
+    let never = restore(&library.actor, credit.clone(), g1.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        never.items.len(),
+        2,
+        "Restoring an undismissed group changes nothing"
+    );
+    assert!(matches!(
+        restore(&library.actor, credit.clone(), "missing".into()).await,
+        Err(Error::NotFound)
+    ));
+    assert!(matches!(
+        restore(&library.actor, "missing".into(), g1).await,
+        Err(Error::NotFound)
+    ));
+    assert_eq!(library.snapshot().await["recordings"], before["recordings"]);
+    assert!(
+        !selected(&library, &library.plain).await,
+        "Restoring never applies a choice"
+    );
     library.origin.shutdown().await;
 }
 

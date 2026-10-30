@@ -160,6 +160,37 @@ async fn http_matching_applies_embedded_ids_and_serves_ranked_dismissable_sugges
         assert_eq!(call(&app, "POST", &dismiss, bad, token).await.0, expected);
     }
 
+    let (_, listed) = call(&app, "GET", &path, Value::Null, token).await;
+    assert_eq!(listed["dismissed_items"][0]["group"]["id"], group);
+    let restore = format!("{path}/restore");
+    assert_eq!(
+        call(&app, "POST", &restore, json!({"group_id": group}), None)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    for (bad, expected) in [
+        (json!({"group_id": "missing"}), StatusCode::NOT_FOUND),
+        (
+            json!({"group_id": group, "extra": 1}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+    ] {
+        assert_eq!(call(&app, "POST", &restore, bad, token).await.0, expected);
+    }
+    let (status, back) = call(&app, "POST", &restore, json!({"group_id": group}), token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (
+            back["items"].as_array().unwrap().len(),
+            &back["dismissed"],
+            back["dismissed_items"].as_array().unwrap().len()
+        ),
+        (1, &json!(0), 0)
+    );
+    let (_, again) = call(&app, "POST", &dismiss, json!({"group_id": group}), token).await;
+    assert_eq!(again["dismissed"], 1);
+
     let (status, _) = call(
         &app,
         "POST",
@@ -184,6 +215,12 @@ async fn http_matching_applies_embedded_ids_and_serves_ranked_dismissable_sugges
     );
     assert_eq!(
         call(&app, "POST", &dismiss, json!({"group_id": group}), outsider)
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(&app, "POST", &restore, json!({"group_id": group}), outsider)
             .await
             .0,
         StatusCode::NOT_FOUND
@@ -339,6 +376,39 @@ async fn members_of_one_shared_library_match_and_dismiss_separately() {
         StatusCode::NOT_FOUND,
         "Another account's chosen artist cannot be dismissed"
     );
+    let restore = format!("/api/v1/artists/{admin_credit}/match-suggestions/restore");
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            &restore,
+            json!({"group_id": member_group}),
+            Some(&admin_token)
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND,
+        "Another account's chosen artist cannot be restored"
+    );
+    let (_, member_view) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/artists/{member_credit}/match-suggestions/restore"),
+        json!({"group_id": member_group}),
+        Some(&member_token),
+    )
+    .await;
+    assert_eq!(member_view["items"].as_array().unwrap().len(), 1);
+    let (_, admin_view) = call(
+        &app,
+        "POST",
+        &restore,
+        json!({"group_id": admin_group}),
+        Some(&admin_token),
+    )
+    .await;
+    assert_eq!(admin_view["dismissed"], 0);
+    assert_eq!(admin_view["items"].as_array().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -384,6 +454,11 @@ async fn a_locked_session_cannot_use_the_matching_routes() {
         (
             "POST",
             format!("/api/v1/artists/{credit}/match-suggestions/dismiss"),
+            json!({"group_id": "any"}),
+        ),
+        (
+            "POST",
+            format!("/api/v1/artists/{credit}/match-suggestions/restore"),
             json!({"group_id": "any"}),
         ),
     ] {

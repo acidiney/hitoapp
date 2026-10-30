@@ -1,4 +1,7 @@
-use super::{ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion};
+use super::{
+    ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion,
+    RestoreArtistMatchSuggestion,
+};
 use crate::artist_catalog::{
     LINKED, REQUEST_BUDGET,
     identity::groups::{current_choices, group_summary},
@@ -65,6 +68,57 @@ impl ArtistCatalog {
         self.artist_match_suggestions(actor, artist).await
     }
 
+    /// Forgets a dismissal so the suggestion is offered again. Restoring a suggestion that was
+    /// never dismissed is the same as restoring it twice: nothing changes.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_restore", request_id = %Uuid::new_v4()))]
+    pub async fn restore_artist_match_suggestion(
+        &self,
+        actor: &Actor,
+        artist: &str,
+        request: RestoreArtistMatchSuggestion,
+    ) -> Result<ArtistMatchSuggestions> {
+        let started = Instant::now();
+        let result = self
+            .remove_dismissal(actor, artist, &request.group_id)
+            .await;
+        tracing::info!(
+            outcome = result.as_ref().map_or_else(|e| e.code(), |_| "restored"),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Artist match suggestion restored"
+        );
+        result?;
+        self.artist_match_suggestions(actor, artist).await
+    }
+
+    async fn remove_dismissal(&self, actor: &Actor, artist: &str, group: &str) -> Result<()> {
+        if artist.len() > MAX_ID_LENGTH || group.is_empty() || group.len() > MAX_ID_LENGTH {
+            return Err(Error::NotFound);
+        }
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
+        credit_name(&mut tx, actor, artist).await?;
+        let known: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM account_artist_identity_groups WHERE user_id=? AND id=?)",
+        )
+        .bind(actor.id())
+        .bind(group)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !known {
+            return Err(Error::NotFound);
+        }
+        sqlx::query(
+            "DELETE FROM artist_match_dismissals WHERE user_id=? AND artist_id=? AND group_id=?",
+        )
+        .bind(actor.id())
+        .bind(artist)
+        .bind(group)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     async fn record_dismissal(&self, actor: &Actor, artist: &str, group: &str) -> Result<()> {
         if artist.len() > MAX_ID_LENGTH || group.is_empty() || group.len() > MAX_ID_LENGTH {
             return Err(Error::NotFound);
@@ -129,42 +183,47 @@ impl ArtistCatalog {
         .collect();
         let base = undecided_tracks(&mut tx, actor, artist).await?;
         let mut items = Vec::new();
-        let mut hidden = 0;
+        let mut dismissed_items = Vec::new();
         for id in found {
             let facts = facts(&mut tx, actor, &base, &id).await?;
             if facts.undecided_tracks == 0 {
                 continue;
             }
-            if dismissed.contains(&id) {
-                hidden += 1;
-                continue;
-            }
             let Some(group) = group_summary(&mut tx, actor, &id).await? else {
                 continue;
             };
-            items.push(ArtistMatchSuggestion {
+            let item = ArtistMatchSuggestion {
                 group,
                 shared_albums: facts.shared_albums,
                 same_length_tracks: facts.same_length_tracks,
                 undecided_tracks: facts.undecided_tracks,
-            });
+            };
+            if dismissed.contains(&id) {
+                dismissed_items.push(item);
+            } else {
+                items.push(item);
+            }
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
-        items.sort_by(|left, right| {
-            let score = |item: &ArtistMatchSuggestion| {
-                item.shared_albums.saturating_mul(10) + item.same_length_tracks
-            };
-            score(right)
-                .cmp(&score(left))
-                .then_with(|| left.group.id.cmp(&right.group.id))
-        });
+        items.sort_by(ranking);
+        dismissed_items.sort_by(ranking);
         Ok(ArtistMatchSuggestions {
             artist_id: artist.into(),
             items,
-            dismissed: hidden,
+            dismissed: dismissed_items.len() as i64,
+            dismissed_items,
         })
     }
+}
+
+fn ranking(left: &ArtistMatchSuggestion, right: &ArtistMatchSuggestion) -> std::cmp::Ordering {
+    let score = |item: &ArtistMatchSuggestion| {
+        item.shared_albums.saturating_mul(10) + item.same_length_tracks
+    };
+    score(right)
+        .cmp(&score(left))
+        .then_with(|| left.group.id.cmp(&right.group.id))
 }
 
 async fn credit_name(

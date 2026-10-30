@@ -27,22 +27,24 @@ export default function ArtistMatchSuggestionList({
   busy,
   onChoose,
   onDismiss,
+  onRestore,
 }: {
   items: Schema<"ArtistMatchSuggestion">[];
-  dismissed: number;
+  dismissed: Schema<"ArtistMatchSuggestion">[];
   busy: boolean;
   onChoose: (group: Schema<"ArtistIdentityGroup">) => void;
   onDismiss: (group: string) => void;
+  onRestore: (group: string) => void;
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0 && dismissed.length === 0) return null;
   return (
     <section aria-label="Suggested artists for this credit" aria-busy={busy}>
       <h3>Looks like an artist you reviewed</h3>
       <p>
         These are suggestions only. Nothing changes until you review and
         confirm.
-        {dismissed > 0
-          ? ` ${plural(dismissed, "suggestion is", "suggestions are")} dismissed.`
+        {dismissed.length > 0
+          ? ` ${plural(dismissed.length, "suggestion is", "suggestions are")} dismissed.`
           : ""}
       </p>
       <ul>
@@ -70,6 +72,28 @@ export default function ArtistMatchSuggestionList({
           </li>
         ))}
       </ul>
+      {dismissed.length > 0 && (
+        <details>
+          <summary>Dismissed suggestions ({dismissed.length})</summary>
+          <ul>
+            {dismissed.map((item) => (
+              <li key={item.group.id}>
+                {item.group.name.value} ·{" "}
+                {plural(item.undecided_tracks, "track", "tracks")} here would
+                use it · {evidence(item)}{" "}
+                <Button
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Restore suggested artist: ${item.group.name.value}`}
+                  onClick={() => onRestore(item.group.id)}
+                >
+                  Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </section>
   );
 }

@@ -15,6 +15,7 @@ const strong = "70000000-0000-4000-8000-000000000001";
 const weak = "70000000-0000-4000-8000-000000000002";
 const suggestionsPath = `/api/v1/artists/${credit.id}/match-suggestions`;
 const dismissPath = `${suggestionsPath}/dismiss`;
+const restorePath = `${suggestionsPath}/restore`;
 const applyPath = `/api/v1/artists/${credit.id}/artist-identity`;
 
 function group(id: string, artist: string): Schema<"ArtistIdentityGroup"> {
@@ -37,6 +38,7 @@ function group(id: string, artist: string): Schema<"ArtistIdentityGroup"> {
 const both: Schema<"ArtistMatchSuggestions"> = {
   artist_id: credit.id,
   dismissed: 0,
+  dismissed_items: [],
   items: [
     {
       group: group(strong, "11111111-1111-4111-8111-111111111111"),
@@ -118,6 +120,7 @@ test("dismissing posts the chosen artist, hides the suggestion and keeps the oth
         return Response.json({
           ...both,
           dismissed: 1,
+          dismissed_items: both.items.slice(0, 1),
           items: both.items.slice(1),
         });
       }
@@ -159,4 +162,67 @@ test("a failed or empty suggestion read leaves the manual flow alone", async () 
     screen.queryByRole("region", { name: "Suggested artists for this credit" }),
   ).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a dismissed suggestion is listed in a disclosure and restored on request", async () => {
+  const restores: unknown[] = [];
+  const dismissedView = {
+    ...both,
+    dismissed: 1,
+    dismissed_items: both.items.slice(0, 1),
+    items: both.items.slice(1),
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      if (path === suggestionsPath) return Response.json(dismissedView);
+      if (path === restorePath && options?.method === "POST") {
+        restores.push(JSON.parse(options.body as string));
+        return Response.json(both);
+      }
+      throw new Error("Unexpected request outside the suggestion flow");
+    }),
+  );
+  render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  const list = await screen.findByRole("region", {
+    name: "Suggested artists for this credit",
+  });
+  const disclosure = list.querySelector("details");
+  expect(disclosure?.querySelector("summary")?.textContent).toBe(
+    "Dismissed suggestions (1)",
+  );
+  expect(disclosure?.textContent).toContain("2 shared albums");
+  expect(restores).toHaveLength(0);
+  fireEvent.click(
+    screen.getByRole("button", { name: /Restore suggested artist/ }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("button", { name: /Review suggested artist/ }),
+    ).toHaveLength(2),
+  );
+  expect(restores).toEqual([{ group_id: strong }]);
+  expect(screen.queryByText("Dismissed suggestions (1)")).toBeNull();
+});
+
+test("a credit whose only suggestions are dismissed still offers to restore them", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === suggestionsPath)
+        return Response.json({
+          ...both,
+          dismissed: 2,
+          dismissed_items: both.items,
+          items: [],
+        });
+      throw new Error("Unexpected request outside the suggestion flow");
+    }),
+  );
+  render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  await screen.findByText("Dismissed suggestions (2)");
+  expect(
+    screen.getAllByRole("button", { name: /Restore suggested/ }),
+  ).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: /Review suggested/ })).toBeNull();
 });

@@ -9,7 +9,8 @@ use axum::{
 };
 use hito_core::{
     ArtistMatchReceipt, ArtistMatchSuggestions, ArtistProviderMatchReceipt,
-    DismissArtistMatchSuggestion, MatchArtistsFromProviderEvidence, MatchArtistsFromTags, Services,
+    DismissArtistMatchSuggestion, MatchArtistsFromProviderEvidence, MatchArtistsFromTags,
+    RestoreArtistMatchSuggestion, Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -127,6 +128,37 @@ pub async fn dismiss(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist match dismissal HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/artists/{id}/match-suggestions/restore", operation_id = "restore_artist_match_suggestion",
+    params(("id" = String, Path)), request_body = RestoreArtistMatchSuggestion,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistMatchSuggestions), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_artist_match_restore", request_id = %Uuid::new_v4()))]
+pub async fn restore(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<RestoreArtistMatchSuggestion>,
+) -> ApiResult<Json<ArtistMatchSuggestions>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .restore_artist_match_suggestion(&actor, &id, request)
+        .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map(|_| "restored")
+            .unwrap_or_else(|error| error.code()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Artist match restore HTTP request completed"
     );
     Ok(Json(result?))
 }

@@ -80,5 +80,20 @@ export function useArtistMatchSuggestions(account: string, artist: string) {
     [account, artist, load],
   );
 
-  return { ...view, refresh, dismiss };
+  const restore = useCallback(
+    (group: string) =>
+      load(
+        (signal) =>
+          artistMatchingApi.restore(
+            account,
+            artist,
+            { group_id: group },
+            signal,
+          ),
+        "restore",
+      ),
+    [account, artist, load],
+  );
+
+  return { ...view, refresh, dismiss, restore };
 }

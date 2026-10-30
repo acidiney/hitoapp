@@ -420,6 +420,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artists/{id}/match-suggestions/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_artist_match_suggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artwork-fetches/{id}": {
         parameters: {
             query?: never;
@@ -2657,9 +2673,11 @@ export interface components {
             artist_id: string;
             /**
              * Format: int64
-             * @description Suggestions the account dismissed for this credit; they are not listed.
+             * @description Suggestions the account dismissed for this credit; they are not in `items`.
              */
             dismissed: number;
+            /** @description The dismissed suggestions that could still apply to undecided tracks, so each can be restored. */
+            dismissed_items: components["schemas"]["ArtistMatchSuggestion"][];
             items: components["schemas"]["ArtistMatchSuggestion"][];
         };
         ArtistPage: components["schemas"]["Page_Artist"];
@@ -4350,6 +4368,9 @@ export interface components {
         ResolveSource: {
             /** Format: uuid */
             request_id: string;
+        };
+        RestoreArtistMatchSuggestion: {
+            group_id: string;
         };
         SavedAlbumEdition: {
             association_id: string;
@@ -6644,6 +6665,87 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DismissArtistMatchSuggestion"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistMatchSuggestions"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_artist_match_suggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreArtistMatchSuggestion"];
             };
         };
         responses: {
