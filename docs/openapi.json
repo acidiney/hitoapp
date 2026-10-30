@@ -18837,15 +18837,30 @@
           "id",
           "title",
           "artist",
+          "inferred_artist",
           "last_played_at",
           "played"
         ],
         "properties": {
           "artist": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "string"
+          },
+          "inferred_artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumArtistInference",
+                "description": "Display album artist derived from the tracks when the album has none, the same value an\nalbum read carries."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "last_played_at": {
             "type": "integer",
@@ -24979,13 +24994,27 @@
           "release_id",
           "title",
           "artist",
+          "inferred_artist",
           "played",
           "remaining",
           "tracks"
         ],
         "properties": {
           "artist": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inferred_artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumArtistInference"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "played": {
             "type": "integer",

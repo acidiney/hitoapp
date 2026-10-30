@@ -3295,8 +3295,9 @@ export interface components {
             unheard: components["schemas"]["UnheardOnAlbum"][];
         };
         HomeAlbum: {
-            artist: string;
+            artist: string | null;
             id: string;
+            inferred_artist: components["schemas"]["AlbumArtistInference"] | null;
             /** Format: int64 */
             last_played_at: number;
             /** Format: int64 */
@@ -4837,7 +4838,8 @@ export interface components {
             request_id: string;
         };
         UnheardOnAlbum: {
-            artist: string;
+            artist: string | null;
+            inferred_artist: components["schemas"]["AlbumArtistInference"] | null;
             /** Format: int64 */
             played: number;
             release_id: string;
