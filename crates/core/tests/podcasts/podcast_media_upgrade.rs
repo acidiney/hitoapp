@@ -503,13 +503,17 @@ impl RetainedState {
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
         reference.close().await.unwrap();
-        let mut reference = collection_artwork_schema::reference_66().await;
+        let mut reference = collection_artwork_schema::reference_67().await;
         let declared = schema(&mut reference).await;
         for &(_, name) in collection_artwork_schema::REPLACED {
             assert!(
                 self.schema.contains_key(name),
                 "the baseline must contain {name}"
             );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        for &(_, name) in collection_artwork_schema::account_schema::REPLACED {
             self.schema
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
@@ -528,6 +532,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::tag_identity_schema::ADDED)
             .chain(collection_artwork_schema::erasure_schema::ADDED)
             .chain(collection_artwork_schema::automation_schema::ADDED)
+            .chain(collection_artwork_schema::account_schema::ADDED)
         {
             if let Some(definition) = declared.get(name) {
                 assert!(

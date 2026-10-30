@@ -63,7 +63,11 @@ async fn historical_artwork_upgrade_preserves_ready_references_pending_authority
     upgrade::assert_schema_preserved(
         &mut connection,
         &before_schema,
-        schema::erasure_schema::REPLACED,
+        &[
+            schema::erasure_schema::REPLACED,
+            schema::account_schema::REPLACED,
+        ]
+        .concat(),
     )
     .await;
     upgrade::assert_integrity(&mut connection).await;

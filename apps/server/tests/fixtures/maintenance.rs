@@ -475,6 +475,26 @@ impl Snapshot {
     }
 }
 
+const ACCOUNT_ERASURE_TRIGGERS: [&str; 17] = [
+    "download_receipt_retained",
+    "download_retention_retained",
+    "download_playlist_receipt_retained",
+    "download_terminal_failure_retained",
+    "provider_item_retained",
+    "source_resolution_receipt_retained",
+    "automatic_source_decision_retained",
+    "source_choice_receipt_retained",
+    "source_choice_reset_receipt_retained",
+    "podcast_episode_retained",
+    "podcast_request_account_count_retained",
+    "podcast_subscription_receipt_retained",
+    "podcast_refresh_receipt_retained",
+    "podcast_unsubscribe_receipt_retained",
+    "podcast_source_mapping_retained",
+    "podcast_source_retained",
+    "playlist_metadata_receipt_retained",
+];
+
 async fn assert_current_schema(connection: &mut SqliteConnection) {
     type SchemaObject = (String, String, String, Option<String>);
     type MigrationReceipt = (i64, String, bool, Vec<u8>);
@@ -525,6 +545,20 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
                         })
                 }),
                 "migration 0065 alone narrows the 0047 association delete guard to the erasure scopes"
+            );
+            continue;
+        }
+        if declared.0 == "trigger" && ACCOUNT_ERASURE_TRIGGERS.contains(&declared.1.as_str()) {
+            assert!(
+                expected.iter().any(|current| {
+                    current.0 == declared.0
+                        && current.1 == declared.1
+                        && current
+                            .3
+                            .as_deref()
+                            .is_some_and(|ddl| ddl.contains("correction_erasure_scopes"))
+                }),
+                "migration 0067 alone narrows the retained ledger delete guards to the erasure scopes"
             );
             continue;
         }
@@ -721,6 +755,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "sqlite_autoindex_cover_art_lookups_1"),
         ("index", "cover_art_lookups_queue"),
         ("index", "cover_art_lookups_asset"),
+        ("table", "erased_download_files"),
+        ("index", "sqlite_autoindex_erased_download_files_1"),
+        ("index", "erased_download_files_host"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
