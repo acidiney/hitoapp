@@ -14,10 +14,14 @@ vi.mock("../components/ArtworkProvider", () => ({
   useArtwork: () => artwork.state,
 }));
 
-test("no provider means no artwork message and no retry button", () => {
+test("no provider shows no message, only a quiet retry", () => {
   artwork.state = { imageFailed: true, phase: "unavailable", retry: () => {} };
   const { container } = render(createElement(ArtworkStatus, { release: "r" }));
-  expect(container.textContent).toBe("");
+  expect(container.textContent).toBe("Retry artwork");
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(
+    container.querySelector(".artwork-status")?.getAttribute("data-quiet"),
+  ).toBe("true");
 });
 
 test("a real failure still offers a retry", () => {

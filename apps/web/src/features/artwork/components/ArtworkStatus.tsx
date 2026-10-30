@@ -24,6 +24,14 @@ export default function ArtworkStatus({
         : artwork.phase === "cancelled"
           ? "Artwork retrieval was cancelled."
           : null;
+  if (artwork.phase === "unavailable")
+    return (
+      <div className="artwork-status" data-quiet="true">
+        <button type="button" className="text-link" onClick={artwork.retry}>
+          Retry artwork
+        </button>
+      </div>
+    );
   if (!message) return null;
   return (
     <div className="artwork-status">
