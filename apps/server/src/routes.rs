@@ -126,6 +126,7 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::artist_catalog::settings,
             api::artist_catalog::update_settings
         ))
+        .routes(routes!(api::artist_catalog::update_automation))
         .routes(routes!(api::artist_review::context))
         .routes(routes!(api::artist_review::search))
         .routes(routes!(api::artist_review::preview))

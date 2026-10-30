@@ -57,7 +57,8 @@ pub use types::{
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
     ArtistReviewMetadataBinding, AssociateRecordingArtist, EditionTrackListAvailability,
     MetadataProvider, MetadataSettings, ReadArtistDiscography, ReadEditionTrackList,
-    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, UpdateMetadataSettings,
+    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, UpdateAutomaticLookups,
+    UpdateMetadataSettings,
 };
 
 use crate::{Catalog, Error, HostDeviceId, Plugins, Result, admission::Accounts, store::Store};

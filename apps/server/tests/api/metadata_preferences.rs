@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use std::panic::{AssertUnwindSafe, resume_unwind};
 
 const SETTINGS: &str = "/api/v1/metadata/settings";
+const AUTOMATION: &str = "/api/v1/metadata/automation";
 
 #[tokio::test]
 async fn a_browser_account_saves_metadata_preferences_without_requesting_catalog_data() {
@@ -32,6 +33,8 @@ async fn exercise(library: &Library, server: &fixture::CatalogServer) {
         "revision": 0,
         "enabled": true,
         "providers": [{"kind": "builtin_musicbrainz"}],
+        "automatic_artist_lookup": true,
+        "automatic_artwork": true,
     });
     let (status, initial) = account.request(app, "GET", SETTINGS, Value::Null).await;
     assert_eq!(status, StatusCode::OK);
@@ -85,7 +88,9 @@ async fn exercise(library: &Library, server: &fixture::CatalogServer) {
         .await;
     assert_eq!(status, StatusCode::OK);
     assert!(
-        saved == json!({"revision": 1, "enabled": true, "providers": [selected]}),
+        saved
+            == json!({"revision": 1, "enabled": true, "providers": [selected],
+                "automatic_artist_lookup": true, "automatic_artwork": true}),
         "Saving preferences must return the exact selected personal provider and next revision"
     );
     assert!(
@@ -112,5 +117,68 @@ async fn exercise(library: &Library, server: &fixture::CatalogServer) {
             profiles: 0,
             unexpected: 0
         }
+    );
+}
+
+#[tokio::test]
+async fn automatic_lookup_and_artwork_default_on_and_save_per_account() {
+    let library = Library::prepare().await;
+    let app = &library.app;
+    let (account, other) = (&library.accounts[0], &library.accounts[1]);
+    let initial = account.get(app, SETTINGS).await;
+    assert_eq!(initial["automatic_artist_lookup"], true);
+    assert_eq!(initial["automatic_artwork"], true);
+
+    let (status, saved) = account
+        .request(
+            app,
+            "PUT",
+            AUTOMATION,
+            json!({"automatic_artist_lookup": false}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        saved["revision"], 0,
+        "Automation choices are not provider revisions"
+    );
+    assert_eq!(saved["automatic_artist_lookup"], false);
+    assert_eq!(
+        saved["automatic_artwork"], true,
+        "An omitted choice is kept"
+    );
+    assert!(account.get(app, SETTINGS).await == saved);
+    let theirs = other.get(app, SETTINGS).await;
+    assert_eq!(theirs["automatic_artist_lookup"], true);
+
+    let (status, saved) = account
+        .request(app, "PUT", AUTOMATION, json!({"automatic_artwork": false}))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        saved["automatic_artist_lookup"], false,
+        "An omitted choice is kept"
+    );
+    assert_eq!(saved["automatic_artwork"], false);
+    let (status, _) = account
+        .request(app, "PUT", AUTOMATION, json!({"automatic_artwork": "yes"}))
+        .await;
+    assert!(status.is_client_error());
+    let (status, _) = account
+        .request(app, "PUT", AUTOMATION, json!({"unknown": true}))
+        .await;
+    assert!(status.is_client_error());
+    let saved_providers = account
+        .request(
+            app,
+            "PUT",
+            SETTINGS,
+            json!({"revision": 0, "enabled": true, "providers": [{"kind": "builtin_musicbrainz"}]}),
+        )
+        .await
+        .1;
+    assert_eq!(
+        saved_providers["automatic_artwork"], false,
+        "Saving providers keeps the automation choices"
     );
 }

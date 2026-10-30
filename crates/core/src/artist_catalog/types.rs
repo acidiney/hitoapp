@@ -20,6 +20,19 @@ pub struct MetadataSettings {
     pub revision: i64,
     pub enabled: bool,
     pub providers: Vec<MetadataProvider>,
+    /// Match library artists on MusicBrainz in the background. Applies only while enrichment is
+    /// enabled and the built-in provider is selected.
+    pub automatic_artist_lookup: bool,
+    /// Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier.
+    pub automatic_artwork: bool,
+}
+
+/// Omitted choices keep their current value.
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateAutomaticLookups {
+    pub automatic_artist_lookup: Option<bool>,
+    pub automatic_artwork: Option<bool>,
 }
 
 #[derive(Deserialize, ToSchema)]

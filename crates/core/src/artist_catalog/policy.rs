@@ -1,4 +1,7 @@
-use super::{MetadataProvider, MetadataSettings, REQUEST_BUDGET, UpdateMetadataSettings};
+use super::{
+    MetadataProvider, MetadataSettings, REQUEST_BUDGET, UpdateAutomaticLookups,
+    UpdateMetadataSettings,
+};
 use crate::{Actor, ArtistCatalog, Error, Result};
 use sqlx::{Row, SqliteConnection};
 use std::{collections::HashSet, time::Instant};
@@ -108,13 +111,60 @@ impl ArtistCatalog {
             ON CONFLICT(user_id) DO UPDATE SET revision=excluded.revision,enabled=excluded.enabled,providers=excluded.providers")
             .bind(actor.id()).bind(revision).bind(request.enabled).bind(providers)
             .execute(&mut *tx).await?;
+        let (automatic_artist_lookup, automatic_artwork) = automation(&mut tx, actor).await?;
         tx.commit().await?;
         Ok(MetadataSettings {
             revision,
             enabled: request.enabled,
             providers: request.providers,
+            automatic_artist_lookup,
+            automatic_artwork,
         })
     }
+
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "metadata_automation_update", request_id = %Uuid::new_v4()))]
+    pub async fn set_automatic_lookups(
+        &self,
+        actor: &Actor,
+        request: UpdateAutomaticLookups,
+    ) -> Result<MetadataSettings> {
+        let started = Instant::now();
+        let result: Result<MetadataSettings> = async {
+            let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            actor.check_session_on(&mut tx).await?;
+            let (artist_lookup, artwork) = automation(&mut tx, actor).await?;
+            sqlx::query("INSERT INTO account_metadata_automation(user_id,artist_lookup,artwork) VALUES (?,?,?)
+                ON CONFLICT(user_id) DO UPDATE SET artist_lookup=excluded.artist_lookup,artwork=excluded.artwork")
+                .bind(actor.id())
+                .bind(request.automatic_artist_lookup.unwrap_or(artist_lookup))
+                .bind(request.automatic_artwork.unwrap_or(artwork))
+                .execute(&mut *tx)
+                .await?;
+            let settings = read(&mut tx, actor).await?;
+            tx.commit().await?;
+            Ok(settings)
+        }
+        .await;
+        tracing::info!(
+            outcome = result
+                .as_ref()
+                .map(|_| "success")
+                .unwrap_or_else(|error| error.code()),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Metadata automation update completed"
+        );
+        result
+    }
+}
+
+async fn automation(connection: &mut SqliteConnection, actor: &Actor) -> Result<(bool, bool)> {
+    let stored: Option<(bool, bool)> = sqlx::query_as(
+        "SELECT artist_lookup,artwork FROM account_metadata_automation WHERE user_id=?",
+    )
+    .bind(actor.id())
+    .fetch_optional(connection)
+    .await?;
+    Ok(stored.unwrap_or((true, true)))
 }
 
 pub(super) async fn read(
@@ -125,13 +175,16 @@ pub(super) async fn read(
         "SELECT revision,enabled,providers FROM account_metadata_policies WHERE user_id=?",
     )
     .bind(actor.id())
-    .fetch_optional(connection)
+    .fetch_optional(&mut *connection)
     .await?;
+    let (automatic_artist_lookup, automatic_artwork) = automation(&mut *connection, actor).await?;
     let Some(row) = row else {
         return Ok(MetadataSettings {
             revision: 0,
             enabled: true,
             providers: vec![MetadataProvider::BuiltinMusicBrainz],
+            automatic_artist_lookup,
+            automatic_artwork,
         });
     };
     let providers: Vec<MetadataProvider> = serde_json::from_str(row.try_get("providers")?)
@@ -145,6 +198,8 @@ pub(super) async fn read(
         revision: row.try_get("revision")?,
         enabled: row.try_get("enabled")?,
         providers,
+        automatic_artist_lookup,
+        automatic_artwork,
     })
 }
 

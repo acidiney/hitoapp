@@ -48,7 +48,7 @@ pub use artist_catalog::{
     SharedArtistCorrections, SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView,
     SimilarArtistsAvailability, SplitArtistIdentityGroup, SplitDestination,
     UndoArtistIdentityChange, UndoRecordingArtistChange, UndoSharedArtistCorrection,
-    UnlinkRecordingArtist, UpdateMetadataSettings,
+    UnlinkRecordingArtist, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 pub use catalog::{
     AdoptProviderRecording, AlbumCatalogAnchor, Artist, ArtistDetail, Artwork, ArtworkAvailability,
