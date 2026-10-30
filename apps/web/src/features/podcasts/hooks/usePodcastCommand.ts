@@ -1,22 +1,18 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type {
-  PodcastRefreshReceipt,
-  PodcastUnsubscribeReceipt,
-  RefreshPodcast,
-  UnsubscribePodcast,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
-  | { kind: "refresh"; body: Readonly<RefreshPodcast> }
-  | { kind: "unsubscribe"; body: Readonly<UnsubscribePodcast> };
+  | { kind: "refresh"; body: Readonly<Schema<"RefreshPodcast">> }
+  | { kind: "unsubscribe"; body: Readonly<Schema<"UnsubscribePodcast">> };
 type Accepted =
-  | { kind: "refresh"; receipt: PodcastRefreshReceipt }
-  | { kind: "unsubscribe"; receipt: PodcastUnsubscribeReceipt };
+  | { kind: "refresh"; receipt: Schema<"PodcastRefreshReceipt"> }
+  | { kind: "unsubscribe"; receipt: Schema<"PodcastUnsubscribeReceipt"> };
 type Owner = {
   attempt: Attempt | null;
   run: AbortController | null;
@@ -88,8 +84,8 @@ export function usePodcastCommand(account: string, subscription: string) {
           (typeof result.receipt.job_id !== "string" || !result.receipt.job_id))
       )
         throw new Error("The podcast receipt did not match this request.");
-      // The unsubscribe ticket fences older mutations until this route closes.
-      if (result.kind === "refresh") owner.attempt = null;
+      const keepsFence = result.kind === "unsubscribe";
+      if (!keepsFence) owner.attempt = null;
       log.info(`podcasts.${attempt.kind}_accepted`, {
         ...fields,
         job_id: result.kind === "refresh" ? result.receipt.job_id : undefined,

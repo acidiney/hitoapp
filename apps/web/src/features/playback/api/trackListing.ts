@@ -13,6 +13,15 @@ export type TrackListing = {
   ): Promise<{ total: number; items: Track[] }>;
 };
 
+export type ListingPage = { total: number; offset: number };
+
+export function trackListing(
+  page: ListingPage,
+  fetchPage: TrackListing["fetch"],
+): TrackListing {
+  return { total: page.total, offset: page.offset, fetch: fetchPage };
+}
+
 export function listingSupply(
   listing: TrackListing,
   from: number,

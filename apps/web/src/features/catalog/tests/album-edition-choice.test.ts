@@ -162,3 +162,19 @@ test("a conflict reloads the saved edition and revision and offers the action ag
   expect(sent[1].request_id).not.toBe(sent[0].request_id);
   expect(result.current.remembered).toEqual(other);
 });
+
+test("a conflict whose reload fails says the album was not reloaded and keeps the old revision", async () => {
+  serve({
+    [choose]: () => Response.json({ error: "Changed" }, { status: 409 }),
+    [current]: () => Response.json({ error: "Down" }, { status: 500 }),
+  });
+  const { result } = renderHook(() =>
+    useAlbumEditionChoice("account", albumId, unset),
+  );
+  await act(async () => {
+    expect(await result.current.choose(other)).toBe(false);
+  });
+  expect(result.current.choice.revision).toBe(unset.revision);
+  expect(result.current.error).toMatch(/reload the album/i);
+  expect(result.current.error).not.toMatch(/was reloaded/i);
+});

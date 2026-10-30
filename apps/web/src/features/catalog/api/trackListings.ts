@@ -1,13 +1,14 @@
-import type { TrackListing } from "../../playback/api/trackListing";
+import {
+  trackListing,
+  type ListingPage,
+  type TrackListing,
+} from "../../playback/api/trackListing";
 import { requestJson } from "../../../shared/http";
-import type { components } from "../../../generated";
-
-type Schema = components["schemas"];
-type Page = { total: number; offset: number };
+import type { Schema } from "../../../shared/schema";
 
 export function recordingsListing(
   account: string,
-  page: Page,
+  page: ListingPage,
   query: string,
   liked: boolean,
 ): TrackListing {
@@ -19,40 +20,32 @@ export function recordingsListing(
     const value = location.get(key);
     if (value) filters.set(key, value);
   }
-  return {
-    total: page.total,
-    offset: page.offset,
-    async fetch(offset, limit, signal) {
-      const params = new URLSearchParams(filters);
-      params.set("offset", String(offset));
-      params.set("limit", String(limit));
-      const result = await requestJson<Schema["RecordingPage"]>(
-        `/recordings?${params}`,
-        { action: "catalog.tracks_page", account, signal },
-      );
-      return { total: result.total, items: result.items };
-    },
-  };
+  return trackListing(page, async (offset, limit, signal) => {
+    const params = new URLSearchParams(filters);
+    params.set("offset", String(offset));
+    params.set("limit", String(limit));
+    const result = await requestJson<Schema<"RecordingPage">>(
+      `/recordings?${params}`,
+      { action: "catalog.tracks_page", account, signal },
+    );
+    return { total: result.total, items: result.items };
+  });
 }
 
 export function releaseTracksListing(
   account: string,
   release: string,
-  page: Page,
+  page: ListingPage,
 ): TrackListing {
-  return {
-    total: page.total,
-    offset: page.offset,
-    async fetch(offset, limit, signal) {
-      const params = new URLSearchParams({
-        offset: String(offset),
-        limit: String(limit),
-      });
-      const result = await requestJson<Schema["ReleaseDetail"]>(
-        `/releases/${encodeURIComponent(release)}?${params}`,
-        { action: "catalog.album_tracks_page", account, signal },
-      );
-      return { total: result.tracks.total, items: result.tracks.items };
-    },
-  };
+  return trackListing(page, async (offset, limit, signal) => {
+    const params = new URLSearchParams({
+      offset: String(offset),
+      limit: String(limit),
+    });
+    const result = await requestJson<Schema<"ReleaseDetail">>(
+      `/releases/${encodeURIComponent(release)}?${params}`,
+      { action: "catalog.album_tracks_page", account, signal },
+    );
+    return { total: result.tracks.total, items: result.tracks.items };
+  });
 }

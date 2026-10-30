@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { MAX_QUEUE_ENTRIES, type Track } from "../model";
-import { LISTING_PAGE, listingSupply } from "../api/trackListing";
+import { LISTING_PAGE, listingSupply, trackListing } from "../api/trackListing";
 
 const track = (index: number): Track => ({
   id: `r${index}`,
@@ -86,4 +86,13 @@ test("an aborted fetch rejects and is not repeated", async () => {
   controller.abort();
   await expect(supply.next(controller.signal)).rejects.toBeTruthy();
   expect(source.fetch).toHaveBeenCalledTimes(0);
+});
+
+test("a listing carries the page position and fetches through the given reader", async () => {
+  const source = listing(450, 200);
+  const built = trackListing({ total: 450, offset: 200 }, source.fetch);
+  expect(built.total).toBe(450);
+  expect(built.offset).toBe(200);
+  const page = await built.fetch(0, 2, new AbortController().signal);
+  expect(page.items.map((item) => item.id)).toEqual(["r0", "r1"]);
 });

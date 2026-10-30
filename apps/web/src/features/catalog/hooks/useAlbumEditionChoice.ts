@@ -1,12 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useRef, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  AlbumEditionChoice,
-  AlbumEditionChoiceReceipt,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { albumEditionChoiceApi } from "../api/albumEditionChoiceApi";
@@ -16,16 +13,21 @@ const SAVE_FAILED =
   "This edition could not be remembered. Try again or reload the album.";
 const CHANGED =
   "The remembered edition changed elsewhere. It was reloaded. Try again.";
+const CHANGED_NOT_RELOADED =
+  "The remembered edition changed elsewhere. Reload the album, then try again.";
 
 type Command = {
   action: string;
-  edition: SavedAlbumEdition | null;
-  send: (signal: AbortSignal) => Promise<AlbumEditionChoiceReceipt>;
+  edition: Schema<"SavedAlbumEdition"> | null;
+  send: (signal: AbortSignal) => Promise<Schema<"AlbumEditionChoiceReceipt">>;
 };
-type Intent = { edition: SavedAlbumEdition | null };
+type Intent = { edition: Schema<"SavedAlbumEdition"> | null };
+type Reload = "reloaded" | "unavailable";
 type Outcome = "accepted" | "unknown" | "conflict" | "rejected" | "stopped";
 
-function fromReceipt(receipt: AlbumEditionChoiceReceipt): AlbumEditionChoice {
+function fromReceipt(
+  receipt: Schema<"AlbumEditionChoiceReceipt">,
+): Schema<"AlbumEditionChoice"> {
   return {
     revision: receipt.revision,
     state: receipt.edition
@@ -34,7 +36,7 @@ function fromReceipt(receipt: AlbumEditionChoiceReceipt): AlbumEditionChoice {
   };
 }
 
-function same(a: SavedAlbumEdition, b: SavedAlbumEdition) {
+function same(a: Schema<"SavedAlbumEdition">, b: Schema<"SavedAlbumEdition">) {
   return (
     a.recording_id === b.recording_id &&
     a.association_id === b.association_id &&
@@ -46,24 +48,34 @@ function same(a: SavedAlbumEdition, b: SavedAlbumEdition) {
 export function useAlbumEditionChoice(
   account: string,
   release: string,
-  initial: AlbumEditionChoice,
+  initial: Schema<"AlbumEditionChoice">,
 ) {
   const scope = useRequestScope(`${account}/${release}`);
   const [choice, setChoice] = useState(initial);
-  const [remembered, setRemembered] = useState<SavedAlbumEdition | null>(null);
+  const [remembered, setRemembered] =
+    useState<Schema<"SavedAlbumEdition"> | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const busy = useRef(false);
   const revision = useRef(initial.revision);
   const saved = useRef(initial.state);
-  const wanted = useRef<SavedAlbumEdition | null>(null);
+  const wanted = useRef<Schema<"SavedAlbumEdition"> | null>(null);
   const unacknowledged = useRef<Command | null>(null);
   const intent = useRef<Intent | null>(null);
 
-  function apply(next: AlbumEditionChoice) {
+  function apply(next: Schema<"AlbumEditionChoice">) {
     revision.current = next.revision;
     saved.current = next.state;
     setChoice(next);
+  }
+
+  async function reloadChoice(signal: AbortSignal): Promise<Reload> {
+    try {
+      apply(await albumEditionChoiceApi.current(account, release, signal));
+      return "reloaded";
+    } catch {
+      return "unavailable";
+    }
   }
 
   async function execute(command: Command): Promise<Outcome> {
@@ -86,18 +98,8 @@ export function useAlbumEditionChoice(
         unacknowledged.current = null;
         if (failure.status === 409) {
           outcome = "conflict";
-          try {
-            apply(
-              await albumEditionChoiceApi.current(
-                account,
-                release,
-                controller.signal,
-              ),
-            );
-          } catch {
-            // the next attempt will report a stale revision again
-          }
-          setError(CHANGED);
+          const reload = await reloadChoice(controller.signal);
+          setError(reload === "reloaded" ? CHANGED : CHANGED_NOT_RELOADED);
         } else {
           outcome = "rejected";
           setError(errorMessage(failure));
@@ -172,7 +174,7 @@ export function useAlbumEditionChoice(
     }
   }
 
-  function choose(edition: SavedAlbumEdition) {
+  function choose(edition: Schema<"SavedAlbumEdition">) {
     intent.current = { edition };
     wanted.current = edition;
     setRemembered(null);

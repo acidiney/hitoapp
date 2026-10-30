@@ -17,11 +17,12 @@ function recentlyChecked(account: string) {
   }
 }
 
-function remember(account: string) {
+function remember(account: string): boolean {
   try {
     localStorage.setItem(`hito:artist-match:${account}`, String(Date.now()));
+    return true;
   } catch {
-    // The pause is a convenience shared by tabs; the pass is idempotent.
+    return false;
   }
 }
 
@@ -32,7 +33,7 @@ function remember(account: string) {
 export function useAutomaticArtistMatching(account: string) {
   useEffect(() => {
     if (recentlyChecked(account)) return;
-    remember(account);
+    if (!remember(account)) log.debug("artist_matching.pause_unavailable");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DEADLINE_MS);
     const started = performance.now();
