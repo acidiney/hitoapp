@@ -58,6 +58,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
             ReadArtistDiscography {
                 limit: 1,
                 continuation: None,
+                release_type: None,
             },
             std::future::pending(),
         )

@@ -157,7 +157,7 @@ async fn exercise(
             cursor: None,
             snapshot: None,
             limit: 1,
-        release_type: None,
+            release_type: None,
         })
         .unwrap();
     assert!(imported.snapshot(app, account).await == before);
@@ -242,7 +242,7 @@ async fn exercise(
             cursor: Some(catalog::PROVIDER_CURSOR.into()),
             snapshot: None,
             limit: 1,
-        release_type: None,
+            release_type: None,
         })
         .unwrap();
     assert!(
@@ -321,6 +321,7 @@ fn page_body(continuation: Option<String>) -> Value {
     let request = ReadArtistDiscography {
         limit: 1,
         continuation,
+        release_type: None,
     };
     json!({"limit": request.limit, "continuation": request.continuation})
 }

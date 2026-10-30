@@ -49,6 +49,7 @@ pub async fn read(
         }
         Ok(ArtistDiscographyAvailability::Disabled) => ("disabled", 0),
         Ok(ArtistDiscographyAvailability::Unsupported) => ("unsupported", 0),
+        Ok(ArtistDiscographyAvailability::TypeFilterUnsupported) => ("type_filter_unsupported", 0),
         Ok(ArtistDiscographyAvailability::Unavailable) => ("unavailable", 0),
         Ok(ArtistDiscographyAvailability::Cancelled) => ("cancelled", 0),
         Err(error) => (error.code(), 0),

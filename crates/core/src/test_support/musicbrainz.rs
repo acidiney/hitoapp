@@ -26,6 +26,8 @@ pub enum Reply {
     /// The first page of an artist's recordings: the total MusicBrainz states, then each title
     /// with its length in milliseconds.
     Discography(u32, Vec<(String, Option<u64>)>),
+    /// One browse page of release groups, each with its identifier and primary type.
+    ReleaseGroups(Vec<(String, Option<String>)>),
     NotFound,
     Unavailable,
 }
@@ -105,6 +107,14 @@ impl FakeMusicBrainz {
             .insert(format!("recordings/{artist}"), reply);
     }
 
+    /// Answers the release-group browse of one artist, for one primary type or for all of them.
+    pub fn release_groups_of(&self, artist: &str, release_type: Option<&str>, reply: Reply) {
+        self.state.lock().unwrap().replies.insert(
+            format!("release-groups/{artist}/{}", release_type.unwrap_or("all")),
+            reply,
+        );
+    }
+
     pub fn delay_replies(&self, delay: Duration) {
         self.state.lock().unwrap().delay = delay;
     }
@@ -147,6 +157,13 @@ fn key(uri: &Uri) -> Option<String> {
         let query = parameter("query")?;
         let name = query.strip_prefix('"')?.strip_suffix('"')?;
         return Some(format!("search/{name}"));
+    }
+    if path == "release-group" {
+        return Some(format!(
+            "release-groups/{}/{}",
+            parameter("artist")?,
+            parameter("type").unwrap_or_else(|| "all".into())
+        ));
     }
     if path == "recording" {
         return Some(format!("recordings/{}", parameter("artist")?));
@@ -231,6 +248,19 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             (
                 StatusCode::OK,
                 json!({"recording-count": total, "recording-offset": 0, "recordings": listed}),
+            )
+        }
+        (_, Some(Reply::ReleaseGroups(groups))) => {
+            let listed: Vec<Value> = groups
+                .iter()
+                .map(|(id, kind)| {
+                    json!({"id": id, "title": "Owned fixture title", "primary-type": kind,
+                        "secondary-types": [], "first-release-date": "2020"})
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                json!({"release-group-count": listed.len(), "release-group-offset": 0, "release-groups": listed}),
             )
         }
         (_, Some(Reply::Unavailable)) => {

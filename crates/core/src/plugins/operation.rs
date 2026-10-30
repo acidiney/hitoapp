@@ -170,6 +170,19 @@ impl Operation {
         result
     }
 
+    pub(crate) async fn catalog_discography_filter_supported(&self) -> Result<bool> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_discography_filter_supported_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
     pub(crate) async fn catalog_artist_discography(
         &self,
         request: &hito_plugin_sdk::ArtistDiscographyRequest,

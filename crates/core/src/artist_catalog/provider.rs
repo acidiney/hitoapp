@@ -86,6 +86,13 @@ impl Connection {
         }
     }
 
+    pub(super) async fn discography_filter_supported(&self) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(true),
+            Self::Http(operation) => operation.catalog_discography_filter_supported().await,
+        }
+    }
+
     pub(super) async fn similarity_supported(&self) -> Result<bool> {
         match self {
             Self::Builtin(_) => Ok(false),
@@ -218,7 +225,7 @@ impl Connection {
                         cursor: request.cursor.clone(),
                         snapshot: request.snapshot.clone(),
                         limit: request.limit,
-        release_type: None,
+                        release_type: request.release_type,
                     })
                     .await
                     .map_err(|_| {

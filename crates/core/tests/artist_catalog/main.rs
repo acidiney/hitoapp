@@ -8,6 +8,7 @@ mod album_track_audio;
 mod artist_catalog_credit_review;
 mod artist_catalog_descriptor_compatibility;
 mod artist_catalog_discography;
+mod artist_catalog_discography_type;
 mod artist_catalog_discovery;
 mod artist_catalog_discovery_cancellation;
 mod artist_catalog_discovery_confirmation_context;

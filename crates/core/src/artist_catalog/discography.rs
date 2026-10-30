@@ -74,10 +74,12 @@ impl ArtistCatalog {
                 cursor: None,
                 snapshot: None,
                 limit: request.limit,
-        release_type: None,
+                release_type: request.release_type,
             },
         };
-        if provider_request.artist_id != read.association.provider_artist_id {
+        if provider_request.artist_id != read.association.provider_artist_id
+            || provider_request.release_type != request.release_type
+        {
             return Err(Error::Invalid(
                 "Use a valid catalog continuation or start again".into(),
             ));
@@ -89,6 +91,17 @@ impl ArtistCatalog {
             Err(Error::Upstream(_)) => return Ok(ArtistDiscographyAvailability::Unavailable),
             result => {
                 result?;
+            }
+        }
+        if provider_request.release_type.is_some() {
+            let filtered = read.connection.discography_filter_supported().await;
+            read.recheck().await?;
+            match filtered {
+                Ok(false) => return Ok(ArtistDiscographyAvailability::TypeFilterUnsupported),
+                Err(Error::Upstream(_)) => return Ok(ArtistDiscographyAvailability::Unavailable),
+                result => {
+                    result?;
+                }
             }
         }
         let result = read.connection.discography(&provider_request).await;
@@ -110,7 +123,7 @@ impl ArtistCatalog {
                         cursor: Some(cursor.clone()),
                         snapshot: page.snapshot.clone(),
                         limit: provider_request.limit,
-        release_type: None,
+                        release_type: provider_request.release_type,
                     },
                 )
             })

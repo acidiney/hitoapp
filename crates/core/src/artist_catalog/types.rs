@@ -1,6 +1,6 @@
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile, CatalogEditionTrackList,
-    ReleaseGroupEditionsPage,
+    CatalogReleaseTypeFilter, ReleaseGroupEditionsPage,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -192,6 +192,9 @@ impl ArtistProfileAvailability {
 pub struct ReadArtistDiscography {
     pub limit: u16,
     pub continuation: Option<String>,
+    /// Pages one release type at a time from providers that declare the filter.
+    #[serde(default)]
+    pub release_type: Option<CatalogReleaseTypeFilter>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -204,6 +207,8 @@ pub enum ArtistDiscographyAvailability {
     },
     Disabled,
     Unsupported,
+    /// The provider reads discographies but cannot page one release type at a time.
+    TypeFilterUnsupported,
     Unavailable,
     Cancelled,
 }
@@ -214,6 +219,7 @@ impl ArtistDiscographyAvailability {
             Self::Available { .. } => "available",
             Self::Disabled => "disabled",
             Self::Unsupported => "unsupported",
+            Self::TypeFilterUnsupported => "type_filter_unsupported",
             Self::Unavailable => "unavailable",
             Self::Cancelled => "cancelled",
         }
