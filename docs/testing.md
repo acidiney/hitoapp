@@ -46,7 +46,7 @@ Every top-level file in a crate's `tests/` directory, and every `tests/<name>/ma
   - It asserts a wall-clock budget that concurrent neighbours would eat (`artist_catalog_similarity`, `inspection_command_deadline`, `download_late_writer`, `provider_upgrade_scale`, `provider_source_upgrade`, `provider_bindings_upgrade`, `community_rankings`).
   - It needs a Cargo feature. The plugin SDK `server` tests keep their `required-features` entry in `Cargo.toml`.
 - **Adding a test.** Put it in the area binary that matches its capability and add a `mod` line to `main.rs`. Make it standalone only for one of the reasons above, and add it to that list.
-- **Device audio tests.** The `native_*` playback binaries compile only with `--features device`. `scripts/check-playback.sh` runs them with `--ignored --test-threads=1` against the private clocked audio monitor, one binary after another.
+- **Device audio tests.** The `native_*` playback binaries compile only with `--features device`. `scripts/check-playback.sh` runs them with `--ignored --test-threads=1` against the private clocked audio monitor, one binary after another. They share one audio device and its capture, so they must run with `--test-threads=1`; in parallel, tests that need exclusive audio fail even when they build no tracing dispatcher. Tests that build their own tracing dispatcher call `hito_testkit::logs::anchor_callsite_interest()` first.
 
 ## Principles
 
