@@ -55,3 +55,7 @@ The workflow preserves original WAV hashes, duplicate playlist occurrences, pers
 The first observer incorrectly counted the recording page's two existing read-only download-status requests as downloads. A diagnostic run established their exact authenticated GET envelopes and bounded 404 absence replies. The final gate accepts only those two requests and replies; other download requests still fail. The response-size assertions inspect collected bodies and do not qualify streaming memory bounds.
 
 This package uses an owned catalog fixture. Live MusicBrainz acceptance, normal-server publication, discography and selected-edition track traversal, canonical matching, duplicate-artist correction and artist artwork remain separate work.
+
+## Matched provenance in saved reviews
+
+A saved artist review carries an `evidence` value: `user_confirmed` for a review the account made itself, or the way an automatic match was made (`matched_file_tag_artist_id`, `matched_isrc`, `matched_provider_url`, `matched_name_discography`; see [artist matching](artist-matching.md)). The associations route returns it and the saved-review list on the recording page shows one plain sentence per automatic match, for example "Matched automatically from the recording's ISRC." A review the account confirmed shows no such sentence. The wording lives in one place in the web app (`associationEvidenceText`). Covered by an HTTP case (the `matched_isrc` association) and four DOM cases (one per match kind plus a self-confirmed review).

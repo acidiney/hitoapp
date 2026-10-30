@@ -59,6 +59,16 @@ This source slice is not yet deployed to the normal local server. Public fixture
 
 Inspection version 4 also retains the first `isrc` (ID3 `TSRC`) tag as `InspectedTags.isrc`, a raw source assertion like the ordinary tags (null when absent or not yet inspected). Its value is normalized only when Hito uses it as [provider evidence](artist-matching.md#matching-from-provider-evidence); a malformed value is ignored there. Unchanged version-3 files refresh their tags on the next scan without decoding audio again, exactly as version 2 did. FLAC, Ogg Vorbis, MP3, M4A and WAV (ID3 chunk) fixtures verify the tag; other containers are unverified.
 
+## Release and recording MusicBrainz identifiers in verified source
+
+Inspection version 5 also retains four more tags as raw source assertions on `InspectedTags` (each null when absent or not yet inspected): `musicbrainz_album_id` (`MusicBrainz Album Id`, `MUSICBRAINZ_ALBUMID`, the release), `musicbrainz_release_group_id`, `musicbrainz_recording_id` (`MusicBrainz Track Id`, `MUSICBRAINZ_TRACKID`, the recording, following MusicBrainz Picard) and `musicbrainz_release_track_id` (`MusicBrainz Release Track Id`, `MUSICBRAINZ_RELEASETRACKID`). Unchanged version-4 files refresh their tags on the next scan without decoding audio again.
+
+Each well-formed value (a hyphenated UUID; stored in lower case; the nil UUID is rejected) is also kept as an immutable row in `recording_musicbrainz_observations` (migration 0064), beside the observation that stated it, with the recording and the release the observation belongs to. A malformed value stays a raw assertion only. Rows are never updated or deleted, so a retag adds a new observation instead of changing an old answer.
+
+This is evidence, not a merge. Two local releases that carry the same release identifier stay two releases, a recording is never matched to another by an identifier, and nothing here edits a title, artist, album or any other personal field. The rows are not shown on album or recording pages yet; they are visible only as the raw tags of the observation.
+
+FLAC, Ogg Vorbis, M4A (freeform atoms), MP3 and WAV (ID3 chunk) fixtures verify the tags. Limit: FFprobe does not expose an ID3 `UFID` frame, which is where Picard stores the recording identifier in MP3 and WAV files, so those two dialects retain the release, release group and release track identifiers but not the recording identifier. Reading `UFID` would need a second tag reader and is open work.
+
 ## Compressed ID3 tags and tag compatibility
 
 FFprobe reads tags from a private copy of each file. Before it runs, Hito looks at ID3v2.3 and v2.4 tags at the start of the file and in RIFF (WAV) and AIFF ID3 chunks. Only tags that contain at least one compressed frame are rewritten, in place and at the same length. Other files are untouched.

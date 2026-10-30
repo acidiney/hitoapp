@@ -117,6 +117,21 @@ What is sent. The credit name only, in the search query, and the MusicBrainz art
 
 Limits. Prolific artists are partly read (one page of one hundred recordings). A partly read artist that corroborates is accepted only when every other exact-name artist was fully read without corroborating; a partly read namesake that does not corroborate keeps the credit uncertain. A search with more than ten results is never conclusive. Equal-name artists without enough library overlap are never matched.
 
+## Release and recording identifiers from tags
+
+File tags can also name the release, release group, recording and release track a file belongs to. Since inspection version 5 these are kept as raw assertions, and each well-formed one becomes an immutable evidence row (`recording_musicbrainz_observations`, migration 0064) for that recording and release. See [the tag details](metadata.md#release-and-recording-musicbrainz-identifiers-in-verified-source).
+
+```mermaid
+flowchart LR
+    Tag[File tags: release, group, recording, release track ids] --> Inspect[Inspection version 5: raw assertions]
+    Inspect --> Valid{Well-formed UUID?}
+    Valid -->|no| Raw[Raw tag only]
+    Valid -->|yes| Row[Immutable evidence row for the recording and release]
+    Row -.->|not yet| Later[Lookup, provider links and display]
+```
+
+Nothing is merged or applied from these rows: releases with the same identifier stay separate, no recording is grouped by them, and personal edits are untouched. They are the verified starting point for later release and recording matching.
+
 ## Consent for provider lookups
 
 The tag pass reads local files only, so the Artists page still runs it silently. The provider pass sends ISRC codes, provider artist links and, in its name phase, credit names to a third party, so Hito never starts it by itself. The Artists page shows a **Find matches on MusicBrainz** button with the line "Sends ISRC codes, provider artist links and the artist names of tracks it cannot place otherwise from your library to MusicBrainz." Clicking it is the account's consent for that run. The button is disabled while the account's metadata settings are loading or disable MusicBrainz (enrichment off, or the built-in provider not selected), and the server enforces the same rule. After a run the page shows the receipt counts (matched, uncertain answers, unavailable) and says when to run it again to continue. Leaving the page cancels a run.
@@ -156,6 +171,7 @@ Public core cases use real temporary SQLite and owned deterministic WAV files ta
 - A personal reset and a personal unlink are not overridden, an unlink made before any choice is respected, and disabled enrichment matches nothing.
 - Suggestions rank by evidence, include name-only items last, never change a choice, can be dismissed per credit and chosen artist, and end once accepted through the existing path.
 - Another account's pass cannot undo an administrator's shared correction; a retagged automatic match is matched again while a reset or split one is not; personal artist edits, splits and retired choices are left alone; two concurrent passes match each recording once; a second pass reads no candidates and writes nothing; and work-budget cases bound the pass and the suggestions.
+- Release and recording identifiers: five tag dialects (the matrix), an identity case with real temporary SQLite (well-formed, malformed, upper-case, shared across two releases, no merge, a second scan adds nothing, a personal title edit survives) and migration 0064 with exact-schema upgrade coverage and immutability.
 - Migration 0060 upgrades from 0059 with exact schema comparison, immutable provenance, a per-account dismissal key and no implied matches.
 
 Provider evidence and name corroboration are covered at three boundaries:
@@ -174,5 +190,5 @@ HTTP cases use the real router for statuses, validation, replay, access, a secon
 - A persistent cache of MusicBrainz answers shared across accounts, re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
 - Providers that expose ISRCs or artist pages. The folder plugin publishes ISRC tags. The public Spotify response states no ISRC. No other bundled plugin has an ISRC field in its source API that Hito could verify; none was invented. Existing imported copies receive artist pages only when their metadata is refreshed from the provider.
 - Name matching is implemented against owned fakes only. Still open: live acceptance, a persistent cache of search and recordings answers shared across accounts, release-based corroboration (release groups carry no track lengths), reading beyond one page of an artist's recordings or search results, and a work-budget measurement of the name candidate query on a large library. Automatic timer-driven lookups are deliberately not planned: every outbound lookup follows the explicit button.
-- Release and recording matching. File tags do not yet retain release or recording MusicBrainz identifiers.
+- Release and recording matching beyond retention. Local files now retain release and recording MusicBrainz identifiers as evidence (see below), but nothing yet looks them up at MusicBrainz, links a release or recording to a provider entity, shows the identifiers on album or recording pages, or reads an ID3 `UFID` recording identifier.
 - Live MusicBrainz acceptance remains blocked by upstream HTTP 503 responses; see [the adapter](builtin-musicbrainz.md#live-integration-gate).
