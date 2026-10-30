@@ -1,0 +1,6 @@
+mod player_native_audiobook_completion;
+mod player_native_audiobook_continue_output;
+mod player_native_audiobook_progress;
+mod player_native_audiobook_retry;
+mod player_native_audiobook_unheard_eof;
+mod player_native_audiobook_unheard_seek;
