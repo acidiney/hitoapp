@@ -108,6 +108,10 @@ pub struct SearchPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artists: Option<ArtistPage>,
+    /// Chosen artists matching the search, exact names first.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub artist_groups: Option<crate::api::artist_identity_groups::ArtistIdentityGroupPage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub connections: Option<Vec<hito_core::PluginInstallation>>,

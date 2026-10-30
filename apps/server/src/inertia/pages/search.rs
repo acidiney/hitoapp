@@ -61,6 +61,29 @@ pub(super) async fn search(request: PageRequest<'_>) -> ApiResult<PageProps> {
             }))
         })
         .await?;
+    let artist_groups = request
+        .when("artist_groups", async {
+            Ok(crate::api::artist_identity_groups::ArtistIdentityGroupPage(
+                if searching {
+                    request
+                        .services
+                        .artist_catalog
+                        .artist_identity_groups(
+                            request.actor,
+                            hito_core::ArtistIdentityGroupQuery {
+                                q: Some(text.clone()),
+                                library: None,
+                                offset: Some(0),
+                                limit: Some(ALBUMS_AND_ARTISTS),
+                            },
+                        )
+                        .await?
+                } else {
+                    nothing(ALBUMS_AND_ARTISTS)
+                },
+            ))
+        })
+        .await?;
     let (connections, service_names) =
         if request.requested("connections") || request.requested("service_names") {
             let offered = request.services.plugins.connections(request.actor).await?;
@@ -85,6 +108,7 @@ pub(super) async fn search(request: PageRequest<'_>) -> ApiResult<PageProps> {
         recordings,
         releases,
         artists,
+        artist_groups,
         connections,
         service_names,
     }))

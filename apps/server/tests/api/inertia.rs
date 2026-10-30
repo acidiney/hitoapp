@@ -364,3 +364,25 @@ async fn unknown_paths_answer_a_not_found_page_while_api_paths_keep_json() {
     let (status, _, _) = get(&app, "/library", &[("authorization", &bearer)]).await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn search_pages_can_carry_chosen_artists() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    let bearer = format!("Bearer {token}");
+    let (status, body, _) = get(
+        &app,
+        "/search?q=nova",
+        &[
+            ("authorization", &bearer),
+            ("x-inertia", "true"),
+            ("x-inertia-partial-component", "SearchPage"),
+            ("x-inertia-partial-data", "artist_groups"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let page: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(page["props"]["artist_groups"]["items"], json!([]));
+    assert_eq!(page["props"]["artist_groups"]["total"], 0);
+}
