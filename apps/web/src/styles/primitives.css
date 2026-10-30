@@ -227,8 +227,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: var(--cover-bg);
-  color: var(--cover-fg);
+  background: var(--cover-bg, #2f4bff);
+  color: var(--cover-fg, #ffffff);
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px var(--line-strong);
 }
@@ -274,4 +274,15 @@
   top: 0;
   bottom: 0;
   width: 5%;
+}
+.artist-card.round .fallback-cover,
+.tinted-header[data-size="artist"] .fallback-cover {
+  padding: 18%;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.artist-card.round .fallback-cover::before,
+.tinted-header[data-size="artist"] .fallback-cover::before {
+  display: none;
 }

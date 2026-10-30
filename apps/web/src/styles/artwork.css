@@ -21,6 +21,13 @@
 .artwork.has-image {
   background: var(--surface);
 }
+.artwork.has-image > .fallback-cover,
+.artwork.has-image > img {
+  grid-area: 1 / 1;
+}
+.artwork:not([data-loaded]) > img {
+  opacity: 0;
+}
 .artwork img:not([src]) {
   visibility: hidden;
 }

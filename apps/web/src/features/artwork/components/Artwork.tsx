@@ -31,6 +31,7 @@ export default function Artwork({
   const [failedRelease, setFailedRelease] = useState<string>();
   const [failedRecording, setFailedRecording] = useState<string>();
   const [failedPlaylist, setFailedPlaylist] = useState<string>();
+  const [loadedImage, setLoadedImage] = useState<string>();
   const playlistUrl = playlistId
     ? `/api/v1/playlists/${encodeURIComponent(playlistId)}/artwork`
     : undefined;
@@ -63,40 +64,47 @@ export default function Artwork({
         : recordingUrl && failedRecording !== recordingKey
           ? recordingUrl
           : undefined;
+  const imageKey =
+    url === playlistUrl
+      ? playlistKey
+      : url === recordingUrl
+        ? recordingKey
+        : releaseKey;
+  const loaded = Boolean(url) && loadedImage === imageKey;
+  const markMissing = () => {
+    if (url === playlistUrl) {
+      setFailedPlaylist(playlistKey);
+      playlistRetrieval.missing();
+    } else if (url === releaseUrl) {
+      setFailedRelease(releaseKey);
+      releaseRetrieval.missing();
+    } else {
+      setFailedRecording(recordingKey);
+      recordingRetrieval.missing();
+    }
+  };
   return (
     <div
       className={`artwork ${url ? "has-image" : ""} ${className}`}
+      data-loaded={loaded ? "" : undefined}
       aria-hidden="true"
     >
+      {url && fallback && !loaded && (
+        <FallbackCover {...fallback} artist={null} inline={false} />
+      )}
       {url ? (
         <img
-          key={
-            url === playlistUrl
-              ? playlistKey
-              : url === recordingUrl
-                ? recordingKey
-                : releaseKey
-          }
+          key={imageKey}
           src={url}
           alt=""
           loading="lazy"
           onLoad={() => {
+            setLoadedImage(imageKey);
             if (url === playlistUrl) playlistRetrieval.loaded();
             else if (url === releaseUrl) releaseRetrieval.loaded();
             else recordingRetrieval.loaded();
           }}
-          onError={() => {
-            if (url === playlistUrl) {
-              setFailedPlaylist(playlistKey);
-              playlistRetrieval.missing();
-            } else if (url === releaseUrl) {
-              setFailedRelease(releaseKey);
-              releaseRetrieval.missing();
-            } else {
-              setFailedRecording(recordingKey);
-              recordingRetrieval.missing();
-            }
-          }}
+          onError={markMissing}
         />
       ) : fallback ? (
         <FallbackCover {...fallback} />
