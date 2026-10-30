@@ -32,7 +32,7 @@ impl Identity {
                 "Sign in as another administrator to delete this account".into(),
             ));
         }
-        if username != request.username.trim() {
+        if username.trim() != request.username.trim() {
             return Err(Error::Conflict(
                 "This account changed. Reload Settings.".into(),
             ));

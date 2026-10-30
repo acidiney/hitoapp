@@ -320,7 +320,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn every_table_that_can_hold_account_data_is_covered_by_the_erasure_plan() {
+    async fn every_table_reaching_users_by_foreign_key_or_account_named_column_is_in_the_plan() {
+        // Guarantees: a table with a foreign key path to users, or a column named user_id,
+        // account_id, owner_id, author_id or *_by (even without a foreign key), is touched by
+        // the plan. It cannot see an account reference hidden in a differently named column.
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(&directory.path().join("plan.db"))
             .await
@@ -330,10 +333,10 @@ mod tests {
         loop {
             let before = reachable.len();
             for entry in &described {
-                let names_account = entry
-                    .columns
-                    .iter()
-                    .any(|column| ["user_id", "account_id", "owner_id"].contains(&column.as_str()));
+                let names_account = entry.columns.iter().any(|column| {
+                    ["user_id", "account_id", "owner_id", "author_id"].contains(&column.as_str())
+                        || column.ends_with("_by")
+                });
                 if names_account
                     || entry
                         .parents
