@@ -1,4 +1,5 @@
 mod client;
+mod cover_art;
 mod discography;
 mod edition;
 mod edition_listing;
@@ -9,6 +10,7 @@ mod search;
 mod transport;
 
 pub use client::MusicBrainzClient;
+pub use cover_art::{CoverArt, CoverArtClient, CoverKind};
 pub use error::Error;
 pub use identifiers::{ArtistRecording, ArtistRecordings, IsrcRecording};
 
