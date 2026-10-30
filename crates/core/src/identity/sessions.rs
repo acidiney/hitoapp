@@ -71,6 +71,7 @@ impl Identity {
             session_hash,
             locked,
             background: false,
+            unattended: false,
         })
     }
 
@@ -110,6 +111,27 @@ impl Actor {
             session_hash: session_hash.to_owned(),
             locked,
             background: true,
+            unattended: false,
+        })
+    }
+
+    /// The account acting on its own behalf with no browser session, for work the server starts
+    /// after the account has shown consent through its saved settings.
+    pub(crate) async fn unattended_on(
+        connection: &mut sqlx::SqliteConnection,
+        account: &str,
+    ) -> Result<Self> {
+        let user = sqlx::query_as("SELECT id,username,admin FROM users WHERE id = ?")
+            .bind(account)
+            .fetch_optional(connection)
+            .await?
+            .ok_or(Error::NotFound)?;
+        Ok(Self {
+            user,
+            session_hash: String::new(),
+            locked: false,
+            background: true,
+            unattended: true,
         })
     }
 
@@ -122,6 +144,18 @@ impl Actor {
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> Result<()> {
+        if self.unattended {
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)")
+                    .bind(self.id())
+                    .fetch_one(connection)
+                    .await?;
+            return if exists {
+                Ok(())
+            } else {
+                Err(Error::Unauthorized)
+            };
+        }
         let (valid, locked): (bool, bool) = sqlx::query_as(
             "SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ?1 AND user_id = ?2 AND expires_at > unixepoch()),
                     EXISTS(SELECT 1 FROM account_pin_locks p LEFT JOIN session_locks l ON l.token_hash = ?1
@@ -145,6 +179,9 @@ impl Actor {
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> Result<()> {
+        if self.unattended {
+            return self.check_session_on(connection).await;
+        }
         let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ? AND user_id = ? AND expires_at > unixepoch())")
             .bind(&self.session_hash).bind(self.id()).fetch_one(connection).await?;
         if valid {

@@ -25,6 +25,7 @@ mod artist_identity_selection_search;
 mod artist_identity_split;
 mod artist_identity_unified_index;
 mod artist_identity_unified_index_edges;
+mod artist_match_automatic;
 mod artist_match_guards;
 mod artist_match_isrc;
 mod artist_match_name_discography;

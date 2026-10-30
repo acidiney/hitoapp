@@ -96,6 +96,7 @@ async fn serve_owned(
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let watching = folder_watching_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
+    let matching = matching_worker(services.artist_catalog.clone(), stopped.clone());
     let reports = community::worker(services.community, stopped.clone());
     let preparation_catalog = services.catalog;
     let preparation_stop = stopped.clone();
@@ -135,11 +136,12 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), ()) = tokio::join!(
         http,
         indexing,
         watching,
         artwork,
+        matching,
         follows,
         transfers,
         preparations,
@@ -233,6 +235,52 @@ async fn artwork_worker(
         }
     }
     tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
+}
+
+async fn matching_worker(
+    artists: hito_core::ArtistCatalog,
+    mut stopped: tokio::sync::watch::Receiver<bool>,
+) {
+    tracing::info!(
+        event = "matching_worker_started",
+        "Artist matching worker started"
+    );
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped.changed() => break,
+            _ = interval.tick() => {}
+        }
+        let started = Instant::now();
+        let result = artists
+            .run_next_automatic_matching_until(async {
+                let _ = stopped.changed().await;
+            })
+            .await;
+        match result {
+            Ok(claimed) => tracing::debug!(
+                event = "matching_worker_polled",
+                claimed,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Artist matching worker checked pending work"
+            ),
+            Err(error) => tracing::error!(
+                event = "matching_worker_failed",
+                error_kind = error.code(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Artist matching worker failed"
+            ),
+        }
+        if *stopped.borrow() {
+            break;
+        }
+    }
+    tracing::info!(
+        event = "matching_worker_stopped",
+        "Artist matching worker stopped"
+    );
 }
 
 #[tracing::instrument(level = "info", skip_all, fields(worker_slot = worker_slot))]

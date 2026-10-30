@@ -1,0 +1,301 @@
+use super::{MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, policy};
+use crate::{Actor, ArtistCatalog, Error, Result};
+use sqlx::{FromRow, SqliteConnection};
+use std::time::Instant;
+use uuid::Uuid;
+
+const LEASE_SECONDS: i64 = 90;
+const MAX_ATTEMPTS: i64 = 6;
+const BUSY_RETRY_SECONDS: i64 = 2;
+
+#[derive(FromRow)]
+struct Job {
+    user_id: String,
+    phase: String,
+    cursor: Option<String>,
+    rerun: bool,
+    attempts: i64,
+    lease_token: String,
+}
+
+enum Step {
+    Continue {
+        phase: &'static str,
+        cursor: Option<String>,
+        unavailable: bool,
+    },
+    Complete {
+        unavailable: bool,
+    },
+    Dropped,
+    Busy,
+    Failed,
+}
+
+/// Schedules a background matching walk for an account whose settings allow it. Repeated
+/// requests share the account's single job; a request that arrives while the walk is under way
+/// asks for one more walk afterwards.
+pub(crate) async fn request_for_account(
+    connection: &mut SqliteConnection,
+    account: &str,
+) -> Result<()> {
+    if !allowed(connection, account).await? {
+        return Ok(());
+    }
+    sqlx::query(
+        "INSERT INTO artist_matching_jobs(user_id,next_run_at) VALUES(?,unixepoch())
+         ON CONFLICT(user_id) DO UPDATE SET rerun = CASE
+            WHEN (lease_token IS NOT NULL AND lease_until > unixepoch()) OR cursor IS NOT NULL OR phase <> 'tags'
+            THEN 1 ELSE rerun END",
+    )
+    .bind(account)
+    .execute(connection)
+    .await?;
+    Ok(())
+}
+
+pub(crate) async fn request_for_library(
+    connection: &mut SqliteConnection,
+    library: &str,
+) -> Result<()> {
+    let members: Vec<String> =
+        sqlx::query_scalar("SELECT user_id FROM library_members WHERE library_id = ?")
+            .bind(library)
+            .fetch_all(&mut *connection)
+            .await?;
+    for member in members {
+        request_for_account(connection, &member).await?;
+    }
+    Ok(())
+}
+
+async fn allowed(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
+    let actor = match Actor::unattended_on(connection, account).await {
+        Ok(actor) => actor,
+        Err(Error::NotFound) => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    let settings = policy::read(connection, &actor).await?;
+    Ok(settings.automatic_artist_lookup
+        && policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz))
+}
+
+impl ArtistCatalog {
+    /// Runs one batch of the oldest due matching walk: the tag pass, then the provider evidence
+    /// and name passes, resuming from the stored position. A shutdown abandons the batch and
+    /// leaves the walk to continue from the same position.
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub async fn run_next_automatic_matching_until(
+        &self,
+        shutdown: impl std::future::Future<Output = ()> + Send,
+    ) -> Result<bool> {
+        let Some(job) = self.claim_matching_job().await? else {
+            return Ok(false);
+        };
+        let started = Instant::now();
+        let phase = job.phase.clone();
+        let step = tokio::select! {
+            biased;
+            _ = shutdown => {
+                self.release_matching_job(&job, 0).await?;
+                tracing::info!(event = "automatic_matching_interrupted", phase,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "Automatic artist matching step interrupted");
+                return Ok(true);
+            }
+            step = self.matching_step(&job) => step,
+        };
+        let outcome = self.finish_matching_job(&job, step).await?;
+        tracing::info!(
+            event = "automatic_matching_step",
+            phase,
+            outcome,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Automatic artist matching step finished"
+        );
+        Ok(true)
+    }
+
+    async fn claim_matching_job(&self) -> Result<Option<Job>> {
+        let due: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs INDEXED BY artist_matching_jobs_due
+             WHERE next_run_at <= unixepoch() AND (lease_token IS NULL OR lease_until <= unixepoch()))",
+        )
+        .fetch_one(&self.store.pool)
+        .await?;
+        if !due {
+            return Ok(None);
+        }
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let token = Uuid::new_v4().to_string();
+        let job: Option<Job> = sqlx::query_as(
+            "UPDATE artist_matching_jobs SET lease_token = ?1,lease_until = unixepoch() + ?2
+             WHERE user_id = (SELECT user_id FROM artist_matching_jobs
+                WHERE next_run_at <= unixepoch() AND (lease_token IS NULL OR lease_until <= unixepoch())
+                ORDER BY requested_at,user_id LIMIT 1)
+             RETURNING user_id,phase,cursor,rerun,attempts,lease_token",
+        )
+        .bind(&token)
+        .bind(LEASE_SECONDS)
+        .fetch_optional(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(job)
+    }
+
+    async fn matching_step(&self, job: &Job) -> Step {
+        let actor = async {
+            let mut connection = self.store.pool.acquire().await?;
+            let actor = Actor::unattended_on(&mut connection, &job.user_id).await?;
+            let settings = policy::read(&mut connection, &actor).await?;
+            let allowed = settings.automatic_artist_lookup
+                && policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz);
+            Ok::<_, Error>(allowed.then_some(actor))
+        }
+        .await;
+        let actor = match actor {
+            Ok(Some(actor)) => actor,
+            Ok(None) | Err(Error::NotFound) => return Step::Dropped,
+            Err(_) => return Step::Failed,
+        };
+        let request_id = Uuid::new_v4();
+        let result = if job.phase == "tags" {
+            self.match_artists_from_tags(
+                &actor,
+                MatchArtistsFromTags {
+                    request_id,
+                    after: job.cursor.clone(),
+                    limit: None,
+                },
+            )
+            .await
+            .map(|receipt| (receipt.next_after, false, "tags"))
+        } else {
+            self.match_artists_from_provider_evidence(
+                &actor,
+                MatchArtistsFromProviderEvidence {
+                    request_id,
+                    after: job.cursor.clone(),
+                    limit: None,
+                },
+            )
+            .await
+            .map(|receipt| (receipt.next_after, receipt.unavailable > 0, "provider"))
+        };
+        match result {
+            Ok((Some(cursor), unavailable, phase)) => Step::Continue {
+                phase,
+                cursor: Some(cursor),
+                unavailable,
+            },
+            Ok((None, unavailable, "tags")) => Step::Continue {
+                phase: "provider",
+                cursor: None,
+                unavailable,
+            },
+            Ok((None, unavailable, _)) => Step::Complete { unavailable },
+            Err(Error::Conflict(_)) => Step::Busy,
+            Err(Error::Unauthorized | Error::NotFound | Error::Forbidden) => Step::Dropped,
+            Err(_) => Step::Failed,
+        }
+    }
+
+    async fn finish_matching_job(&self, job: &Job, step: Step) -> Result<&'static str> {
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let outcome = match step {
+            Step::Continue {
+                phase,
+                cursor,
+                unavailable,
+            } => {
+                sqlx::query("UPDATE artist_matching_jobs SET phase = ?,cursor = ?,
+                    rerun = rerun OR ?,attempts = attempts + ?,lease_token = NULL,lease_until = NULL,
+                    next_run_at = unixepoch() WHERE user_id = ? AND lease_token = ?")
+                    .bind(phase)
+                    .bind(cursor)
+                    .bind(unavailable)
+                    .bind(i64::from(unavailable))
+                    .bind(&job.user_id)
+                    .bind(&job.lease_token)
+                    .execute(&mut *tx)
+                    .await?;
+                "advanced"
+            }
+            Step::Complete { unavailable } => {
+                let attempts = job.attempts + i64::from(unavailable);
+                if (job.rerun || unavailable) && attempts < MAX_ATTEMPTS {
+                    let delay = if attempts == 0 {
+                        0
+                    } else {
+                        (60i64 << attempts.min(6)).min(3600)
+                    };
+                    sqlx::query("UPDATE artist_matching_jobs SET phase = 'tags',cursor = NULL,rerun = 0,
+                        attempts = ?,lease_token = NULL,lease_until = NULL,next_run_at = unixepoch() + ?
+                        WHERE user_id = ? AND lease_token = ?")
+                        .bind(attempts)
+                        .bind(delay)
+                        .bind(&job.user_id)
+                        .bind(&job.lease_token)
+                        .execute(&mut *tx)
+                        .await?;
+                    "rescheduled"
+                } else {
+                    delete(&mut tx, job).await?;
+                    "complete"
+                }
+            }
+            Step::Dropped => {
+                delete(&mut tx, job).await?;
+                "dropped"
+            }
+            Step::Busy => {
+                release(&mut tx, job, BUSY_RETRY_SECONDS).await?;
+                "busy"
+            }
+            Step::Failed => {
+                if job.attempts + 1 >= MAX_ATTEMPTS {
+                    delete(&mut tx, job).await?;
+                    "abandoned"
+                } else {
+                    sqlx::query("UPDATE artist_matching_jobs SET attempts = attempts + 1,lease_token = NULL,
+                        lease_until = NULL,next_run_at = unixepoch() + ? WHERE user_id = ? AND lease_token = ?")
+                        .bind((60i64 << job.attempts.min(6)).min(3600))
+                        .bind(&job.user_id)
+                        .bind(&job.lease_token)
+                        .execute(&mut *tx)
+                        .await?;
+                    "failed"
+                }
+            }
+        };
+        tx.commit().await?;
+        Ok(outcome)
+    }
+
+    async fn release_matching_job(&self, job: &Job, delay: i64) -> Result<()> {
+        let mut connection = self.store.pool.acquire().await?;
+        release(&mut connection, job, delay).await
+    }
+}
+
+async fn delete(connection: &mut SqliteConnection, job: &Job) -> Result<()> {
+    sqlx::query("DELETE FROM artist_matching_jobs WHERE user_id = ? AND lease_token = ?")
+        .bind(&job.user_id)
+        .bind(&job.lease_token)
+        .execute(connection)
+        .await?;
+    Ok(())
+}
+
+async fn release(connection: &mut SqliteConnection, job: &Job, delay: i64) -> Result<()> {
+    sqlx::query(
+        "UPDATE artist_matching_jobs SET lease_token = NULL,lease_until = NULL,
+        next_run_at = unixepoch() + ? WHERE user_id = ? AND lease_token = ?",
+    )
+    .bind(delay)
+    .bind(&job.user_id)
+    .bind(&job.lease_token)
+    .execute(connection)
+    .await?;
+    Ok(())
+}

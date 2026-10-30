@@ -5,6 +5,7 @@ mod album_library_level;
 mod association_changes;
 mod associations;
 mod authority;
+pub(crate) mod automation;
 mod confirmation;
 mod continuation;
 mod discography;

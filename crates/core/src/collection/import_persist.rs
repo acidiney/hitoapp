@@ -151,6 +151,7 @@ pub(super) async fn publish(
         playlist_id,
     };
     import_receipts::save(tx, actor.id(), digest, &receipt, publication_sequence).await?;
+    crate::artist_catalog::automation::request_for_account(tx, actor.id()).await?;
     Ok(receipt)
 }
 

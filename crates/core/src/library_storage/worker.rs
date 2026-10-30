@@ -93,6 +93,11 @@ impl LibraryStorage {
                     .bind(count).bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
                 sqlx::query("UPDATE music_folders SET last_scan_at = unixepoch() WHERE id = ? AND generation = ?")
                     .bind(&lease.folder.id).bind(lease.folder.generation).execute(&mut *tx).await?;
+                crate::artist_catalog::automation::request_for_library(
+                    &mut tx,
+                    &lease.folder.library_id,
+                )
+                .await?;
                 tracing::info!(job_id = %lease.job, files_read = count, "Scan completed");
             }
             Some(Err(error)) => {

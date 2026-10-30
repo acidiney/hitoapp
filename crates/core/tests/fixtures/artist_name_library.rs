@@ -195,6 +195,35 @@ impl NameLibrary {
             .unwrap()
     }
 
+    pub async fn scalar(&self, sql: &str) -> String {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=ro",
+            self.directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        sqlx::query_scalar::<_, String>(&format!("SELECT CAST(({sql}) AS TEXT)"))
+            .fetch_one(&mut connection)
+            .await
+            .unwrap()
+    }
+
+    /// Runs the automatic matching worker until it has no due work, returning the steps taken.
+    pub async fn automatic(&self) -> usize {
+        let mut steps = 0;
+        while self
+            .hito
+            .artist_catalog
+            .run_next_automatic_matching_until(std::future::pending())
+            .await
+            .unwrap()
+        {
+            steps += 1;
+            assert!(steps < 40, "The automatic walk must end");
+        }
+        steps
+    }
+
     pub async fn rows(&self, table: &str) -> i64 {
         let mut connection = sqlx::SqliteConnection::connect(&format!(
             "sqlite://{}?mode=ro",

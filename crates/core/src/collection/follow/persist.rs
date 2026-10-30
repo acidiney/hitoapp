@@ -54,6 +54,7 @@ pub(super) async fn create(
     .await?;
     sqlx::query("INSERT INTO playlist_follow_receipts(user_id,request_id,request_digest,playlist_id,publication_sequence) VALUES (?,?,?,?,?)")
         .bind(&operation.account).bind(request.request_id.to_string()).bind(digest).bind(&playlist).bind(sequence).execute(&mut **tx).await?;
+    crate::artist_catalog::automation::request_for_account(tx, &operation.account).await?;
     Ok(PlaylistFollowReceipt {
         request_id: request.request_id,
         playlist_id,
@@ -134,6 +135,7 @@ pub(super) async fn refresh(
         },
     )
     .await?;
+    crate::artist_catalog::automation::request_for_account(tx, &operation.account).await?;
     tracing::debug!(
         content_revision = next_revision,
         content_changed = !content_unchanged,
