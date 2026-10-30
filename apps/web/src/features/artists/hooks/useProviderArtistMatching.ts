@@ -89,7 +89,6 @@ export function useProviderArtistMatching(account: string) {
         if (!builtinEnabled(settings)) return setState({ status: "disabled" });
         setState({ status: "ready" });
         if (recentlyRun(account)) return;
-        remember(account);
         void start.current();
       })
       .catch(() => {
@@ -139,6 +138,7 @@ export function useProviderArtistMatching(account: string) {
         count: counts.matched,
         duration_ms: Math.round(performance.now() - started),
       });
+      if (complete) remember(account);
       setState({ status: "finished", counts, complete });
       if (counts.matched > 0)
         router.reload({ only: ["artists", "identity_groups"] });

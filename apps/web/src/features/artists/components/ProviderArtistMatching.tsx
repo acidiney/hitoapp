@@ -1,3 +1,4 @@
+import { Link } from "@inertiajs/react";
 import {
   useProviderArtistMatching,
   type ProviderMatchState,
@@ -36,6 +37,13 @@ export default function ProviderArtistMatching({
       aria-live="polite"
     >
       {text}
+      {text && " "}
+      <span>
+        Looks up artists on MusicBrainz ·{" "}
+        <Link className="text-link" href="/settings?section=music">
+          Settings
+        </Link>
+      </span>
       {state.status !== "running" && (
         <>
           {text && " "}

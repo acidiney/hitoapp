@@ -3,7 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const { reload } = vi.hoisted(() => ({ reload: vi.fn() }));
-vi.mock("@inertiajs/react", () => ({ router: { reload } }));
+vi.mock("@inertiajs/react", () => ({
+  router: { reload },
+  Link: ({ children, href }: { children: React.ReactNode; href: string }) =>
+    createElement("a", { href }, children),
+}));
 
 import ProviderArtistMatching from "../components/ProviderArtistMatching";
 
@@ -185,4 +189,44 @@ test("a name cursor that does not advance ends the walk without looping", async 
   await screen.findByText("0 matched so far.");
   expect(run).toHaveBeenCalledTimes(2);
   expect(again()).toBeTruthy();
+});
+
+const pauseKey = `hito:artist-provider-match:${account}`;
+
+test("a cancelled or failed pass does not start the ten minute pause", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((path: string) =>
+      path === SETTINGS
+        ? Promise.resolve(settings(true))
+        : Promise.reject(new Error("down")),
+    ),
+  );
+  const view = render(createElement(ProviderArtistMatching, { account }));
+  await screen.findByText("Matching artists stopped.");
+  expect(localStorage.getItem(pauseKey)).toBeNull();
+  view.unmount();
+});
+
+test("a pass that completes starts the pause", async () => {
+  stub(
+    () => settings(true),
+    (body) => receipt(body, { matched: 1 }, null),
+  );
+  render(createElement(ProviderArtistMatching, { account }));
+  await screen.findByText("1 matched.");
+  expect(localStorage.getItem(pauseKey)).not.toBeNull();
+});
+
+test("the status line tells where the data goes and links to the setting", async () => {
+  stub(
+    () => settings(true),
+    (body) => receipt(body, { matched: 1 }, null),
+  );
+  render(createElement(ProviderArtistMatching, { account }));
+  await screen.findByText("1 matched.");
+  expect(screen.getByText(/Looks up artists on MusicBrainz/)).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Settings" }).getAttribute("href"),
+  ).toBe("/settings?section=music");
 });
