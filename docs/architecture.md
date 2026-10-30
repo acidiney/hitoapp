@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens nine concrete capability services: identity, catalog, playback access, collection, community, library storage, plugins, downloads and podcasts. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens ten concrete capability services: identity, catalog, artist catalog, playback access, collection, community, library storage, plugins, downloads and podcasts. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
 
 Each statement here is one of four kinds, and the text says which:
 
@@ -98,9 +98,10 @@ flowchart LR
   Desktop --> Native[hito-playback and hito-audio]
   Server --> Core
   Embedded --> Core
-  subgraph Core[hito-core Services: nine capabilities]
+  subgraph Core[hito-core Services: ten capabilities]
     Identity
     Catalog
+    ArtistCatalog
     PlaybackAccess
     Collection
     Community
@@ -203,7 +204,7 @@ What each piece owns:
 
 ## Core composition
 
-Current behavior. `hito_core::open` builds one `Store` (the private SQLite handle) and then the nine capabilities that make up `Services`. Each capability is a plain struct holding the pieces it owns. `Services` has no forwarding methods: the server and desktop host call a capability directly. The store field of `Services` is private and is used only for the health check.
+Current behavior. `hito_core::open` builds one `Store` (the private SQLite handle) and then the ten capabilities that make up `Services`. Each capability is a plain struct holding the pieces it owns. `ArtistCatalog` holds a `Catalog` handle (passed explicitly by `open`) because it reads release tracks and adopts matched provider audio through `Catalog`; `Catalog` holds no handle back, and the album page that combines both is `ArtistCatalog::release`. `Services` has no forwarding methods: the server and desktop host call a capability directly. The store field of `Services` is private and is used only for the health check.
 
 ```mermaid
 flowchart TB
@@ -223,7 +224,7 @@ flowchart TB
   Managed[ManagedFiles: downloaded audio]
   Remote[RemoteHttp: bounded podcast and enclosure client]
   Local[LocalFiles: granted music folders]
-  Artist[artist_catalog Host]
+  Builtin[Built-in MusicBrainz client]
   Identity --> Store
   Collection --> Store
   Collection --> Plugins
@@ -237,7 +238,10 @@ flowchart TB
   Catalog --> Plugins
   Catalog --> Community
   Catalog --> Local
-  Catalog --> Artist
+  ArtistCatalog --> Store
+  ArtistCatalog --> Plugins
+  ArtistCatalog --> Catalog
+  ArtistCatalog --> Builtin
   Downloads --> Store
   Downloads --> Plugins
   Downloads --> Managed
@@ -254,7 +258,8 @@ flowchart TB
 What each capability owns:
 
 - `Identity`: accounts, sessions and the opaque authenticated actor.
-- `Catalog`: authorized reads, provider search and adoption, source resolution, artwork and the artist catalog.
+- `Catalog`: authorized reads, provider search and adoption, source resolution and artwork.
+- `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits.
 - `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.
 - `Collection`: the single transaction that accepts a batch of personal operations and appends events.
 - `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
@@ -299,7 +304,7 @@ erDiagram
 
 ## Catalog appearances
 
-Artist and album pages use authorized `Catalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. Effective account recording credits also expose recordings without a release or source. They update within provider adoption, personal artist edits, membership provisioning, and selected local metadata changes, including folder failover. Artist details return bounded independent recording and album pages through the existing Catalog boundary. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
+Artist and album pages use authorized `Catalog` and `ArtistCatalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. Effective account recording credits also expose recordings without a release or source. They update within provider adoption, personal artist edits, membership provisioning, and selected local metadata changes, including folder failover. Artist details return bounded independent recording and album pages through the existing Catalog boundary. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
 
 ## Metadata
 

@@ -16,7 +16,7 @@ flowchart LR
     Writer --> Evidence[Immutable recording-credit association]
 ```
 
-`Catalog` owns four public workflows: `begin_artist_review`, `search_artist_candidates_until`, `preview_artist_candidate_until` and `confirm_artist_review`. SQLite, permission checks and association writes remain private to core. The existing association API reuses the same private retention code.
+`ArtistCatalog` owns four public workflows: `begin_artist_review`, `search_artist_candidates_until`, `preview_artist_candidate_until` and `confirm_artist_review`. SQLite, permission checks and association writes remain private to core. The existing association API reuses the same private retention code.
 
 The context captures the account, recording, library, local artist and current credited name. It also captures the accepted personal artist operation, source and observation, library-access grant, primary provider binding revision for an import without audio, metadata policy and exact personal connection/service revisions. Reads recheck these facts around provider requests. Confirmation rechecks them inside the same `BEGIN IMMEDIATE` transaction that writes or retrieves the association.
 

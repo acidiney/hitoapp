@@ -1,6 +1,6 @@
 # Reviewed artist profiles in core
 
-The core catalog supports account metadata settings, reviewed recording-credit associations and provider artist-profile reads. This is a source foundation. Server routes, settings controls, artist-page rendering, provider-backed matching (see [artist matching](artist-matching.md) for the file-tag matching that exists), caching and discography traversal are still unfinished. The running server does not use this host yet.
+The core `ArtistCatalog` capability (a separate service from `Catalog`, see [architecture](architecture.md#core-composition)) supports account metadata settings, reviewed recording-credit associations and provider artist-profile reads. This is a source foundation. Server routes, settings controls, artist-page rendering, provider-backed matching (see [artist matching](artist-matching.md) for the file-tag matching that exists), caching and discography traversal are still unfinished. The running server does not use this host yet.
 
 ## Identity and provenance
 
@@ -14,7 +14,7 @@ flowchart LR
     Imported[Owned playlist metadata without audio] --> Credit
     Credit --> Review[Explicit user-confirmed association]
     Review --> Evidence[(Private immutable evidence)]
-    Evidence --> Host[Core catalog profile workflow]
+    Evidence --> Host[ArtistCatalog profile workflow]
     Host --> Builtin[Shared built-in MusicBrainz client]
     Host --> Plugin[Approved personal HTTP catalog connection]
     Builtin --> Recheck[Recheck current authority]
@@ -113,7 +113,7 @@ The change history, retirement, ordering, receipt and shared correction tables a
 
 Unconfigured accounts default to enabled enrichment with the built-in MusicBrainz provider. Reading defaults and constructing the host make no network request. Settings retain an ordered list of at most eight providers with optimistic revision checks. Compatible personal HTTP connections can replace the default; disabling enrichment makes authorized profile reads return `disabled` without provider requests. Automatic selection by priority remains unfinished.
 
-One shared MusicBrainz client belongs to each composed `Services` instance. It retains its fixed production origin and shared pacing. HTTP providers must already have the account's approved `catalog` capability. The separate catalog descriptor negotiates artist-profile support. An absent descriptor returns `unsupported` for this extension while preserving the approved connection. Providers return structured data; Hito owns rendering.
+One shared MusicBrainz client belongs to the `ArtistCatalog` of each composed `Services` instance. It retains its fixed production origin and shared pacing. HTTP providers must already have the account's approved `catalog` capability. The separate catalog descriptor negotiates artist-profile support. An absent descriptor returns `unsupported` for this extension while preserving the approved connection. Providers return structured data; Hito owns rendering.
 
 Provider artist IDs are opaque and scoped to their connection. They are serialized in JSON, never appended as untrusted URL paths or forwarded to a replacement provider. Retained imported metadata does not require its original service to be online. The selected catalog connection still requires current authorization.
 
