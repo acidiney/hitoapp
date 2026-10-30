@@ -1,3 +1,5 @@
+#![allow(clippy::duplicate_mod)]
+
 mod player_native_progress;
 mod player_native_progress_backpressure;
 mod player_native_progress_completion;

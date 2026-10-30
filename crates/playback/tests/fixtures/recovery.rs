@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::support;
+use super::support;
 use hito_audio::test_support as audio;
 use hito_core::{Actor, ConnectFolder, DirectoryRef, MusicFolder, Search, Services};
 

@@ -1,3 +1,5 @@
+#![allow(clippy::duplicate_mod)]
+
 mod player_native;
 mod player_native_authority;
 mod player_native_completion;

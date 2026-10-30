@@ -1,3 +1,5 @@
+#![allow(clippy::duplicate_mod)]
+
 mod player_audiobook_continue;
 mod player_audiobook_continue_grants;
 mod player_audiobook_queue;

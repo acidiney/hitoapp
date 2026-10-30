@@ -42,7 +42,7 @@ pub fn first_chapter_start(samples: &[f32]) -> Option<ChapterStart> {
             (1320., ChapterStart::Later),
         ]
         .into_iter()
-        .map(|(frequency, start)| (crate::capture::amplitude(window, frequency), start))
+        .map(|(frequency, start)| (super::capture::amplitude(window, frequency), start))
         .max_by(|a, b| a.0.total_cmp(&b.0))
         .filter(|(amplitude, _)| *amplitude > 0.08)
         .map(|(_, start)| start)

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #[path = "recovery.rs"]
 mod recovery;
+use super::support;
 use hito_playback::{
     Player, PlayerAction, PlayerCommand, PlayerOwner, PlayerPhase, PlayerPosition,
     PlayerQueueEntry, PlayerReceipt, PlayerSnapshot,

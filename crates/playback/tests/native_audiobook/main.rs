@@ -1,3 +1,5 @@
+#![allow(clippy::duplicate_mod)]
+
 mod player_native_audiobook_completion;
 mod player_native_audiobook_continue_output;
 mod player_native_audiobook_progress;
