@@ -146,7 +146,7 @@ flowchart LR
   Server -->|used by plugin HTTP routers| Plugin
 ```
 
-Core does not enable the SDK `server` feature. Only plugin executables do, so core links no HTTP server code from the SDK. The feature holds the code every plugin router needs in the same form: the bearer and protocol check, the per-request span and log event, the manifest route with its body limit, and JSON logging setup. See [plugins](plugins.md#shared-plugin-http-server).
+`hito-core` and `apps/server` do not enable the SDK `server` feature; the plugin crates do. A workspace-wide build can unify the feature into every SDK user, so only a per-package build shows core without it. The feature holds the code every plugin router needs in the same form: the bearer and protocol check, the per-request span and log event, the manifest route with its body limit, and JSON logging setup. See [plugins](plugins.md#shared-plugin-http-server).
 
 Core reviews the manifest before use, pins its digest, then calls the capabilities the manifest declares: search, recording detail, sources, preparation, audio and others. Core validates every response with the SDK types before it stores or relays anything. A recording-detail response is limited to 32,768 bytes. See [plugins](plugins.md) for the protocol, review flow and recovery.
 

@@ -25,9 +25,13 @@ server = ["dep:axum", "dep:sha2", "dep:subtle", "dep:tokio", "dep:tracing-subscr
 [dev-dependencies]
 hito-plugin-sdk = { path = ".", features = ["server"] }
 http-body-util.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 tower.workspace = true
 
 [[test]]
 name = "server"
+required-features = ["server"]
+
+[[test]]
+name = "server_logging"
 required-features = ["server"]
