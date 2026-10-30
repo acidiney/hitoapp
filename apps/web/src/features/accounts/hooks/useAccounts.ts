@@ -62,6 +62,27 @@ export function useAccounts(account: string) {
     }
   }
 
+  async function remove(user: Schema<"User">): Promise<string | null> {
+    const request = scope.capture();
+    setPendingScope(scope);
+    try {
+      await accountsApi.remove(account, user, request.signal);
+      if (!request.active()) return null;
+      setListing((current) => ({
+        scope,
+        users: (current.scope === scope ? current.users : []).filter(
+          (known) => known.id !== user.id,
+        ),
+      }));
+      notice(`Deleted account ${user.username} and everything it owned.`);
+      return null;
+    } catch (error) {
+      return request.active() ? errorMessage(error) : null;
+    } finally {
+      if (request.active()) setPendingScope(null);
+    }
+  }
+
   async function access(
     library: string,
     user: Schema<"User">,
@@ -88,6 +109,7 @@ export function useAccounts(account: string) {
     users: listing.scope === scope ? listing.users : [],
     pending: pendingScope === scope,
     create,
+    remove,
     access,
   };
 }

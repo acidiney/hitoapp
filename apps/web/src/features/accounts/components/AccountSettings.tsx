@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
+import type { Schema } from "../../../shared/schema";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useAccounts } from "../hooks/useAccounts";
 import AccountDialog from "./AccountDialog";
+import DeleteAccountDialog from "./DeleteAccountDialog";
 
 export default function AccountSettings({
   account,
@@ -13,8 +15,9 @@ export default function AccountSettings({
   account: string;
   library?: string;
 }) {
-  const { users, pending, create, access } = useAccounts(account);
+  const { users, pending, create, remove, access } = useAccounts(account);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<Schema<"User"> | null>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const wasCreating = useRef(false);
   useEffect(() => {
@@ -44,16 +47,24 @@ export default function AccountSettings({
           hint={user.admin ? "Administrator" : "Member"}
           wide
           action={
-            !user.admin && library ? (
-              <>
-                <Button onClick={() => void access(library, user, true)}>
-                  Grant access
+            <>
+              {!user.admin && library && (
+                <>
+                  <Button onClick={() => void access(library, user, true)}>
+                    Grant access
+                  </Button>
+                  <Button onClick={() => void access(library, user, false)}>
+                    Remove access
+                  </Button>
+                </>
+              )}
+              {user.id !== account && (
+                <Button onClick={() => setDeleting(user)}>
+                  <Trash2 size={16} aria-hidden="true" />
+                  Delete account
                 </Button>
-                <Button onClick={() => void access(library, user, false)}>
-                  Remove access
-                </Button>
-              </>
-            ) : undefined
+              )}
+            </>
           }
         />
       ))}
@@ -62,6 +73,14 @@ export default function AccountSettings({
           pending={pending}
           onCreate={create}
           onClose={() => setCreating(false)}
+        />
+      )}
+      {deleting && (
+        <DeleteAccountDialog
+          user={deleting}
+          pending={pending}
+          onDelete={remove}
+          onClose={() => setDeleting(null)}
         />
       )}
     </SettingsCard>

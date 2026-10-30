@@ -29,6 +29,20 @@ export const accountsApi = {
     log.info("account.created", { account_id: user.id });
     return user;
   },
+  async remove(
+    account: string,
+    user: Schema<"User">,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await request(`/users/${part(user.id)}`, {
+      action: "accounts.delete",
+      method: "DELETE",
+      account,
+      body: { username: user.username } satisfies Schema<"DeleteAccount">,
+      signal,
+    });
+    log.info("account.deleted", {});
+  },
   async setLibraryAccess(
     account: string,
     library: string,
