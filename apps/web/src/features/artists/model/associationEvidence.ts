@@ -13,6 +13,14 @@ const matched: Record<
     "Matched automatically from the artist's name, corroborated by its recordings.",
 };
 
+export function providerName(
+  provider: Schema<"ArtistAssociation">["provider"],
+): string {
+  return provider.kind === "builtin_musicbrainz"
+    ? "MusicBrainz"
+    : "Metadata plugin";
+}
+
 /** How an automatic match was made, or null for a review the account confirmed itself. */
 export function associationEvidenceText(
   evidence: Schema<"ArtistAssociation">["evidence"],

@@ -90,9 +90,7 @@ async function open() {
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   const saved = await screen.findByRole("region", {
     name: "Saved artist reviews",
   });
@@ -175,9 +173,7 @@ test("a stale undo is rejected, the server state is reread and the next undo wor
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   const undo = await screen.findByRole("button", {
     name: "Undo last artist review change",
   });
@@ -247,9 +243,7 @@ test("an administrator can share the latest built-in unlink and sees retired unl
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.click(
     await screen.findByRole("button", {
       name: "Apply this unlink for everyone",

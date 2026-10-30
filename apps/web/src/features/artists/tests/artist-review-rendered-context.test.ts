@@ -89,9 +89,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
       }),
     );
     async function explicitSearch() {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Find artist information" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
       const provider = await screen.findByRole("combobox", {
         name: "Metadata provider",
       });
@@ -153,7 +151,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
       expect(fetch).toHaveBeenCalledTimes(6);
       expect(screen.queryByRole("alert")).toBeNull();
       expect(
-        screen.getByRole("button", { name: "Find artist information" }),
+        screen.getByRole("button", { name: "Change artist" }),
       ).toBeTruthy();
       expect(
         screen.queryByRole("combobox", { name: "Metadata provider" }),

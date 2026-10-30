@@ -1,37 +1,6 @@
-.recording-details {
-  max-width: 860px;
-}
-.metadata-hero {
-  margin: 28px 0 36px;
-}
-.metadata-hero h1 {
-  overflow-wrap: anywhere;
-}
-.metadata-editor h2,
-.source-availability h2,
-.metadata-history h2 {
-  font-size: 21px;
-  margin: 0 0 10px;
-}
-.metadata-editor > p,
-.source-availability > p,
-.metadata-history > p {
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 24px;
-}
 .metadata-field {
   display: grid;
   gap: 12px;
-}
-.metadata-field + .metadata-field {
-  margin-top: 28px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
-}
-.metadata-editor label {
-  font-size: 14px;
-  font-weight: 550;
 }
 .metadata-editor input {
   min-width: 0;
@@ -55,16 +24,6 @@
   justify-content: flex-end;
   gap: 12px;
   margin-top: 8px;
-}
-.metadata-history {
-  margin-top: 48px;
-  padding-top: 36px;
-  border-top: 1px solid var(--border);
-}
-.source-availability {
-  margin-top: 36px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
 }
 .source-availability-actions {
   display: flex;

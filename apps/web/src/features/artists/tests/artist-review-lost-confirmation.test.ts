@@ -75,9 +75,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
   const initial = render(component());
   let returned: ReturnType<typeof render> | null = null;
   try {
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     const provider = await screen.findByRole("combobox", {
       name: "Metadata provider",
     });
@@ -132,9 +130,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
 
     returned = render(component());
     expect(fetch).toHaveBeenCalledTimes(9);
-    expect(
-      screen.getByRole("button", { name: "Find artist information" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Change artist" })).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(
       screen.queryByRole("region", { name: "Saved artist reviews" }),
@@ -142,9 +138,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     expect(
       screen.queryByRole("region", { name: "Reviewed artist profile" }),
     ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     const saved = await screen.findByRole("region", {
       name: "Saved artist reviews",
     });

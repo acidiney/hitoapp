@@ -76,7 +76,7 @@ test("artist information is searched and previewed before its exact selected ide
 
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Find artist information",
+      name: "Change artist",
     }),
   );
   const provider = (await screen.findByRole("combobox", {

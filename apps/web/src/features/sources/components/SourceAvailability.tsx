@@ -74,7 +74,7 @@ export default function SourceAvailability({
       false);
   return (
     <section
-      className="source-availability"
+      className="rd-card source-availability"
       aria-labelledby="audio-availability-heading"
     >
       <h2 id="audio-availability-heading">Audio availability</h2>
@@ -94,9 +94,9 @@ export default function SourceAvailability({
         </p>
       )}
       {sources && sources.length > 0 && (
-        <ul>
+        <ul className="rd-rows">
           {sources.map((source) => (
-            <li key={source.id}>
+            <li className="rd-row" key={source.id}>
               {source.can_prepare || source.id === selectedId ? (
                 <label>
                   <input

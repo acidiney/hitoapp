@@ -77,9 +77,7 @@ function navigationFixture(
     detail: structuredClone(artistReviewDetail),
   };
   const view = render(createElement(ArtistReview, props));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   return { fetch, view, props };
 }
 

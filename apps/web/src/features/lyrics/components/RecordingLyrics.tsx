@@ -37,7 +37,11 @@ export default function RecordingLyrics({
 }: Props) {
   const lyrics = result?.status === "ready" ? result.document.lyrics : null;
   return (
-    <section aria-label="Lyrics" aria-busy={pending || providers.pending}>
+    <section
+      className="rd-card"
+      aria-label="Lyrics"
+      aria-busy={pending || providers.pending}
+    >
       <h2>Lyrics</h2>
       {providers.pending ? (
         <>
@@ -52,7 +56,7 @@ export default function RecordingLyrics({
         </Button>
       )}
       {providers.items && providers.items.length > 0 && (
-        <label>
+        <label className="rd-field">
           Lyric provider
           <select
             value={providers.selected?.observation_id ?? ""}

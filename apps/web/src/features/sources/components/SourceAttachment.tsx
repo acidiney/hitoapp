@@ -21,7 +21,10 @@ export default function SourceAttachment({
     onAttached,
   );
   return (
-    <section className="source-attachment" aria-label="Add an audio source">
+    <section
+      className="rd-card source-attachment"
+      aria-label="Add an audio source"
+    >
       <h2>Add an audio source</h2>
       <p>
         Find audio through your connected music services and review the match
@@ -55,9 +58,9 @@ export default function SourceAttachment({
             onSearch={workflow.search}
           />
           {workflow.items.length > 0 && (
-            <ul aria-label="Source search results">
+            <ul className="rd-rows" aria-label="Source search results">
               {workflow.items.map((hit) => (
-                <li key={hit.id}>
+                <li className="rd-row rd-candidate" key={hit.id}>
                   <h3>{hit.title}</h3>
                   <p>{hit.artist}</p>
                   <p>
@@ -66,6 +69,7 @@ export default function SourceAttachment({
                       : time(hit.duration_ms / 1000)}
                   </p>
                   <Button
+                    className="rd-row-action"
                     disabled={workflow.pending !== null}
                     onClick={() => void workflow.reviewCandidate(hit)}
                   >
@@ -82,7 +86,7 @@ export default function SourceAttachment({
               <p>No matching tracks. Try another track or artist.</p>
             )}
           {workflow.review && (
-            <section aria-label="Review source match">
+            <section className="rd-panel" aria-label="Review source match">
               <h3>Review source match</h3>
               <div>
                 <h4>Saved track</h4>

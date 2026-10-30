@@ -35,80 +35,98 @@ export default function RecordingDetailsPage({
       <Link className="text-link" href="/library">
         Back to library
       </Link>
-      <section className="collection-hero metadata-hero">
-        <Artwork recording={detail.recording_id} />
-        <div>
-          <span>Track details</span>
+      <header className="rd-header">
+        <Artwork
+          className="rd-cover"
+          recording={detail.recording_id}
+          fallback={{
+            id: detail.recording_id,
+            title: detail.title.value,
+            artist: detail.artist.value,
+            inline: false,
+          }}
+        />
+        <div className="rd-header-copy">
+          <span className="rd-kicker">Track details</span>
           <h1>{detail.title.value}</h1>
-          <p>{detail.artist.value}</p>
+          <p>
+            {detail.artist.value}
+            {source?.album ? ` · ${source.album}` : ""}
+          </p>
           <ArtworkStatus recording={detail.recording_id} />
         </div>
-      </section>
-      {source?.origin === "provider_response" && source.attribution && (
-        <section aria-label="Selected metadata credits">
-          <h2>Selected metadata credits</h2>
-          <RecordingCredits attribution={source.attribution} />
-        </section>
-      )}
-      <MetadataEditor
-        key={`editor/${user.id}/${target.id}`}
-        account={user.id}
-        {...target}
-        metadata={detail}
-      />
-      <ArtistReview
-        key={JSON.stringify([
-          "artist-review",
-          user.id,
-          detail.recording_id,
-          source?.id,
-          detail.artist.operation_id,
-        ])}
-        account={user.id}
-        detail={detail}
-      />
-      <RecordingLyrics
-        providers={lyrics.providers}
-        available={lyrics.available}
-        pending={lyrics.pending}
-        result={lyrics.result}
-        error={lyrics.error}
-        refresh={lyrics.refresh}
-        onLoad={() => void lyrics.load()}
-        onCancel={lyrics.cancel}
-        onRefreshDetails={
-          lyrics.providers.engaged
-            ? lyrics.refreshProviders
-            : () => router.reload()
-        }
-      />
-      <RecordingDownload
-        {...download}
-        local={native_playback}
-        eligibilityPending={choice.eligibilityPending}
-      />
-      <SourceChoiceControls {...choice} />
-      {source?.origin === "provider_response" && (
-        <SourceAttachment
-          key={`attachment/${user.id}/${detail.recording_id}`}
-          account={user.id}
-          detail={detail}
-          onAttached={choice.invalidateRead}
-        />
-      )}
-      <SourceAvailability
-        key={`availability/${user.id}/${detail.recording_id}`}
-        account={user.id}
-        choiceRevision={choice.choice?.revision}
-        eligibilityPending={choice.eligibilityPending}
-        track={{
-          id: detail.recording_id,
-          title: detail.title.value,
-          artist: detail.artist.value,
-          duration_ms: source?.duration_ms ?? 0,
-          available: false,
-        }}
-      />
+      </header>
+      <div className="rd-layout">
+        <div className="rd-main">
+          {source?.origin === "provider_response" && source.attribution && (
+            <section className="rd-card" aria-label="Selected metadata credits">
+              <h2>Selected metadata credits</h2>
+              <RecordingCredits attribution={source.attribution} />
+            </section>
+          )}
+          <MetadataEditor
+            key={`editor/${user.id}/${target.id}`}
+            account={user.id}
+            {...target}
+            metadata={detail}
+          />
+          <ArtistReview
+            key={JSON.stringify([
+              "artist-review",
+              user.id,
+              detail.recording_id,
+              source?.id,
+              detail.artist.operation_id,
+            ])}
+            account={user.id}
+            detail={detail}
+          />
+        </div>
+        <aside className="rd-side" aria-label="Playback, download and lyrics">
+          <SourceChoiceControls {...choice} />
+          <RecordingDownload
+            {...download}
+            local={native_playback}
+            eligibilityPending={choice.eligibilityPending}
+          />
+          <RecordingLyrics
+            providers={lyrics.providers}
+            available={lyrics.available}
+            pending={lyrics.pending}
+            result={lyrics.result}
+            error={lyrics.error}
+            refresh={lyrics.refresh}
+            onLoad={() => void lyrics.load()}
+            onCancel={lyrics.cancel}
+            onRefreshDetails={
+              lyrics.providers.engaged
+                ? lyrics.refreshProviders
+                : () => router.reload()
+            }
+          />
+          {source?.origin === "provider_response" && (
+            <SourceAttachment
+              key={`attachment/${user.id}/${detail.recording_id}`}
+              account={user.id}
+              detail={detail}
+              onAttached={choice.invalidateRead}
+            />
+          )}
+          <SourceAvailability
+            key={`availability/${user.id}/${detail.recording_id}`}
+            account={user.id}
+            choiceRevision={choice.choice?.revision}
+            eligibilityPending={choice.eligibilityPending}
+            track={{
+              id: detail.recording_id,
+              title: detail.title.value,
+              artist: detail.artist.value,
+              duration_ms: source?.duration_ms ?? 0,
+              available: false,
+            }}
+          />
+        </aside>
+      </div>
       <MetadataObservations
         key={`${user.id}/${detail.recording_id}/${source?.id ?? "none"}/${detail.title.operation_id ?? "inherited"}/${detail.artist.operation_id ?? "inherited"}`}
         account={user.id}

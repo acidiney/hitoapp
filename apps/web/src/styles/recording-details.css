@@ -1,0 +1,359 @@
+.recording-details {
+  max-width: 1120px;
+  display: grid;
+  gap: 24px;
+}
+.recording-details > .text-link {
+  justify-self: start;
+}
+.rd-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.rd-header .rd-cover {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.rd-header-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.rd-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.rd-header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.rd-header-copy p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.rd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 24px;
+  align-items: start;
+}
+.rd-main,
+.rd-side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.rd-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.rd-card p,
+.rd-panel p {
+  margin: 0;
+  max-width: 65ch;
+  font-size: 13px;
+  color: var(--muted);
+}
+.rd-card p:empty,
+.rd-card [role="status"]:empty {
+  display: none;
+}
+.rd-card > h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.rd-card > h2 + p {
+  margin-top: -8px;
+}
+.rd-card h3,
+.rd-panel > h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.rd-card h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.rd-card p[role="alert"],
+.rd-card .form-error {
+  color: var(--error);
+}
+.rd-card a:not(.button) {
+  color: var(--action);
+  font-weight: 500;
+}
+.rd-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.rd-summary .rd-row-actions {
+  align-items: center;
+}
+.rd-summary .button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.rd-summary .text-link {
+  white-space: nowrap;
+}
+.rd-manual {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+.rd-panel {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.rd-card progress {
+  width: 100%;
+}
+
+.rd-card .button.compact {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.rd-actions,
+.metadata-editor-actions,
+.source-availability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+}
+.rd-card > .button {
+  justify-self: start;
+}
+
+.rd-card input:not([type="radio"], [type="checkbox"]),
+.rd-card select {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  font-size: 15px;
+}
+.rd-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.rd-search {
+  margin: 0;
+}
+.rd-search fieldset {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.rd-search fieldset > p {
+  grid-column: 1 / -1;
+}
+.rd-search .button {
+  justify-self: stretch;
+}
+
+.rd-rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.rd-row-copy {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.rd-row-copy strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.rd-row-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.rd-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+.rd-candidate > :not(.button) {
+  grid-column: 1;
+}
+.rd-candidate > .rd-row-action {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: center;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.rd-choice label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rd-choice label::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+.rd-choice:has(input:checked) {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.rd-choice:has(input:disabled) {
+  background: var(--bg);
+  color: var(--muted);
+}
+.rd-choice:has(input:focus-visible) {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+.rd-choice input:focus-visible {
+  outline: none;
+}
+.rd-choice-origin {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metadata-field {
+  display: grid;
+  gap: 8px;
+}
+.metadata-field + .metadata-field {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.metadata-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.metadata-editor input {
+  font-size: 15px;
+}
+.metadata-inheritance {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.metadata-inheritance strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.metadata-history .metadata-observations > li:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .rd-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .rd-header .rd-cover {
+    width: 72px;
+    height: 72px;
+  }
+  .rd-header h1 {
+    font-size: 24px;
+  }
+  .rd-card {
+    padding: 16px;
+  }
+  .rd-search fieldset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rd-summary {
+    flex-wrap: wrap;
+  }
+  .rd-summary .rd-row-actions {
+    width: 100%;
+  }
+  .rd-summary .rd-row-actions .button {
+    flex: 1;
+  }
+  .rd-row:not(.rd-candidate):not(.rd-choice) {
+    flex-wrap: wrap;
+  }
+  .rd-row-actions {
+    width: 100%;
+  }
+  .rd-row-actions .button {
+    flex: 1;
+  }
+  .rd-actions .button,
+  .metadata-editor-actions .button {
+    flex: 1;
+  }
+  .rd-choice {
+    flex-wrap: wrap;
+  }
+}

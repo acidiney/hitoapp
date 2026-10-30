@@ -102,9 +102,7 @@ test("saving an artist review leaves identity unselected until its reviewed asso
     }),
   );
   expect(fetch).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.change(
     await screen.findByRole("combobox", { name: "Metadata provider" }),
     {

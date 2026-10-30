@@ -30,6 +30,7 @@ export default function ArtistIdentityChoice({
 }) {
   return (
     <section
+      className="rd-panel"
       aria-label="Artist choice for this track"
       aria-busy={pending !== null}
     >

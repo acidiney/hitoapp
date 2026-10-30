@@ -81,9 +81,7 @@ test("a rejected stale revision requires an explicit current-choice check before
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.click(
     await screen.findByRole("button", { name: "View saved artist review 1" }),
   );
@@ -179,9 +177,7 @@ test.each(["selected", "needs_review"] as const)(
         detail: artistReviewDetail,
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     const reset = await screen.findByRole("button", {
       name: "Reset artist choice for this track",
     });
@@ -260,9 +256,7 @@ test("an ambiguous choice retries its exact request and displays current state r
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.click(
     await screen.findByRole("button", { name: "View saved artist review 1" }),
   );

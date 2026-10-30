@@ -9,7 +9,7 @@ export default function MetadataEditor(
   const recording = props.kind === "recording";
   return (
     <section
-      className="metadata-editor"
+      className="rd-card metadata-editor"
       aria-labelledby="personal-details-heading"
     >
       <h2 id="personal-details-heading">

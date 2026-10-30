@@ -114,7 +114,7 @@ export default function MetadataObservations({
   const history = useMetadataHistory(account, target, initial);
   return (
     <section
-      className="metadata-history"
+      className="rd-card metadata-history"
       aria-labelledby="source-history-heading"
       aria-busy={history.pending}
     >

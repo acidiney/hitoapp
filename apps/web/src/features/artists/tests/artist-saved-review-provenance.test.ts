@@ -44,5 +44,7 @@ test.each([
 test("a review the account confirmed itself carries no automatic-match note", () => {
   show("user_confirmed");
   expect(screen.queryByText(/Matched automatically/)).toBeNull();
-  expect(screen.getByText("View saved artist review 1")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "View saved artist review 1" }),
+  ).toBeTruthy();
 });

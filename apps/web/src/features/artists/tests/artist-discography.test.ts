@@ -91,9 +91,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
   );
   try {
     expect(fetch).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     const saved = await screen.findByRole("button", {
       name: "View saved artist review 1",
     });

@@ -55,9 +55,7 @@ test("the current-choice deadline releases its owner and cancels late headers wi
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   await act(async () => {
     await Promise.resolve();
   });
@@ -147,9 +145,7 @@ test("a malformed acknowledgement cannot authorize a current read or replace the
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.click(
     await screen.findByRole("button", { name: "View saved artist review 1" }),
   );
@@ -224,9 +220,7 @@ test.each(["account", "metadata", "recording"] as const)(
         detail: currentDetail,
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     fireEvent.click(
       await screen.findByRole("button", { name: "View saved artist review 1" }),
     );
@@ -258,9 +252,7 @@ test.each(["account", "metadata", "recording"] as const)(
       }),
     );
     await waitFor(() => expect(writes[0].aborted).toBe(true));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     await screen.findByText("No reviewed artist selected for this track.", {
       exact: true,
     });
@@ -351,9 +343,7 @@ test("a valid acknowledgement cannot leave the old choice writable when the requ
       detail: artistReviewDetail,
     }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   fireEvent.click(
     await screen.findByRole("button", { name: "View saved artist review 1" }),
   );

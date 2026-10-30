@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
 
 import Button from "../../../shared/ui/Button";
+import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 
 const modes: Record<Schema<"SourceChoice">["mode"], string> = {
   automatic: "Automatic source selection",
@@ -57,7 +58,7 @@ export default function SourceChoiceControls({
       : null);
   if (unavailable) return null;
   return (
-    <section aria-labelledby={heading}>
+    <section className="rd-card" aria-labelledby={heading}>
       <h2 id={heading}>Playback source</h2>
       {choice && <p>{modes[choice.mode]}</p>}
       <p role="status">
@@ -79,9 +80,9 @@ export default function SourceChoiceControls({
       )}
       {choice && (
         <>
-          <ul>
+          <ul className="rd-rows rd-choices">
             {choice.sources.map((entry) => (
-              <li key={entry.source.id}>
+              <li className="rd-row rd-choice" key={entry.source.id}>
                 <label>
                   <input
                     type="radio"
@@ -92,17 +93,42 @@ export default function SourceChoiceControls({
                   />{" "}
                   {entry.source.label}
                 </label>
+                <span className="rd-choice-origin">
+                  {entry.source.provider}
+                </span>
+                <AvailabilityLabel
+                  state={
+                    entry.source.device_id
+                      ? "library"
+                      : entry.source.ready
+                        ? "available"
+                        : "catalog"
+                  }
+                  label={
+                    entry.source.device_id
+                      ? "On this device"
+                      : entry.source.ready
+                        ? "Ready"
+                        : "Not prepared"
+                  }
+                />
               </li>
             ))}
           </ul>
-          <Button disabled={!canChoose} onClick={() => void choose()}>
-            Use source
-          </Button>
-          {choice.mode !== "automatic" && (
-            <Button disabled={!canReset} onClick={() => void reset()}>
-              Return to automatic
+          <div className="rd-actions">
+            {choice.mode !== "automatic" && (
+              <Button disabled={!canReset} onClick={() => void reset()}>
+                Return to automatic
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              disabled={!canChoose}
+              onClick={() => void choose()}
+            >
+              Use source
             </Button>
-          )}
+          </div>
         </>
       )}
       {retrying && (

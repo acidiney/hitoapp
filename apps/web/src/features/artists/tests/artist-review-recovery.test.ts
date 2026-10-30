@@ -132,9 +132,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     return screen.findByRole("region", { name: "Review artist" });
   }
   try {
-    fireEvent.click(
-      screen.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
     const provider = await screen.findByRole("combobox", {
       name: "Metadata provider",
     });

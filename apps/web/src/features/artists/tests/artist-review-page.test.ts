@@ -118,9 +118,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       information.queryByRole("searchbox", { name: "Search artists" }),
     ).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
-    fireEvent.click(
-      information.getByRole("button", { name: "Find artist information" }),
-    );
+    fireEvent.click(information.getByRole("button", { name: "Change artist" }));
     const provider = await information.findByRole("combobox", {
       name: "Metadata provider",
     });

@@ -117,9 +117,7 @@ function heldBody(value: unknown) {
 }
 
 async function openReview() {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Find artist information" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
   const provider = await screen.findByRole("combobox", {
     name: "Metadata provider",
   });
@@ -338,7 +336,7 @@ test.each(["account", "recording", "artist operation"] as const)(
       );
       expect(http.fetch).toHaveBeenCalledTimes(previous.length);
       expect(
-        screen.getByRole("button", { name: "Find artist information" }),
+        screen.getByRole("button", { name: "Change artist" }),
       ).toBeTruthy();
       expect(
         screen.queryByRole("combobox", { name: "Metadata provider" }),

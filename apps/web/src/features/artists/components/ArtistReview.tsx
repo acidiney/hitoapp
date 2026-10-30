@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
-import type { FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "@inertiajs/react";
 import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
 import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import { useArtistReview } from "../hooks/useArtistReview";
@@ -8,6 +9,7 @@ import ArtistDiscography from "./ArtistDiscography";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
 import SharedUnlink from "./SharedUnlink";
+import { providerName } from "../model/associationEvidence";
 
 import Button from "../../../shared/ui/Button";
 
@@ -54,6 +56,7 @@ export default function ArtistReview({
     changes.reload,
     () => void workflow.refreshAssociations(),
   );
+  const [panel, setPanel] = useState(false);
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
   function search(event: FormEvent) {
@@ -62,169 +65,239 @@ export default function ArtistReview({
   }
   return (
     <section
+      className="rd-card"
       aria-label="Artist information"
       aria-busy={workflow.pending !== null}
     >
       <h2>Artist information</h2>
       <p>
-        Find an artist through your metadata providers and review their profile
-        before saving this track's artist review.
+        Hito matches this track's artist for you. Change it only if the match is
+        wrong.
       </p>
-      {!workflow.loaded && (
-        <Button
-          type="button"
-          disabled={workflow.pending !== null}
-          onClick={() => void workflow.open()}
-        >
-          {workflow.pending === "load"
-            ? "Loading artist information…"
-            : "Find artist information"}
-        </Button>
-      )}
-      {workflow.error && <p role="alert">{workflow.error}</p>}
-      {workflow.loaded && (
-        <ArtistIdentityChoice
-          {...identity}
-          onChoose={() => void identity.choose()}
-          onReset={() => void identity.reset()}
-          onRetry={() => void identity.retry()}
-          onRefresh={() => void identity.refresh()}
-        />
-      )}
-      {workflow.loaded && !workflow.enabled && (
-        <p>
-          Metadata providers are disabled.{" "}
-          <a href="/settings?section=metadata">Manage metadata providers</a>
-        </p>
-      )}
-      {workflow.loaded && workflow.enabled && (
-        <form onSubmit={search}>
-          <fieldset disabled={locked}>
-            <label>
-              Metadata provider
-              <select
-                value={workflow.selected}
-                onChange={(event) => workflow.choose(event.target.value)}
-              >
-                {workflow.providers.map((provider) => (
-                  <option
-                    key={provider.key}
-                    value={provider.key}
-                    disabled={!provider.available}
-                  >
-                    {provider.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {!workflow.provider?.available && (
-              <p>
-                The selected metadata provider is unavailable.{" "}
-                <a href="/settings?section=metadata">
-                  Manage metadata providers
-                </a>
-              </p>
-            )}
-            <label>
-              Search artists
-              <input
-                type="search"
-                value={workflow.query}
-                maxLength={512}
-                onChange={(event) => workflow.setQuery(event.target.value)}
-              />
-            </label>
-            <Button
-              type="submit"
-              disabled={
-                workflow.pending !== null ||
-                !workflow.provider?.available ||
-                !workflow.query.trim()
-              }
-            >
-              {workflow.pending === "search"
-                ? "Searching artists…"
-                : "Search artists"}
-            </Button>
-          </fieldset>
-        </form>
-      )}
-      {workflow.results && (
-        <ArtistCandidates
-          candidates={workflow.results.page.items}
-          disabled={workflow.pending !== null}
-          onReview={workflow.previewCandidate}
-        />
-      )}
-      {workflow.results?.page.items.length === 0 && (
-        <p>No artists found. Try another name.</p>
-      )}
-      {workflow.results?.page.next_cursor && (
-        <p>
-          More artists are available. Narrow your search to find a closer match.
-        </p>
-      )}
-      {workflow.preview && (
-        <section aria-label="Review artist">
-          <h3>Review artist</h3>
-          <h4>Saved track credit</h4>
-          <p>{detail.artist.value}</p>
-          <h4>Provider profile</h4>
-          <ArtistFacts profile={workflow.preview.profile} />
-          <p>
-            Save this artist review for this track. Your saved details and
-            playlists are kept.
-          </p>
+      <ArtistSummary
+        credit={detail.artist.value}
+        loaded={workflow.loaded}
+        choice={identity.choice}
+        name={identity.name}
+        association={
+          identity.choice?.state.status === "selected"
+            ? workflow.associations.find(
+                (item) =>
+                  identity.choice?.state.status === "selected" &&
+                  item.id === identity.choice.state.association_id,
+              )
+            : undefined
+        }
+        action={
           <Button
-            variant="primary"
             type="button"
-            disabled={workflow.pending !== null}
-            onClick={() => void workflow.confirm()}
+            aria-expanded={panel}
+            disabled={workflow.pending !== null && !panel}
+            onClick={() => {
+              if (!workflow.loaded) void workflow.open();
+              setPanel(workflow.loaded ? !panel : true);
+            }}
           >
-            {workflow.pending === "confirm"
-              ? "Saving artist review…"
-              : "Use this artist"}
+            {workflow.pending === "load"
+              ? "Loading artist information…"
+              : "Change artist"}
           </Button>
-        </section>
-      )}
-      {workflow.saved && <p role="status">Artist review saved.</p>}
-      <SavedArtistReviews
-        associations={workflow.associations}
-        disabled={workflow.pending !== null || !workflow.enabled}
-        ready={changes.ready}
-        canUndo={changes.canUndo}
-        retrying={changes.retrying}
-        error={changes.error}
-        onView={(association) => void workflow.loadProfile(association)}
-        onUnlink={(association) => void changes.unlink(association)}
-        onUndo={() => void changes.undo()}
-        onRetry={() => void changes.retry()}
+        }
       />
-      <SharedUnlink state={changes.state} sharing={sharing} />
-      {workflow.pending === "profile" && (
-        <p role="status">Loading reviewed artist profile…</p>
-      )}
-      {workflow.profile?.status === "available" && (
-        <section aria-label="Reviewed artist profile">
-          <h3>Reviewed artist profile</h3>
-          <ArtistFacts profile={workflow.profile.profile} />
-          {association && (
-            <ArtistDiscography
-              account={account}
-              recording={detail.recording_id}
-              association={association}
-              profile={workflow.profile.profile}
+      {workflow.error && <p role="alert">{workflow.error}</p>}
+      {panel && workflow.loaded && (
+        <div className="rd-manual">
+          {workflow.loaded && (
+            <ArtistIdentityChoice
+              {...identity}
+              onChoose={() => void identity.choose()}
+              onReset={() => void identity.reset()}
+              onRetry={() => void identity.retry()}
+              onRefresh={() => void identity.refresh()}
             />
           )}
-        </section>
-      )}
-      {workflow.profile && workflow.profile.status !== "available" && (
-        <p>
-          This saved artist profile is unavailable for this track. Review the
-          artist again or check your metadata providers.
-        </p>
+          {workflow.loaded && !workflow.enabled && (
+            <p>
+              Metadata providers are disabled.{" "}
+              <a href="/settings?section=metadata">Manage metadata providers</a>
+            </p>
+          )}
+          {workflow.loaded && workflow.enabled && (
+            <form className="rd-search" onSubmit={search}>
+              <fieldset disabled={locked}>
+                <label className="rd-field">
+                  Metadata provider
+                  <select
+                    value={workflow.selected}
+                    onChange={(event) => workflow.choose(event.target.value)}
+                  >
+                    {workflow.providers.map((provider) => (
+                      <option
+                        key={provider.key}
+                        value={provider.key}
+                        disabled={!provider.available}
+                      >
+                        {provider.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {!workflow.provider?.available && (
+                  <p>
+                    The selected metadata provider is unavailable.{" "}
+                    <a href="/settings?section=metadata">
+                      Manage metadata providers
+                    </a>
+                  </p>
+                )}
+                <label className="rd-field rd-grow">
+                  Search artists
+                  <input
+                    type="search"
+                    value={workflow.query}
+                    maxLength={512}
+                    onChange={(event) => workflow.setQuery(event.target.value)}
+                  />
+                </label>
+                <Button
+                  type="submit"
+                  disabled={
+                    workflow.pending !== null ||
+                    !workflow.provider?.available ||
+                    !workflow.query.trim()
+                  }
+                >
+                  {workflow.pending === "search"
+                    ? "Searching artists…"
+                    : "Search artists"}
+                </Button>
+              </fieldset>
+            </form>
+          )}
+          {workflow.results && (
+            <ArtistCandidates
+              candidates={workflow.results.page.items}
+              disabled={workflow.pending !== null}
+              onReview={workflow.previewCandidate}
+            />
+          )}
+          {workflow.results?.page.items.length === 0 && (
+            <p>No artists found. Try another name.</p>
+          )}
+          {workflow.results?.page.next_cursor && (
+            <p>
+              More artists are available. Narrow your search to find a closer
+              match.
+            </p>
+          )}
+          {workflow.preview && (
+            <section className="rd-panel" aria-label="Review artist">
+              <h3>Review artist</h3>
+              <h4>Saved track credit</h4>
+              <p>{detail.artist.value}</p>
+              <h4>Provider profile</h4>
+              <ArtistFacts profile={workflow.preview.profile} />
+              <p>
+                Save this artist review for this track. Your saved details and
+                playlists are kept.
+              </p>
+              <Button
+                variant="primary"
+                type="button"
+                disabled={workflow.pending !== null}
+                onClick={() => void workflow.confirm()}
+              >
+                {workflow.pending === "confirm"
+                  ? "Saving artist review…"
+                  : "Use this artist"}
+              </Button>
+            </section>
+          )}
+          {workflow.saved && <p role="status">Artist review saved.</p>}
+          <SavedArtistReviews
+            associations={workflow.associations}
+            disabled={workflow.pending !== null || !workflow.enabled}
+            ready={changes.ready}
+            canUndo={changes.canUndo}
+            retrying={changes.retrying}
+            error={changes.error}
+            onView={(association) => void workflow.loadProfile(association)}
+            onUnlink={(association) => void changes.unlink(association)}
+            onUndo={() => void changes.undo()}
+            onRetry={() => void changes.retry()}
+          />
+          <SharedUnlink state={changes.state} sharing={sharing} />
+          {workflow.pending === "profile" && (
+            <p role="status">Loading reviewed artist profile…</p>
+          )}
+          {workflow.profile?.status === "available" && (
+            <section className="rd-panel" aria-label="Reviewed artist profile">
+              <h3>Reviewed artist profile</h3>
+              <ArtistFacts profile={workflow.profile.profile} />
+              {association && (
+                <ArtistDiscography
+                  account={account}
+                  recording={detail.recording_id}
+                  association={association}
+                  profile={workflow.profile.profile}
+                />
+              )}
+            </section>
+          )}
+          {workflow.profile && workflow.profile.status !== "available" && (
+            <p>
+              This saved artist profile is unavailable for this track. Review
+              the artist again or check your metadata providers.
+            </p>
+          )}
+        </div>
       )}
     </section>
+  );
+}
+
+function ArtistSummary({
+  credit,
+  loaded,
+  choice,
+  name,
+  association,
+  action,
+}: {
+  credit: string;
+  loaded: boolean;
+  choice: Schema<"RecordingArtistIdentityChoice"> | null;
+  name: string | null;
+  association: Schema<"ArtistAssociation"> | undefined;
+  action: ReactNode;
+}) {
+  const state = choice?.state;
+  const chosen = state?.status === "selected";
+  const provenance = chosen
+    ? association && association.evidence !== "user_confirmed"
+      ? `Matched automatically from ${providerName(association.provider)}`
+      : "Chosen by you"
+    : loaded
+      ? "Not matched yet — Hito looks this up automatically"
+      : null;
+  return (
+    <div className="rd-summary">
+      <div className="rd-row-copy">
+        <strong>Artist: {chosen && name ? name : credit}</strong>
+        {provenance && <p>{provenance}</p>}
+      </div>
+      <div className="rd-row-actions">
+        {chosen && (
+          <Link
+            className="text-link"
+            href={`/artist-groups/${encodeURIComponent(state.group_id)}`}
+          >
+            Open artist
+          </Link>
+        )}
+        {action}
+      </div>
+    </div>
   );
 }
 
@@ -238,14 +311,15 @@ function ArtistCandidates({
   onReview(candidate: Schema<"ArtistSearchCandidate">): Promise<void>;
 }) {
   return (
-    <ul aria-label="Artist search results">
+    <ul className="rd-rows" aria-label="Artist search results">
       {candidates.map((candidate) => (
-        <li key={candidate.artist.id}>
+        <li className="rd-row rd-candidate" key={candidate.artist.id}>
           <h3>{candidate.artist.name}</h3>
           <p>{candidate.kind ? kinds[candidate.kind] : "Type not provided"}</p>
           {candidate.disambiguation && <p>{candidate.disambiguation}</p>}
           <Button
             type="button"
+            className="rd-row-action"
             disabled={disabled}
             onClick={() => void onReview(candidate)}
           >

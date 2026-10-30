@@ -1,7 +1,10 @@
 import type { Schema } from "../../../shared/schema";
 
 import Button from "../../../shared/ui/Button";
-import { associationEvidenceText } from "../model/associationEvidence";
+import {
+  associationEvidenceText,
+  providerName,
+} from "../model/associationEvidence";
 
 export default function SavedArtistReviews({
   associations,
@@ -28,28 +31,40 @@ export default function SavedArtistReviews({
 }) {
   if (associations.length === 0 && !canUndo && !retrying && !error) return null;
   return (
-    <section aria-label="Saved artist reviews">
+    <section className="rd-panel" aria-label="Saved artist reviews">
       <h3>Saved artist reviews</h3>
-      <ul>
+      <ul className="rd-rows">
         {associations.map((association, index) => (
-          <li key={association.id}>
-            {associationEvidenceText(association.evidence) && (
-              <p>{associationEvidenceText(association.evidence)}</p>
-            )}
-            <Button
-              type="button"
-              disabled={disabled}
-              onClick={() => onView(association)}
-            >
-              View saved artist review {index + 1}
-            </Button>
-            <Button
-              type="button"
-              disabled={disabled || !ready || retrying}
-              onClick={() => onUnlink(association)}
-            >
-              Unlink saved artist review {index + 1}
-            </Button>
+          <li className="rd-row" key={association.id}>
+            <div className="rd-row-copy">
+              <strong>
+                {providerName(association.provider)} · Recording artist
+              </strong>
+              <p>
+                {associationEvidenceText(association.evidence) ??
+                  "Confirmed by you."}
+              </p>
+            </div>
+            <div className="rd-row-actions">
+              <Button
+                type="button"
+                className="compact"
+                aria-label={`View saved artist review ${index + 1}`}
+                disabled={disabled}
+                onClick={() => onView(association)}
+              >
+                View
+              </Button>
+              <Button
+                type="button"
+                className="compact"
+                aria-label={`Unlink saved artist review ${index + 1}`}
+                disabled={disabled || !ready || retrying}
+                onClick={() => onUnlink(association)}
+              >
+                Unlink
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
