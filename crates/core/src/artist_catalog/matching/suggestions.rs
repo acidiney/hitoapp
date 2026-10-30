@@ -7,7 +7,7 @@ use crate::artist_catalog::{
     identity::groups::{current_choices, group_summary},
 };
 use crate::{Actor, ArtistCatalog, Error, Result};
-use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
+use sqlx::{QueryBuilder, Sqlite, SqliteConnection, Transaction};
 use std::{collections::HashSet, time::Instant};
 use uuid::Uuid;
 
@@ -90,7 +90,14 @@ impl ArtistCatalog {
         self.artist_match_suggestions(actor, artist).await
     }
 
-    async fn remove_dismissal(&self, actor: &Actor, artist: &str, group: &str) -> Result<()> {
+    /// Opens a write transaction after checking the session, that the credit is the account's own
+    /// and that the chosen artist belongs to the account.
+    async fn guarded_transaction(
+        &self,
+        actor: &Actor,
+        artist: &str,
+        group: &str,
+    ) -> Result<Transaction<'static, Sqlite>> {
         if artist.len() > MAX_ID_LENGTH || group.is_empty() || group.len() > MAX_ID_LENGTH {
             return Err(Error::NotFound);
         }
@@ -107,6 +114,11 @@ impl ArtistCatalog {
         if !known {
             return Err(Error::NotFound);
         }
+        Ok(tx)
+    }
+
+    async fn remove_dismissal(&self, actor: &Actor, artist: &str, group: &str) -> Result<()> {
+        let mut tx = self.guarded_transaction(actor, artist, group).await?;
         sqlx::query(
             "DELETE FROM artist_match_dismissals WHERE user_id=? AND artist_id=? AND group_id=?",
         )
@@ -120,22 +132,7 @@ impl ArtistCatalog {
     }
 
     async fn record_dismissal(&self, actor: &Actor, artist: &str, group: &str) -> Result<()> {
-        if artist.len() > MAX_ID_LENGTH || group.is_empty() || group.len() > MAX_ID_LENGTH {
-            return Err(Error::NotFound);
-        }
-        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        actor.check_session_on(&mut tx).await?;
-        credit_name(&mut tx, actor, artist).await?;
-        let known: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM account_artist_identity_groups WHERE user_id=? AND id=?)",
-        )
-        .bind(actor.id())
-        .bind(group)
-        .fetch_one(&mut *tx)
-        .await?;
-        if !known {
-            return Err(Error::NotFound);
-        }
+        let mut tx = self.guarded_transaction(actor, artist, group).await?;
         sqlx::query(
             "INSERT OR IGNORE INTO artist_match_dismissals(user_id,artist_id,group_id) VALUES(?,?,?)",
         )
