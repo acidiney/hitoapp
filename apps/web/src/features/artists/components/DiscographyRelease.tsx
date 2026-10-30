@@ -28,7 +28,8 @@ function Availability({
   albums: Schema<"LibraryAlbum">[];
   group: string;
 }) {
-  if (albums.length === 0) return <p>Not linked to a library album</p>;
+  if (albums.length === 0)
+    return <p className="sr-only">Not linked to a library album</p>;
   return (
     <ul aria-label="In your library">
       {albums.map((album) => (
@@ -87,25 +88,31 @@ export default function DiscographyRelease({
           artist={group.artist_credit?.[0]?.credited_name}
         />
       </div>
-      {library && (
-        <AvailabilityLabel
-          state={releaseAvailability(library).state}
-          label={releaseAvailability(library).label}
-        />
-      )}
       <Heading>{group.title}</Heading>
-      <p>{group.kind ? kinds[group.kind] : "Type not provided"}</p>
-      {group.secondary_types.length > 0 && (
-        <p>{group.secondary_types.join(" · ")}</p>
-      )}
-      <p>
+      <p className="release-credit">
         {group.artist_credit?.length
           ? group.artist_credit
               .map((member) => member.credited_name + member.join_phrase)
               .join("")
           : "Artist credit not provided"}
       </p>
-      <p>{group.first_release_date ?? "Release date not provided"}</p>
+      <p className="meta-line">
+        <span className={group.kind ? "" : "placeholder"}>
+          {group.kind ? kinds[group.kind] : "Type not provided"}
+        </span>
+        {group.secondary_types.map((type) => (
+          <span key={type}>{type}</span>
+        ))}
+        <span className={group.first_release_date ? "" : "placeholder"}>
+          {group.first_release_date ?? "Release date not provided"}
+        </span>
+      </p>
+      {library && (
+        <AvailabilityLabel
+          state={releaseAvailability(library).state}
+          label={releaseAvailability(library).label}
+        />
+      )}
       {library && (
         <Availability account={account} albums={library} group={group.id} />
       )}

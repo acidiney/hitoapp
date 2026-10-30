@@ -470,7 +470,7 @@
 .chip-toggle[aria-pressed="true"] {
   border-color: var(--ink);
 }
-section[aria-label="Discography"] > section ul {
+section[aria-label="Discography"] > section > ul {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 22px;
@@ -485,6 +485,198 @@ section[aria-label="Discography"] > section ul {
 }
 .release-card:has(section[aria-label="Editions"]) {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-content: start;
+  row-gap: 6px;
+}
+.release-card:has(section[aria-label="Editions"]) > * {
+  grid-column: 1;
+}
+.release-card:has(section[aria-label="Editions"]) > .edition-panel {
+  grid-column: 1 / -1;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.release-card > :is(h4, h5, p) {
+  margin: 0;
+}
+.release-card > .button {
+  align-self: flex-start;
+  margin-top: auto;
+  position: relative;
+  top: 6px;
+}
+.release-credit {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.meta-line > :not(.placeholder) ~ :not(.placeholder)::before {
+  content: "·";
+  margin-right: 6px;
+}
+.placeholder {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.release-card .availability {
+  font-size: 12px;
+  font-weight: 700;
+}
+section[aria-label="Discography"] > .button,
+section[aria-label="Discography"] > section > .button {
+  display: inline-flex;
+  margin: 4px 8px 24px 0;
+}
+
+/* editions */
+.edition-panel :is(h5, h6, p),
+.edition-tracks :is(h5, h6, p) {
+  margin: 0;
+}
+.release-card ul[aria-label="In your library"] {
+  padding: 0;
+  margin: 4px 0 0;
+}
+.edition-panel > h5 {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.edition-panel .button {
+  margin-top: 8px;
+}
+.edition-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.edition-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.edition-row .button {
+  flex: none;
+  margin-top: 0;
+}
+.edition-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.edition-main h5 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.edition-credit,
+.edition-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.edition-tracks {
+  margin-top: 20px;
+}
+.edition-tracks > h5 {
+  font-size: 15px;
+  font-weight: 800;
+}
+.edition-tracks > p {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.disc-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 18px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 12px;
+}
+.disc-header h6 {
+  font-size: 12px;
+  font-weight: 700;
+}
+.disc-header p {
+  color: var(--muted);
+}
+.disc-header .meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
+.edition-track-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.edition-track-rows > li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "no name time"
+    "no credit time";
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.edition-track-rows > li:hover {
+  background: var(--subtle);
+}
+.edition-track-rows .track-no {
+  grid-area: no;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.edition-track-rows .track-name {
+  grid-area: name;
+  font-weight: 700;
+  font-size: 15px;
+}
+.edition-track-rows .track-credit {
+  grid-area: credit;
+  font-size: 13px;
+  color: var(--muted);
+}
+.edition-track-rows .track-time {
+  grid-area: time;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+}
+.edition-track-rows .track-kind {
+  grid-area: name;
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.edition-track-rows > li > :is(.button, .availability, p:not([class])) {
+  grid-column: 2 / -1;
 }
 .release-cover {
   width: 100%;
@@ -550,7 +742,7 @@ section[aria-label="Discography"] > section ul {
   .discography-controls .chip-toggle {
     margin-left: 0;
   }
-  section[aria-label="Discography"] > section ul {
+  section[aria-label="Discography"] > section > ul {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px 14px;
   }

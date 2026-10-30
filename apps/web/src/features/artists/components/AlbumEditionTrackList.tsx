@@ -67,10 +67,18 @@ export default function AlbumEditionTrackList({
     const failure = catalog.failed?.id === track.id ? catalog.failed : null;
     return (
       <li key={track.id}>
-        <p>{track.number ?? "Track number not provided"}</p>
-        <p>{track.title}</p>
-        {track.kind !== "audio" && <p>{kinds[track.kind]}</p>}
-        <p>
+        <p className={track.number ? "track-no" : "track-no placeholder"}>
+          {track.number ?? "Track number not provided"}
+        </p>
+        <p className="track-name">{track.title}</p>
+        {track.kind !== "audio" && (
+          <p className="track-kind">{kinds[track.kind]}</p>
+        )}
+        <p
+          className={
+            track.duration_ms == null ? "track-time placeholder" : "track-time"
+          }
+        >
           {track.duration_ms == null
             ? "Duration not provided"
             : time(track.duration_ms / 1000)}
@@ -127,7 +135,11 @@ export default function AlbumEditionTrackList({
   }
 
   return (
-    <section aria-label="Album edition track list" aria-busy={pending}>
+    <section
+      aria-label="Album edition track list"
+      aria-busy={pending}
+      className="edition-tracks"
+    >
       {pending && <p role="status">Loading edition track list…</p>}
       {error && (
         <>
@@ -153,9 +165,20 @@ export default function AlbumEditionTrackList({
               key={medium.position}
               aria-label={`Disc ${medium.position}`}
             >
-              <h6>Disc {medium.position}</h6>
-              <p>{medium.title ?? "Disc title not provided"}</p>
-              <ol aria-label={`Disc ${medium.position} tracks`}>
+              <div
+                className={
+                  comparison.edition.media.length > 1
+                    ? "disc-header"
+                    : "sr-only"
+                }
+              >
+                <h6>Disc {medium.position}</h6>
+                {medium.title && <p>{medium.title}</p>}
+              </div>
+              <ol
+                aria-label={`Disc ${medium.position} tracks`}
+                className="edition-track-rows"
+              >
                 {medium.tracks.map(row)}
               </ol>
             </section>

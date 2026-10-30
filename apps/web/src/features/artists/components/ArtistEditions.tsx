@@ -51,7 +51,11 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
       </Button>
     );
   return (
-    <section aria-label="Editions" aria-busy={workflow.pending}>
+    <section
+      aria-label="Editions"
+      aria-busy={workflow.pending}
+      className="edition-panel"
+    >
       <h5>Editions</h5>
       {workflow.pending && (
         <p role="status">
@@ -59,20 +63,32 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
         </p>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
-      <ul aria-label="Available editions">
+      <ul aria-label="Available editions" className="edition-list">
         {workflow.editions.map((edition) => (
-          <li key={edition.id}>
-            <h5>{edition.title}</h5>
-            <p>{edition.disambiguation ?? "Edition details not provided"}</p>
-            <p>
-              {edition.artist_credit?.length
-                ? edition.artist_credit
-                    .map((member) => member.credited_name + member.join_phrase)
-                    .join("")
-                : "Artist credit not provided"}
-            </p>
-            <p>{edition.release_date ?? "Release date not provided"}</p>
-            <p>{edition.country ?? "Country not provided"}</p>
+          <li key={edition.id} className="edition-row">
+            <div className="edition-main">
+              <h5>{edition.title}</h5>
+              {edition.disambiguation && (
+                <p className="edition-note">{edition.disambiguation}</p>
+              )}
+              <p className="edition-credit">
+                {edition.artist_credit?.length
+                  ? edition.artist_credit
+                      .map(
+                        (member) => member.credited_name + member.join_phrase,
+                      )
+                      .join("")
+                  : "Artist credit not provided"}
+              </p>
+              <p className="meta-line">
+                <span className={edition.release_date ? "" : "placeholder"}>
+                  {edition.release_date ?? "Release date not provided"}
+                </span>
+                <span className={edition.country ? "" : "placeholder"}>
+                  {edition.country ?? "Country not provided"}
+                </span>
+              </p>
+            </div>
             <Button
               type="button"
               pressed={workflow.chosen?.id === edition.id}

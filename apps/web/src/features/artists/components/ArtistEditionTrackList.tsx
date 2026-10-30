@@ -17,7 +17,11 @@ export default function ArtistEditionTrackList({
   retry: () => Promise<void>;
 }) {
   return (
-    <section aria-label="Selected edition track list" aria-busy={pending}>
+    <section
+      aria-label="Selected edition track list"
+      aria-busy={pending}
+      className="edition-tracks"
+    >
       {pending && <p role="status">Loading edition track list…</p>}
       {error && (
         <>
@@ -30,29 +34,50 @@ export default function ArtistEditionTrackList({
       {edition && (
         <>
           <h5>{edition.title}</h5>
-          <p>
+          <p className="edition-credit">
             {edition.artist_credit?.length
               ? edition.artist_credit
                   .map((member) => member.credited_name + member.join_phrase)
                   .join("")
               : "Artist credit not provided"}
           </p>
-          <p>Audio availability has not been checked.</p>
+          <p className="edition-note">
+            Audio availability has not been checked.
+          </p>
           {edition.media.map((medium) => (
             <section
               key={medium.position}
               aria-label={`Disc ${medium.position}`}
             >
-              <h6>Disc {medium.position}</h6>
-              <p>{medium.title ?? "Disc title not provided"}</p>
-              <p>{medium.format ?? "Format not provided"}</p>
-              <ol aria-label={`Disc ${medium.position} tracks`}>
+              <div
+                className={edition.media.length > 1 ? "disc-header" : "sr-only"}
+              >
+                <h6>Disc {medium.position}</h6>
+                <p className={medium.title ? "" : "placeholder"}>
+                  {medium.title ?? "Disc title not provided"}
+                </p>
+                <p className={medium.format ? "meta" : "placeholder"}>
+                  {medium.format ?? "Format not provided"}
+                </p>
+              </div>
+              <ol
+                aria-label={`Disc ${medium.position} tracks`}
+                className="edition-track-rows"
+              >
                 {medium.tracks.map((track) => (
                   <li key={track.id}>
-                    <p>{track.number ?? "Track number not provided"}</p>
-                    <p>{track.title}</p>
-                    <p>{kinds[track.kind]}</p>
-                    <p>
+                    <p
+                      className={
+                        track.number ? "track-no" : "track-no placeholder"
+                      }
+                    >
+                      {track.number ?? "Track number not provided"}
+                    </p>
+                    <p className="track-name">{track.title}</p>
+                    {track.kind !== "audio" && (
+                      <p className="track-kind">{kinds[track.kind]}</p>
+                    )}
+                    <p className="track-credit">
                       {track.artist_credit?.length
                         ? track.artist_credit
                             .map(
@@ -62,9 +87,14 @@ export default function ArtistEditionTrackList({
                             .join("")
                         : "Artist credit not provided"}
                     </p>
-                    <p>
-                      {track.duration_ms === null ||
-                      track.duration_ms === undefined
+                    <p
+                      className={
+                        track.duration_ms == null
+                          ? "track-time placeholder"
+                          : "track-time"
+                      }
+                    >
+                      {track.duration_ms == null
                         ? "Duration not provided"
                         : time(track.duration_ms / 1000)}
                     </p>
