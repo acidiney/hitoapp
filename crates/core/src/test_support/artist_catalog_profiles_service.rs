@@ -81,6 +81,7 @@ impl CatalogServer {
                 fake::Reply::Json(serde_json::to_value(expected_profile()).unwrap())
             }
         })
+        .require_json()
         .start()
         .await;
         Self {

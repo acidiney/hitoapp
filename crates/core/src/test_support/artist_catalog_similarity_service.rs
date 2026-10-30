@@ -114,9 +114,9 @@ impl SimilarityServer {
     }
 
     pub fn fail_descriptor(&self, status: Option<StatusCode>) {
-        match status {
-            Some(status) => self.plugin.fault(CAPABILITIES, Fault::Status(status)),
-            None => self.plugin.clear_fault(CAPABILITIES),
+        self.plugin.clear_fault(CAPABILITIES);
+        if let Some(status) = status {
+            self.plugin.fault(CAPABILITIES, Fault::Status(status));
         }
     }
 
@@ -125,9 +125,8 @@ impl SimilarityServer {
     }
 
     pub fn delay(&self, delay: Duration) {
-        if delay.is_zero() {
-            self.plugin.clear_fault(ARTISTS);
-        } else {
+        self.plugin.clear_fault(ARTISTS);
+        if !delay.is_zero() {
             self.plugin.fault(ARTISTS, Fault::Delay(delay));
         }
     }

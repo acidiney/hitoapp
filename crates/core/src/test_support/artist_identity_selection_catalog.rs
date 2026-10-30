@@ -102,6 +102,7 @@ impl CatalogServer {
     }
 
     pub async fn finish(&mut self) {
+        assert_eq!(self.plugin.unexpected(), 0);
         assert!(self.plugin.finish().await);
     }
 }
