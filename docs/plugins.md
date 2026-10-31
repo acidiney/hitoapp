@@ -16,6 +16,8 @@ An automatic name lookup sends no credentials or browser cookies. Failed validat
 
 Each account owns its connections. Administrators cannot list, check, or clear another account's connection. Removing a personal connection clears its saved token. Withdrawing an offered service disconnects all installations of that service and clears their tokens. Both actions retain an inactive identity record. Reoffering the same address creates a new service identity.
 
+Settings describes each connection in one plain sentence derived from its declared capabilities (for example "Finds songs and plays them from YouTube"), and keeps the technical declaration, source persistence and token settings in a collapsed **Details** section. When Settings opens, the web app asks `POST /api/v1/plugins/{id}/declaration-check` for each connection. This is a read-only look with the saved token: it stores nothing and does not change the connection revision. If the service now declares something different, a banner such as "New: album covers" offers **Review and accept**, which opens the same review and digest-bound acceptance as below. Failures of this automatic look are silent; **Check connection** remains for manual checks.
+
 **Check connection** fetches and validates the manifest. A changed name or capability declaration appears for review. Acceptance fetches the manifest again and requires the reviewed digest. A different remote plugin ID is rejected; remove and reconnect to accept a new identity. Failed requests and unaccepted reviews preserve the accepted manifest and credentials. **Save token** checks the replacement before saving it. **Clear saved token** is local and works even when the service is unavailable.
 
 ## Discover music
