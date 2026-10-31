@@ -48,7 +48,7 @@ The section appears only on chosen artists with a MusicBrainz identity. Nothing 
 
 ## Radio
 
-Discover's "Radio from…" uses the same similarity read to mix other artists into a library radio; see [catalog browsing](catalog-browsing.md#genres-and-artist-radio). `POST /api/v1/artist-identity-groups/{id}/radio` (no body) calls the read above with a limit of 25 for the chosen artist's reviewed credit, keeps only the similar artists that are chosen artists of the account (`chosen_artist_id`, exact identity), and returns up to 50 library tracks plus how many similar artists contributed (`similar_artists`). Disabled, unsupported, unavailable and failed answers, and artists chosen through a plugin, give the artist's own tracks only; a locked session is refused with 423 before anything is contacted. Playback goes through the normal queue; the radio itself requests no audio.
+Discover's "Radio from…" uses the same similarity read to mix other artists into a library radio; see [catalog browsing](catalog-browsing.md#genres-and-artist-radio). `POST /api/v1/artist-identity-groups/{id}/radio` (no body) calls the read above with a limit of 25 for the chosen artist's reviewed credit, keeps only the similar artists that are chosen artists of the account (`chosen_artist_id`, exact identity), and returns up to 50 library tracks plus how many distinct similar artists put at least one track into the queue (`similar_artists`; an artist cut off by the bound is not counted). Disabled, unsupported, unavailable and failed answers, and artists chosen through a plugin, give the artist's own tracks only; a locked session is refused with 423 before anything is contacted. Playback goes through the normal queue; the radio itself requests no audio.
 
 ## ListenBrainz evaluation
 
