@@ -4,17 +4,43 @@ pub const TABLES: &[&str] = &["artist_name_checks", "artist_matching_jobs"];
 
 pub const ADDED: &[(&str, &str)] = &[];
 
-/// The columns 0072 appends, by table.
-const COLUMNS: &[(&str, &str)] = &[
-    ("artist_name_checks", "rule INTEGER NOT NULL DEFAULT 1"),
+type Column = (i64, String, String, i64, Option<String>, i64, i64);
+
+/// The column 0072 appends to each table: name, declared type, not-null flag, default and its
+/// exact declaration text.
+const COLUMNS: &[(&str, &str, &str, i64, &str, &str)] = &[
+    (
+        "artist_name_checks",
+        "rule",
+        "INTEGER",
+        1,
+        "1",
+        "rule INTEGER NOT NULL DEFAULT 1",
+    ),
     (
         "artist_matching_jobs",
+        "unavailable",
+        "INTEGER",
+        1,
+        "0",
         "unavailable INTEGER NOT NULL DEFAULT 0 CHECK(unavailable IN (0,1))",
     ),
 ];
 
+async fn columns(connection: &mut SqliteConnection, table: &str) -> Vec<Column> {
+    sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
+        .bind(table)
+        .fetch_all(connection)
+        .await
+        .unwrap()
+}
+
 pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {
     let before = super::schema(&mut connection).await;
+    let mut before_columns = Vec::new();
+    for (table, ..) in COLUMNS {
+        before_columns.push(columns(&mut connection, table).await);
+    }
     super::through(72).run(&mut connection).await.unwrap();
     let after = super::schema(&mut connection).await;
     assert_eq!(
@@ -27,19 +53,39 @@ pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {
             .iter()
             .find(|current| current.0 == object.0 && current.1 == object.1)
             .expect("0072 must not remove prior schema objects");
-        match COLUMNS.iter().find(|(table, _)| *table == object.1) {
-            Some((_, column)) if object.0 == "table" => {
-                let ddl = object.3.as_deref().unwrap().trim_end();
-                let declared = format!("{}, {column})", ddl.strip_suffix(')').unwrap());
-                assert_eq!(
-                    current.3.as_deref(),
-                    Some(declared.as_str()),
-                    "0072 must only append its column to {}",
-                    object.1
-                );
-            }
-            _ => assert_eq!(current, object, "0072 must change only its two tables"),
+        if object.0 == "table" && COLUMNS.iter().any(|column| column.0 == object.1) {
+            continue;
         }
+        assert_eq!(current, object, "0072 must change only its two tables");
+    }
+    for ((table, name, kind, not_null, default, declaration), old) in
+        COLUMNS.iter().zip(before_columns)
+    {
+        let now = columns(&mut connection, table).await;
+        assert_eq!(
+            &now[..old.len()],
+            old.as_slice(),
+            "{table} keeps its columns"
+        );
+        assert_eq!(now.len(), old.len() + 1, "0072 adds one column to {table}");
+        let added = now.last().unwrap();
+        assert_eq!(
+            (
+                added.1.as_str(),
+                added.2.as_str(),
+                added.3,
+                added.4.as_deref(),
+                added.5
+            ),
+            (*name, *kind, *not_null, Some(*default), 0),
+            "{table} gains exactly the declared column"
+        );
+        let ddl = after
+            .iter()
+            .find(|object| object.0 == "table" && object.1 == *table)
+            .and_then(|object| object.3.as_deref())
+            .unwrap();
+        assert!(ddl.contains(declaration), "{table} declares {declaration}");
     }
     connection
 }

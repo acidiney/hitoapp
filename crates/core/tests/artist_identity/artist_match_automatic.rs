@@ -18,6 +18,7 @@ fn expect_nova(library: &NameLibrary) {
             ("Morning Light", Some(201_000)),
             ("Second Wind", Some(187_500)),
             ("Harbor Lights", Some(243_000)),
+            ("Quiet Rooms", Some(150_000)),
         ]),
     );
 }
@@ -43,7 +44,7 @@ async fn an_import_schedules_a_job_that_matches_by_name_and_then_leaves_nothing_
     assert_eq!(
         library.group_of(&library.recordings[3]).await.as_ref(),
         Some(&group),
-        "The credit's fourth track follows the corroborated ones"
+        "The credit's fourth track is listed by the artist too"
     );
     assert_eq!(library.rows("artist_matching_jobs").await, 0);
     assert_eq!(
