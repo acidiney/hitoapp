@@ -60,6 +60,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugins::offer))
         .routes(routes!(plugins::withdraw))
         .routes(routes!(plugins::refresh))
+        .routes(routes!(plugins::check_declaration))
         .routes(routes!(plugins::remove))
         .routes(routes!(plugins::clear_credential))
         .routes(routes!(plugin_authorization::begin))

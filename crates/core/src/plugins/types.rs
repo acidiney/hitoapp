@@ -99,6 +99,14 @@ pub enum PluginRefresh {
     ReviewRequired { manifest: Manifest, digest: String },
 }
 
+/// What a read-only look at a connected service found against the declaration the account accepted.
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PluginDeclarationCheck {
+    Current,
+    ReviewRequired { manifest: Manifest, digest: String },
+}
+
 #[derive(Default, Deserialize, ToSchema)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PluginCredential {

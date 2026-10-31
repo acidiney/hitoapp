@@ -1,6 +1,6 @@
 use super::{
-    PluginCredential, PluginRefresh, Plugins, RefreshPlugin, installations::installation,
-    manifest::fingerprint,
+    PluginCredential, PluginDeclarationCheck, PluginRefresh, Plugins, RefreshPlugin,
+    installations::installation, manifest::fingerprint,
 };
 use crate::{Actor, Error, Result};
 use sqlx::Row;
@@ -95,6 +95,52 @@ impl Plugins {
             "Plugin connection refreshed"
         );
         Ok(PluginRefresh::Updated { installation })
+    }
+}
+
+impl Plugins {
+    /// Reads the service's current declaration with the saved credential and reports whether it
+    /// differs from the accepted one. Nothing is stored.
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn check_declaration(
+        &self,
+        actor: &Actor,
+        id: &str,
+        revision: i64,
+    ) -> Result<PluginDeclarationCheck> {
+        let row = sqlx::query("SELECT p.id,p.service_id,p.manifest,p.revision,p.checked_at,p.credential,p.credential IS NOT NULL AS credential_set,s.base_url
+            FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
+            WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
+            .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
+        let base_url: String = row.try_get("base_url")?;
+        let saved: Option<Vec<u8>> = row.try_get("credential")?;
+        let previous = installation(row)?;
+        if previous.revision != revision {
+            return Err(changed());
+        }
+        let token = saved
+            .as_deref()
+            .map(|blob| {
+                self.vault
+                    .reveal(actor.id(), id, &previous.service_id, blob)
+            })
+            .transpose()?;
+        let manifest = self
+            .remote
+            .manifest(actor.id(), &base_url, token.as_deref().map(String::as_str))
+            .await?;
+        if manifest.id != previous.manifest.id {
+            return Err(Error::Conflict(
+                "The service returned a different plugin identity. Remove and reconnect to use it."
+                    .into(),
+            ));
+        }
+        let (_, digest) = fingerprint(&manifest)?;
+        if digest == fingerprint(&previous.manifest)?.1 {
+            return Ok(PluginDeclarationCheck::Current);
+        }
+        tracing::debug!(installation_id = id, "Plugin declaration awaits review");
+        Ok(PluginDeclarationCheck::ReviewRequired { manifest, digest })
     }
 }
 

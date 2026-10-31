@@ -9,9 +9,9 @@ use axum::{
     http::StatusCode,
 };
 use hito_core::{
-    InstallPlugin, OfferPluginService, PluginInstallation, PluginInstallationPreview,
-    PluginRefresh, PluginService, PluginSettings, PreviewPluginInstallation, RefreshPlugin,
-    Services,
+    InstallPlugin, OfferPluginService, PluginDeclarationCheck, PluginInstallation,
+    PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
+    PreviewPluginInstallation, RefreshPlugin, Services,
 };
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -107,6 +107,23 @@ pub async fn refresh(
     JsonBody(request): JsonBody<RefreshPlugin>,
 ) -> ApiResult<Json<PluginRefresh>> {
     Ok(Json(services.plugins.refresh(&actor, &id, request).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/plugins/{id}/declaration-check", operation_id = "check_plugin_declaration", params(("id" = String, Path)), request_body = PluginRevision, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = PluginDeclarationCheck), (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse), (status = 502, body = ErrorResponse),
+))]
+pub async fn check_declaration(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<PluginRevision>,
+) -> ApiResult<Json<PluginDeclarationCheck>> {
+    Ok(Json(
+        services
+            .plugins
+            .check_declaration(&actor, &id, request.revision)
+            .await?,
+    ))
 }
 
 #[utoipa::path(delete, path = "/api/v1/plugins/{id}", operation_id = "remove_plugin", params(("id" = String, Path)), request_body = PluginRevision, security(("session" = []), ("bearer" = [])), responses(

@@ -71,6 +71,7 @@ async fn plugin_http_routes_enforce_personal_ownership_and_administrator_offers(
     let id = installed["id"].as_str().unwrap();
     for (method, suffix, request) in [
         ("POST", "/refresh", json!({"revision":1})),
+        ("POST", "/declaration-check", json!({"revision":1})),
         ("DELETE", "", json!({"revision":1})),
         ("DELETE", "/credential", json!({"revision":1})),
     ] {
@@ -110,6 +111,16 @@ async fn plugin_http_routes_enforce_personal_ownership_and_administrator_offers(
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(updated["kind"], "updated");
+    let (status, checked) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/plugins/{id}/declaration-check"),
+        json!({"revision":2}),
+        Some(&bob),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(checked, json!({"kind":"current"}));
     let (status, cleared) = call(
         &app,
         "DELETE",

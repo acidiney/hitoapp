@@ -1,7 +1,9 @@
 use hito_core::test_support::plugin_service as fixture;
 use hito_core::test_support::support;
 
-use hito_core::{Error, InstallPlugin, OfferPluginService, PluginRefresh, RefreshPlugin};
+use hito_core::{
+    Error, InstallPlugin, OfferPluginService, PluginDeclarationCheck, PluginRefresh, RefreshPlugin,
+};
 
 #[tokio::test]
 async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_identity() {
@@ -123,4 +125,81 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
             .id,
         "org.hito.test"
     );
+}
+
+#[tokio::test]
+async fn checking_the_declaration_reports_changes_without_touching_the_connection() {
+    let server = fixture::PluginServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("plugin-declaration-check").await;
+    let service = hito
+        .plugins
+        .offer_service(
+            &actor,
+            OfferPluginService {
+                name: "Fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let installed = hito
+        .plugins
+        .install(
+            &actor,
+            InstallPlugin {
+                accept_manifest_digest: None,
+                service_id: service.id,
+                service_revision: service.revision,
+                bearer_token: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        hito.plugins
+            .check_declaration(&actor, &installed.id, installed.revision)
+            .await
+            .unwrap(),
+        PluginDeclarationCheck::Current
+    ));
+
+    let mut changed = fixture::manifest();
+    changed["name"] = "Updated provider".into();
+    server.reply(changed).await;
+    let PluginDeclarationCheck::ReviewRequired { manifest, digest } = hito
+        .plugins
+        .check_declaration(&actor, &installed.id, installed.revision)
+        .await
+        .unwrap()
+    else {
+        panic!("A changed declaration was not reported");
+    };
+    assert_eq!(manifest.name, "Updated provider");
+    let stored = &hito.plugins.settings(&actor).await.unwrap().installations[0];
+    assert_eq!(
+        stored.revision, installed.revision,
+        "checking changes nothing"
+    );
+    assert_eq!(stored.manifest.name, "Fixture provider");
+
+    let accepted = hito
+        .plugins
+        .refresh(
+            &actor,
+            &installed.id,
+            RefreshPlugin {
+                revision: installed.revision,
+                accept_manifest_digest: Some(digest),
+                credential: Default::default(),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(matches!(accepted, PluginRefresh::Updated { .. }));
+    assert!(matches!(
+        hito.plugins
+            .check_declaration(&actor, &installed.id, installed.revision)
+            .await,
+        Err(Error::Conflict(_))
+    ));
 }
