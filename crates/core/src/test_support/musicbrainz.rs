@@ -259,7 +259,7 @@ fn scored(key: &str, artists: &[(String, String)]) -> Vec<(String, String, u32)>
             (id.clone(), name.clone(), score)
         })
         .collect();
-    found.sort_by(|a, b| b.2.cmp(&a.2));
+    found.sort_by_key(|item| std::cmp::Reverse(item.2));
     found
 }
 
