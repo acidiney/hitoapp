@@ -52,7 +52,8 @@ const props = (
   service_names: {},
   genres: [
     { key: "fado", label: "Fado", track_count: 3 },
-    { key: "hip hop", label: "Hip Hop", track_count: 1 },
+    { key: "hip hop", label: "hip hop", track_count: 1 },
+    { key: "contemporary r&b", label: "contemporary r&b", track_count: 2 },
   ],
   artists: {
     items: [group("g1", "Ana Moura", 12), group("g2", "Bruma", 1)],
@@ -91,10 +92,12 @@ test("genre tiles come from the library and open their genre page without any re
   expect(links.map((link) => link.textContent)).toEqual([
     "Fado3 tracks",
     "Hip Hop1 track",
+    "Contemporary R&B2 tracks",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/genres?genre=fado",
     "/genres?genre=hip%20hop",
+    "/genres?genre=contemporary%20r%26b",
   ]);
   expect(fetch).not.toHaveBeenCalled();
 });

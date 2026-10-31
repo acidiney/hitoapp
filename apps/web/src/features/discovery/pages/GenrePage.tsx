@@ -7,6 +7,7 @@ import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import { tintFor } from "../../../shared/ui/collectionTint";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import { genreCount } from "../model/genreCount";
+import { genreTitle } from "../model/genreTitle";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
@@ -20,6 +21,7 @@ export default function GenrePage({
   genre: detail,
 }: Schema<"GenrePageProps">) {
   const { genre, albums, tracks } = detail;
+  const name = genreTitle(genre.label);
   const { mutate } = useMutation(user.id);
   const rows = tracks.map((track) => ({ ...track, row_id: track.id }));
   return (
@@ -29,16 +31,13 @@ export default function GenrePage({
         size="playlist"
         crumbs={
           <Breadcrumbs
-            crumbs={[
-              { label: "Discover", href: "/discover" },
-              { label: genre.label },
-            ]}
+            crumbs={[{ label: "Discover", href: "/discover" }, { label: name }]}
           />
         }
         eyebrow="Genre"
-        title={genre.label}
+        title={name}
         stats={tracksIn(genre.track_count)}
-        actions={<PlayShuffle tracks={rows} label={`${genre.label} tracks`} />}
+        actions={<PlayShuffle tracks={rows} label={`${name} tracks`} />}
       />
       {albums.length > 0 && (
         <section aria-labelledby="genre-albums">

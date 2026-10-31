@@ -61,6 +61,23 @@ const props = (count: number): Schema<"GenrePageProps"> => ({
   },
 });
 
+test("a lowercase MusicBrainz genre label is shown in title case in the heading and breadcrumb", () => {
+  const base = props(2);
+  const lower: Schema<"GenrePageProps"> = {
+    ...base,
+    genre: {
+      ...base.genre,
+      genre: { key: "pop soul", label: "pop soul", track_count: 2 },
+    },
+  };
+  render(createElement(NoticeProvider, null, createElement(GenrePage, lower)));
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+    "Pop Soul",
+  );
+  expect(screen.getAllByText("Pop Soul").length).toBeGreaterThan(1);
+  expect(screen.queryByText("pop soul")).toBeNull();
+});
+
 test("a genre page lists its albums and tracks and plays or shuffles them", () => {
   render(
     createElement(NoticeProvider, null, createElement(GenrePage, props(2))),
