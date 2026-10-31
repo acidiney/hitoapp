@@ -2,10 +2,12 @@
 #[path = "../fixtures/artist_name_library.rs"]
 mod library;
 
+use hito_core::test_support::metadata_tag_logs::CapturedLogs;
 use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{ArtistAssociationEvidence, ArtistMatchingState, UpdateAutomaticLookups};
 use library::{CREDIT, NOVA, NameLibrary, nova_discography};
 use std::time::{Duration, Instant};
+use tracing::instrument::WithSubscriber;
 
 fn expect_nova(library: &NameLibrary) {
     library.musicbrainz.search(
@@ -465,4 +467,49 @@ async fn an_outage_over_many_batches_schedules_a_later_walk_instead_of_finishing
         "The retry waits"
     );
     assert_eq!(library.rows("artist_name_checks").await, 0);
+}
+
+#[tokio::test]
+async fn a_clean_last_batch_does_not_hide_unavailable_answers_of_earlier_batches() {
+    let entries = many_credits(24);
+    let borrowed: Vec<(&str, &str, u64)> = entries
+        .iter()
+        .map(|(credit, title, length)| (credit.as_str(), *title, *length))
+        .collect();
+    let library = NameLibrary::prepare(&borrowed).await;
+    for (credit, ..) in entries.iter().take(16).step_by(2) {
+        library.musicbrainz.search(credit, Reply::Unavailable);
+    }
+    let logs = CapturedLogs::default();
+    library
+        .automatic()
+        .with_subscriber(tracing::Dispatch::new(logs.subscriber()))
+        .await;
+    let text = logs.text();
+    let event = text
+        .lines()
+        .find(|line| line.contains("automatic_matching_walk_rescheduled"))
+        .unwrap_or_else(|| panic!("A rescheduled walk is logged: {text}"));
+    assert!(event.contains("\"attempt\":1"), "{event}");
+    assert!(event.contains("\"delay_seconds\":120"), "{event}");
+    assert!(event.contains("\"INFO\""), "{event}");
+    assert!(!event.contains("Outage Credit"), "{event}");
+
+    assert_eq!(
+        library.rows("artist_matching_jobs").await,
+        1,
+        "The walk met unavailable answers and must be repeated"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT attempts FROM artist_matching_jobs")
+            .await,
+        "1"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT next_run_at > unixepoch() + 60 FROM artist_matching_jobs")
+            .await,
+        "1"
+    );
 }

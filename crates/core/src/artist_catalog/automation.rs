@@ -350,6 +350,12 @@ impl ArtistCatalog {
                 let unavailable = job.unavailable || unavailable;
                 let attempts = job.attempts + i64::from(unavailable);
                 if unavailable && attempts >= MAX_ATTEMPTS {
+                    tracing::info!(
+                        event = "automatic_matching_walk_abandoned",
+                        attempt = attempts,
+                        max_attempts = MAX_ATTEMPTS,
+                        "Automatic artist matching walk abandoned after repeated unavailable lookups"
+                    );
                     delete(&mut tx, job).await?;
                     "abandoned"
                 } else if job.rerun || unavailable {
@@ -368,6 +374,14 @@ impl ArtistCatalog {
                         .execute(&mut *tx)
                         .await?;
                     if unavailable {
+                        tracing::info!(
+                            event = "automatic_matching_walk_rescheduled",
+                            attempt = attempts,
+                            max_attempts = MAX_ATTEMPTS,
+                            delay_seconds = delay,
+                            matched = job.matched + matched,
+                            "Automatic artist matching walk rescheduled after unavailable lookups"
+                        );
                         "retry_scheduled"
                     } else {
                         "rescheduled"
