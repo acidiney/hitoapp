@@ -8,6 +8,33 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
     let kept = world.populate(&world.admin).await;
     let erased = world.populate(&world.member).await;
     let mut connection = connect(world.directory.path()).await;
+    const KEPT_ARTIST: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const ERASED_ARTIST: &str = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const UNUSED_ARTIST: &str = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    for (account, artist) in [
+        (&world.admin.user.id, KEPT_ARTIST),
+        (&world.member.user.id, ERASED_ARTIST),
+    ] {
+        sqlx::query("INSERT INTO account_artist_identity_groups(id, user_id, provider_kind, provider_artist_id) VALUES (?, ?, 'builtin_musicbrainz', ?)")
+            .bind(format!("group-{artist}"))
+            .bind(account)
+            .bind(artist)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
+    for artist in [KEPT_ARTIST, ERASED_ARTIST, UNUSED_ARTIST] {
+        sqlx::query("INSERT INTO musicbrainz_genre_lookups(entity, mbid, fetched_at) VALUES ('artist', ?1, unixepoch())")
+            .bind(artist)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO musicbrainz_genres(entity, mbid, genre_key, label) VALUES ('artist', ?1, 'fado', 'Fado')")
+            .bind(artist)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
     let admin_before = rows_of(&mut connection, &world.admin.user.id).await;
     let member_before = rows_of(&mut connection, &world.member.user.id).await;
     assert!(member_before.iter().map(|(_, n)| n).sum::<i64>() > 20);
@@ -82,6 +109,21 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
         genres_after >= 2 && genres_after < genres_before,
         "the kept and shared sources keep their genres"
     );
+    let cached: Vec<String> =
+        sqlx::query_scalar("SELECT mbid FROM musicbrainz_genre_lookups ORDER BY mbid")
+            .fetch_all(&mut connection)
+            .await
+            .unwrap();
+    assert_eq!(
+        cached,
+        [KEPT_ARTIST],
+        "cached genres stay only for identities a remaining account names"
+    );
+    let cached_genres: i64 = sqlx::query_scalar("SELECT count(*) FROM musicbrainz_genres")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    assert_eq!(cached_genres, 1);
     let scopes: i64 = sqlx::query_scalar("SELECT count(*) FROM correction_erasure_scopes")
         .fetch_one(&mut connection)
         .await

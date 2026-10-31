@@ -761,6 +761,12 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("table", "source_genres"),
         ("index", "sqlite_autoindex_source_genres_1"),
         ("index", "source_genres_by_genre"),
+        ("table", "musicbrainz_genre_lookups"),
+        ("index", "sqlite_autoindex_musicbrainz_genre_lookups_1"),
+        ("table", "musicbrainz_genres"),
+        ("index", "sqlite_autoindex_musicbrainz_genres_1"),
+        ("index", "musicbrainz_genres_by_genre"),
+        ("index", "recording_musicbrainz_observation_by_mbid"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();

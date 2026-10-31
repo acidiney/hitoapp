@@ -54,12 +54,27 @@ pub(super) fn statements() -> Vec<String> {
     plan.extend(artwork_and_sources());
     plan.extend(personal_catalog());
     plan.extend(provider_content());
+    plan.extend(unreferenced_genre_lookups());
     plan.push("DELETE FROM correction_erasure_scopes WHERE kind='recording'".to_string());
     plan.push("DELETE FROM library_members WHERE user_id=?1 AND library_id NOT IN (SELECT id FROM libraries WHERE owner_id=?1)".to_string());
     plan.extend(owned(&["libraries"], "owner_id"));
     plan.extend(owned(&["plugin_installations", "sync_events"], "user_id"));
     plan.extend(owned(&["users"], "id"));
     plan
+}
+
+/// Cached MusicBrainz genre lookups are public reference data, but an identity that no remaining
+/// account's library names no longer needs one: artists are named by the groups of the remaining
+/// accounts, release groups and recordings by the retained tag identities.
+fn unreferenced_genre_lookups() -> Vec<String> {
+    const UNREFERENCED: &str = "(entity='artist' AND mbid NOT IN (SELECT provider_artist_id FROM account_artist_identity_groups WHERE provider_kind='builtin_musicbrainz' AND user_id<>?1))
+        OR (entity<>'artist' AND NOT EXISTS (SELECT 1 FROM recording_musicbrainz_observations o WHERE o.entity=musicbrainz_genre_lookups.entity AND o.mbid=musicbrainz_genre_lookups.mbid))";
+    vec![
+        format!(
+            "DELETE FROM musicbrainz_genres WHERE (entity,mbid) IN (SELECT entity,mbid FROM musicbrainz_genre_lookups WHERE {UNREFERENCED})"
+        ),
+        format!("DELETE FROM musicbrainz_genre_lookups WHERE {UNREFERENCED}"),
+    ]
 }
 
 fn downloads() -> Vec<String> {
