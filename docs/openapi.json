@@ -17868,13 +17868,19 @@
             "format": "int64",
             "description": "Tracks left as they were because of an earlier personal decision."
           },
+          "next_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "provider_artist_id": {
             "type": "string"
           },
           "remaining": {
             "type": "integer",
             "format": "int64",
-            "description": "Undecided tracks the request did not reach; asking again continues."
+            "description": "Undecided tracks the request did not reach; asking again with `next_after` continues."
           },
           "request_id": {
             "type": "string",
@@ -19219,6 +19225,13 @@
           "provider_artist_id"
         ],
         "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `next_after` of the previous step, to continue past tracks that step examined."
+          },
           "provider_artist_id": {
             "type": "string"
           },

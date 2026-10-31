@@ -3024,10 +3024,11 @@ export interface components {
              * @description Tracks left as they were because of an earlier personal decision.
              */
             kept: number;
+            next_after?: string | null;
             provider_artist_id: string;
             /**
              * Format: int64
-             * @description Undecided tracks the request did not reach; asking again continues.
+             * @description Undecided tracks the request did not reach; asking again with `next_after` continues.
              */
             remaining: number;
             /** Format: uuid */
@@ -3350,6 +3351,8 @@ export interface components {
         /** @enum {string} */
         CommunityReportAdmission: "ignored" | "queued" | "already_accepted";
         ConfirmArtistReviewCandidate: {
+            /** @description The `next_after` of the previous step, to continue past tracks that step examined. */
+            after?: string | null;
             provider_artist_id: string;
             /** Format: uuid */
             request_id: string;
