@@ -276,6 +276,7 @@
   width: 5%;
 }
 .artist-card.round .fallback-cover,
+.home-card[data-round] .fallback-cover,
 .tinted-header[data-size="artist"] .fallback-cover {
   padding: 18%;
   justify-content: center;
@@ -283,6 +284,7 @@
   text-align: center;
 }
 .artist-card.round .fallback-cover::before,
+.home-card[data-round] .fallback-cover::before,
 .tinted-header[data-size="artist"] .fallback-cover::before {
   display: none;
 }
