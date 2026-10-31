@@ -13,13 +13,13 @@ use tokio::time::Instant;
 
 const MAX_BATCH: i64 = 100;
 const MAX_ID_LENGTH: usize = 64;
-pub(super) const MAX_LOOKUPS: usize = 8;
-pub(super) const MAX_CONSECUTIVE_FAILURES: usize = 3;
-pub(super) const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
+pub(crate) const MAX_LOOKUPS: usize = 8;
+pub(crate) const MAX_CONSECUTIVE_FAILURES: usize = 3;
+pub(crate) const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
 /// No lookup may still be running this long after the pass started, leaving room to write.
-pub(super) const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
+pub(crate) const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
 /// Special-purpose MusicBrainz artists that never identify a performer.
-pub(super) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
+pub(crate) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "89ad4ac3-39f7-470e-963a-56509c546377",
     "125ec42a-7229-4250-afc5-e057484327fe",
     "eec63d3c-3b81-4ad4-b1e4-7c147d4d2b61",

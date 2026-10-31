@@ -378,3 +378,42 @@ async fn an_existing_library_gets_one_first_walk_at_start_and_never_a_second_one
     );
     assert_eq!(library.rows("artist_matching_jobs").await, 0);
 }
+
+#[tokio::test]
+async fn the_walk_reads_the_genres_of_the_artist_it_matched_for_imported_tracks() {
+    let library = NameLibrary::nova().await;
+    expect_nova(&library);
+    library.musicbrainz.genres_of(
+        "artist",
+        NOVA,
+        Reply::Genres(vec![("jazz".into(), 4), ("bossa nova".into(), 2)]),
+    );
+    library.automatic().await;
+    let asked: Vec<String> = library
+        .musicbrainz
+        .requests()
+        .into_iter()
+        .filter(|request| request.contains("inc=genres"))
+        .collect();
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    assert!(asked[0].starts_with(&format!("/ws/2/artist/{NOVA}?")));
+    assert_eq!(
+        library
+            .scalar("SELECT group_concat(genre_key) FROM (SELECT genre_key FROM musicbrainz_genres ORDER BY genre_key)")
+            .await,
+        "bossa nova,jazz"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT group_concat(DISTINCT provenance) FROM musicbrainz_genres")
+            .await,
+        "musicbrainz"
+    );
+    let status = library
+        .hito
+        .artist_catalog
+        .artist_matching_status(&library.actor)
+        .await
+        .unwrap();
+    assert_eq!(status.last_matched, 3, "genre reads are not matches");
+}

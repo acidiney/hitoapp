@@ -1,3 +1,4 @@
+use super::genre_lookups::{self, GENRE_CURSOR};
 use super::{
     ArtistMatchingState, ArtistMatchingStatus, MatchArtistsFromProviderEvidence,
     MatchArtistsFromTags, MetadataProvider, policy,
@@ -87,32 +88,35 @@ async fn allowed(connection: &mut SqliteConnection, account: &str) -> Result<boo
 }
 
 impl ArtistCatalog {
-    /// Queues the first matching walk for every account that can read a library, has automatic
-    /// lookups on and has never had a walk, so a library that predates the worker still gets one.
-    /// Accounts that already have a job or a finished walk are left alone.
+    /// Queues a matching walk for every account that can read a library, has automatic lookups
+    /// on and either has never had a walk or names MusicBrainz identities whose genres were never
+    /// read or are older than the refresh period. Accounts that already have a job are left alone.
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn queue_first_automatic_matching(&self) -> Result<usize> {
         let started = Instant::now();
         let accounts: Vec<String> = sqlx::query_scalar(
             "SELECT DISTINCT m.user_id FROM library_members m
-             WHERE NOT EXISTS (SELECT 1 FROM artist_matching_jobs j WHERE j.user_id = m.user_id)
-                AND NOT EXISTS (SELECT 1 FROM account_metadata_automation a
-                    WHERE a.user_id = m.user_id AND a.matching_finished_at IS NOT NULL)",
+             WHERE NOT EXISTS (SELECT 1 FROM artist_matching_jobs j WHERE j.user_id = m.user_id)",
         )
         .fetch_all(&self.store.pool)
         .await?;
         let mut queued = 0;
         for account in accounts {
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-            let started_meanwhile: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?1)
-                    OR EXISTS(SELECT 1 FROM account_metadata_automation
-                        WHERE user_id = ?1 AND matching_finished_at IS NOT NULL)",
+            let job_started: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?1)",
             )
             .bind(&account)
             .fetch_one(&mut *tx)
             .await?;
-            if !started_meanwhile {
+            let finished: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM account_metadata_automation
+                    WHERE user_id = ?1 AND matching_finished_at IS NOT NULL)",
+            )
+            .bind(&account)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !job_started && (!finished || genre_lookups::has_pending(&mut tx, &account).await?) {
                 request_for_account(&mut tx, &account).await?;
                 let now_queued: bool = sqlx::query_scalar(
                     "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?)",
@@ -211,7 +215,16 @@ impl ArtistCatalog {
             Err(_) => return Step::Failed,
         };
         let request_id = Uuid::new_v4();
-        let result = if job.phase == "tags" {
+        let genre_position = job
+            .cursor
+            .as_deref()
+            .and_then(|cursor| cursor.strip_prefix(GENRE_CURSOR))
+            .filter(|_| job.phase == "provider");
+        let result = if let Some(position) = genre_position {
+            self.collect_musicbrainz_genres(&actor, Some(position).filter(|p| !p.is_empty()))
+                .await
+                .map(|receipt| (receipt.next_after, receipt.unavailable > 0, "genres", 0))
+        } else if job.phase == "tags" {
             self.match_artists_from_tags(
                 &actor,
                 MatchArtistsFromTags {
@@ -242,6 +255,16 @@ impl ArtistCatalog {
             })
         };
         match result {
+            Ok((Some(cursor), unavailable, "genres", matched)) => Step::Continue {
+                phase: "provider",
+                cursor: Some(format!("{GENRE_CURSOR}{cursor}")),
+                unavailable,
+                matched,
+            },
+            Ok((None, unavailable, "genres", matched)) => Step::Complete {
+                unavailable,
+                matched,
+            },
             Ok((Some(cursor), unavailable, phase, matched)) => Step::Continue {
                 phase,
                 cursor: Some(cursor),
@@ -254,7 +277,9 @@ impl ArtistCatalog {
                 unavailable,
                 matched,
             },
-            Ok((None, unavailable, _, matched)) => Step::Complete {
+            Ok((None, unavailable, _, matched)) => Step::Continue {
+                phase: "provider",
+                cursor: Some(GENRE_CURSOR.to_owned()),
                 unavailable,
                 matched,
             },

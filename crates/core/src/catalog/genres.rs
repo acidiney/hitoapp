@@ -54,35 +54,105 @@ enum Key<'a> {
     Column(&'static str),
 }
 
-/// Starts a query over the account's playable library recordings of one genre, one row per
-/// source: `r` is the recording and `g` the genre row. Podcast episodes, other accounts'
-/// libraries and recordings without a playable source never match.
+/// Appends one `SELECT * FROM (...)` per genre source over the account's playable library
+/// recordings of one genre, joined by `UNION ALL`: `r` is the recording and `g` the genre row.
+/// File-tag genres come first and, for a recording that has any, are the only ones used;
+/// otherwise the genres MusicBrainz lists for the recording's chosen artist, release group or
+/// recording count. Each source stops at `limit` rows, so the work depends on the limit and not
+/// on how many tracks a genre has. Podcast episodes, other accounts' libraries and recordings
+/// without a playable source never match.
 fn genre_recordings(
     query: &mut QueryBuilder<'_, sqlx::Sqlite>,
     host: &crate::HostDeviceId,
     actor: &Actor,
-    key: Key<'_>,
+    key: &Key<'_>,
     columns: &str,
+    limit: i64,
 ) {
-    query
-        .push("SELECT ")
-        .push(columns)
-        .push(
-            " FROM source_genres g
-            JOIN sources s ON s.id = g.source_id
-            JOIN recordings r ON r.id = s.recording_id
-            JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ",
-        )
-        .push_bind(actor.id().to_owned())
-        .push(" WHERE g.genre_key = ");
-    match key {
-        Key::Bound(key) => query.push_bind(key.to_owned()),
-        Key::Column(column) => query.push(column),
-    };
-    query.push(
-        " AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id) AND ",
-    );
-    push_available(query, host, actor.id());
+    for (index, source) in [
+        GenreSource::File,
+        GenreSource::Artist,
+        GenreSource::Identity,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if index > 0 {
+            query.push(" UNION ALL ");
+        }
+        query.push("SELECT * FROM (SELECT ").push(columns);
+        match source {
+            GenreSource::File => query.push(
+                " FROM source_genres g
+                JOIN sources s ON s.id = g.source_id
+                JOIN recordings r ON r.id = s.recording_id",
+            ),
+            GenreSource::Artist => query
+                .push(
+                    " FROM musicbrainz_genres g
+                    JOIN account_artist_identity_groups gr ON gr.user_id = ",
+                )
+                .push_bind(actor.id().to_owned())
+                .push(
+                    " AND gr.provider_key = 'builtin:musicbrainz' AND gr.provider_artist_id = g.mbid
+                    JOIN recording_artist_identity_choices c ON c.user_id = gr.user_id
+                        AND c.group_id = gr.id AND c.retired = 0 AND c.association_id IS NOT NULL
+                    JOIN recordings r ON r.id = c.recording_id",
+                ),
+            GenreSource::Identity => query.push(
+                " FROM musicbrainz_genres g
+                JOIN recording_musicbrainz_observations o ON o.entity = g.entity AND o.mbid = g.mbid
+                JOIN recordings r ON r.id = o.recording_id AND r.metadata_observation_id = o.observation_id",
+            ),
+        };
+        query
+            .push(" JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ")
+            .push_bind(actor.id().to_owned())
+            .push(" WHERE g.genre_key = ");
+        match key {
+            Key::Bound(key) => query.push_bind((*key).to_owned()),
+            Key::Column(column) => query.push(*column),
+        };
+        match source {
+            GenreSource::File => {}
+            GenreSource::Artist => {
+                query
+                    .push(" AND g.entity = 'artist' AND ")
+                    .push(NO_FILE_GENRE);
+            }
+            GenreSource::Identity => {
+                query
+                    .push(" AND g.entity IN ('release_group','recording') AND ")
+                    .push(NO_FILE_GENRE);
+            }
+        }
+        query.push(
+            " AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id) AND ",
+        );
+        push_available(query, host, actor.id());
+        if matches!(source, GenreSource::File) && limit > 1 {
+            query.push(" GROUP BY r.id");
+        }
+        query.push(" LIMIT ").push_bind(limit).push(")");
+    }
+}
+
+#[derive(Clone, Copy)]
+enum GenreSource {
+    File,
+    Artist,
+    Identity,
+}
+
+const NO_FILE_GENRE: &str = "NOT EXISTS (SELECT 1 FROM sources fs
+    JOIN source_genres fg ON fg.source_id = fs.id WHERE fs.recording_id = r.id)";
+
+/// The smallest genre key above `after` in either genre source.
+fn next_key(after: &str) -> String {
+    format!(
+        "(SELECT min(k) FROM (SELECT min(genre_key) AS k FROM source_genres WHERE genre_key > {after}
+            UNION ALL SELECT min(genre_key) FROM musicbrainz_genres WHERE genre_key > {after}))"
+    )
 }
 
 impl Catalog {
@@ -94,28 +164,38 @@ impl Catalog {
     /// Tiles whose counts stop at `cap`: each genre is read through its index until the cap, so
     /// the work depends on the number of genres and the cap, not on how many tracks a genre has.
     pub(crate) async fn genres_within(&self, actor: &Actor, cap: i64) -> Result<Vec<Genre>> {
-        let mut query = QueryBuilder::new(
+        let mut query = QueryBuilder::new(format!(
             "WITH RECURSIVE keys(k, n) AS (
-                SELECT min(genre_key), 1 FROM source_genres
+                SELECT {}, 1
                 UNION ALL
-                SELECT (SELECT min(genre_key) FROM source_genres WHERE genre_key > keys.k), n + 1
+                SELECT {}, n + 1
                 FROM keys WHERE k IS NOT NULL AND n < ",
-        );
+            next_key("''"),
+            next_key("keys.k"),
+        ));
         query.push_bind(GENRE_SCAN).push(
             ")
-            SELECT k AS key, (",
+            SELECT k AS key, (SELECT label FROM (",
         );
         genre_recordings(
             &mut query,
             &self.host,
             actor,
-            Key::Column("keys.k"),
-            "g.label",
+            &Key::Column("keys.k"),
+            "g.label AS label",
+            1,
         );
-        query.push(" LIMIT 1) AS label, (SELECT count(*) FROM (");
-        genre_recordings(&mut query, &self.host, actor, Key::Column("keys.k"), "r.id");
+        query.push(") LIMIT 1) AS label, (SELECT count(*) FROM (SELECT id FROM (");
+        genre_recordings(
+            &mut query,
+            &self.host,
+            actor,
+            &Key::Column("keys.k"),
+            "r.id AS id",
+            cap,
+        );
         query
-            .push(" GROUP BY r.id LIMIT ")
+            .push(") GROUP BY id LIMIT ")
             .push_bind(cap)
             .push(")) AS track_count FROM keys WHERE k IS NOT NULL AND label IS NOT NULL ORDER BY track_count DESC, k LIMIT ")
             .push_bind(GENRE_TILES);
@@ -132,32 +212,50 @@ impl Catalog {
         let (key, _) = genre_identity(key).ok_or(Error::NotFound)?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let mut label = QueryBuilder::new("");
-        genre_recordings(&mut label, &self.host, actor, Key::Bound(&key), "g.label");
-        label.push(" LIMIT 1");
+        let mut label = QueryBuilder::new("SELECT label FROM (");
+        genre_recordings(
+            &mut label,
+            &self.host,
+            actor,
+            &Key::Bound(&key),
+            "g.label AS label",
+            1,
+        );
+        label.push(") LIMIT 1");
         let label: Option<String> = label.build_query_scalar().fetch_optional(&mut *tx).await?;
         let Some(label) = label else {
             return Err(Error::NotFound);
         };
-        let counted = format!(" GROUP BY r.id LIMIT {GENRE_COUNT_CAP}");
-        let mut count = QueryBuilder::new("SELECT count(*) FROM (");
-        genre_recordings(&mut count, &self.host, actor, Key::Bound(&key), "r.id");
-        count.push(&counted).push(")");
+        let mut count = QueryBuilder::new("SELECT count(*) FROM (SELECT id FROM (");
+        genre_recordings(
+            &mut count,
+            &self.host,
+            actor,
+            &Key::Bound(&key),
+            "r.id AS id",
+            GENRE_COUNT_CAP,
+        );
+        count
+            .push(") GROUP BY id LIMIT ")
+            .push_bind(GENRE_COUNT_CAP)
+            .push(")");
         let track_count: i64 = count.build_query_scalar().fetch_one(&mut *tx).await?;
         let genre = Genre {
             key: key.clone(),
             label,
             track_count,
         };
-        let mut ids = QueryBuilder::new("SELECT id FROM (");
+        let mut ids = QueryBuilder::new("SELECT id FROM (SELECT id, title FROM (");
         genre_recordings(
             &mut ids,
             &self.host,
             actor,
-            Key::Bound(&key),
+            &Key::Bound(&key),
             "r.id AS id, r.title AS title",
+            GENRE_COUNT_CAP,
         );
-        ids.push(&counted)
+        ids.push(") GROUP BY id LIMIT ")
+            .push_bind(GENRE_COUNT_CAP)
             .push(") ORDER BY title COLLATE NOCASE, id LIMIT ")
             .push_bind(GENRE_TRACKS);
         let track_ids: Vec<String> = ids.build_query_scalar().fetch_all(&mut *tx).await?;
@@ -169,16 +267,18 @@ impl Catalog {
             })
             .collect::<Result<Vec<_>>>()?;
         let tracks = recordings_on(&mut tx, &self.host, actor, &track_ids).await?;
-        let mut albums = QueryBuilder::new("SELECT release_id FROM (");
+        let mut albums = QueryBuilder::new("SELECT release_id FROM (SELECT id, release_id FROM (");
         genre_recordings(
             &mut albums,
             &self.host,
             actor,
-            Key::Bound(&key),
+            &Key::Bound(&key),
             "r.id AS id, r.release_id AS release_id",
+            GENRE_COUNT_CAP,
         );
         albums
-            .push(&counted)
+            .push(") GROUP BY id LIMIT ")
+            .push_bind(GENRE_COUNT_CAP)
             .push(") WHERE release_id IS NOT NULL GROUP BY release_id ORDER BY count(*) DESC, release_id LIMIT ")
             .push_bind(GENRE_ALBUMS);
         let order: Vec<String> = albums.build_query_scalar().fetch_all(&mut *tx).await?;

@@ -28,6 +28,8 @@ pub enum Reply {
     Discography(u32, Vec<(String, Option<u64>)>),
     /// One browse page of release groups, each with its identifier and primary type.
     ReleaseGroups(Vec<(String, Option<String>)>),
+    /// The official genres of one entity, each with its name and vote count.
+    Genres(Vec<(String, u32)>),
     NotFound,
     Unavailable,
 }
@@ -115,6 +117,15 @@ impl FakeMusicBrainz {
         );
     }
 
+    /// Answers the genre lookup of one artist, release group or recording.
+    pub fn genres_of(&self, entity: &str, id: &str, reply: Reply) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("genres/{entity}/{id}"), reply);
+    }
+
     pub fn delay_replies(&self, delay: Duration) {
         self.state.lock().unwrap().delay = delay;
     }
@@ -139,6 +150,14 @@ fn key(uri: &Uri) -> Option<String> {
     let path = uri.path().strip_prefix("/ws/2/")?;
     if let Some(isrc) = path.strip_prefix("isrc/") {
         return Some(format!("isrc/{isrc}"));
+    }
+    if let Some((entity, id)) = path.split_once('/')
+        && matches!(entity, "artist" | "release-group" | "recording")
+        && uri
+            .query()
+            .is_some_and(|query| query.contains("inc=genres"))
+    {
+        return Some(format!("genres/{entity}/{id}"));
     }
     let parameter = |name: &str| -> Option<String> {
         let prefix = format!("{name}=");
@@ -261,6 +280,17 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             (
                 StatusCode::OK,
                 json!({"release-group-count": listed.len(), "release-group-offset": 0, "release-groups": listed}),
+            )
+        }
+        (Some(key), Some(Reply::Genres(genres))) => {
+            let listed: Vec<Value> = genres
+                .iter()
+                .map(|(name, count)| json!({"id": "0f700000-0000-4000-8000-0000000000d1", "name": name, "count": count, "disambiguation": ""}))
+                .collect();
+            let id = key.rsplit('/').next().unwrap_or_default();
+            (
+                StatusCode::OK,
+                json!({"id": id, "genres": listed, "tags": [{"name": "not a genre", "count": 3}]}),
             )
         }
         (_, Some(Reply::Unavailable)) => {

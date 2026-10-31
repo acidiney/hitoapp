@@ -5,6 +5,7 @@ mod catalog_artwork;
 mod catalog_genres;
 mod catalog_history;
 mod catalog_likes;
+mod catalog_musicbrainz_genres;
 mod catalog_paging;
 mod catalog_recording_credits;
 mod catalog_releases;

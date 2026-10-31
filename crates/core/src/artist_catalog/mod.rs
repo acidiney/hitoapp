@@ -12,6 +12,7 @@ mod discography;
 mod discovery;
 mod editions;
 pub(crate) mod erasure;
+mod genre_lookups;
 pub(crate) mod identity;
 mod library_availability;
 mod matching;
