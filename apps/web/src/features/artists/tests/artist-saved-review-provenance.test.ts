@@ -69,6 +69,32 @@ test("a credit-level match says which evidence its sibling tracks supplied", () 
   ).toBeTruthy();
 });
 
+test("a coverage match says how many of the credit's tracks the artist covers", () => {
+  render(
+    createElement(SavedArtistReviews, {
+      associations: [
+        {
+          ...artistAssociation,
+          evidence: "matched_credit_coverage",
+          coverage_evidence: { matched_tracks: 85, probed_tracks: 106 },
+        },
+      ],
+      disabled: false,
+      ready: true,
+      canUndo: false,
+      retrying: false,
+      error: "",
+      onView: () => undefined,
+      onUnlink: () => undefined,
+      onUndo: () => undefined,
+      onRetry: () => undefined,
+    }),
+  );
+  expect(
+    screen.getByText("Matched from 85 of 106 tracks of this artist."),
+  ).toBeTruthy();
+});
+
 test("a review the account confirmed itself carries no automatic-match note", () => {
   show("user_confirmed");
   expect(screen.queryByText(/Matched automatically/)).toBeNull();

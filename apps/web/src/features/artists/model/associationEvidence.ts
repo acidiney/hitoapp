@@ -5,7 +5,7 @@ type Association = Schema<"ArtistAssociation">;
 const matched: Record<
   Exclude<
     Association["evidence"],
-    "user_confirmed" | "matched_credit_evidence"
+    "user_confirmed" | "matched_credit_evidence" | "matched_credit_coverage"
   >,
   string
 > = {
@@ -41,13 +41,24 @@ function creditEvidenceText(evidence: Schema<"CreditEvidence"> | null) {
   return `Matched automatically from ${tracks} ${creditSource[evidence.kind]} in this credit.`;
 }
 
+function coverageEvidenceText(evidence: Schema<"CoverageEvidence"> | null) {
+  if (!evidence)
+    return "Matched automatically from other tracks of this credit.";
+  return `Matched from ${evidence.matched_tracks} of ${evidence.probed_tracks} tracks of this artist.`;
+}
+
 /** How an automatic match was made, or null for a review the account confirmed itself. */
 export function associationEvidenceText(
-  association: Pick<Association, "evidence" | "credit_evidence">,
+  association: Pick<
+    Association,
+    "evidence" | "credit_evidence" | "coverage_evidence"
+  >,
 ): string | null {
   const { evidence } = association;
   if (evidence === "user_confirmed") return null;
   if (evidence === "matched_credit_evidence")
     return creditEvidenceText(association.credit_evidence);
+  if (evidence === "matched_credit_coverage")
+    return coverageEvidenceText(association.coverage_evidence);
   return matched[evidence];
 }
