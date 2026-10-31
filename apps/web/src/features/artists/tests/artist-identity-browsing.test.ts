@@ -36,9 +36,13 @@ vi.mock("@inertiajs/react", () => ({
 }));
 function expectOnlyMatching(fetch: { mock: { calls: unknown[][] } }) {
   for (const [path, options] of fetch.mock.calls) {
-    expect(path, "only the status read, never a pass or provider request").toBe(
-      "/api/v1/artist-matching/status",
-    );
+    expect(
+      [
+        "/api/v1/artist-matching/status",
+        "/api/v1/artist-matching/review-queue?limit=50",
+      ],
+      "only the status and queue reads, never a pass or provider request",
+    ).toContain(path);
     expect((options as RequestInit | undefined)?.method ?? "GET").toBe("GET");
   }
 }
