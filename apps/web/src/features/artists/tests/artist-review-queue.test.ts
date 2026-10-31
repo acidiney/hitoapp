@@ -178,6 +178,7 @@ test("a confirmation that did not reach every track asks again until none remain
       applied: 200,
       kept: 0,
       remaining: calls === 1 ? 50 : 0,
+      next_after: calls === 1 ? "recording-200" : null,
     });
   });
   show();
@@ -185,6 +186,39 @@ test("a confirmation that did not reach every track asks again until none remain
   fireEvent.click(screen.getAllByRole("button", { name: /^Confirm/ })[0]);
   await waitFor(() => expect(posted.length).toBe(2));
   expect(posted[0].body.request_id).not.toBe(posted[1].body.request_id);
+  expect(posted[0].body.after ?? null).toBeNull();
+  expect(posted[1].body.after).toBe("recording-200");
+});
+
+test("a step that fails after earlier progress still shows what was saved", async () => {
+  let calls = 0;
+  const posted = serve([() => page([item()]), () => page([item()])], () => {
+    calls += 1;
+    if (calls === 2) return new Response("{}", { status: 500 });
+    return Response.json({
+      request_id: "r",
+      artist_id: "credit-1",
+      provider_artist_id: NOVA,
+      applied: 200,
+      kept: 0,
+      remaining: 50,
+      next_after: "recording-200",
+    });
+  });
+  show();
+  await open();
+  fireEvent.click(screen.getAllByRole("button", { name: /^Confirm/ })[0]);
+  expect((await screen.findByRole("alert")).textContent).toMatch(
+    /could not be saved/i,
+  );
+  expect(posted.length).toBe(2);
+  expect(reload).toHaveBeenCalledWith({
+    only: ["artists", "identity_groups"],
+  });
+  const reads = vi
+    .mocked(fetch)
+    .mock.calls.filter(([path]) => path === QUEUE).length;
+  expect(reads, "the queue is read again after the failure").toBe(2);
 });
 
 test("None of these dismisses every candidate of the credit and removes the row", async () => {

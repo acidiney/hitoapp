@@ -58,14 +58,17 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
   const decide = useCallback(
     async (
       credit: string,
-      save: (signal: AbortSignal) => Promise<boolean>,
+      save: (signal: AbortSignal, saved: () => void) => Promise<void>,
       reason: string,
     ) => {
       const request = scope.capture();
       setView((current) => ({ ...current, pending: credit, error: "" }));
       const started = performance.now();
+      let changedArtists = false;
       try {
-        const changedArtists = await save(request.signal);
+        await save(request.signal, () => {
+          changedArtists = reason === "confirmed";
+        });
         if (!request.active()) return;
         log.debug(`artist_review_queue.${reason}`, {
           duration_ms: Math.round(performance.now() - started),
@@ -76,6 +79,10 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
       } catch {
         if (!request.active()) return;
         log.debug("artist_review_queue.decision_failed", { reason });
+        if (changedArtists) {
+          router.reload({ only: ["artists", "identity_groups"] });
+          await read();
+        }
         setView((current) => ({
           ...current,
           error: "This decision could not be saved. Try again.",
@@ -92,17 +99,19 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     (credit: string, artist: string) =>
       decide(
         credit,
-        async (signal) => {
+        async (signal, saved) => {
+          let after: string | null = null;
           for (let step = 0; step < MAX_CONFIRM_STEPS; step += 1) {
             const receipt = await artistMatchingApi.confirmCandidate(
               account,
               credit,
-              { request_id: createUuid(), provider_artist_id: artist },
+              { request_id: createUuid(), provider_artist_id: artist, after },
               signal,
             );
-            if (receipt.remaining === 0) break;
+            saved();
+            if (!receipt.next_after) break;
+            after = receipt.next_after;
           }
-          return true;
         },
         "confirmed",
       ),
@@ -120,7 +129,6 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
             artist === null ? {} : { provider_artist_id: artist },
             signal,
           );
-          return false;
         },
         "dismissed",
       ),
