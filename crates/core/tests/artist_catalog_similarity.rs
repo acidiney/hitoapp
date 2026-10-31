@@ -4,12 +4,12 @@ mod library;
 
 use hito_core::test_support::artist_catalog_similarity_service::{Reply, SimilarityServer};
 use hito_core::{
-    Error, InstallPlugin, MetadataProvider, OfferPluginService, ReadSimilarArtists,
+    ArtistRadio, Error, InstallPlugin, MetadataProvider, OfferPluginService, ReadSimilarArtists,
     SimilarArtistsAvailability, UpdateMetadataSettings,
 };
-use library::{Library, M1, M2};
+use library::{CREDIT, Library, M1, M2};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{collections::BTreeSet, time::Duration};
 
 const M3: &str = "33333333-3333-4333-8333-333333333333";
 const M4: &str = "44444444-4444-4444-8444-444444444444";
@@ -24,6 +24,7 @@ fn calls(server: &SimilarityServer) -> Vec<String> {
 }
 
 struct Seed {
+    m1_group: String,
     recording: String,
     association: String,
     m2_group: String,
@@ -41,6 +42,7 @@ async fn seed(library: &Library) -> Seed {
     let m1 = groups.iter().find(|g| g.provider_artist_id == M1).unwrap();
     let m2 = groups.iter().find(|g| g.provider_artist_id == M2).unwrap();
     Seed {
+        m1_group: m1.id.clone(),
         recording: m1.name.recording_id.clone(),
         association: m1.name.association_id.clone(),
         m2_group: m2.id.clone(),
@@ -414,4 +416,130 @@ async fn providers_that_cannot_answer_do_not_use_up_the_answer_attempts() {
         assert!(server.finish().await);
     }
     assert!(capable.finish().await);
+}
+
+async fn group_tracks(library: &Library, group: &str) -> BTreeSet<String> {
+    library
+        .hito
+        .artist_catalog
+        .artist_identity_group(&library.actor, group, Default::default())
+        .await
+        .unwrap()
+        .recordings
+        .items
+        .into_iter()
+        .map(|member| member.recording.id)
+        .collect()
+}
+
+fn radio_ids(radio: &ArtistRadio) -> Vec<String> {
+    radio.tracks.iter().map(|track| track.id.clone()).collect()
+}
+
+#[tokio::test]
+async fn radio_without_a_similarity_provider_plays_only_the_artists_library_tracks() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    let own = group_tracks(&library, &seed.m1_group).await;
+    assert!(own.len() >= 2);
+    let before = library.snapshot().await;
+
+    let radio = library
+        .hito
+        .artist_catalog
+        .artist_radio(&library.actor, &seed.m1_group)
+        .await
+        .unwrap();
+
+    let ids = radio_ids(&radio);
+    assert_eq!(ids.iter().cloned().collect::<BTreeSet<_>>(), own);
+    assert_eq!(ids.len(), own.len(), "no track repeats");
+    assert_eq!(radio.similar_artists, 0);
+    assert!(radio.artist.starts_with(CREDIT), "{}", radio.artist);
+    assert_eq!(library.snapshot().await, before, "radio changes nothing");
+}
+
+#[tokio::test]
+async fn radio_mixes_in_library_tracks_of_chosen_similar_artists_only() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    let mut server = SimilarityServer::start().await;
+    let plugin = connect(&library, &server).await;
+    choose(
+        &library,
+        true,
+        vec![MetadataProvider::BuiltinMusicBrainz, plugin],
+    )
+    .await;
+    server.reply(similar(&[
+        (M2, "Nome totalmente diferente", Some(0.9)),
+        (M3, "Not in the library", Some(0.5)),
+    ]));
+    let own = group_tracks(&library, &seed.m1_group).await;
+    let similar_tracks = group_tracks(&library, &seed.m2_group).await;
+    assert!(!similar_tracks.is_empty());
+
+    let radio = library
+        .hito
+        .artist_catalog
+        .artist_radio(&library.actor, &seed.m1_group)
+        .await
+        .unwrap();
+
+    let expected: BTreeSet<String> = own.union(&similar_tracks).cloned().collect();
+    let ids = radio_ids(&radio);
+    assert_eq!(ids.iter().cloned().collect::<BTreeSet<_>>(), expected);
+    assert_eq!(ids.len(), expected.len());
+    assert_eq!(
+        radio.similar_artists, 1,
+        "only chosen artists contribute tracks"
+    );
+    assert_eq!(
+        server.similarity_requests(),
+        vec![json!({"artist_id": M1, "limit": 25})]
+    );
+    assert_eq!(server.unexpected(), 0);
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn radio_falls_back_to_the_library_when_the_similarity_provider_fails() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    let mut server = SimilarityServer::start().await;
+    let plugin = connect(&library, &server).await;
+    choose(
+        &library,
+        true,
+        vec![MetadataProvider::BuiltinMusicBrainz, plugin],
+    )
+    .await;
+    server.reply(Reply::Status(axum::http::StatusCode::BAD_GATEWAY));
+    let own = group_tracks(&library, &seed.m1_group).await;
+
+    let radio = library
+        .hito
+        .artist_catalog
+        .artist_radio(&library.actor, &seed.m1_group)
+        .await
+        .unwrap();
+
+    assert_eq!(radio_ids(&radio).into_iter().collect::<BTreeSet<_>>(), own);
+    assert_eq!(radio.similar_artists, 0);
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn radio_needs_a_chosen_artist_of_the_account() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    for (actor, group) in [
+        (&library.actor, "not-a-group"),
+        (&library.peer, seed.m1_group.as_str()),
+    ] {
+        assert!(matches!(
+            library.hito.artist_catalog.artist_radio(actor, group).await,
+            Err(Error::NotFound)
+        ));
+    }
 }

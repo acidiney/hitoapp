@@ -19,6 +19,7 @@ mod policy;
 mod preview;
 mod profile;
 mod provider;
+mod radio;
 pub(crate) mod reconcile;
 mod review;
 mod shared_corrections;
@@ -46,6 +47,7 @@ pub use association_changes::{
     UnlinkRecordingArtist,
 };
 pub(crate) use associations::LINKED;
+pub use radio::ArtistRadio;
 pub use shared_corrections::{
     PromoteArtistCorrection, PromotionSource, SharedArtistCorrection, SharedArtistCorrectionQuery,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,

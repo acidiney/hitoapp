@@ -34,7 +34,7 @@ pub use artist_catalog::{
     ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
     ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistMatchReceipt, ArtistMatchSuggestion,
     ArtistMatchSuggestions, ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability,
-    ArtistProviderMatchReceipt, ArtistReviewConnection, ArtistReviewContext,
+    ArtistProviderMatchReceipt, ArtistRadio, ArtistReviewConnection, ArtistReviewContext,
     ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch,
     ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition, DiscographyLibrary,
     DismissArtistMatchSuggestion, EditionTrackListAvailability, FindAlbumTrackAudio, LibraryAlbum,

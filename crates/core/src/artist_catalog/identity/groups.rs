@@ -416,6 +416,21 @@ pub(in crate::artist_catalog) fn visible(
     library: Option<&str>,
     group: Option<&str>,
 ) -> QueryBuilder<'static, Sqlite> {
+    visible_in(actor, library, group.map_or(Groups::Any, Groups::One))
+}
+
+/// Which groups a `visible` query covers.
+pub(in crate::artist_catalog) enum Groups<'a> {
+    Any,
+    One(&'a str),
+    Many(&'a [String]),
+}
+
+pub(in crate::artist_catalog) fn visible_in(
+    actor: &Actor,
+    library: Option<&str>,
+    groups: Groups<'_>,
+) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(
         "WITH visible AS (
         SELECT choice.group_id,choice.recording_id,choice.revision,choice.association_id,choice.artist_id,
@@ -428,10 +443,19 @@ pub(in crate::artist_catalog) fn visible(
             .push(" AND r.library_id=")
             .push_bind(library.to_owned());
     }
-    if let Some(group) = group {
-        query
-            .push(" AND choice.group_id=")
-            .push_bind(group.to_owned());
+    match groups {
+        Groups::Any => {}
+        Groups::One(group) => {
+            query
+                .push(" AND choice.group_id=")
+                .push_bind(group.to_owned());
+        }
+        Groups::Many(groups) => {
+            query
+                .push(" AND choice.group_id IN (SELECT value FROM json_each(")
+                .push_bind(serde_json::to_string(groups).unwrap_or_else(|_| "[]".into()))
+                .push("))");
+        }
     }
     query.push("), appearances AS (
         SELECT v.group_id,v.recording_id,v.library_id,m.release_id FROM visible v
