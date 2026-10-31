@@ -24,6 +24,7 @@ struct Artist {
     #[serde(rename = "type")]
     kind: Option<String>,
     disambiguation: Option<String>,
+    country: Option<String>,
 }
 
 /// MusicBrainz states the relevance score as a number or as a numeric string.
@@ -53,6 +54,11 @@ pub struct NameCandidate {
     pub id: String,
     pub name: String,
     pub score: u32,
+    /// The artist type in lower case (`person`, `group`, ...), when MusicBrainz states a known one.
+    pub kind: Option<String>,
+    pub disambiguation: Option<String>,
+    /// The country code MusicBrainz states for the artist.
+    pub country: Option<String>,
 }
 
 /// The first page of a name search: up to `NAME_SEARCH_LIMIT` artists ordered by relevance.
@@ -98,11 +104,18 @@ pub(super) fn name_search(bytes: &[u8]) -> Result<NameSearch, Error> {
                 return Err(Error::InvalidSearch);
             }
             previous = score;
+            let country = artist.country.clone().filter(|code| !code.is_empty());
             let candidate = artist.into_candidate()?;
             Ok(NameCandidate {
                 id: candidate.artist.id,
                 name: candidate.artist.name,
                 score,
+                kind: candidate
+                    .kind
+                    .and_then(|kind| serde_json::to_value(kind).ok())
+                    .and_then(|kind| kind.as_str().map(str::to_owned)),
+                disambiguation: candidate.disambiguation,
+                country,
             })
         })
         .collect::<Result<Vec<_>, Error>>()?;
@@ -230,4 +243,31 @@ fn fingerprint(request: &ArtistSearchRequest) -> String {
     digest.update(request.limit.to_be_bytes());
     digest.update(request.query.as_bytes());
     format!("{:x}", digest.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ID: &str = "11111111-1111-4111-8111-111111111111";
+
+    #[test]
+    fn a_name_search_keeps_the_kind_disambiguation_and_country_of_each_artist() {
+        let page = br#"{"count":2,"offset":0,"artists":[
+            {"id":"11111111-1111-4111-8111-111111111111","name":"Nova","score":100,"type":"Group",
+             "disambiguation":"Lisbon fado band","country":"PT"},
+            {"id":"22222222-2222-4222-8222-222222222222","name":"Nova","score":99,"type":"Unknown kind",
+             "disambiguation":"","country":""}]}"#;
+        let found = name_search(page).unwrap();
+        assert_eq!(found.items[0].id, ID);
+        assert_eq!(found.items[0].kind.as_deref(), Some("group"));
+        assert_eq!(
+            found.items[0].disambiguation.as_deref(),
+            Some("Lisbon fado band")
+        );
+        assert_eq!(found.items[0].country.as_deref(), Some("PT"));
+        assert_eq!(found.items[1].kind, None, "An unknown type is not stated");
+        assert_eq!(found.items[1].disambiguation, None);
+        assert_eq!(found.items[1].country, None, "An empty country is not stated");
+    }
 }

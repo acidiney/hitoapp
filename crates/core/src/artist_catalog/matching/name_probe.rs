@@ -271,6 +271,9 @@ mod tests {
                     id: (*id).into(),
                     name: (*name).into(),
                     score: *score,
+                    kind: None,
+                    disambiguation: None,
+                    country: None,
                 })
                 .collect(),
         }
