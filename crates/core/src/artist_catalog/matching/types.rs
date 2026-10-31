@@ -95,7 +95,7 @@ pub struct ArtistReviewQueueQuery {
 }
 
 /// A MusicBrainz artist the automatic walk found under a credit's name and could not exclude.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, sqlx::FromRow, ToSchema)]
 pub struct ArtistReviewCandidate {
     pub provider_artist_id: String,
     pub name: String,

@@ -189,47 +189,24 @@ impl ArtistCatalog {
         .await?;
         let mut items = Vec::with_capacity(rows.len());
         for (artist_id, name, undecided_tracks) in rows {
-            let found: Vec<(String, String, Option<String>, Option<String>, Option<String>, i64, bool)> =
-                sqlx::query_as(&format!(
-                    "SELECT c.provider_artist_id,c.name,c.kind,c.disambiguation,c.country,c.corroborated_titles,
+            let candidates: Vec<ArtistReviewCandidate> = sqlx::query_as(&format!(
+                "SELECT c.provider_artist_id,c.name,c.kind,c.disambiguation,c.country,
+                        c.corroborated_titles,
                         EXISTS (SELECT 1 FROM account_artist_identity_groups g WHERE g.user_id=c.user_id
                             AND g.provider_kind='builtin_musicbrainz' AND g.provider_artist_id=c.provider_artist_id) AS in_library
-                     FROM artist_name_candidates c WHERE c.user_id=? AND c.artist_id=? AND {OFFERED}
-                     ORDER BY in_library DESC,c.corroborated_titles DESC,c.position LIMIT ?"
-                ))
-                .bind(actor.id())
-                .bind(&artist_id)
-                .bind(MAX_CANDIDATES)
-                .fetch_all(&mut *tx)
-                .await?;
+                 FROM artist_name_candidates c WHERE c.user_id=? AND c.artist_id=? AND {OFFERED}
+                 ORDER BY in_library DESC,c.corroborated_titles DESC,c.position LIMIT ?"
+            ))
+            .bind(actor.id())
+            .bind(&artist_id)
+            .bind(MAX_CANDIDATES)
+            .fetch_all(&mut *tx)
+            .await?;
             items.push(ArtistReviewItem {
                 artist_id,
                 name,
                 undecided_tracks,
-                candidates: found
-                    .into_iter()
-                    .map(
-                        |(
-                            provider_artist_id,
-                            name,
-                            kind,
-                            disambiguation,
-                            country,
-                            titles,
-                            in_library,
-                        )| {
-                            ArtistReviewCandidate {
-                                provider_artist_id,
-                                name,
-                                kind,
-                                disambiguation,
-                                country,
-                                corroborated_titles: titles,
-                                in_library,
-                            }
-                        },
-                    )
-                    .collect(),
+                candidates,
             });
         }
         actor.check_session_on(&mut tx).await?;

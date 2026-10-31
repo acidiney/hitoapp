@@ -4,7 +4,7 @@ mod library;
 
 use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{
-    ArtistAssociationEvidence, ArtistReviewItem, ArtistReviewQueueQuery,
+    ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem, ArtistReviewQueueQuery,
     ConfirmArtistReviewCandidate, DismissArtistReviewCandidates, Error,
     ResetRecordingArtistIdentity,
 };
@@ -82,36 +82,20 @@ async fn namesakes_the_walk_could_not_tell_apart_are_queued_with_what_it_stored(
     assert_eq!(items.len(), 1);
     let item = &items[0];
     assert_eq!((item.name.as_str(), item.undecided_tracks), (CREDIT, 4));
-    let found: Vec<(&str, i64, Option<&str>, Option<&str>, Option<&str>)> = item
-        .candidates
-        .iter()
-        .map(|candidate| {
-            (
-                candidate.provider_artist_id.as_str(),
-                candidate.corroborated_titles,
-                candidate.disambiguation.as_deref(),
-                candidate.country.as_deref(),
-                candidate.kind.as_deref(),
-            )
-        })
-        .collect();
+    let expected = |id: &str, note: &str, country: &str, titles: i64| ArtistReviewCandidate {
+        provider_artist_id: id.into(),
+        name: CREDIT.into(),
+        kind: Some("person".into()),
+        disambiguation: Some(note.into()),
+        country: Some(country.into()),
+        corroborated_titles: titles,
+        in_library: false,
+    };
     assert_eq!(
-        found,
+        item.candidates,
         vec![
-            (
-                NOVA,
-                1,
-                Some("Lisbon fado band"),
-                Some("PT"),
-                Some("person")
-            ),
-            (
-                NAMESAKE,
-                0,
-                Some("Brazilian jazz trio"),
-                Some("BR"),
-                Some("person")
-            ),
+            expected(NOVA, "Lisbon fado band", "PT", 1),
+            expected(NAMESAKE, "Brazilian jazz trio", "BR", 0),
         ],
         "The better corroborated namesake comes first"
     );
