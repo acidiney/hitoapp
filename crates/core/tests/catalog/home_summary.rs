@@ -364,7 +364,7 @@ async fn history_entries_carry_the_album_they_belong_to() {
     loose.set_title("Loose single".into());
     loose.set_artist("Nobody".into());
     loose
-        .save_to_path(&music.join("h2.wav"), WriteOptions::default())
+        .save_to_path(music.join("h2.wav"), WriteOptions::default())
         .unwrap();
     scan(&hito, &actor, &library_id).await;
     let all = tracks(&hito, &actor).await;
