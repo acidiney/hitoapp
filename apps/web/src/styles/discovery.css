@@ -236,6 +236,12 @@
   flex-direction: column;
   gap: 36px;
 }
+.discovery-page .page-heading .muted {
+  margin-top: 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink-soft);
+}
 .discover-section {
   display: flex;
   flex-direction: column;

@@ -3,7 +3,7 @@ import { enterAdmin } from "./fixtures/admin-session";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("the shell serves bundled fonts, offers three destinations and focuses search with the keyboard", async ({
+test("the shell serves bundled fonts, offers four destinations and focuses search with the keyboard", async ({
   page,
 }) => {
   await enterAdmin(page);
@@ -11,6 +11,7 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
   await expect(navigation.getByRole("link")).toHaveText([
     /^Home$/,
     /^Search/,
+    /^Discover$/,
     /^Library$/,
   ]);
   await expect(
@@ -67,7 +68,8 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
   await expect(homeSearch).toHaveValue("Fixture");
   await page.screenshot({ path: "/workspace/test-results/search-desktop.png" });
 
-  await page.goto("/discover");
+  await navigation.getByRole("link", { name: "Discover", exact: true }).click();
+  await expect(page).toHaveURL(/\/discover$/);
   await page.screenshot({
     path: "/workspace/test-results/discover-desktop.png",
   });
@@ -76,7 +78,7 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
   await expect(homeSearch).toBeFocused();
 });
 
-test("a phone shows a three-tab bar with the mini player above it", async ({
+test("a phone shows a four-tab bar with the mini player above it", async ({
   page,
 }) => {
   await enterAdmin(page);

@@ -164,7 +164,7 @@ async fn discover_page_lists_genre_tiles_and_radio_artists_and_loads_them_only_w
 async fn genre_page_lists_the_albums_and_tracks_of_one_genre() {
     let fixture = fixture().await;
 
-    let (status, found) = page(&fixture.app, "/genres?q=FADO", &fixture.token, None).await;
+    let (status, found) = page(&fixture.app, "/genres?genre=FADO", &fixture.token, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(found["component"], "GenrePage");
     let genre = &found["props"]["genre"];
@@ -173,7 +173,7 @@ async fn genre_page_lists_the_albums_and_tracks_of_one_genre() {
     assert_eq!(genre["tracks"].as_array().unwrap().len(), 2);
     assert_eq!(genre["albums"].as_array().unwrap().len(), 2);
 
-    let (status, _) = page(&fixture.app, "/genres?q=blues", &fixture.token, None).await;
+    let (status, _) = page(&fixture.app, "/genres?genre=blues", &fixture.token, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (status, _) = page(&fixture.app, "/genres", &fixture.token, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

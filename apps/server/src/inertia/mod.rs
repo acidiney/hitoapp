@@ -17,12 +17,13 @@ use protocol::Protocol;
 use serde_json::json;
 
 #[derive(serde::Deserialize)]
-pub(super) struct ArtistPagination {
+pub(super) struct PageQuery {
     group_offset: Option<i64>,
     library_offset: Option<i64>,
     recording_offset: Option<i64>,
     release_offset: Option<i64>,
     cursor: Option<String>,
+    genre: Option<String>,
 }
 
 /// Unknown paths: API paths answer JSON and file-like paths a bare 404 before any session or
@@ -56,7 +57,7 @@ pub async fn page(
     OriginalUri(uri): OriginalUri,
     headers: HeaderMap,
     QueryParams(search): QueryParams<Search>,
-    QueryParams(pagination): QueryParams<ArtistPagination>,
+    QueryParams(pagination): QueryParams<PageQuery>,
 ) -> ApiResult<Response> {
     if let Some(response) =
         Protocol::version_conflict(&headers, &config.asset_version, &uri.to_string())

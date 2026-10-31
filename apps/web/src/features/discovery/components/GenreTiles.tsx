@@ -4,7 +4,7 @@ import { Link } from "@inertiajs/react";
 import { coverStyle } from "../../../shared/ui/coverPalette";
 
 export const genrePath = (key: string) =>
-  `/genres?q=${encodeURIComponent(key)}`;
+  `/genres?genre=${encodeURIComponent(key)}`;
 
 export default function GenreTiles({ genres }: { genres: Schema<"Genre">[] }) {
   if (genres.length === 0) return null;

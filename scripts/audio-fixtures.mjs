@@ -22,6 +22,7 @@ for (const frequency of [440, 660]) {
   buffer.write('data', 36); buffer.writeUInt32LE(samples * 2, 40);
   for (let sample = 0; sample < samples; sample++) buffer.writeInt16LE(Math.round(Math.sin(2 * Math.PI * frequency * sample / rate) * 4096), 44 + sample * 2);
   const fields = [['INAM', `Fixture ${frequency} Hz`], ['IART', 'Hito test fixtures'], ['IPRD', `Fixture collection ${frequency} Hz`]];
+  if (arguments_.includes('--e2e')) fields.push(['IGNR', 'Fixture tone']);
   const tags = fields.map(([key, value]) => {
     const text = Buffer.from(`${value}\0`);
     const chunk = Buffer.alloc(8 + text.length + text.length % 2);

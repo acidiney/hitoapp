@@ -18,6 +18,7 @@ const OWN_SEARCH = new Set([
   "HomePage",
   "SearchPage",
   "DiscoverPage",
+  "GenrePage",
   "SettingsPage",
   "QueuePage",
 ]);

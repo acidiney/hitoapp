@@ -7,7 +7,7 @@ mod playlists;
 mod podcasts;
 mod search;
 
-use super::{ArtistPagination, props::*, protocol::Protocol};
+use super::{PageQuery, props::*, protocol::Protocol};
 use crate::error::ApiResult;
 use hito_core::{Actor, Search, Services};
 use std::future::Future;
@@ -119,7 +119,7 @@ impl<'a> Screen<'a> {
         services: &Services,
         actor: &Actor,
         search: Search,
-        pagination: ArtistPagination,
+        pagination: PageQuery,
         fields: &Protocol,
         native_playback: bool,
     ) -> ApiResult<PageProps> {
@@ -174,7 +174,7 @@ struct PageRequest<'a> {
     actor: &'a Actor,
     fields: &'a Protocol,
     search: Search,
-    pagination: ArtistPagination,
+    pagination: PageQuery,
     shared: SharedPageProps,
 }
 

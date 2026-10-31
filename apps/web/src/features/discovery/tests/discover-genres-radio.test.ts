@@ -93,8 +93,8 @@ test("genre tiles come from the library and open their genre page without any re
     "Hip Hop1 track",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
-    "/genres?q=fado",
-    "/genres?q=hip%20hop",
+    "/genres?genre=fado",
+    "/genres?genre=hip%20hop",
   ]);
   expect(fetch).not.toHaveBeenCalled();
 });
