@@ -72,7 +72,7 @@ The group label uses the authorized saved credit from a group-detail read limite
 
 ## Applying one identity to a whole credit
 
-Choosing a performer track by track is slow when a credit holds many recordings. On a library credit page, **Find reviewed artists for this credit** lists the account's chosen artists whose members carry the same credit label. Equal names only suggest candidates; the user picks one, and a confirmation step names the artist, the credit and the rule below before anything is written.
+Choosing a performer track by track is slow when a credit holds many recordings. On a library credit page the matched artist is shown without a click when Hito identified it (see [artist matching](artist-matching.md#credit-level-matching)). When it did not, the secondary **Choose the artist** button opens the manual flow and lists the account's chosen artists whose members carry the same credit label. Equal names only suggest candidates; the user picks one, and a confirmation step names the artist, the credit and the rule below before anything is written.
 
 **Use this identity for all tracks with this credit** sends one request with a request identifier, the chosen group and an optional cursor. The group already fixes the provider installation and exact provider artist identifier the user reviewed. For each current recording of that credit, in recording-identifier order, core applies the per-recording rules inside one immediate transaction:
 
