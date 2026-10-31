@@ -25,7 +25,7 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 
 - Migrations run through 0069. The server runs the matching, cover art and genre workers ([background workers](architecture.md#background-workers)).
 - This is a local deployment. It is not a public release, and the VPS deployment is separate ([VPS](vps-deployment.md)).
-- The Spotify plugin image rebuild for album covers has no record here. Rebuild it and approve the artwork capability before expecting those covers.
+- On 2026-10-31 the local Spotify plugin container was rebuilt from `docker/plugin.Dockerfile` (image `hito-plugin-spotify:artwork-3bb07e3b`; the previous container is kept stopped as `hito-plugin-spotify-1-pre-artwork`). The listener accepted the artwork capability, and real Spotify album covers then appeared on the Albums page.
 - Older sections below still say "not deployed" or "migration 0046" for work that now runs locally. They are dated evidence from when they were written.
 
 **Open**
@@ -449,7 +449,7 @@ Web switch (implemented, running on the local development server): Settings, Pri
 
 Open: live acceptance; deployment; a work-budget measurement of a very large first walk.
 
-Provider album covers for imported albums (no migration; server code runs locally, Spotify image rebuild not recorded): reading an album cover queues the approved provider's release request when no local, retained or archive cover exists, governed by the same default-on artwork choice, bounded by the existing artwork limits and never repeated for a pending or failed request. Two core cases (owned fake provider) and one HTTP case cover it. A live Spotify album cover from this source has not been fetched; the running Spotify container needs a rebuilt image. See [imported album covers](plugin-artwork.md#provider-covers-for-imported-albums).
+Provider album covers for imported albums (no migration; runs on the local development server with the rebuilt Spotify image): reading an album cover queues the approved provider's release request when no local, retained or archive cover exists, governed by the same default-on artwork choice, bounded by the existing artwork limits and never repeated for a pending or failed request. Two core cases (owned fake provider) and one HTTP case cover it. Live Spotify album covers were fetched on the local server on 2026-10-31. See [imported album covers](plugin-artwork.md#provider-covers-for-imported-albums).
 
 ## Release work still required
 
