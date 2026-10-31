@@ -121,6 +121,16 @@ Examples of root-cause fixes already in the suite:
 - TorBox bootstrap tests that no longer probe ports, because a concurrent fork or sibling process can hold a listener. They pick ports and listeners deterministically.
 - Servers that drain stdout and stderr while waiting for a signal.
 
+## Load-sensitive tests
+
+Some tests assert a wall-clock deadline. These are the standalone budget tests listed under [Test binaries](#test-binaries) and the indexing, shutdown and cancellation groups in `hito-core`. A full run on a busy Docker VM can starve them and fail with a deadline error that has nothing to do with the code.
+
+- Run these groups with four test threads: `docker compose --profile tools run --rm -e RUST_TEST_THREADS=4 rust cargo test --locked -p hito-core --test indexing`. Keep the compiler jobs at two, as the tools service sets them.
+- Run compiler-heavy checks one after another. Do not start a second build or test run while one is going.
+- Device audio tests are the exception: they need `--test-threads=1` ([Test binaries](#test-binaries)).
+
+Known flaky test: `indexing_snapshot` in `crates/core/tests/indexing/`. It waits up to five seconds for a cancelled file reader to stop and for an inspection marker file, so it can miss the deadline under load. The root cause is not fixed. If it fails in a full run, run that one binary again with `RUST_TEST_THREADS=4`. A failure that repeats on a quiet machine is a regression. Do not raise the timeout.
+
 The web setup in `apps/web/src/test/setup.ts` resets timers, mocks, stubbed globals, local storage and session storage before and after every test. Vitest runs at most four workers (a worker cap of 4). Do not rely on state left by another test.
 
 Docker Desktop has one known quirk that looks like flakiness. Two `hito-core` tag tests need a 64 KiB pipe, which the `rust` service gets through `SYS_RESOURCE`. See [Docker Desktop quirks](development.md#docker-desktop-quirks).

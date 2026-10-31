@@ -130,6 +130,8 @@ docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-
 docker compose --profile tools run --rm node npx vitest run src/features/catalog/tests/browsing.test.ts
 ```
 
+Load-sensitive groups (deadline and indexing tests) need fewer test threads. Pass `-e RUST_TEST_THREADS=4` to `docker compose run`. See [load-sensitive tests](testing.md#load-sensitive-tests), which also names the known flaky `indexing_snapshot` test.
+
 ## Docker Desktop quirks
 
 Two `hito-core` tests, `metadata_artist_tags_exit` and `metadata_artist_tags_diagnostics`, need a 64 KiB stdout pipe. Docker Desktop's VM caps root pipes at 8 KiB once the per-user pipe quota is used, so the `rust` tools service sets `cap_add: [SYS_RESOURCE]`. Do not drop it, and do not weaken the tests.
