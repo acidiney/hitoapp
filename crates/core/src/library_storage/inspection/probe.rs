@@ -70,6 +70,7 @@ impl Probe {
             isrc: self
                 .observed_tag("isrc")
                 .or_else(|| self.observed_tag("tsrc")),
+            genre: self.observed_tag("genre"),
             musicbrainz_album_id: self.first_tag(&["musicbrainz album id", "musicbrainz_albumid"]),
             musicbrainz_release_group_id: self
                 .first_tag(&["musicbrainz release group id", "musicbrainz_releasegroupid"]),

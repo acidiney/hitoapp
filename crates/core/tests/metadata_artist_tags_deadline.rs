@@ -96,7 +96,7 @@ async fn fallback_shares_the_original_deadline_and_retires_both_owned_attempts()
         let ordinary = tool.started("ordinary").await;
         ordinary.assert_private_input(&candidate_bytes);
         assert!(expanded.input == ordinary.input);
-        let tags = "title,artist,album,album_artist,disc,track,isrc,TSRC,\
+        let tags = "title,artist,album,album_artist,disc,track,isrc,TSRC,genre,\
              MusicBrainz Album Id,MUSICBRAINZ_ALBUMID,\
              MusicBrainz Release Group Id,MUSICBRAINZ_RELEASEGROUPID,\
              MusicBrainz Track Id,MUSICBRAINZ_TRACKID,\

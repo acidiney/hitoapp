@@ -5,6 +5,7 @@ mod metadata_artist_identity;
 mod metadata_artist_reset;
 mod metadata_artists;
 mod metadata_compatibility;
+mod metadata_genre;
 mod metadata_id3_compression;
 mod metadata_isrc;
 mod metadata_musicbrainz_identity;

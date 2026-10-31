@@ -42,7 +42,7 @@ pub fn add_artist_assertion(input: &Path, directory: &Path, ordinary: &[(&str, &
 }
 
 pub fn probe(path: &Path, expanded: bool) -> Probe {
-    let ordinary = "title,artist,album,album_artist,disc,track,isrc,TSRC";
+    let ordinary = "title,artist,album,album_artist,disc,track,isrc,TSRC,genre";
     let tags = if expanded {
         format!(
             "{ordinary},MusicBrainz Artist Id,MUSICBRAINZ_ARTISTID,\

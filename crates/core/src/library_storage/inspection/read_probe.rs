@@ -4,7 +4,7 @@ use std::{ffi::OsString, path::Path, time::Duration};
 use tokio::time::Instant;
 
 const ORDINARY_TAGS: &str = concat!(
-    "title,artist,album,album_artist,disc,track,isrc,TSRC,",
+    "title,artist,album,album_artist,disc,track,isrc,TSRC,genre,",
     "MusicBrainz Album Id,MUSICBRAINZ_ALBUMID,",
     "MusicBrainz Release Group Id,MUSICBRAINZ_RELEASEGROUPID,",
     "MusicBrainz Track Id,MUSICBRAINZ_TRACKID,",

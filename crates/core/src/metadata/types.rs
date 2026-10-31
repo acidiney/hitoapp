@@ -119,6 +119,9 @@ pub struct InspectedTags {
     pub isrc: Option<ObservedTag>,
     #[serde(default)]
     #[schema(required = true)]
+    pub genre: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
     pub musicbrainz_album_id: Option<ObservedTag>,
     #[serde(default)]
     #[schema(required = true)]
