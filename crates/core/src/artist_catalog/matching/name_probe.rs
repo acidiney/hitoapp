@@ -2,16 +2,18 @@
 //! recordings to ask each of them about, and what their answers corroborate.
 use hito_metadata_musicbrainz::{ArtistRecordings, NameSearch, RecordingProbe};
 
-use super::provider_evidence::SPECIAL_PURPOSE_ARTISTS;
+use super::{
+    provider_evidence::SPECIAL_PURPOSE_ARTISTS,
+    title::{EXACT_TOLERANCE_MS, Title, VERSION_TOLERANCE_MS, tolerance_ms},
+};
 
 /// More exact-name artists than this cannot be told apart within one request.
 pub(super) const MAX_NAMESAKES: usize = 3;
 /// Library recordings asked about one artist in one search, which is also the sample that decides.
 pub(super) const PROBES_PER_SEARCH: usize = hito_metadata_musicbrainz::MAX_PROBES;
-pub(super) const LENGTH_TOLERANCE_MS: u64 = 2000;
 /// A shorter length is a placeholder, not a measurement.
 const MIN_KNOWN_LENGTH_MS: u64 = 1000;
-/// Distinct normalized titles a library must share with an artist to corroborate it.
+/// Distinct base titles a library must share with an artist to corroborate it.
 pub(super) const MIN_CORROBORATING: usize = 2;
 const SCORE_MAX: u32 = 100;
 
@@ -64,8 +66,7 @@ pub(super) fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>
 
 /// One title and length of the credit's undecided recordings, with the tracks that carry them.
 pub(super) struct Candidate {
-    pub title: String,
-    pub normalized: String,
+    pub title: Title,
     pub length_ms: u64,
     pub tracks: Vec<usize>,
 }
@@ -80,15 +81,14 @@ pub(super) fn candidates(tracks: &[Track]) -> Vec<Candidate> {
         else {
             continue;
         };
-        let normalized = normalize(&track.title);
+        let title = Title::parse(&track.title);
         match found
             .iter_mut()
-            .find(|known| known.normalized == normalized && known.length_ms == length)
+            .find(|known| known.title == title && known.length_ms == length)
         {
             Some(known) => known.tracks.push(index),
             None => found.push(Candidate {
-                title: track.title.clone(),
-                normalized,
+                title,
                 length_ms: length,
                 tracks: vec![index],
             }),
@@ -97,7 +97,8 @@ pub(super) fn candidates(tracks: &[Track]) -> Vec<Candidate> {
     found
 }
 
-/// The deciding sample: the first candidate of each distinct title, at most `PROBES_PER_SEARCH`.
+/// The deciding sample: the first candidate of each distinct base title, at most
+/// `PROBES_PER_SEARCH`.
 pub(super) fn sample(candidates: &[Candidate]) -> Vec<usize> {
     let mut titles: Vec<&str> = Vec::new();
     let mut picked = Vec::new();
@@ -105,8 +106,8 @@ pub(super) fn sample(candidates: &[Candidate]) -> Vec<usize> {
         if picked.len() == PROBES_PER_SEARCH {
             break;
         }
-        if !titles.contains(&candidate.normalized.as_str()) {
-            titles.push(&candidate.normalized);
+        if !titles.contains(&candidate.title.key.as_str()) {
+            titles.push(&candidate.title.key);
             picked.push(index);
         }
     }
@@ -118,45 +119,53 @@ pub(super) fn probes(candidates: &[Candidate], picked: &[usize]) -> Vec<Recordin
         .iter()
         .map(|index| {
             let candidate = &candidates[*index];
+            let tolerance = if candidate.title.is_qualified() {
+                VERSION_TOLERANCE_MS
+            } else {
+                EXACT_TOLERANCE_MS
+            };
             RecordingProbe {
-                title: candidate.title.clone(),
-                min_length_ms: candidate.length_ms.saturating_sub(LENGTH_TOLERANCE_MS),
-                max_length_ms: candidate.length_ms + LENGTH_TOLERANCE_MS,
+                title: candidate.title.text.clone(),
+                min_length_ms: candidate.length_ms.saturating_sub(tolerance),
+                max_length_ms: candidate.length_ms + tolerance,
             }
         })
         .collect()
 }
 
-/// The picked candidates that a listed recording equals by normalized title and by length within
-/// the tolerance.
+/// The picked candidates that a listed recording equals by title and by length within the
+/// tolerance the two titles allow.
 pub(super) fn found(
     candidates: &[Candidate],
     picked: &[usize],
     listed: &ArtistRecordings,
 ) -> Vec<usize> {
+    let listed: Vec<(Title, u64)> = listed
+        .items
+        .iter()
+        .filter_map(|item| {
+            let length = known_length(i64::try_from(item.length_ms?).ok())?;
+            Some((Title::parse(&item.title), length))
+        })
+        .collect();
     picked
         .iter()
         .copied()
         .filter(|index| {
             let candidate = &candidates[*index];
-            listed.items.iter().any(|item| {
-                normalize(&item.title) == candidate.normalized
-                    && item
-                        .length_ms
-                        .and_then(|length| known_length(i64::try_from(length).ok()))
-                        .is_some_and(|length| {
-                            length.abs_diff(candidate.length_ms) <= LENGTH_TOLERANCE_MS
-                        })
+            listed.iter().any(|(title, length)| {
+                tolerance_ms(&candidate.title, title)
+                    .is_some_and(|tolerance| length.abs_diff(candidate.length_ms) <= tolerance)
             })
         })
         .collect()
 }
 
-/// How many distinct normalized titles the given candidates carry.
+/// How many distinct base titles the given candidates carry.
 pub(super) fn distinct_titles(candidates: &[Candidate], hits: &[usize]) -> usize {
     let mut titles: Vec<&str> = Vec::new();
     for index in hits {
-        let title = candidates[*index].normalized.as_str();
+        let title = candidates[*index].title.key.as_str();
         if !titles.contains(&title) {
             titles.push(title);
         }

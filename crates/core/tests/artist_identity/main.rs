@@ -32,6 +32,7 @@ mod artist_match_credit;
 mod artist_match_guards;
 mod artist_match_isrc;
 mod artist_match_name_discography;
+mod artist_match_name_versions;
 mod artist_match_provider_url;
 mod artist_match_suggestions;
 mod artist_match_tags;

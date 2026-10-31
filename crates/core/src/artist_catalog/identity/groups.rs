@@ -271,7 +271,7 @@ async fn exact_names(
 }
 
 /// Lowercases, collapses spacing and removes the accents of common Latin letters.
-fn fold(text: &str) -> String {
+pub(in crate::artist_catalog) fn fold(text: &str) -> String {
     let mut folded = String::with_capacity(text.len());
     for letter in text
         .split_whitespace()

@@ -6,6 +6,7 @@ mod provider_evidence;
 mod settle;
 mod suggestions;
 mod tags;
+mod title;
 mod types;
 
 #[cfg(test)]
