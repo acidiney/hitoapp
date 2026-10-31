@@ -1284,6 +1284,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/{id}/declaration-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["check_plugin_declaration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins/{id}/playlists/follow": {
         parameters: {
             query?: never;
@@ -2380,6 +2396,13 @@ export interface components {
         Activity: {
             history: components["schemas"]["HistoryEntry"][];
         };
+        /** @description An album that entered the library recently, newest first. */
+        AddedAlbum: {
+            artist: string | null;
+            id: string;
+            inferred_artist: components["schemas"]["AlbumArtistInference"] | null;
+            title: string;
+        };
         AdoptProviderRecording: {
             /** Format: int64 */
             installation_revision: number;
@@ -3287,6 +3310,7 @@ export interface components {
             ready: boolean;
         };
         HistoryEntry: {
+            album?: string | null;
             artist: string;
             available: boolean;
             /** Format: int64 */
@@ -3298,6 +3322,7 @@ export interface components {
             plays_from_services: boolean;
             /** Format: int64 */
             position_ms: number;
+            release_id?: string | null;
             /** Format: double */
             speed: number;
             title: string;
@@ -3312,6 +3337,7 @@ export interface components {
             /** Format: int64 */
             liked_count: number;
             recent_albums: components["schemas"]["HomeAlbum"][];
+            recently_added: components["schemas"]["AddedAlbum"][];
             unheard: components["schemas"]["UnheardOnAlbum"][];
         };
         HomeAlbum: {
@@ -3325,6 +3351,8 @@ export interface components {
             title: string;
         };
         HomePageProps: components["schemas"]["SharedPageProps"] & {
+            /** @description A short page of chosen artists for the Home shelf. */
+            artists: components["schemas"]["ArtistIdentityGroupPage"];
             home: components["schemas"]["Home"];
         };
         HostFolderChoice: {
@@ -4146,6 +4174,16 @@ export interface components {
             /** @enum {string} */
             action: "replace";
             bearer_token: string;
+        };
+        /** @description What a read-only look at a connected service found against the declaration the account accepted. */
+        PluginDeclarationCheck: {
+            /** @enum {string} */
+            kind: "current";
+        } | {
+            digest: string;
+            /** @enum {string} */
+            kind: "review_required";
+            manifest: components["schemas"]["Manifest"];
         };
         PluginInstallation: {
             /** Format: int64 */
@@ -10922,6 +10960,71 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_plugin_declaration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginRevision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginDeclarationCheck"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

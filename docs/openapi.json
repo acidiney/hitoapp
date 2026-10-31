@@ -7771,6 +7771,95 @@
         ]
       }
     },
+    "/api/v1/plugins/{id}/declaration-check": {
+      "post": {
+        "operationId": "check_plugin_declaration",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginRevision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginDeclarationCheck"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins/{id}/playlists/follow": {
       "post": {
         "operationId": "follow_provider_playlist",
@@ -15236,6 +15325,40 @@
           }
         }
       },
+      "AddedAlbum": {
+        "type": "object",
+        "description": "An album that entered the library recently, newest first.",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "inferred_artist"
+        ],
+        "properties": {
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "inferred_artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumArtistInference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "AdoptProviderRecording": {
         "type": "object",
         "required": [
@@ -18871,6 +18994,12 @@
           "liked"
         ],
         "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "artist": {
             "type": "string"
           },
@@ -18899,6 +19028,12 @@
           "position_ms": {
             "type": "integer",
             "format": "int64"
+          },
+          "release_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "speed": {
             "type": "number",
@@ -18937,6 +19072,7 @@
           "has_music",
           "liked_count",
           "recent_albums",
+          "recently_added",
           "unheard"
         ],
         "properties": {
@@ -18951,6 +19087,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/HomeAlbum"
+            }
+          },
+          "recently_added": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddedAlbum"
             }
           },
           "unheard": {
@@ -19013,9 +19155,14 @@
           {
             "type": "object",
             "required": [
-              "home"
+              "home",
+              "artists"
             ],
             "properties": {
+              "artists": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
+                "description": "A short page of chosen artists for the Home shelf."
+              },
               "home": {
                 "$ref": "#/components/schemas/Home"
               }
@@ -22326,6 +22473,47 @@
             }
           }
         ]
+      },
+      "PluginDeclarationCheck": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "current"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "manifest",
+              "digest",
+              "kind"
+            ],
+            "properties": {
+              "digest": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "review_required"
+                ]
+              },
+              "manifest": {
+                "$ref": "#/components/schemas/Manifest"
+              }
+            }
+          }
+        ],
+        "description": "What a read-only look at a connected service found against the declaration the account accepted."
       },
       "PluginInstallation": {
         "type": "object",
