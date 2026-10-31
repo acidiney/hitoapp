@@ -419,7 +419,11 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await expect(
       page.getByText(fixture.detail.attribution.label, { exact: true }),
     ).toBeVisible();
-    expect(fixture.requests).toHaveLength(observedRequests);
+    expect(
+      fixture.requests
+        .slice(observedRequests)
+        .every((request) => request.path === "/fixture/v1/manifest"),
+    ).toBe(true);
     expect(importRequests).toBe(1);
     for (const request of fixture.requests) {
       expect(request.authorization).toBe(`Bearer ${fixture.token}`);

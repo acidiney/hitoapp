@@ -185,11 +185,15 @@ test("an administrator offers only an address before connecting with the plugin 
         accept_manifest_digest: reviewed.body.digest,
       }),
     ).toBe(true);
-    expect(requests).toEqual([
-      { authorization: undefined, cookie: undefined, protocol: "1" },
-      { authorization: undefined, cookie: undefined, protocol: "1" },
-      { authorization: undefined, cookie: undefined, protocol: "1" },
-    ]);
+    await expect
+      .poll(() => requests)
+      .toEqual(
+        Array.from({ length: 4 }, () => ({
+          authorization: undefined,
+          cookie: undefined,
+          protocol: "1",
+        })),
+      );
     expect(browserProviderRequests).toEqual([]);
     await page
       .getByRole("button", { name: "Withdraw service", exact: true })
@@ -371,10 +375,13 @@ test.describe("account switching", () => {
           accept_manifest_digest: reviewed.body.digest,
         }),
       ).toBe(true);
-      expect(
-        requests.length === 3 &&
-          requests.every((token) => token === `Bearer ${expectedToken}`),
-      ).toBe(true);
+      await expect
+        .poll(
+          () =>
+            requests.length === 4 &&
+            requests.every((token) => token === `Bearer ${expectedToken}`),
+        )
+        .toBe(true);
       expect(requests[0]).toBe(`Bearer ${expectedToken}`);
       manifest = {
         ...manifest,

@@ -57,17 +57,20 @@ export default function PluginConnection({
     focusAfterCommit(null);
   }, [actions.pending, focus]);
   const { checkDeclaration } = actions;
-  const { id, revision } = plugin;
+  const { id } = plugin;
+  const [firstRevision] = useState(plugin.revision);
   const canCheck = storageReady || !plugin.credential_set;
   useEffect(() => {
     if (!canCheck) return;
     const controller = new AbortController();
-    void checkDeclaration(id, revision, controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      setWaiting(result?.kind === "review_required" ? result : null);
-    });
+    void checkDeclaration(id, firstRevision, controller.signal).then(
+      (result) => {
+        if (controller.signal.aborted) return;
+        setWaiting(result?.kind === "review_required" ? result : null);
+      },
+    );
     return () => controller.abort();
-  }, [checkDeclaration, canCheck, id, revision]);
+  }, [checkDeclaration, canCheck, id, firstRevision]);
   async function check(accept = false) {
     const result = await actions.refresh(plugin, {
       revision: plugin.revision,
