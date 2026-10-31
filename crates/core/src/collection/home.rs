@@ -10,6 +10,7 @@ use std::time::Instant;
 const RECENT_PLAYS: i64 = 200;
 const RECENT_ALBUMS: i64 = 12;
 const ADDED_ALBUMS: i64 = 12;
+const ADDED_CANDIDATES: i64 = 200;
 const UNHEARD_ALBUMS: usize = 3;
 const UNHEARD_TRACKS: i64 = 25;
 const UNHEARD_COUNT_CAP: i64 = 1_000;
@@ -60,14 +61,16 @@ impl Collection {
         .fetch_all(&mut *tx)
         .await?;
         let mut recently_added: Vec<AddedAlbum> = sqlx::query_as(
-            "SELECT a.id, a.title, a.artist FROM account_releases a
-             WHERE a.user_id = ?
-               AND EXISTS (SELECT 1 FROM library_members m WHERE m.library_id = a.library_id AND m.user_id = a.user_id)
+            "SELECT a.id, a.title, a.artist
+             FROM (SELECT rowid, id, library_id, title, artist, user_id FROM account_releases NOT INDEXED
+                   WHERE user_id = ? ORDER BY rowid DESC LIMIT ?) a
+             WHERE EXISTS (SELECT 1 FROM library_members m WHERE m.library_id = a.library_id AND m.user_id = a.user_id)
                AND EXISTS (SELECT 1 FROM recordings r WHERE r.release_id = a.id
                            AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id))
              ORDER BY a.rowid DESC LIMIT ?",
         )
         .bind(actor.id())
+        .bind(ADDED_CANDIDATES)
         .bind(ADDED_ALBUMS)
         .fetch_all(&mut *tx)
         .await?;

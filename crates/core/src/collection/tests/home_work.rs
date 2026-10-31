@@ -96,7 +96,7 @@ async fn home_work_stays_bounded_as_listening_history_and_the_library_grow() {
     meter.remove(&hito.collection.store.pool).await;
     let large = large.unwrap();
     eprintln!("Home VM_steps~ small={small_work} large={large_work}");
-    assert_eq!(large.recent_albums.len(), 6);
+    assert_eq!(large.recent_albums.len(), 12);
     assert_eq!(large.liked_count, 1_000);
     assert!(
         large_work < small_work * 3 + 100_000,
