@@ -379,3 +379,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.radio-start-cover .fallback-cover-title,
+.radio-start-cover .fallback-cover-artist {
+  display: none;
+}
