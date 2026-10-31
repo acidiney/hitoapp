@@ -1,6 +1,6 @@
 use crate::{
-    ArtistRecordings, Error, GenreEntity, IsrcRecording, discography, edition, edition_listing,
-    identifiers, projection, search, transport::Transport,
+    ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, discography, edition,
+    edition_listing, identifiers, projection, search, transport::Transport,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -227,8 +227,17 @@ impl MusicBrainzClient {
 
     /// Lists the first hundred recordings credited to an artist with their lengths. An unknown
     /// artist is an empty result. The answer says whether the page covers every recording.
-    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_recordings", request_id = tracing::field::Empty))]
     pub async fn artist_recordings(&self, artist_id: &str) -> Result<ArtistRecordings, Error> {
+        self.artist_recordings_at(artist_id, 0).await
+    }
+
+    /// One page of at most 100 recordings credited to the artist, starting at `offset`.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_recordings", request_id = tracing::field::Empty))]
+    pub async fn artist_recordings_at(
+        &self,
+        artist_id: &str,
+        offset: u32,
+    ) -> Result<ArtistRecordings, Error> {
         let started = Instant::now();
         let request_id = Uuid::new_v4();
         tracing::Span::current().record("request_id", tracing::field::display(request_id));
@@ -236,8 +245,8 @@ impl MusicBrainzClient {
             if !identifiers::canonical_artist(artist_id) {
                 return Err(Error::InvalidLookupRequest);
             }
-            match self.transport.artist_recordings(artist_id).await {
-                Ok(bytes) => identifiers::artist_recordings(&bytes),
+            match self.transport.artist_recordings(artist_id, offset).await {
+                Ok(bytes) => identifiers::artist_recordings(&bytes, offset),
                 Err(Error::Status(404)) => Ok(ArtistRecordings {
                     total: 0,
                     items: Vec::new(),
@@ -317,6 +326,40 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(Vec::len).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz URL lookup completed"
+        );
+        result
+    }
+
+    /// Searches artists by exact name phrase and returns up to 100 results with their relevance
+    /// scores, so the caller can tell whether every maximum-relevance result was returned.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_name_search", request_id = tracing::field::Empty))]
+    pub async fn artist_name_search(&self, name: &str) -> Result<NameSearch, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if name.trim().is_empty() || name.len() > 512 {
+                return Err(Error::InvalidSearchRequest);
+            }
+            let bytes = self
+                .transport
+                .artist_name_search(&search::literal_query(name))
+                .await
+                .map_err(|error| match error {
+                    Error::InvalidResponse => Error::InvalidSearch,
+                    error => error,
+                })?;
+            search::name_search(&bytes)
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(|found| found.items.len()).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz artist name search completed"
         );
         result
     }

@@ -11,7 +11,7 @@ use library::{CREDIT, NAMESAKE, NOVA, NameLibrary, TRIBUTE, nova_discography};
 use std::time::Duration;
 use uuid::Uuid;
 
-const SEARCH: &str = "/ws/2/artist?query=%22Nova+Quartet%22&fmt=json&limit=10&offset=0";
+const SEARCH: &str = "/ws/2/artist?query=%22Nova+Quartet%22&fmt=json&limit=100&offset=0";
 
 fn recordings_request(artist: &str) -> String {
     format!("/ws/2/recording?artist={artist}&fmt=json&limit=100&offset=0")
@@ -438,19 +438,92 @@ async fn unknown_library_lengths_never_corroborate() {
     library.origin.shutdown().await;
 }
 
+fn partial_names(count: usize, score: u32) -> Vec<(String, String, u32)> {
+    (0..count)
+        .map(|index| {
+            (
+                format!("0f700000-0000-4000-8000-{:012x}", 100 + index),
+                format!("Nova Quartet & Guest {index}"),
+                score,
+            )
+        })
+        .collect()
+}
+
 #[tokio::test]
-async fn a_search_with_more_results_than_the_page_is_never_conclusive() {
+async fn a_search_whose_page_ends_below_the_exact_score_is_conclusive_however_long_the_result_list()
+{
     let library = NameLibrary::nova().await;
-    let mut found: Vec<(String, String)> = vec![(NOVA.into(), CREDIT.into())];
-    for index in 0..9 {
-        found.push((
-            format!("0f700000-0000-4000-8000-{:012x}", 100 + index),
-            format!("Nova Quartet Tribute {index}"),
-        ));
-    }
-    library.musicbrainz.search_total(CREDIT, found, 11);
+    let mut found = vec![(NOVA.to_string(), CREDIT.to_string(), 100)];
+    found.extend(partial_names(99, 80));
+    library.musicbrainz.search_scored(CREDIT, found, 4_000);
+    library.musicbrainz.recordings_of(NOVA, corroborating());
+    let receipt = library.run().await;
+    assert_eq!((receipt.matched, receipt.uncertain), (3, 1));
+    assert_eq!(
+        library.associations(&library.recordings[0]).await[0].provider_artist_id,
+        NOVA
+    );
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_search_page_full_of_maximum_scores_may_hide_an_exact_name_and_stays_uncertain() {
+    let library = NameLibrary::nova().await;
+    let mut found = vec![(NOVA.to_string(), CREDIT.to_string(), 100)];
+    found.extend(partial_names(99, 100));
+    library.musicbrainz.search_scored(CREDIT, found, 150);
     library.musicbrainz.recordings_of(NOVA, corroborating());
     let receipt = library.run().await;
     assert_eq!((receipt.matched, receipt.uncertain), (0, 4));
+    library.origin.shutdown().await;
+}
+
+/// A prolific artist: `filler` unrelated recordings, then the two tracks the library shares.
+fn prolific(filler: usize) -> Reply {
+    let mut items: Vec<(String, Option<u64>)> = (0..filler)
+        .map(|index| (format!("Other Song {index}"), Some(100_000)))
+        .collect();
+    items.push(("Morning Light".into(), Some(201_500)));
+    items.push(("Second Wind".into(), Some(187_000)));
+    Reply::Discography(items.len() as u32, items)
+}
+
+#[tokio::test]
+async fn corroborating_recordings_beyond_the_first_page_are_found_by_paging() {
+    let library = NameLibrary::nova().await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
+    library.musicbrainz.recordings_of(NOVA, prolific(250));
+    let receipt = library.run().await;
+    assert_eq!((receipt.matched, receipt.uncertain), (2, 2));
+    let paged: Vec<String> = library
+        .musicbrainz
+        .requests()
+        .into_iter()
+        .filter(|request| request.contains("/recording"))
+        .collect();
+    assert_eq!(paged.len(), 3, "{paged:?}");
+    assert!(paged[1].ends_with("offset=100") && paged[2].ends_with("offset=200"));
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn paging_stops_after_five_pages_and_the_credit_stays_uncertain() {
+    let library = NameLibrary::nova().await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
+    library.musicbrainz.recordings_of(NOVA, prolific(700));
+    let receipt = library.run().await;
+    assert_eq!((receipt.matched, receipt.uncertain), (0, 4));
+    let pages = library
+        .musicbrainz
+        .requests()
+        .iter()
+        .filter(|request| request.contains("/recording"))
+        .count();
+    assert_eq!(pages, 5);
     library.origin.shutdown().await;
 }

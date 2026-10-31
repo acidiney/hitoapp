@@ -13,6 +13,7 @@ pub use client::MusicBrainzClient;
 pub use cover_art::{CoverArt, CoverArtClient, CoverKind};
 pub use error::Error;
 pub use identifiers::{ArtistRecording, ArtistRecordings, GenreEntity, IsrcRecording};
+pub use search::{NAME_SEARCH_LIMIT, NameCandidate, NameSearch};
 
 #[cfg(test)]
 mod tests;

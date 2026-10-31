@@ -23,6 +23,8 @@ pub enum Reply {
     Candidates(Vec<(String, String)>),
     /// A search page with a stated total that may exceed the page.
     CandidatesOf(Vec<(String, String)>, u32),
+    /// A search page with explicit relevance scores and a stated total.
+    Scored(Vec<(String, String, u32)>, u32),
     /// The first page of an artist's recordings: the total MusicBrainz states, then each title
     /// with its length in milliseconds.
     Discography(u32, Vec<(String, Option<u64>)>),
@@ -100,6 +102,15 @@ impl FakeMusicBrainz {
             .insert(format!("search/{name}"), Reply::CandidatesOf(found, total));
     }
 
+    /// Answers an artist search with explicit relevance scores and a total beyond the page.
+    pub fn search_scored(&self, name: &str, found: Vec<(String, String, u32)>, total: u32) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("search/{name}"), Reply::Scored(found, total));
+    }
+
     /// Answers the recordings browse of one artist.
     pub fn recordings_of(&self, artist: &str, reply: Reply) {
         self.state
@@ -144,6 +155,43 @@ impl Drop for FakeMusicBrainz {
 
 fn artist(id: &str) -> Value {
     json!({"name": "credited", "joinphrase": "", "artist": {"id": id, "name": "credited"}})
+}
+
+fn parameter(uri: &Uri, name: &str) -> Option<String> {
+    let prefix = format!("{name}=");
+    let encoded = uri
+        .query()?
+        .split('&')
+        .find_map(|pair| pair.strip_prefix(prefix.as_str()))?;
+    Some(
+        url::form_urlencoded::parse(format!("r={encoded}").as_bytes())
+            .next()?
+            .1
+            .into_owned(),
+    )
+}
+
+fn window(uri: &Uri) -> (usize, usize) {
+    let number = |name: &str| parameter(uri, name).and_then(|value| value.parse().ok());
+    (number("offset").unwrap_or(0), number("limit").unwrap_or(25))
+}
+
+fn normalized(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn search_page(uri: &Uri, artists: &[(String, String, u32)], total: u32) -> Value {
+    let (offset, limit) = window(uri);
+    let found: Vec<Value> = artists
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .map(|(id, name, score)| json!({"id": id, "name": name, "type": "Person", "disambiguation": "", "score": score}))
+        .collect();
+    json!({"count": total, "offset": offset, "artists": found})
 }
 
 fn key(uri: &Uri) -> Option<String> {
@@ -201,6 +249,20 @@ fn key(uri: &Uri) -> Option<String> {
     None
 }
 
+/// Exact-name artists score 100 and sort first, like MusicBrainz phrase searches.
+fn scored(key: &str, artists: &[(String, String)]) -> Vec<(String, String, u32)> {
+    let wanted = normalized(key.trim_start_matches("search/"));
+    let mut found: Vec<(String, String, u32)> = artists
+        .iter()
+        .map(|(id, name)| {
+            let score = if normalized(name) == wanted { 100 } else { 70 };
+            (id.clone(), name.clone(), score)
+        })
+        .collect();
+    found.sort_by(|a, b| b.2.cmp(&a.2));
+    found
+}
+
 async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> Response {
     let (reply, delay) = {
         let mut state = state.lock().unwrap();
@@ -235,30 +297,25 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
                     "resource": key.trim_start_matches("url/"), "relations": relations}),
             )
         }
-        (_, Some(Reply::CandidatesOf(artists, total))) => {
-            let found: Vec<Value> = artists
-                .iter()
-                .map(|(id, name)| json!({"id": id, "name": name, "type": "Person", "disambiguation": ""}))
-                .collect();
-            (
-                StatusCode::OK,
-                json!({"count": total, "offset": 0, "artists": found}),
-            )
+        (Some(key), Some(Reply::CandidatesOf(artists, total))) => {
+            let scored = scored(&key, &artists);
+            (StatusCode::OK, search_page(request.uri(), &scored, total))
         }
-        (_, Some(Reply::Candidates(artists))) => {
-            let found: Vec<Value> = artists
-                .iter()
-                .map(|(id, name)| json!({"id": id, "name": name, "type": "Person", "disambiguation": ""}))
-                .collect();
-            (
-                StatusCode::OK,
-                json!({"count": found.len(), "offset": 0, "artists": found}),
-            )
+        (Some(key), Some(Reply::Candidates(artists))) => {
+            let scored = scored(&key, &artists);
+            let total = scored.len() as u32;
+            (StatusCode::OK, search_page(request.uri(), &scored, total))
+        }
+        (_, Some(Reply::Scored(artists, total))) => {
+            (StatusCode::OK, search_page(request.uri(), &artists, total))
         }
         (_, Some(Reply::Discography(total, recordings))) => {
+            let (offset, limit) = window(request.uri());
             let listed: Vec<Value> = recordings
                 .iter()
                 .enumerate()
+                .skip(offset)
+                .take(limit)
                 .map(|(index, (title, length))| {
                     json!({"id": format!("0f700000-0000-4000-8000-{:012x}", index + 1),
                         "title": title, "length": length, "video": false, "disambiguation": ""})
@@ -266,7 +323,7 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
                 .collect();
             (
                 StatusCode::OK,
-                json!({"recording-count": total, "recording-offset": 0, "recordings": listed}),
+                json!({"recording-count": total, "recording-offset": offset, "recordings": listed}),
             )
         }
         (_, Some(Reply::ReleaseGroups(groups))) => {

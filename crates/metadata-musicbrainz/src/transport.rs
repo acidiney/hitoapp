@@ -136,7 +136,25 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
-    pub(super) async fn artist_recordings(&self, artist_id: &str) -> Result<Vec<u8>, Error> {
+    pub(super) async fn artist_name_search(&self, literal: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("artist")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("query", literal),
+            ("fmt", "json"),
+            ("limit", &crate::search::NAME_SEARCH_LIMIT.to_string()),
+            ("offset", "0"),
+        ]);
+        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
+    pub(super) async fn artist_recordings(
+        &self,
+        artist_id: &str,
+        offset: u32,
+    ) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint
             .join("recording")
@@ -145,7 +163,7 @@ impl Transport {
             ("artist", artist_id),
             ("fmt", "json"),
             ("limit", "100"),
-            ("offset", "0"),
+            ("offset", &offset.to_string()),
         ]);
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
     }

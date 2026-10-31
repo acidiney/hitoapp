@@ -19,9 +19,94 @@ struct Search {
 struct Artist {
     id: String,
     name: String,
+    #[serde(default)]
+    score: Option<Score>,
     #[serde(rename = "type")]
     kind: Option<String>,
     disambiguation: Option<String>,
+}
+
+/// MusicBrainz states the relevance score as a number or as a numeric string.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Score {
+    Number(u32),
+    Text(String),
+}
+
+impl Score {
+    fn value(&self) -> Option<u32> {
+        match self {
+            Self::Number(value) => Some(*value),
+            Self::Text(text) => text.parse().ok(),
+        }
+    }
+}
+
+/// Results per name search page. MusicBrainz caps a search page at this size.
+pub const NAME_SEARCH_LIMIT: u16 = 100;
+const EXACT_SCORE: u32 = 100;
+
+/// One artist of a name search with the relevance MusicBrainz gave it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NameCandidate {
+    pub id: String,
+    pub name: String,
+    pub score: u32,
+}
+
+/// The first page of a name search: up to `NAME_SEARCH_LIMIT` artists ordered by relevance.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NameSearch {
+    pub total: u32,
+    pub items: Vec<NameCandidate>,
+}
+
+impl NameSearch {
+    /// Whether the page holds every maximum-relevance result: it is the whole result set, or a
+    /// lower-scored result ends it. An exact-name artist scores the maximum, so a conclusive page
+    /// cannot hide one beyond it.
+    pub fn conclusive(&self) -> bool {
+        self.items.len() as u32 >= self.total
+            || self
+                .items
+                .last()
+                .is_some_and(|last| last.score < EXACT_SCORE)
+    }
+}
+
+pub(super) fn name_search(bytes: &[u8]) -> Result<NameSearch, Error> {
+    let search: Search = serde_json::from_slice(bytes).map_err(|_| Error::InvalidSearch)?;
+    let total = search.count.ok_or(Error::InvalidSearch)?;
+    if search.offset != 0
+        || search.artists.len() > usize::from(NAME_SEARCH_LIMIT)
+        || search.artists.len() as u32 > total
+    {
+        return Err(Error::InvalidSearch);
+    }
+    let mut previous = u32::MAX;
+    let items = search
+        .artists
+        .into_iter()
+        .map(|artist| {
+            let score = artist
+                .score
+                .as_ref()
+                .and_then(Score::value)
+                .ok_or(Error::InvalidSearch)?;
+            if score > previous || score > EXACT_SCORE {
+                return Err(Error::InvalidSearch);
+            }
+            previous = score;
+            let candidate = artist.into_candidate()?;
+            Ok(NameCandidate {
+                id: candidate.artist.id,
+                name: candidate.artist.name,
+                score,
+            })
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    Ok(NameSearch { total, items })
 }
 
 pub(super) fn request_offset(request: &ArtistSearchRequest) -> Result<u32, Error> {

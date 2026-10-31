@@ -10,8 +10,7 @@ use super::{
     settle::{Checks, Examined, Outcome, Settlement},
 };
 use crate::{Actor, ArtistCatalog, Result};
-use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError};
-use hito_plugin_sdk::{ArtistSearchPage, ArtistSearchRequest};
+use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError, NameSearch};
 use std::{collections::HashMap, future::Future, time::Duration};
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -20,10 +19,13 @@ use uuid::Uuid;
 pub(super) const NAME_CURSOR: &str = "name:";
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
-const SEARCH_LIMIT: u16 = 10;
 /// More exact-name artists than this cannot be told apart within one request.
 const MAX_NAMESAKES: usize = 3;
-const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_NAMESAKES;
+/// Recordings pages one credit may read in total, and at most this many for one artist.
+const MAX_CREDIT_PAGES: usize = 6;
+const MAX_ARTIST_PAGES: usize = 5;
+const PAGE_SIZE: usize = 100;
+const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_CREDIT_PAGES;
 const LENGTH_TOLERANCE_MS: u64 = 2000;
 /// A shorter length is a placeholder, not a measurement.
 const MIN_KNOWN_LENGTH_MS: u64 = 1000;
@@ -59,19 +61,18 @@ fn normalize(text: &str) -> String {
 }
 
 /// The ordinary artists whose name equals the credit, or `None` when the search cannot prove it
-/// saw every one of them: too many namesakes, or any further page (ranking is not exact-name
-/// first, so a namesake may sit beyond the page).
-fn namesakes(page: &ArtistSearchPage, credit: &str) -> Option<Vec<String>> {
-    let wanted = normalize(credit);
-    let exact = |name: &str| normalize(name) == wanted;
-    if page.next_cursor.is_some() {
+/// saw every one of them: too many namesakes, or a page that may end before the last
+/// maximum-relevance result (an exact name always scores the maximum).
+fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>> {
+    if !search.conclusive() {
         return None;
     }
-    let found: Vec<String> = page
+    let wanted = normalize(credit);
+    let found: Vec<String> = search
         .items
         .iter()
-        .filter(|item| exact(&item.artist.name))
-        .map(|item| item.artist.id.clone())
+        .filter(|item| normalize(&item.name) == wanted)
+        .map(|item| item.id.clone())
         .filter(|id| !SPECIAL_PURPOSE_ARTISTS.contains(&id.as_str()))
         .collect();
     (found.len() <= MAX_NAMESAKES).then_some(found)
@@ -270,14 +271,11 @@ impl ArtistCatalog {
                 if !budget.allows() {
                     return Verdict::Refused;
                 }
-                let request = ArtistSearchRequest {
-                    query: credit.name.clone(),
-                    cursor: None,
-                    snapshot: None,
-                    limit: SEARCH_LIMIT,
-                };
-                let found = match budget.run(self.builtin.artist_search(request)).await {
-                    Ok(page) => namesakes(&page, &credit.name),
+                let found = match budget
+                    .run(self.builtin.artist_name_search(&credit.name))
+                    .await
+                {
+                    Ok(search) => namesakes(&search, &credit.name),
                     Err(MusicBrainzError::Status(404) | MusicBrainzError::InvalidSearchRequest) => {
                         None
                     }
@@ -291,25 +289,65 @@ impl ArtistCatalog {
             return Verdict::Uncertain;
         };
         let mut listed = Vec::new();
+        let pages = (MAX_CREDIT_PAGES / ids.len()).clamp(1, MAX_ARTIST_PAGES);
         for id in ids {
-            let recordings = match answers.recordings.get(&id) {
-                Some(recordings) => recordings.clone(),
-                None => {
-                    if !budget.allows() {
-                        return Verdict::Refused;
-                    }
-                    match budget.run(self.builtin.artist_recordings(&id)).await {
-                        Ok(recordings) => {
-                            answers.recordings.insert(id.clone(), recordings.clone());
-                            recordings
-                        }
-                        Err(_) => return Verdict::Unavailable,
-                    }
-                }
+            let read = match self
+                .read_recordings(&id, pages, tracks, budget, answers)
+                .await
+            {
+                Ok(read) => read,
+                Err(verdict) => return verdict,
             };
-            listed.push((id, recordings));
+            listed.push((id, read));
         }
         decide(tracks, &listed)
+    }
+}
+
+impl ArtistCatalog {
+    /// Reads an artist's recordings page by page until the library corroborates it, the list is
+    /// complete, or `pages` pages are read. Pages already read in this request are reused.
+    async fn read_recordings(
+        &self,
+        id: &str,
+        pages: usize,
+        tracks: &[Track],
+        budget: &mut Budget,
+        answers: &mut Answers,
+    ) -> std::result::Result<ArtistRecordings, Verdict> {
+        let mut read = answers.recordings.get(id).cloned();
+        loop {
+            let offset = match &read {
+                None => 0,
+                Some(read)
+                    if read.complete()
+                        || read.items.len().div_ceil(PAGE_SIZE) >= pages
+                        || corroborated(tracks, read).1 >= MIN_CORROBORATING =>
+                {
+                    break;
+                }
+                Some(read) => read.items.len(),
+            };
+            if !budget.allows() {
+                return Err(Verdict::Refused);
+            }
+            let page = budget
+                .run(self.builtin.artist_recordings_at(id, offset as u32))
+                .await
+                .map_err(|_| Verdict::Unavailable)?;
+            match &mut read {
+                None => read = Some(page),
+                Some(known) => {
+                    if !known.extend(page) {
+                        break;
+                    }
+                }
+            }
+            if let Some(known) = &read {
+                answers.recordings.insert(id.to_owned(), known.clone());
+            }
+        }
+        read.ok_or(Verdict::Unavailable)
     }
 }
 
@@ -408,33 +446,24 @@ mod tests {
         musicbrainz::{FakeMusicBrainz, Reply},
         support,
     };
-    use hito_metadata_musicbrainz::{ArtistRecording, ArtistRecordings};
-    use hito_plugin_sdk::{
-        ArtistSearchCandidate, ArtistSearchPage, CatalogArtistKind, CatalogArtistRef,
-    };
+    use hito_metadata_musicbrainz::{ArtistRecording, ArtistRecordings, NameCandidate, NameSearch};
     use std::time::Duration;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
     const OTHER: &str = "22222222-2222-4222-8222-222222222222";
     const VARIOUS_ARTISTS: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
 
-    fn page(names: &[(&str, &str)], truncated: bool) -> ArtistSearchPage {
-        ArtistSearchPage {
-            query: "q".into(),
-            snapshot: None,
+    fn page(names: &[(&str, &str, u32)], total: u32) -> NameSearch {
+        NameSearch {
+            total,
             items: names
                 .iter()
-                .map(|(id, name)| ArtistSearchCandidate {
-                    artist: CatalogArtistRef {
-                        id: (*id).into(),
-                        name: (*name).into(),
-                    },
-                    kind: Some(CatalogArtistKind::Person),
-                    disambiguation: None,
+                .map(|(id, name, score)| NameCandidate {
+                    id: (*id).into(),
+                    name: (*name).into(),
+                    score: *score,
                 })
                 .collect(),
-            total_count: None,
-            next_cursor: truncated.then(|| "more".into()),
         }
     }
 
@@ -446,29 +475,36 @@ mod tests {
     }
 
     #[test]
-    fn only_a_search_that_proves_it_saw_every_namesake_names_any() {
-        let exact = [(ID, "Nova Quartet"), (OTHER, "NOVA quartet")];
+    fn only_a_search_that_proves_it_saw_every_exact_name_names_any() {
+        let exact = [(ID, "Nova Quartet", 100), (OTHER, "NOVA quartet", 100)];
         assert_eq!(
-            namesakes(&page(&exact, false), "Nova Quartet"),
+            namesakes(&page(&exact, 2), "Nova Quartet"),
             Some(vec![ID.into(), OTHER.into()])
         );
-        let tail = [(ID, "Nova Quartet"), (OTHER, "Nova Quartet Tribute")];
-        assert_eq!(
-            namesakes(&page(&tail, true), "Nova Quartet"),
-            None,
-            "A truncated page may hide an exact namesake ranked below it"
-        );
-        assert_eq!(namesakes(&page(&exact, true), "Nova Quartet"), None);
-        let many = [
-            (ID, "A"),
-            (OTHER, "A"),
-            ("33333333-3333-4333-8333-333333333333", "A"),
-            ("44444444-4444-4444-8444-444444444444", "A"),
+        let tail = [
+            (ID, "Nova Quartet", 100),
+            (OTHER, "Nova Quartet Tribute", 80),
         ];
-        assert_eq!(namesakes(&page(&many, false), "A"), None);
+        assert_eq!(
+            namesakes(&page(&tail, 4_000), "Nova Quartet"),
+            Some(vec![ID.into()]),
+            "A lower score ends the maximum-relevance results however long the list"
+        );
+        assert_eq!(
+            namesakes(&page(&exact, 150), "Nova Quartet"),
+            None,
+            "A page ending at the maximum score may hide an exact name"
+        );
+        let many = [
+            (ID, "A", 100),
+            (OTHER, "A", 100),
+            ("33333333-3333-4333-8333-333333333333", "A", 100),
+            ("44444444-4444-4444-8444-444444444444", "A", 100),
+        ];
+        assert_eq!(namesakes(&page(&many, 4), "A"), None);
         assert_eq!(
             namesakes(
-                &page(&[(VARIOUS_ARTISTS, "Various Artists")], false),
+                &page(&[(VARIOUS_ARTISTS, "Various Artists", 100)], 1),
                 "Various Artists"
             ),
             Some(vec![])

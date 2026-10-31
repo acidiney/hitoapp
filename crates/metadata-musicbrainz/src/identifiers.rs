@@ -33,6 +33,18 @@ pub struct ArtistRecordings {
 }
 
 impl ArtistRecordings {
+    /// Appends the next page. A page that adds nothing, or whose total changed, ends the reading.
+    pub fn extend(&mut self, next: ArtistRecordings) -> bool {
+        let known: HashSet<String> = self.items.iter().map(|item| item.id.clone()).collect();
+        let before = self.items.len();
+        self.items.extend(
+            next.items
+                .into_iter()
+                .filter(|item| !known.contains(&item.id)),
+        );
+        self.items.len() > before
+    }
+
     /// Whether the page lists every recording MusicBrainz states for the artist.
     pub fn complete(&self) -> bool {
         self.items.len() as u32 >= self.total
@@ -159,10 +171,10 @@ pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {
     Ok(artists)
 }
 
-pub(super) fn artist_recordings(bytes: &[u8]) -> Result<ArtistRecordings, Error> {
+pub(super) fn artist_recordings(bytes: &[u8], offset: u32) -> Result<ArtistRecordings, Error> {
     let browse: RecordingBrowse =
         serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
-    if browse.offset != 0
+    if browse.offset != offset
         || browse.recordings.len() > MAX_RECORDINGS
         || browse.recordings.len() as u32 > browse.count
     {
