@@ -115,7 +115,7 @@ pub async fn scan(
 #[utoipa::path(delete, path = "/api/v1/libraries/{library}/missing-recordings", params(("library" = String, Path)),
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = MissingRecordingsRemoval), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
-    (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn remove_missing_recordings(
     State(services): State<Services>,

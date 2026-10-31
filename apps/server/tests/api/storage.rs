@@ -210,3 +210,51 @@ async fn administrator_removes_recordings_whose_files_are_gone_now() {
     assert!(status.is_client_error());
     assert!(!error.to_string().contains("PRIVATE_"));
 }
+
+#[tokio::test]
+async fn removing_missing_tracks_is_refused_while_a_folder_is_unavailable() {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("PRIVATE_MUSIC_PATH");
+    std::fs::create_dir_all(&music).unwrap();
+    write_wav(&music.join("Away.wav"));
+    let core = services(dir.path(), &music).await;
+    let app = hito_server::router(core.clone());
+    let token = admin(&app).await;
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&token)).await;
+    let library = libraries[0]["id"].as_str().unwrap();
+    let (status, folder) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/libraries/{library}/folders"),
+        json!({"directory":{"directory_id":"legacy-music","components":[]}}),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert!(core.storage.run_next_job().await.unwrap());
+    let away = dir.path().join("away");
+    std::fs::rename(&music, &away).unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/folders/{}/scan", folder["id"].as_str().unwrap()),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert!(core.storage.run_next_job().await.unwrap());
+    let (status, error) = call(
+        &app,
+        "DELETE",
+        &format!("/api/v1/libraries/{library}/missing-recordings"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(error.to_string().contains("music folder"));
+    assert!(!error.to_string().contains("PRIVATE_"));
+    let (_, tracks) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
+    assert_eq!(tracks["total"], 1);
+}
