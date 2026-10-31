@@ -123,6 +123,11 @@ async fn storage_administration_requires_an_administrator_and_rejects_host_paths
             json!({"revision":1}),
         ),
         ("POST", "/api/v1/folders/unknown/scan".into(), Value::Null),
+        (
+            "DELETE",
+            format!("/api/v1/libraries/{library}/missing-recordings"),
+            Value::Null,
+        ),
     ] {
         assert_eq!(
             call(&app, method, &url, body.clone(), None).await.0,
@@ -148,4 +153,60 @@ async fn storage_administration_requires_an_administrator_and_rejects_host_paths
         assert!(status.is_client_error());
         assert!(!error.to_string().contains("PRIVATE_"));
     }
+}
+
+#[tokio::test]
+async fn administrator_removes_recordings_whose_files_are_gone_now() {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("PRIVATE_MUSIC_PATH");
+    std::fs::create_dir_all(&music).unwrap();
+    write_wav(&music.join("Gone.wav"));
+    let core = services(dir.path(), &music).await;
+    let app = hito_server::router(core.clone());
+    let token = admin(&app).await;
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&token)).await;
+    let library = libraries[0]["id"].as_str().unwrap();
+    let folders_url = format!("/api/v1/libraries/{library}/folders");
+    let (status, folder) = call(
+        &app,
+        "POST",
+        &folders_url,
+        json!({"directory":{"directory_id":"legacy-music","components":[]}}),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert!(core.storage.run_next_job().await.unwrap());
+    std::fs::remove_file(music.join("Gone.wav")).unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/folders/{}/scan", folder["id"].as_str().unwrap()),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert!(core.storage.run_next_job().await.unwrap());
+    let (_, tracks) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
+    assert_eq!(tracks["total"], 1);
+    let url = format!("/api/v1/libraries/{library}/missing-recordings");
+    let (status, outcome) = call(&app, "DELETE", &url, Value::Null, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        outcome,
+        json!({"removed":1,"kept_referenced":0,"more":false})
+    );
+    let (_, tracks) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
+    assert_eq!(tracks["total"], 0);
+    let (status, error) = call(
+        &app,
+        "DELETE",
+        "/api/v1/libraries/unknown/missing-recordings",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert!(status.is_client_error());
+    assert!(!error.to_string().contains("PRIVATE_"));
 }

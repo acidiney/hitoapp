@@ -9,7 +9,8 @@ use axum::{
     http::StatusCode,
 };
 use hito_core::{
-    BrowseDirectories, ConnectFolder, DirectoryPage, Job, MusicFolder, Services, SharedDirectory,
+    BrowseDirectories, ConnectFolder, DirectoryPage, Job, MissingRecordingsRemoval, MusicFolder,
+    Services, SharedDirectory,
 };
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -108,5 +109,23 @@ pub async fn scan(
     Ok((
         StatusCode::ACCEPTED,
         Json(services.storage.enqueue_folder_scan(&actor, &id).await?),
+    ))
+}
+
+#[utoipa::path(delete, path = "/api/v1/libraries/{library}/missing-recordings", params(("library" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = MissingRecordingsRemoval), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
+))]
+pub async fn remove_missing_recordings(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(library): Path<String>,
+) -> ApiResult<Json<MissingRecordingsRemoval>> {
+    Ok(Json(
+        services
+            .storage
+            .remove_missing_recordings(&actor, &library)
+            .await?,
     ))
 }

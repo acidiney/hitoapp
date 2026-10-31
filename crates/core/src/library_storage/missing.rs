@@ -298,7 +298,7 @@ mod tests {
     use crate::store::Store;
     use crate::test_support::{support, work_meter::WorkMeter};
 
-    const FIXED_WORK: u64 = 400_000;
+    const FIXED_WORK: u64 = 100_000;
 
     async fn seed(pool: &sqlx::SqlitePool, library: &str, prefix: &str, count: usize, ready: bool) {
         let mut tx = pool.begin().await.unwrap();

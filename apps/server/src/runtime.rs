@@ -1,6 +1,7 @@
 mod community;
 mod downloads;
 mod podcasts;
+mod retention;
 mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
@@ -95,6 +96,7 @@ async fn serve_owned(
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let watching = folder_watching_worker(services.storage.clone(), stopped.clone());
+    let retention = retention::worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
     let covers = cover_art_worker(services.catalog.clone(), stopped.clone());
     let matching = matching_worker(services.artist_catalog.clone(), stopped.clone());
@@ -137,10 +139,11 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), (), (), ()) = tokio::join!(
         http,
         indexing,
         watching,
+        retention,
         artwork,
         matching,
         covers,

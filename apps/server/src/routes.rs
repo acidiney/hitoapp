@@ -198,6 +198,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::host_folders::choose))
         .routes(routes!(storage::remove))
         .routes(routes!(storage::scan))
+        .routes(routes!(storage::remove_missing_recordings))
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
         .routes(routes!(api::audiobooks::list))
