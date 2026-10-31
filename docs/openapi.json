@@ -1839,6 +1839,93 @@
         ]
       }
     },
+    "/api/v1/artist-identity-groups/{id}/radio": {
+      "post": {
+        "operationId": "artist_identity_group_radio",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistRadio"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artist-identity-groups/{id}/split": {
       "post": {
         "operationId": "split_artist_identity_group",
@@ -17197,6 +17284,30 @@
           }
         }
       },
+      "ArtistRadio": {
+        "type": "object",
+        "required": [
+          "artist",
+          "similar_artists",
+          "tracks"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "similar_artists": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many of the account's chosen artists, named as similar, contributed tracks."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recording"
+            }
+          }
+        }
+      },
       "ArtistReviewConnection": {
         "type": "object",
         "required": [
@@ -18653,14 +18764,27 @@
             "type": "object",
             "required": [
               "connections",
-              "service_names"
+              "service_names",
+              "genres",
+              "artists"
             ],
             "properties": {
+              "artists": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
+                "description": "A short page of chosen artists that radio can start from."
+              },
               "connections": {
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/PluginInstallation"
                 }
+              },
+              "genres": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Genre"
+                },
+                "description": "The busiest genres of the library, for the By genre tiles."
               },
               "service_names": {
                 "type": "object",
@@ -18965,6 +19089,69 @@
           }
         },
         "additionalProperties": false
+      },
+      "Genre": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "track_count"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "track_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "GenreDetail": {
+        "type": "object",
+        "required": [
+          "genre",
+          "albums",
+          "tracks"
+        ],
+        "properties": {
+          "albums": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Release"
+            }
+          },
+          "genre": {
+            "$ref": "#/components/schemas/Genre"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recording"
+            }
+          }
+        }
+      },
+      "GenrePageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "genre"
+            ],
+            "properties": {
+              "genre": {
+                "$ref": "#/components/schemas/GenreDetail"
+              }
+            }
+          }
+        ]
       },
       "Health": {
         "type": "object",
@@ -19463,6 +19650,7 @@
           "disc",
           "track",
           "isrc",
+          "genre",
           "musicbrainz_album_id",
           "musicbrainz_release_group_id",
           "musicbrainz_recording_id",
@@ -19501,6 +19689,16 @@
             ]
           },
           "disc": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "genre": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ObservedTag"
@@ -20438,6 +20636,7 @@
           "SettingsPage",
           "QueuePage",
           "DiscoverPage",
+          "GenrePage",
           "PodcastIndexPage",
           "PodcastPage",
           "NotFoundPage"

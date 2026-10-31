@@ -292,6 +292,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-identity-groups/{id}/radio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["artist_identity_group_radio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artist-identity-groups/{id}/split": {
         parameters: {
             query?: never;
@@ -2884,6 +2900,15 @@ export interface components {
              */
             uncertain: number;
         };
+        ArtistRadio: {
+            artist: string;
+            /**
+             * Format: int64
+             * @description How many of the account's chosen artists, named as similar, contributed tracks.
+             */
+            similar_artists: number;
+            tracks: components["schemas"]["Recording"][];
+        };
         ArtistReviewConnection: {
             /** Format: int64 */
             installation_revision: number;
@@ -3228,7 +3253,11 @@ export interface components {
             groups: components["schemas"]["LibraryReleaseGroup"][];
         };
         DiscoverPageProps: components["schemas"]["SharedPageProps"] & {
+            /** @description A short page of chosen artists that radio can start from. */
+            artists: components["schemas"]["ArtistIdentityGroupPage"];
             connections: components["schemas"]["PluginInstallation"][];
+            /** @description The busiest genres of the library, for the By genre tiles. */
+            genres: components["schemas"]["Genre"][];
             service_names: {
                 [key: string]: string;
             };
@@ -3305,6 +3334,20 @@ export interface components {
             playlist_reference: string;
             /** Format: uuid */
             request_id: string;
+        };
+        Genre: {
+            key: string;
+            label: string;
+            /** Format: int64 */
+            track_count: number;
+        };
+        GenreDetail: {
+            albums: components["schemas"]["Release"][];
+            genre: components["schemas"]["Genre"];
+            tracks: components["schemas"]["Recording"][];
+        };
+        GenrePageProps: components["schemas"]["SharedPageProps"] & {
+            genre: components["schemas"]["GenreDetail"];
         };
         Health: {
             ready: boolean;
@@ -3437,6 +3480,7 @@ export interface components {
             album_artist: components["schemas"]["ObservedTag"] | null;
             artist: components["schemas"]["ObservedTag"] | null;
             disc: components["schemas"]["ObservedTag"] | null;
+            genre: components["schemas"]["ObservedTag"] | null;
             isrc: components["schemas"]["ObservedTag"] | null;
             musicbrainz_album_id: components["schemas"]["ObservedTag"] | null;
             musicbrainz_artist_tags: components["schemas"]["MusicBrainzArtistTag"][] | null;
@@ -3644,7 +3688,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage" | "NotFoundPage";
+        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "GenrePage" | "PodcastIndexPage" | "PodcastPage" | "NotFoundPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -6318,6 +6362,69 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_identity_group_radio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistRadio"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
                 headers: {
                     [name: string]: unknown;
                 };
