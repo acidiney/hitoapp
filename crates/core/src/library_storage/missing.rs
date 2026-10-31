@@ -333,12 +333,30 @@ impl Selection {
 
 async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) -> Result<()> {
     for recording in recordings {
+        let credits: Vec<(String, String)> = sqlx::query_as(
+            "SELECT user_id,artist_id FROM account_recording_credits WHERE recording_id = ?1",
+        )
+        .bind(recording)
+        .fetch_all(&mut *connection)
+        .await?;
         erasure::erase_recording_corrections(connection, recording).await?;
         for statement in REMOVAL {
             sqlx::query(statement)
                 .bind(recording)
                 .execute(&mut *connection)
                 .await?;
+        }
+        for (user, artist) in credits {
+            for table in ["artist_name_candidates", "artist_review_dismissals"] {
+                sqlx::query(&format!(
+                    "DELETE FROM {table} WHERE user_id = ?1 AND artist_id = ?2
+                     AND NOT EXISTS (SELECT 1 FROM account_recording_credits c WHERE c.user_id = ?1 AND c.artist_id = ?2)"
+                ))
+                .bind(&user)
+                .bind(&artist)
+                .execute(&mut *connection)
+                .await?;
+            }
         }
     }
     Ok(())
@@ -411,6 +429,74 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(left, 1, "a source that came back keeps its recording");
+    }
+
+    #[tokio::test]
+    async fn review_candidates_and_dismissals_leave_with_the_last_recording_of_their_credit() {
+        let (_directory, hito, actor, library, _music) = support::library("orphans").await;
+        let pool = hito.storage.store.pool.clone();
+        seed(&pool, &library, "gone", 2, false).await;
+        seed(&pool, &library, "kept", 1, true).await;
+        let mut connection = pool.acquire().await.unwrap();
+        sqlx::raw_sql("PRAGMA foreign_keys=OFF")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        for artist in ["credit-gone", "credit-mixed"] {
+            sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES(?,?,?,?)")
+                .bind(actor.id())
+                .bind(artist)
+                .bind(&library)
+                .bind(artist)
+                .execute(&mut *connection)
+                .await
+                .unwrap();
+            for statement in [
+                "INSERT INTO artist_name_candidates(user_id,artist_id,provider_artist_id,position,name,corroborated_titles) VALUES(?1,?2,'mb',0,'Name',0)",
+                "INSERT INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?1,?2,'mb')",
+            ] {
+                sqlx::query(statement)
+                    .bind(actor.id())
+                    .bind(artist)
+                    .execute(&mut *connection)
+                    .await
+                    .unwrap();
+            }
+        }
+        for (recording, artist) in [
+            ("gone-00000", "credit-mixed"),
+            ("gone-00001", "credit-gone"),
+            ("kept-00000", "credit-mixed"),
+        ] {
+            sqlx::query(
+                "INSERT INTO account_recording_credits(user_id,recording_id,artist_id) VALUES(?,?,?)",
+            )
+            .bind(actor.id())
+            .bind(recording)
+            .bind(artist)
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        }
+        drop(connection);
+        let removal = hito
+            .storage
+            .purge_expired_missing_recordings()
+            .await
+            .unwrap();
+        assert_eq!(removal.removed, 2);
+        for table in ["artist_name_candidates", "artist_review_dismissals"] {
+            let left: Vec<String> =
+                sqlx::query_scalar(&format!("SELECT artist_id FROM {table} ORDER BY artist_id"))
+                    .fetch_all(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                left,
+                vec!["credit-mixed".to_owned()],
+                "{table}: only a credit that still has a recording keeps its rows"
+            );
+        }
     }
 
     #[tokio::test]
