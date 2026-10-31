@@ -16,7 +16,7 @@ The independent final frontend repeat passes 472 cases across 148 files, both Ty
 
 Core fixtures also exercise the shared worker with 100,000 retained targets and one shared blob under inherited, absent and fresh SQLite statistics. Read, enqueue and worker work stay below their existing 10,000, 250,000 and 500,000 VM-step budgets. A deterministic pinned-reader case proves that fixture snapshots include committed WAL history; it preserves rows, row IDs, retained bytes, foreign keys and the intended statistics. These are query-work and fixture-consistency checks, not playback latency or public backup acceptance.
 
-Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The normal server still runs migration 0046 and its recording-cover behavior described below.
+Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The local development server ran migration 0046 when this was written and now runs through 0069 ([status](status.md#2026-10-29-to-2026-10-31-summary)).
 
 ```mermaid
 sequenceDiagram
@@ -87,7 +87,7 @@ A scoped scan of 831 captured server-log lines found no owned fixture metadata, 
 
 Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Host integration passed its second review. These checks do not establish platform or public-release acceptance.
 
-The normal deployed host currently retrieves recording covers; the collection source above is not deployed. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
+The local development host retrieves recording covers. It was deployed on migration 0046; whether the collection source above is live has no separate record. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
 
 ## YouTube thumbnails in source
 
@@ -99,7 +99,7 @@ An album imported from a provider playlist has no MusicBrainz identifier, so the
 
 The Spotify plugin supplies the cover through its existing release artwork request: it reads the public album embed page, takes the largest listed image and fetches it only from the exact Spotify image hosts, with no redirects and the 2 MiB, 1,024-pixel limits above. It makes no call that needs a Spotify account, and the playlist response it already parses carries no image URLs in the owned fixtures, so none are taken from it. Only the plugin and the image host are contacted; logs carry job and account identifiers, not titles, provider ids or URLs.
 
-The choice **Fetch album artwork automatically** also governs this: when it is off, reading a cover queues nothing and `GET /api/v1/releases/{id}/artwork/availability` answers `can_fetch: false`, so the browser does not start a retrieval. An explicit `POST /api/v1/releases/{id}/artwork/fetch` still works. Covered by core (owned fake artwork provider) and HTTP cases. Not deployed: the running Spotify container uses an older image and must be rebuilt (see [Spotify plugin](plugin-spotify.md#local-setup)) and the listener must approve the artwork capability.
+The choice **Fetch album artwork automatically** also governs this: when it is off, reading a cover queues nothing and `GET /api/v1/releases/{id}/artwork/availability` answers `can_fetch: false`, so the browser does not start a retrieval. An explicit `POST /api/v1/releases/{id}/artwork/fetch` still works. Covered by core (owned fake artwork provider) and HTTP cases. The server code runs on the local development server, but the Spotify container uses an older image until it is rebuilt (see [Spotify plugin](plugin-spotify.md#local-setup)) and the listener must approve the artwork capability.
 
 ## Cover Art Archive
 
@@ -109,4 +109,4 @@ Where identifiers come from: the current MusicBrainz release or release-group ta
 
 Honest states per identifier: `queued`/`running` (pending), `ready`, `missing` (the archive has no cover, or sent an invalid image), `unavailable` (four failed attempts with growing delay). Missing and unavailable answers are asked again only after a day, and only when something asks again. `GET /api/v1/cover-art/{kind}/{mbid}` (kind `release` or `release-group`) never contacts the archive: it returns the image (200), 202 while pending, 404 when missing or never asked, or 502 when unavailable. `GET /api/v1/releases/{id}/artwork` falls back to this cover after embedded and provider artwork.
 
-The choice **Fetch album artwork automatically** (default on, see [preferences](metadata-preferences.md#automatic-lookups)) governs all of this; turning it off queues nothing and drops pending work. Covered by an owned loopback archive fake (core, client and HTTP cases). The live archive has not been reached from this source, and nothing here is deployed.
+The choice **Fetch album artwork automatically** (default on, see [preferences](metadata-preferences.md#automatic-lookups)) governs all of this; turning it off queues nothing and drops pending work. Covered by an owned loopback archive fake (core, client and HTTP cases). The live archive has not been reached from this source. The server code runs on the local development server; this is not a public release.

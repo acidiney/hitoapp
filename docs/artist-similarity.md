@@ -1,6 +1,6 @@
 # Similar artists
 
-Chosen-artist pages can show an optional "Similar artists" section. It is basic catalog discovery: it sends only an artist identity, never listening history, and it adopts, imports or merges nothing. This is current source behavior, covered by local tests. It is not deployed and has not been checked against a live service.
+Chosen-artist pages can show an optional "Similar artists" section. It is basic catalog discovery: it sends only an artist identity, never listening history, and it adopts, imports or merges nothing. This is current source behavior, covered by local tests. The server code runs on the local development server. The ListenBrainz plugin is not deployed, and nothing has been checked against the live service.
 
 ## Ownership and data flow
 

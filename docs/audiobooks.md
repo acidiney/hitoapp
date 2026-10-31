@@ -201,7 +201,7 @@ Two public core cases cover 10,000 chapters, batch bounds, duplicate anchors, cu
 
 The database-work fixture measures the actual public capability with 100,000 recordings, a 10,000-chapter book and 1,000 neighbouring books after reopening under inherited, absent and fresh statistics. Admission of 1,000 anchors uses approximately 61,000 or 72,000 SQLite VM steps, below the unchanged `5,000 + 250 × requested anchors` budget. This proves bounded admission work, not full-book browsing performance, memory use or release playback latency. Fixture setup and preservation reads are outside that measurement.
 
-These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. The normal server remains on migration 0046.
+These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. That sentence described the server when it ran migration 0046. The local development server now runs migrations through 0069 ([status](status.md#2026-10-29-to-2026-10-31-summary)).
 
 
 ## Observed browser chapter checkpoints
@@ -225,7 +225,7 @@ At capacity, playback pauses and retains the unadmitted heard sample. Queue/sour
 
 All 453 frontend cases, both TypeScript configurations and the production build pass in Docker. Public player/fetch-boundary cases cover A, B, A identity, natural prepared handoff, paired acknowledgements, held requests, request/body deadlines, definitive denial recovery, completed seeks, account replacement and actual 256-batch saturation with a retained 257th sample. Independent security, correctness and performance reviews pass after the deadline, denial and seek fixes. The tests replace external HTTP and media boundaries; they do not establish packaged browser playback or speaker output.
 
-This browser source is integrated. Packaged Chromium/WebKit acceptance, physical mobile Safari, native observed checkpoint acceptance, the Continue control and migration 0049 deployment remain open.
+This browser source is integrated. Packaged Chromium/WebKit acceptance, physical mobile Safari, native observed checkpoint acceptance, and the Continue control remain open. Migration 0049 now runs on the local development server.
 
 
 ## Observed native chapter checkpoints
@@ -264,7 +264,7 @@ An uncertain native command response requires authoritative settlement before la
 
 Docker verification passes six public core/player/HTTP cases, all 469 frontend cases, both TypeScript configurations, the production build and strict core/playback/server all-target Clippy. The concurrency fixture observes actual Sync entry, queue publication and committed deletion. Client cases cover request and body cancellation, retry backoff, lost accepted replies, malformed settlement, deadlines and immediate retry. Rust routes produce the generated OpenAPI and TypeScript contracts.
 
-This source is integrated. The isolated native output checks below now pass. Full-book Continue performance at 10,000 chapters, packaged Chromium/WebKit Continue, desktop GUI/platform checks and normal deployment remain open. The normal server still runs migration 0046.
+This source is integrated. The isolated native output checks below now pass. Full-book Continue performance at 10,000 chapters, packaged Chromium/WebKit Continue, desktop GUI/platform checks and public-release deployment remain open. The local development server was on migration 0046 when this was written; it now runs through 0069.
 
 ## Native Continue output verification
 

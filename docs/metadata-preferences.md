@@ -38,7 +38,7 @@ The combined server run passes 148 distinct cases. After correcting test fixture
 
 The complete settings workflow passes in Chromium and WebKit against both the development binary and one immutable release image, with fresh temporary data for each run. It saves four exact revisions, preserves ordered provider identities and complete private music snapshots, separates accounts and retains a removed reference when disabled. Only four manifest requests occur; catalog, audio, download and source mutations remain at zero. Bounded workflow-log checks and the zero-browser-error gate pass. The isolated server stops cleanly.
 
-Normal deployment remains pending. These checks do not establish live metadata availability, physical-device compatibility or public-release performance.
+The local development server runs these preferences (migration 0069). Public-release deployment remains pending. These checks do not establish live metadata availability, physical-device compatibility or public-release performance.
 
 ## Automatic lookups
 

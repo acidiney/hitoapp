@@ -131,7 +131,7 @@ The chosen-artist [discography](artist-discography.md#comparing-a-linked-album-w
 
 ## Genres and artist radio
 
-Current source behavior, covered by local tests; not deployed.
+Current behavior, covered by local tests and running on the local development server (migrations 0068 and 0069). Not a public release.
 
 **Genres.** Inspection version 6 retains the `genre` tag (ID3 `TCON`, Vorbis `GENRE`, MP4 genre atom, WAV INFO `IGNR`) as `InspectedTags.genre`, a raw source assertion like the other tags (null when absent or not yet inspected). When a file is observed, its genres are also written to `source_genres` (migration 0068): the tag is split on `;`, each name has its spacing collapsed and is cut to 64 characters, the key is the lower-cased name, and at most eight genres are kept per file. The rows are a derived read model, replaced each time the file is observed; they are not evidence, and the observation keeps the raw tag. Names without a letter or digit are ignored.
 

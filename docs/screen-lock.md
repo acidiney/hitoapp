@@ -2,7 +2,7 @@
 
 An account may set an optional numeric PIN (4 to 8 digits) to lock one of its signed-in sessions while the person steps away. The PIN never replaces the password. It is checked only for the session it unlocks, it cannot sign in, and five wrong PINs end that session so the account password is needed again.
 
-This describes behavior implemented and tested on the development tree (migration 0058). It is not deployed on the normal server.
+This describes behavior implemented and tested on the development tree (migration 0058). It runs on the local development server. It is not part of a public release.
 
 ## States of one session
 
