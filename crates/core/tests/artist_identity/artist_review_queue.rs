@@ -70,6 +70,7 @@ async fn confirm(
             ConfirmArtistReviewCandidate {
                 request_id: Uuid::new_v4(),
                 provider_artist_id: artist.into(),
+                after: None,
             },
         )
         .await
@@ -258,6 +259,7 @@ async fn a_confirmation_replays_and_a_personal_decision_wins() {
     let request = ConfirmArtistReviewCandidate {
         request_id: Uuid::new_v4(),
         provider_artist_id: NOVA.into(),
+        after: None,
     };
     let first = library
         .hito
@@ -367,5 +369,110 @@ async fn a_dismissed_candidate_leaves_the_queue_and_the_walk_does_not_bring_it_b
         confirm(&library, &credit, NOVA).await,
         Err(Error::NotFound)
     ));
+    library.origin.shutdown().await;
+}
+
+/// 260 undecided tracks of one credit, the 250 with the lowest identifiers hidden by a shared
+/// correction so that applying the candidate to them is declined.
+async fn mostly_declined() -> NameLibrary {
+    let credit = |count: usize, offset: usize| -> Vec<(String, String, u64)> {
+        (0..count)
+            .map(|index| {
+                (
+                    CREDIT.to_owned(),
+                    format!("Track {:03}", offset + index),
+                    200_000 + (offset + index) as u64 * 1_000,
+                )
+            })
+            .collect()
+    };
+    let borrowed = |entries: &[(String, String, u64)]| -> Vec<(&'static str, &'static str, u64)> {
+        entries
+            .iter()
+            .map(|(a, b, c)| {
+                (
+                    &*Box::leak(a.clone().into_boxed_str()),
+                    &*Box::leak(b.clone().into_boxed_str()),
+                    *c,
+                )
+            })
+            .collect()
+    };
+    let first = credit(100, 0);
+    let mut library = NameLibrary::prepare(&borrowed(&first)).await;
+    library
+        .import_more("second", &borrowed(&credit(100, 100)))
+        .await;
+    library
+        .import_more("third", &borrowed(&credit(60, 200)))
+        .await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT), (NAMESAKE, CREDIT)]));
+    library
+        .musicbrainz
+        .recordings_of(NOVA, nova_discography(&[]));
+    library
+        .musicbrainz
+        .recordings_of(NAMESAKE, nova_discography(&[]));
+    library.run().await;
+    library.run().await;
+    let mut ids = library.recordings.clone();
+    ids.sort();
+    let hidden: Vec<String> = ids[..250].iter().map(|id| format!("'{id}'")).collect();
+    let admin = library.actor.user().id.clone();
+    library
+        .execute_batch(&format!(
+            "PRAGMA foreign_keys=OFF;
+             INSERT INTO shared_artist_corrections(id,promoted_by,source_kind,source_change_id,change_floor) VALUES('c1','{admin}','split','change',0);
+             INSERT INTO shared_artist_correction_states(correction_seq,revision,applied,changed_by) VALUES((SELECT max(seq) FROM shared_artist_corrections),1,1,'{admin}');
+             INSERT INTO shared_artist_correction_subjects(correction_seq,recording_id,observation_id,provider_artist_id,raw_artist)
+                SELECT (SELECT max(seq) FROM shared_artist_corrections),r.id,r.metadata_observation_id,'{NOVA}','x'
+                FROM recordings r WHERE r.id IN ({});",
+            hidden.join(",")
+        ))
+        .await;
+    library
+}
+
+#[tokio::test]
+async fn a_credit_whose_first_tracks_all_decline_is_still_finished_and_leaves_the_queue() {
+    let library = mostly_declined().await;
+    let credit = credit_id(&library).await;
+    assert_eq!(queue(&library).await[0].undecided_tracks, 260);
+    let mut after = None;
+    let (mut applied, mut kept, mut steps) = (0, 0, 0);
+    loop {
+        steps += 1;
+        assert!(steps <= 5, "The steps must end");
+        let receipt = library
+            .hito
+            .artist_catalog
+            .confirm_artist_review_candidate(
+                &library.actor,
+                &credit,
+                ConfirmArtistReviewCandidate {
+                    request_id: Uuid::new_v4(),
+                    provider_artist_id: NOVA.into(),
+                    after: after.clone(),
+                },
+            )
+            .await
+            .unwrap();
+        applied += receipt.applied;
+        kept += receipt.kept;
+        match receipt.next_after {
+            Some(next) => {
+                assert_ne!(Some(&next), after.as_ref(), "Each step moves forward");
+                after = Some(next);
+            }
+            None => break,
+        }
+    }
+    assert_eq!((applied, kept, steps), (10, 250, 2));
+    assert!(
+        queue(&library).await.is_empty(),
+        "Nothing applicable remains, so the credit leaves the queue"
+    );
     library.origin.shutdown().await;
 }

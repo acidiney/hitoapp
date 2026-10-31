@@ -128,7 +128,7 @@ const OFFERED: &str = "NOT EXISTS (SELECT 1 FROM artist_review_dismissals d
 fn queued() -> String {
     format!(
         "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id)
-         SELECT a.id,a.name,u.tracks FROM undecided u
+         SELECT a.id AS id,a.name AS name,u.tracks AS tracks FROM undecided u
          JOIN account_artists a ON a.id=u.artist_id AND a.user_id=?1
          JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
          WHERE EXISTS (SELECT 1 FROM artist_name_candidates c
@@ -175,20 +175,26 @@ impl ArtistCatalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let base = queued();
-        let total: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM ({base})"))
-            .bind(actor.id())
-            .fetch_one(&mut *tx)
-            .await?;
-        let rows: Vec<(String, String, i64)> = sqlx::query_as(&format!(
-            "{base} ORDER BY u.tracks DESC,a.name,a.id LIMIT ?2 OFFSET ?3"
+        let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(&format!(
+            "SELECT id,name,tracks,count(*) OVER () FROM ({base}) ORDER BY tracks DESC,name,id LIMIT ?2 OFFSET ?3"
         ))
         .bind(actor.id())
         .bind(limit)
         .bind(offset)
         .fetch_all(&mut *tx)
         .await?;
+        let total = match rows.first() {
+            Some(first) => first.3,
+            None if offset == 0 => 0,
+            None => {
+                sqlx::query_scalar(&format!("SELECT count(*) FROM ({base})"))
+                    .bind(actor.id())
+                    .fetch_one(&mut *tx)
+                    .await?
+            }
+        };
         let mut items = Vec::with_capacity(rows.len());
-        for (artist_id, name, undecided_tracks) in rows {
+        for (artist_id, name, undecided_tracks, _) in rows {
             let candidates: Vec<ArtistReviewCandidate> = sqlx::query_as(&format!(
                 "SELECT c.provider_artist_id,c.name,c.kind,c.disambiguation,c.country,
                         c.corroborated_titles,
@@ -289,20 +295,30 @@ impl ArtistCatalog {
         if !offered {
             return Err(Error::NotFound);
         }
-        let filter = "AND rc.artist_id=?2";
-        let total: i64 =
-            sqlx::query_scalar(&format!("SELECT count(*) FROM ({})", undecided(filter)))
-                .bind(actor.id())
-                .bind(artist)
-                .fetch_one(&mut *tx)
-                .await?;
+        let after = request.after.as_deref().unwrap_or_default();
+        if after.len() > MAX_ID_LENGTH {
+            return Err(Error::NotFound);
+        }
+        let credit_only = "AND rc.artist_id=?2";
+        let from_cursor = "AND rc.artist_id=?2 AND r.id>?4";
+        let ahead: i64 = sqlx::query_scalar(&format!(
+            "SELECT count(*) FROM ({})",
+            undecided(from_cursor)
+        ))
+        .bind(actor.id())
+        .bind(artist)
+        .bind(0_i64)
+        .bind(after)
+        .fetch_one(&mut *tx)
+        .await?;
         let targets: Vec<String> = sqlx::query_scalar(&format!(
             "SELECT id FROM ({}) ORDER BY id LIMIT ?3",
-            undecided(filter)
+            undecided(from_cursor)
         ))
         .bind(actor.id())
         .bind(artist)
         .bind(MAX_APPLIED)
+        .bind(after)
         .fetch_all(&mut *tx)
         .await?;
         let mut pending = Vec::new();
@@ -322,7 +338,8 @@ impl ArtistCatalog {
                 Planned::Declined { .. } => kept += 1,
             }
         }
-        let remaining = total - targets.len() as i64;
+        let remaining = ahead - targets.len() as i64;
+        let next_after = targets.last().filter(|_| remaining > 0).cloned();
         let receipt = ArtistReviewConfirmation {
             request_id: request.request_id,
             artist_id: artist.into(),
@@ -330,19 +347,30 @@ impl ArtistCatalog {
             applied: pending.len() as i64,
             kept,
             remaining,
+            next_after,
         };
         let order = receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
         commit(&mut tx, actor, &pending, order).await?;
-        if remaining == 0 && kept > 0 {
-            sqlx::query(
-                "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id)
-                 SELECT user_id,artist_id,provider_artist_id FROM artist_name_candidates
-                 WHERE user_id=? AND artist_id=?",
-            )
+        if remaining == 0 {
+            let left: i64 = sqlx::query_scalar(&format!(
+                "SELECT count(*) FROM ({})",
+                undecided(credit_only)
+            ))
             .bind(actor.id())
             .bind(artist)
-            .execute(&mut *tx)
+            .fetch_one(&mut *tx)
             .await?;
+            if left > 0 {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id)
+                     SELECT user_id,artist_id,provider_artist_id FROM artist_name_candidates
+                     WHERE user_id=? AND artist_id=?",
+                )
+                .bind(actor.id())
+                .bind(artist)
+                .execute(&mut *tx)
+                .await?;
+            }
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;

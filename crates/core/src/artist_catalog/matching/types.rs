@@ -124,6 +124,8 @@ pub struct ArtistReviewItem {
 pub struct ConfirmArtistReviewCandidate {
     pub request_id: Uuid,
     pub provider_artist_id: String,
+    /// The `next_after` of the previous step, to continue past tracks that step examined.
+    pub after: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
@@ -135,8 +137,9 @@ pub struct ArtistReviewConfirmation {
     pub applied: i64,
     /// Tracks left as they were because of an earlier personal decision.
     pub kept: i64,
-    /// Undecided tracks the request did not reach; asking again continues.
+    /// Undecided tracks the request did not reach; asking again with `next_after` continues.
     pub remaining: i64,
+    pub next_after: Option<String>,
 }
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]

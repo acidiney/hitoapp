@@ -133,3 +133,86 @@ async fn suggestions_for_a_credit_with_many_namesake_groups_stay_in_budget() {
         "Suggestions used {work} VM steps for {GROUPS} groups against {SUGGESTION_BUDGET}"
     );
 }
+
+const QUEUE_CREDITS: usize = 60;
+const QUEUE_TRACKS: usize = 40;
+const QUEUE_BUDGET: u64 = 300_000;
+
+#[tokio::test]
+async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
+    let (_directory, hito, actor, library, _music) = support::library("artist-queue-work").await;
+    let pool = &hito.catalog.store.pool;
+    let mut connection = pool.acquire().await.unwrap();
+    sqlx::raw_sql("PRAGMA foreign_keys=OFF")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    let mut tx = sqlx::Connection::begin(&mut *connection).await.unwrap();
+    for credit in 0..QUEUE_CREDITS {
+        let artist = format!("credit-{credit:03}");
+        sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES(?,?,?,?)")
+            .bind(actor.id())
+            .bind(&artist)
+            .bind(&library)
+            .bind(format!("Credit {credit:03}"))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        for provider in ["a", "b", "c"] {
+            sqlx::query("INSERT INTO artist_name_candidates(user_id,artist_id,provider_artist_id,position,name,corroborated_titles) VALUES(?,?,?,0,'Name',0)")
+                .bind(actor.id())
+                .bind(&artist)
+                .bind(format!("{provider}-{credit}"))
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+        for track in 0..QUEUE_TRACKS {
+            let recording = format!("queue-{credit:03}-{track:03}");
+            sqlx::query("INSERT INTO recordings(id,library_id,title,artist,metadata_observation_id) VALUES(?1,?2,?1,'Seed','observation')")
+                .bind(&recording)
+                .bind(&library)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO account_recording_credits(user_id,recording_id,artist_id) VALUES(?,?,?)")
+                .bind(actor.id())
+                .bind(&recording)
+                .bind(&artist)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO artist_name_checks(user_id,recording_id,observation_id,rule) VALUES(?,?,'observation',?)")
+                .bind(actor.id())
+                .bind(&recording)
+                .bind(super::name_discography::NAME_RULE)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+    }
+    tx.commit().await.unwrap();
+    drop(connection);
+    let meter = WorkMeter::install(pool).await;
+    let (page, work) = meter
+        .measure(hito.artist_catalog.artist_review_queue(
+            &actor,
+            crate::ArtistReviewQueueQuery {
+                offset: Some(0),
+                limit: Some(50),
+            },
+        ))
+        .await;
+    meter.remove(pool).await;
+    let page = page.unwrap();
+    eprintln!(
+        "Artist review queue VM_steps credits={QUEUE_CREDITS} tracks={QUEUE_TRACKS} work={work}"
+    );
+    assert_eq!((page.total, page.items.len()), (QUEUE_CREDITS as i64, 50));
+    assert!(page.items.iter().all(|item| item.candidates.len() == 3));
+    assert!(
+        work < QUEUE_BUDGET,
+        "The queue used {work} VM steps for {} checked recordings against {QUEUE_BUDGET}",
+        QUEUE_CREDITS * QUEUE_TRACKS
+    );
+}

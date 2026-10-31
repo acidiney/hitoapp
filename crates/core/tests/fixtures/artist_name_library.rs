@@ -29,6 +29,7 @@ pub struct NameLibrary {
     pub origin: provider::ProviderServer,
     pub recordings: Vec<String>,
     directory: tempfile::TempDir,
+    installation: (String, i64),
 }
 
 /// Provider evidence an imported recording states about itself.
@@ -121,7 +122,64 @@ impl NameLibrary {
             origin,
             recordings,
             directory,
+            installation: (installation.id.clone(), installation.revision),
         }
+    }
+
+    /// Imports one more playlist of recordings without evidence, each listed as (credit, title,
+    /// length), because one playlist page holds at most 100 items. The recordings are appended.
+    pub async fn import_more(&mut self, name: &str, entries: &[(&str, &str, u64)]) {
+        let first = self.recordings.len();
+        provider::playlist(
+            &self.origin,
+            name,
+            &format!("{name}-v1"),
+            entries
+                .iter()
+                .enumerate()
+                .map(|(index, (credit, title, length))| {
+                    imported(first + index, credit, title, *length, &Evidence::default())
+                })
+                .collect(),
+        )
+        .await;
+        let receipt = self
+            .hito
+            .collection
+            .import_provider_playlist(
+                &self.actor,
+                &self.installation.0,
+                ImportProviderPlaylist {
+                    request_id: Uuid::new_v4(),
+                    installation_revision: self.installation.1,
+                    playlist_reference: format!("https://provider.invalid/{name}"),
+                },
+            )
+            .await
+            .unwrap();
+        let playlist = self
+            .hito
+            .collection
+            .playlist(&self.actor, &receipt.playlist_id.to_string())
+            .await
+            .unwrap();
+        self.recordings.extend(
+            playlist
+                .entries
+                .iter()
+                .map(|entry| entry.recording_id.clone().unwrap()),
+        );
+    }
+
+    /// Runs statements that need foreign keys off, for states no capability produces.
+    pub async fn execute_batch(&self, sql: &str) {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=rw",
+            self.directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        sqlx::raw_sql(sql).execute(&mut connection).await.unwrap();
     }
 
     /// The default library: the four `TRACKS` of one credit.
