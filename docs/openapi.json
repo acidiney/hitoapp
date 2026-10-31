@@ -4686,6 +4686,76 @@
         ]
       }
     },
+    "/api/v1/libraries/{library}/missing-recordings": {
+      "delete": {
+        "operationId": "remove_missing_recordings",
+        "parameters": [
+          {
+            "name": "library",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingRecordingsRemoval"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/libraries/{library}/scan": {
       "post": {
         "operationId": "scan_library",
@@ -20404,6 +20474,30 @@
           "revision": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "MissingRecordingsRemoval": {
+        "type": "object",
+        "required": [
+          "removed",
+          "kept_referenced",
+          "more"
+        ],
+        "properties": {
+          "kept_referenced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings whose files are gone but that an account still uses, which stay."
+          },
+          "more": {
+            "type": "boolean",
+            "description": "More removable recordings remain; run the action again."
+          },
+          "removed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings removed by this call."
           }
         }
       },

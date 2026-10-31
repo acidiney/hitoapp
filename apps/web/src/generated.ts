@@ -772,6 +772,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/libraries/{library}/missing-recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove_missing_recordings"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/libraries/{library}/scan": {
         parameters: {
             query?: never;
@@ -3638,6 +3654,20 @@ export interface components {
             providers: components["schemas"]["MetadataProvider"][];
             /** Format: int64 */
             revision: number;
+        };
+        MissingRecordingsRemoval: {
+            /**
+             * Format: int64
+             * @description Recordings whose files are gone but that an account still uses, which stay.
+             */
+            kept_referenced: number;
+            /** @description More removable recordings remain; run the action again. */
+            more: boolean;
+            /**
+             * Format: int64
+             * @description Recordings removed by this call.
+             */
+            removed: number;
         };
         /** @enum {string} */
         MusicBrainzArtistRole: "artist" | "album_artist";
@@ -8541,6 +8571,59 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_missing_recordings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                library: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingRecordingsRemoval"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
