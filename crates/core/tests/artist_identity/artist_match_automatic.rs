@@ -421,3 +421,47 @@ async fn the_walk_reads_the_genres_of_the_artist_it_matched_for_imported_tracks(
         .unwrap();
     assert_eq!(status.last_matched, 4, "genre reads are not matches");
 }
+
+fn many_credits(count: usize) -> Vec<(String, &'static str, u64)> {
+    (0..count)
+        .flat_map(|index| {
+            [("First Song", 100_000), ("Second Song", 120_000)]
+                .map(|(title, length)| (format!("Outage Credit {index:02}"), title, length))
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn an_outage_over_many_batches_schedules_a_later_walk_instead_of_finishing() {
+    let entries = many_credits(24);
+    let borrowed: Vec<(&str, &str, u64)> = entries
+        .iter()
+        .map(|(credit, title, length)| (credit.as_str(), *title, *length))
+        .collect();
+    let library = NameLibrary::prepare(&borrowed).await;
+    for (credit, ..) in &entries {
+        library.musicbrainz.search(credit, Reply::Unavailable);
+    }
+    library.automatic().await;
+
+    assert_eq!(
+        library.rows("artist_matching_jobs").await,
+        1,
+        "A walk whose lookups were unavailable is repeated, not finished"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT attempts FROM artist_matching_jobs")
+            .await,
+        "1",
+        "The attempts count walks, not batches"
+    );
+    assert_eq!(
+        library
+            .scalar("SELECT next_run_at > unixepoch() + 60 FROM artist_matching_jobs")
+            .await,
+        "1",
+        "The retry waits"
+    );
+    assert_eq!(library.rows("artist_name_checks").await, 0);
+}

@@ -9,7 +9,9 @@ use std::time::Instant;
 use uuid::Uuid;
 
 const LEASE_SECONDS: i64 = 90;
-const MAX_ATTEMPTS: i64 = 6;
+/// Walks that met an unavailable provider are repeated this many times, with the delay doubling
+/// from two minutes up to an hour.
+const MAX_ATTEMPTS: i64 = 8;
 const BUSY_RETRY_SECONDS: i64 = 2;
 
 #[derive(FromRow)]
@@ -18,6 +20,7 @@ struct Job {
     phase: String,
     cursor: Option<String>,
     rerun: bool,
+    unavailable: bool,
     attempts: i64,
     matched: i64,
     lease_token: String,
@@ -53,7 +56,8 @@ pub(crate) async fn request_for_account(
         "INSERT INTO artist_matching_jobs(user_id,next_run_at) VALUES(?,unixepoch())
          ON CONFLICT(user_id) DO UPDATE SET rerun = CASE
             WHEN (lease_token IS NOT NULL AND lease_until > unixepoch()) OR cursor IS NOT NULL OR phase <> 'tags'
-            THEN 1 ELSE rerun END",
+            THEN 1 ELSE rerun END,
+            next_run_at = MIN(next_run_at,unixepoch())",
     )
     .bind(account)
     .execute(connection)
@@ -189,7 +193,7 @@ impl ArtistCatalog {
              WHERE user_id = (SELECT user_id FROM artist_matching_jobs
                 WHERE next_run_at <= unixepoch() AND (lease_token IS NULL OR lease_until <= unixepoch())
                 ORDER BY requested_at,user_id LIMIT 1)
-             RETURNING user_id,phase,cursor,rerun,attempts,matched,lease_token",
+             RETURNING user_id,phase,cursor,rerun,unavailable,attempts,matched,lease_token",
         )
         .bind(&token)
         .bind(LEASE_SECONDS)
@@ -298,18 +302,19 @@ impl ArtistCatalog {
                 unavailable,
                 matched,
             } => {
-                sqlx::query("UPDATE artist_matching_jobs SET phase = ?,cursor = ?,matched = matched + ?,
-                    rerun = rerun OR ?,attempts = attempts + ?,lease_token = NULL,lease_until = NULL,
-                    next_run_at = unixepoch() WHERE user_id = ? AND lease_token = ?")
-                    .bind(phase)
-                    .bind(cursor)
-                    .bind(matched)
-                    .bind(unavailable)
-                    .bind(i64::from(unavailable))
-                    .bind(&job.user_id)
-                    .bind(&job.lease_token)
-                    .execute(&mut *tx)
-                    .await?;
+                sqlx::query(
+                    "UPDATE artist_matching_jobs SET phase = ?,cursor = ?,matched = matched + ?,
+                    unavailable = unavailable OR ?,lease_token = NULL,lease_until = NULL,
+                    next_run_at = unixepoch() WHERE user_id = ? AND lease_token = ?",
+                )
+                .bind(phase)
+                .bind(cursor)
+                .bind(matched)
+                .bind(unavailable)
+                .bind(&job.user_id)
+                .bind(&job.lease_token)
+                .execute(&mut *tx)
+                .await?;
                 "advanced"
             }
             Step::Complete {
@@ -342,23 +347,31 @@ impl ArtistCatalog {
                 .bind(&job.user_id)
                 .execute(&mut *tx)
                 .await?;
+                let unavailable = job.unavailable || unavailable;
                 let attempts = job.attempts + i64::from(unavailable);
-                if (job.rerun || unavailable) && attempts < MAX_ATTEMPTS {
-                    let delay = if attempts == 0 {
-                        0
-                    } else {
+                if unavailable && attempts >= MAX_ATTEMPTS {
+                    delete(&mut tx, job).await?;
+                    "abandoned"
+                } else if job.rerun || unavailable {
+                    let delay = if unavailable {
                         (60i64 << attempts.min(6)).min(3600)
+                    } else {
+                        0
                     };
-                    sqlx::query("UPDATE artist_matching_jobs SET phase = 'tags',cursor = NULL,rerun = 0,matched = 0,
+                    sqlx::query("UPDATE artist_matching_jobs SET phase = 'tags',cursor = NULL,rerun = 0,unavailable = 0,matched = 0,
                         attempts = ?,lease_token = NULL,lease_until = NULL,next_run_at = unixepoch() + ?
                         WHERE user_id = ? AND lease_token = ?")
-                        .bind(attempts)
+                        .bind(if unavailable { attempts } else { 0 })
                         .bind(delay)
                         .bind(&job.user_id)
                         .bind(&job.lease_token)
                         .execute(&mut *tx)
                         .await?;
-                    "rescheduled"
+                    if unavailable {
+                        "retry_scheduled"
+                    } else {
+                        "rescheduled"
+                    }
                 } else {
                     delete(&mut tx, job).await?;
                     "complete"

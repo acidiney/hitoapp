@@ -27,6 +27,8 @@ pub mod match_schema;
 pub mod musicbrainz_genres_schema;
 #[path = "artist_name_match_schema.rs"]
 pub mod name_match_schema;
+#[path = "name_rule_schema.rs"]
+pub mod name_rule_schema;
 #[path = "pin_lock_schema.rs"]
 pub mod pin_schema;
 #[path = "artist_provider_evidence_schema.rs"]
@@ -380,6 +382,10 @@ pub async fn reference_71() -> SqliteConnection {
     credit_matches_schema::reference(reference_70().await).await
 }
 
+pub async fn reference_72() -> SqliteConnection {
+    name_rule_schema::reference(reference_71().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -406,6 +412,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         69 => reference_69().await,
         70 => reference_70().await,
         71 => reference_71().await,
+        72 => reference_72().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -519,6 +526,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 71),
+    )
+    .chain(
+        name_rule_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 72),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
