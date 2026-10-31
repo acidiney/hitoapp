@@ -91,7 +91,7 @@ test("one click on Confirm applies the candidate and the row leaves the collapse
   });
   await expect(confirm, "collapsed by default").toBeHidden();
 
-  await summary.focus();
+  await page.locator(".review-queue summary").focus();
   await page.keyboard.press("Enter");
   await expect(confirm).toBeVisible();
   await expect(page.getByText(/Brazilian jazz trio/)).toBeVisible();
