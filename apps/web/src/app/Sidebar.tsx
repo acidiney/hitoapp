@@ -1,6 +1,6 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
-import { Home, Library, Plus, Search } from "lucide-react";
+import { Compass, Home, Library, Plus, Search } from "lucide-react";
 import BrandMark from "../shared/ui/BrandMark";
 import { coverStyle } from "../shared/ui/coverPalette";
 
@@ -44,6 +44,14 @@ export default function Sidebar({
           <Search size={18} aria-hidden="true" />
           Search
           <kbd aria-hidden="true">{shortcut.text}</kbd>
+        </Link>
+        <Link
+          href="/discover"
+          aria-current={destination === "discover" ? "page" : undefined}
+          onClick={mark("/discover")}
+        >
+          <Compass size={18} aria-hidden="true" />
+          Discover
         </Link>
         <Link
           href="/library"

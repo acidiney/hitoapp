@@ -36,6 +36,8 @@ const props: Schema<"DiscoverPageProps"> = {
   playlists: [],
   connections: [connection],
   service_names: { service: "Home collection" },
+  genres: [],
+  artists: { items: [], total: 0, offset: 0, limit: 6 },
 };
 
 test("discovery searches the selected service and offers explicit play and library actions", async () => {

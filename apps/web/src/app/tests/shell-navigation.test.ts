@@ -54,17 +54,19 @@ function account(path: string, pin = true) {
   );
 }
 
-test("the main navigation offers Home, Search and Library links", () => {
+test("the main navigation offers Home, Search, Discover and Library links", () => {
   const navigation = sidebar("/library");
   const links = within(navigation).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
     "Home",
     "Search⌘K",
+    "Discover",
     "Library",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/home",
     "/search",
+    "/discover",
     "/library",
   ]);
   const search = links[1];
@@ -87,7 +89,8 @@ test.each([
   ["/recordings/r1", "Library"],
   ["/home", "Home"],
   ["/search", "Search⌘K"],
-  ["/discover", "Search⌘K"],
+  ["/discover", "Discover"],
+  ["/genres", "Discover"],
 ])("%s marks %s as the current destination", (path, current) => {
   const navigation = sidebar(path);
   const marked = within(navigation)
