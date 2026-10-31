@@ -243,7 +243,12 @@ fn provider_content() -> Vec<String> {
         INSTALLATIONS,
     ));
     plan.extend(within(
-        &["source_artist_credits", "source_genres", "source_metadata"],
+        &[
+            "source_artist_credits",
+            "source_genres",
+            "source_metadata",
+            "source_unavailability",
+        ],
         "source_id",
         SOURCES,
     ));
