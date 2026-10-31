@@ -13,6 +13,7 @@ mod legacy;
 pub(crate) mod local_path;
 mod managed;
 mod metadata_owner;
+mod missing;
 mod observations;
 mod persistence;
 mod resolution;
@@ -34,6 +35,7 @@ pub use folder_types::{ConnectFolder, DirectoryRef, MusicFolder};
 pub(crate) use inspection::FileInspector;
 pub(crate) use managed::managed_mime;
 pub(crate) use managed::{MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles};
+pub use missing::MissingRecordingsRemoval;
 pub(crate) use root::Root;
 pub use types::Job;
 #[cfg(feature = "test-support")]

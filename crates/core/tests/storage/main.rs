@@ -8,3 +8,4 @@ mod storage_host_directories;
 mod storage_hosts;
 mod storage_jobs;
 mod storage_media;
+mod storage_missing_recordings;
