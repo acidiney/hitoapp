@@ -40,4 +40,5 @@ mod artist_match_suggestions;
 mod artist_match_tags;
 mod artist_matching_upgrade;
 mod artist_name_check_rule_upgrade;
+mod artist_name_match_rule_upgrade;
 mod artist_provider_evidence_upgrade;
