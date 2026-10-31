@@ -278,9 +278,11 @@ mod tests {
     use crate::store::Store;
     use std::collections::BTreeSet;
 
-    const OUTSIDE_THE_ACCOUNT_GRAPH: [&str; 4] = [
+    const OUTSIDE_THE_ACCOUNT_GRAPH: [&str; 6] = [
         "correction_erasure_scopes",
         "erased_download_files",
+        "musicbrainz_genre_lookups",
+        "musicbrainz_genres",
         "plugin_services",
         "podcast_request_total",
     ];
