@@ -1,6 +1,7 @@
 mod apply;
 mod credit;
 mod name_discography;
+mod name_probe;
 mod provider_evidence;
 mod settle;
 mod suggestions;

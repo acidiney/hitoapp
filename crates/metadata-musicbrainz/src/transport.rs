@@ -5,6 +5,8 @@ use tokio::{sync::Mutex, time::Instant};
 const MAX_PROFILE_BODY_BYTES: usize = 65_536;
 const MAX_BROWSE_BODY_BYTES: usize = 1_048_576;
 const MAX_SEARCH_BODY_BYTES: usize = 262_144;
+/// A recording search result lists every release of the recording, so a page is large.
+const MAX_RECORDING_SEARCH_BODY_BYTES: usize = 2_097_152;
 
 #[derive(Clone)]
 pub(super) struct Transport {
@@ -150,22 +152,18 @@ impl Transport {
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
     }
 
-    pub(super) async fn artist_recordings(
-        &self,
-        artist_id: &str,
-        offset: u32,
-    ) -> Result<Vec<u8>, Error> {
+    pub(super) async fn recording_search(&self, query: &str) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint
             .join("recording")
             .map_err(|_| Error::Configuration)?;
         endpoint.query_pairs_mut().extend_pairs([
-            ("artist", artist_id),
+            ("query", query),
             ("fmt", "json"),
-            ("limit", "100"),
-            ("offset", &offset.to_string()),
+            ("limit", &crate::identifiers::PROBE_RESULT_LIMIT.to_string()),
+            ("offset", "0"),
         ]);
-        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+        self.json(endpoint, MAX_RECORDING_SEARCH_BODY_BYTES).await
     }
 
     pub(super) async fn isrc(&self, isrc: &str) -> Result<Vec<u8>, Error> {

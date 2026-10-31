@@ -4,6 +4,7 @@ use super::{
     ArtistProviderMatchReceipt,
     apply::{self, EvidenceKind, Planned, plan},
     credit,
+    name_discography::NAME_RULE,
 };
 use crate::artist_catalog::{MetadataProvider, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Result};
@@ -29,15 +30,6 @@ pub(super) struct Examined {
 pub(super) enum Checks {
     Evidence,
     Name,
-}
-
-impl Checks {
-    fn table(self) -> &'static str {
-        match self {
-            Self::Evidence => "artist_provider_checks",
-            Self::Name => "artist_name_checks",
-        }
-    }
 }
 
 pub(super) struct Settlement<'a> {
@@ -155,15 +147,25 @@ impl ArtistCatalog {
                     uncertain -= 1;
                 }
             } else {
-                sqlx::query(&format!(
-                    "INSERT INTO {}(user_id,recording_id,observation_id,artist_operation_id) VALUES(?,?,?,?)
-                     ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id=excluded.observation_id,artist_operation_id=excluded.artist_operation_id",
-                    checks.table()
-                ))
-                .bind(actor.id())
-                .bind(&item.recording)
-                .bind(&item.observation)
-                .bind(&item.operation)
+                let remembered = match checks {
+                    Checks::Evidence => sqlx::query(
+                        "INSERT INTO artist_provider_checks(user_id,recording_id,observation_id,artist_operation_id) VALUES(?,?,?,?)
+                         ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id=excluded.observation_id,artist_operation_id=excluded.artist_operation_id",
+                    ),
+                    Checks::Name => sqlx::query(
+                        "INSERT INTO artist_name_checks(user_id,recording_id,observation_id,artist_operation_id,rule) VALUES(?,?,?,?,?)
+                         ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id=excluded.observation_id,artist_operation_id=excluded.artist_operation_id,rule=excluded.rule",
+                    ),
+                };
+                let remembered = remembered
+                    .bind(actor.id())
+                    .bind(&item.recording)
+                    .bind(&item.observation)
+                    .bind(&item.operation);
+                match checks {
+                    Checks::Evidence => remembered,
+                    Checks::Name => remembered.bind(NAME_RULE),
+                }
                 .execute(&mut *tx)
                 .await?;
             }

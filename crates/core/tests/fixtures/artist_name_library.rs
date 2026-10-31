@@ -52,7 +52,6 @@ pub fn nova_discography(
     items: &[(&str, Option<u64>)],
 ) -> hito_core::test_support::musicbrainz::Reply {
     hito_core::test_support::musicbrainz::Reply::Discography(
-        items.len() as u32,
         items
             .iter()
             .map(|(title, length)| ((*title).to_owned(), *length))
@@ -240,6 +239,17 @@ impl NameLibrary {
             assert!(steps < 40, "The automatic walk must end");
         }
         steps
+    }
+
+    /// Runs a statement against the database, for states no capability produces.
+    pub async fn execute(&self, sql: &str) {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=rw",
+            self.directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        sqlx::query(sql).execute(&mut connection).await.unwrap();
     }
 
     pub async fn rows(&self, table: &str) -> i64 {

@@ -273,13 +273,10 @@ async fn a_credit_is_matched_by_name_only_when_the_artists_recordings_corroborat
     );
     musicbrainz.recordings_of(
         ARTIST,
-        Reply::Discography(
-            2,
-            vec![
-                ("First Song".into(), Some(100_500)),
-                ("second song".into(), Some(120_000)),
-            ],
-        ),
+        Reply::Discography(vec![
+            ("First Song".into(), Some(100_500)),
+            ("second song".into(), Some(120_000)),
+        ]),
     );
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");

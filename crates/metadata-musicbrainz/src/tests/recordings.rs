@@ -1,5 +1,5 @@
 use super::http::{Capture, Fixture, Reply};
-use crate::{ArtistRecording, ArtistRecordings, Error, MusicBrainzClient};
+use crate::{ArtistRecording, ArtistRecordings, Error, MusicBrainzClient, RecordingProbe};
 use axum::http::StatusCode;
 use serde_json::{Value, json};
 use tracing::instrument::WithSubscriber;
@@ -10,30 +10,44 @@ const PRIVATE_TITLE: &str = "private-recording-title-canary";
 fn recording(index: u32, length: Option<u64>) -> Value {
     json!({
         "id": format!("0f700000-0000-4000-8000-{index:012x}"),
+        "score": 100,
         "title": format!("{PRIVATE_TITLE} {index}"),
         "length": length,
         "video": false,
-        "disambiguation": ""
+        "disambiguation": "",
+        "releases": [{"id": "0f700000-0000-4000-8000-0000000000e1", "title": "release"}]
     })
 }
 
 fn page(count: u32, offset: u32, recordings: Vec<Value>) -> Reply {
     Reply::json(
         serde_json::to_vec(&json!({
-            "recording-count": count,
-            "recording-offset": offset,
+            "created": "2026-10-31T17:00:00.000Z",
+            "count": count,
+            "offset": offset,
             "recordings": recordings
         }))
         .unwrap(),
     )
 }
 
-async fn browse(reply: Reply) -> (Result<ArtistRecordings, Error>, Capture, Vec<String>) {
+fn probe(title: &str, length: u64) -> RecordingProbe {
+    RecordingProbe {
+        title: title.into(),
+        min_length_ms: length - 2000,
+        max_length_ms: length + 2000,
+    }
+}
+
+async fn ask(
+    reply: Reply,
+    probes: &[RecordingProbe],
+) -> (Result<ArtistRecordings, Error>, Capture, Vec<String>) {
     let fixture = Fixture::start(vec![reply]).await;
     let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
     let capture = Capture::default();
     let result = client
-        .artist_recordings(ARTIST)
+        .artist_recordings_matching(ARTIST, probes)
         .with_subscriber(capture.dispatch())
         .await;
     let requests = fixture.requests().iter().map(ToString::to_string).collect();
@@ -41,13 +55,25 @@ async fn browse(reply: Reply) -> (Result<ArtistRecordings, Error>, Capture, Vec<
     (result, capture, requests)
 }
 
+fn decoded(target: &str) -> String {
+    reqwest::Url::parse(&format!("http://owned.invalid{target}"))
+        .unwrap()
+        .query_pairs()
+        .find(|(name, _)| name == "query")
+        .unwrap()
+        .1
+        .into_owned()
+}
+
 #[tokio::test]
-async fn an_artist_recordings_browse_returns_titles_and_lengths_of_the_first_page() {
-    let (result, capture, requests) = browse(page(
-        2,
-        0,
-        vec![recording(1, Some(200_000)), recording(2, None)],
-    ))
+async fn a_probe_search_asks_for_each_title_and_length_range_and_returns_titles_and_lengths() {
+    let (result, capture, requests) = ask(
+        page(2, 0, vec![recording(1, Some(200_000)), recording(2, None)]),
+        &[
+            probe("Shape of You", 234_000),
+            probe("Say \"Hi\": (Live)", 90_000),
+        ],
+    )
     .await;
     let recordings = result.unwrap();
     assert_eq!(recordings.total, 2);
@@ -67,40 +93,55 @@ async fn an_artist_recordings_browse_returns_titles_and_lengths_of_the_first_pag
             },
         ]
     );
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0].starts_with("/ws/2/recording?query="),
+        "{}",
+        requests[0]
+    );
+    assert!(
+        requests[0].ends_with("&fmt=json&limit=40&offset=0"),
+        "{}",
+        requests[0]
+    );
     assert_eq!(
-        requests,
-        vec![format!(
-            "/ws/2/recording?artist={ARTIST}&fmt=json&limit=100&offset=0"
-        )]
+        decoded(&requests[0]),
+        format!(
+            "arid:{ARTIST} AND ((recording:\"Shape of You\" AND dur:[232000 TO 236000]) OR (recording:\"Say \\\"Hi\\\"\\: \\(Live\\)\" AND dur:[88000 TO 92000]))"
+        )
     );
     let logs = capture.text();
     assert!(logs.contains("MusicBrainz artist recordings completed"));
-    for private in [ARTIST, PRIVATE_TITLE] {
+    for private in [ARTIST, PRIVATE_TITLE, "Shape of You"] {
         assert!(!logs.contains(private), "logs must not carry {private}");
     }
 }
 
 #[tokio::test]
-async fn a_browse_larger_than_one_page_is_reported_incomplete() {
-    let items: Vec<Value> = (1..=100)
-        .map(|index| recording(index, Some(1000)))
-        .collect();
-    let recordings = browse(page(250, 0, items)).await.0.unwrap();
-    assert_eq!(recordings.items.len(), 100);
-    assert_eq!(recordings.total, 250);
+async fn a_search_with_more_matches_than_the_page_is_reported_incomplete() {
+    let items: Vec<Value> = (1..=40).map(|index| recording(index, Some(1000))).collect();
+    let recordings = ask(page(55, 0, items), &[probe("Song", 100_000)])
+        .await
+        .0
+        .unwrap();
+    assert_eq!(recordings.items.len(), 40);
+    assert_eq!(recordings.total, 55);
     assert!(!recordings.complete());
 }
 
 #[tokio::test]
-async fn an_unknown_artist_is_empty_an_outage_is_typed_and_invalid_answers_are_rejected() {
+async fn no_match_is_empty_an_outage_is_typed_and_invalid_answers_are_rejected() {
+    let probes = [probe("Song", 100_000)];
     let mut missing = Reply::json(br#"{"error":"Not Found"}"#.to_vec());
     missing.status = StatusCode::NOT_FOUND;
-    let empty = browse(missing).await.0.unwrap();
+    let empty = ask(missing, &probes).await.0.unwrap();
     assert!(empty.items.is_empty() && empty.complete());
+    assert!(ask(page(0, 0, vec![]), &probes).await.0.unwrap().complete());
 
-    let mut outage = Reply::json(b"busy".to_vec());
+    let mut outage =
+        Reply::json(br#"{"error":"The MusicBrainz web server is currently busy."}"#.to_vec());
     outage.status = StatusCode::SERVICE_UNAVAILABLE;
-    let (result, _, requests) = browse(outage).await;
+    let (result, _, requests) = ask(outage, &probes).await;
     assert_eq!(result.unwrap_err(), Error::Status(503));
     assert_eq!(requests.len(), 1);
 
@@ -117,20 +158,47 @@ async fn an_unknown_artist_is_empty_an_outage_is_typed_and_invalid_answers_are_r
         page(
             101,
             0,
-            (1..=101).map(|index| recording(index, Some(1))).collect(),
+            (1..=41).map(|index| recording(index, Some(1))).collect(),
         ),
     ] {
-        assert_eq!(browse(invalid).await.0.unwrap_err(), Error::InvalidLookup);
+        assert_eq!(
+            ask(invalid, &probes).await.0.unwrap_err(),
+            Error::InvalidLookup
+        );
     }
 }
 
 #[tokio::test]
-async fn a_noncanonical_artist_identifier_makes_no_request() {
+async fn an_invalid_artist_or_probe_makes_no_request() {
     let fixture = Fixture::start(vec![]).await;
     let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
+    let probes = [probe("Song", 100_000)];
     for invalid in ["nope", "0F700000-0000-4000-8000-0000000000B1", "../artist"] {
         assert_eq!(
-            client.artist_recordings(invalid).await.unwrap_err(),
+            client
+                .artist_recordings_matching(invalid, &probes)
+                .await
+                .unwrap_err(),
+            Error::InvalidLookupRequest
+        );
+    }
+    let seven: Vec<RecordingProbe> = (0..7).map(|_| probe("Song", 100_000)).collect();
+    for invalid in [
+        Vec::new(),
+        seven,
+        vec![probe("  ", 100_000)],
+        vec![RecordingProbe {
+            title: "Song".into(),
+            min_length_ms: 5,
+            max_length_ms: 4,
+        }],
+        vec![probe(&"x".repeat(513), 100_000)],
+    ] {
+        assert_eq!(
+            client
+                .artist_recordings_matching(ARTIST, &invalid)
+                .await
+                .unwrap_err(),
             Error::InvalidLookupRequest
         );
     }

@@ -25,9 +25,11 @@ pub enum Reply {
     CandidatesOf(Vec<(String, String)>, u32),
     /// A search page with explicit relevance scores and a stated total.
     Scored(Vec<(String, String, u32)>, u32),
-    /// The first page of an artist's recordings: the total MusicBrainz states, then each title
-    /// with its length in milliseconds.
-    Discography(u32, Vec<(String, Option<u64>)>),
+    /// Every recording of an artist, each title with its length in milliseconds. A recording
+    /// search answers with the recordings whose title contains a probe's title as a phrase of words and
+    /// whose length lies in the probe's range, at most one page of them, and states how many
+    /// match in all.
+    Discography(Vec<(String, Option<u64>)>),
     /// One browse page of release groups, each with its identifier and primary type.
     ReleaseGroups(Vec<(String, Option<String>)>),
     /// The official genres of one entity, each with its name and vote count.
@@ -41,6 +43,8 @@ struct State_ {
     replies: HashMap<String, Reply>,
     requests: Vec<String>,
     delay: Duration,
+    /// Keys that answer this many requests normally and then fail as unavailable.
+    failing_after: HashMap<String, usize>,
 }
 
 /// An owned loopback stand-in for the MusicBrainz web service.
@@ -137,6 +141,15 @@ impl FakeMusicBrainz {
             .insert(format!("genres/{entity}/{id}"), reply);
     }
 
+    /// Makes the recordings browse of one artist answer this many requests, then fail with 503.
+    pub fn recordings_fail_after(&self, artist: &str, answered: usize) {
+        self.state
+            .lock()
+            .unwrap()
+            .failing_after
+            .insert(format!("recordings/{artist}"), answered);
+    }
+
     pub fn delay_replies(&self, delay: Duration) {
         self.state.lock().unwrap().delay = delay;
     }
@@ -181,6 +194,55 @@ fn normalized(text: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase()
+}
+
+/// The phrases and length ranges a recording search asks about, in the shape
+/// `(recording:"phrase" AND dur:[low TO high])`. Phrases are returned normalized and unescaped.
+fn words(text: &str) -> Vec<String> {
+    text.split(|character: char| !character.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+/// Whether the title's words contain the phrase's words next to each other, like a phrase search.
+fn has_phrase(title: &str, phrase: &str) -> bool {
+    let (title, phrase) = (words(title), words(phrase));
+    !phrase.is_empty() && title.windows(phrase.len()).any(|window| window == phrase)
+}
+
+fn probes(query: &str) -> Vec<(String, u64, u64)> {
+    let mut found = Vec::new();
+    let mut rest = query;
+    while let Some(start) = rest.find("recording:\"") {
+        let mut phrase = String::new();
+        let mut characters = rest[start + "recording:\"".len()..].chars();
+        let mut consumed = start + "recording:\"".len();
+        while let Some(character) = characters.next() {
+            consumed += character.len_utf8();
+            match character {
+                '\\' => {
+                    if let Some(escaped) = characters.next() {
+                        consumed += escaped.len_utf8();
+                        phrase.push(escaped);
+                    }
+                }
+                '"' => break,
+                other => phrase.push(other),
+            }
+        }
+        rest = &rest[consumed..];
+        let Some(range) = rest.strip_prefix(" AND dur:[") else {
+            continue;
+        };
+        let bounds = range.split(']').next().unwrap_or_default();
+        if let Some((low, high)) = bounds.split_once(" TO ")
+            && let (Ok(low), Ok(high)) = (low.parse(), high.parse())
+        {
+            found.push((normalized(&phrase), low, high));
+        }
+    }
+    found
 }
 
 fn search_page(uri: &Uri, artists: &[(String, String, u32)], total: u32) -> Value {
@@ -233,7 +295,9 @@ fn key(uri: &Uri) -> Option<String> {
         ));
     }
     if path == "recording" {
-        return Some(format!("recordings/{}", parameter("artist")?));
+        let query = parameter("query")?;
+        let artist = query.strip_prefix("arid:")?.split(' ').next()?;
+        return Some(format!("recordings/{artist}"));
     }
     if path == "url" {
         let resource = uri
@@ -263,11 +327,31 @@ fn scored(key: &str, artists: &[(String, String)]) -> Vec<(String, String, u32)>
     found
 }
 
+fn key_of_target(target: &str) -> Option<String> {
+    key(&target.parse::<Uri>().ok()?)
+}
+
 async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> Response {
     let (reply, delay) = {
         let mut state = state.lock().unwrap();
         state.requests.push(request.uri().to_string());
-        let reply = key(request.uri()).and_then(|key| state.replies.get(&key).cloned());
+        let key = key(request.uri());
+        let seen = key.as_ref().map_or(0, |key| {
+            state
+                .requests
+                .iter()
+                .filter(|target| key_of_target(target).as_deref() == Some(key.as_str()))
+                .count()
+        });
+        let failing = key
+            .as_ref()
+            .and_then(|key| state.failing_after.get(key))
+            .is_some_and(|answered| seen > *answered);
+        let reply = if failing {
+            Some(Reply::Unavailable)
+        } else {
+            key.and_then(|key| state.replies.get(&key).cloned())
+        };
         (reply, state.delay)
     };
     tokio::time::sleep(delay).await;
@@ -309,21 +393,34 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
         (_, Some(Reply::Scored(artists, total))) => {
             (StatusCode::OK, search_page(request.uri(), &artists, total))
         }
-        (_, Some(Reply::Discography(total, recordings))) => {
+        (_, Some(Reply::Discography(recordings))) => {
             let (offset, limit) = window(request.uri());
-            let listed: Vec<Value> = recordings
+            let probes = parameter(request.uri(), "query")
+                .map(|query| probes(&query))
+                .unwrap_or_default();
+            let matching: Vec<(usize, &(String, Option<u64>))> = recordings
                 .iter()
                 .enumerate()
+                .filter(|(_, (title, length))| {
+                    probes.iter().any(|(wanted, low, high)| {
+                        has_phrase(title, wanted)
+                            && length.is_some_and(|length| (*low..=*high).contains(&length))
+                    })
+                })
+                .collect();
+            let listed: Vec<Value> = matching
+                .iter()
                 .skip(offset)
                 .take(limit)
                 .map(|(index, (title, length))| {
                     json!({"id": format!("0f700000-0000-4000-8000-{:012x}", index + 1),
-                        "title": title, "length": length, "video": false, "disambiguation": ""})
+                        "title": title, "length": length, "video": false, "disambiguation": "",
+                        "score": 100})
                 })
                 .collect();
             (
                 StatusCode::OK,
-                json!({"recording-count": total, "recording-offset": offset, "recordings": listed}),
+                json!({"created": "2026-10-31T17:00:00.000Z", "count": matching.len(), "offset": offset, "recordings": listed}),
             )
         }
         (_, Some(Reply::ReleaseGroups(groups))) => {

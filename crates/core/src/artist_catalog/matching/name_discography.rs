@@ -1,179 +1,81 @@
 //! Matches credits to a MusicBrainz artist by name, but only when the artist's own recordings
-//! corroborate the library: a name alone never matches.
+//! corroborate the library: a name alone never matches. Corroboration asks about library titles
+//! one search at a time instead of paging an artist's whole catalog.
 use super::{
     ArtistProviderMatchReceipt,
     apply::{EvidenceKind, REPLACEABLE},
-    provider_evidence::{
-        LOOKUP_DEADLINE, LOOKUP_WINDOW, MAX_CONSECUTIVE_FAILURES, MAX_LOOKUPS,
-        SPECIAL_PURPOSE_ARTISTS,
+    name_probe::{
+        self, Assessment, Candidate, MAX_NAMESAKES, MIN_CORROBORATING, PROBES_PER_SEARCH, Track,
+        normalize,
     },
+    provider_evidence::{LOOKUP_DEADLINE, LOOKUP_WINDOW, MAX_CONSECUTIVE_FAILURES, MAX_LOOKUPS},
     settle::{Checks, Examined, Outcome, Settlement},
 };
 use crate::{Actor, ArtistCatalog, Result};
-use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError, NameSearch};
+use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError};
 use std::{collections::HashMap, future::Future, time::Duration};
 use tokio::time::Instant;
 use uuid::Uuid;
 
 /// Cursor prefix of the name phase; the rest is the last credit identifier already handled.
 pub(super) const NAME_CURSOR: &str = "name:";
+/// A credit that is not finished in one request keeps the cursor on the credit before it, with a
+/// hold count after this mark so that the cursor still moves forward.
+const HOLD_MARK: char = '~';
+const MAX_HOLDS: u32 = 40;
+/// The rule that settled a name check. Checks of another rule do not hide a recording.
+pub(super) const NAME_RULE: i64 = 2;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
-/// More exact-name artists than this cannot be told apart within one request.
-const MAX_NAMESAKES: usize = 3;
-/// Recordings pages one credit may read in total, and at most this many for one artist.
-const MAX_CREDIT_PAGES: usize = 6;
-const MAX_ARTIST_PAGES: usize = 5;
-const PAGE_SIZE: usize = 100;
-const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_CREDIT_PAGES;
-const LENGTH_TOLERANCE_MS: u64 = 2000;
-/// A shorter length is a placeholder, not a measurement.
-const MIN_KNOWN_LENGTH_MS: u64 = 1000;
-/// Distinct normalized titles a library must share with an artist to corroborate it.
-const MIN_CORROBORATING: usize = 2;
+/// The least a credit costs: one search and one sample search per exact-name artist.
+const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_NAMESAKES;
 
 struct Credit {
     id: String,
     name: String,
 }
 
-struct Track {
-    recording: String,
-    title: String,
-    length_ms: Option<u64>,
-    observation: String,
-    operation: Option<String>,
+/// Why the tracks of a credit that were not asked about were left.
+#[derive(Clone, Copy)]
+enum Cause {
+    /// The request ran out of lookups or time; the credit continues in the next request.
+    Budget,
+    /// MusicBrainz failed; the credit is asked again by a later walk.
+    Outage,
+}
+
+/// The distinct library recordings of a credit and the sample that decides.
+struct Plan {
+    candidates: Vec<Candidate>,
+    sample: Vec<usize>,
 }
 
 enum Verdict {
-    Artist(String, Vec<usize>),
+    Artist {
+        artist: String,
+        matched: Vec<usize>,
+        unreached: Vec<usize>,
+        cause: Option<Cause>,
+    },
     Uncertain,
     Unavailable,
     Refused,
 }
 
-/// Case-folded, whitespace-collapsed text. Punctuation and diacritics are significant.
-fn normalize(text: &str) -> String {
-    text.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
-}
-
-/// The ordinary artists whose name equals the credit, or `None` when the search cannot prove it
-/// saw every one of them: too many namesakes, or a page that may end before the last
-/// maximum-relevance result (an exact name always scores the maximum).
-fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>> {
-    let wanted = normalize(credit);
-    let scoring_holds = search
-        .items
-        .iter()
-        .filter(|item| normalize(&item.name) == wanted)
-        .all(|item| item.score >= 100);
-    if !(search.conclusive() && scoring_holds || search.items.len() as u32 >= search.total) {
-        return None;
+/// A fixed word for what went wrong with a lookup; never the request or its answer.
+fn failure_reason(error: &MusicBrainzError) -> &'static str {
+    match error {
+        MusicBrainzError::Transport => "transport",
+        MusicBrainzError::Status(429) => "status_429",
+        MusicBrainzError::Status(503) => "status_503",
+        MusicBrainzError::Status(500..=599) => "status_5xx",
+        MusicBrainzError::Status(_) => "status_other",
+        MusicBrainzError::ResponseTooLarge => "response_too_large",
+        MusicBrainzError::InvalidLookup
+        | MusicBrainzError::InvalidSearch
+        | MusicBrainzError::InvalidResponse => "invalid_answer",
+        _ => "request_rejected",
     }
-    let found: Vec<String> = search
-        .items
-        .iter()
-        .filter(|item| normalize(&item.name) == wanted)
-        .map(|item| item.id.clone())
-        .filter(|id| !SPECIAL_PURPOSE_ARTISTS.contains(&id.as_str()))
-        .collect();
-    (found.len() <= MAX_NAMESAKES).then_some(found)
-}
-
-/// Library tracks that equal a listed recording by normalized title and by length within the
-/// tolerance, with how many distinct normalized titles they matched.
-fn corroborated(tracks: &[Track], listed: &ArtistRecordings) -> (Vec<usize>, usize) {
-    let mut indices = Vec::new();
-    let mut titles: Vec<String> = Vec::new();
-    for (index, track) in tracks.iter().enumerate() {
-        let Some(length) = track.length_ms else {
-            continue;
-        };
-        let title = normalize(&track.title);
-        let hit = listed.items.iter().find(|item| {
-            normalize(&item.title) == title
-                && item
-                    .length_ms
-                    .and_then(|other| known_length(i64::try_from(other).ok()))
-                    .is_some_and(|other| other.abs_diff(length) <= LENGTH_TOLERANCE_MS)
-        });
-        if hit.is_some() {
-            indices.push(index);
-            if !titles.contains(&title) {
-                titles.push(title);
-            }
-        }
-    }
-    (indices, titles.len())
-}
-
-/// Accepts an artist only when exactly one namesake corroborates the library, and no namesake
-/// that does not could still do so with recordings that were not read.
-fn decide(tracks: &[Track], namesakes: &[(String, ArtistRecordings)]) -> Verdict {
-    let mut accepted: Option<(String, Vec<usize>)> = None;
-    for (id, listed) in namesakes {
-        let (indices, distinct) = corroborated(tracks, listed);
-        if distinct >= MIN_CORROBORATING {
-            if accepted.is_some() {
-                return Verdict::Uncertain;
-            }
-            accepted = Some((id.clone(), indices));
-        } else if !listed.complete() {
-            return Verdict::Uncertain;
-        }
-    }
-    match accepted {
-        Some((id, indices)) => {
-            let listed = namesakes.iter().find(|(known, _)| *known == id);
-            let indices = listed
-                .map(|(_, listed)| follow(tracks, indices.clone(), listed, namesakes.len() == 1))
-                .unwrap_or(indices);
-            Verdict::Artist(id, indices)
-        }
-        None => Verdict::Uncertain,
-    }
-}
-
-/// The corroborated tracks plus the credit's other tracks whose own title the artist's recordings
-/// list (lengths compared when both are known), or all of them when the artist is the only
-/// namesake, its recordings were read completely and they corroborate at least half the credit.
-fn follow(
-    tracks: &[Track],
-    mut indices: Vec<usize>,
-    listed: &ArtistRecordings,
-    sole: bool,
-) -> Vec<usize> {
-    if sole && listed.complete() && indices.len() * 2 >= tracks.len() {
-        return (0..tracks.len()).collect();
-    }
-    for (index, track) in tracks.iter().enumerate() {
-        if indices.contains(&index) {
-            continue;
-        }
-        let title = normalize(&track.title);
-        let library_length = track
-            .length_ms
-            .and_then(|length| known_length(i64::try_from(length).ok()));
-        let found = listed.items.iter().any(|item| {
-            normalize(&item.title) == title
-                && match (
-                    library_length,
-                    item.length_ms
-                        .and_then(|other| known_length(i64::try_from(other).ok())),
-                ) {
-                    (Some(ours), Some(theirs)) => ours.abs_diff(theirs) <= LENGTH_TOLERANCE_MS,
-                    _ => true,
-                }
-        });
-        if found {
-            indices.push(index);
-        }
-    }
-    indices.sort_unstable();
-    indices
 }
 
 struct Budget {
@@ -200,6 +102,20 @@ impl Budget {
             || (self.failures < MAX_CONSECUTIVE_FAILURES && self.started.elapsed() <= self.window)
     }
 
+    /// Whether one more lookup fits in the request: the lookup cap as well as the window.
+    fn has_room(&self) -> bool {
+        self.lookups < MAX_LOOKUPS && self.allows()
+    }
+
+    /// Why `allows` said no, for the debug log.
+    fn refusal(&self) -> &'static str {
+        if self.failures >= MAX_CONSECUTIVE_FAILURES {
+            "failure_limit"
+        } else {
+            "window_closed"
+        }
+    }
+
     async fn run<T>(
         &mut self,
         call: impl Future<Output = std::result::Result<T, MusicBrainzError>>,
@@ -207,7 +123,13 @@ impl Budget {
         let remaining = LOOKUP_DEADLINE.saturating_sub(self.started.elapsed());
         let answer = tokio::time::timeout(remaining, call)
             .await
-            .unwrap_or(Err(MusicBrainzError::Transport));
+            .unwrap_or_else(|_| {
+                tracing::debug!(reason = "deadline", "Artist name lookup did not finish");
+                Err(MusicBrainzError::Transport)
+            });
+        if let Err(error) = &answer {
+            tracing::debug!(reason = failure_reason(error), "Artist name lookup failed");
+        }
         self.lookups += 1;
         self.failures = match &answer {
             Ok(_) | Err(MusicBrainzError::Status(404) | MusicBrainzError::InvalidSearchRequest) => {
@@ -222,13 +144,27 @@ impl Budget {
 #[derive(Default)]
 struct Answers {
     namesakes: HashMap<String, Option<Vec<String>>>,
-    recordings: HashMap<String, ArtistRecordings>,
+    recordings: HashMap<(String, String), ArtistRecordings>,
+}
+
+/// Where the cursor of a name request stands: the last credit handled and how often the credit
+/// after it was held for lack of budget.
+fn split_cursor(after: &str) -> (&str, u32) {
+    match after.split_once(HOLD_MARK) {
+        Some((credit, held)) => (credit, held.parse().unwrap_or(0)),
+        None => (after, 0),
+    }
+}
+
+fn held_cursor(credit: &str, held: u32) -> String {
+    format!("{NAME_CURSOR}{credit}{HOLD_MARK}{held:02}")
 }
 
 impl ArtistCatalog {
     /// One bounded batch of the name phase: credits are examined in identifier order after the
     /// cursor, at most `MAX_LOOKUPS` MusicBrainz requests are made, and the pass stops early when
-    /// the lookup window closes or lookups keep failing.
+    /// the lookup window closes or lookups keep failing. A credit whose artist is found but whose
+    /// other tracks do not all fit in the request is held: it is examined again next time.
     pub(super) async fn match_names(
         &self,
         actor: &Actor,
@@ -236,10 +172,11 @@ impl ArtistCatalog {
         digest: &str,
         after: &str,
     ) -> Result<ArtistProviderMatchReceipt> {
-        let (mut credits, more) = {
+        let (after_credit, held) = split_cursor(after);
+        let (credits, more) = {
             let mut connection = self.store.pool.acquire().await?;
             actor.check_session_on(&mut connection).await?;
-            credits(&mut connection, actor, after).await?
+            credits(&mut connection, actor, after_credit).await?
         };
         let mut tracks = Vec::new();
         {
@@ -250,6 +187,7 @@ impl ArtistCatalog {
         }
         let mut examined = Vec::new();
         let mut handled = 0;
+        let mut holding = false;
         let mut budget = Budget::new(LOOKUP_WINDOW);
         let mut answers = Answers::default();
         {
@@ -262,15 +200,42 @@ impl ArtistCatalog {
                     .judge(credit, &tracks[index], &mut budget, &mut answers)
                     .await;
                 let verdict = match verdict {
-                    Verdict::Refused if index > 0 => break,
-                    Verdict::Refused => Verdict::Unavailable,
+                    Verdict::Refused if index > 0 => {
+                        tracing::debug!(
+                            reason = budget.refusal(),
+                            "Artist name credit waits for the next request"
+                        );
+                        break;
+                    }
+                    Verdict::Refused => {
+                        tracing::debug!(
+                            reason = budget.refusal(),
+                            "Artist name credit unavailable"
+                        );
+                        Verdict::Unavailable
+                    }
                     verdict => verdict,
                 };
+                let holds = matches!(
+                    &verdict,
+                    Verdict::Artist {
+                        cause: Some(Cause::Budget),
+                        ..
+                    }
+                ) && (index > 0 || held < MAX_HOLDS);
                 for (position, track) in tracks[index].iter().enumerate() {
                     let outcome = match &verdict {
-                        Verdict::Artist(artist, matched) if matched.contains(&position) => {
+                        Verdict::Artist {
+                            artist, matched, ..
+                        } if matched.contains(&position) => {
                             Outcome::Artist(artist.clone(), EvidenceKind::NameDiscography)
                         }
+                        Verdict::Artist {
+                            unreached, cause, ..
+                        } if unreached.contains(&position) => match cause {
+                            Some(Cause::Outage) => Outcome::Unavailable,
+                            _ => continue,
+                        },
                         Verdict::Unavailable => Outcome::Unavailable,
                         _ => Outcome::Uncertain,
                     };
@@ -281,14 +246,27 @@ impl ArtistCatalog {
                         outcome,
                     });
                 }
+                if holds {
+                    holding = true;
+                    handled = index;
+                    break;
+                }
                 handled = index + 1;
             }
         }
-        let next_after = (handled < credits.len() || more)
-            .then(|| format!("{NAME_CURSOR}{}", credits[handled - 1].id));
-        credits.truncate(handled);
+        let next_after = if holding {
+            let previous = handled
+                .checked_sub(1)
+                .map_or(after_credit, |before| credits[before].id.as_str());
+            let count = if handled == 0 { held + 1 } else { 1 };
+            Some(held_cursor(previous, count))
+        } else {
+            (handled < credits.len() || more)
+                .then(|| format!("{NAME_CURSOR}{}", credits[handled - 1].id))
+        };
         tracing::debug!(
             credits = handled,
+            held = holding,
             lookups = budget.lookups,
             recordings = examined.len(),
             elapsed_ms = budget.started.elapsed().as_millis() as u64,
@@ -314,6 +292,11 @@ impl ArtistCatalog {
         budget: &mut Budget,
         answers: &mut Answers,
     ) -> Verdict {
+        let candidates = name_probe::candidates(tracks);
+        let sample = name_probe::sample(&candidates);
+        if sample.len() < MIN_CORROBORATING {
+            return Verdict::Uncertain;
+        }
         let key = normalize(&credit.name);
         let found = match answers.namesakes.get(&key) {
             Some(found) => found.clone(),
@@ -325,7 +308,7 @@ impl ArtistCatalog {
                     .run(self.builtin.artist_name_search(&credit.name))
                     .await
                 {
-                    Ok(search) => namesakes(&search, &credit.name),
+                    Ok(search) => name_probe::namesakes(&search, &credit.name),
                     Err(MusicBrainzError::Status(404) | MusicBrainzError::InvalidSearchRequest) => {
                         None
                     }
@@ -338,66 +321,112 @@ impl ArtistCatalog {
         let Some(ids) = found.filter(|ids| !ids.is_empty()) else {
             return Verdict::Uncertain;
         };
-        let mut listed = Vec::new();
-        let pages = (MAX_CREDIT_PAGES / ids.len()).clamp(1, MAX_ARTIST_PAGES);
+        let mut assessments = Vec::new();
         for id in ids {
-            let read = match self
-                .read_recordings(&id, pages, tracks, budget, answers)
-                .await
-            {
-                Ok(read) => read,
+            let listed = match self.probe(&id, &candidates, &sample, budget, answers).await {
+                Ok(listed) => listed,
                 Err(verdict) => return verdict,
             };
-            listed.push((id, read));
+            let assessment = name_probe::assess(&candidates, &sample, &listed);
+            if assessment == Assessment::NotRead {
+                return Verdict::Uncertain;
+            }
+            assessments.push((id, assessment));
         }
-        decide(tracks, &listed)
+        match name_probe::decide(assessments) {
+            Some((artist, hits)) => {
+                let plan = Plan { candidates, sample };
+                self.follow(artist, &plan, hits, budget, answers).await
+            }
+            None => Verdict::Uncertain,
+        }
     }
-}
 
-impl ArtistCatalog {
-    /// Reads an artist's recordings page by page until the library corroborates it, the list is
-    /// complete, or `pages` pages are read. Pages already read in this request are reused.
-    async fn read_recordings(
+    /// Asks one exact-name artist about the picked library recordings; answers already read in this
+    /// request are reused.
+    async fn probe(
         &self,
-        id: &str,
-        pages: usize,
-        tracks: &[Track],
+        artist: &str,
+        candidates: &[Candidate],
+        picked: &[usize],
         budget: &mut Budget,
         answers: &mut Answers,
     ) -> std::result::Result<ArtistRecordings, Verdict> {
-        let mut read = answers.recordings.get(id).cloned();
-        loop {
-            let offset = match &read {
-                None => 0,
-                Some(read)
-                    if read.complete()
-                        || read.items.len().div_ceil(PAGE_SIZE) >= pages
-                        || corroborated(tracks, read).1 >= MIN_CORROBORATING =>
-                {
+        let probes = name_probe::probes(candidates, picked);
+        let signature = format!("{probes:?}");
+        let cache = (artist.to_owned(), signature);
+        if let Some(known) = answers.recordings.get(&cache) {
+            return Ok(known.clone());
+        }
+        if !budget.allows() {
+            return Err(Verdict::Refused);
+        }
+        let listed = budget
+            .run(self.builtin.artist_recordings_matching(artist, &probes))
+            .await
+            .map_err(|_| Verdict::Unavailable)?;
+        answers.recordings.insert(cache, listed.clone());
+        Ok(listed)
+    }
+
+    /// The tracks of the sample that the artist corroborates, plus the credit's other tracks whose
+    /// own title and length the artist lists, asked about a few at a time while the request has
+    /// room. Tracks not reached stay undecided and say why.
+    async fn follow(
+        &self,
+        artist: String,
+        plan: &Plan,
+        hits: Vec<usize>,
+        budget: &mut Budget,
+        answers: &mut Answers,
+    ) -> Verdict {
+        let Plan { candidates, sample } = plan;
+        let mut matched: Vec<usize> = hits
+            .iter()
+            .flat_map(|hit| candidates[*hit].tracks.iter().copied())
+            .collect();
+        let rest: Vec<usize> = (0..candidates.len())
+            .filter(|index| !sample.contains(index))
+            .collect();
+        let mut cause = None;
+        let mut reached = 0;
+        for chunk in rest.chunks(PROBES_PER_SEARCH) {
+            if !budget.has_room() {
+                cause = Some(Cause::Budget);
+                break;
+            }
+            match self
+                .probe(&artist, candidates, chunk, budget, answers)
+                .await
+            {
+                Ok(listed) => {
+                    for hit in name_probe::found(candidates, chunk, &listed) {
+                        matched.extend(candidates[hit].tracks.iter().copied());
+                    }
+                    reached += chunk.len();
+                }
+                Err(Verdict::Refused) => {
+                    cause = Some(Cause::Budget);
                     break;
                 }
-                Some(read) => read.items.len(),
-            };
-            if !budget.allows() {
-                return Err(Verdict::Refused);
-            }
-            let page = budget
-                .run(self.builtin.artist_recordings_at(id, offset as u32))
-                .await
-                .map_err(|_| Verdict::Unavailable)?;
-            match &mut read {
-                None => read = Some(page),
-                Some(known) => {
-                    if !known.extend(page) {
-                        break;
-                    }
+                Err(_) => {
+                    cause = Some(Cause::Outage);
+                    break;
                 }
             }
-            if let Some(known) = &read {
-                answers.recordings.insert(id.to_owned(), known.clone());
-            }
         }
-        read.ok_or(Verdict::Unavailable)
+        matched.sort_unstable();
+        matched.dedup();
+        let unreached = rest[reached..]
+            .iter()
+            .flat_map(|index| candidates[*index].tracks.iter().copied())
+            .collect();
+        Verdict::Artist {
+            artist,
+            matched,
+            unreached,
+            cause,
+        }
     }
 }
 
@@ -413,7 +442,7 @@ fn eligible(user: &str, artist: &str) -> String {
          WHERE rc.user_id={user} AND rc.artist_id={artist} AND r.metadata_observation_id IS NOT NULL
             AND NOT EXISTS (SELECT 1 FROM artist_name_checks k WHERE k.user_id=rc.user_id
                 AND k.recording_id=r.id AND k.observation_id=r.metadata_observation_id
-                AND k.artist_operation_id IS p.artist_operation_id)
+                AND k.artist_operation_id IS p.artist_operation_id AND k.rule={NAME_RULE})
             AND NOT EXISTS (SELECT 1 FROM recording_artist_identity_choices c
                 WHERE c.user_id=rc.user_id AND c.recording_id=r.id AND NOT {REPLACEABLE})"
     )
@@ -444,12 +473,6 @@ async fn credits(
         .map(|(id, name)| Credit { id, name })
         .collect();
     Ok((credits, more))
-}
-
-fn known_length(length: Option<i64>) -> Option<u64> {
-    length
-        .and_then(|length| u64::try_from(length).ok())
-        .filter(|length| *length >= MIN_KNOWN_LENGTH_MS)
 }
 
 #[derive(sqlx::FromRow)]
@@ -489,144 +512,14 @@ async fn credit_tracks(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        Answers, Budget, Credit, Track, Verdict, corroborated, known_length, namesakes, normalize,
-    };
+    use super::{Answers, Budget, Credit, Track, Verdict, held_cursor, split_cursor};
     use crate::test_support::{
         musicbrainz::{FakeMusicBrainz, Reply},
         support,
     };
-    use hito_metadata_musicbrainz::{ArtistRecording, ArtistRecordings, NameCandidate, NameSearch};
     use std::time::Duration;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
-    const OTHER: &str = "22222222-2222-4222-8222-222222222222";
-    const VARIOUS_ARTISTS: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
-
-    fn page(names: &[(&str, &str, u32)], total: u32) -> NameSearch {
-        NameSearch {
-            total,
-            items: names
-                .iter()
-                .map(|(id, name, score)| NameCandidate {
-                    id: (*id).into(),
-                    name: (*name).into(),
-                    score: *score,
-                })
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn names_compare_by_case_and_spacing_but_not_by_punctuation_or_accents() {
-        assert_eq!(normalize("  Nova   QUARTET "), "nova quartet");
-        assert_ne!(normalize("Nova Quartet"), normalize("Nova-Quartet"));
-        assert_ne!(normalize("Beyoncé"), normalize("Beyonce"));
-    }
-
-    #[test]
-    fn only_a_search_that_proves_it_saw_every_exact_name_names_any() {
-        let exact = [(ID, "Nova Quartet", 100), (OTHER, "NOVA quartet", 100)];
-        assert_eq!(
-            namesakes(&page(&exact, 2), "Nova Quartet"),
-            Some(vec![ID.into(), OTHER.into()])
-        );
-        let tail = [
-            (ID, "Nova Quartet", 100),
-            (OTHER, "Nova Quartet Tribute", 80),
-        ];
-        assert_eq!(
-            namesakes(&page(&tail, 4_000), "Nova Quartet"),
-            Some(vec![ID.into()]),
-            "A lower score ends the maximum-relevance results however long the list"
-        );
-        assert_eq!(
-            namesakes(&page(&exact, 150), "Nova Quartet"),
-            None,
-            "A page ending at the maximum score may hide an exact name"
-        );
-        let many = [
-            (ID, "A", 100),
-            (OTHER, "A", 100),
-            ("33333333-3333-4333-8333-333333333333", "A", 100),
-            ("44444444-4444-4444-8444-444444444444", "A", 100),
-        ];
-        assert_eq!(namesakes(&page(&many, 4), "A"), None);
-        assert_eq!(
-            namesakes(
-                &page(&[(VARIOUS_ARTISTS, "Various Artists", 100)], 1),
-                "Various Artists"
-            ),
-            Some(vec![])
-        );
-    }
-
-    #[test]
-    fn an_exact_name_scoring_below_the_maximum_makes_only_a_complete_search_conclusive() {
-        let odd = [
-            (ID, "Nova Quartet", 90),
-            (OTHER, "Nova Quartet Tribute", 80),
-        ];
-        assert_eq!(
-            namesakes(&page(&odd, 2), "Nova Quartet"),
-            Some(vec![ID.into()]),
-            "The whole result set is on the page"
-        );
-        assert_eq!(
-            namesakes(&page(&odd, 400), "Nova Quartet"),
-            None,
-            "An exact name below 100 breaks the scoring assumption, so only a complete page counts"
-        );
-    }
-
-    fn track(title: &str, length: u64) -> Track {
-        Track {
-            recording: title.into(),
-            title: title.into(),
-            length_ms: Some(length),
-            observation: "o".into(),
-            operation: None,
-        }
-    }
-
-    fn listed(items: &[(&str, &str, u64)]) -> ArtistRecordings {
-        ArtistRecordings {
-            total: items.len() as u32,
-            items: items
-                .iter()
-                .map(|(id, title, length)| ArtistRecording {
-                    id: (*id).into(),
-                    title: (*title).into(),
-                    length_ms: Some(*length),
-                })
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn two_recordings_sharing_one_title_do_not_corroborate() {
-        let tracks = [track("Intro", 30_000), track("Intro", 90_000)];
-        let (_, distinct) = corroborated(
-            &tracks,
-            &listed(&[("a", "Intro", 30_000), ("b", "Intro", 90_000)]),
-        );
-        assert_eq!(distinct, 1);
-        let tracks = [track("Intro", 30_000), track("Outro", 90_000)];
-        let (_, distinct) = corroborated(
-            &tracks,
-            &listed(&[("a", "Intro", 30_000), ("b", "outro", 90_000)]),
-        );
-        assert_eq!(distinct, 2);
-    }
-
-    #[test]
-    fn a_missing_or_implausibly_short_library_length_is_unknown() {
-        assert_eq!(known_length(Some(0)), None);
-        assert_eq!(known_length(Some(999)), None);
-        assert_eq!(known_length(Some(-5)), None);
-        assert_eq!(known_length(None), None);
-        assert_eq!(known_length(Some(1000)), Some(1000));
-    }
 
     fn credit() -> Credit {
         Credit {
@@ -636,19 +529,39 @@ mod tests {
     }
 
     fn tracks() -> Vec<Track> {
-        vec![Track {
-            recording: "r".into(),
-            title: "Song".into(),
-            length_ms: Some(1000),
-            observation: "o".into(),
-            operation: None,
-        }]
+        [("Song", 100_000), ("Other Song", 120_000)]
+            .into_iter()
+            .map(|(title, length)| Track {
+                recording: title.into(),
+                title: title.into(),
+                length_ms: Some(length),
+                observation: "o".into(),
+                operation: None,
+            })
+            .collect()
     }
 
     async fn catalog(fake: &FakeMusicBrainz) -> crate::ArtistCatalog {
         let (_directory, hito, ..) =
             support::library_with_musicbrainz("name-budget", Some(fake.endpoint.clone())).await;
         hito.artist_catalog
+    }
+
+    #[test]
+    fn a_held_cursor_moves_forward_and_names_the_credit_before_the_held_one() {
+        assert_eq!(split_cursor("credit-a"), ("credit-a", 0));
+        assert_eq!(split_cursor("credit-a~03"), ("credit-a", 3));
+        assert_eq!(split_cursor(""), ("", 0));
+        let first = held_cursor("credit-a", 2);
+        let second = held_cursor("credit-a", 3);
+        assert_eq!(first, "name:credit-a~02");
+        assert!(
+            second > first,
+            "The web walk continues only while the cursor advances"
+        );
+        assert!(held_cursor("credit-a", 10) > held_cursor("credit-a", 9));
+        assert!(held_cursor("credit-a", 1).as_str() > "name:credit-a");
+        assert!("name:credit-b" > held_cursor("credit-a", 40).as_str());
     }
 
     #[tokio::test]
@@ -658,7 +571,7 @@ mod tests {
             "Nova Quartet",
             Reply::Candidates(vec![(ID.into(), "Nova Quartet".into())]),
         );
-        fake.recordings_of(ID, Reply::Discography(0, vec![]));
+        fake.recordings_of(ID, Reply::Discography(vec![]));
         fake.delay_replies(Duration::from_millis(600));
         let catalog = catalog(&fake).await;
         let mut budget = Budget::new(Duration::from_millis(500));
@@ -666,6 +579,7 @@ mod tests {
             .judge(&credit(), &tracks(), &mut budget, &mut Answers::default())
             .await;
         assert!(matches!(verdict, Verdict::Refused));
+        assert_eq!(budget.refusal(), "window_closed");
         assert_eq!(fake.requests().len(), 1, "{:?}", fake.requests());
     }
 
@@ -692,6 +606,25 @@ mod tests {
                 .await,
             Verdict::Refused
         ));
+        assert_eq!(budget.refusal(), "failure_limit");
         assert_eq!(fake.requests().len(), 3);
+    }
+
+    #[tokio::test]
+    async fn a_credit_with_fewer_than_two_titles_of_known_length_sends_nothing() {
+        let fake = FakeMusicBrainz::start().await;
+        let catalog = catalog(&fake).await;
+        let mut one = tracks();
+        one.truncate(1);
+        let verdict = catalog
+            .judge(
+                &credit(),
+                &one,
+                &mut Budget::new(Duration::from_secs(9)),
+                &mut Answers::default(),
+            )
+            .await;
+        assert!(matches!(verdict, Verdict::Uncertain));
+        assert!(fake.requests().is_empty());
     }
 }

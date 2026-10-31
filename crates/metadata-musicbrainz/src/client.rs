@@ -1,6 +1,6 @@
 use crate::{
-    ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, discography, edition,
-    edition_listing, identifiers, projection, search, transport::Transport,
+    ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, RecordingProbe, discography,
+    edition, edition_listing, identifiers, projection, search, transport::Transport,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -225,28 +225,22 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Lists the first hundred recordings credited to an artist with their lengths. An unknown
-    /// artist is an empty result. The answer says whether the page covers every recording.
-    pub async fn artist_recordings(&self, artist_id: &str) -> Result<ArtistRecordings, Error> {
-        self.artist_recordings_at(artist_id, 0).await
-    }
-
-    /// One page of at most 100 recordings credited to the artist, starting at `offset`.
+    /// Asks which of up to six library recordings an artist has: each probe names a title and the
+    /// range its length may fall in. The answer lists the artist's recordings that match any
+    /// probe and says whether the page holds all of them; the caller compares titles and lengths.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_recordings", request_id = tracing::field::Empty))]
-    pub async fn artist_recordings_at(
+    pub async fn artist_recordings_matching(
         &self,
         artist_id: &str,
-        offset: u32,
+        probes: &[RecordingProbe],
     ) -> Result<ArtistRecordings, Error> {
         let started = Instant::now();
         let request_id = Uuid::new_v4();
         tracing::Span::current().record("request_id", tracing::field::display(request_id));
         let result = async {
-            if !identifiers::canonical_artist(artist_id) {
-                return Err(Error::InvalidLookupRequest);
-            }
-            match self.transport.artist_recordings(artist_id, offset).await {
-                Ok(bytes) => identifiers::artist_recordings(&bytes, offset),
+            let query = identifiers::probe_query(artist_id, probes)?;
+            match self.transport.recording_search(&query).await {
+                Ok(bytes) => identifiers::matching_recordings(&bytes),
                 Err(Error::Status(404)) => Ok(ArtistRecordings {
                     total: 0,
                     items: Vec::new(),
@@ -261,6 +255,7 @@ impl MusicBrainzClient {
                 Ok(_) => "success",
                 Err(error) => error.code(),
             },
+            probes = probes.len(),
             item_count = result.as_ref().map(|found| found.items.len()).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz artist recordings completed"

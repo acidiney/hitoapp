@@ -4,6 +4,9 @@ use std::collections::HashSet;
 use uuid::Uuid;
 
 const MAX_RECORDINGS: usize = 100;
+/// Titles one recording search may ask about, and the results it asks for.
+pub const MAX_PROBES: usize = 6;
+pub(super) const PROBE_RESULT_LIMIT: usize = 40;
 const MAX_CREDIT_MEMBERS: usize = 64;
 const MAX_TITLE_BYTES: usize = 512;
 const MAX_GENRES: usize = 64;
@@ -25,7 +28,15 @@ pub struct ArtistRecording {
     pub length_ms: Option<u64>,
 }
 
-/// The first page of an artist's recordings and how many MusicBrainz states in total.
+/// A library recording asked about one artist: its title and the range its length may fall in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecordingProbe {
+    pub title: String,
+    pub min_length_ms: u64,
+    pub max_length_ms: u64,
+}
+
+/// The recordings of an artist that match the probes, and how many MusicBrainz states in total.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArtistRecordings {
     pub total: u32,
@@ -33,19 +44,7 @@ pub struct ArtistRecordings {
 }
 
 impl ArtistRecordings {
-    /// Appends the next page. A page that adds nothing, or whose total changed, ends the reading.
-    pub fn extend(&mut self, next: ArtistRecordings) -> bool {
-        let known: HashSet<String> = self.items.iter().map(|item| item.id.clone()).collect();
-        let before = self.items.len();
-        self.items.extend(
-            next.items
-                .into_iter()
-                .filter(|item| !known.contains(&item.id)),
-        );
-        self.items.len() > before
-    }
-
-    /// Whether the page lists every recording MusicBrainz states for the artist.
+    /// Whether the page lists every recording MusicBrainz states for the search.
     pub fn complete(&self) -> bool {
         self.items.len() as u32 >= self.total
     }
@@ -84,10 +83,8 @@ struct NamedGenre {
 }
 
 #[derive(Deserialize)]
-struct RecordingBrowse {
-    #[serde(rename = "recording-count")]
+struct RecordingSearch {
     count: u32,
-    #[serde(rename = "recording-offset")]
     offset: u32,
     #[serde(default)]
     recordings: Vec<BrowsedRecording>,
@@ -171,17 +168,41 @@ pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {
     Ok(artists)
 }
 
-pub(super) fn artist_recordings(bytes: &[u8], offset: u32) -> Result<ArtistRecordings, Error> {
-    let browse: RecordingBrowse =
+/// The search that asks whether an artist has a recording with each probe's title whose length
+/// lies in the probe's range. Titles are escaped so they cannot change the query.
+pub(super) fn probe_query(artist: &str, probes: &[RecordingProbe]) -> Result<String, Error> {
+    if !canonical_artist(artist) || probes.is_empty() || probes.len() > MAX_PROBES {
+        return Err(Error::InvalidLookupRequest);
+    }
+    let mut clauses = Vec::with_capacity(probes.len());
+    for probe in probes {
+        if probe.title.trim().is_empty()
+            || probe.title.len() > MAX_TITLE_BYTES
+            || probe.min_length_ms > probe.max_length_ms
+        {
+            return Err(Error::InvalidLookupRequest);
+        }
+        clauses.push(format!(
+            "(recording:{} AND dur:[{} TO {}])",
+            crate::search::literal_query(&probe.title),
+            probe.min_length_ms,
+            probe.max_length_ms
+        ));
+    }
+    Ok(format!("arid:{artist} AND ({})", clauses.join(" OR ")))
+}
+
+pub(super) fn matching_recordings(bytes: &[u8]) -> Result<ArtistRecordings, Error> {
+    let search: RecordingSearch =
         serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
-    if browse.offset != offset
-        || browse.recordings.len() > MAX_RECORDINGS
-        || browse.recordings.len() as u32 > browse.count
+    if search.offset != 0
+        || search.recordings.len() > PROBE_RESULT_LIMIT
+        || search.recordings.len() as u32 > search.count
     {
         return Err(Error::InvalidLookup);
     }
     let mut seen = HashSet::new();
-    let items = browse
+    let items = search
         .recordings
         .into_iter()
         .map(|recording| {
@@ -200,7 +221,7 @@ pub(super) fn artist_recordings(bytes: &[u8], offset: u32) -> Result<ArtistRecor
         })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ArtistRecordings {
-        total: browse.count,
+        total: search.count,
         items,
     })
 }
