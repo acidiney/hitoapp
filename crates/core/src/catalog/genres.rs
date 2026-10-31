@@ -162,12 +162,12 @@ fn push_next_key(query: &mut QueryBuilder<'_, sqlx::Sqlite>, actor: &Actor, afte
     let account = actor.id().to_owned();
     query.push("(SELECT min(k) FROM (");
     query
-        .push(format!(
+        .push(
             "SELECT (SELECT g.genre_key FROM source_genres g
                 JOIN sources s ON s.id = g.source_id
                 JOIN recordings r ON r.id = s.recording_id
-                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = "
-        ))
+                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ",
+        )
         .push_bind(account.clone())
         .push(format!(
             " WHERE g.genre_key > {after} ORDER BY g.genre_key LIMIT 1) AS k
