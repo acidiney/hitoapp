@@ -1,16 +1,37 @@
 import type { Schema } from "../../../shared/schema";
-import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 import type { PluginActions } from "../hooks/usePlugins";
 import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
+import { newCapabilities, serviceSummary } from "../model/pluginSummary";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 type Review = Extract<Schema<"PluginRefresh">, { kind: "review_required" }>;
+type Proposal = Extract<
+  Schema<"PluginDeclarationCheck">,
+  { kind: "review_required" }
+>;
 const capabilities = (
   values: Schema<"PluginInstallation">["manifest"]["capabilities"],
 ) => values.map((value) => value.replaceAll("_", " ")).join(", ");
+function news(
+  plugin: Schema<"PluginInstallation">,
+  proposal: Proposal,
+): string {
+  const added = newCapabilities(
+    plugin.manifest.capabilities,
+    proposal.manifest.capabilities,
+  );
+  return added.length > 0 ? added.join(", ") : "updated details";
+}
 export default function PluginConnection({
   plugin,
   actions,
@@ -26,6 +47,7 @@ export default function PluginConnection({
   const removeButton = useRef<HTMLButtonElement>(null);
   const [token, setToken] = useState("");
   const [review, setReview] = useState<Review | null>(null);
+  const [waiting, setWaiting] = useState<Proposal | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [status, setStatus] = useState("");
   const [focus, focusAfterCommit] = useState<"check" | "remove" | null>(null);
@@ -34,6 +56,18 @@ export default function PluginConnection({
     (focus === "check" ? checkButton : removeButton).current?.focus();
     focusAfterCommit(null);
   }, [actions.pending, focus]);
+  const { checkDeclaration } = actions;
+  const { id, revision } = plugin;
+  const canCheck = storageReady || !plugin.credential_set;
+  useEffect(() => {
+    if (!canCheck) return;
+    const controller = new AbortController();
+    void checkDeclaration(id, revision, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      setWaiting(result?.kind === "review_required" ? result : null);
+    });
+    return () => controller.abort();
+  }, [checkDeclaration, canCheck, id, revision]);
   async function check(accept = false) {
     const result = await actions.refresh(plugin, {
       revision: plugin.revision,
@@ -48,6 +82,7 @@ export default function PluginConnection({
     }
     if (result?.kind === "updated") {
       setReview(null);
+      setWaiting(null);
       setToken("");
       setStatus("Connection checked.");
       focusAfterCommit("check");
@@ -61,20 +96,10 @@ export default function PluginConnection({
     <li className="plugin-connection">
       <SettingRow
         title={<h4>{plugin.manifest.name}</h4>}
-        hint={
-          <>
-            <span>
-              Declared capabilities:{" "}
-              {capabilities(plugin.manifest.capabilities)}
-            </span>
-            <span>
-              Source persistence:{" "}
-              <PluginPersistencePolicy
-                policy={plugin.manifest.content_policy}
-              />
-            </span>
-          </>
-        }
+        hint={serviceSummary(
+          plugin.manifest.name,
+          plugin.manifest.capabilities,
+        )}
         status={
           <HealthDot
             tone={plugin.credential_set ? "success" : "action"}
@@ -102,6 +127,25 @@ export default function PluginConnection({
           </>
         }
       />
+      {waiting && !review && (
+        <div
+          className="section-warning plugin-news"
+          role="status"
+          aria-label={`New: ${news(plugin, waiting)}`}
+        >
+          <span className="section-warning-icon" aria-hidden="true">
+            !
+          </span>
+          <strong>New: {news(plugin, waiting)}</strong>
+          <Button
+            variant="primary"
+            disabled={actions.pending}
+            onClick={() => setReview(waiting)}
+          >
+            Review and accept
+          </Button>
+        </div>
+      )}
       {confirm && (
         <div className="plugin-confirm">
           <p>
@@ -131,7 +175,16 @@ export default function PluginConnection({
         </div>
       )}
       <details className="plugin-details">
-        <summary>Connection settings</summary>
+        <summary>Details</summary>
+        <dl className="plugin-facts">
+          <dt>Declared capabilities</dt>
+          <dd>{capabilities(plugin.manifest.capabilities)}</dd>
+          <dt>Source persistence</dt>
+          <dd>
+            <PluginPersistencePolicy policy={plugin.manifest.content_policy} />
+          </dd>
+        </dl>
+        <h5>Connection settings</h5>
         <form className="plugin-form" onSubmit={submit}>
           <label>
             New bearer token

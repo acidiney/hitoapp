@@ -286,9 +286,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
           exact: true,
         }),
       });
-    await expect(connection.getByText(/^Declared capabilities:/)).toContainText(
-      "metadata",
-    );
+    await expect(connection).toContainText("fills in track details");
 
     phase = "import";
     await openLibrarySection(page, "Playlists");

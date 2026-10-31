@@ -53,6 +53,33 @@
 .plugin-details[open] > summary {
   margin-bottom: 10px;
 }
+.plugin-news {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.plugin-news strong {
+  flex: 1 1 200px;
+}
+.plugin-facts {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 8px 18px;
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+.plugin-facts dt {
+  color: var(--muted);
+}
+.plugin-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.plugin-details h5 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
 .plugin-confirm,
 .plugin-review {
   padding: 18px 0;

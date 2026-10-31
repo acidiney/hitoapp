@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pluginsApi } from "../api/pluginsApi";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
@@ -99,7 +99,29 @@ export function usePlugins(account: string) {
       item.id === installation.id ? installation : item,
     ),
   });
+  const checkDeclaration = useCallback(
+    async (installation: string, revision: number, signal: AbortSignal) => {
+      const request = scope.capture();
+      const combined = AbortSignal.any([request.signal, signal]);
+      try {
+        const result = await pluginsApi.checkDeclaration(
+          account,
+          installation,
+          revision,
+          combined,
+        );
+        return request.active() && !combined.aborted ? result : null;
+      } catch {
+        log.debug("plugins.declaration_check_unavailable", {
+          account_id: account,
+        });
+        return null;
+      }
+    },
+    [account, scope],
+  );
   return {
+    checkDeclaration,
     data: snapshot?.owner === owner ? snapshot.data : null,
     error: failure?.owner === owner ? failure.message : "",
     pending: pending === owner,

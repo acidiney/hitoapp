@@ -153,6 +153,23 @@ export const pluginsApi = {
       },
     );
   },
+  async checkDeclaration(
+    account: string,
+    installation: string,
+    revision: number,
+    signal: AbortSignal,
+  ): Promise<Schema<"PluginDeclarationCheck">> {
+    return requestJson<Schema<"PluginDeclarationCheck">>(
+      `/plugins/${part(installation)}/declaration-check`,
+      {
+        action: "plugins.declaration_check",
+        method: "POST",
+        account,
+        body: { revision },
+        signal,
+      },
+    );
+  },
   async remove(
     account: string,
     plugin: Schema<"PluginInstallation">,

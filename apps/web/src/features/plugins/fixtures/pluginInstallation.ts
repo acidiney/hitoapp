@@ -60,6 +60,7 @@ export type InstallationHttpCall = InstallationRequest & {
 export function installationHttp(policy?: Persistence) {
   const requests: InstallationRequest[] = [];
   const calls: InstallationHttpCall[] = [];
+  const checks: string[] = [];
   const state: {
     services: Schema<"PluginService">[];
     installations: Schema<"PluginInstallation">[];
@@ -84,6 +85,10 @@ export function installationHttp(policy?: Persistence) {
       const body: unknown = options?.body
         ? JSON.parse(String(options.body))
         : undefined;
+      if (path.endsWith("/declaration-check")) {
+        checks.push(path);
+        return Response.json({ kind: "current" });
+      }
       const request = { path, method, body };
       requests.push(request);
       const account = new Headers(options?.headers).get("x-hito-account");
@@ -109,7 +114,7 @@ export function installationHttp(policy?: Persistence) {
       return Response.json({ error: "Unexpected request" }, { status: 500 });
     }),
   );
-  return { requests, calls, state, accounts };
+  return { requests, calls, checks, state, accounts };
 }
 
 export function heldInstallationResponse(

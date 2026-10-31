@@ -424,7 +424,7 @@ test.describe("account switching", () => {
         page.getByRole("button", { name: "Check connection", exact: true }),
       ).toBeFocused();
       await page.setViewportSize({ width: 1440, height: 1000 });
-      await page.getByText("Connection settings", { exact: true }).click();
+      await page.locator(".plugin-details > summary").click();
       await page
         .getByLabel("New bearer token", { exact: true })
         .fill("wrong-token");

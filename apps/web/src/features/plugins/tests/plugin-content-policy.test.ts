@@ -62,6 +62,8 @@ function workflow(current?: Persistence, proposed?: Persistence) {
       const body = options?.body
         ? (JSON.parse(String(options.body)) as Schema<"RefreshPlugin">)
         : undefined;
+      if (path.endsWith("/declaration-check"))
+        return Response.json({ kind: "current" });
       requests.push({ path, method, body });
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(account);
       if (path === "/api/v1/plugins" && method === "GET")
@@ -90,7 +92,9 @@ function workflow(current?: Persistence, proposed?: Persistence) {
 }
 
 function acceptedDisclosure() {
-  return screen.getByText(/^Source persistence:/);
+  const term = screen.getByText("Source persistence");
+  expect(term.tagName).toBe("DT");
+  return term.nextElementSibling as Element;
 }
 
 function reviewDisclosure(label: "Current" | "Proposed") {

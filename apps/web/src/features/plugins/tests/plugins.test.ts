@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
@@ -20,6 +21,7 @@ vi.mock("../api/pluginsApi", () => ({
     offer: vi.fn(),
     withdraw: vi.fn(),
     refresh: vi.fn(),
+    checkDeclaration: vi.fn(),
     remove: vi.fn(),
     clearCredential: vi.fn(),
   },
@@ -309,4 +311,93 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
       screen.getByRole("heading", { name: "Fixture provider" }),
     ).toBeTruthy(),
   );
+});
+
+test("a connection says in plain words what it does and keeps the technical declaration in Details", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
+  render(settingsPage("bob", false));
+  await screen.findByText("Finds songs and plays them from Fixture provider.");
+  for (const label of screen.getAllByText(/Declared capabilities/))
+    expect(label.closest("details")).not.toBeNull();
+  const details = screen.getByText("Details").closest("details");
+  expect(details?.open).toBe(false);
+  expect(
+    within(details as HTMLElement).getByText(/Declared capabilities/),
+  ).toBeTruthy();
+  expect(
+    within(details as HTMLElement).getByText(/No persistence declaration/),
+  ).toBeTruthy();
+});
+
+test("new capabilities waiting for approval are announced without pressing Check connection", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  const manifest = {
+    ...plugin.manifest,
+    capabilities: ["search" as const, "sources" as const, "artwork" as const],
+  };
+  vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({
+    kind: "review_required",
+    manifest,
+    digest: "artwork-digest",
+  });
+  vi.mocked(pluginsApi.refresh).mockResolvedValue({
+    kind: "updated",
+    installation: { ...plugin, revision: 2, manifest },
+  });
+  render(settingsPage("bob", false));
+  const banner = await screen.findByRole("status", {
+    name: "New: album covers",
+  });
+  expect(pluginsApi.checkDeclaration).toHaveBeenCalledExactlyOnceWith(
+    "bob",
+    "installation",
+    1,
+    expect.any(AbortSignal),
+  );
+  expect(pluginsApi.refresh).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("heading", { name: "Review plugin changes" }),
+  ).toBeNull();
+  fireEvent.click(
+    within(banner).getByRole("button", { name: "Review and accept" }),
+  );
+  await screen.findByRole("heading", { name: "Review plugin changes" });
+  fireEvent.click(screen.getByRole("button", { name: "Accept changes" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("status", { name: "New: album covers" }),
+    ).toBeNull(),
+  );
+  expect(pluginsApi.refresh).toHaveBeenCalledWith(
+    "bob",
+    plugin,
+    {
+      revision: 1,
+      accept_manifest_digest: "artwork-digest",
+      credential: { action: "keep" },
+    },
+    expect.any(AbortSignal),
+  );
+});
+
+test("a failed automatic check stays quiet", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  vi.mocked(pluginsApi.checkDeclaration).mockRejectedValue(
+    new Error("offline"),
+  );
+  render(settingsPage("bob", false));
+  await screen.findByRole("button", { name: "Check connection" });
+  await waitFor(() => expect(pluginsApi.checkDeclaration).toHaveBeenCalled());
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("offline")).toBeNull();
 });
