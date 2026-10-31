@@ -28,6 +28,13 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 - On 2026-10-31 the local Spotify plugin container was rebuilt from `docker/plugin.Dockerfile` (image `hito-plugin-spotify:artwork-3bb07e3b`; the previous container is kept stopped as `hito-plugin-spotify-1-pre-artwork`). The listener accepted the artwork capability, and real Spotify album covers then appeared on the Albums page.
 - Older sections below still say "not deployed" or "migration 0046" for work that now runs locally. They are dated evidence from when they were written.
 
+**Artist matching repair, 2026-10-31 (source only, not yet deployed to the local server)**
+
+- Reported: the 106-track "Ed Sheeran" credit (mostly Spotify playlist imports from before artist pages were published) was never matched, and its credit page asked the listener to find reviewed artists. Root cause confirmed by a failing test with Ed Sheeran-like data in the MusicBrainz fake: the name pass treated any search with more results than its 10-result page as uncertain, and an exact name with many partial-name results ("Ed Sheeran & Justin Bieber") always exceeds it.
+- Fixed in source: the search asks for 100 results and is conclusive when the page holds every score-100 result; recordings are read page by page (at most five pages for one artist, six per credit); one identified track now identifies its credit for the siblings that have no evidence of their own (`matched_credit_evidence`, migration 0071); migration 0071 also expires the name checks decided under the old rule and queues a walk for the affected accounts; the credit page shows the matched artist or "Hito is identifying this artist…", with **Choose the artist** as a secondary manual panel. See [artist matching](artist-matching.md#matching-by-name-with-corroboration).
+- Existing Spotify imports still lack artist pages unless the playlist is followed (a refresh stores them) or imported again; the public plugin has no per-track lookup and no Spotify call was added. Credit-level matching makes that less necessary.
+- Not verified: live MusicBrainz scoring (the rule assumes an exact phrase match scores 100, as documented for the search API); the migration on the real local database; a work-budget measurement of the sibling query.
+
 **Open**
 
 - No request has reached live MusicBrainz or the Cover Art Archive from this source, and the adapter's live gate has only seen HTTP 503. Coverage, request counts and time to first genre tiles are unknown.
