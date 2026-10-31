@@ -31,7 +31,9 @@ CREATE TABLE artist_association_candidate_confirmations (
 CREATE TRIGGER artist_association_candidate_confirmation_immutable BEFORE UPDATE ON artist_association_candidate_confirmations BEGIN
     SELECT RAISE(ABORT,'Artist association candidate confirmation provenance is immutable');
 END;
-CREATE TRIGGER artist_association_candidate_confirmation_retained BEFORE DELETE ON artist_association_candidate_confirmations BEGIN
+CREATE TRIGGER artist_association_candidate_confirmation_retained BEFORE DELETE ON artist_association_candidate_confirmations
+WHEN NOT (EXISTS (SELECT 1 FROM correction_erasure_scopes s WHERE s.kind='account' AND s.subject=(SELECT a.user_id FROM recording_artist_associations a WHERE a.id=old.association_id))
+    OR EXISTS (SELECT 1 FROM correction_erasure_scopes s WHERE s.kind='recording' AND s.subject=(SELECT a.recording_id FROM recording_artist_associations a WHERE a.id=old.association_id))) BEGIN
     SELECT RAISE(ABORT,'Artist association candidate confirmation provenance must be retained');
 END;
 
