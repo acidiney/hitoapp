@@ -2592,6 +2592,7 @@ export interface components {
         ArtistAssociation: {
             account_id: string;
             artist_id: string;
+            credit_evidence: components["schemas"]["CreditEvidence"] | null;
             evidence: components["schemas"]["ArtistAssociationEvidence"];
             id: string;
             library_id: string;
@@ -2630,7 +2631,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
@@ -2810,6 +2811,20 @@ export interface components {
             identity_groups: components["schemas"]["ArtistIdentityGroupPage"];
             query: string;
         };
+        /** @description A chosen artist that some of the credit's tracks already use. */
+        ArtistMatchChosen: {
+            /**
+             * Format: int64
+             * @description Of those, the tracks Hito matched by itself.
+             */
+            automatic_tracks: number;
+            group: components["schemas"]["ArtistIdentityGroup"];
+            /**
+             * Format: int64
+             * @description Tracks of the credit that currently use this artist.
+             */
+            tracks: number;
+        };
         ArtistMatchReceipt: {
             /** Format: int64 */
             matched: number;
@@ -2841,6 +2856,8 @@ export interface components {
         };
         ArtistMatchSuggestions: {
             artist_id: string;
+            /** @description Chosen artists the credit's tracks already use, the most used first. */
+            chosen: components["schemas"]["ArtistMatchChosen"][];
             /**
              * Format: int64
              * @description Suggestions the account dismissed for this credit; they are not in `items`.
@@ -2849,6 +2866,11 @@ export interface components {
             /** @description The dismissed suggestions that could still apply to undecided tracks, so each can be restored. */
             dismissed_items: components["schemas"]["ArtistMatchSuggestion"][];
             items: components["schemas"]["ArtistMatchSuggestion"][];
+            /**
+             * Format: int64
+             * @description Tracks of the credit with no current artist choice.
+             */
+            undecided_tracks: number;
         };
         /** @enum {string} */
         ArtistMatchingState: "idle" | "queued" | "running";
@@ -3246,6 +3268,14 @@ export interface components {
             password: string;
             username: string;
         };
+        /** @description What a credit-level match started from and how many of the credit's tracks supplied it. */
+        CreditEvidence: {
+            kind: components["schemas"]["CreditEvidenceKind"];
+            /** Format: int64 */
+            tracks: number;
+        };
+        /** @enum {string} */
+        CreditEvidenceKind: "file_tag_artist_id" | "isrc" | "provider_url" | "name_discography";
         DeleteAccount: {
             /** @description The account name the administrator saw, so a stale or mistaken request cannot erase a different account. */
             username: string;

@@ -16219,6 +16219,7 @@
           "provider",
           "provider_artist_id",
           "evidence",
+          "credit_evidence",
           "revision"
         ],
         "properties": {
@@ -16227,6 +16228,16 @@
           },
           "artist_id": {
             "type": "string"
+          },
+          "credit_evidence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CreditEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "evidence": {
             "$ref": "#/components/schemas/ArtistAssociationEvidence"
@@ -16356,7 +16367,8 @@
           "matched_file_tag_artist_id",
           "matched_isrc",
           "matched_provider_url",
-          "matched_name_discography"
+          "matched_name_discography",
+          "matched_credit_evidence"
         ]
       },
       "ArtistAssociationRetirement": {
@@ -17071,6 +17083,30 @@
           }
         ]
       },
+      "ArtistMatchChosen": {
+        "type": "object",
+        "description": "A chosen artist that some of the credit's tracks already use.",
+        "required": [
+          "group",
+          "tracks",
+          "automatic_tracks"
+        ],
+        "properties": {
+          "automatic_tracks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of those, the tracks Hito matched by itself."
+          },
+          "group": {
+            "$ref": "#/components/schemas/ArtistIdentityGroup"
+          },
+          "tracks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tracks of the credit that currently use this artist."
+          }
+        }
+      },
       "ArtistMatchReceipt": {
         "type": "object",
         "required": [
@@ -17137,6 +17173,8 @@
         "type": "object",
         "required": [
           "artist_id",
+          "chosen",
+          "undecided_tracks",
           "items",
           "dismissed",
           "dismissed_items"
@@ -17144,6 +17182,13 @@
         "properties": {
           "artist_id": {
             "type": "string"
+          },
+          "chosen": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistMatchChosen"
+            },
+            "description": "Chosen artists the credit's tracks already use, the most used first."
           },
           "dismissed": {
             "type": "integer",
@@ -17162,6 +17207,11 @@
             "items": {
               "$ref": "#/components/schemas/ArtistMatchSuggestion"
             }
+          },
+          "undecided_tracks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tracks of the credit with no current artist choice."
           }
         }
       },
@@ -18734,6 +18784,32 @@
           }
         },
         "additionalProperties": false
+      },
+      "CreditEvidence": {
+        "type": "object",
+        "description": "What a credit-level match started from and how many of the credit's tracks supplied it.",
+        "required": [
+          "kind",
+          "tracks"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CreditEvidenceKind"
+          },
+          "tracks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CreditEvidenceKind": {
+        "type": "string",
+        "enum": [
+          "file_tag_artist_id",
+          "isrc",
+          "provider_url",
+          "name_discography"
+        ]
       },
       "DeleteAccount": {
         "type": "object",
