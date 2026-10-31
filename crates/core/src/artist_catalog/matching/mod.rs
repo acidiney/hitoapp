@@ -1,4 +1,5 @@
 mod apply;
+mod coverage;
 mod credit;
 mod name_discography;
 mod name_probe;

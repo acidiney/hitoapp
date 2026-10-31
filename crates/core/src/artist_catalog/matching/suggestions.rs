@@ -232,7 +232,8 @@ async fn chosen_artists(
             sum(EXISTS (SELECT 1 FROM artist_association_matches m WHERE m.association_id=choice.association_id)
                 OR EXISTS (SELECT 1 FROM artist_association_provider_matches m WHERE m.association_id=choice.association_id)
                 OR EXISTS (SELECT 1 FROM artist_association_name_matches m WHERE m.association_id=choice.association_id)
-                OR EXISTS (SELECT 1 FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id)) ",
+                OR EXISTS (SELECT 1 FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id)
+                OR EXISTS (SELECT 1 FROM artist_association_coverage_matches m WHERE m.association_id=choice.association_id)) ",
     );
     query.push(current_choices());
     query

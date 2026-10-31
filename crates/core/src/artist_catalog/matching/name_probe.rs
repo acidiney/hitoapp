@@ -23,6 +23,8 @@ pub(super) struct Track {
     pub length_ms: Option<u64>,
     pub observation: String,
     pub operation: Option<String>,
+    /// The recording carries an ISRC, an artist page or a tagged artist identifier of its own.
+    pub own_evidence: bool,
 }
 
 /// Case-folded, whitespace-collapsed text. Punctuation and diacritics are significant.
@@ -97,18 +99,24 @@ pub(super) fn candidates(tracks: &[Track]) -> Vec<Candidate> {
     found
 }
 
-/// The deciding sample: the first candidate of each distinct base title, at most
-/// `PROBES_PER_SEARCH`.
+/// The deciding sample: one candidate for each of the first distinct base titles, at most
+/// `PROBES_PER_SEARCH`. A title without a version qualifier is preferred to a version of the same
+/// song, because it is asked about with the narrower length range.
 pub(super) fn sample(candidates: &[Candidate]) -> Vec<usize> {
-    let mut titles: Vec<&str> = Vec::new();
-    let mut picked = Vec::new();
+    let mut picked: Vec<usize> = Vec::new();
     for (index, candidate) in candidates.iter().enumerate() {
-        if picked.len() == PROBES_PER_SEARCH {
-            break;
-        }
-        if !titles.contains(&candidate.title.key.as_str()) {
-            titles.push(&candidate.title.key);
-            picked.push(index);
+        let same_song = picked
+            .iter()
+            .position(|known| candidates[*known].title.key == candidate.title.key);
+        match same_song {
+            Some(slot) => {
+                if candidates[picked[slot]].title.is_qualified() && !candidate.title.is_qualified()
+                {
+                    picked[slot] = index;
+                }
+            }
+            None if picked.len() < PROBES_PER_SEARCH => picked.push(index),
+            None => {}
         }
     }
     picked
@@ -177,7 +185,8 @@ pub(super) fn distinct_titles(candidates: &[Candidate], hits: &[usize]) -> usize
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Assessment {
     Corroborated(Vec<usize>),
-    Absent,
+    /// Fewer than two titles listed, with the sample candidates that were.
+    Absent(Vec<usize>),
     /// The answer holds fewer matches than MusicBrainz states and did not corroborate.
     NotRead,
 }
@@ -191,24 +200,51 @@ pub(super) fn assess(
     if distinct_titles(candidates, &hits) >= MIN_CORROBORATING {
         Assessment::Corroborated(hits)
     } else if listed.complete() {
-        Assessment::Absent
+        Assessment::Absent(hits)
     } else {
         Assessment::NotRead
     }
 }
 
-/// The artist, with the sample candidates it corroborates, when exactly one namesake corroborates
-/// and no other could still do so with matches that were not read.
-pub(super) fn decide(assessments: Vec<(String, Assessment)>) -> Option<(String, Vec<usize>)> {
+/// The artist, with the sample candidates it lists, when exactly one namesake corroborates and no
+/// other could still do so with matches that were not read. An artist already matched for the
+/// credit by an earlier request continues without fresh corroboration when no other namesake
+/// listed any sampled title.
+pub(super) fn decide(
+    assessments: &[(String, Assessment)],
+    established: Option<&str>,
+) -> Option<(String, Vec<usize>)> {
     let mut accepted = None;
     for (id, assessment) in assessments {
         match assessment {
-            Assessment::Corroborated(hits) if accepted.is_none() => accepted = Some((id, hits)),
+            Assessment::Corroborated(hits) if accepted.is_none() => {
+                accepted = Some((id.clone(), hits.clone()));
+            }
             Assessment::Corroborated(_) | Assessment::NotRead => return None,
-            Assessment::Absent => {}
+            Assessment::Absent(_) => {}
         }
     }
-    accepted
+    match (accepted, established) {
+        (Some((id, hits)), Some(established)) => (id == established).then_some((id, hits)),
+        (Some(accepted), None) => Some(accepted),
+        (None, Some(established)) => {
+            let continuing = assessments
+                .iter()
+                .find_map(|(id, assessment)| match assessment {
+                    Assessment::Absent(hits) if id == established => Some(hits.clone()),
+                    _ => None,
+                })?;
+            silent_beside(assessments, established).then(|| (established.to_owned(), continuing))
+        }
+        (None, None) => None,
+    }
+}
+
+/// Whether every namesake other than the artist listed none of the sampled titles.
+pub(super) fn silent_beside(assessments: &[(String, Assessment)], artist: &str) -> bool {
+    assessments.iter().all(|(id, assessment)| {
+        id == artist || matches!(assessment, Assessment::Absent(hits) if hits.is_empty())
+    })
 }
 
 #[cfg(test)]
@@ -307,6 +343,7 @@ mod tests {
             length_ms: length,
             observation: "o".into(),
             operation: None,
+            own_evidence: false,
         }
     }
 
@@ -360,6 +397,28 @@ mod tests {
     }
 
     #[test]
+    fn the_sample_prefers_the_plain_title_of_a_song_to_its_versions() {
+        let tracks = [
+            track("Song (Live)", Some(100_000)),
+            track("Other", Some(90_000)),
+            track("Song - Remix", Some(100_000)),
+            track("Song", Some(101_000)),
+        ];
+        let found = candidates(&tracks);
+        assert_eq!(sample(&found), vec![3, 1]);
+        let probes = probes(&found, &sample(&found));
+        assert_eq!(
+            (
+                probes[0].title.as_str(),
+                probes[0].min_length_ms,
+                probes[0].max_length_ms
+            ),
+            ("Song", 99_000, 103_000),
+            "A plain title is asked about with the narrow range"
+        );
+    }
+
+    #[test]
     fn two_recordings_sharing_one_title_do_not_corroborate() {
         let tracks = [track("Intro", Some(30_000)), track("Intro", Some(90_000))];
         let found = candidates(&tracks);
@@ -376,7 +435,7 @@ mod tests {
                 &picked,
                 &listed(&[("Intro", 30_000), ("Intro", 90_000)], 2)
             ),
-            Assessment::Absent
+            Assessment::Absent(vec![0, 1])
         );
         let tracks = [track("Intro", Some(30_000)), track("Outro", Some(90_000))];
         let found = candidates(&tracks);
@@ -394,7 +453,7 @@ mod tests {
                 &[0, 1],
                 &listed(&[("Intro", 30_000), ("outro", 92_001)], 2)
             ),
-            Assessment::Absent,
+            Assessment::Absent(vec![0]),
             "Two seconds is the widest tolerated difference"
         );
     }
@@ -421,21 +480,61 @@ mod tests {
     #[test]
     fn exactly_one_corroborated_namesake_with_no_unread_one_is_accepted() {
         let yes = || Assessment::Corroborated(vec![0, 1]);
+        let absent = || Assessment::Absent(vec![]);
         assert_eq!(
-            decide(vec![(ID.into(), yes()), (OTHER.into(), Assessment::Absent)]),
+            decide(&[(ID.into(), yes()), (OTHER.into(), absent())], None),
             Some((ID.into(), vec![0, 1]))
         );
         assert_eq!(
-            decide(vec![(ID.into(), yes()), (OTHER.into(), yes())]),
+            decide(&[(ID.into(), yes()), (OTHER.into(), yes())], None),
             None
         );
         assert_eq!(
-            decide(vec![
-                (ID.into(), yes()),
-                (OTHER.into(), Assessment::NotRead)
-            ]),
+            decide(
+                &[(ID.into(), yes()), (OTHER.into(), Assessment::NotRead)],
+                None
+            ),
             None
         );
-        assert_eq!(decide(vec![(ID.into(), Assessment::Absent)]), None);
+        assert_eq!(decide(&[(ID.into(), absent())], None), None);
+    }
+
+    #[test]
+    fn an_artist_already_matched_for_the_credit_continues_only_beside_silent_namesakes() {
+        let one = || Assessment::Absent(vec![3]);
+        let none = || Assessment::Absent(vec![]);
+        assert_eq!(
+            decide(&[(ID.into(), one()), (OTHER.into(), none())], Some(ID)),
+            Some((ID.into(), vec![3]))
+        );
+        assert_eq!(
+            decide(&[(ID.into(), one()), (OTHER.into(), one())], Some(ID)),
+            None,
+            "A namesake that lists a sampled title is not silent"
+        );
+        assert_eq!(
+            decide(&[(ID.into(), none())], Some(OTHER)),
+            None,
+            "The established artist must be among the namesakes"
+        );
+        assert_eq!(
+            decide(
+                &[
+                    (ID.into(), Assessment::Corroborated(vec![0, 1])),
+                    (OTHER.into(), none())
+                ],
+                Some(OTHER)
+            ),
+            None,
+            "Corroboration of a different artist than the established one decides nothing"
+        );
+        assert!(silent_beside(
+            &[(ID.into(), one()), (OTHER.into(), none())],
+            ID
+        ));
+        assert!(!silent_beside(
+            &[(ID.into(), none()), (OTHER.into(), one())],
+            ID
+        ));
     }
 }

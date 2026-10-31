@@ -1,7 +1,7 @@
 use super::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, AssociateRecordingArtist,
-    CreditEvidence, CreditEvidenceKind, MAX_ASSOCIATIONS, MAX_RETAINED_ASSOCIATIONS,
-    MetadataProvider, REQUEST_BUDGET, association_changes,
+    CoverageEvidence, CreditEvidence, CreditEvidenceKind, MAX_ASSOCIATIONS,
+    MAX_RETAINED_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET, association_changes,
     authority::{self, Credit},
     policy, provider,
 };
@@ -29,8 +29,11 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
 const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_association_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_provider_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id),
-    (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id)) AS matched,
-    (SELECT matched.source_tracks FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id) AS credit_tracks";
+    (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id),
+    (SELECT 'coverage' FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id)) AS matched,
+    (SELECT matched.source_tracks FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id) AS credit_tracks,
+    (SELECT matched.matched_tracks FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id) AS coverage_matched,
+    (SELECT matched.probed_tracks FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id) AS coverage_probed";
 
 #[derive(sqlx::FromRow)]
 struct Stored {
@@ -47,6 +50,8 @@ struct Stored {
     revision: i64,
     matched: Option<String>,
     credit_tracks: Option<i64>,
+    coverage_matched: Option<i64>,
+    coverage_probed: Option<i64>,
 }
 
 fn credit_evidence(matched: Option<&str>, tracks: Option<i64>) -> Option<CreditEvidence> {
@@ -93,6 +98,7 @@ impl Stored {
                 Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
                 Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
                 Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
+                Some("coverage") => ArtistAssociationEvidence::MatchedCreditCoverage,
                 Some(kind) if kind.starts_with("credit_") => {
                     ArtistAssociationEvidence::MatchedCreditEvidence
                 }
@@ -103,6 +109,12 @@ impl Stored {
                 }
             },
             credit_evidence: credit_evidence(self.matched.as_deref(), self.credit_tracks),
+            coverage_evidence: self.coverage_matched.zip(self.coverage_probed).map(
+                |(matched_tracks, probed_tracks)| CoverageEvidence {
+                    matched_tracks,
+                    probed_tracks,
+                },
+            ),
             revision: self.revision,
         })
     }

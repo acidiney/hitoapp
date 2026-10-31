@@ -87,6 +87,9 @@ pub enum ArtistAssociationEvidence {
     MatchedNameDiscography,
     /// The credit's other tracks, following tracks that were matched from `credit_evidence`.
     MatchedCreditEvidence,
+    /// The credit's remaining tracks, following one artist that the credit's probed tracks mostly
+    /// share; see `coverage_evidence`.
+    MatchedCreditCoverage,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
@@ -103,6 +106,14 @@ pub enum CreditEvidenceKind {
 pub struct CreditEvidence {
     pub kind: CreditEvidenceKind,
     pub tracks: i64,
+}
+
+/// How many of a credit's probed tracks the artist listed when the credit's remaining tracks
+/// followed it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct CoverageEvidence {
+    pub matched_tracks: i64,
+    pub probed_tracks: i64,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -133,6 +144,8 @@ pub struct ArtistAssociation {
     pub evidence: ArtistAssociationEvidence,
     #[schema(required = true)]
     pub credit_evidence: Option<CreditEvidence>,
+    #[schema(required = true)]
+    pub coverage_evidence: Option<CoverageEvidence>,
     pub revision: i64,
 }
 

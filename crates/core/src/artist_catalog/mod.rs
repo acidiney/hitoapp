@@ -59,9 +59,9 @@ pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
     ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability, ArtistReviewConnection,
-    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CreditEvidence,
-    CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider, MetadataSettings,
-    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
+    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CoverageEvidence,
+    CreditEvidence, CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider,
+    MetadataSettings, ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
     ReleaseGroupEditionsAvailability, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 

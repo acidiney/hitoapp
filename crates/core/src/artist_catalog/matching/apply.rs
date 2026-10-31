@@ -15,7 +15,8 @@ pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
             SELECT association_id,receipt_order FROM artist_association_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches
-            UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches) mt
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches) mt
         WHERE mt.association_id=c.association_id AND mt.receipt_order=c.selection_order)
     AND (c.retired=1 OR c.observation_id IS NOT r.metadata_observation_id))";
 
@@ -28,6 +29,9 @@ pub(super) enum EvidenceKind {
     /// The credit's other tracks, matched because this many of its tracks were individually
     /// matched from the originating evidence.
     Credit(Origin, u32),
+    /// The credit's remaining tracks, matched because the artist listed this many of the credit's
+    /// tracks of this many that were probed.
+    Coverage(u32, u32),
 }
 
 /// The evidence a credit-level match started from.
@@ -57,6 +61,7 @@ impl EvidenceKind {
             Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
             Self::NameDiscography => "artist_association_name_matches",
             Self::Credit(..) => "artist_association_credit_matches",
+            Self::Coverage(..) => "artist_association_coverage_matches",
         }
     }
 
@@ -67,6 +72,7 @@ impl EvidenceKind {
             Self::ProviderUrl => Origin::ProviderUrl.name(),
             Self::NameDiscography => Origin::NameDiscography.name(),
             Self::Credit(origin, _) => origin.name(),
+            Self::Coverage(..) => "name_coverage",
         }
     }
 
@@ -76,7 +82,7 @@ impl EvidenceKind {
             Self::FileTagArtistId => Some(Origin::FileTagArtistId),
             Self::Isrc => Some(Origin::Isrc),
             Self::ProviderUrl => Some(Origin::ProviderUrl),
-            Self::NameDiscography | Self::Credit(..) => None,
+            Self::NameDiscography | Self::Credit(..) | Self::Coverage(..) => None,
         }
     }
 }
@@ -215,19 +221,28 @@ pub(super) async fn commit(
                     "association_id,evidence_kind,receipt_order,source_tracks",
                     "?,?,?,?",
                 ),
+                EvidenceKind::Coverage(..) => (
+                    "association_id,receipt_order,matched_tracks,probed_tracks",
+                    "?,?,?,?",
+                ),
                 _ => ("association_id,evidence_kind,receipt_order", "?,?,?"),
             };
             let sql = format!(
                 "INSERT INTO {}({columns}) VALUES({marks})",
                 item.kind.table()
             );
-            let mut insert = sqlx::query(&sql)
-                .bind(&item.association)
-                .bind(item.kind.name())
-                .bind(order);
-            if let EvidenceKind::Credit(_, tracks) = item.kind {
-                insert = insert.bind(i64::from(tracks));
-            }
+            let insert = sqlx::query(&sql).bind(&item.association);
+            let insert = match item.kind {
+                EvidenceKind::Coverage(matched, probed) => insert
+                    .bind(order)
+                    .bind(i64::from(matched))
+                    .bind(i64::from(probed)),
+                EvidenceKind::Credit(_, tracks) => insert
+                    .bind(item.kind.name())
+                    .bind(order)
+                    .bind(i64::from(tracks)),
+                _ => insert.bind(item.kind.name()).bind(order),
+            };
             insert.execute(&mut *tx).await?;
         }
     }

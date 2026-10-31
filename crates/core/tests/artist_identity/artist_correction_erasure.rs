@@ -32,10 +32,11 @@ const ACCOUNT_TABLES: [&str; 16] = [
     "album_edition_choices",
 ];
 
-const THROUGH_ASSOCIATION: [&str; 3] = [
+const THROUGH_ASSOCIATION: [&str; 4] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_name_matches",
+    "artist_association_coverage_matches",
 ];
 
 async fn connect(library: &Library) -> SqliteConnection {
@@ -142,6 +143,12 @@ async fn add_provenance(connection: &mut SqliteConnection, account: &Actor, reco
         .await
         .unwrap();
     }
+    sqlx::query("INSERT INTO artist_association_coverage_matches(association_id,matched_tracks,probed_tracks,receipt_order) VALUES(?,5,6,?)")
+        .bind(&association)
+        .bind(receipt)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
     let group: String =
         sqlx::query_scalar("SELECT id FROM account_artist_identity_groups WHERE user_id=? LIMIT 1")
             .bind(user)

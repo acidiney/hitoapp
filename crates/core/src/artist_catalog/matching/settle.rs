@@ -3,7 +3,7 @@
 use super::{
     ArtistProviderMatchReceipt,
     apply::{self, EvidenceKind, Planned, plan},
-    credit,
+    coverage, credit,
     name_discography::NAME_RULE,
 };
 use crate::artist_catalog::{MetadataProvider, identity::receipts, policy};
@@ -99,6 +99,11 @@ impl ArtistCatalog {
                     if current.as_deref() != Some(item.observation.as_str()) {
                         declined += 1;
                         false
+                    } else if matches!(kind, EvidenceKind::Coverage(..))
+                        && coverage::conflicts(&mut tx, actor, &item.recording, artist).await?
+                    {
+                        declined += 1;
+                        true
                     } else {
                         match plan(
                             &mut tx,

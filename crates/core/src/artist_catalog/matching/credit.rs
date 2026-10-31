@@ -52,7 +52,7 @@ fn lists_several(text: &str) -> bool {
 /// A credit name that lists several artists names no single one. Hito does not split credits, so
 /// such a credit receives nothing beyond the tracks that were matched individually. Bracketed
 /// parts are checked on their own ("(feat. B)") and then ignored ("(Live)").
-fn names_several(name: &str) -> bool {
+pub(super) fn names_several(name: &str) -> bool {
     let name = folded(name);
     let (mut outside, mut inside, mut depth) = (String::new(), String::new(), 0_u32);
     for character in name.chars() {
@@ -133,7 +133,7 @@ async fn touched(
 
 /// How many of the credit's tracks currently use each artist because of strong automatic
 /// evidence, leaving out recordings that this settlement matches again.
-async fn strong_votes(
+pub(super) async fn strong_votes(
     tx: &mut SqliteConnection,
     actor: &Actor,
     credit: &str,

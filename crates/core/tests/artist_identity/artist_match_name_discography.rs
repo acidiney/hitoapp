@@ -575,34 +575,33 @@ async fn three_exact_namesakes_scoring_100_73_and_72_match_the_prolific_one_and_
     );
     assert_eq!(
         (matched, unavailable),
-        (45, 0),
-        "Every listed track follows the credit; the five the artist does not list stay undecided"
+        (50, 0),
+        "Every listed track follows the credit, and the artist covers 45 of the 50 probed tracks, so the five it does not list follow by coverage"
     );
-    assert_eq!(uncertain, 5);
+    assert!(
+        uncertain <= 5,
+        "Only tracks the artist does not list were ever uncertain, before the walk covered them"
+    );
     for (index, recording) in library.recordings.iter().enumerate() {
         let linked = library.associations(recording).await;
-        if index < 45 {
-            assert_eq!(linked[0].provider_artist_id, MAIN, "Track {index}");
-            assert_eq!(
-                linked[0].evidence,
+        assert_eq!(linked[0].provider_artist_id, MAIN, "Track {index}");
+        assert_eq!(
+            linked[0].evidence,
+            if index < 45 {
                 ArtistAssociationEvidence::MatchedNameDiscography
-            );
-        } else {
-            assert!(linked.is_empty(), "Track {index} is not listed");
-        }
+            } else {
+                ArtistAssociationEvidence::MatchedCreditCoverage
+            }
+        );
     }
     let groups: std::collections::HashSet<String> = {
         let mut found = std::collections::HashSet::new();
-        for recording in &library.recordings[..45] {
+        for recording in &library.recordings {
             found.insert(library.group_of(recording).await.unwrap());
         }
         found
     };
-    assert_eq!(
-        groups.len(),
-        1,
-        "All listed tracks share one reviewed artist"
-    );
+    assert_eq!(groups.len(), 1, "All tracks share one reviewed artist");
     assert_eq!(
         probes_of(&library, SECOND).len(),
         probes_of(&library, THIRD).len()
@@ -735,7 +734,7 @@ async fn name_checks_of_an_earlier_rule_are_asked_again() {
     assert_eq!(library.rows("artist_name_checks").await, 4);
     assert_eq!(
         library
-            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=2")
+            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=3")
             .await,
         "4",
         "Current checks carry the current rule"
@@ -761,7 +760,7 @@ async fn name_checks_of_an_earlier_rule_are_asked_again() {
     );
     assert_eq!(
         library
-            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=2")
+            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=3")
             .await,
         "1"
     );

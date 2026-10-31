@@ -4,6 +4,8 @@
 use super::{
     ArtistProviderMatchReceipt,
     apply::{EvidenceKind, REPLACEABLE},
+    coverage::{self, Standing},
+    credit::names_several,
     name_probe::{
         self, Assessment, Candidate, MAX_NAMESAKES, MIN_CORROBORATING, PROBES_PER_SEARCH, Track,
         normalize,
@@ -23,8 +25,10 @@ pub(super) const NAME_CURSOR: &str = "name:";
 /// hold count after this mark so that the cursor still moves forward.
 const HOLD_MARK: char = '~';
 const MAX_HOLDS: u32 = 40;
-/// The rule that settled a name check. Checks of another rule do not hide a recording.
-pub(super) const NAME_RULE: i64 = 2;
+/// The rule that settled a name check. Checks of another rule do not hide a recording. Rule 3
+/// compares version titles, continues an artist already matched for the credit and lets one
+/// artist's coverage of the credit decide its remaining tracks.
+pub(super) const NAME_RULE: i64 = 3;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
 /// The least a credit costs: one search and one sample search per exact-name artist.
@@ -44,6 +48,16 @@ enum Cause {
     Outage,
 }
 
+/// What decides whether an artist covers a credit.
+struct Covering<'a> {
+    credit: &'a Credit,
+    tracks: &'a [Track],
+    standing: &'a Standing,
+    namesakes: &'a [String],
+    /// No other namesake listed any title of the deciding sample.
+    silent: bool,
+}
+
 /// The distinct library recordings of a credit and the sample that decides.
 struct Plan {
     candidates: Vec<Candidate>,
@@ -56,6 +70,9 @@ enum Verdict {
         matched: Vec<usize>,
         unreached: Vec<usize>,
         cause: Option<Cause>,
+        /// Matched and probed tracks when the artist covers the credit, so that its remaining
+        /// tracks follow.
+        coverage: Option<(u32, u32)>,
     },
     Uncertain,
     Unavailable,
@@ -102,9 +119,9 @@ impl Budget {
             || (self.failures < MAX_CONSECUTIVE_FAILURES && self.started.elapsed() <= self.window)
     }
 
-    /// Whether one more lookup fits in the request: the lookup cap as well as the window.
-    fn has_room(&self) -> bool {
-        self.lookups < MAX_LOOKUPS && self.allows()
+    /// Whether `needed` more lookups fit in the request: the lookup cap as well as the window.
+    fn has_room(&self, needed: usize) -> bool {
+        self.lookups + needed <= MAX_LOOKUPS && self.allows()
     }
 
     /// Why `allows` said no, for the debug log.
@@ -160,6 +177,35 @@ fn held_cursor(credit: &str, held: u32) -> String {
     format!("{NAME_CURSOR}{credit}{HOLD_MARK}{held:02}")
 }
 
+/// What a verdict says about one track of the credit, or `None` when the track was not reached
+/// and is left for the next request.
+fn outcome(verdict: &Verdict, position: usize, track: &Track) -> Option<Outcome> {
+    match verdict {
+        Verdict::Artist {
+            artist, matched, ..
+        } if matched.contains(&position) => Some(Outcome::Artist(
+            artist.clone(),
+            EvidenceKind::NameDiscography,
+        )),
+        Verdict::Artist {
+            unreached, cause, ..
+        } if unreached.contains(&position) => match cause {
+            Some(Cause::Outage) => Some(Outcome::Unavailable),
+            _ => None,
+        },
+        Verdict::Artist {
+            artist,
+            coverage: Some((matched, probed)),
+            ..
+        } if !track.own_evidence => Some(Outcome::Artist(
+            artist.clone(),
+            EvidenceKind::Coverage(*matched, *probed),
+        )),
+        Verdict::Unavailable => Some(Outcome::Unavailable),
+        _ => Some(Outcome::Uncertain),
+    }
+}
+
 impl ArtistCatalog {
     /// One bounded batch of the name phase: credits are examined in identifier order after the
     /// cursor, at most `MAX_LOOKUPS` MusicBrainz requests are made, and the pass stops early when
@@ -179,10 +225,13 @@ impl ArtistCatalog {
             credits(&mut connection, actor, after_credit).await?
         };
         let mut tracks = Vec::new();
+        let mut standings = Vec::new();
         {
             let mut connection = self.store.pool.acquire().await?;
             for credit in &credits {
                 tracks.push(credit_tracks(&mut connection, actor, &credit.id).await?);
+                standings
+                    .push(coverage::standing(&mut connection, actor, &credit.id, NAME_RULE).await?);
             }
         }
         let mut examined = Vec::new();
@@ -197,7 +246,13 @@ impl ArtistCatalog {
                     break;
                 }
                 let verdict = self
-                    .judge(credit, &tracks[index], &mut budget, &mut answers)
+                    .judge(
+                        credit,
+                        &tracks[index],
+                        &standings[index],
+                        &mut budget,
+                        &mut answers,
+                    )
                     .await;
                 let verdict = match verdict {
                     Verdict::Refused if index > 0 => {
@@ -224,20 +279,8 @@ impl ArtistCatalog {
                     }
                 ) && (index > 0 || held < MAX_HOLDS);
                 for (position, track) in tracks[index].iter().enumerate() {
-                    let outcome = match &verdict {
-                        Verdict::Artist {
-                            artist, matched, ..
-                        } if matched.contains(&position) => {
-                            Outcome::Artist(artist.clone(), EvidenceKind::NameDiscography)
-                        }
-                        Verdict::Artist {
-                            unreached, cause, ..
-                        } if unreached.contains(&position) => match cause {
-                            Some(Cause::Outage) => Outcome::Unavailable,
-                            _ => continue,
-                        },
-                        Verdict::Unavailable => Outcome::Unavailable,
-                        _ => Outcome::Uncertain,
+                    let Some(outcome) = outcome(&verdict, position, track) else {
+                        continue;
                     };
                     examined.push(Examined {
                         recording: track.recording.clone(),
@@ -245,6 +288,24 @@ impl ArtistCatalog {
                         operation: track.operation.clone(),
                         outcome,
                     });
+                }
+                if let Verdict::Artist {
+                    artist,
+                    coverage: Some((matched, probed)),
+                    ..
+                } = &verdict
+                {
+                    for track in standings[index].checked.iter().filter(|t| !t.own_evidence) {
+                        examined.push(Examined {
+                            recording: track.recording.clone(),
+                            observation: track.observation.clone(),
+                            operation: track.operation.clone(),
+                            outcome: Outcome::Artist(
+                                artist.clone(),
+                                EvidenceKind::Coverage(*matched, *probed),
+                            ),
+                        });
+                    }
                 }
                 if holds {
                     holding = true;
@@ -289,12 +350,14 @@ impl ArtistCatalog {
         &self,
         credit: &Credit,
         tracks: &[Track],
+        standing: &Standing,
         budget: &mut Budget,
         answers: &mut Answers,
     ) -> Verdict {
         let candidates = name_probe::candidates(tracks);
         let sample = name_probe::sample(&candidates);
-        if sample.len() < MIN_CORROBORATING {
+        let established = standing.established();
+        if sample.len() < MIN_CORROBORATING && established.is_none() {
             return Verdict::Uncertain;
         }
         let key = normalize(&credit.name);
@@ -322,24 +385,139 @@ impl ArtistCatalog {
             return Verdict::Uncertain;
         };
         let mut assessments = Vec::new();
-        for id in ids {
-            let listed = match self.probe(&id, &candidates, &sample, budget, answers).await {
-                Ok(listed) => listed,
-                Err(verdict) => return verdict,
+        for id in &ids {
+            let assessment = if sample.is_empty() {
+                Assessment::Absent(Vec::new())
+            } else {
+                let listed = match self.probe(id, &candidates, &sample, budget, answers).await {
+                    Ok(listed) => listed,
+                    Err(verdict) => return verdict,
+                };
+                name_probe::assess(&candidates, &sample, &listed)
             };
-            let assessment = name_probe::assess(&candidates, &sample, &listed);
             if assessment == Assessment::NotRead {
                 return Verdict::Uncertain;
             }
-            assessments.push((id, assessment));
+            assessments.push((id.clone(), assessment));
         }
-        match name_probe::decide(assessments) {
-            Some((artist, hits)) => {
-                let plan = Plan { candidates, sample };
-                self.follow(artist, &plan, hits, budget, answers).await
+        let Some((artist, hits)) = name_probe::decide(&assessments, established) else {
+            return Verdict::Uncertain;
+        };
+        let silent = name_probe::silent_beside(&assessments, &artist);
+        let plan = Plan { candidates, sample };
+        let reserve = if standing.matched.is_empty() {
+            0
+        } else {
+            ids.len() - 1
+        };
+        let verdict = self
+            .follow(artist, &plan, hits, reserve, budget, answers)
+            .await;
+        match verdict {
+            Verdict::Artist {
+                artist,
+                matched,
+                unreached,
+                cause: None,
+                ..
+            } => {
+                let covering = Covering {
+                    credit,
+                    tracks,
+                    standing,
+                    namesakes: &ids,
+                    silent,
+                };
+                self.cover(artist, matched, unreached, &covering, budget, answers)
+                    .await
             }
-            None => Verdict::Uncertain,
+            verdict => verdict,
         }
+    }
+
+    /// Decides whether the artist covers the credit: it was matched on enough titles, lists most of
+    /// the tracks that were asked about, and no namesake lists any title it was asked about,
+    /// including the titles earlier requests matched. A credit that names several artists never
+    /// qualifies. A lookup that does not fit holds the credit for the next request.
+    async fn cover(
+        &self,
+        artist: String,
+        matched: Vec<usize>,
+        unreached: Vec<usize>,
+        covering: &Covering<'_>,
+        budget: &mut Budget,
+        answers: &mut Answers,
+    ) -> Verdict {
+        let Covering {
+            credit,
+            tracks,
+            standing,
+            namesakes,
+            silent,
+        } = covering;
+        let tally = coverage::tally(standing, tracks, &matched);
+        let mut cause = None;
+        let mut coverage = None;
+        if *silent && tally.qualifies() && !names_several(&credit.name) {
+            match self
+                .silent_on_earlier_matches(&artist, standing, namesakes, budget, answers)
+                .await
+            {
+                Ok(true) => coverage = Some(tally.counts()),
+                Ok(false) => {}
+                Err(found) => cause = Some(found),
+            }
+        }
+        let unreached = if cause.is_some() {
+            (0..tracks.len())
+                .filter(|index| !matched.contains(index))
+                .collect()
+        } else {
+            unreached
+        };
+        Verdict::Artist {
+            artist,
+            matched,
+            unreached,
+            cause,
+            coverage,
+        }
+    }
+
+    /// Whether no other namesake lists any of the titles that earlier requests matched to the
+    /// artist. `Err` says why the question could not be asked.
+    async fn silent_on_earlier_matches(
+        &self,
+        artist: &str,
+        standing: &Standing,
+        namesakes: &[String],
+        budget: &mut Budget,
+        answers: &mut Answers,
+    ) -> std::result::Result<bool, Cause> {
+        let earlier = standing.tracks();
+        let candidates = name_probe::candidates(&earlier);
+        let sample = name_probe::sample(&candidates);
+        if sample.is_empty() {
+            return Ok(true);
+        }
+        for other in namesakes.iter().filter(|other| other.as_str() != artist) {
+            if !budget.has_room(1) {
+                return Err(Cause::Budget);
+            }
+            match self
+                .probe(other, &candidates, &sample, budget, answers)
+                .await
+            {
+                Ok(listed) => {
+                    if !name_probe::found(&candidates, &sample, &listed).is_empty() {
+                        return Ok(false);
+                    }
+                }
+                Err(Verdict::Refused) => return Err(Cause::Budget),
+                Err(_) => return Err(Cause::Outage),
+            }
+        }
+        Ok(true)
     }
 
     /// Asks one exact-name artist about the picked library recordings; answers already read in this
@@ -377,6 +555,7 @@ impl ArtistCatalog {
         artist: String,
         plan: &Plan,
         hits: Vec<usize>,
+        reserve: usize,
         budget: &mut Budget,
         answers: &mut Answers,
     ) -> Verdict {
@@ -391,7 +570,7 @@ impl ArtistCatalog {
         let mut cause = None;
         let mut reached = 0;
         for chunk in rest.chunks(PROBES_PER_SEARCH) {
-            if !budget.has_room() {
+            if !budget.has_room(1 + reserve) {
                 cause = Some(Cause::Budget);
                 break;
             }
@@ -426,6 +605,7 @@ impl ArtistCatalog {
             matched,
             unreached,
             cause,
+            coverage: None,
         }
     }
 }
@@ -434,7 +614,11 @@ impl ArtistCatalog {
 /// settled for the same observation and personal artist operation.
 fn eligible(user: &str, artist: &str) -> String {
     format!(
-        "SELECT r.id,r.title,r.duration_ms,r.metadata_observation_id,p.artist_operation_id
+        "SELECT r.id,r.title,r.duration_ms,r.metadata_observation_id,p.artist_operation_id,
+            (EXISTS (SELECT 1 FROM recording_isrc_observations i WHERE i.observation_id=r.metadata_observation_id)
+                OR EXISTS (SELECT 1 FROM recording_artist_url_observations u WHERE u.observation_id=r.metadata_observation_id)
+                OR COALESCE(json_array_length((SELECT json_extract(o.tags,'$.musicbrainz_artist_tags')
+                    FROM metadata_observations o WHERE o.id=r.metadata_observation_id)),0)>0) AS own_evidence
          FROM account_recording_credits rc
          JOIN recordings r ON r.id=rc.recording_id
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=rc.user_id
@@ -448,7 +632,8 @@ fn eligible(user: &str, artist: &str) -> String {
     )
 }
 
-/// Credits with at least two undecided recordings, since fewer can never corroborate.
+/// Credits with at least two undecided recordings, since fewer can never corroborate, or with one
+/// when an earlier request matched other tracks of the credit to an artist.
 async fn credits(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
@@ -457,8 +642,13 @@ async fn credits(
     let mut rows: Vec<(String, String)> = sqlx::query_as(&format!(
         "SELECT a.id,a.name FROM account_artists a
          JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
-         WHERE a.user_id=? AND a.id>? AND (SELECT count(*) FROM ({} LIMIT 2))>=2
+         WHERE a.user_id=? AND a.id>? AND ((SELECT count(*) FROM ({} LIMIT 2))>=2
+            OR (EXISTS ({} LIMIT 1) AND EXISTS (SELECT 1 FROM recording_artist_identity_choices c
+                JOIN artist_association_name_matches nm ON nm.association_id=c.association_id
+                    AND nm.receipt_order=c.selection_order
+                WHERE c.user_id=a.user_id AND c.artist_id=a.id AND c.retired=0)))
          ORDER BY a.id LIMIT ?",
+        eligible("a.user_id", "a.id"),
         eligible("a.user_id", "a.id")
     ))
     .bind(actor.id())
@@ -482,6 +672,7 @@ struct TrackRow {
     duration_ms: Option<i64>,
     metadata_observation_id: String,
     artist_operation_id: Option<String>,
+    own_evidence: bool,
 }
 
 async fn credit_tracks(
@@ -506,13 +697,14 @@ async fn credit_tracks(
                 .and_then(|length| u64::try_from(length).ok()),
             observation: row.metadata_observation_id,
             operation: row.artist_operation_id,
+            own_evidence: row.own_evidence,
         })
         .collect())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Answers, Budget, Credit, Track, Verdict, held_cursor, split_cursor};
+    use super::{Answers, Budget, Credit, Standing, Track, Verdict, held_cursor, split_cursor};
     use crate::test_support::{
         musicbrainz::{FakeMusicBrainz, Reply},
         support,
@@ -537,6 +729,7 @@ mod tests {
                 length_ms: Some(length),
                 observation: "o".into(),
                 operation: None,
+                own_evidence: false,
             })
             .collect()
     }
@@ -576,7 +769,13 @@ mod tests {
         let catalog = catalog(&fake).await;
         let mut budget = Budget::new(Duration::from_millis(500));
         let verdict = catalog
-            .judge(&credit(), &tracks(), &mut budget, &mut Answers::default())
+            .judge(
+                &credit(),
+                &tracks(),
+                &Standing::default(),
+                &mut budget,
+                &mut Answers::default(),
+            )
             .await;
         assert!(matches!(verdict, Verdict::Refused));
         assert_eq!(budget.refusal(), "window_closed");
@@ -594,7 +793,13 @@ mod tests {
             answers.namesakes.clear();
             assert!(matches!(
                 catalog
-                    .judge(&credit(), &tracks(), &mut budget, &mut answers)
+                    .judge(
+                        &credit(),
+                        &tracks(),
+                        &Standing::default(),
+                        &mut budget,
+                        &mut answers
+                    )
                     .await,
                 Verdict::Unavailable
             ));
@@ -602,7 +807,13 @@ mod tests {
         answers.namesakes.clear();
         assert!(matches!(
             catalog
-                .judge(&credit(), &tracks(), &mut budget, &mut answers)
+                .judge(
+                    &credit(),
+                    &tracks(),
+                    &Standing::default(),
+                    &mut budget,
+                    &mut answers
+                )
                 .await,
             Verdict::Refused
         ));
@@ -620,6 +831,7 @@ mod tests {
             .judge(
                 &credit(),
                 &one,
+                &Standing::default(),
                 &mut Budget::new(Duration::from_secs(9)),
                 &mut Answers::default(),
             )
