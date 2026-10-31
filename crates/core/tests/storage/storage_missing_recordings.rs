@@ -518,3 +518,130 @@ async fn a_failing_recording_rolls_back_whole_while_the_rest_of_the_batch_is_rem
         .unwrap();
     assert_eq!(scopes, 0);
 }
+
+async fn age_all(world: &World) {
+    sqlx::query("UPDATE source_unavailability SET since=unixepoch()-40*86400")
+        .execute(&mut world.connection().await)
+        .await
+        .unwrap();
+}
+
+async fn purge(world: &World) -> i64 {
+    world
+        .services
+        .storage
+        .purge_expired_missing_recordings()
+        .await
+        .unwrap()
+        .removed
+}
+
+#[tokio::test]
+async fn an_unavailable_or_rescanning_folder_never_runs_the_window() {
+    let world = World::with_tracks(&["gone"]).await;
+    std::fs::remove_file(world.music.join("gone.wav")).unwrap();
+    let away = world.dir.path().join("music-away");
+    std::fs::rename(&world.music, &away).unwrap();
+    let job = world
+        .services
+        .storage
+        .enqueue_scan(&world.actor, &world.library)
+        .await
+        .unwrap()
+        .remove(0);
+    assert!(world.services.storage.run_next_job().await.unwrap());
+    assert_eq!(
+        world
+            .services
+            .storage
+            .job(&world.actor, &job.id)
+            .await
+            .unwrap()
+            .state,
+        "failed"
+    );
+    age_all(&world).await;
+    assert_eq!(
+        purge(&world).await,
+        0,
+        "a drive that is away is not a missing file"
+    );
+    assert!(matches!(
+        world
+            .services
+            .storage
+            .remove_missing_recordings(&world.actor, &world.library)
+            .await,
+        Err(Error::Conflict(_))
+    ));
+    std::fs::rename(&away, &world.music).unwrap();
+    world
+        .services
+        .storage
+        .enqueue_scan(&world.actor, &world.library)
+        .await
+        .unwrap();
+    age_all(&world).await;
+    assert_eq!(
+        purge(&world).await,
+        0,
+        "a queued scan has not confirmed the file is gone"
+    );
+    assert!(world.services.storage.run_next_job().await.unwrap());
+    age_all(&world).await;
+    assert_eq!(purge(&world).await, 1, "a completed scan confirms it");
+}
+
+#[tokio::test]
+async fn recordings_of_a_disconnected_folder_are_skipped_by_both_removals() {
+    let world = World::with_tracks(&["gone"]).await;
+    std::fs::remove_file(world.music.join("gone.wav")).unwrap();
+    support::scan(&world.services, &world.actor, &world.library).await;
+    let folder = world
+        .services
+        .storage
+        .folders(&world.actor, &world.library)
+        .await
+        .unwrap()
+        .remove(0);
+    world
+        .services
+        .storage
+        .remove_folder(&world.actor, &folder.id, folder.revision)
+        .await
+        .unwrap();
+    age_all(&world).await;
+    assert_eq!(purge(&world).await, 0);
+    let outcome = world
+        .services
+        .storage
+        .remove_missing_recordings(&world.actor, &world.library)
+        .await
+        .unwrap();
+    assert_eq!(outcome.removed, 0);
+    assert_eq!(world.titles().await, ["gone"]);
+}
+
+#[tokio::test]
+async fn a_personal_title_edit_keeps_the_recording() {
+    let world = World::with_tracks(&["edited", "plain"]).await;
+    let edited = world.recording("edited").await;
+    support::synchronize(
+        &world.services,
+        &world.actor,
+        vec![Action::RecordingTitleSet {
+            recording_id: edited.parse().unwrap(),
+            title: "My name for it".into(),
+        }],
+    )
+    .await;
+    world.vanish(&["edited", "plain"]).await;
+    age_all(&world).await;
+    let outcome = world
+        .services
+        .storage
+        .purge_expired_missing_recordings()
+        .await
+        .unwrap();
+    assert_eq!((outcome.removed, outcome.kept_referenced), (1, 1));
+}

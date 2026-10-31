@@ -16,7 +16,7 @@ const REPORT_LIMIT: i64 = 100_000;
 
 /// Tables whose rows mean an account still uses the recording. Any row, including an unlike or a
 /// removed playlist entry, keeps the recording.
-pub(crate) const REFERENCING_TABLES: [&str; 21] = [
+pub(crate) const REFERENCING_TABLES: [&str; 25] = [
     "likes",
     "listening_progress",
     "playlist_entries",
@@ -38,6 +38,10 @@ pub(crate) const REFERENCING_TABLES: [&str; 21] = [
     "source_preparations",
     "artwork_fetches",
     "recording_artwork",
+    "recording_artist_identity_choices",
+    "album_edition_choices",
+    "recording_artist_association_changes",
+    "artist_identity_change_items",
 ];
 
 /// Tables whose rows belong to the recording itself and leave with it.
@@ -45,13 +49,13 @@ pub(crate) const REFERENCING_TABLES: [&str; 21] = [
 pub(crate) const REMOVED_TABLES: [&str; 19] = [
     "account_recording_credits",
     "account_source_credits",
-    "album_edition_choices",
-    "artist_identity_change_items",
+    "artist_match_checks",
+    "artist_name_checks",
+    "artist_provider_checks",
     "local_files",
+    "recording_artist_association_change_order",
     "metadata_observations",
-    "recording_artist_association_changes",
     "recording_artist_associations",
-    "recording_artist_identity_choices",
     "recording_artist_url_observations",
     "recording_evidence",
     "recording_isrc_observations",
@@ -91,10 +95,14 @@ impl Trigger {
 
 fn gone() -> &'static str {
     "r.library_id IN (SELECT id FROM libraries WHERE owner_id IS NULL)
-     AND (?2 IS NULL OR r.library_id = ?2) AND r.id > ?3
+     AND (?2 IS NULL OR r.library_id = ?2) AND r.id > ?3 AND (?6 IS NULL OR r.id = ?6)
      AND r.id IN (SELECT s.recording_id FROM source_unavailability u JOIN sources s ON s.id = u.source_id WHERE u.since <= ?1)
      AND NOT EXISTS (SELECT 1 FROM sources s LEFT JOIN source_unavailability u ON u.source_id = s.id
-         WHERE s.recording_id = r.id AND (s.ready = 1 OR s.provider <> 'local' OR u.since IS NULL OR u.since > ?1))"
+         WHERE s.recording_id = r.id AND (s.ready = 1 OR s.provider <> 'local' OR u.since IS NULL OR u.since > ?1
+             OR EXISTS (SELECT 1 FROM local_files f JOIN music_folders m ON m.id = f.folder_id
+                 WHERE f.source_id = s.id AND NOT (m.connected = 1 AND m.bound = 1 AND m.host_device = ?5
+                     AND (SELECT j.state FROM jobs j WHERE j.folder_id = m.id ORDER BY j.rowid DESC LIMIT 1) = 'complete'
+                     AND m.last_scan_at >= u.since))))"
 }
 
 fn unreferenced() -> String {
@@ -102,6 +110,10 @@ fn unreferenced() -> String {
         .iter()
         .map(|table| format!("NOT EXISTS (SELECT 1 FROM {table} WHERE recording_id = r.id)"))
         .collect();
+    clauses.push(
+        "NOT EXISTS (SELECT 1 FROM recording_artist_associations WHERE recording_id = r.id AND evidence = 'user_confirmed')"
+            .into(),
+    );
     clauses.push(
         "NOT EXISTS (SELECT 1 FROM community_reports c JOIN sources s ON s.id = c.source_id WHERE s.recording_id = r.id)"
             .into(),
@@ -123,6 +135,25 @@ impl LibraryStorage {
         library_access(&mut connection, actor, library).await?;
         crate::identity::shared_library(&mut connection, library).await?;
         drop(connection);
+        let unsettled: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM music_folders m WHERE m.library_id = ?1 AND m.host_device = ?2 AND m.connected = 1
+               AND (m.bound = 0 OR COALESCE((SELECT j.state FROM jobs j WHERE j.folder_id = m.id ORDER BY j.rowid DESC LIMIT 1), '') <> 'complete'))",
+        )
+        .bind(library)
+        .bind(self.host.as_str())
+        .fetch_one(&self.store.pool)
+        .await?;
+        if unsettled
+            || self
+                .folders(actor, library)
+                .await?
+                .iter()
+                .any(|folder| !folder.available)
+        {
+            return Err(Error::Conflict(
+                "Connect every music folder of this library, check that its drive is available and let its scan finish before removing missing tracks".into(),
+            ));
+        }
         self.purge(
             Trigger::Administrator,
             Some(library),
@@ -157,24 +188,14 @@ impl LibraryStorage {
             .fetch_one(&self.store.pool)
             .await?;
         let cutoff = cutoff - window;
-        let select = format!(
-            "SELECT r.id FROM recordings r WHERE {} AND {} ORDER BY r.id LIMIT ?4",
-            gone(),
-            unreferenced()
-        );
+        let selection = self.selection(library, cutoff);
         let mut removed = 0;
         let mut failed = 0;
         let mut cursor = String::new();
         while removed + failed < limit {
             let take = BATCH.min((limit - removed - failed) as usize) as i64;
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-            let batch: Vec<String> = sqlx::query_scalar(&select)
-                .bind(cutoff)
-                .bind(library)
-                .bind(&cursor)
-                .bind(take)
-                .fetch_all(&mut *tx)
-                .await?;
+            let batch = selection.candidates(&mut tx, &cursor, None, take).await?;
             let Some(last) = batch.last().cloned() else {
                 tx.rollback().await?;
                 break;
@@ -186,19 +207,16 @@ impl LibraryStorage {
             } else {
                 tx.rollback().await?;
                 for recording in &batch {
-                    if self.purge_one(recording).await {
-                        removed += 1;
-                    } else {
-                        failed += 1;
+                    match self.purge_one(&selection, recording).await {
+                        Outcome::Removed => removed += 1,
+                        Outcome::Skipped => {}
+                        Outcome::Failed => failed += 1,
                     }
                 }
             }
             cursor = last;
         }
-        let more = removed + failed >= limit
-            && self
-                .any_removable(&select, cutoff, library, &cursor)
-                .await?;
+        let more = removed + failed >= limit && self.any_removable(&selection, &cursor).await?;
         let kept_referenced: i64 = sqlx::query_scalar(&format!(
             "SELECT count(*) FROM (SELECT 1 FROM recordings r WHERE {} AND NOT ({}) LIMIT {REPORT_LIMIT})",
             gone(),
@@ -207,6 +225,9 @@ impl LibraryStorage {
         .bind(cutoff)
         .bind(library)
         .bind("")
+        .bind(0_i64)
+        .bind(self.host.as_str())
+        .bind(None::<String>)
         .fetch_one(&self.store.pool)
         .await?;
         tracing::info!(
@@ -231,38 +252,82 @@ impl LibraryStorage {
         })
     }
 
-    async fn purge_one(&self, recording: &str) -> bool {
+    fn selection(&self, library: Option<&str>, cutoff: i64) -> Selection {
+        Selection {
+            select: format!(
+                "SELECT r.id FROM recordings r WHERE {} AND {} ORDER BY r.id LIMIT ?4",
+                gone(),
+                unreferenced()
+            ),
+            cutoff,
+            library: library.map(str::to_owned),
+            host: self.host.as_str().to_owned(),
+        }
+    }
+
+    async fn purge_one(&self, selection: &Selection, recording: &str) -> Outcome {
         let outcome = async {
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            if selection
+                .candidates(&mut tx, "", Some(recording), 1)
+                .await?
+                .is_empty()
+            {
+                return Ok::<_, Error>(Outcome::Skipped);
+            }
             remove_all(&mut tx, std::slice::from_ref(&recording.to_owned())).await?;
             tx.commit().await?;
-            Ok::<_, Error>(())
+            Ok(Outcome::Removed)
         }
         .await;
-        if outcome.is_err() {
+        outcome.unwrap_or_else(|_| {
             tracing::warn!(
                 event = "missing_recording_removal_failed",
                 "A missing recording could not be removed and stays for the next pass"
             );
-        }
-        outcome.is_ok()
+            Outcome::Failed
+        })
     }
 
-    async fn any_removable(
+    async fn any_removable(&self, selection: &Selection, cursor: &str) -> Result<bool> {
+        let mut connection = self.store.pool.acquire().await?;
+        Ok(!selection
+            .candidates(&mut connection, cursor, None, 1)
+            .await?
+            .is_empty())
+    }
+}
+
+enum Outcome {
+    Removed,
+    Skipped,
+    Failed,
+}
+
+struct Selection {
+    select: String,
+    cutoff: i64,
+    library: Option<String>,
+    host: String,
+}
+
+impl Selection {
+    async fn candidates(
         &self,
-        select: &str,
-        cutoff: i64,
-        library: Option<&str>,
-        cursor: &str,
-    ) -> Result<bool> {
-        let next: Option<String> = sqlx::query_scalar(select)
-            .bind(cutoff)
-            .bind(library)
-            .bind(cursor)
-            .bind(1_i64)
-            .fetch_optional(&self.store.pool)
-            .await?;
-        Ok(next.is_some())
+        connection: &mut SqliteConnection,
+        after: &str,
+        only: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<String>> {
+        Ok(sqlx::query_scalar(&self.select)
+            .bind(self.cutoff)
+            .bind(&self.library)
+            .bind(after)
+            .bind(limit)
+            .bind(&self.host)
+            .bind(only)
+            .fetch_all(connection)
+            .await?)
     }
 }
 
@@ -294,7 +359,7 @@ const REMOVAL: [&str; 10] = [
 
 #[cfg(test)]
 mod tests {
-    use super::{REFERENCING_TABLES, REMOVED_TABLES};
+    use super::{Outcome, REFERENCING_TABLES, REMOVED_TABLES};
     use crate::store::Store;
     use crate::test_support::{support, work_meter::WorkMeter};
 
@@ -324,6 +389,41 @@ mod tests {
             .await
             .unwrap();
         tx.commit().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_retry_after_a_rolled_back_batch_rechecks_eligibility() {
+        let (_directory, hito, _actor, library, _music) = support::library("recheck").await;
+        let pool = hito.storage.store.pool.clone();
+        seed(&pool, &library, "late", 1, false).await;
+        sqlx::query("UPDATE sources SET ready = 1 WHERE id = 'late-00000'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let selection = hito.storage.selection(None, i64::MAX);
+        assert!(matches!(
+            hito.storage.purge_one(&selection, "late-00000").await,
+            Outcome::Skipped
+        ));
+        let left: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM recordings WHERE id = 'late-00000'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(left, 1, "a source that came back keeps its recording");
+    }
+
+    #[tokio::test]
+    async fn personal_decisions_keep_a_recording() {
+        for table in [
+            "personal_recording_metadata",
+            "recording_artist_identity_choices",
+            "album_edition_choices",
+            "recording_artist_association_changes",
+            "artist_identity_change_items",
+        ] {
+            assert!(REFERENCING_TABLES.contains(&table), "{table}");
+        }
     }
 
     #[tokio::test]
@@ -382,6 +482,15 @@ mod tests {
         .fetch_all(&store.pool)
         .await
         .unwrap();
+        let by_column: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT m.name FROM sqlite_master m, pragma_table_info(m.name) c
+             WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'
+               AND c.name IN ('recording_id', 'source_id', 'public_recording_id')",
+        )
+        .fetch_all(&store.pool)
+        .await
+        .unwrap();
+        let naming: Vec<String> = naming.into_iter().chain(by_column).collect();
         let unclassified: Vec<&String> = naming
             .iter()
             .filter(|table| {
