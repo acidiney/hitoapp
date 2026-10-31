@@ -53,13 +53,13 @@ pub use artist_catalog::{
 pub use catalog::{
     AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
-    Browse, Catalog, ChooseSource, CoverArtKind, CoverArtLookup, LyricsLookup, Page,
-    PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
-    ReadRecordingLyrics, Recording, RecordingLyricsProvider, RecordingLyricsProviders, Release,
-    ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search,
-    Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
-    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    Browse, Catalog, ChooseSource, CoverArtKind, CoverArtLookup, Genre, GenreDetail, LyricsLookup,
+    Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
+    ProviderSourceReview, ReadRecordingLyrics, Recording, RecordingLyricsProvider,
+    RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack,
+    ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
+    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

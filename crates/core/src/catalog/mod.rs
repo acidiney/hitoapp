@@ -2,6 +2,7 @@ mod artists;
 mod artwork;
 mod availability;
 mod browse;
+mod genres;
 pub(crate) mod local_files;
 mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
@@ -49,6 +50,8 @@ pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_source_access,
 };
 pub use browse::Browse;
+pub(crate) use genres::genre_identity;
+pub use genres::{Genre, GenreDetail};
 pub use releases::{
     AlbumArtistInference, AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack,
 };

@@ -76,6 +76,7 @@ pub(super) async fn remember(
             "Source artist credit could not be recorded".into(),
         ));
     }
+    super::genres::retain(tx, source, file.tag_details.as_deref()).await?;
     super::metadata_owner::refresh_metadata(tx, recording).await?;
     crate::metadata::refresh_source(tx, source).await
 }

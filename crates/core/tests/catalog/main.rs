@@ -2,6 +2,7 @@
 
 mod catalog_artists;
 mod catalog_artwork;
+mod catalog_genres;
 mod catalog_history;
 mod catalog_likes;
 mod catalog_paging;

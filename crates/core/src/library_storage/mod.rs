@@ -4,6 +4,7 @@ mod browsing;
 mod directories;
 mod folder_types;
 mod folders;
+mod genres;
 mod host_directories;
 mod initialization;
 mod inspection;
