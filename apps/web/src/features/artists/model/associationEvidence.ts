@@ -16,6 +16,8 @@ const matched: Record<
     "Matched automatically from the provider's artist page.",
   matched_name_discography:
     "Matched automatically from the artist's name, corroborated by its recordings.",
+  user_confirmed_candidate:
+    "You confirmed this artist from the candidates Hito found.",
 };
 
 export function providerName(

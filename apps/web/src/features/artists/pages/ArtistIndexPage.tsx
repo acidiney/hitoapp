@@ -6,6 +6,7 @@ import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
 import ArtistMatchingStatus from "../components/ArtistMatchingStatus";
+import ArtistReviewQueue from "../components/ArtistReviewQueue";
 
 export default function ArtistIndexPage({
   user,
@@ -30,6 +31,10 @@ export default function ArtistIndexPage({
         description={`${artists.total} ${artists.total === 1 ? "artist credit" : "artist credits"} · ${identity_groups.total} chosen`}
       />
       <ArtistMatchingStatus account={user.id} />
+      <ArtistReviewQueue
+        account={user.id}
+        refreshKey={`${artists.total}-${identity_groups.total}`}
+      />
       <section aria-labelledby="chosen-artists-title">
         <h2 className="discography-heading" id="chosen-artists-title">
           Chosen artists

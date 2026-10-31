@@ -36,6 +36,10 @@ test.each([
     "matched_name_discography",
     "Matched automatically from the artist's name, corroborated by its recordings.",
   ],
+  [
+    "user_confirmed_candidate",
+    "You confirmed this artist from the candidates Hito found.",
+  ],
 ] as const)("a %s review says how it was matched", (evidence, text) => {
   show(evidence);
   expect(screen.getByText(text)).toBeTruthy();

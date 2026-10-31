@@ -78,3 +78,72 @@
     transition: none;
   }
 }
+
+.review-queue {
+  margin-top: 24px;
+}
+.review-queue summary {
+  cursor: pointer;
+  list-style-position: outside;
+  min-height: 44px;
+}
+.review-queue summary h2 {
+  display: inline;
+  margin: 0;
+}
+.review-queue-list,
+.review-queue-candidates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.review-queue-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.review-queue-row {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.review-queue-credit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.review-queue-credit small {
+  color: var(--muted);
+}
+.review-queue-candidates {
+  display: grid;
+  gap: 8px;
+}
+.review-queue-candidate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  background: var(--subtle);
+  border-radius: 10px;
+}
+.review-queue-candidate span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.review-queue-row > .button {
+  justify-self: start;
+}
+.review-queue-error {
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
