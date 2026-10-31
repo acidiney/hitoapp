@@ -129,6 +129,18 @@ Limits. The album must have at most 1,000 tracks to be compared. The server cann
 
 The chosen-artist [discography](artist-discography.md#comparing-a-linked-album-with-its-edition) can ask how much of the remembered edition an album holds: `POST /api/v1/albums/{id}/edition/library-level` reuses this read and answers In library, Partly in library or Linked with "n of m tracks". It runs only when the user asks and fetches nothing without a remembered edition.
 
+## Genres and artist radio
+
+Current source behavior, covered by local tests; not deployed.
+
+**Genres.** Inspection version 6 retains the `genre` tag (ID3 `TCON`, Vorbis `GENRE`, MP4 genre atom, WAV INFO `IGNR`) as `InspectedTags.genre`, a raw source assertion like the other tags (null when absent or not yet inspected). When a file is observed, its genres are also written to `source_genres` (migration 0068): the tag is split on `;`, each name has its spacing collapsed and is cut to 64 characters, the key is the lower-cased name, and at most eight genres are kept per file. The rows are a derived read model, replaced each time the file is observed; they are not evidence, and the observation keeps the raw tag. Names without a letter or digit are ignored.
+
+- `Catalog::genres` returns up to 18 genres, busiest first, each with a key, a label (the alphabetically first spelling) and the number of distinct library recordings, counted once per recording even when several files or spellings agree. It is one grouped query over the account's libraries; its work grows with the number of tagged files, not with the number of genres, and nothing is requested per genre. Podcast episodes and other accounts' libraries never count.
+- `Catalog::genre` returns one genre (not found when the account has no recording with it), up to 24 albums ordered by their number of tracks in the genre, and up to 100 tracks ordered by title. The albums come from one release lookup and the tracks from one recording lookup. The track count is capped at 10,000.
+- One-time cost: the first scan after the version 5 to 6 upgrade re-probes every file once without decoding audio again (the same behavior as earlier version changes), and genres appear for each file as it is re-probed.
+
+**Artist radio.** `ArtistCatalog::artist_radio` takes one chosen artist (an identity group of the account). It reads up to 50 random available library recordings of that artist and, when the artist is a built-in MusicBrainz identity and the account's similarity provider answers (see [similar artists](artist-similarity.md#radio)), up to five random available library recordings for each similar artist that is also a chosen artist of the account, then keeps two fifths of the queue for the artist and the rest for the others (topping up from whichever side has more), removes repeats and shuffles. Without a similarity provider, or when it fails, the radio is the artist's own tracks. It adds nothing to the library and requests nothing from a service beyond the one similarity request.
+
 ## Ownership and indexing
 
 `Catalog` owns access, grouping, paging, and typed reads. JSON and Inertia adapters use the same capability. HTTP responses and artwork references include only libraries the account can access; private detail IDs return not found. Browser pagination preserves active filters and page size without logging query values.

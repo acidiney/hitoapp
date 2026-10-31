@@ -46,6 +46,10 @@ Limits: one to 25 results, identities up to 256 bytes, names up to 2,048 bytes w
 
 The section appears only on chosen artists with a MusicBrainz identity. Nothing is requested until the user chooses Show similar artists. States: looking, empty, unsupported (with a link to Settings, Metadata), disabled, cancelled, and unavailable or timed out (alert with Try again after 20 seconds). A failure leaves the rest of the page, including the discography, libraries and tracks, unaffected. Chosen artists link to their pages; others show "Not one of your chosen artists".
 
+## Radio
+
+Discover's "Radio from…" uses the same similarity read to mix other artists into a library radio; see [catalog browsing](catalog-browsing.md#genres-and-artist-radio). `POST /api/v1/artist-identity-groups/{id}/radio` (no body) calls the read above with a limit of 25 for the chosen artist's reviewed credit, keeps only the similar artists that are chosen artists of the account (`chosen_artist_id`, exact identity), and returns up to 50 library tracks plus how many similar artists contributed (`similar_artists`). Disabled, unsupported, unavailable and failed answers, and artists chosen through a plugin, give the artist's own tracks only; a locked session is refused with 423 before anything is contacted. Playback goes through the normal queue; the radio itself requests no audio.
+
 ## ListenBrainz evaluation
 
 Source: the public pages for the [similar-artists viewer](https://labs.api.listenbrainz.org/similar-artists) and the ListenBrainz API documentation.

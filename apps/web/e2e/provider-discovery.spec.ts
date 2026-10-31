@@ -72,10 +72,14 @@ test("provider discovery saves, pages and plays privately with stale selection p
       path: "/workspace/test-results/discovery-desktop.png",
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(() => window.scrollTo(0, 0));
-    const searchBounds = await page
-      .getByRole("button", { name: "Search", exact: true })
-      .boundingBox();
+    const searchButton = page.getByRole("button", {
+      name: "Search",
+      exact: true,
+    });
+    await searchButton.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
+    const searchBounds = await searchButton.boundingBox();
     const playerBounds = await page
       .getByRole("contentinfo", { name: "Audio player" })
       .boundingBox();
