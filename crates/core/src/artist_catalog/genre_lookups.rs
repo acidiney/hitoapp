@@ -10,6 +10,7 @@ use uuid::Uuid;
 pub(crate) const GENRE_CURSOR: &str = "genres:";
 const REFRESH_SECONDS: i64 = 30 * 24 * 60 * 60;
 const MAX_GENRES_PER_ENTITY: usize = 8;
+const INVALID_RETRY_SECONDS: i64 = 7 * 24 * 60 * 60;
 
 const ENTITIES: [(char, &str, GenreEntity); 3] = [
     ('1', "artist", GenreEntity::Artist),
@@ -44,6 +45,8 @@ impl Candidate {
 
 enum Answer {
     Genres(Vec<String>),
+    /// The service answered with something that cannot be read; asked again after a week.
+    Invalid,
     Unavailable,
 }
 
@@ -197,7 +200,17 @@ impl ArtistCatalog {
         for (candidate, answer) in candidates.iter().zip(&answers) {
             match answer {
                 Answer::Genres(names) => {
-                    store(&mut tx, candidate, names).await?;
+                    store(&mut tx, candidate, names, 0).await?;
+                    looked_up += 1;
+                }
+                Answer::Invalid => {
+                    store(
+                        &mut tx,
+                        candidate,
+                        &[],
+                        INVALID_RETRY_SECONDS - REFRESH_SECONDS,
+                    )
+                    .await?;
                     looked_up += 1;
                 }
                 Answer::Unavailable => unavailable += 1,
@@ -237,6 +250,7 @@ impl ArtistCatalog {
                 Ok(Err(hito_metadata_musicbrainz::Error::InvalidLookupRequest)) => {
                     Answer::Genres(Vec::new())
                 }
+                Ok(Err(hito_metadata_musicbrainz::Error::InvalidLookup)) => Answer::Invalid,
                 _ => Answer::Unavailable,
             };
             failures = if matches!(answer, Answer::Unavailable) {
@@ -255,14 +269,16 @@ async fn store(
     connection: &mut SqliteConnection,
     candidate: &Candidate,
     names: &[String],
+    fetched_offset: i64,
 ) -> Result<()> {
     let (entity, _) = candidate.entity();
     sqlx::query(
-        "INSERT INTO musicbrainz_genre_lookups(entity, mbid, fetched_at) VALUES (?, ?, unixepoch())
+        "INSERT INTO musicbrainz_genre_lookups(entity, mbid, fetched_at) VALUES (?, ?, unixepoch() + ?)
          ON CONFLICT(entity, mbid) DO UPDATE SET fetched_at = excluded.fetched_at",
     )
     .bind(entity)
     .bind(&candidate.mbid)
+    .bind(fetched_offset)
     .execute(&mut *connection)
     .await?;
     sqlx::query("DELETE FROM musicbrainz_genres WHERE entity = ? AND mbid = ?")

@@ -554,3 +554,88 @@ async fn the_genre_pass_logs_counts_without_identifiers_names_or_titles() {
         assert!(!text.contains(private), "logs must not carry {private}");
     }
 }
+
+#[tokio::test]
+async fn an_invalid_answer_is_cached_as_empty_and_retried_after_a_week_without_requeueing_walks() {
+    let world = World::new("mb-genres-invalid").await;
+    world.track(
+        1,
+        "a1",
+        Ids {
+            artist: Some(A),
+            ..Ids::default()
+        },
+    );
+    let too_many: Vec<(String, u32)> = (0..65).map(|index| (format!("g{index}"), 1)).collect();
+    world.fake.genres_of("artist", A, Reply::Genres(too_many));
+    world.scan().await;
+    world.walk().await;
+
+    assert_eq!(world.genre_requests().len(), 1);
+    assert_eq!(
+        world
+            .count("SELECT count(*) FROM musicbrainz_genre_lookups")
+            .await,
+        1,
+        "the invalid answer is remembered"
+    );
+    assert_eq!(
+        world.count("SELECT count(*) FROM musicbrainz_genres").await,
+        0
+    );
+    assert_eq!(
+        world
+            .count("SELECT count(*) FROM artist_matching_jobs")
+            .await,
+        0,
+        "no retry walk is kept for it"
+    );
+    assert_eq!(
+        world
+            .hito
+            .artist_catalog
+            .queue_first_automatic_matching()
+            .await
+            .unwrap(),
+        0,
+        "a restart does not walk again"
+    );
+
+    world
+        .execute("UPDATE musicbrainz_genre_lookups SET fetched_at = fetched_at - 8 * 86400")
+        .await;
+    assert_eq!(
+        world
+            .hito
+            .artist_catalog
+            .queue_first_automatic_matching()
+            .await
+            .unwrap(),
+        1,
+        "after a week it is asked again"
+    );
+}
+
+#[tokio::test]
+async fn other_accounts_genre_keys_cannot_fill_the_key_walk() {
+    let world = two_artists().await;
+    world.walk().await;
+    world
+        .execute(
+            "INSERT INTO musicbrainz_genre_lookups(entity, mbid, fetched_at)
+             WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2100)
+             SELECT 'artist', printf('00000000-0000-4000-8000-%012d', i), unixepoch() FROM n",
+        )
+        .await;
+    world
+        .execute(
+            "INSERT INTO musicbrainz_genres(entity, mbid, genre_key, label)
+             SELECT 'artist', mbid, printf('aaa%05d', rowid), printf('Foreign %d', rowid)
+             FROM musicbrainz_genre_lookups WHERE mbid LIKE '00000000-%'",
+        )
+        .await;
+    assert_eq!(
+        world.tiles().await,
+        pairs(&[("fado", 2), ("folk", 2), ("jazz", 1)])
+    );
+}

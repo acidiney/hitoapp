@@ -123,7 +123,8 @@ fn genre_recordings(
             GenreSource::Identity => {
                 query
                     .push(" AND g.entity IN ('release_group','recording') AND ")
-                    .push(NO_FILE_GENRE);
+                    .push(NO_FILE_GENRE)
+                    .push(NO_RECORDING_REPEAT);
             }
         }
         query.push(
@@ -144,15 +145,55 @@ enum GenreSource {
     Identity,
 }
 
+/// A release group row is skipped when the recording's own identity names the same genre, so
+/// the identity source yields each recording once and its limit counts recordings.
+const NO_RECORDING_REPEAT: &str = " AND (g.entity = 'recording' OR NOT EXISTS (
+    SELECT 1 FROM recording_musicbrainz_observations o2
+    JOIN musicbrainz_genres g2 ON g2.entity = 'recording' AND g2.mbid = o2.mbid
+        AND g2.genre_key = g.genre_key
+    WHERE o2.observation_id = o.observation_id AND o2.entity = 'recording'))";
+
 const NO_FILE_GENRE: &str = "NOT EXISTS (SELECT 1 FROM sources fs
     JOIN source_genres fg ON fg.source_id = fs.id WHERE fs.recording_id = r.id)";
 
-/// The smallest genre key above `after` in either genre source.
-fn next_key(after: &str) -> String {
-    format!(
-        "(SELECT min(k) FROM (SELECT min(genre_key) AS k FROM source_genres WHERE genre_key > {after}
-            UNION ALL SELECT min(genre_key) FROM musicbrainz_genres WHERE genre_key > {after}))"
-    )
+/// Appends the smallest genre key above `after` that one of the account's own recordings
+/// carries in any genre source, so other accounts' keys never use up the key walk.
+fn push_next_key(query: &mut QueryBuilder<'_, sqlx::Sqlite>, actor: &Actor, after: &str) {
+    let account = actor.id().to_owned();
+    query.push("(SELECT min(k) FROM (");
+    query
+        .push(format!(
+            "SELECT (SELECT g.genre_key FROM source_genres g
+                JOIN sources s ON s.id = g.source_id
+                JOIN recordings r ON r.id = s.recording_id
+                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = "
+        ))
+        .push_bind(account.clone())
+        .push(format!(
+            " WHERE g.genre_key > {after} ORDER BY g.genre_key LIMIT 1) AS k
+            UNION ALL
+            SELECT (SELECT g.genre_key FROM musicbrainz_genres g
+                JOIN account_artist_identity_groups gr ON gr.user_id = "
+        ))
+        .push_bind(account.clone())
+        .push(format!(
+            " AND gr.provider_key = 'builtin:musicbrainz' AND gr.provider_artist_id = g.mbid
+                WHERE g.entity = 'artist' AND g.genre_key > {after}
+                    AND EXISTS (SELECT 1 FROM recording_artist_identity_choices c
+                        WHERE c.user_id = gr.user_id AND c.group_id = gr.id AND c.retired = 0
+                            AND c.association_id IS NOT NULL)
+                ORDER BY g.genre_key LIMIT 1)
+            UNION ALL
+            SELECT (SELECT g.genre_key FROM musicbrainz_genres g
+                JOIN recording_musicbrainz_observations o ON o.entity = g.entity AND o.mbid = g.mbid
+                JOIN recordings r ON r.id = o.recording_id AND r.metadata_observation_id = o.observation_id
+                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = "
+        ))
+        .push_bind(account)
+        .push(format!(
+            " WHERE g.entity IN ('release_group','recording') AND g.genre_key > {after}
+                ORDER BY g.genre_key LIMIT 1)))"
+        ));
 }
 
 impl Catalog {
@@ -164,15 +205,11 @@ impl Catalog {
     /// Tiles whose counts stop at `cap`: each genre is read through its index until the cap, so
     /// the work depends on the number of genres and the cap, not on how many tracks a genre has.
     pub(crate) async fn genres_within(&self, actor: &Actor, cap: i64) -> Result<Vec<Genre>> {
-        let mut query = QueryBuilder::new(format!(
-            "WITH RECURSIVE keys(k, n) AS (
-                SELECT {}, 1
-                UNION ALL
-                SELECT {}, n + 1
-                FROM keys WHERE k IS NOT NULL AND n < ",
-            next_key("''"),
-            next_key("keys.k"),
-        ));
+        let mut query = QueryBuilder::new("WITH RECURSIVE keys(k, n) AS (SELECT ");
+        push_next_key(&mut query, actor, "''");
+        query.push(", 1 UNION ALL SELECT ");
+        push_next_key(&mut query, actor, "keys.k");
+        query.push(", n + 1 FROM keys WHERE k IS NOT NULL AND n < ");
         query.push_bind(GENRE_SCAN).push(
             ")
             SELECT k AS key, (SELECT label FROM (",
