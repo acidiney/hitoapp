@@ -145,7 +145,8 @@ flowchart LR
     Worker --> Tags[Tag pass]
     Tags --> Evidence[Provider evidence pass]
     Evidence --> Names[Name pass]
-    Names --> Done[Delete job, record result]
+    Names --> Genres[Genre pass]
+    Genres --> Done[Delete job, record result]
     Worker -.->|settings off| Drop[Drop job, no lookup]
     Done --> Covers[Queue covers for albums without local files]
 ```
@@ -165,6 +166,19 @@ Logs carry the phase, a safe outcome and elapsed time only; never an account, a 
 Applying. Recordings are re-validated inside one immediate transaction exactly like the tag pass: the current observation must still be the one examined, a personal choice, reset, split, unlink, personal artist edit or hiding shared correction leaves it alone (and is never looked up in the first place), and a stale automatic match whose observation changed may be matched again. A match writes a reviewed association for the recording's own credit and the chosen artist; a new association gets a row in `artist_association_provider_matches` with `isrc` or `provider_url`, returned by the association API as `matched_isrc` or `matched_provider_url`. Exact retries replay the stored receipt without another lookup, only a request that matched something stores a receipt, and the receipt counts `matched`, `uncertain`, `declined` and `unavailable`.
 
 The reported example follows this path: the local C4 Pedro file carries one MusicBrainz artist id, so the tag pass groups it. An imported Spotify-style track with an ISRC that MusicBrainz maps to a recording credited only to that artist is matched by the provider pass and joins the same group without a click. The current public Spotify playlist response states no ISRC, so a real Spotify import supplies this evidence only through its credited artist page; see [the Spotify plugin](plugin-spotify.md#artist-pages-and-isrc).
+
+## MusicBrainz genres
+
+The last pass of the automatic walk reads the official MusicBrainz genres of the identities the account's library names, so that Discover "By genre" is not empty for imported music (current behavior, covered by owned fakes only; the live service has not answered these requests). It sends only MusicBrainz identifiers, under the same consent (`automatic_artist_lookup`), the same one request per second limiter and the same background admission slots as the other passes.
+
+- Candidates, in this order: the MusicBrainz artists of the account's chosen artist groups (special-purpose artists such as Various Artists are skipped), then the release groups and recordings named by retained file tag identities of recordings that have no file `GENRE` tag. Each is looked up with `artist/<id>`, `release-group/<id>` or `recording/<id>` and `inc=genres`; only the `genres` list is read, never `tags`.
+- Batches are bounded like the other passes: at most eight lookups, a nine second window, a thirteen second deadline and a stop after three consecutive failures. The position is stored in the job cursor as `genres:<rank><identifier>`, so a restart or shutdown resumes there. A shutdown drops the lookup in flight and writes nothing.
+- Answers are cached by identifier in `musicbrainz_genre_lookups` and `musicbrainz_genres` (migration 0069; at most eight genres per identity, names normalized as for file tags). A cached answer, including an empty one, is not asked again for 30 days. An outage or invalid answer caches nothing, marks the step unavailable and repeats the walk later with the existing backoff; a stale answer is replaced when it is asked again.
+- Starting the server queues a walk for an account that finished earlier walks when any of its identities has no lookup younger than 30 days, which is how a library that predates the pass gets its genres.
+- The cache is public reference data without an account column. Account erasure removes the lookups no remaining account's groups or retained tag identities name.
+- Logs carry one event per step with the outcome, the number of lookups, the number unavailable and the elapsed time. No identifier, genre name, title or credit appears. The client logs a static outcome, a count and the elapsed time per request.
+
+The genre pass does not change what a match is: `matching_matched` counts only artist matches.
 
 ## Suggestions for uncertain cases
 
@@ -223,8 +237,9 @@ HTTP cases use the real router for statuses, validation, replay, access, a secon
 
 - Automatic matching is covered by owned fakes only; a live MusicBrainz run succeeded manually (sixteen recordings matched) but the automatic job has not been run against the live service or deployed. A per-account job runs one batch per second at most, so a very large library takes a long time by design.
 - Account deletion is not built: when it is, it must erase `account_metadata_automation`, `artist_matching_jobs` and `cover_art_lookups` rows with the other private rows.
-- A persistent cache of MusicBrainz answers shared across accounts, re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
+- A persistent cache of MusicBrainz artist answers beyond genres, shared across accounts (genres are cached, see above), re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
 - Providers that expose ISRCs or artist pages. The folder plugin publishes ISRC tags. The public Spotify response states no ISRC. No other bundled plugin has an ISRC field in its source API that Hito could verify; none was invented. Existing imported copies receive artist pages only when their metadata is refreshed from the provider.
 - Name matching is implemented against owned fakes only. Still open: live acceptance, a persistent cache of search and recordings answers shared across accounts, release-based corroboration (release groups carry no track lengths), reading beyond one page of an artist's recordings or search results, and a work-budget measurement of the name candidate query on a large library. Timer-driven lookups outside a visit to the Artists page are not planned.
+- Genre lookups have not run against the live service, and a library with thousands of tagged recordings makes one recording lookup per recording at one request per second, which can take hours; recording-level genres for files that carry a recording identifier but no genre tag are the slowest part.
 - Release and recording matching beyond retention. Local files now retain release and recording MusicBrainz identifiers as evidence (see below), but nothing yet looks them up at MusicBrainz, links a release or recording to a provider entity, shows the identifiers on album or recording pages, or reads an ID3 `UFID` recording identifier.
 - Live MusicBrainz acceptance remains blocked by upstream HTTP 503 responses; see [the adapter](builtin-musicbrainz.md#live-integration-gate).

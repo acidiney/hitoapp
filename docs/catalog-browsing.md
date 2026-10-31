@@ -139,6 +139,22 @@ Current source behavior, covered by local tests; not deployed.
 - `Catalog::genre` returns one genre (not found when the account has no playable recording with it), up to 24 albums ordered by their number of tracks in the genre, and up to 100 tracks ordered by title. Both are chosen from at most the first 1,000 matching recordings, so the sort never covers a whole genre. The albums come from one release lookup and the tracks from one recording lookup.
 - One-time cost: the first scan after the version 5 to 6 upgrade re-probes every file once without decoding audio again (the same behavior as earlier version changes), and genres appear for each file as it is re-probed.
 
+**Genres from MusicBrainz.** Imported (provider) music has no files, so most of a streaming library has no file tag. The automatic matching walk therefore also reads the official MusicBrainz genres (`inc=genres`; free-form tags are never used) of the identities the account's library names, as described in [artist matching](artist-matching.md#musicbrainz-genres). They are stored as observations with provenance `musicbrainz` in `musicbrainz_genres` (migration 0069), keyed by the MusicBrainz identifier, and read together with the file-tag rows:
+
+```mermaid
+flowchart LR
+    Files[File GENRE tag] --> SG[(source_genres)]
+    Walk[Automatic matching walk] --> Cache[(musicbrainz_genre_lookups)]
+    Cache --> MG[(musicbrainz_genres)]
+    SG --> Read{{Catalog::genres and genre}}
+    MG -->|chosen artist, release group, recording| Read
+    Read --> Filter[Playable, own library, no podcasts, capped]
+```
+
+- A recording takes its genres from its file tags when any source has them. Only recordings without a file genre use MusicBrainz: through the artist the account chose for the recording (including automatic ISRC, artist page and name matches), then through the release group and the recording identifier retained from tags. Personal edits and reviewed artist choices are never changed by genres, and a recording is counted once per genre however many sources name it.
+- The reads keep the same availability filter, tile and page bounds and count cap as before. Each genre source is read through its own covering index (`source_genres_by_genre`, `musicbrainz_genres_by_genre(genre_key, entity, mbid, label)`, and `recording_musicbrainz_observation_by_mbid` for the identifier join) and stops at the cap, so the work depends on the number of genres and the cap. A second work-budget case compares 40 and 300 artist-tagged tracks.
+- Until the walk has read an identity, its tracks have no genre. On a library that predates this feature, the next server start queues one walk for each account that allows automatic lookups and names an identity with no lookup younger than 30 days.
+
 **Artist radio.** `ArtistCatalog::artist_radio` takes one chosen artist (an identity group of the account). It reads up to 50 random available library recordings of that artist and, when the artist is a built-in MusicBrainz identity and the account's similarity provider answers (see [similar artists](artist-similarity.md#radio)), up to five random available library recordings for each similar artist that is also a chosen artist of the account, then keeps two fifths of the queue for the artist and the rest for the others (topping up from whichever side has more), removes repeats and shuffles. Without a similarity provider, or when it fails, the radio is the artist's own tracks. It adds nothing to the library and requests nothing from a service beyond the one similarity request.
 
 ## Ownership and indexing

@@ -43,6 +43,10 @@ A typed request (`album`, `ep`, `single` or `other`) adds `type=<name>` to the s
 
 `MusicBrainzClient::with_loopback_endpoint` aims a client at an owned fake on a literal loopback address and refuses every other origin. The method and core's `CoreConfig::musicbrainz_loopback_endpoint` exist only under `cfg(any(test, feature = "test-support"))` (the same self dev-dependency pattern as the debrid crates), so a normal server build contains neither and cannot be pointed away from MusicBrainz. Page addresses are also limited to the allowlist in [artist matching](artist-matching.md#matching-from-provider-evidence).
 
+## Genre lookups
+
+`genres(entity, id)` serves the [genre pass of automatic matching](artist-matching.md#musicbrainz-genres). The entity is an artist, a release group or a recording; the identifier must be canonical and lower case, otherwise the call fails before any HTTP. It calls `<entity>/<id>?inc=genres` and reads only the official `genres` list, never the free-form `tags`. The answer must name the requested identifier, hold at most 64 genres and give each a nonempty name of at most 64 bytes; names come back strongest first (by vote count, then name) with case-only repeats removed. A 404 is an empty result. The call shares the pacing gate, timeouts, disabled redirects and absence of retries, caps the body at 262,144 bytes and logs a static outcome, a count and the elapsed time. Five owned protocol cases cover the request targets, the dropped tags, 404 and 503, invalid answers and log redaction. It has not succeeded against the live service.
+
 ## Bounds and cancellation
 
 Cloned clients share a one-second request-start gate across search, profiles and discographies. A cancelled waiter releases its place without reserving a later start. The adapter creates no background tasks. The core host separately owns admission and the aggregate caller budget.
