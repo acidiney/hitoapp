@@ -6,6 +6,8 @@ use uuid::Uuid;
 const MAX_RECORDINGS: usize = 100;
 const MAX_CREDIT_MEMBERS: usize = 64;
 const MAX_TITLE_BYTES: usize = 512;
+const MAX_GENRES: usize = 64;
+const MAX_GENRE_BYTES: usize = 64;
 
 /// A MusicBrainz recording that carries a looked-up ISRC, with the distinct artists in its credit.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +37,38 @@ impl ArtistRecordings {
     pub fn complete(&self) -> bool {
         self.items.len() as u32 >= self.total
     }
+}
+
+/// The MusicBrainz entity kinds whose official genres can be read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GenreEntity {
+    Artist,
+    ReleaseGroup,
+    Recording,
+}
+
+impl GenreEntity {
+    pub(super) fn path(self) -> &'static str {
+        match self {
+            Self::Artist => "artist",
+            Self::ReleaseGroup => "release-group",
+            Self::Recording => "recording",
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct GenreLookup {
+    id: String,
+    #[serde(default)]
+    genres: Vec<NamedGenre>,
+}
+
+#[derive(Deserialize)]
+struct NamedGenre {
+    name: String,
+    #[serde(default)]
+    count: u32,
 }
 
 #[derive(Deserialize)]
@@ -157,6 +191,32 @@ pub(super) fn artist_recordings(bytes: &[u8]) -> Result<ArtistRecordings, Error>
         total: browse.count,
         items,
     })
+}
+
+/// The official genre names of a lookup, strongest first and without case-only repeats.
+pub(super) fn genre_names(bytes: &[u8], id: &str) -> Result<Vec<String>, Error> {
+    let lookup: GenreLookup = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    if lookup.id != id || lookup.genres.len() > MAX_GENRES {
+        return Err(Error::InvalidLookup);
+    }
+    let mut genres = lookup.genres;
+    if genres
+        .iter()
+        .any(|genre| genre.name.trim().is_empty() || genre.name.len() > MAX_GENRE_BYTES)
+    {
+        return Err(Error::InvalidLookup);
+    }
+    genres.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+    let mut names: Vec<String> = Vec::new();
+    for genre in genres {
+        if !names
+            .iter()
+            .any(|known| known.to_lowercase() == genre.name.to_lowercase())
+        {
+            names.push(genre.name);
+        }
+    }
+    Ok(names)
 }
 
 pub(super) fn canonical_artist(artist: &str) -> bool {

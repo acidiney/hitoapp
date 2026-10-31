@@ -1,6 +1,6 @@
 use crate::{
-    ArtistRecordings, Error, IsrcRecording, discography, edition, edition_listing, identifiers,
-    projection, search, transport::Transport,
+    ArtistRecordings, Error, GenreEntity, IsrcRecording, discography, edition, edition_listing,
+    identifiers, projection, search, transport::Transport,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -255,6 +255,37 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(|found| found.items.len()).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz artist recordings completed"
+        );
+        result
+    }
+
+    /// Reads the official genres MusicBrainz lists for an artist, release group or recording.
+    /// Free-form tags are never read. An unknown entity is an empty result.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "genre_lookup", request_id = tracing::field::Empty))]
+    pub async fn genres(&self, entity: GenreEntity, id: &str) -> Result<Vec<String>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::canonical_artist(id) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.genres(entity.path(), id).await {
+                Ok(bytes) => identifiers::genre_names(&bytes, id),
+                Err(Error::Status(404)) => Ok(Vec::new()),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(Vec::len).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz genre lookup completed"
         );
         result
     }

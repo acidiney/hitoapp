@@ -12,7 +12,7 @@ mod transport;
 pub use client::MusicBrainzClient;
 pub use cover_art::{CoverArt, CoverArtClient, CoverKind};
 pub use error::Error;
-pub use identifiers::{ArtistRecording, ArtistRecordings, IsrcRecording};
+pub use identifiers::{ArtistRecording, ArtistRecordings, GenreEntity, IsrcRecording};
 
 #[cfg(test)]
 mod tests;

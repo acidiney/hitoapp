@@ -161,6 +161,17 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
+    pub(super) async fn genres(&self, entity: &str, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("{entity}/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint
+            .query_pairs_mut()
+            .extend_pairs([("fmt", "json"), ("inc", "genres")]);
+        self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
+    }
+
     pub(super) async fn url_relations(&self, resource: &str) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint

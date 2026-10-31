@@ -21,6 +21,7 @@ mod discography_type;
 mod edition;
 mod edition_listing;
 mod edition_validation;
+mod genres;
 mod http;
 mod isrc;
 mod limiter;
