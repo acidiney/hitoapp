@@ -13,7 +13,7 @@ function summary(result: Schema<"MissingRecordingsRemoval">): string {
   ];
   if (result.kept_referenced)
     parts.push(
-      `${result.kept_referenced.toLocaleString()} stay because a playlist, like, progress or download still uses them.`,
+      `${result.kept_referenced.toLocaleString()} stay because a playlist, like, progress, download or edit of yours still uses them.`,
     );
   if (result.more) parts.push("Remove again to continue.");
   return parts.join(" ");
@@ -58,10 +58,11 @@ export default function MissingRecordings({
         <div className="folder-remove-confirm">
           <h4>Remove missing tracks now?</h4>
           <p>
-            Tracks whose files cannot be found are removed from your library
-            without waiting, together with their artist corrections. Your files
-            are not touched. Tracks that a playlist, like, progress or download
-            uses stay.
+            Missing tracks that nothing uses are removed from your library
+            without waiting. Your files are not touched. Tracks in a playlist,
+            liked, with progress, downloads, or your own title or artist edits
+            stay. Every music folder must be connected and finished scanning, or
+            Hito will not remove anything.
           </p>
           <div>
             <Button disabled={missing.removing} onClick={() => ask(false)}>
