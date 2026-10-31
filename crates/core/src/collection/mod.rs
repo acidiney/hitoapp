@@ -52,9 +52,9 @@ pub use import_receipts::PlaylistImportReceipt;
 pub use metadata_refresh::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
 pub(crate) use saved_playback::saved_progress;
 pub use types::{
-    Action, Activity, HistoryEntry, Home, HomeAlbum, Operation, Playlist, PlaylistDetail,
-    PlaylistEntry, RecordingProgress, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
-    UnheardOnAlbum,
+    Action, Activity, AddedAlbum, HistoryEntry, Home, HomeAlbum, Operation, Playlist,
+    PlaylistDetail, PlaylistEntry, RecordingProgress, SavedPosition, SyncBatch, SyncEvent,
+    SyncPage, SyncReceipt, UnheardOnAlbum,
 };
 
 #[derive(Clone)]

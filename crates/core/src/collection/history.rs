@@ -9,7 +9,7 @@ use sqlx::QueryBuilder;
 impl Collection {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
     pub async fn activity(&self, actor: &Actor) -> Result<Activity> {
-        let mut query = QueryBuilder::new("SELECT r.id, ");
+        let mut query = QueryBuilder::new("SELECT r.id, r.release_id, a.title AS album, ");
         query
             .push(metadata::RECORDING_TITLE)
             .push(" AS title, r.title AS inherited_title, ").push(metadata::RECORDING_ARTIST)
@@ -22,6 +22,7 @@ impl Collection {
               FROM listening_progress p
               JOIN recordings r ON p.recording_id = r.id
               JOIN library_members m ON m.library_id = r.library_id AND m.user_id = p.user_id
+              LEFT JOIN account_releases a ON a.user_id = p.user_id AND a.id = r.release_id
               LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = p.user_id
               ",
         );

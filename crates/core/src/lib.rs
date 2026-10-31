@@ -62,7 +62,7 @@ pub use catalog::{
     SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
-    Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
+    Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
     AudiobookDetail, AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPagination,
     AudiobookPlayback, AudiobookPlaybackAdmission, Collection, CollectionPublication,
     FollowProviderPlaylist, HistoryEntry, Home, HomeAlbum, ImportProviderPlaylist,
@@ -111,8 +111,9 @@ pub use playback_access::{
 pub use plugins::{
     Connections, InstallPlugin, OfferPluginService, PluginAuthorization,
     PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
-    PluginCredential, PluginInstallation, PluginInstallationPreview, PluginRefresh, PluginService,
-    PluginSettings, Plugins, PreviewPluginInstallation, RefreshPlugin,
+    PluginCredential, PluginDeclarationCheck, PluginInstallation, PluginInstallationPreview,
+    PluginRefresh, PluginService, PluginSettings, Plugins, PreviewPluginInstallation,
+    RefreshPlugin,
 };
 pub use podcasts::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,

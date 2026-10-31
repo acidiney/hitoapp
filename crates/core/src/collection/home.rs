@@ -1,4 +1,4 @@
-use super::{Collection, Home, HomeAlbum, UnheardOnAlbum};
+use super::{AddedAlbum, Collection, Home, HomeAlbum, UnheardOnAlbum};
 use crate::{
     Actor, HostDeviceId, Recording, Result,
     catalog::{push_available, push_plays_from_services},
@@ -8,7 +8,8 @@ use sqlx::QueryBuilder;
 use std::time::Instant;
 
 const RECENT_PLAYS: i64 = 200;
-const RECENT_ALBUMS: i64 = 6;
+const RECENT_ALBUMS: i64 = 12;
+const ADDED_ALBUMS: i64 = 12;
 const UNHEARD_ALBUMS: usize = 3;
 const UNHEARD_TRACKS: i64 = 25;
 const UNHEARD_COUNT_CAP: i64 = 1_000;
@@ -58,7 +59,23 @@ impl Collection {
         .bind(RECENT_ALBUMS)
         .fetch_all(&mut *tx)
         .await?;
-        let ids: Vec<String> = recent_albums.iter().map(|album| album.id.clone()).collect();
+        let mut recently_added: Vec<AddedAlbum> = sqlx::query_as(
+            "SELECT a.id, a.title, a.artist FROM account_releases a
+             WHERE a.user_id = ?
+               AND EXISTS (SELECT 1 FROM library_members m WHERE m.library_id = a.library_id AND m.user_id = a.user_id)
+               AND EXISTS (SELECT 1 FROM recordings r WHERE r.release_id = a.id
+                           AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id))
+             ORDER BY a.rowid DESC LIMIT ?",
+        )
+        .bind(actor.id())
+        .bind(ADDED_ALBUMS)
+        .fetch_all(&mut *tx)
+        .await?;
+        let ids: Vec<String> = recent_albums
+            .iter()
+            .map(|album| album.id.clone())
+            .chain(recently_added.iter().map(|album| album.id.clone()))
+            .collect();
         let mut inferred: std::collections::HashMap<String, crate::AlbumArtistInference> =
             crate::catalog::releases::releases_among_ids_on(&mut tx, actor, &ids)
                 .await?
@@ -66,6 +83,9 @@ impl Collection {
                 .filter_map(|release| Some((release.id, release.inferred_artist?)))
                 .collect();
         for album in &mut recent_albums {
+            album.inferred_artist = inferred.get(&album.id).cloned();
+        }
+        for album in &mut recently_added {
             album.inferred_artist = inferred.remove(&album.id);
         }
         let mut unheard = Vec::new();
@@ -101,6 +121,7 @@ impl Collection {
             has_music,
             liked_count,
             recent_albums,
+            recently_added,
             unheard,
         })
     }

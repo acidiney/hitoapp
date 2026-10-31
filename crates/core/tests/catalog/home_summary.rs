@@ -348,3 +348,118 @@ async fn home_albums_without_an_album_artist_carry_the_inferred_credit() {
     assert_eq!(credited.artist.as_deref(), Some("Album Owner"));
     assert!(credited.inferred_artist.is_none());
 }
+
+#[tokio::test]
+async fn history_entries_carry_the_album_they_belong_to() {
+    let (_dir, hito, actor, library_id, music) = library("history-album").await;
+    write_wav(&music.join("h1.wav"), 1);
+    write_wav(&music.join("h2.wav"), 2);
+    tag_wav(
+        &music.join("h1.wav"),
+        "Psychosocial",
+        "All Hope Is Gone",
+        "Slipknot",
+    );
+    let mut loose = Tag::new(TagType::Id3v2);
+    loose.set_title("Loose single".into());
+    loose.set_artist("Nobody".into());
+    loose
+        .save_to_path(&music.join("h2.wav"), WriteOptions::default())
+        .unwrap();
+    scan(&hito, &actor, &library_id).await;
+    let all = tracks(&hito, &actor).await;
+    let id = |title: &str| all.iter().find(|r| r.title == title).unwrap().clone();
+    synchronize(
+        &hito,
+        &actor,
+        vec![
+            progress(&id("Psychosocial").id, 500),
+            progress(&id("Loose single").id, 500),
+        ],
+    )
+    .await;
+    let activity = serde_json::to_value(hito.collection.activity(&actor).await.unwrap()).unwrap();
+    let rows = activity["history"].as_array().unwrap();
+    let album = rows
+        .iter()
+        .find(|row| row["title"] == "Psychosocial")
+        .unwrap();
+    assert_eq!(album["album"], "All Hope Is Gone");
+    assert_eq!(album["release_id"], id("Psychosocial").release_id.unwrap());
+    let single = rows
+        .iter()
+        .find(|row| row["title"] == "Loose single")
+        .unwrap();
+    let catalog_single = id("Loose single");
+    assert_eq!(single["album"], json!(catalog_single.album));
+    assert_eq!(single["release_id"], json!(catalog_single.release_id));
+}
+
+#[tokio::test]
+async fn home_lists_recently_added_albums_newest_first_and_only_from_open_libraries() {
+    let (_dir, hito, admin, library_id, music) = library("home-added").await;
+    write_wav(&music.join("old.wav"), 1);
+    tag_wav(&music.join("old.wav"), "Old song", "Old album", "Elder");
+    scan(&hito, &admin, &library_id).await;
+    write_wav(&music.join("new.wav"), 2);
+    tag_wav(&music.join("new.wav"), "New song", "New album", "Fresh");
+    scan(&hito, &admin, &library_id).await;
+    let home = hito.collection.home(&admin).await.unwrap();
+    let titles: Vec<&str> = home
+        .recently_added
+        .iter()
+        .map(|album| album.title.as_str())
+        .collect();
+    assert_eq!(titles, ["New album", "Old album"]);
+    assert_eq!(home.recently_added[0].artist.as_deref(), Some("Fresh"));
+    assert!(home.recent_albums.is_empty(), "nothing was played");
+
+    let guest = guest_with_access(&hito, &admin, &library_id).await;
+    assert_eq!(
+        hito.collection
+            .home(&guest)
+            .await
+            .unwrap()
+            .recently_added
+            .len(),
+        2
+    );
+    hito.identity
+        .set_library_access(&admin, &library_id, &guest.user().id, false)
+        .await
+        .unwrap();
+    assert!(
+        hito.collection
+            .home(&guest)
+            .await
+            .unwrap()
+            .recently_added
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn home_shows_up_to_twelve_recently_played_and_twelve_recently_added_albums() {
+    let (_dir, hito, actor, library_id, music) = library("home-caps").await;
+    for index in 0..14 {
+        let path = music.join(format!("cap{index}.wav"));
+        write_wav(&path, index as i16);
+        tag_wav(
+            &path,
+            &format!("Song {index}"),
+            &format!("Album {index:02}"),
+            "Band",
+        );
+    }
+    scan(&hito, &actor, &library_id).await;
+    let all = tracks(&hito, &actor).await;
+    synchronize(
+        &hito,
+        &actor,
+        all.iter().map(|track| progress(&track.id, 100)).collect(),
+    )
+    .await;
+    let home = hito.collection.home(&actor).await.unwrap();
+    assert_eq!(home.recent_albums.len(), 12);
+    assert_eq!(home.recently_added.len(), 12);
+}

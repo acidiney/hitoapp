@@ -226,6 +226,8 @@ pub struct Activity {
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
 pub struct HistoryEntry {
     pub id: String,
+    pub release_id: Option<String>,
+    pub album: Option<String>,
     pub title: String,
     pub inherited_title: String,
     pub inherited_artist: String,
@@ -244,6 +246,7 @@ pub struct Home {
     pub has_music: bool,
     pub liked_count: i64,
     pub recent_albums: Vec<HomeAlbum>,
+    pub recently_added: Vec<AddedAlbum>,
     pub unheard: Vec<UnheardOnAlbum>,
 }
 
@@ -260,6 +263,18 @@ pub struct HomeAlbum {
     pub inferred_artist: Option<crate::AlbumArtistInference>,
     pub last_played_at: i64,
     pub played: i64,
+}
+
+/// An album that entered the library recently, newest first.
+#[derive(Serialize, sqlx::FromRow, ToSchema)]
+pub struct AddedAlbum {
+    pub id: String,
+    pub title: String,
+    #[schema(required = true)]
+    pub artist: Option<String>,
+    #[sqlx(skip)]
+    #[schema(required = true)]
+    pub inferred_artist: Option<crate::AlbumArtistInference>,
 }
 
 #[derive(Serialize, ToSchema)]
