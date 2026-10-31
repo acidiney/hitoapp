@@ -13,7 +13,9 @@ async function json<T>(
     body?:
       | Schema<"MatchArtistsFromProviderEvidence">
       | Schema<"DismissArtistMatchSuggestion">
-      | Schema<"RestoreArtistMatchSuggestion">;
+      | Schema<"RestoreArtistMatchSuggestion">
+      | Schema<"ConfirmArtistReviewCandidate">
+      | Schema<"DismissArtistReviewCandidates">;
   },
 ): Promise<T> {
   const response = await request(path, options);
@@ -81,6 +83,46 @@ export const artistMatchingApi = {
       `/artists/${part(artist)}/match-suggestions/restore`,
       {
         action: "artist_matching.restore",
+        account,
+        signal,
+        method: "POST",
+        body,
+      },
+    );
+  },
+  reviewQueue(account: string, signal: AbortSignal) {
+    return json<Schema<"ArtistReviewQueuePage">>(
+      "/artist-matching/review-queue?limit=50",
+      { action: "artist_matching.review_queue", account, signal },
+    );
+  },
+  confirmCandidate(
+    account: string,
+    credit: string,
+    body: Schema<"ConfirmArtistReviewCandidate">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistReviewConfirmation">>(
+      `/artist-matching/review-queue/${part(credit)}/confirm`,
+      {
+        action: "artist_matching.review_confirm",
+        account,
+        signal,
+        method: "POST",
+        body,
+      },
+    );
+  },
+  dismissCandidates(
+    account: string,
+    credit: string,
+    body: Schema<"DismissArtistReviewCandidates">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistReviewDismissal">>(
+      `/artist-matching/review-queue/${part(credit)}/dismiss`,
+      {
+        action: "artist_matching.review_dismiss",
         account,
         signal,
         method: "POST",

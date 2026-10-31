@@ -278,8 +278,10 @@ impl ArtistCatalog {
         request: ConfirmArtistReviewCandidate,
     ) -> Result<ArtistReviewConfirmation> {
         let candidate = request.provider_artist_id.as_str();
-        if request.request_id.is_nil()
-            || artist.is_empty()
+        if request.request_id.is_nil() {
+            return Err(Error::Invalid("Use a nonempty request".into()));
+        }
+        if artist.is_empty()
             || artist.len() > MAX_ID_LENGTH
             || candidate.is_empty()
             || candidate.len() > MAX_ID_LENGTH
