@@ -304,3 +304,79 @@ async fn radio_starts_from_a_chosen_artist_and_uses_the_similarity_provider_when
     );
     assert!(server.finish().await);
 }
+
+#[tokio::test]
+async fn discover_and_genre_pages_use_musicbrainz_genres_for_tracks_without_a_genre_tag() {
+    use hito_core::test_support::musicbrainz::{FakeMusicBrainz, Reply};
+
+    let musicbrainz = FakeMusicBrainz::start().await;
+    musicbrainz.genres_of(
+        "artist",
+        M1,
+        Reply::Genres(vec![("fado".into(), 4), ("folk".into(), 1)]),
+    );
+    musicbrainz.genres_of("artist", M2, Reply::Genres(vec![("jazz".into(), 2)]));
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    for (name, offset, mbid) in [("a", 1, M1), ("b", 2, M1), ("c", 3, M2)] {
+        write_wav(&music.join(format!("{name}.wav")), offset);
+        let mut tag = Tag::new(TagType::Id3v2);
+        tag.set_title(format!("Song {name}"));
+        tag.set_artist(format!("Artist {name}"));
+        tag.set_album(format!("Album {name}"));
+        tag.insert_text(ItemKey::MusicBrainzArtistId, mbid.into());
+        tag.save_to_path(music.join(format!("{name}.wav")), Default::default())
+            .unwrap();
+    }
+    let mut config = hito_core::CoreConfig::new(
+        dir.path().join("hito.db"),
+        music,
+        hito_core::HostDeviceId::new("api-test-host").unwrap(),
+    );
+    config.musicbrainz_loopback_endpoint = Some(musicbrainz.endpoint.clone());
+    let hito = hito_core::open(config).await.unwrap();
+    let app = hito_server::router(hito.clone());
+    let token = admin(&app).await;
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&token)).await;
+    let library = libraries[0]["id"].as_str().unwrap().to_owned();
+    call(
+        &app,
+        "POST",
+        &format!("/api/v1/libraries/{library}/scan"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    hito.storage.run_next_job().await.unwrap();
+    let (_, before) = page(&app, "/discover", &token, None).await;
+    assert!(before["props"]["genres"].as_array().unwrap().is_empty());
+    while hito
+        .artist_catalog
+        .run_next_automatic_matching_until(std::future::pending())
+        .await
+        .unwrap()
+    {}
+
+    let (status, full) = page(&app, "/discover", &token, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let tiles: Vec<_> = full["props"]["genres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|genre| {
+            (
+                genre["key"].as_str().unwrap(),
+                genre["track_count"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(tiles, [("fado", 2), ("folk", 2), ("jazz", 1)]);
+    let (status, found) = page(&app, "/genres?genre=fado", &token, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(found["props"]["genre"]["genre"]["track_count"], 2);
+    assert_eq!(
+        found["props"]["genre"]["tracks"].as_array().unwrap().len(),
+        2
+    );
+}
