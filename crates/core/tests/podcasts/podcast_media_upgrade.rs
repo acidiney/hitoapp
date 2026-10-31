@@ -503,7 +503,7 @@ impl RetainedState {
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
         reference.close().await.unwrap();
-        let mut reference = collection_artwork_schema::reference_70().await;
+        let mut reference = collection_artwork_schema::reference_71().await;
         let declared = schema(&mut reference).await;
         for &(_, name) in collection_artwork_schema::REPLACED {
             assert!(
@@ -536,6 +536,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::genre_schema::ADDED)
             .chain(collection_artwork_schema::musicbrainz_genres_schema::ADDED)
             .chain(collection_artwork_schema::source_unavailability_schema::ADDED)
+            .chain(collection_artwork_schema::credit_matches_schema::ADDED)
         {
             if let Some(definition) = declared.get(name) {
                 assert!(

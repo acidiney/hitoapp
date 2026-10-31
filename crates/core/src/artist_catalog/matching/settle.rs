@@ -134,7 +134,9 @@ impl ArtistCatalog {
                 to_remember.push(item);
             }
         }
-        let extended = credit::extend(&mut tx, actor, &mut pending, settings.revision).await?;
+        let recordings: Vec<String> = examined.iter().map(|item| item.recording.clone()).collect();
+        let extended =
+            credit::extend(&mut tx, actor, &mut pending, &recordings, settings.revision).await?;
         for item in to_remember {
             if extended.contains(&item.recording) {
                 if matches!(item.outcome, Outcome::Uncertain) {
