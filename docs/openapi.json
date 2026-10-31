@@ -2370,6 +2370,354 @@
         ]
       }
     },
+    "/api/v1/artist-matching/review-queue": {
+      "get": {
+        "operationId": "artist_review_queue",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistReviewQueuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-matching/review-queue/{id}/confirm": {
+      "post": {
+        "operationId": "confirm_artist_review_candidate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmArtistReviewCandidate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistReviewConfirmation"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-matching/review-queue/{id}/dismiss": {
+      "post": {
+        "operationId": "dismiss_artist_review_candidates",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissArtistReviewCandidates"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistReviewDismissal"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artist-matching/status": {
       "get": {
         "operationId": "artist_matching_status",
@@ -16389,7 +16737,8 @@
           "matched_provider_url",
           "matched_name_discography",
           "matched_credit_evidence",
-          "matched_credit_coverage"
+          "matched_credit_coverage",
+          "user_confirmed_candidate"
         ]
       },
       "ArtistAssociationRetirement": {
@@ -17449,6 +17798,90 @@
           }
         }
       },
+      "ArtistReviewCandidate": {
+        "type": "object",
+        "description": "A MusicBrainz artist the automatic walk found under a credit's name and could not exclude.",
+        "required": [
+          "provider_artist_id",
+          "name",
+          "corroborated_titles",
+          "in_library"
+        ],
+        "properties": {
+          "corroborated_titles": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct titles of the credit's sample that this artist's recordings list."
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disambiguation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "in_library": {
+            "type": "boolean",
+            "description": "The account already has this artist among its chosen artists."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The artist type in lower case, such as `person` or `group`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider_artist_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ArtistReviewConfirmation": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "artist_id",
+          "provider_artist_id",
+          "applied",
+          "kept",
+          "remaining"
+        ],
+        "properties": {
+          "applied": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Undecided tracks that now use the artist."
+          },
+          "artist_id": {
+            "type": "string"
+          },
+          "kept": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tracks left as they were because of an earlier personal decision."
+          },
+          "provider_artist_id": {
+            "type": "string"
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Undecided tracks the request did not reach; asking again continues."
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "ArtistReviewConnection": {
         "type": "object",
         "required": [
@@ -17552,6 +17985,22 @@
         },
         "additionalProperties": false
       },
+      "ArtistReviewDismissal": {
+        "type": "object",
+        "required": [
+          "artist_id",
+          "dismissed"
+        ],
+        "properties": {
+          "artist_id": {
+            "type": "string"
+          },
+          "dismissed": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "ArtistReviewMetadataBinding": {
         "type": "object",
         "required": [
@@ -17568,6 +18017,9 @@
           }
         },
         "additionalProperties": false
+      },
+      "ArtistReviewQueuePage": {
+        "$ref": "#/components/schemas/Page_ArtistReviewItem"
       },
       "ArtistSearchCandidate": {
         "type": "object",
@@ -18760,6 +19212,23 @@
           "already_accepted"
         ]
       },
+      "ConfirmArtistReviewCandidate": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "provider_artist_id"
+        ],
+        "properties": {
+          "provider_artist_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "ConnectFolder": {
         "type": "object",
         "required": [
@@ -18992,6 +19461,19 @@
         "properties": {
           "group_id": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DismissArtistReviewCandidates": {
+        "type": "object",
+        "properties": {
+          "provider_artist_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The one artist that is not right, or every candidate of the credit when absent."
           }
         },
         "additionalProperties": false
@@ -21055,6 +21537,61 @@
                 },
                 "recording": {
                   "$ref": "#/components/schemas/Recording"
+                }
+              }
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Page_ArtistReviewItem": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A library credit whose tracks the automatic walk left undecided.",
+              "required": [
+                "artist_id",
+                "name",
+                "undecided_tracks",
+                "candidates"
+              ],
+              "properties": {
+                "artist_id": {
+                  "type": "string"
+                },
+                "candidates": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArtistReviewCandidate"
+                  },
+                  "description": "At most three, the artists the account already has first, then the best corroborated."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "undecided_tracks": {
+                  "type": "integer",
+                  "format": "int64"
                 }
               }
             }

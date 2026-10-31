@@ -372,6 +372,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-matching/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_review_queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-matching/review-queue/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm_artist_review_candidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-matching/review-queue/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dismiss_artist_review_candidates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artist-matching/status": {
         parameters: {
             query?: never;
@@ -2632,7 +2680,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage" | "user_confirmed_candidate";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
@@ -2948,6 +2996,43 @@ export interface components {
             similar_artists: number;
             tracks: components["schemas"]["Recording"][];
         };
+        /** @description A MusicBrainz artist the automatic walk found under a credit's name and could not exclude. */
+        ArtistReviewCandidate: {
+            /**
+             * Format: int64
+             * @description Distinct titles of the credit's sample that this artist's recordings list.
+             */
+            corroborated_titles: number;
+            country?: string | null;
+            disambiguation?: string | null;
+            /** @description The account already has this artist among its chosen artists. */
+            in_library: boolean;
+            /** @description The artist type in lower case, such as `person` or `group`. */
+            kind?: string | null;
+            name: string;
+            provider_artist_id: string;
+        };
+        ArtistReviewConfirmation: {
+            /**
+             * Format: int64
+             * @description Undecided tracks that now use the artist.
+             */
+            applied: number;
+            artist_id: string;
+            /**
+             * Format: int64
+             * @description Tracks left as they were because of an earlier personal decision.
+             */
+            kept: number;
+            provider_artist_id: string;
+            /**
+             * Format: int64
+             * @description Undecided tracks the request did not reach; asking again continues.
+             */
+            remaining: number;
+            /** Format: uuid */
+            request_id: string;
+        };
         ArtistReviewConnection: {
             /** Format: int64 */
             installation_revision: number;
@@ -2971,11 +3056,17 @@ export interface components {
             recording_id: string;
             source_id: string | null;
         };
+        ArtistReviewDismissal: {
+            artist_id: string;
+            /** Format: int64 */
+            dismissed: number;
+        };
         ArtistReviewMetadataBinding: {
             id: string;
             /** Format: int64 */
             revision: number;
         };
+        ArtistReviewQueuePage: components["schemas"]["Page_ArtistReviewItem"];
         ArtistSearchCandidate: {
             artist: components["schemas"]["CatalogArtistRef"];
             disambiguation?: string | null;
@@ -3258,6 +3349,11 @@ export interface components {
         };
         /** @enum {string} */
         CommunityReportAdmission: "ignored" | "queued" | "already_accepted";
+        ConfirmArtistReviewCandidate: {
+            provider_artist_id: string;
+            /** Format: uuid */
+            request_id: string;
+        };
         ConnectFolder: {
             directory: components["schemas"]["DirectoryRef"];
             name?: string | null;
@@ -3321,6 +3417,10 @@ export interface components {
         };
         DismissArtistMatchSuggestion: {
             group_id: string;
+        };
+        DismissArtistReviewCandidates: {
+            /** @description The one artist that is not right, or every candidate of the credit when absent. */
+            provider_artist_id?: string | null;
         };
         DownloadReceipt: {
             intent_id: string;
@@ -3820,6 +3920,22 @@ export interface components {
                 /** Format: int64 */
                 choice_revision: number;
                 recording: components["schemas"]["Recording"];
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_ArtistReviewItem: {
+            items: {
+                artist_id: string;
+                /** @description At most three, the artists the account already has first, then the best corroborated. */
+                candidates: components["schemas"]["ArtistReviewCandidate"][];
+                name: string;
+                /** Format: int64 */
+                undecided_tracks: number;
             }[];
             /** Format: int64 */
             limit: number;
@@ -6848,6 +6964,270 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_review_queue: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistReviewQueuePage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_artist_review_candidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmArtistReviewCandidate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistReviewConfirmation"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_artist_review_candidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissArtistReviewCandidates"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistReviewDismissal"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
                 headers: {
                     [name: string]: unknown;
                 };
