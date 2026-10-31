@@ -74,6 +74,7 @@ flowchart TB
   pad --> sdk
   ptb --> sdk
   ppz --> sdk
+  testkit --> sdk
   core -.-> testkit
   ad -.-> testkit
   tb -.-> testkit
@@ -81,9 +82,9 @@ flowchart TB
   tb -.-> audio
 ```
 
-Five packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk`, `hito-community` and `hito-testkit`. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The ListenBrainz and Jamendo plugins use the SDK and nothing else from Hito.
+Four packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk` and `hito-community`. `hito-testkit` depends on the SDK only, for the fake plugin server. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The ListenBrainz and Jamendo plugins use the SDK and nothing else from Hito.
 
-`hito-testkit` is a dev-dependency of `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. `hito-core`, `hito-audio`, the TorBox, All-Debrid and Premiumize crates and the TorBox and Premiumize plugins list themselves as a dev-dependency with `test-support` on, so plain `cargo test --workspace` works while normal builds never enable the feature. See [testing](testing.md) for how tests use these helpers.
+`hito-testkit` is a dev-dependency of `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins. `hito-core` and three debrid crates (All-Debrid, TorBox, Premiumize) also list it as an optional dependency that only `test-support` enables. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. `hito-core`, `hito-audio`, the TorBox, All-Debrid and Premiumize crates and the TorBox and Premiumize plugins list themselves as a dev-dependency with `test-support` on, so plain `cargo test --workspace` works while normal builds never enable the feature. See [testing](testing.md) for how tests use these helpers.
 
 The web app in `apps/web` is not a Cargo member. Its TypeScript models come from the server's generated OpenAPI file, `docs/openapi.json`.
 
@@ -125,6 +126,61 @@ Rules that follow from the diagram:
 - Plugins hold provider network access. Core holds only the personal token for each installation, encrypted in a vault beside the database.
 - External providers are external dependencies. Their availability, rate limits and blocking policies are outside Hito. [YouTube on servers](plugin-youtube.md#server-side-limitation) is the clearest case.
 - The `Community` capability keeps consent, an outbox and reporter credentials in the core database. The community service (`apps/community`) is a separate executable. Delivery to it is optional and off unless the server is configured with its origin and token ([community service](community-service.md)).
+
+## Background workers
+
+Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every worker next to the HTTP listener and stops them through one shutdown signal. Each worker wakes once a second, claims at most one unit of work and runs it with a cancel future. Downloads and indexing finish joined cleanup after the workers stop. The desktop host calls the same `hito_server::serve`, so it runs the same workers.
+
+| Worker | Instances | External calls |
+| --- | --- | --- |
+| Indexing | 1 | None. Reads granted music folders. |
+| Folder watching | 1 | None. |
+| Artwork | 1 | Plugins that declare `artwork` (provider covers). |
+| Cover art | 1 | Cover Art Archive. |
+| Artist matching | 1 | MusicBrainz (tags, ISRC, artist links, names, genres). |
+| Playlist follow | 4 | Plugins (playlist refresh). |
+| Downloads | 2, plus one reconcile loop | Plugins and managed storage. |
+| Source preparation | 2 | Plugins (search, sources, preparation). |
+| Podcast refresh | 2 | Feed hosts and enclosure hosts. |
+| Community reports | 1 | The community service, only when configured. |
+
+The diagram shows only the workers that call outside the host and the gate each call passes first. A gate is checked when work is claimed, so turning a choice off drops pending work without a request.
+
+```mermaid
+flowchart LR
+  subgraph Gates["Gates checked before each call"]
+    Lookup{{"Look up artists on MusicBrainz: account choice, metadata enabled, built-in provider selected"}}
+    Artwork{{"Fetch album artwork: account choice"}}
+    Consent{{"Community consent: account opt-in and host configuration"}}
+    Grant{{"Installed plugin with the needed capability and live authority"}}
+  end
+  subgraph Workers["hito-server workers"]
+    Matching["Artist matching"]
+    CoverArt["Cover art"]
+    ArtworkW["Artwork"]
+    Prep["Source preparation, follow, downloads"]
+    Reports["Community reports"]
+    Podcasts["Podcast refresh"]
+  end
+  Matching --> Lookup --> MB["MusicBrainz: identifiers, ISRC codes, credit names"]
+  CoverArt --> Artwork --> CAA["Cover Art Archive: MusicBrainz identifier only"]
+  ArtworkW --> Artwork
+  ArtworkW --> Grant
+  Prep --> Grant
+  Grant --> Plug["Plugin processes"]
+  Plug --> Spotify["Spotify image host and other providers"]
+  Reports --> Consent --> Com["apps/community service"]
+  Podcasts --> Feeds["Feed and enclosure hosts"]
+  Matching -. queues .-> CoverArt
+```
+
+What the gates mean:
+
+- **MusicBrainz.** The matching walk reads local file tags first and sends nothing for that pass. Later passes send ISRC codes, provider artist links and credit names, then MusicBrainz identifiers for genres. Every request goes through one limiter of one request per second. The choice defaults to on and sits in Settings, Privacy ([consent rules](artist-matching.md#automatic-matching-and-consent)).
+- **Cover Art Archive.** Only a MusicBrainz identifier leaves the host. Redirects may reach `archive.org` hosts only ([details](plugin-artwork.md#cover-art-archive)).
+- **Provider covers.** The artwork choice also decides whether reading an album cover queues a provider request. The plugin, not Hito, contacts the image host. The Spotify plugin accepts only the exact Spotify image hosts ([details](plugin-artwork.md#provider-covers-for-imported-albums)).
+- **Community.** Nothing is sent unless the account opted in and the host has the community origin and token ([community service](community-service.md)).
+- **Plugins.** Core relays only to installations the account approved, checks live authority again, and never logs titles, search terms or URLs.
 
 The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The synchronization client remains unfinished.
 
@@ -226,6 +282,7 @@ flowchart TB
   Remote[RemoteHttp: bounded podcast and enclosure client]
   Local[LocalFiles: granted music folders]
   Builtin[Built-in MusicBrainz client]
+  CoverArt[Cover Art Archive client]
   Identity --> Store
   Collection --> Store
   Collection --> Plugins
@@ -239,6 +296,7 @@ flowchart TB
   Catalog --> Plugins
   Catalog --> Community
   Catalog --> Local
+  Catalog --> CoverArt
   ArtistCatalog --> Store
   ArtistCatalog --> Plugins
   ArtistCatalog --> Catalog
@@ -259,10 +317,10 @@ flowchart TB
 What each capability owns:
 
 - `Identity`: accounts, sessions, account deletion and the opaque authenticated actor.
-- `Catalog`: authorized reads, provider search and adoption, source resolution and artwork.
-- `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits.
+- `Catalog`: authorized reads, provider search and adoption, source resolution, artwork (embedded, provider and Cover Art Archive covers), and genre reads. It owns the Cover Art Archive client.
+- `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits, and runs the automatic artist matching walk (tags, ISRC, provider artist links, name and discography corroboration, then MusicBrainz genres).
 - `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.
-- `Collection`: the single transaction that accepts a batch of personal operations and appends events.
+- `Collection`: the single transaction that accepts a batch of personal operations and appends events. It also builds the Home read and refreshes followed playlists.
 - `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
 - `LibraryStorage`: music folders, grants, scans, leases and reconciliation.
 - `Plugins`: offered service addresses, personal installations, credential encryption and manifest checks.
@@ -273,7 +331,7 @@ Planned behavior and gaps are in [status](status.md). The desktop host and the s
 
 ## Data ownership
 
-A library controls access to recordings and sources. Accounts own playlists, likes, listening history, and personal recording and album title/artist fields, and plugin installations. Library membership is checked on reads, streaming, and writes. Provider matching and further preferences remain planned. A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
+A library controls access to recordings and sources. Accounts own playlists, likes, listening history, and personal recording and album title/artist fields, and plugin installations. Library membership is checked on reads, streaming, and writes. Artist matching, metadata providers and the automatic lookup choices are per account too ([artist matching](artist-matching.md), [metadata preferences](metadata-preferences.md)). A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
 
 ```mermaid
 erDiagram
@@ -305,7 +363,7 @@ erDiagram
 
 ## Account deletion
 
-`Identity::delete_account` lets an administrator erase another account and everything it owns in one `BEGIN IMMEDIATE` transaction. It is current behavior in source; it is not part of a deployed release.
+`Identity::delete_account` lets an administrator erase another account and everything it owns in one `BEGIN IMMEDIATE` transaction. It is current behavior and runs on the local development server (migration 0067). It is not part of a public release.
 
 ```mermaid
 flowchart TD
