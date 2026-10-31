@@ -1,5 +1,8 @@
 //! Title comparison for name matching. Titles are folded and stripped of version qualifiers and
-//! featured artists for comparison only; the stored and displayed titles never change.
+//! featured artists for comparison only; the stored and displayed titles never change. A featured
+//! artist is recognized only in brackets or after a dash ("Song (feat. X)", "Song - feat. X"), never
+//! in the middle of a title, and "with" is never read as one: the credit of the recording is not
+//! known here, so "Song (With You)" stays "song with you".
 use crate::artist_catalog::identity::groups::fold;
 
 /// Length tolerance between a library title and a listed title of the same wording or base.
@@ -103,7 +106,7 @@ fn kind_of(word: &str) -> Option<u16> {
 fn qualifier(part: &str) -> Option<u16> {
     let words = tokens(part);
     let first = words.first()?;
-    if FEATURING.contains(&first.as_str()) || (first == "with" && words.len() > 1) {
+    if FEATURING.contains(&first.as_str()) {
         return Some(0);
     }
     if first == "live"
@@ -167,19 +170,6 @@ fn trailing_dash(text: &str) -> Option<(usize, usize)> {
         .max()
 }
 
-/// The start of a featured-artist part written without brackets.
-fn bare_featuring(text: &str) -> Option<usize> {
-    let mut offset = 0;
-    for (position, word) in text.split_inclusive(char::is_whitespace).enumerate() {
-        let name = word.trim().trim_end_matches('.').to_lowercase();
-        if position > 0 && FEATURING.contains(&name.as_str()) {
-            return Some(offset);
-        }
-        offset += word.len();
-    }
-    None
-}
-
 impl Title {
     pub(super) fn parse(raw: &str) -> Self {
         let mut base = raw.trim();
@@ -192,7 +182,6 @@ impl Title {
             } else {
                 None
             };
-            let cut = cut.or_else(|| bare_featuring(base).map(|start| (start, 0)));
             match cut {
                 Some((start, found)) if !base[..start].trim().is_empty() => {
                     kinds |= found;
@@ -276,11 +265,10 @@ mod tests {
             ("Song [Live at Wembley Stadium]", "song", true),
             ("Song (Live) [Remastered 2009]", "song", true),
             ("Perfect (feat. Beyonc\u{e9})", "perfect", false),
-            ("Perfect feat. Beyonc\u{e9}", "perfect", false),
-            ("Perfect ft. Someone", "perfect", false),
-            ("Perfect (with Someone)", "perfect", false),
+            ("Perfect (ft. Someone)", "perfect", false),
+            ("Perfect [featuring Someone]", "perfect", false),
             ("Perfect - feat. Someone", "perfect", false),
-            ("Perfect (Live) feat. Someone", "perfect", true),
+            ("Perfect - ft. Someone", "perfect", false),
             ("Perfect (feat. Someone) (Acoustic)", "perfect", true),
             ("  Beyonc\u{e9}   KNOWLES ", "beyonce knowles", false),
             ("Don't Stop", "dont stop", false),
@@ -308,6 +296,12 @@ mod tests {
             ("Song (2011)", "song 2011"),
             ("Perfect Duet", "perfect duet"),
             ("(Live)", "live"),
+            ("Trip to Ft. Lauderdale", "trip to ft lauderdale"),
+            ("Perfect feat. Beyonc\u{e9}", "perfect feat beyonce"),
+            ("Perfect ft. Someone", "perfect ft someone"),
+            ("Song (With You)", "song with you"),
+            ("Perfect (with Someone)", "perfect with someone"),
+            ("Song - with You", "song with you"),
         ] {
             assert_eq!(Title::parse(raw).key, base, "{raw}");
         }

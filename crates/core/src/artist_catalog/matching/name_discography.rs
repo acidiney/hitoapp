@@ -27,8 +27,10 @@ const HOLD_MARK: char = '~';
 const MAX_HOLDS: u32 = 40;
 /// The rule that settled a name check. Checks of another rule do not hide a recording. Rule 3
 /// compares version titles, continues an artist already matched for the credit and lets one
-/// artist's coverage of the credit decide its remaining tracks.
-pub(super) const NAME_RULE: i64 = 3;
+/// artist's coverage of the credit decide its remaining tracks. Rule 4 counts distinct titles for
+/// the share, asks every other namesake about the remaining tracks and lets choices and strong
+/// evidence for another artist refuse a match.
+pub(super) const NAME_RULE: i64 = 4;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
 /// The least a credit costs: one search and one sample search per exact-name artist.
@@ -405,11 +407,7 @@ impl ArtistCatalog {
         };
         let silent = name_probe::silent_beside(&assessments, &artist);
         let plan = Plan { candidates, sample };
-        let reserve = if standing.matched.is_empty() {
-            0
-        } else {
-            ids.len() - 1
-        };
+        let reserve = (ids.len() - 1) * if standing.matched.is_empty() { 1 } else { 2 };
         let verdict = self
             .follow(artist, &plan, hits, reserve, budget, answers)
             .await;
@@ -452,15 +450,15 @@ impl ArtistCatalog {
             credit,
             tracks,
             standing,
-            namesakes,
             silent,
+            ..
         } = covering;
         let tally = coverage::tally(standing, tracks, &matched);
         let mut cause = None;
         let mut coverage = None;
         if *silent && tally.qualifies() && !names_several(&credit.name) {
             match self
-                .silent_on_earlier_matches(&artist, standing, namesakes, budget, answers)
+                .silent_on_the_rest(&artist, &matched, covering, budget, answers)
                 .await
             {
                 Ok(true) => coverage = Some(tally.counts()),
@@ -485,36 +483,52 @@ impl ArtistCatalog {
     }
 
     /// Whether no other namesake lists any of the titles that earlier requests matched to the
-    /// artist. `Err` says why the question could not be asked.
-    async fn silent_on_earlier_matches(
+    /// artist, nor a sample of the titles that would follow. `Err` says why the question could
+    /// not be asked.
+    async fn silent_on_the_rest(
         &self,
         artist: &str,
-        standing: &Standing,
-        namesakes: &[String],
+        matched: &[usize],
+        covering: &Covering<'_>,
         budget: &mut Budget,
         answers: &mut Answers,
     ) -> std::result::Result<bool, Cause> {
+        let Covering {
+            tracks,
+            standing,
+            namesakes,
+            ..
+        } = covering;
         let earlier = standing.tracks();
-        let candidates = name_probe::candidates(&earlier);
-        let sample = name_probe::sample(&candidates);
-        if sample.is_empty() {
-            return Ok(true);
-        }
-        for other in namesakes.iter().filter(|other| other.as_str() != artist) {
-            if !budget.has_room(1) {
-                return Err(Cause::Budget);
+        let tail: Vec<&Track> = tracks
+            .iter()
+            .enumerate()
+            .filter(|(index, track)| !matched.contains(index) && !track.own_evidence)
+            .map(|(_, track)| track)
+            .chain(standing.checked.iter().filter(|track| !track.own_evidence))
+            .collect();
+        for titles in [
+            name_probe::candidates(&earlier),
+            name_probe::candidates(tail),
+        ] {
+            let sample = name_probe::sample(&titles);
+            if sample.is_empty() {
+                continue;
             }
-            match self
-                .probe(other, &candidates, &sample, budget, answers)
-                .await
-            {
-                Ok(listed) => {
-                    if !name_probe::found(&candidates, &sample, &listed).is_empty() {
-                        return Ok(false);
-                    }
+            for other in namesakes.iter().filter(|other| other.as_str() != artist) {
+                if !budget.has_room(1) {
+                    return Err(Cause::Budget);
                 }
-                Err(Verdict::Refused) => return Err(Cause::Budget),
-                Err(_) => return Err(Cause::Outage),
+                match self.probe(other, &titles, &sample, budget, answers).await {
+                    Ok(listed) => {
+                        if !name_probe::found(&titles, &sample, &listed).is_empty() {
+                            return Ok(false);
+                        }
+                    }
+                    Err(Verdict::Refused) => return Err(Cause::Budget),
+                    Err(Verdict::Uncertain) => return Ok(false),
+                    Err(_) => return Err(Cause::Outage),
+                }
             }
         }
         Ok(true)
@@ -542,7 +556,10 @@ impl ArtistCatalog {
         let listed = budget
             .run(self.builtin.artist_recordings_matching(artist, &probes))
             .await
-            .map_err(|_| Verdict::Unavailable)?;
+            .map_err(|error| match error {
+                MusicBrainzError::InvalidLookupRequest => Verdict::Uncertain,
+                _ => Verdict::Unavailable,
+            })?;
         answers.recordings.insert(cache, listed.clone());
         Ok(listed)
     }
@@ -588,6 +605,7 @@ impl ArtistCatalog {
                     cause = Some(Cause::Budget);
                     break;
                 }
+                Err(Verdict::Uncertain) => reached += chunk.len(),
                 Err(_) => {
                     cause = Some(Cause::Outage);
                     break;

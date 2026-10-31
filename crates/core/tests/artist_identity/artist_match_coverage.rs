@@ -237,3 +237,139 @@ async fn a_namesake_listing_a_title_matched_in_an_earlier_request_keeps_the_rest
         library.origin.shutdown().await;
     }
 }
+
+#[tokio::test]
+async fn a_namesake_listing_a_title_of_the_tail_keeps_the_tail_out() {
+    for _ in 0..3 {
+        let library = credit(entries(CREDIT, 20)).await;
+        library.musicbrainz.search(
+            CREDIT,
+            Reply::Candidates(vec![
+                (NOVA.into(), CREDIT.into()),
+                (NAMESAKE.into(), CREDIT.into()),
+            ]),
+        );
+        library.musicbrainz.recordings_of(NOVA, lists(0..15));
+        library.musicbrainz.recordings_of(NAMESAKE, lists(17..18));
+        library.run().await;
+        for index in 15..20 {
+            assert!(
+                library.group_of(&library.recordings[index]).await.is_none(),
+                "Track {index} belongs to nobody the walk can name"
+            );
+        }
+        assert_eq!(library.rows("artist_association_coverage_matches").await, 0);
+        library.origin.shutdown().await;
+    }
+}
+
+/// A track decided by the account for another artist, by removing the provenance of a name match.
+async fn choose_other_artist(library: &NameLibrary) {
+    library
+        .execute("DROP TRIGGER artist_association_name_match_retained")
+        .await;
+    library
+        .execute("DELETE FROM artist_association_name_matches")
+        .await;
+    library
+        .execute("UPDATE artist_name_checks SET rule=2")
+        .await;
+}
+
+#[tokio::test]
+async fn a_personal_choice_for_another_artist_in_the_credit_keeps_the_tail_out() {
+    // The first request samples six of the eight tracks, so the other artist needs both of its
+    // titles in the sample; libraries are built again until it has them.
+    let library = loop {
+        let library = credit(entries(CREDIT, 8)).await;
+        library.musicbrainz.search(
+            CREDIT,
+            Reply::Candidates(vec![(NAMESAKE.into(), CREDIT.into())]),
+        );
+        library.musicbrainz.recordings_of(NAMESAKE, lists(6..8));
+        library.run().await;
+        if library.group_of(&library.recordings[6]).await.is_some() {
+            break library;
+        }
+        library.origin.shutdown().await;
+    };
+    choose_other_artist(&library).await;
+
+    only_nova(&library, CREDIT);
+    library.musicbrainz.recordings_of(NOVA, lists(0..5));
+    library.run().await;
+    for index in 0..5 {
+        assert!(library.group_of(&library.recordings[index]).await.is_some());
+    }
+    assert!(
+        library.group_of(&library.recordings[5]).await.is_none(),
+        "The account's own choice for another artist stops the credit's tail following"
+    );
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn strong_evidence_for_other_artists_blocks_name_matches_of_the_credit() {
+    let mut tracks = entries(CREDIT, 8);
+    for (index, (.., evidence)) in tracks.iter_mut().enumerate().take(2) {
+        evidence.isrc = Some(format!("GBAAA20{index:05}"));
+    }
+    let library = credit(tracks).await;
+    for (index, artist) in [(0, NAMESAKE), (1, TRIBUTE)] {
+        library.musicbrainz.isrc(
+            &format!("GBAAA20{index:05}"),
+            Reply::Recordings(vec![(
+                "0f700000-0000-4000-8000-0000000000aa".into(),
+                vec![artist.to_owned()],
+            )]),
+        );
+    }
+    only_nova(&library, CREDIT);
+    library.musicbrainz.recordings_of(NOVA, lists(2..8));
+    library.run().await;
+    assert_eq!(library.rows("artist_association_name_matches").await, 0);
+    for index in 2..8 {
+        assert!(library.group_of(&library.recordings[index]).await.is_none());
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn name_matches_of_an_earlier_rule_do_not_count_toward_coverage() {
+    let library = credit(entries(CREDIT, 7)).await;
+    only_nova(&library, CREDIT);
+    library.musicbrainz.recordings_of(NOVA, lists(0..3));
+    library.run().await;
+    assert_eq!(undecided(&library).await, 4);
+    library
+        .execute("DROP TRIGGER artist_association_name_match_immutable")
+        .await;
+    library
+        .execute("UPDATE artist_association_name_matches SET rule=2")
+        .await;
+    library
+        .execute("UPDATE artist_name_checks SET rule=2")
+        .await;
+    library.musicbrainz.recordings_of(NOVA, lists(0..6));
+    library.run().await;
+    assert_eq!(
+        undecided(&library).await,
+        1,
+        "Three current matches are too few titles to cover the seventh track"
+    );
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_title_too_long_to_ask_about_is_left_out_and_does_not_make_the_credit_unavailable() {
+    let mut tracks = entries(CREDIT, 4);
+    tracks[3].1 = "x".repeat(600);
+    let library = credit(tracks).await;
+    only_nova(&library, CREDIT);
+    library.musicbrainz.recordings_of(NOVA, lists(0..3));
+    let receipt = library.run().await;
+    assert_eq!(receipt.unavailable, 0);
+    assert_eq!(receipt.matched, 3);
+    assert_eq!(library.rows("artist_name_checks").await, 1);
+    library.origin.shutdown().await;
+}

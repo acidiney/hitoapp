@@ -99,8 +99,8 @@ impl ArtistCatalog {
                     if current.as_deref() != Some(item.observation.as_str()) {
                         declined += 1;
                         false
-                    } else if matches!(kind, EvidenceKind::Coverage(..))
-                        && coverage::conflicts(&mut tx, actor, &item.recording, artist).await?
+                    } else if coverage::vetoed(&mut tx, actor, &item.recording, artist, *kind)
+                        .await?
                     {
                         declined += 1;
                         true

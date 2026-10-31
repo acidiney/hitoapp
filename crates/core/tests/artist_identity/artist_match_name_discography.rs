@@ -734,7 +734,7 @@ async fn name_checks_of_an_earlier_rule_are_asked_again() {
     assert_eq!(library.rows("artist_name_checks").await, 4);
     assert_eq!(
         library
-            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=3")
+            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=4")
             .await,
         "4",
         "Current checks carry the current rule"
@@ -760,7 +760,7 @@ async fn name_checks_of_an_earlier_rule_are_asked_again() {
     );
     assert_eq!(
         library
-            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=3")
+            .scalar("SELECT count(*) FROM artist_name_checks WHERE rule=4")
             .await,
         "1"
     );

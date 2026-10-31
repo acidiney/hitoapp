@@ -16,6 +16,8 @@ const MIN_KNOWN_LENGTH_MS: u64 = 1000;
 /// Distinct base titles a library must share with an artist to corroborate it.
 pub(super) const MIN_CORROBORATING: usize = 2;
 const SCORE_MAX: u32 = 100;
+/// The longest title MusicBrainz is asked about; a longer one cannot be a request.
+const MAX_TITLE_BYTES: usize = 512;
 
 pub(super) struct Track {
     pub recording: String,
@@ -74,9 +76,9 @@ pub(super) struct Candidate {
 }
 
 /// The distinct (title, length) pairs of tracks with a known length, in track order.
-pub(super) fn candidates(tracks: &[Track]) -> Vec<Candidate> {
+pub(super) fn candidates<'a>(tracks: impl IntoIterator<Item = &'a Track>) -> Vec<Candidate> {
     let mut found: Vec<Candidate> = Vec::new();
-    for (index, track) in tracks.iter().enumerate() {
+    for (index, track) in tracks.into_iter().enumerate() {
         let Some(length) = track
             .length_ms
             .and_then(|l| known_length(i64::try_from(l).ok()))
@@ -84,6 +86,9 @@ pub(super) fn candidates(tracks: &[Track]) -> Vec<Candidate> {
             continue;
         };
         let title = Title::parse(&track.title);
+        if title.text.is_empty() || title.text.len() > MAX_TITLE_BYTES {
+            continue;
+        }
         match found
             .iter_mut()
             .find(|known| known.title == title && known.length_ms == length)
