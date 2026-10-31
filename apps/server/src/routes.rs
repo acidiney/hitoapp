@@ -47,6 +47,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         SettingsPageProps,
         QueuePageProps,
         DiscoverPageProps,
+        GenrePageProps,
         PodcastIndexPageProps,
         PodcastPageProps,
     ))
@@ -146,6 +147,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_matching::dismiss))
         .routes(routes!(api::artist_matching::restore))
         .routes(routes!(api::artist_identity_groups::list))
+        .routes(routes!(api::artist_identity_groups::radio))
         .routes(routes!(api::artist_identity_groups::read))
         .routes(routes!(api::artist_identity_groups::changes))
         .routes(routes!(api::artist_identity_groups::split))
@@ -273,6 +275,7 @@ fn application(
         .route("/home", get(inertia::page))
         .route("/search", get(inertia::page))
         .route("/discover", get(inertia::page))
+        .route("/genres", get(inertia::page))
         .route("/podcasts", get(inertia::page))
         .route("/podcasts/{id}", get(inertia::page))
         .route("/albums", get(inertia::page))

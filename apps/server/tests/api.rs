@@ -159,6 +159,8 @@ mod artist_review_host;
 mod artist_review_tcp;
 #[path = "api/artist_similarity.rs"]
 mod artist_similarity;
+#[path = "api/discover_pages.rs"]
+mod discover_pages;
 #[path = "api/metadata.rs"]
 mod metadata;
 #[path = "api/metadata_preferences.rs"]

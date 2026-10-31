@@ -9,8 +9,8 @@ use axum::{
 };
 use hito_core::{
     ArtistIdentityChangeReceipt, ArtistIdentityGroup, ArtistIdentityGroupBrowse,
-    ArtistIdentityGroupChanges, ArtistIdentityGroupDetail, ArtistIdentityGroupQuery, Page,
-    Services, SplitArtistIdentityGroup, UndoArtistIdentityChange,
+    ArtistIdentityGroupChanges, ArtistIdentityGroupDetail, ArtistIdentityGroupQuery, ArtistRadio,
+    Page, Services, SplitArtistIdentityGroup, UndoArtistIdentityChange,
 };
 use serde::Serialize;
 use std::time::Instant;
@@ -169,6 +169,31 @@ pub async fn undo(
             .map_or_else(|error| error.code(), |_| "accepted"),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist identity undo HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/artist-identity-groups/{id}/radio", operation_id = "artist_identity_group_radio",
+    params(("id" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistRadio, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 423, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_artist_radio", request_id = %Uuid::new_v4()))]
+pub async fn radio(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Json<ArtistRadio>> {
+    let started = Instant::now();
+    let result = services.artist_catalog.artist_radio(&actor, &id).await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "returned"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Artist radio HTTP request completed"
     );
     Ok(Json(result?))
 }

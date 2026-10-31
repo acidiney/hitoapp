@@ -1,6 +1,7 @@
 mod audiobooks;
 mod catalog;
 mod discover;
+mod genres;
 mod home;
 mod playlists;
 mod podcasts;
@@ -31,6 +32,7 @@ pub enum Screen<'a> {
     Settings,
     Queue,
     Discover,
+    Genre,
     PodcastIndex,
     Podcast(&'a str),
     NotFound,
@@ -53,6 +55,7 @@ impl<'a> Screen<'a> {
             "/settings" => Self::Settings,
             "/queue" => Self::Queue,
             "/discover" => Self::Discover,
+            "/genres" => Self::Genre,
             "/podcasts" => Self::PodcastIndex,
             "/albums" => Self::AlbumIndex,
             "/artists" => Self::ArtistIndex,
@@ -104,6 +107,7 @@ impl<'a> Screen<'a> {
             Self::Settings => PageComponent::SettingsPage,
             Self::Queue => PageComponent::QueuePage,
             Self::Discover => PageComponent::DiscoverPage,
+            Self::Genre => PageComponent::GenrePage,
             Self::PodcastIndex => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,
             Self::NotFound => PageComponent::NotFoundPage,
@@ -151,6 +155,7 @@ impl<'a> Screen<'a> {
             Self::PodcastIndex => podcasts::index(request).await,
             Self::Podcast(id) => podcasts::detail(request, id).await,
             Self::Discover => discover::discover(request).await,
+            Self::Genre => genres::genre(request).await,
             Self::Settings => Ok(PageProps::Settings(SettingsPageProps {
                 shared: request.shared,
             })),

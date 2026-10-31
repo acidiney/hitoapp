@@ -36,6 +36,7 @@ pub enum PageComponent {
     SettingsPage,
     QueuePage,
     DiscoverPage,
+    GenrePage,
     PodcastIndexPage,
     PodcastPage,
     NotFoundPage,
@@ -290,6 +291,23 @@ pub struct DiscoverPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub service_names: Option<BTreeMap<String, String>>,
+    /// The busiest genres of the library, for the By genre tiles.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub genres: Option<Vec<hito_core::Genre>>,
+    /// A short page of chosen artists that radio can start from.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub artists: Option<ArtistIdentityGroupPage>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct GenrePageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub genre: Option<hito_core::GenreDetail>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -340,6 +358,7 @@ pub enum PageProps {
     Settings(SettingsPageProps),
     Queue(QueuePageProps),
     Discover(DiscoverPageProps),
+    Genre(GenrePageProps),
     PodcastIndex(PodcastIndexPageProps),
     Podcast(PodcastPageProps),
     NotFound(NotFoundPageProps),
@@ -369,6 +388,7 @@ impl PageProps {
             Self::Settings(_) => PageComponent::SettingsPage,
             Self::Queue(_) => PageComponent::QueuePage,
             Self::Discover(_) => PageComponent::DiscoverPage,
+            Self::Genre(_) => PageComponent::GenrePage,
             Self::PodcastIndex(_) => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,
             Self::NotFound(_) => PageComponent::NotFoundPage,
