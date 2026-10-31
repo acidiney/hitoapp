@@ -16,6 +16,11 @@ const RADIO_TRACKS: usize = 50;
 const SIMILAR_ARTISTS: u16 = 25;
 const TRACKS_PER_SIMILAR_ARTIST: i64 = 5;
 
+struct Pick {
+    recording: String,
+    group: String,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct ArtistRadio {
     pub artist: String,
@@ -61,8 +66,11 @@ impl ArtistCatalog {
         actor.check_session_on(&mut tx).await?;
         let own: Vec<String> = self
             .sample(actor, Groups::One(group), None, &mut tx)
-            .await?;
-        let others: Vec<String> = if similar.is_empty() {
+            .await?
+            .into_iter()
+            .map(|pick| pick.recording)
+            .collect();
+        let others: Vec<Pick> = if similar.is_empty() {
             Vec::new()
         } else {
             self.sample(
@@ -73,12 +81,9 @@ impl ArtistCatalog {
             )
             .await?
         };
-        let similar_artists = if others.is_empty() {
-            0
-        } else {
-            similar.len() as i64
-        };
-        let ids = blend(own, others, RADIO_TRACKS)
+        let mixed = blend(own, others, RADIO_TRACKS);
+        let ids = mixed
+            .ids
             .iter()
             .map(|id| {
                 Uuid::parse_str(id)
@@ -90,7 +95,7 @@ impl ArtistCatalog {
         tx.commit().await?;
         Ok(ArtistRadio {
             artist: summary.name.value,
-            similar_artists,
+            similar_artists: mixed.similar_groups as i64,
             tracks,
         })
     }
@@ -137,10 +142,10 @@ impl ArtistCatalog {
         groups: Groups<'_>,
         per_group: Option<i64>,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<Pick>> {
         let mut query = visible_in(actor, None, groups);
         query.push(
-            "SELECT recording_id FROM (SELECT v.recording_id,
+            "SELECT recording_id, group_id FROM (SELECT v.recording_id, v.group_id,
                 row_number() OVER (PARTITION BY v.group_id ORDER BY random()) AS n
                 FROM visible v JOIN recordings r ON r.id = v.recording_id WHERE ",
         );
@@ -150,58 +155,122 @@ impl ArtistCatalog {
             .push_bind(per_group.unwrap_or(RADIO_TRACKS as i64))
             .push(" ORDER BY random() LIMIT ")
             .push_bind(RADIO_TRACKS as i64);
-        Ok(query.build_query_scalar().fetch_all(&mut **tx).await?)
+        let rows: Vec<(String, String)> = query.build_query_as().fetch_all(&mut **tx).await?;
+        Ok(rows
+            .into_iter()
+            .map(|(recording, group)| Pick { recording, group })
+            .collect())
     }
+}
+
+struct Mixed {
+    ids: Vec<String>,
+    /// Distinct similar artists that put at least one track into the queue.
+    similar_groups: usize,
 }
 
 /// Chooses up to `limit` ids: two fifths from the artist's own tracks when other tracks exist
 /// (the rest from those), topping up from whichever side has more, then shuffles the result.
-fn blend(own: Vec<String>, others: Vec<String>, limit: usize) -> Vec<String> {
+fn blend(own: Vec<String>, others: Vec<Pick>, limit: usize) -> Mixed {
     let own_share = if others.is_empty() {
         limit
     } else {
         limit * 2 / 5
     };
     let mut chosen: Vec<String> = own.iter().take(own_share).cloned().collect();
-    chosen.extend(others.iter().take(limit - chosen.len()).cloned());
+    chosen.extend(
+        others
+            .iter()
+            .take(limit - chosen.len())
+            .map(|pick| pick.recording.clone()),
+    );
     let room = limit - chosen.len();
     chosen.extend(own.into_iter().skip(own_share).take(room));
     let mut seen = std::collections::HashSet::new();
     chosen.retain(|id| seen.insert(id.clone()));
+    let similar_groups = others
+        .iter()
+        .filter(|pick| seen.contains(&pick.recording))
+        .map(|pick| pick.group.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
     chosen.shuffle(&mut rand::thread_rng());
-    chosen
+    Mixed {
+        ids: chosen,
+        similar_groups,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::blend;
+    use super::{Pick, blend};
 
     fn ids(prefix: &str, count: usize) -> Vec<String> {
         (0..count).map(|n| format!("{prefix}{n}")).collect()
     }
 
+    fn picks(prefix: &str, group: &str, count: usize) -> Vec<Pick> {
+        ids(prefix, count)
+            .into_iter()
+            .map(|recording| Pick {
+                recording,
+                group: group.into(),
+            })
+            .collect()
+    }
+
     #[test]
     fn the_artist_alone_fills_the_queue_up_to_the_bound() {
         let mixed = blend(ids("own", 80), Vec::new(), 50);
-        assert_eq!(mixed.len(), 50);
+        assert_eq!(mixed.ids.len(), 50);
+        assert_eq!(mixed.similar_groups, 0);
     }
 
     #[test]
     fn similar_artists_take_three_fifths_and_short_sides_are_topped_up() {
-        let mixed = blend(ids("own", 80), ids("other", 80), 50);
-        assert_eq!(mixed.iter().filter(|id| id.starts_with("own")).count(), 20);
-        assert_eq!(mixed.len(), 50);
-        let mixed = blend(ids("own", 80), ids("other", 4), 50);
-        assert_eq!(mixed.iter().filter(|id| id.starts_with("other")).count(), 4);
-        assert_eq!(mixed.len(), 50);
-        let mixed = blend(ids("own", 3), ids("other", 80), 50);
-        assert_eq!(mixed.len(), 50);
-        assert_eq!(mixed.iter().filter(|id| id.starts_with("own")).count(), 3);
+        let mut others = picks("a", "g1", 40);
+        others.extend(picks("b", "g2", 40));
+        let mixed = blend(ids("own", 80), others, 50);
+        assert_eq!(
+            mixed.ids.iter().filter(|id| id.starts_with("own")).count(),
+            20
+        );
+        assert_eq!(mixed.ids.len(), 50);
+        let mixed = blend(ids("own", 80), picks("other", "g1", 4), 50);
+        assert_eq!(
+            mixed
+                .ids
+                .iter()
+                .filter(|id| id.starts_with("other"))
+                .count(),
+            4
+        );
+        assert_eq!(mixed.ids.len(), 50);
+        let mixed = blend(ids("own", 3), picks("other", "g1", 80), 50);
+        assert_eq!(mixed.ids.len(), 50);
+        assert_eq!(
+            mixed.ids.iter().filter(|id| id.starts_with("own")).count(),
+            3
+        );
+    }
+
+    #[test]
+    fn only_similar_artists_that_reach_the_queue_are_counted() {
+        let mut others = picks("a", "g1", 30);
+        others.extend(picks("b", "g2", 5));
+        let mixed = blend(ids("own", 80), others, 50);
+        assert_eq!(
+            mixed.similar_groups, 1,
+            "the second artist's tracks were cut off"
+        );
+        let mut others = picks("a", "g1", 10);
+        others.extend(picks("b", "g2", 5));
+        assert_eq!(blend(ids("own", 80), others, 50).similar_groups, 2);
     }
 
     #[test]
     fn nothing_repeats() {
-        let mixed = blend(ids("x", 10), ids("x", 10), 50);
-        assert_eq!(mixed.len(), 10);
+        let mixed = blend(ids("x", 10), picks("x", "g1", 10), 50);
+        assert_eq!(mixed.ids.len(), 10);
     }
 }
