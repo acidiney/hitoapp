@@ -15,6 +15,8 @@ pub mod changes_schema;
 pub mod correction_schema;
 #[path = "correction_erasure_schema.rs"]
 pub mod erasure_schema;
+#[path = "source_genres_schema.rs"]
+pub mod genre_schema;
 #[path = "artist_identity_selection_schema.rs"]
 pub mod identity_schema;
 #[path = "artist_match_schema.rs"]
@@ -356,6 +358,10 @@ pub async fn reference_67() -> SqliteConnection {
     account_schema::reference(reference_66().await).await
 }
 
+pub async fn reference_68() -> SqliteConnection {
+    genre_schema::reference(reference_67().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -378,6 +384,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         65 => reference_65().await,
         66 => reference_66().await,
         67 => reference_67().await,
+        68 => reference_68().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -467,6 +474,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 67),
+    )
+    .chain(
+        genre_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 68),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

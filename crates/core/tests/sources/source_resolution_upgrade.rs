@@ -87,7 +87,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     let mut reference = collection_artwork_schema::reference().await;
     let declared_artwork = collection_artwork_schema::schema(&mut reference).await;
     reference.close().await.unwrap();
-    let mut latest = collection_artwork_schema::reference_67().await;
+    let mut latest = collection_artwork_schema::reference_68().await;
     let declared_account = collection_artwork_schema::schema(&mut latest).await;
     latest.close().await.unwrap();
 

@@ -758,6 +758,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("table", "erased_download_files"),
         ("index", "sqlite_autoindex_erased_download_files_1"),
         ("index", "erased_download_files_host"),
+        ("table", "source_genres"),
+        ("index", "sqlite_autoindex_source_genres_1"),
+        ("index", "source_genres_by_genre"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
