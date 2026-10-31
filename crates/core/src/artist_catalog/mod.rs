@@ -59,10 +59,10 @@ pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
     ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability, ArtistReviewConnection,
-    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist,
-    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadArtistDiscography,
-    ReadEditionTrackList, ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
-    UpdateAutomaticLookups, UpdateMetadataSettings,
+    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CreditEvidence,
+    CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider, MetadataSettings,
+    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
+    ReleaseGroupEditionsAvailability, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 
 use crate::{Catalog, Error, HostDeviceId, Plugins, Result, admission::Accounts, store::Store};

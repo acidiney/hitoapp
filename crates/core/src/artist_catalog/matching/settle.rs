@@ -3,6 +3,7 @@
 use super::{
     ArtistProviderMatchReceipt,
     apply::{self, EvidenceKind, Planned, plan},
+    credit,
 };
 use crate::artist_catalog::{MetadataProvider, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Result};
@@ -84,6 +85,7 @@ impl ArtistCatalog {
         }
         let (mut uncertain, mut declined, mut unavailable) = (0, 0, 0);
         let mut pending = Vec::new();
+        let mut to_remember = Vec::new();
         for item in &examined {
             let remember = match &item.outcome {
                 Outcome::Unavailable => {
@@ -129,6 +131,16 @@ impl ArtistCatalog {
                 }
             };
             if remember {
+                to_remember.push(item);
+            }
+        }
+        let extended = credit::extend(&mut tx, actor, &mut pending, settings.revision).await?;
+        for item in to_remember {
+            if extended.contains(&item.recording) {
+                if matches!(item.outcome, Outcome::Uncertain) {
+                    uncertain -= 1;
+                }
+            } else {
                 sqlx::query(&format!(
                     "INSERT INTO {}(user_id,recording_id,observation_id,artist_operation_id) VALUES(?,?,?,?)
                      ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id=excluded.observation_id,artist_operation_id=excluded.artist_operation_id",

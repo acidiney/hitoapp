@@ -52,9 +52,23 @@ pub struct ArtistMatchSuggestion {
     pub undecided_tracks: i64,
 }
 
+/// A chosen artist that some of the credit's tracks already use.
+#[derive(Serialize, ToSchema)]
+pub struct ArtistMatchChosen {
+    pub group: ArtistIdentityGroup,
+    /// Tracks of the credit that currently use this artist.
+    pub tracks: i64,
+    /// Of those, the tracks Hito matched by itself.
+    pub automatic_tracks: i64,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchSuggestions {
     pub artist_id: String,
+    /// Chosen artists the credit's tracks already use, the most used first.
+    pub chosen: Vec<ArtistMatchChosen>,
+    /// Tracks of the credit with no current artist choice.
+    pub undecided_tracks: i64,
     pub items: Vec<ArtistMatchSuggestion>,
     /// Suggestions the account dismissed for this credit; they are not in `items`.
     pub dismissed: i64,

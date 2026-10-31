@@ -40,7 +40,11 @@ async fn an_import_schedules_a_job_that_matches_by_name_and_then_leaves_nothing_
             ArtistAssociationEvidence::MatchedNameDiscography
         );
     }
-    assert!(library.group_of(&library.recordings[3]).await.is_none());
+    assert_eq!(
+        library.group_of(&library.recordings[3]).await.as_ref(),
+        Some(&group),
+        "The credit's fourth track follows the corroborated ones"
+    );
     assert_eq!(library.rows("artist_matching_jobs").await, 0);
     assert_eq!(
         library.automatic().await,
@@ -103,7 +107,7 @@ async fn turning_the_choice_off_stops_the_job_without_any_lookup_and_manual_runs
     assert!(library.group_of(&library.recordings[0]).await.is_none());
 
     let receipt = library.run().await;
-    assert_eq!(receipt.matched, 3, "The manual button is unaffected");
+    assert_eq!(receipt.matched, 4, "The manual button is unaffected");
 }
 
 #[tokio::test]
@@ -242,7 +246,7 @@ async fn the_status_reports_waiting_work_the_last_result_and_the_setting() {
         .await
         .unwrap();
     assert_eq!(done.state, ArtistMatchingState::Idle);
-    assert_eq!(done.last_matched, 3);
+    assert_eq!(done.last_matched, 4);
     assert!(done.last_finished_at.is_some());
     assert_eq!(done.matched_so_far, 0);
 
@@ -415,5 +419,5 @@ async fn the_walk_reads_the_genres_of_the_artist_it_matched_for_imported_tracks(
         .artist_matching_status(&library.actor)
         .await
         .unwrap();
-    assert_eq!(status.last_matched, 3, "genre reads are not matches");
+    assert_eq!(status.last_matched, 4, "genre reads are not matches");
 }

@@ -1,4 +1,5 @@
 mod apply;
+mod credit;
 mod name_discography;
 mod provider_evidence;
 mod settle;

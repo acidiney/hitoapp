@@ -1,5 +1,5 @@
 use super::{
-    ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion,
+    ArtistMatchChosen, ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion,
     RestoreArtistMatchSuggestion,
 };
 use crate::artist_catalog::{
@@ -179,6 +179,11 @@ impl ArtistCatalog {
         .into_iter()
         .collect();
         let base = undecided_tracks(&mut tx, actor, artist).await?;
+        let undecided: i64 = sqlx::query_scalar("SELECT json_array_length(?)")
+            .bind(&base)
+            .fetch_one(&mut *tx)
+            .await?;
+        let chosen = chosen_artists(&mut tx, actor, artist).await?;
         let mut items = Vec::new();
         let mut dismissed_items = Vec::new();
         for id in found {
@@ -207,11 +212,47 @@ impl ArtistCatalog {
         dismissed_items.sort_by(ranking);
         Ok(ArtistMatchSuggestions {
             artist_id: artist.into(),
+            chosen,
+            undecided_tracks: undecided,
             items,
             dismissed: dismissed_items.len() as i64,
             dismissed_items,
         })
     }
+}
+
+/// The chosen artists the credit's tracks use now, with how many were matched automatically.
+async fn chosen_artists(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    artist: &str,
+) -> Result<Vec<ArtistMatchChosen>> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT choice.group_id,count(*),
+            sum(EXISTS (SELECT 1 FROM artist_association_matches m WHERE m.association_id=choice.association_id)
+                OR EXISTS (SELECT 1 FROM artist_association_provider_matches m WHERE m.association_id=choice.association_id)
+                OR EXISTS (SELECT 1 FROM artist_association_name_matches m WHERE m.association_id=choice.association_id)
+                OR EXISTS (SELECT 1 FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id)) ",
+    );
+    query.push(current_choices());
+    query
+        .push_bind(actor.id().to_owned())
+        .push(" AND choice.artist_id=")
+        .push_bind(artist.to_owned())
+        .push(" GROUP BY choice.group_id ORDER BY count(*) DESC,choice.group_id LIMIT ")
+        .push_bind(MAX_GROUPS);
+    let rows: Vec<(String, i64, i64)> = query.build_query_as().fetch_all(&mut *connection).await?;
+    let mut chosen = Vec::new();
+    for (id, tracks, automatic_tracks) in rows {
+        if let Some(group) = group_summary(connection, actor, &id).await? {
+            chosen.push(ArtistMatchChosen {
+                group,
+                tracks,
+                automatic_tracks,
+            });
+        }
+    }
+    Ok(chosen)
 }
 
 fn ranking(left: &ArtistMatchSuggestion, right: &ArtistMatchSuggestion) -> std::cmp::Ordering {

@@ -14,27 +14,32 @@ use sqlx::{Connection, SqliteConnection};
 pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
             SELECT association_id,receipt_order FROM artist_association_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
-            UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches) mt
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches) mt
         WHERE mt.association_id=c.association_id AND mt.receipt_order=c.selection_order)
     AND (c.retired=1 OR c.observation_id IS NOT r.metadata_observation_id))";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum EvidenceKind {
+    FileTagArtistId,
+    Isrc,
+    ProviderUrl,
+    NameDiscography,
+    /// The credit's other tracks, matched because this many of its tracks were individually
+    /// matched from the originating evidence.
+    Credit(Origin, u32),
+}
+
+/// The evidence a credit-level match started from.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Origin {
     FileTagArtistId,
     Isrc,
     ProviderUrl,
     NameDiscography,
 }
 
-impl EvidenceKind {
-    fn table(self) -> &'static str {
-        match self {
-            Self::FileTagArtistId => "artist_association_matches",
-            Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
-            Self::NameDiscography => "artist_association_name_matches",
-        }
-    }
-
+impl Origin {
     fn name(self) -> &'static str {
         match self {
             Self::FileTagArtistId => "file_tag_artist_id",
@@ -45,14 +50,56 @@ impl EvidenceKind {
     }
 }
 
+impl EvidenceKind {
+    fn table(self) -> &'static str {
+        match self {
+            Self::FileTagArtistId => "artist_association_matches",
+            Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
+            Self::NameDiscography => "artist_association_name_matches",
+            Self::Credit(..) => "artist_association_credit_matches",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::FileTagArtistId => Origin::FileTagArtistId.name(),
+            Self::Isrc => Origin::Isrc.name(),
+            Self::ProviderUrl => Origin::ProviderUrl.name(),
+            Self::NameDiscography => Origin::NameDiscography.name(),
+            Self::Credit(origin, _) => origin.name(),
+        }
+    }
+
+    /// The evidence an individual match was made from, as the origin of its credit's other tracks.
+    pub(super) fn origin(self) -> Option<Origin> {
+        match self {
+            Self::FileTagArtistId => Some(Origin::FileTagArtistId),
+            Self::Isrc => Some(Origin::Isrc),
+            Self::ProviderUrl => Some(Origin::ProviderUrl),
+            Self::NameDiscography => Some(Origin::NameDiscography),
+            Self::Credit(..) => None,
+        }
+    }
+}
+
 pub(super) struct Pending {
-    recording: String,
-    artist: String,
+    pub(super) recording: String,
+    pub(super) artist: String,
     association: String,
     created: bool,
     revision: i64,
     credit: Credit,
-    kind: EvidenceKind,
+    pub(super) kind: EvidenceKind,
+}
+
+impl Pending {
+    pub(super) fn credit_artist(&self) -> &str {
+        &self.credit.artist_id
+    }
+
+    pub(super) fn credit_name(&self) -> &str {
+        &self.credit.credited_name
+    }
 }
 
 pub(super) enum Planned {
@@ -164,15 +211,25 @@ pub(super) async fn commit(
         )
         .await?;
         if item.created {
-            sqlx::query(&format!(
-                "INSERT INTO {}(association_id,evidence_kind,receipt_order) VALUES(?,?,?)",
+            let (columns, marks) = match item.kind {
+                EvidenceKind::Credit(..) => (
+                    "association_id,evidence_kind,receipt_order,source_tracks",
+                    "?,?,?,?",
+                ),
+                _ => ("association_id,evidence_kind,receipt_order", "?,?,?"),
+            };
+            let sql = format!(
+                "INSERT INTO {}({columns}) VALUES({marks})",
                 item.kind.table()
-            ))
-            .bind(&item.association)
-            .bind(item.kind.name())
-            .bind(order)
-            .execute(&mut *tx)
-            .await?;
+            );
+            let mut insert = sqlx::query(&sql)
+                .bind(&item.association)
+                .bind(item.kind.name())
+                .bind(order);
+            if let EvidenceKind::Credit(_, tracks) = item.kind {
+                insert = insert.bind(i64::from(tracks));
+            }
+            insert.execute(&mut *tx).await?;
         }
     }
     Ok(())

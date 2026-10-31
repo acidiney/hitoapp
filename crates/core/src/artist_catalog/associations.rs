@@ -1,7 +1,7 @@
 use super::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, AssociateRecordingArtist,
-    MAX_ASSOCIATIONS, MAX_RETAINED_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET,
-    association_changes,
+    CreditEvidence, CreditEvidenceKind, MAX_ASSOCIATIONS, MAX_RETAINED_ASSOCIATIONS,
+    MetadataProvider, REQUEST_BUDGET, association_changes,
     authority::{self, Credit},
     policy, provider,
 };
@@ -28,7 +28,9 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
 
 const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_association_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_provider_matches matched WHERE matched.association_id=assoc.id),
-    (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id)) AS matched";
+    (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id),
+    (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id)) AS matched,
+    (SELECT matched.source_tracks FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id) AS credit_tracks";
 
 #[derive(sqlx::FromRow)]
 struct Stored {
@@ -44,6 +46,21 @@ struct Stored {
     provider_artist_id: String,
     revision: i64,
     matched: Option<String>,
+    credit_tracks: Option<i64>,
+}
+
+fn credit_evidence(matched: Option<&str>, tracks: Option<i64>) -> Option<CreditEvidence> {
+    let kind = match matched?.strip_prefix("credit_")? {
+        "file_tag_artist_id" => CreditEvidenceKind::FileTagArtistId,
+        "isrc" => CreditEvidenceKind::Isrc,
+        "provider_url" => CreditEvidenceKind::ProviderUrl,
+        "name_discography" => CreditEvidenceKind::NameDiscography,
+        _ => return None,
+    };
+    Some(CreditEvidence {
+        kind,
+        tracks: tracks?,
+    })
 }
 
 impl Stored {
@@ -76,12 +93,16 @@ impl Stored {
                 Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
                 Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
                 Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
+                Some(kind) if kind.starts_with("credit_") => {
+                    ArtistAssociationEvidence::MatchedCreditEvidence
+                }
                 Some(_) => {
                     return Err(Error::Internal(
                         "Stored artist association provenance is invalid".into(),
                     ));
                 }
             },
+            credit_evidence: credit_evidence(self.matched.as_deref(), self.credit_tracks),
             revision: self.revision,
         })
     }

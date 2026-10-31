@@ -31,12 +31,19 @@ pub struct NameLibrary {
     directory: tempfile::TempDir,
 }
 
-fn imported(index: usize, credit: &str, title: &str, length: u64) -> Value {
+/// Provider evidence an imported recording states about itself.
+#[derive(Default, Clone)]
+pub struct Evidence {
+    pub isrc: Option<String>,
+    pub artist_urls: Vec<String>,
+}
+
+fn imported(index: usize, credit: &str, title: &str, length: u64, evidence: &Evidence) -> Value {
     let id = format!("name-{index}");
     json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
         "id": id, "title": title, "artist": credit, "duration_ms": length, "release": null,
-        "disc_number": null, "track_number": null, "revision": "v1", "isrc": null,
-        "artist_urls": []
+        "disc_number": null, "track_number": null, "revision": "v1", "isrc": evidence.isrc,
+        "artist_urls": evidence.artist_urls
     }}})
 }
 
@@ -57,6 +64,15 @@ impl NameLibrary {
     /// Imports one playlist whose recordings carry no identifier, ISRC or artist page, each
     /// listed as (credit, title, length in milliseconds).
     pub async fn prepare(entries: &[(&str, &str, u64)]) -> Self {
+        let entries: Vec<(&str, &str, u64, Evidence)> = entries
+            .iter()
+            .map(|(credit, title, length)| (*credit, *title, *length, Evidence::default()))
+            .collect();
+        Self::prepare_with_evidence(&entries).await
+    }
+
+    /// Like `prepare`, with the ISRC and artist pages each recording states.
+    pub async fn prepare_with_evidence(entries: &[(&str, &str, u64, Evidence)]) -> Self {
         let musicbrainz = FakeMusicBrainz::start().await;
         let (directory, hito, actor, _library, _music) =
             support::library_with_musicbrainz("artist-name", Some(musicbrainz.endpoint.clone()))
@@ -70,7 +86,9 @@ impl NameLibrary {
             entries
                 .iter()
                 .enumerate()
-                .map(|(index, (credit, title, length))| imported(index, credit, title, *length))
+                .map(|(index, (credit, title, length, evidence))| {
+                    imported(index, credit, title, *length, evidence)
+                })
                 .collect(),
         )
         .await;

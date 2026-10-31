@@ -85,6 +85,24 @@ pub enum ArtistAssociationEvidence {
     MatchedIsrc,
     MatchedProviderUrl,
     MatchedNameDiscography,
+    /// The credit's other tracks, following tracks that were matched from `credit_evidence`.
+    MatchedCreditEvidence,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CreditEvidenceKind {
+    FileTagArtistId,
+    Isrc,
+    ProviderUrl,
+    NameDiscography,
+}
+
+/// What a credit-level match started from and how many of the credit's tracks supplied it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct CreditEvidence {
+    pub kind: CreditEvidenceKind,
+    pub tracks: i64,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -113,6 +131,8 @@ pub struct ArtistAssociation {
     pub provider: MetadataProvider,
     pub provider_artist_id: String,
     pub evidence: ArtistAssociationEvidence,
+    #[schema(required = true)]
+    pub credit_evidence: Option<CreditEvidence>,
     pub revision: i64,
 }
 

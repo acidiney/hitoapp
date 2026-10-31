@@ -53,7 +53,7 @@ async fn one_exact_name_artist_whose_discography_corroborates_two_tracks_matches
             receipt.declined,
             receipt.unavailable
         ),
-        (3, 1, 0, 0)
+        (4, 0, 0, 0)
     );
     let group = library.group_of(&library.recordings[0]).await.unwrap();
     for matched in &library.recordings[..3] {
@@ -67,9 +67,14 @@ async fn one_exact_name_artist_whose_discography_corroborates_two_tracks_matches
             ArtistAssociationEvidence::MatchedNameDiscography
         );
     }
-    assert!(
-        library.group_of(&library.recordings[3]).await.is_none(),
-        "A track MusicBrainz does not corroborate stays separate"
+    assert_eq!(
+        library.group_of(&library.recordings[3]).await.as_ref(),
+        Some(&group),
+        "The credit's track that MusicBrainz does not list follows the corroborated ones"
+    );
+    assert_eq!(
+        library.associations(&library.recordings[3]).await[0].evidence,
+        ArtistAssociationEvidence::MatchedCreditEvidence
     );
     assert_eq!(
         library.musicbrainz.requests(),
@@ -77,6 +82,7 @@ async fn one_exact_name_artist_whose_discography_corroborates_two_tracks_matches
         "A name that differs from the credit is never browsed"
     );
     assert_eq!(library.rows("artist_association_name_matches").await, 3);
+    assert_eq!(library.rows("artist_association_credit_matches").await, 1);
     library.origin.shutdown().await;
 }
 
@@ -114,7 +120,7 @@ async fn a_namesake_that_does_not_corroborate_does_not_block_the_one_that_does()
         .recordings_of(NAMESAKE, nova_discography(&[("Unrelated", Some(1000))]));
 
     let receipt = library.run().await;
-    assert_eq!(receipt.matched, 3);
+    assert_eq!(receipt.matched, 4);
     assert_eq!(
         library.associations(&library.recordings[0]).await[0].provider_artist_id,
         NOVA
@@ -178,7 +184,7 @@ async fn a_length_exactly_two_seconds_apart_corroborates() {
             ("Second Wind", Some(185_500)),
         ]),
     );
-    assert_eq!(library.run().await.matched, 2);
+    assert_eq!(library.run().await.matched, 4);
     library.origin.shutdown().await;
 }
 
@@ -225,7 +231,7 @@ async fn an_outage_is_unavailable_and_retried_by_a_later_pass() {
 
     library.musicbrainz.recordings_of(NOVA, corroborating());
     let third = library.run().await;
-    assert_eq!((third.matched, third.unavailable), (3, 0));
+    assert_eq!((third.matched, third.unavailable), (4, 0));
     library.origin.shutdown().await;
 }
 
@@ -249,7 +255,7 @@ async fn a_pass_cancelled_while_the_provider_is_slow_writes_nothing_and_can_be_r
     assert_eq!(library.rows("artist_association_name_matches").await, 0);
     assert_eq!(library.rows("artist_name_checks").await, 0);
     library.musicbrainz.delay_replies(Duration::ZERO);
-    assert_eq!(library.run().await.matched, 3);
+    assert_eq!(library.run().await.matched, 4);
     library.origin.shutdown().await;
 }
 
@@ -322,8 +328,8 @@ async fn personal_decisions_are_never_overridden_and_a_credit_with_one_undecided
         .unwrap();
     let receipt = library.run().await;
     assert_eq!(
-        receipt.matched, 2,
-        "Every corroborated track but the decided one"
+        receipt.matched, 3,
+        "Every undecided track of the corroborated credit but the decided one"
     );
     assert!(library.group_of(decided).await.is_none());
 
@@ -358,7 +364,7 @@ async fn a_request_that_matched_replays_exactly_without_asking_again() {
         .match_artists_from_provider_evidence(&library.actor, request.clone())
         .await
         .unwrap();
-    assert_eq!(first.matched, 3);
+    assert_eq!(first.matched, 4);
     let asked = library.musicbrainz.requests().len();
     let replay = library
         .hito
@@ -459,7 +465,7 @@ async fn a_search_whose_page_ends_below_the_exact_score_is_conclusive_however_lo
     library.musicbrainz.search_scored(CREDIT, found, 4_000);
     library.musicbrainz.recordings_of(NOVA, corroborating());
     let receipt = library.run().await;
-    assert_eq!((receipt.matched, receipt.uncertain), (3, 1));
+    assert_eq!((receipt.matched, receipt.uncertain), (4, 0));
     assert_eq!(
         library.associations(&library.recordings[0]).await[0].provider_artist_id,
         NOVA
@@ -497,7 +503,7 @@ async fn corroborating_recordings_beyond_the_first_page_are_found_by_paging() {
         .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
     library.musicbrainz.recordings_of(NOVA, prolific(250));
     let receipt = library.run().await;
-    assert_eq!((receipt.matched, receipt.uncertain), (2, 2));
+    assert_eq!((receipt.matched, receipt.uncertain), (4, 0));
     let paged: Vec<String> = library
         .musicbrainz
         .requests()
