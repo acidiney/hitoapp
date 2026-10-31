@@ -23,6 +23,7 @@ const IMAGE: &[u8] = include_bytes!("fixtures/artwork.png");
 
 #[tokio::test]
 async fn artwork_returns_owned_raster_without_forwarding_credentials_or_exposing_metadata() {
+    hito_testkit::logs::anchor_callsite_interest();
     let logs = LogCapture::unbounded();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::registry()
