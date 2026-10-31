@@ -13,6 +13,21 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
     assert!(member_before.iter().map(|(_, n)| n).sum::<i64>() > 20);
     assert!(world.file_exists(&kept.files[0]) && world.file_exists(&erased.files[0]));
     let admin = world.actor(&world.admin).await;
+    for recording in [erased.recording, kept.recording, world.shared_recording] {
+        sqlx::query(
+            "INSERT INTO source_genres(source_id, genre_key, label)
+             SELECT id, 'fado', 'Fado' FROM sources WHERE recording_id = ?",
+        )
+        .bind(recording.to_string())
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    }
+    let genres_before: i64 = sqlx::query_scalar("SELECT count(*) FROM source_genres")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    assert!(genres_before >= 3);
 
     let outcome = world
         .hito
@@ -48,6 +63,25 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
         .await
         .unwrap();
     assert!(foreign.is_empty(), "foreign keys must hold: {foreign:?}");
+    let erased_genres: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM source_genres g JOIN sources s ON s.id = g.source_id WHERE s.recording_id = ?",
+    )
+    .bind(erased.recording.to_string())
+    .fetch_one(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(
+        erased_genres, 0,
+        "the erased account's source genres go with its sources"
+    );
+    let genres_after: i64 = sqlx::query_scalar("SELECT count(*) FROM source_genres")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    assert!(
+        genres_after >= 2 && genres_after < genres_before,
+        "the kept and shared sources keep their genres"
+    );
     let scopes: i64 = sqlx::query_scalar("SELECT count(*) FROM correction_erasure_scopes")
         .fetch_one(&mut connection)
         .await

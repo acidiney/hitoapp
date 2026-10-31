@@ -95,3 +95,11 @@ test("a long genre says how many tracks the page shows", () => {
   );
   expect(screen.getByText("Showing 2 of 142 tracks.")).toBeTruthy();
 });
+
+test("a genre at the server's count cap reads 1,000+", () => {
+  render(
+    createElement(NoticeProvider, null, createElement(GenrePage, props(1000))),
+  );
+  expect(screen.getByText("1,000+ tracks in your library")).toBeTruthy();
+  expect(screen.getByText("Showing 2 of 1,000+ tracks.")).toBeTruthy();
+});

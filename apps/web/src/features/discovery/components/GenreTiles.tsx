@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import type { CSSProperties } from "react";
 import { Link } from "@inertiajs/react";
 import { coverStyle } from "../../../shared/ui/coverPalette";
+import { genreCount } from "../model/genreCount";
 
 export const genrePath = (key: string) =>
   `/genres?genre=${encodeURIComponent(key)}`;
@@ -28,7 +29,7 @@ export default function GenreTiles({ genres }: { genres: Schema<"Genre">[] }) {
               >
                 <span className="genre-tile-name">{genre.label}</span>
                 <span className="genre-tile-count">
-                  {genre.track_count}{" "}
+                  {genreCount(genre.track_count)}{" "}
                   {genre.track_count === 1 ? "track" : "tracks"}
                 </span>
               </Link>

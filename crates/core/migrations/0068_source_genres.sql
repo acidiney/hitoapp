@@ -4,4 +4,4 @@ CREATE TABLE source_genres (
     label TEXT NOT NULL CHECK(length(label) BETWEEN 1 AND 64),
     PRIMARY KEY(source_id, genre_key)
 );
-CREATE INDEX source_genres_by_genre ON source_genres(genre_key, source_id);
+CREATE INDEX source_genres_by_genre ON source_genres(genre_key, source_id, label);

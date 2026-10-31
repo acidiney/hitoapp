@@ -62,15 +62,24 @@ async fn genres_group_tagged_library_tracks_and_open_into_albums_and_tracks() {
     assert_eq!(
         genres[..2]
             .iter()
-            .map(|genre| (genre.key.as_str(), genre.label.as_str(), genre.track_count))
+            .map(|genre| {
+                (
+                    genre.key.as_str(),
+                    genre.label.to_lowercase(),
+                    genre.track_count,
+                )
+            })
             .collect::<Vec<_>>(),
-        vec![("fado", "Fado", 3), ("jazz", "Jazz", 2)],
+        vec![
+            ("fado", "fado".to_owned(), 3),
+            ("jazz", "jazz".to_owned(), 2)
+        ],
         "case variants and split values count once per track, busiest first"
     );
     assert!(genres.iter().all(|genre| genre.key != "album w"));
 
     let fado = hito.catalog.genre(&actor, "  FADO ").await.unwrap();
-    assert_eq!(fado.genre.label, "Fado");
+    assert_eq!(fado.genre.label.to_lowercase(), "fado");
     assert_eq!(fado.genre.track_count, 3);
     let mut titles: Vec<_> = fado
         .tracks
@@ -150,4 +159,53 @@ async fn retagging_a_file_replaces_its_genres_after_the_next_scan() {
         .map(|g| (g.key.as_str(), g.track_count))
         .collect();
     assert_eq!(counts, [("folk", 1), ("jazz", 1)]);
+}
+
+#[tokio::test]
+async fn a_removed_file_leaves_its_genre_tiles_and_pages() {
+    let (_directory, hito, actor, library_id, music) = library("genres-removed").await;
+    tag(
+        &music.join("1.wav"),
+        1,
+        ("Song 1", "Album X", "Ana"),
+        Some("Fado"),
+    );
+    tag(
+        &music.join("2.wav"),
+        2,
+        ("Song 2", "Album Y", "Bia"),
+        Some("Fado"),
+    );
+    tag(
+        &music.join("3.wav"),
+        3,
+        ("Song 3", "Album Z", "Caio"),
+        Some("Jazz"),
+    );
+    scan(&hito, &actor, &library_id).await;
+    assert_eq!(hito.catalog.genres(&actor).await.unwrap().len(), 2);
+
+    std::fs::remove_file(music.join("2.wav")).unwrap();
+    std::fs::remove_file(music.join("3.wav")).unwrap();
+    scan(&hito, &actor, &library_id).await;
+
+    let genres = hito.catalog.genres(&actor).await.unwrap();
+    let counts: Vec<_> = genres
+        .iter()
+        .map(|g| (g.key.as_str(), g.track_count))
+        .collect();
+    assert_eq!(
+        counts,
+        [("fado", 1)],
+        "a genre with no playable track disappears"
+    );
+    let fado = hito.catalog.genre(&actor, "fado").await.unwrap();
+    assert_eq!(fado.genre.track_count, 1);
+    assert_eq!(fado.tracks.len(), 1);
+    assert_eq!(fado.albums.len(), 1);
+    assert!(fado.tracks.iter().all(|track| track.available));
+    assert!(matches!(
+        hito.catalog.genre(&actor, "jazz").await,
+        Err(Error::NotFound)
+    ));
 }

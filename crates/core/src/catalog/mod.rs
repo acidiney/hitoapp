@@ -28,6 +28,9 @@ pub use source_choice::{
 #[cfg(test)]
 #[path = "tests/album_anchor_work.rs"]
 mod album_anchor_work;
+#[cfg(test)]
+#[path = "tests/genre_work.rs"]
+mod genre_work;
 mod playback_sources;
 #[cfg(test)]
 #[path = "tests/release_query_work.rs"]
