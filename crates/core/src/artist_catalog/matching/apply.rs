@@ -225,6 +225,9 @@ pub(super) async fn commit(
                     "association_id,receipt_order,matched_tracks,probed_tracks",
                     "?,?,?,?",
                 ),
+                EvidenceKind::NameDiscography => {
+                    ("association_id,evidence_kind,receipt_order,rule", "?,?,?,?")
+                }
                 _ => ("association_id,evidence_kind,receipt_order", "?,?,?"),
             };
             let sql = format!(
@@ -241,6 +244,10 @@ pub(super) async fn commit(
                     .bind(item.kind.name())
                     .bind(order)
                     .bind(i64::from(tracks)),
+                EvidenceKind::NameDiscography => insert
+                    .bind(item.kind.name())
+                    .bind(order)
+                    .bind(super::name_discography::NAME_RULE),
                 _ => insert.bind(item.kind.name()).bind(order),
             };
             insert.execute(&mut *tx).await?;
