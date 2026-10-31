@@ -9,6 +9,7 @@ function home(
     has_music: true,
     liked_count: 0,
     unheard: [],
+    recently_added: [],
     recent_albums: albums.map((album, index) => ({
       id: `album-${index}`,
       title: `Album ${index}`,

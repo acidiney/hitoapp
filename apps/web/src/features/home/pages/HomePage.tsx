@@ -13,11 +13,14 @@ import { greeting, quickAccess } from "../model/quickAccess";
 import QuickAccess from "../components/QuickAccess";
 import UnheardNearby from "../components/UnheardNearby";
 import HomeEmpty from "../components/HomeEmpty";
+import HomeShelf from "../components/HomeShelf";
+import { addedShelf, artistShelf, playedShelf } from "../model/homeShelves";
 
 export default function HomePage({
   user,
   playlists,
   home,
+  artists,
 }: Schema<"HomePageProps">) {
   const player = usePlayer();
   const [query, setQuery] = useState("");
@@ -54,8 +57,31 @@ export default function HomePage({
               </Link>
             </p>
           )}
+          {home.recent_albums.length > 0 && (
+            <HomeShelf
+              id="home-played"
+              title="Recently played"
+              cards={playedShelf(home.recent_albums)}
+            />
+          )}
           {home.unheard.length > 0 && (
             <UnheardNearby albums={home.unheard} onListen={listen} />
+          )}
+          {home.recently_added.length > 0 && (
+            <HomeShelf
+              id="home-added"
+              title="Recently added"
+              cards={addedShelf(home.recently_added)}
+              more={{ href: "/albums", label: "See all albums" }}
+            />
+          )}
+          {artists.items.length > 0 && (
+            <HomeShelf
+              id="home-artists"
+              title="Your artists"
+              cards={artistShelf(artists.items)}
+              more={{ href: "/artists", label: "See all artists" }}
+            />
           )}
           <p className="home-hint">
             Looking for something new?{" "}

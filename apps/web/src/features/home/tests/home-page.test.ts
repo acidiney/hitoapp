@@ -44,9 +44,11 @@ const props = (
     has_music: true,
     liked_count: 0,
     recent_albums: [],
+    recently_added: [],
     unheard: [],
     ...home,
   },
+  artists: { items: [], total: 0, offset: 0, limit: 12 },
 });
 const albums = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -171,4 +173,64 @@ test("a listener who cannot manage folders is told to ask the administrator", ()
     screen.queryByRole("link", { name: "Choose a music folder" }),
   ).toBeNull();
   expect(screen.getByText(/Ask your administrator/)).toBeTruthy();
+});
+
+const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
+  id,
+  provider: { kind: "builtin_musicbrainz" },
+  provider_artist_id: id,
+  name: {
+    artist_id: id,
+    association_id: id,
+    recording_id: `r-${id}`,
+    value: name,
+  },
+  library_count: 1,
+  recording_count: 4,
+  release_count: 1,
+});
+
+test("home shows recently played, recently added and chosen artists as shelves", () => {
+  const data = props({
+    recent_albums: albums(2),
+    recently_added: [
+      { id: "new-1", title: "Fresh", artist: "Shore", inferred_artist: null },
+    ],
+  });
+  data.artists = {
+    items: [group("g1", "Slipknot"), group("g2", "Shore")],
+    total: 2,
+    offset: 0,
+    limit: 12,
+  };
+  render(createElement(HomePage, data));
+  const played = screen.getByRole("region", { name: "Recently played" });
+  expect(
+    within(played)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/albums/album-0", "/albums/album-1"]);
+  const added = screen.getByRole("region", { name: "Recently added" });
+  expect(
+    within(added).getByRole("link", { name: /Fresh/ }).getAttribute("href"),
+  ).toBe("/albums/new-1");
+  const artists = screen.getByRole("region", { name: "Your artists" });
+  expect(
+    within(artists)
+      .getAllByRole("link", { name: /Slipknot|Shore/ })
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/artist-groups/g1", "/artist-groups/g2"]);
+  expect(within(artists).getAllByText("4 tracks")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "Discover music from your services" })
+      .getAttribute("href"),
+  ).toBe("/discover");
+});
+
+test("shelves with nothing to show are left out", () => {
+  render(createElement(HomePage, props({ liked_count: 2 })));
+  expect(screen.queryByRole("region", { name: "Recently played" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Recently added" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Your artists" })).toBeNull();
 });
