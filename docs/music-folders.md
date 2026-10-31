@@ -67,7 +67,7 @@ Linux Docker tests cover the Music-folder lookup (override, fallback, missing, f
 
 ## Removal and recovery
 
-Removing a folder withdraws its sources and cancels its scans. Originals stay on disk. Recordings, playlists, likes, progress, and identity evidence remain. Another source can keep a recording playable. Reconnecting the same selection verifies files and restores the same source IDs when identity matches. Already-open streams retain their file descriptors; new requests recheck access.
+Removing a folder withdraws its sources and cancels its scans. Originals stay on disk. Recordings, playlists, likes, progress, and identity evidence remain; [missing tracks](#missing-tracks) that no account uses are removed after 30 days. Another source can keep a recording playable. Reconnecting the same selection verifies files and restores the same source IDs when identity matches. Already-open streams retain their file descriptors; new requests recheck access.
 
 Overlapping selections within a shared location are rejected. Setup rejects overlapping normalized host locations. Identical pathnames on different hosts have independent ownership. A device-local file stays unavailable on another host unless that host has another playable source.
 
@@ -76,6 +76,34 @@ Each scan attempt has its own token and the folder's current generation. Publica
 Opening and browsing have deadlines. Per-grant limits isolate stalled locations. Walking has a five-second inactivity deadline that observes unsupported entries, rather than a deadline for the entire scan. Abandoned calls retain their permit until they finish, with one operation thread and one walk thread per grant. Detached threads do not hold the async runtime open during shutdown. Operating-system calls cannot be forcibly cancelled in process.
 
 Pending legacy witnesses are checked before ordinary matching. Incomplete legacy discovery fails conservatively rather than guessing identity. Metadata follows a surviving verified source when its previous owner becomes unavailable.
+
+## Missing tracks
+
+Removing a folder or losing a file only makes the track unavailable. Hito then decides when the library record itself goes, so a drive that was unplugged for a weekend costs nothing and a library that lost files years ago does not keep ghosts forever.
+
+```mermaid
+flowchart TD
+  Gone[Scan or folder removal marks a source unavailable] --> Clock[Trigger records the time in source_unavailability]
+  Back[File returns and a scan marks it ready] --> Reset[Clock row deleted]
+  Clock --> Eligible{Every source local and unavailable for 30 days, or the administrator asked?}
+  Eligible -- no --> Keep[Recording stays]
+  Eligible -- yes --> Used{Any account row names the recording?}
+  Used -- yes --> Keep
+  Used -- no --> Purge[One transaction per batch of 50: erase corrections, then observations, sources, files and the recording]
+```
+
+**The rule.** A recording is removed when all of these hold. Each is part of the SQL that selects it, so a recording that stops meeting one is skipped.
+
+- It belongs to a shared library (not a personal provider library) and has at least one source.
+- Every source is a local file source (`provider = 'local'`) that is unavailable (`ready = 0`) and has been for longer than the retention window, 30 days (`RETENTION_SECONDS` in core). The clock starts when a source changes from available to unavailable, whichever path did it: a scan that no longer finds the file, a folder removal, a failed folder open or a replaced file. Migration 0070 records the time with triggers on `sources`, so every present and future path is covered. A returning file clears the row. Sources that were already unavailable when 0070 ran start their clock at the upgrade.
+- No account row references it. Any row in `likes` (including an unlike), `listening_progress`, `playlist_entries` (including a removed entry), downloads and their retentions and receipts, audiobook bookmarks and continuations, personal title or artist edits, podcast episodes, provider bindings, remembered source choices, resolutions and preparations, artwork requests or community reports keeps the recording. The list is `REFERENCING_TABLES` in core, and a test fails when a table that can name a recording or source is in neither that list nor the list of tables removed with it.
+- Provider and podcast recordings are never removed by this path: a recording with any non-local source, provider binding or podcast episode is kept.
+
+**Who removes them.** The server runs a bounded maintenance pass two minutes after start and then every six hours (`purge_expired_missing_recordings`). One pass removes at most 500 recordings, in batches of 50, and runs again after five seconds while more are due. Administrators can also choose **Settings → Library → Music folders → Remove missing tracks now**. After a confirmation it removes every eligible recording of that library immediately, ignoring the 30 days but not the other conditions, up to 2,000 per request; the result says how many were removed, how many stay because an account uses them, and whether to run it again. A file that is still on disk and readable is never touched because its source is available.
+
+**What a purge removes.** For each recording, in one transaction per batch of 50: the artist-correction rows that name it (`erase_recording_corrections` inside its own scope row, see [deletion and retention](artist-catalog-host.md#deletion-and-retention)), then account credits, source credits, tag metadata, observations, content evidence, file records, genres, the unavailability clock, the sources and the recording with its search entry. It never touches another recording, an original file or an account's data. If a batch fails, it is rolled back whole and each of its recordings is tried alone, so one stuck recording does not block the rest; the pass then reports an error and the stuck recording is retried on the next pass. The erasure scope table is empty when the transaction ends, and opening the database clears any leftover scope. An interrupted pass loses nothing, since each batch is atomic and the next pass selects what is left.
+
+**Limits.** Albums and artist names that no longer have any track are left as they were. The 30-day window is a constant, not a setting. A drive that stays disconnected for 30 days loses the unreferenced records of its music; the files return as new recordings when it is scanned again. One backend host per database is assumed: availability is read from `sources.ready`, which hosts do not keep separately. Logs record the trigger, counts and timings, never titles, paths or identifiers.
 
 ## Automatic rescans
 
