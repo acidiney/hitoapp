@@ -125,6 +125,7 @@ async fn exercise(
                 provider: selected.clone(),
                 provider_artist_id: catalog::ARTIST_ID.into(),
                 evidence: ArtistAssociationEvidence::UserConfirmed,
+                credit_evidence: None,
                 revision: 1,
             })
     );

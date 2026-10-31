@@ -216,6 +216,7 @@ async fn exercise(
         provider: selected,
         provider_artist_id: chosen,
         evidence: ArtistAssociationEvidence::UserConfirmed,
+        credit_evidence: None,
         revision: 1,
     };
     assert!(confirmed == json!(expected));
