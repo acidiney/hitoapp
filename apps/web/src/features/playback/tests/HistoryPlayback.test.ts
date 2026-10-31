@@ -58,3 +58,41 @@ test("History row playback carries saved intent while toolbar playback starts no
   fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
   expect(playQueue).toHaveBeenLastCalledWith(expect.any(Array));
 });
+
+test("History rows link to the album the track belongs to", () => {
+  render(
+    createElement(HistoryPage, {
+      user: { id: "account", username: "Fixture", admin: false },
+      errors: {},
+      libraries: [],
+      playlists: [],
+      native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+      activity: {
+        history: [
+          {
+            id: "recording",
+            release_id: "all-hope",
+            album: "All Hope Is Gone",
+            title: "Psychosocial",
+            artist: "Slipknot",
+            inherited_title: "Psychosocial",
+            inherited_artist: "Slipknot",
+            duration_ms: 10000,
+            position_ms: 0,
+            speed: 1,
+            updated_at: 1,
+            available: true,
+            plays_from_services: false,
+            liked: false,
+          },
+        ],
+      },
+    }),
+  );
+  expect(
+    screen
+      .getByRole("link", { name: "All Hope Is Gone" })
+      .getAttribute("href"),
+  ).toBe("/albums/all-hope");
+});
