@@ -41,8 +41,7 @@ export default function SavedArtistReviews({
                 {providerName(association.provider)} · Recording artist
               </strong>
               <p>
-                {associationEvidenceText(association.evidence) ??
-                  "Confirmed by you."}
+                {associationEvidenceText(association) ?? "Confirmed by you."}
               </p>
             </div>
             <div className="rd-row-actions">

@@ -54,7 +54,7 @@ async function open() {
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Find reviewed artists for this credit",
+      name: "Choose the artist",
     }),
   );
   return screen.findByRole("button", {
@@ -224,7 +224,7 @@ test("a request that finishes after the credit changed cannot overwrite the new 
   );
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Find reviewed artists for this credit",
+      name: "Choose the artist",
     }),
   );
   fireEvent.click(
@@ -245,7 +245,7 @@ test("a request that finishes after the credit changed cannot overwrite the new 
   expect(screen.queryByRole("alert")).toBeNull();
   expect(
     screen.getByRole("button", {
-      name: "Find reviewed artists for this credit",
+      name: "Choose the artist",
     }),
   ).toBeTruthy();
 });
@@ -290,7 +290,7 @@ test("only groups reviewed under exactly this credit name are offered", async ()
   );
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Find reviewed artists for this credit",
+      name: "Choose the artist",
     }),
   );
   await screen.findByRole("button", {

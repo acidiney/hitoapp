@@ -41,6 +41,34 @@ test.each([
   expect(screen.getByText(text)).toBeTruthy();
 });
 
+test("a credit-level match says which evidence its sibling tracks supplied", () => {
+  render(
+    createElement(SavedArtistReviews, {
+      associations: [
+        {
+          ...artistAssociation,
+          evidence: "matched_credit_evidence",
+          credit_evidence: { kind: "isrc", tracks: 3 },
+        },
+      ],
+      disabled: false,
+      ready: true,
+      canUndo: false,
+      retrying: false,
+      error: "",
+      onView: () => undefined,
+      onUnlink: () => undefined,
+      onUndo: () => undefined,
+      onRetry: () => undefined,
+    }),
+  );
+  expect(
+    screen.getByText(
+      "Matched automatically from 3 tracks' ISRC in this credit.",
+    ),
+  ).toBeTruthy();
+});
+
 test("a review the account confirmed itself carries no automatic-match note", () => {
   show("user_confirmed");
   expect(screen.queryByText(/Matched automatically/)).toBeNull();

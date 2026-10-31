@@ -119,6 +119,7 @@ export const artistAssociation = {
   provider: artistReviewContext.provider,
   provider_artist_id: artistPreview.profile.artist.id,
   evidence: "user_confirmed",
+  credit_evidence: null,
   revision: 1,
 } satisfies Schema<"ArtistAssociation">;
 export const reviewedArtistProfile = {

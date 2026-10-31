@@ -1,7 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 
+type Association = Schema<"ArtistAssociation">;
+
 const matched: Record<
-  Exclude<Schema<"ArtistAssociation">["evidence"], "user_confirmed">,
+  Exclude<
+    Association["evidence"],
+    "user_confirmed" | "matched_credit_evidence"
+  >,
   string
 > = {
   matched_file_tag_artist_id:
@@ -21,9 +26,28 @@ export function providerName(
     : "Metadata plugin";
 }
 
+const creditSource: Record<Schema<"CreditEvidence">["kind"], string> = {
+  file_tag_artist_id: "artist identifier in file tags",
+  isrc: "ISRC",
+  provider_url: "provider artist page",
+  name_discography: "name corroborated by recordings",
+};
+
+function creditEvidenceText(evidence: Schema<"CreditEvidence"> | null) {
+  if (!evidence)
+    return "Matched automatically from other tracks of this credit.";
+  const tracks =
+    evidence.tracks === 1 ? "1 track's" : `${evidence.tracks} tracks'`;
+  return `Matched automatically from ${tracks} ${creditSource[evidence.kind]} in this credit.`;
+}
+
 /** How an automatic match was made, or null for a review the account confirmed itself. */
 export function associationEvidenceText(
-  evidence: Schema<"ArtistAssociation">["evidence"],
+  association: Pick<Association, "evidence" | "credit_evidence">,
 ): string | null {
-  return evidence === "user_confirmed" ? null : matched[evidence];
+  const { evidence } = association;
+  if (evidence === "user_confirmed") return null;
+  if (evidence === "matched_credit_evidence")
+    return creditEvidenceText(association.credit_evidence);
+  return matched[evidence];
 }

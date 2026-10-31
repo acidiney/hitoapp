@@ -7,6 +7,7 @@ import type { Schema } from "../../../shared/schema";
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
+  router: { reload: vi.fn() },
 }));
 
 const account = "10000000-0000-4000-8000-000000000001";
@@ -37,6 +38,8 @@ function group(id: string, artist: string): Schema<"ArtistIdentityGroup"> {
 
 const both: Schema<"ArtistMatchSuggestions"> = {
   artist_id: credit.id,
+  chosen: [],
+  undecided_tracks: 4,
   dismissed: 0,
   dismissed_items: [],
   items: [
@@ -82,6 +85,9 @@ test("suggestions explain their evidence, change nothing, and are accepted only 
     }),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
   const list = await screen.findByRole("region", {
     name: "Suggested artists for this credit",
   });
@@ -128,6 +134,9 @@ test("dismissing posts the chosen artist, hides the suggestion and keeps the oth
     }),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
   await screen.findByRole("region", {
     name: "Suggested artists for this credit",
   });
@@ -151,13 +160,16 @@ test("a failed or empty suggestion read leaves the manual flow alone", async () 
     "fetch",
     vi.fn(async (path: string) => {
       if (path === suggestionsPath) return new Response("{}", { status: 503 });
+      if (path.startsWith("/api/v1/artist-identity-groups"))
+        return Response.json({ items: [], total: 0, offset: 0, limit: 20 });
       throw new Error("Unexpected request");
     }),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
-  await screen.findByRole("button", {
-    name: "Find reviewed artists for this credit",
-  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
+  await screen.findByRole("group", { name: "Choose the artist" });
   expect(
     screen.queryByRole("region", { name: "Suggested artists for this credit" }),
   ).toBeNull();
@@ -184,6 +196,9 @@ test("a dismissed suggestion is listed in a disclosure and restored on request",
     }),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
   const list = await screen.findByRole("region", {
     name: "Suggested artists for this credit",
   });
@@ -220,6 +235,9 @@ test("a credit whose only suggestions are dismissed still offers to restore them
     }),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose the artist" }),
+  );
   await screen.findByText("Dismissed suggestions (2)");
   expect(screen.queryByText("Looks like an artist you reviewed")).toBeNull();
   const region = screen.getByRole("region", {
