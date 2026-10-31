@@ -13,7 +13,7 @@ fn id(actor: &Actor) -> &str {
     &actor.user().id
 }
 
-const ACCOUNT_TABLES: [&str; 16] = [
+const ACCOUNT_TABLES: [&str; 18] = [
     "recording_artist_associations",
     "recording_artist_association_changes",
     "recording_artist_association_receipts",
@@ -29,14 +29,17 @@ const ACCOUNT_TABLES: [&str; 16] = [
     "artist_match_checks",
     "artist_provider_checks",
     "artist_name_checks",
+    "artist_name_candidates",
+    "artist_review_dismissals",
     "album_edition_choices",
 ];
 
-const THROUGH_ASSOCIATION: [&str; 4] = [
+const THROUGH_ASSOCIATION: [&str; 5] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_name_matches",
     "artist_association_coverage_matches",
+    "artist_association_candidate_confirmations",
 ];
 
 async fn connect(library: &Library) -> SqliteConnection {
@@ -149,6 +152,12 @@ async fn add_provenance(connection: &mut SqliteConnection, account: &Actor, reco
         .execute(&mut *connection)
         .await
         .unwrap();
+    sqlx::query("INSERT INTO artist_association_candidate_confirmations(association_id,evidence_kind,receipt_order) VALUES(?,'user_confirmed_candidate',?)")
+        .bind(&association)
+        .bind(receipt)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
     let group: String =
         sqlx::query_scalar("SELECT id FROM account_artist_identity_groups WHERE user_id=? LIMIT 1")
             .bind(user)
@@ -160,6 +169,8 @@ async fn add_provenance(connection: &mut SqliteConnection, account: &Actor, reco
         "INSERT INTO artist_match_checks(user_id,recording_id,observation_id) VALUES(?1,'r','o')",
         "INSERT INTO artist_provider_checks(user_id,recording_id,observation_id) VALUES(?1,'r','o')",
         "INSERT INTO artist_name_checks(user_id,recording_id,observation_id) VALUES(?1,'r','o')",
+        "INSERT INTO artist_name_candidates(user_id,artist_id,provider_artist_id,position,name,corroborated_titles) VALUES(?1,'credit','mb',0,'Name',0)",
+        "INSERT INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?1,'credit','mb')",
         "INSERT INTO album_edition_choices(user_id,release_id,revision) VALUES(?1,'release',1)",
         "INSERT INTO album_edition_choice_receipts(user_id,request_id,request_digest,receipt) VALUES(?1,'request','digest','{}')",
         "INSERT INTO shared_artist_correction_receipts(user_id,request_id,request_digest,receipt) VALUES(?1,'request','digest','{}')",
