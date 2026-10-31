@@ -104,4 +104,19 @@ export const storageApi = {
       signal,
     });
   },
+  async removeMissingRecordings(
+    account: string,
+    library: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"MissingRecordingsRemoval">> {
+    return requestJson<Schema<"MissingRecordingsRemoval">>(
+      `/libraries/${part(library)}/missing-recordings`,
+      {
+        action: "recordings.remove_missing",
+        method: "DELETE",
+        account,
+        signal,
+      },
+    );
+  },
 };

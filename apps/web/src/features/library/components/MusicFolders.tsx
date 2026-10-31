@@ -10,6 +10,7 @@ import { useHostFolders } from "../hooks/useHostFolders";
 import { useMusicFolders } from "../hooks/useMusicFolders";
 import FolderPicker from "./FolderPicker";
 import FolderRow from "./FolderRow";
+import MissingRecordings from "./MissingRecordings";
 
 export default function MusicFolders({
   account,
@@ -134,6 +135,11 @@ export default function MusicFolders({
           }
         />
       )}
+      <MissingRecordings
+        account={account}
+        library={library.id}
+        disabled={busy}
+      />
       {!host.picker && (
         <p className="folder-host-help muted">
           Looking for a folder on another drive? Open Hito Setup on the server
