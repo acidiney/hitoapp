@@ -32,6 +32,8 @@ pub(super) enum EvidenceKind {
     /// The credit's remaining tracks, matched because the artist listed this many of the credit's
     /// tracks of this many that were probed.
     Coverage(u32, u32),
+    /// A candidate the account confirmed in the review queue.
+    UserConfirmedCandidate,
 }
 
 /// The evidence a credit-level match started from.
@@ -62,6 +64,7 @@ impl EvidenceKind {
             Self::NameDiscography => "artist_association_name_matches",
             Self::Credit(..) => "artist_association_credit_matches",
             Self::Coverage(..) => "artist_association_coverage_matches",
+            Self::UserConfirmedCandidate => "artist_association_candidate_confirmations",
         }
     }
 
@@ -73,6 +76,7 @@ impl EvidenceKind {
             Self::NameDiscography => Origin::NameDiscography.name(),
             Self::Credit(origin, _) => origin.name(),
             Self::Coverage(..) => "name_coverage",
+            Self::UserConfirmedCandidate => "user_confirmed_candidate",
         }
     }
 
@@ -82,7 +86,10 @@ impl EvidenceKind {
             Self::FileTagArtistId => Some(Origin::FileTagArtistId),
             Self::Isrc => Some(Origin::Isrc),
             Self::ProviderUrl => Some(Origin::ProviderUrl),
-            Self::NameDiscography | Self::Credit(..) | Self::Coverage(..) => None,
+            Self::NameDiscography
+            | Self::Credit(..)
+            | Self::Coverage(..)
+            | Self::UserConfirmedCandidate => None,
         }
     }
 }

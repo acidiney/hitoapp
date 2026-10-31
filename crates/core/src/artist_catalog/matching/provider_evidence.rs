@@ -230,6 +230,7 @@ impl ArtistCatalog {
                 digest: &digest,
                 next_after,
                 checks: Checks::Evidence,
+                reviews: Vec::new(),
             },
             examined,
         )

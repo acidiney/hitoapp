@@ -90,6 +90,8 @@ pub enum ArtistAssociationEvidence {
     /// The credit's remaining tracks, following one artist that the credit's probed tracks mostly
     /// share; see `coverage_evidence`.
     MatchedCreditCoverage,
+    /// The account confirmed one of the candidates Hito found under the credit's name.
+    UserConfirmedCandidate,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]

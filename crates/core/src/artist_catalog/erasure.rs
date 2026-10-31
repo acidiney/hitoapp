@@ -6,12 +6,13 @@ use uuid::Uuid;
 const ASSOCIATIONS_OF_ACCOUNT: &str =
     "(SELECT id FROM recording_artist_associations WHERE user_id=?1)";
 
-const PROVENANCE_TABLES: [&str; 5] = [
+const PROVENANCE_TABLES: [&str; 6] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_name_matches",
     "artist_association_credit_matches",
     "artist_association_coverage_matches",
+    "artist_association_candidate_confirmations",
 ];
 
 impl ArtistCatalog {
@@ -151,6 +152,8 @@ pub(crate) fn account_statements() -> Vec<String> {
         "DELETE FROM artist_match_checks WHERE user_id=?1",
         "DELETE FROM artist_provider_checks WHERE user_id=?1",
         "DELETE FROM artist_name_checks WHERE user_id=?1",
+        "DELETE FROM artist_name_candidates WHERE user_id=?1",
+        "DELETE FROM artist_review_dismissals WHERE user_id=?1",
         "UPDATE shared_artist_correction_states SET changed_by=NULL WHERE changed_by=?1",
         "UPDATE shared_artist_corrections SET promoted_by=NULL,source_change_id=NULL,source_association_id=NULL WHERE promoted_by=?1",
         "DELETE FROM artist_identity_change_items WHERE change_id IN (SELECT id FROM artist_identity_changes WHERE user_id=?1)",

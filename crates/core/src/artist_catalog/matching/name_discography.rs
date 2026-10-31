@@ -11,10 +11,11 @@ use super::{
         normalize,
     },
     provider_evidence::{LOOKUP_DEADLINE, LOOKUP_WINDOW, MAX_CONSECUTIVE_FAILURES, MAX_LOOKUPS},
+    review_queue::{self, ReviewCandidate},
     settle::{Checks, Examined, Outcome, Settlement},
 };
 use crate::{Actor, ArtistCatalog, Result};
-use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError};
+use hito_metadata_musicbrainz::{ArtistRecordings, Error as MusicBrainzError, NameCandidate};
 use std::{collections::HashMap, future::Future, time::Duration};
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -29,8 +30,9 @@ const MAX_HOLDS: u32 = 40;
 /// compares version titles, continues an artist already matched for the credit and lets one
 /// artist's coverage of the credit decide its remaining tracks. Rule 4 counts distinct titles for
 /// the share, asks every other namesake about the remaining tracks and lets choices and strong
-/// evidence for another artist refuse a match.
-pub(super) const NAME_RULE: i64 = 4;
+/// evidence for another artist refuse a match. Rule 5 keeps the exact-name artists of every
+/// uncertain credit as candidates for the review queue.
+pub(super) const NAME_RULE: i64 = 5;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
 /// The least a credit costs: one search and one sample search per exact-name artist.
@@ -164,6 +166,10 @@ impl Budget {
 struct Answers {
     namesakes: HashMap<String, Option<Vec<String>>>,
     recordings: HashMap<(String, String), ArtistRecordings>,
+    /// What the searches said about each artist they listed.
+    described: HashMap<String, NameCandidate>,
+    /// The candidates to keep for each credit that was judged, none when the credit has none.
+    reviews: HashMap<String, Vec<ReviewCandidate>>,
 }
 
 /// Where the cursor of a name request stands: the last credit handled and how often the credit
@@ -237,6 +243,7 @@ impl ArtistCatalog {
             }
         }
         let mut examined = Vec::new();
+        let mut reviews = Vec::new();
         let mut handled = 0;
         let mut holding = false;
         let mut budget = Budget::new(LOOKUP_WINDOW);
@@ -273,6 +280,9 @@ impl ArtistCatalog {
                     }
                     verdict => verdict,
                 };
+                if let Some(found) = answers.reviews.remove(&credit.id) {
+                    reviews.push((credit.id.clone(), found));
+                }
                 let holds = matches!(
                     &verdict,
                     Verdict::Artist {
@@ -342,6 +352,7 @@ impl ArtistCatalog {
                 digest,
                 next_after,
                 checks: Checks::Name,
+                reviews,
             },
             examined,
         )
@@ -373,7 +384,13 @@ impl ArtistCatalog {
                     .run(self.builtin.artist_name_search(&credit.name))
                     .await
                 {
-                    Ok(search) => name_probe::namesakes(&search, &credit.name),
+                    Ok(search) => {
+                        let found = name_probe::namesakes(&search, &credit.name);
+                        answers
+                            .described
+                            .extend(search.items.into_iter().map(|item| (item.id.clone(), item)));
+                        found
+                    }
                     Err(MusicBrainzError::Status(404) | MusicBrainzError::InvalidSearchRequest) => {
                         None
                     }
@@ -384,6 +401,7 @@ impl ArtistCatalog {
             }
         };
         let Some(ids) = found.filter(|ids| !ids.is_empty()) else {
+            answers.reviews.insert(credit.id.clone(), Vec::new());
             return Verdict::Uncertain;
         };
         let mut assessments = Vec::new();
@@ -397,14 +415,24 @@ impl ArtistCatalog {
                 };
                 name_probe::assess(&candidates, &sample, &listed)
             };
-            if assessment == Assessment::NotRead {
+            let unread = assessment == Assessment::NotRead;
+            assessments.push((id.clone(), assessment));
+            if unread {
+                answers.reviews.insert(
+                    credit.id.clone(),
+                    review_queue::candidates(&ids, &assessments, &candidates, &answers.described),
+                );
                 return Verdict::Uncertain;
             }
-            assessments.push((id.clone(), assessment));
         }
         let Some((artist, hits)) = name_probe::decide(&assessments, established) else {
+            answers.reviews.insert(
+                credit.id.clone(),
+                review_queue::candidates(&ids, &assessments, &candidates, &answers.described),
+            );
             return Verdict::Uncertain;
         };
+        answers.reviews.insert(credit.id.clone(), Vec::new());
         let silent = name_probe::silent_beside(&assessments, &artist);
         let plan = Plan { candidates, sample };
         let reserve = (ids.len() - 1) * if standing.matched.is_empty() { 1 } else { 2 };

@@ -45,6 +45,8 @@ struct State_ {
     delay: Duration,
     /// Keys that answer this many requests normally and then fail as unavailable.
     failing_after: HashMap<String, usize>,
+    /// Disambiguation and country that name searches state for an artist identifier.
+    descriptions: HashMap<String, (String, String)>,
 }
 
 /// An owned loopback stand-in for the MusicBrainz web service.
@@ -113,6 +115,15 @@ impl FakeMusicBrainz {
             .unwrap()
             .replies
             .insert(format!("search/{name}"), Reply::Scored(found, total));
+    }
+
+    /// Makes name searches state a disambiguation and a country for this artist identifier.
+    pub fn describe(&self, artist: &str, disambiguation: &str, country: &str) {
+        self.state
+            .lock()
+            .unwrap()
+            .descriptions
+            .insert(artist.into(), (disambiguation.into(), country.into()));
     }
 
     /// Answers the recordings browse of one artist.
@@ -245,13 +256,24 @@ fn probes(query: &str) -> Vec<(String, u64, u64)> {
     found
 }
 
-fn search_page(uri: &Uri, artists: &[(String, String, u32)], total: u32) -> Value {
+type Descriptions = HashMap<String, (String, String)>;
+
+fn search_page(
+    uri: &Uri,
+    artists: &[(String, String, u32)],
+    total: u32,
+    descriptions: &Descriptions,
+) -> Value {
     let (offset, limit) = window(uri);
     let found: Vec<Value> = artists
         .iter()
         .skip(offset)
         .take(limit)
-        .map(|(id, name, score)| json!({"id": id, "name": name, "type": "Person", "disambiguation": "", "score": score}))
+        .map(|(id, name, score)| {
+            let (disambiguation, country) = descriptions.get(id).cloned().unwrap_or_default();
+            json!({"id": id, "name": name, "type": "Person", "disambiguation": disambiguation,
+                "country": country, "score": score})
+        })
         .collect();
     json!({"count": total, "offset": offset, "artists": found})
 }
@@ -332,7 +354,7 @@ fn key_of_target(target: &str) -> Option<String> {
 }
 
 async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> Response {
-    let (reply, delay) = {
+    let (reply, delay, descriptions) = {
         let mut state = state.lock().unwrap();
         state.requests.push(request.uri().to_string());
         let key = key(request.uri());
@@ -352,7 +374,7 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
         } else {
             key.and_then(|key| state.replies.get(&key).cloned())
         };
-        (reply, state.delay)
+        (reply, state.delay, state.descriptions.clone())
     };
     tokio::time::sleep(delay).await;
     let (status, body) = match (key(request.uri()), reply) {
@@ -383,16 +405,23 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
         }
         (Some(key), Some(Reply::CandidatesOf(artists, total))) => {
             let scored = scored(&key, &artists);
-            (StatusCode::OK, search_page(request.uri(), &scored, total))
+            (
+                StatusCode::OK,
+                search_page(request.uri(), &scored, total, &descriptions),
+            )
         }
         (Some(key), Some(Reply::Candidates(artists))) => {
             let scored = scored(&key, &artists);
             let total = scored.len() as u32;
-            (StatusCode::OK, search_page(request.uri(), &scored, total))
+            (
+                StatusCode::OK,
+                search_page(request.uri(), &scored, total, &descriptions),
+            )
         }
-        (_, Some(Reply::Scored(artists, total))) => {
-            (StatusCode::OK, search_page(request.uri(), &artists, total))
-        }
+        (_, Some(Reply::Scored(artists, total))) => (
+            StatusCode::OK,
+            search_page(request.uri(), &artists, total, &descriptions),
+        ),
         (_, Some(Reply::Discography(recordings))) => {
             let (offset, limit) = window(request.uri());
             let probes = parameter(request.uri(), "query")

@@ -268,6 +268,9 @@ mod tests {
         assert_eq!(found.items[0].country.as_deref(), Some("PT"));
         assert_eq!(found.items[1].kind, None, "An unknown type is not stated");
         assert_eq!(found.items[1].disambiguation, None);
-        assert_eq!(found.items[1].country, None, "An empty country is not stated");
+        assert_eq!(
+            found.items[1].country, None,
+            "An empty country is not stated"
+        );
     }
 }

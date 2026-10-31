@@ -5,6 +5,7 @@ use super::{
     apply::{self, EvidenceKind, Planned, plan},
     coverage, credit,
     name_discography::NAME_RULE,
+    review_queue::{self, ReviewCandidate},
 };
 use crate::artist_catalog::{MetadataProvider, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Result};
@@ -37,6 +38,8 @@ pub(super) struct Settlement<'a> {
     pub digest: &'a str,
     pub next_after: Option<String>,
     pub checks: Checks,
+    /// The candidates found under each credit that was judged; empty for the evidence pass.
+    pub reviews: Vec<(String, Vec<ReviewCandidate>)>,
 }
 
 pub(super) fn empty_receipt(
@@ -65,6 +68,7 @@ impl ArtistCatalog {
             digest,
             next_after,
             checks,
+            reviews,
         } = settlement;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
@@ -174,6 +178,9 @@ impl ArtistCatalog {
                 .execute(&mut *tx)
                 .await?;
             }
+        }
+        for (credit, found) in &reviews {
+            review_queue::keep(&mut tx, actor, credit, found).await?;
         }
         let mut receipt = empty_receipt(request_id, next_after);
         receipt.matched = pending.len() as i64;

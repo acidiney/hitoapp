@@ -354,7 +354,7 @@ pub async fn assert_preserved(
         .iter()
         .find(|object| object.1 == "sync_events")
         .unwrap();
-    let artwork = if matches!(expected_version, 52..=74) {
+    let artwork = if matches!(expected_version, 52..=75) {
         let mut reference = if expected_version == 52 {
             collection_artwork_schema::reference_52().await
         } else if expected_version == 53 {
@@ -399,8 +399,10 @@ pub async fn assert_preserved(
             collection_artwork_schema::reference_72().await
         } else if expected_version == 73 {
             collection_artwork_schema::reference_73().await
-        } else {
+        } else if expected_version == 74 {
             collection_artwork_schema::reference_74().await
+        } else {
+            collection_artwork_schema::reference_75().await
         };
         let declared = schema(&mut reference).await;
         reference.close().await.unwrap();
@@ -411,7 +413,7 @@ pub async fn assert_preserved(
     for object in &baseline.schema {
         let expected = if object.1 == "sync_events" {
             sync_events
-        } else if (matches!(expected_version, 52..=74)
+        } else if (matches!(expected_version, 52..=75)
             && collection_artwork_schema::REPLACED
                 .iter()
                 .any(|(kind, name)| *kind == object.0 && *name == object.1))
@@ -449,7 +451,7 @@ pub async fn assert_preserved(
     ];
     match expected_version {
         46 => {}
-        47..=49 | 52..=74 => expected.extend([
+        47..=49 | 52..=75 => expected.extend([
             "account_metadata_policies",
             "sqlite_autoindex_account_metadata_policies_1",
             "recording_artist_associations",
@@ -462,13 +464,13 @@ pub async fn assert_preserved(
         ]),
         _ => panic!("The upgrade fixture requires an exact supported schema endpoint"),
     }
-    let declared_audiobooks = if matches!(expected_version, 48 | 49 | 52..=74) {
+    let declared_audiobooks = if matches!(expected_version, 48 | 49 | 52..=75) {
         let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
         sqlx::raw_sql(include_str!("../../migrations/0048_audiobooks.sql"))
             .execute(&mut reference)
             .await
             .unwrap();
-        if matches!(expected_version, 49 | 52..=74) {
+        if matches!(expected_version, 49 | 52..=75) {
             sqlx::raw_sql(include_str!(
                 "../../migrations/0049_audiobook_continuation.sql"
             ))
@@ -489,7 +491,7 @@ pub async fn assert_preserved(
         );
         expected.push(object.1.as_str());
     }
-    if matches!(expected_version, 52..=74) {
+    if matches!(expected_version, 52..=75) {
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()
             .chain(
@@ -587,6 +589,11 @@ pub async fn assert_preserved(
                     .iter()
                     .filter(|_| expected_version >= 73),
             )
+            .chain(
+                collection_artwork_schema::review_queue_schema::ADDED
+                    .iter()
+                    .filter(|_| expected_version >= 75),
+            )
         {
             let object = artwork
                 .iter()
@@ -604,9 +611,9 @@ pub async fn assert_preserved(
     let mut new_names = new_names;
     new_names.sort_unstable();
     assert_eq!(new_names, expected);
-    if matches!(expected_version, 48 | 49 | 52..=74) {
+    if matches!(expected_version, 48 | 49 | 52..=75) {
         let mut tables = vec!["audiobooks", "audiobook_bookmarks"];
-        if matches!(expected_version, 49 | 52..=74) {
+        if matches!(expected_version, 49 | 52..=75) {
             tables.push("audiobook_continuations");
         }
         for table in tables {

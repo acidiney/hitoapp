@@ -749,6 +749,23 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ),
         ("trigger", "artist_association_coverage_match_immutable"),
         ("trigger", "artist_association_coverage_match_retained"),
+        ("table", "artist_name_candidates"),
+        ("index", "sqlite_autoindex_artist_name_candidates_1"),
+        ("table", "artist_review_dismissals"),
+        ("index", "sqlite_autoindex_artist_review_dismissals_1"),
+        ("table", "artist_association_candidate_confirmations"),
+        (
+            "index",
+            "sqlite_autoindex_artist_association_candidate_confirmations_1",
+        ),
+        (
+            "trigger",
+            "artist_association_candidate_confirmation_immutable",
+        ),
+        (
+            "trigger",
+            "artist_association_candidate_confirmation_retained",
+        ),
         ("table", "recording_musicbrainz_observations"),
         (
             "index",

@@ -265,7 +265,7 @@ fn ranking(left: &ArtistMatchSuggestion, right: &ArtistMatchSuggestion) -> std::
         .then_with(|| left.group.id.cmp(&right.group.id))
 }
 
-async fn credit_name(
+pub(super) async fn credit_name(
     connection: &mut SqliteConnection,
     actor: &Actor,
     artist: &str,
