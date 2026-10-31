@@ -16229,6 +16229,7 @@
           "provider_artist_id",
           "evidence",
           "credit_evidence",
+          "coverage_evidence",
           "revision"
         ],
         "properties": {
@@ -16237,6 +16238,16 @@
           },
           "artist_id": {
             "type": "string"
+          },
+          "coverage_evidence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CoverageEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "credit_evidence": {
             "oneOf": [
@@ -16377,7 +16388,8 @@
           "matched_isrc",
           "matched_provider_url",
           "matched_name_discography",
-          "matched_credit_evidence"
+          "matched_credit_evidence",
+          "matched_credit_coverage"
         ]
       },
       "ArtistAssociationRetirement": {
@@ -18777,6 +18789,24 @@
           }
         },
         "additionalProperties": false
+      },
+      "CoverageEvidence": {
+        "type": "object",
+        "description": "How many of a credit's probed tracks the artist listed when the credit's remaining tracks\nfollowed it.",
+        "required": [
+          "matched_tracks",
+          "probed_tracks"
+        ],
+        "properties": {
+          "matched_tracks": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "probed_tracks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "Credentials": {
         "type": "object",

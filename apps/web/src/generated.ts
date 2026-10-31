@@ -2592,6 +2592,7 @@ export interface components {
         ArtistAssociation: {
             account_id: string;
             artist_id: string;
+            coverage_evidence: components["schemas"]["CoverageEvidence"] | null;
             credit_evidence: components["schemas"]["CreditEvidence"] | null;
             evidence: components["schemas"]["ArtistAssociationEvidence"];
             id: string;
@@ -2631,7 +2632,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc" | "matched_provider_url" | "matched_name_discography" | "matched_credit_evidence" | "matched_credit_coverage";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
@@ -3263,6 +3264,16 @@ export interface components {
         };
         ContentPolicy: {
             source_persistence: components["schemas"]["SourcePersistence"];
+        };
+        /**
+         * @description How many of a credit's probed tracks the artist listed when the credit's remaining tracks
+         *     followed it.
+         */
+        CoverageEvidence: {
+            /** Format: int64 */
+            matched_tracks: number;
+            /** Format: int64 */
+            probed_tracks: number;
         };
         Credentials: {
             password: string;
