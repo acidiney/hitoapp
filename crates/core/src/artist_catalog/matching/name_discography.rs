@@ -64,10 +64,15 @@ fn normalize(text: &str) -> String {
 /// saw every one of them: too many namesakes, or a page that may end before the last
 /// maximum-relevance result (an exact name always scores the maximum).
 fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>> {
-    if !search.conclusive() {
+    let wanted = normalize(credit);
+    let scoring_holds = search
+        .items
+        .iter()
+        .filter(|item| normalize(&item.name) == wanted)
+        .all(|item| item.score >= 100);
+    if !(search.conclusive() && scoring_holds || search.items.len() as u32 >= search.total) {
         return None;
     }
-    let wanted = normalize(credit);
     let found: Vec<String> = search
         .items
         .iter()
@@ -121,9 +126,54 @@ fn decide(tracks: &[Track], namesakes: &[(String, ArtistRecordings)]) -> Verdict
         }
     }
     match accepted {
-        Some((id, indices)) => Verdict::Artist(id, indices),
+        Some((id, indices)) => {
+            let listed = namesakes.iter().find(|(known, _)| *known == id);
+            let indices = listed
+                .map(|(_, listed)| follow(tracks, indices.clone(), listed, namesakes.len() == 1))
+                .unwrap_or(indices);
+            Verdict::Artist(id, indices)
+        }
         None => Verdict::Uncertain,
     }
+}
+
+/// The corroborated tracks plus the credit's other tracks whose own title the artist's recordings
+/// list (lengths compared when both are known), or all of them when the artist is the only
+/// namesake, its recordings were read completely and they corroborate at least half the credit.
+fn follow(
+    tracks: &[Track],
+    mut indices: Vec<usize>,
+    listed: &ArtistRecordings,
+    sole: bool,
+) -> Vec<usize> {
+    if sole && listed.complete() && indices.len() * 2 >= tracks.len() {
+        return (0..tracks.len()).collect();
+    }
+    for (index, track) in tracks.iter().enumerate() {
+        if indices.contains(&index) {
+            continue;
+        }
+        let title = normalize(&track.title);
+        let library_length = track
+            .length_ms
+            .and_then(|length| known_length(i64::try_from(length).ok()));
+        let found = listed.items.iter().any(|item| {
+            normalize(&item.title) == title
+                && match (
+                    library_length,
+                    item.length_ms
+                        .and_then(|other| known_length(i64::try_from(other).ok())),
+                ) {
+                    (Some(ours), Some(theirs)) => ours.abs_diff(theirs) <= LENGTH_TOLERANCE_MS,
+                    _ => true,
+                }
+        });
+        if found {
+            indices.push(index);
+        }
+    }
+    indices.sort_unstable();
+    indices
 }
 
 struct Budget {
@@ -508,6 +558,24 @@ mod tests {
                 "Various Artists"
             ),
             Some(vec![])
+        );
+    }
+
+    #[test]
+    fn an_exact_name_scoring_below_the_maximum_makes_only_a_complete_search_conclusive() {
+        let odd = [
+            (ID, "Nova Quartet", 90),
+            (OTHER, "Nova Quartet Tribute", 80),
+        ];
+        assert_eq!(
+            namesakes(&page(&odd, 2), "Nova Quartet"),
+            Some(vec![ID.into()]),
+            "The whole result set is on the page"
+        );
+        assert_eq!(
+            namesakes(&page(&odd, 400), "Nova Quartet"),
+            None,
+            "An exact name below 100 breaks the scoring assumption, so only a complete page counts"
         );
     }
 

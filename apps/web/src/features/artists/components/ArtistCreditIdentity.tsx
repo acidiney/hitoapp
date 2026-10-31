@@ -41,7 +41,7 @@ export default function ArtistCreditIdentity({
   }, [working, refresh]);
   const busy = identity.step === "loading" || identity.step === "applying";
   const read = suggested.suggestions;
-  const matched = read?.chosen[0] ?? null;
+  const matched = read !== null && read.chosen.length > 0;
   const open = () => {
     setChoosing(true);
     identity.find();
@@ -49,16 +49,21 @@ export default function ArtistCreditIdentity({
   return (
     <section aria-label="Artist identity for this credit" aria-busy={busy}>
       <h2 className="discography-heading">Artist identity</h2>
-      {matched ? (
-        <p aria-live="polite">
-          Artist: {matched.group.name.value} · {provenance(matched)}{" "}
-          <Link
-            className="text-link"
-            href={`/artist-groups/${encodeURIComponent(matched.group.id)}`}
-          >
-            Open artist
-          </Link>
-        </p>
+      {read && read.chosen.length > 0 ? (
+        read.chosen.map((chosen) => (
+          <p key={chosen.group.id} aria-live="polite">
+            Artist: {chosen.group.name.value}
+            {read.chosen.length > 1 &&
+              ` · ${plural(chosen.tracks, "track", "tracks")}`}{" "}
+            · {provenance(chosen)}{" "}
+            <Link
+              className="text-link"
+              href={`/artist-groups/${encodeURIComponent(chosen.group.id)}`}
+            >
+              Open artist
+            </Link>
+          </p>
+        ))
       ) : working ? (
         <p aria-live="polite">Hito is identifying this artist…</p>
       ) : (

@@ -131,3 +131,25 @@ test("an uncertain credit says so and keeps the manual choice behind a button", 
     await screen.findByText(/No reviewed artist matches this credit yet/),
   ).toBeTruthy();
 });
+
+test("a credit whose tracks map to several chosen artists lists each with its count", async () => {
+  const other: Schema<"ArtistIdentityGroup"> = {
+    ...chosenGroup,
+    id: "70000000-0000-4000-8000-00000000000a",
+    provider_artist_id: "c9b8d62f-473d-4ecb-b36a-cd7f1106a1b7",
+  };
+  serve(
+    suggestions({
+      chosen: [
+        { group: chosenGroup, tracks: 80, automatic_tracks: 80 },
+        { group: other, tracks: 26, automatic_tracks: 0 },
+      ],
+    }),
+    status("idle"),
+  );
+  render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  const first = await screen.findByText(/80 tracks · matched automatically/);
+  expect(first.textContent).toContain("Ed Sheeran");
+  expect(screen.getByText(/26 tracks · chosen by you/)).toBeTruthy();
+  expect(screen.getAllByRole("link", { name: "Open artist" })).toHaveLength(2);
+});

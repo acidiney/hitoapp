@@ -12,7 +12,7 @@ This page separates what runs today from what is planned. Current behavior is im
 | Verified through MusicBrainz | An ISRC stated by a provider or a file tag that MusicBrainz maps to exactly one recording credited to exactly one artist | Applied automatically with the same rules; provenance `matched_isrc` |
 | Verified through MusicBrainz | A lone credited artist page of an imported track that MusicBrainz links to exactly one artist | Applied automatically with the same rules; provenance `matched_provider_url` |
 | Corroborated through MusicBrainz | A credit name that exactly one MusicBrainz artist carries, whose own recordings share at least two titles and lengths with the credit's undecided library tracks | Applied automatically to the corroborated tracks only, with the same rules; provenance `matched_name_discography` |
-| Credit-level | Any of the rows above for some tracks of a credit, with a clear majority artist | The credit's other undecided tracks that carry no evidence of their own receive the same artist; provenance `matched_credit_evidence` |
+| Credit-level | Tag, ISRC or artist page matches for a credit whose own-evidence tracks are all examined and agree | The credit's other undecided tracks that carry no evidence of their own receive the same artist; provenance `matched_credit_evidence` |
 | Uncertain | The same credit name, a shared album title, a track with the same title and length | Ranked suggestion only; nothing changes until the account confirms |
 
 ```mermaid
@@ -57,7 +57,7 @@ flowchart TD
     Corroborate -->|no, several, or a namesake not fully read| Uncertain
     Corroborate -->|MusicBrainz unreachable| Retry
     Corroborate -->|yes, for the tracks that share| Same
-    Same -.->|after the individual matches| Credit[Credit-level step: the credit's other undecided tracks with no evidence of their own follow]
+    Same -.->|strong evidence, all examined and unanimous| Credit[Credit-level step: siblings with no evidence of their own follow]
     Credit --> Group
 ```
 
@@ -114,7 +114,7 @@ Steps and bounds.
 2. For each exact-name artist, `GET /ws/2/recording?artist=<id>&limit=100&offset=<n>`: titles and lengths of recordings, and MusicBrainz's total. Pages are read in order until the library corroborates the artist (two distinct titles), the list is complete, or the artist's page allowance is used. One credit may read at most six recordings pages in total and at most five for one artist, split evenly between namesakes (three namesakes get two pages each), so a credit costs at most seven requests inside the eight-request batch cap. A prolific artist whose matching titles sit beyond the first hundred recordings is found by paging. Release-group browse plus a track list per release was rejected: it needs one request per release and release groups carry no lengths. An artist whose list was not completed and that did not corroborate is *not fully read*.
 3. A library track corroborates when a listed recording has the same normalized title and both lengths are known and differ by at most two seconds (2,000 ms, inclusive). A length below one second (including 0, which stands for an unknown duration) is unknown on either side and never matches. An artist is *corroborated* when the matched tracks cover at least two distinct normalized titles; several tracks titled alike (two "Intro" recordings) count once.
 4. The credit is accepted only when exactly one exact-name artist is corroborated and no other exact-name artist was left not fully read without corroborating. Two corroborated artists, or one corroborated artist beside a namesake that cannot be excluded, stay uncertain. Release-group titles alone are not used because they carry no length; the rule "two recordings, or one release with at least three tracks" is therefore implemented as the stricter two-recording rule.
-5. The library tracks that individually matched receive the artist (provenance `matched_name_discography`, through the shared apply step, so all personal-decision rules hold). The credit-level step below then extends the artist to the credit's other undecided tracks that have no evidence of their own. Tracks that remain uncertain are remembered in `artist_name_checks` until their observation changes.
+5. The library tracks that individually matched receive the artist (provenance `matched_name_discography`, through the shared apply step, so all personal-decision rules hold). The credit's other tracks follow only under the stricter name rule in [credit-level matching](#credit-level-matching). Tracks that remain uncertain are remembered in `artist_name_checks` until their observation changes.
 
 Rule version. The first version of this rule treated any search with more results than one page as uncertain, which left prolific credits such as a 106-track "Ed Sheeran" unmatched. Migration 0071 deletes every `artist_name_checks` row, which were all decided under that rule, and queues a walk (or sets the rerun flag of a walk under way) for each account that had any, so the next automatic walk examines those credits again.
 
@@ -122,18 +122,25 @@ A request makes at most eight MusicBrainz requests, checks the nine-second windo
 
 What is sent. The credit name only, in the search query, and the MusicBrainz artist identifier in the recordings browse, with the Hito user agent. Titles and lengths are compared locally. Names, titles, queries and identifiers are never logged; the workflow logs counts, outcomes and timings. A deployment that must not send names turns metadata enrichment off for the account (the pass then does nothing) or never selects the built-in provider.
 
-Limits. Artists with more than five pages (500 recordings) are partly read when their matching titles come late. A partly read artist that corroborates is accepted only when every other exact-name artist was fully read without corroborating; a partly read namesake that does not corroborate keeps the credit uncertain. A search whose page ends at score 100 with more results is never conclusive. Equal-name artists without enough library overlap are never matched.
+Limits. Artists with more than five pages (500 recordings) are partly read when their matching titles come late. A partly read artist that corroborates is accepted only when every other exact-name artist was fully read without corroborating; a partly read namesake that does not corroborate keeps the credit uncertain. A search whose page ends at score 100 with more results is never conclusive, and if any exact-name result scores below 100 (which would contradict the scoring assumption) the page counts only when it is the whole result set. Equal-name artists without enough library overlap are never matched.
 
 ### Credit-level matching
 
-One identified track identifies its credit. After the individual matches of a settlement are planned (tag, ISRC, artist page or name discography), `credit.rs` extends each credit that has a clear majority artist: the artist named by more of the credit's individually matched tracks than all others together. The credit's other undecided tracks that carry no evidence of their own then receive that artist in the same immediate transaction, through the same apply step as every other match (so a personal choice, reset, split, unlink, personal artist edit or hiding correction still leaves a track alone). Rules:
+One identified track can identify its credit, but only where that cannot hand tracks to the wrong artist. There are two paths.
 
-- A track with its own evidence (an ISRC, an artist page or a file tag artist identifier on its current observation) is never followed. Its own lookup decides it, so a sibling whose ISRC names another artist, or several, is not overridden by the credit and stays uncertain or is matched to its own artist.
-- Credits without a clear majority (two tracks naming two different artists) extend nothing.
-- Hito does not parse credits. A credit name that lists several artists (`&`, `,`, `;`, `/`, `+`, `feat`, `ft.`, ` and `, ` with `, ` x `) is never extended, because one artist cannot stand for the whole credit.
-- Two credits that merely share a name are separate credits with separate evidence. Nothing is extended across credits; a name alone is still never evidence.
-- At most 1,000 siblings follow in one settlement, in recording order. The rest follow when a later settlement of the same credit runs, or are matched by the name phase.
-- Provenance is `artist_association_credit_matches` (migration 0071): the originating evidence kind and the number of the credit's tracks that supplied it. The association API returns evidence `matched_credit_evidence` with `credit_evidence { kind, tracks }`, and saved artist reviews say, for example, "Matched automatically from 3 tracks' ISRC in this credit." Rows are immutable and are retained or erased with the other provenance tables.
+**Strong evidence (file tag identifier, ISRC, provider artist page).** After the individual matches of a settlement are planned, `credit.rs` looks at each credit the settlement touched. The credit's other undecided tracks that carry no evidence of their own receive the artist only when all of these hold:
+
+- Every track of the credit that has strong evidence of its own has been examined (no unexamined candidate remains).
+- None of those tracks was examined without a clear answer (uncertain, ambiguous, unavailable), so 2 ISRC matches beside 30 uncertain ISRC tracks identify nobody else.
+- All strong automatic matches of the credit name the same artist. Different artists on different tracks stop the extension.
+- Personal choices do not vote, name matches do not vote, and each recording counts once (a stale automatic match matched again in the same settlement is counted only as the new match).
+- The credit name lists one artist. Hito does not parse credits, so names are folded (full-width forms, ideographic comma) and rejected when they contain `&`, `,`, `;`, `/`, `+`, `|`, `×` or the words `and`, `und`, `et`, `y`, `with`, `vs`, `x`, `feat`, `ft`, `featuring`, `presents`, `pres`, `meets`, including inside brackets ("(feat. B)"); other bracketed parts such as "(Live)" are ignored. Whole words only, so "VSOP" is fine. This is deliberately conservative: "Simon and Garfunkel" is never extended.
+
+A track with its own evidence is never followed; its own lookup decides it. The step runs in the same immediate transaction through the same apply step, so a personal choice, reset, split, unlink, personal artist edit or hiding correction still leaves a track alone. At most 1,000 siblings follow per settlement. Provenance is `artist_association_credit_matches` (migration 0071): the originating evidence and the number of the credit's tracks that supplied it. The association API returns evidence `matched_credit_evidence` with `credit_evidence { kind, tracks }`; saved reviews say, for example, "Matched automatically from 3 tracks' ISRC in this credit."
+
+**Name plus discography.** A name match is weaker evidence, so it does not extend by majority. In the name phase a credit's other tracks receive the artist only when the artist's own recordings list the track's title (normalized; lengths compared when both are known), or when the artist is the only exact-name artist, its recordings were read completely and the corroborated tracks are at least half of the credit. Otherwise the track stays undecided. With "Nova" by two artists merged under one credit name, the second artist's tracks are not in the first one's recordings and stay undecided. These matches carry the ordinary `matched_name_discography` provenance.
+
+Two credits that merely share a name remain separate credits with separate evidence; a name alone is never evidence.
 
 ## Release and recording identifiers from tags
 

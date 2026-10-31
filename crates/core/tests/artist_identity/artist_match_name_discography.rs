@@ -74,15 +74,16 @@ async fn one_exact_name_artist_whose_discography_corroborates_two_tracks_matches
     );
     assert_eq!(
         library.associations(&library.recordings[3]).await[0].evidence,
-        ArtistAssociationEvidence::MatchedCreditEvidence
+        ArtistAssociationEvidence::MatchedNameDiscography,
+        "The complete discography corroborates three of the four tracks"
     );
     assert_eq!(
         library.musicbrainz.requests(),
         vec![SEARCH.to_string(), recordings_request(NOVA)],
         "A name that differs from the credit is never browsed"
     );
-    assert_eq!(library.rows("artist_association_name_matches").await, 3);
-    assert_eq!(library.rows("artist_association_credit_matches").await, 1);
+    assert_eq!(library.rows("artist_association_name_matches").await, 4);
+    assert_eq!(library.rows("artist_association_credit_matches").await, 0);
     library.origin.shutdown().await;
 }
 
@@ -120,7 +121,7 @@ async fn a_namesake_that_does_not_corroborate_does_not_block_the_one_that_does()
         .recordings_of(NAMESAKE, nova_discography(&[("Unrelated", Some(1000))]));
 
     let receipt = library.run().await;
-    assert_eq!(receipt.matched, 4);
+    assert_eq!(receipt.matched, 3);
     assert_eq!(
         library.associations(&library.recordings[0]).await[0].provider_artist_id,
         NOVA
@@ -531,5 +532,72 @@ async fn paging_stops_after_five_pages_and_the_credit_stays_uncertain() {
         .filter(|request| request.contains("/recording"))
         .count();
     assert_eq!(pages, 5);
+    library.origin.shutdown().await;
+}
+
+fn songs(titles: impl Iterator<Item = (String, u64)>) -> Vec<(String, u64)> {
+    titles.collect()
+}
+
+#[tokio::test]
+async fn a_namesake_credit_gives_the_other_artists_tracks_nothing() {
+    let tracks = songs((0..8).map(|index| {
+        let title = if index < 3 {
+            format!("Alpha {index}")
+        } else {
+            format!("Beta {index}")
+        };
+        (title, 100_000 + index * 1000)
+    }));
+    let entries: Vec<(&str, &str, u64)> = tracks
+        .iter()
+        .map(|(title, length)| (CREDIT, title.as_str(), *length))
+        .collect();
+    let library = NameLibrary::prepare(&entries).await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT), (NAMESAKE, CREDIT)]));
+    library.musicbrainz.recordings_of(
+        NOVA,
+        nova_discography(&[
+            ("Alpha 0", Some(100_000)),
+            ("Alpha 1", Some(101_000)),
+            ("Alpha 2", Some(102_000)),
+        ]),
+    );
+    library
+        .musicbrainz
+        .recordings_of(NAMESAKE, nova_discography(&[("Unrelated", Some(50_000))]));
+    let receipt = library.run().await;
+    assert_eq!(receipt.matched, 3);
+    for (index, recording) in library.recordings.iter().enumerate() {
+        assert_eq!(
+            library.group_of(recording).await.is_some(),
+            index < 3,
+            "Track {index}: only the other artist's own recordings are matched"
+        );
+    }
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_sole_complete_artist_covering_half_the_credit_identifies_the_rest() {
+    let tracks = songs((0..21).map(|index| (format!("Song {index}"), 100_000 + index * 1000)));
+    let entries: Vec<(&str, &str, u64)> = tracks
+        .iter()
+        .map(|(title, length)| (CREDIT, title.as_str(), *length))
+        .collect();
+    let library = NameLibrary::prepare(&entries).await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
+    let listed: Vec<(String, Option<u64>)> = tracks[..11]
+        .iter()
+        .map(|(title, length)| (title.clone(), Some(*length)))
+        .collect();
+    library
+        .musicbrainz
+        .recordings_of(NOVA, Reply::Discography(11, listed));
+    assert_eq!(library.run().await.matched, 21);
     library.origin.shutdown().await;
 }

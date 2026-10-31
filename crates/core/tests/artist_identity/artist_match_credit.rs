@@ -114,14 +114,14 @@ async fn one_isrc_matched_track_identifies_the_credit_for_all_its_undecided_sibl
 }
 
 #[tokio::test]
-async fn siblings_with_evidence_of_their_own_are_decided_by_it_not_by_the_credit() {
+async fn conflicting_or_uncertain_strong_evidence_in_the_credit_stops_the_siblings_following() {
     let library = credit(CREDIT, &[0, 1, 2, 3]).await;
     names(&library, 0, &[NOVA]);
     names(&library, 1, &[NOVA]);
     names(&library, 2, &[NAMESAKE]);
     names(&library, 3, &[NOVA, NAMESAKE]);
     let receipt = library.run().await;
-    assert_eq!(receipt.matched, 2 + 1 + 17);
+    assert_eq!(receipt.matched, 3, "Only the tracks with their own answer");
     let provider = |index: usize| {
         let library = &library;
         async move {
@@ -133,13 +133,41 @@ async fn siblings_with_evidence_of_their_own_are_decided_by_it_not_by_the_credit
         }
     };
     assert_eq!(provider(2).await.as_deref(), Some(NAMESAKE));
-    assert_eq!(
-        provider(3).await,
-        None,
-        "A track whose own evidence names two artists stays undecided"
-    );
-    for index in [0, 1, 4, 20] {
-        assert_eq!(provider(index).await.as_deref(), Some(NOVA));
+    assert_eq!(provider(3).await, None);
+    assert_eq!(provider(4).await, None, "The credit names two artists");
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn two_matches_beside_thirty_uncertain_isrc_tracks_identify_nobody_else() {
+    let stated: Vec<usize> = (0..32).collect();
+    let entries: Vec<(&str, String, u64, Evidence)> = (0..38)
+        .map(|index| {
+            let evidence = if stated.contains(&index) {
+                stating(index)
+            } else {
+                Evidence::default()
+            };
+            (
+                CREDIT,
+                format!("Song {index}"),
+                100_000 + index as u64,
+                evidence,
+            )
+        })
+        .collect();
+    let entries: Vec<(&str, &str, u64, Evidence)> = entries
+        .iter()
+        .map(|(credit, title, length, evidence)| {
+            (*credit, title.as_str(), *length, evidence.clone())
+        })
+        .collect();
+    let library = NameLibrary::prepare_with_evidence(&entries).await;
+    names(&library, 0, &[NOVA]);
+    names(&library, 1, &[NOVA]);
+    assert_eq!(library.run().await.matched, 2);
+    for sibling in &library.recordings[32..] {
+        assert!(library.group_of(sibling).await.is_none());
     }
     library.origin.shutdown().await;
 }

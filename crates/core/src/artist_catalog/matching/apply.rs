@@ -76,8 +76,7 @@ impl EvidenceKind {
             Self::FileTagArtistId => Some(Origin::FileTagArtistId),
             Self::Isrc => Some(Origin::Isrc),
             Self::ProviderUrl => Some(Origin::ProviderUrl),
-            Self::NameDiscography => Some(Origin::NameDiscography),
-            Self::Credit(..) => None,
+            Self::NameDiscography | Self::Credit(..) => None,
         }
     }
 }

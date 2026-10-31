@@ -47,7 +47,7 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
             receipt.declined,
             receipt.unavailable
         ),
-        (5, 15, 0, 2),
+        (4, 16, 0, 2),
         "The ten recordings left over are counted once more by the name pass, which finds no namesake"
     );
     assert_eq!(
@@ -71,6 +71,7 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
         OTHER_ARTIST
     );
     for uncertain in [
+        &library.without_isrc,
         &library.ambiguous,
         &library.two_artists,
         &library.unknown,
@@ -84,11 +85,6 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
         assert!(library.group_of(uncertain).await.is_none());
         assert!(associations(&library, uncertain).await.is_empty());
     }
-    assert_eq!(
-        associations(&library, &library.without_isrc).await[0].evidence,
-        ArtistAssociationEvidence::MatchedCreditEvidence,
-        "A track without evidence follows the credit its ISRC-matched sibling identified"
-    );
     let groups = library
         .hito
         .artist_catalog
@@ -100,7 +96,7 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
         .iter()
         .map(|group| (group.provider_artist_id.clone(), group.recording_count))
         .collect();
-    assert!(counts.contains(&(ARTIST.to_string(), 4)), "{counts:?}");
+    assert!(counts.contains(&(ARTIST.to_string(), 3)), "{counts:?}");
     assert!(counts.contains(&(OTHER_ARTIST.to_string(), 2)));
     assert_eq!(
         recordings,
@@ -335,7 +331,7 @@ async fn batches_resume_from_a_cursor_until_every_recording_is_examined() {
             None => break,
         }
     }
-    assert_eq!(matched, 5);
+    assert_eq!(matched, 4);
     assert!(batches >= 4);
     library.origin.shutdown().await;
 }
@@ -368,7 +364,7 @@ async fn a_pass_cancelled_while_the_provider_is_slow_changes_nothing_and_can_be_
     assert_eq!(library.rows("artist_association_provider_matches").await, 0);
     assert_eq!(library.rows("artist_provider_checks").await, 0);
     library.musicbrainz.delay_replies(std::time::Duration::ZERO);
-    assert_eq!(library.run().await.matched, 5);
+    assert_eq!(library.run().await.matched, 4);
     library.origin.shutdown().await;
 }
 
