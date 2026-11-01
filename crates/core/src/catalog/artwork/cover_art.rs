@@ -14,6 +14,7 @@ const RETRY_AFTER_SECONDS: i64 = 86_400;
 pub enum CoverArtKind {
     Release,
     ReleaseGroup,
+    Artist,
 }
 
 impl CoverArtKind {
@@ -21,6 +22,7 @@ impl CoverArtKind {
         match segment {
             "release" => Some(Self::Release),
             "release-group" => Some(Self::ReleaseGroup),
+            "artist" => Some(Self::Artist),
             _ => None,
         }
     }
@@ -29,6 +31,7 @@ impl CoverArtKind {
         match self {
             Self::Release => "release",
             Self::ReleaseGroup => "release_group",
+            Self::Artist => "artist",
         }
     }
 
@@ -36,6 +39,7 @@ impl CoverArtKind {
         match value {
             "release" => Ok(Self::Release),
             "release_group" => Ok(Self::ReleaseGroup),
+            "artist" => Ok(Self::Artist),
             _ => Err(Error::Internal("Stored cover art kind is invalid".into())),
         }
     }
@@ -137,7 +141,28 @@ impl Catalog {
         };
         tx.commit().await?;
         actor.check_session(&self.store).await?;
+        if matches!(found, CoverArtLookup::Unknown) && kind == CoverArtKind::Artist {
+            return self.queue_artist_photo(actor, mbid).await;
+        }
         Ok(found)
+    }
+
+    async fn queue_artist_photo(&self, actor: &Actor, mbid: &str) -> Result<CoverArtLookup> {
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
+        enqueue(&mut tx, actor.id(), CoverArtKind::Artist, mbid).await?;
+        let queued: Option<String> = sqlx::query_scalar(
+            "SELECT state FROM cover_art_lookups WHERE user_id = ? AND kind = 'artist' AND mbid = ?",
+        )
+        .bind(actor.id())
+        .bind(mbid)
+        .fetch_optional(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(match queued.as_deref() {
+            Some("queued" | "running") => CoverArtLookup::Pending,
+            _ => CoverArtLookup::Unknown,
+        })
     }
 
     pub(super) async fn library_cover_art(
@@ -224,10 +249,6 @@ impl Catalog {
             );
             return Ok(true);
         }
-        let client_kind = match kind {
-            CoverArtKind::Release => CoverKind::Release,
-            CoverArtKind::ReleaseGroup => CoverKind::ReleaseGroup,
-        };
         let fetched = tokio::select! {
             biased;
             _ = shutdown => {
@@ -235,7 +256,7 @@ impl Catalog {
                 tracing::info!(event = "cover_art_interrupted", "Cover art lookup interrupted");
                 return Ok(true);
             }
-            fetched = self.cover_art.front(client_kind, &lookup.mbid) => fetched,
+            fetched = self.fetch_cover(kind, &lookup.mbid) => fetched,
         };
         let outcome = match fetched {
             Ok(Some(cover)) => {
@@ -284,6 +305,21 @@ impl Catalog {
             "Cover art lookup finished"
         );
         Ok(true)
+    }
+
+    async fn fetch_cover(
+        &self,
+        kind: CoverArtKind,
+        mbid: &str,
+    ) -> std::result::Result<
+        Option<hito_metadata_musicbrainz::CoverArt>,
+        hito_metadata_musicbrainz::Error,
+    > {
+        match kind {
+            CoverArtKind::Release => self.cover_art.front(CoverKind::Release, mbid).await,
+            CoverArtKind::ReleaseGroup => self.cover_art.front(CoverKind::ReleaseGroup, mbid).await,
+            CoverArtKind::Artist => self.artist_image.photo(mbid).await,
+        }
     }
 
     async fn claim_cover_lookup(&self) -> Result<Option<Lookup>> {

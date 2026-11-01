@@ -1,5 +1,7 @@
 #![allow(clippy::duplicate_mod)]
 
+mod artist_photos;
+mod artist_photos_upgrade;
 mod catalog_artists;
 mod catalog_artwork;
 mod catalog_genres;

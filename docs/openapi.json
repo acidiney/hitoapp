@@ -4475,7 +4475,7 @@
           {
             "name": "kind",
             "in": "path",
-            "description": "release or release-group",
+            "description": "release, release-group or artist",
             "required": true,
             "schema": {
               "type": "string"
@@ -4492,7 +4492,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Front cover fetched from the Cover Art Archive for this MusicBrainz identifier",
+            "description": "Front cover from the Cover Art Archive, or an artist photo from Wikimedia Commons, for this MusicBrainz identifier",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -4507,7 +4507,7 @@
             }
           },
           "202": {
-            "description": "The cover is queued or being retrieved; ask again shortly",
+            "description": "The image is queued or being retrieved; ask again shortly",
             "content": {
               "application/json": {
                 "schema": {
@@ -4526,7 +4526,7 @@
             }
           },
           "404": {
-            "description": "The archive has no cover, or none was asked for",
+            "description": "There is no image, or retrieval is switched off",
             "content": {
               "application/json": {
                 "schema": {
@@ -4545,7 +4545,7 @@
             }
           },
           "502": {
-            "description": "The archive could not be reached; it is asked again later",
+            "description": "The image source could not be reached; it is asked again later",
             "content": {
               "application/json": {
                 "schema": {
@@ -18879,6 +18879,20 @@
         "properties": {
           "artist": {
             "$ref": "#/components/schemas/CatalogArtistRef"
+          },
+          "begin_year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "disambiguation": {
             "type": [

@@ -125,6 +125,8 @@ fn expected_search(query: String) -> ArtistSearchPage {
                 },
                 kind: Some(CatalogArtistKind::Group),
                 disambiguation: Some("Owned acoustic ensemble".into()),
+                country: None,
+                begin_year: None,
             },
             ArtistSearchCandidate {
                 artist: CatalogArtistRef {
@@ -133,6 +135,8 @@ fn expected_search(query: String) -> ArtistSearchPage {
                 },
                 kind: None,
                 disambiguation: None,
+                country: None,
+                begin_year: None,
             },
         ],
         total_count: Some(2),

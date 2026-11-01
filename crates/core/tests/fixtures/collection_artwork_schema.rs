@@ -7,6 +7,8 @@ use std::borrow::Cow;
 pub mod account_schema;
 #[path = "album_edition_schema.rs"]
 pub mod album_schema;
+#[path = "artist_images_schema.rs"]
+pub mod artist_images_schema;
 #[path = "automatic_metadata_schema.rs"]
 pub mod automation_schema;
 #[path = "artist_association_changes_schema.rs"]
@@ -428,6 +430,10 @@ pub async fn reference_79() -> SqliteConnection {
     follow_approval_schema::reference(reference_78().await).await
 }
 
+pub async fn reference_80() -> SqliteConnection {
+    artist_images_schema::reference(reference_79().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -462,6 +468,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         77 => reference_77().await,
         78 => reference_78().await,
         79 => reference_79().await,
+        80 => reference_80().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -623,6 +630,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 79),
+    )
+    .chain(
+        artist_images_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 80),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

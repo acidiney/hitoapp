@@ -179,6 +179,18 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         host: config.host_device.clone(),
         directories: storage.directories.clone(),
     };
+    #[cfg(any(test, feature = "test-support"))]
+    let builtin_metadata = match config.musicbrainz_loopback_endpoint.clone() {
+        Some(endpoint) => {
+            hito_metadata_musicbrainz::MusicBrainzClient::with_loopback_endpoint(endpoint)
+        }
+        None => hito_metadata_musicbrainz::MusicBrainzClient::new(),
+    };
+    #[cfg(not(any(test, feature = "test-support")))]
+    let builtin_metadata = hito_metadata_musicbrainz::MusicBrainzClient::new();
+    let builtin_metadata = builtin_metadata.map_err(|_| {
+        Error::Internal("The built-in metadata client could not be initialized".into())
+    })?;
     let catalog = Catalog {
         community: community.clone(),
         plugins: plugins.clone(),
@@ -203,14 +215,31 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 Error::Internal("The cover art client could not be initialized".into())
             })?
         },
+        artist_image: {
+            #[cfg(any(test, feature = "test-support"))]
+            let client = match config.artist_image_loopback_endpoint.clone() {
+                Some(endpoint) => {
+                    hito_metadata_musicbrainz::ArtistImageClient::with_loopback_endpoint(
+                        builtin_metadata.clone(),
+                        endpoint,
+                    )
+                }
+                None => hito_metadata_musicbrainz::ArtistImageClient::new(builtin_metadata.clone()),
+            };
+            #[cfg(not(any(test, feature = "test-support")))]
+            let client =
+                hito_metadata_musicbrainz::ArtistImageClient::new(builtin_metadata.clone());
+            client.map_err(|_| {
+                Error::Internal("The artist image client could not be initialized".into())
+            })?
+        },
     };
     let artist_catalog = ArtistCatalog::new(
         catalog.clone(),
         store.clone(),
         plugins.clone(),
         config.host_device.clone(),
-        #[cfg(any(test, feature = "test-support"))]
-        config.musicbrainz_loopback_endpoint,
+        builtin_metadata,
     )?;
     let playback = PlaybackAccess {
         store: store.clone(),

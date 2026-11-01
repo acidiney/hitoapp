@@ -219,8 +219,9 @@ async fn cover_art_reads_are_private_validated_and_honest_about_unknown_covers()
         assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
     }
     for uri in [
-        "/api/v1/cover-art/artist/0f700000-0000-4000-8000-0000000000b1".to_string(),
+        "/api/v1/cover-art/artist/not-an-id".to_string(),
         "/api/v1/cover-art/release/not-an-id".to_string(),
+        "/api/v1/cover-art/playlist/0f700000-0000-4000-8000-0000000000b1".to_string(),
     ] {
         let response = app
             .clone()

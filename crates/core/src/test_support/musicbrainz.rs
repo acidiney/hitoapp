@@ -23,6 +23,7 @@ pub enum Reply {
     Discography(Vec<(String, Option<u64>)>),
     ReleaseGroups(Vec<(String, Option<String>)>),
     Genres(Vec<(String, u32)>),
+    WikidataLink(Option<String>),
     NotFound,
     Unavailable,
 }
@@ -34,6 +35,7 @@ struct State_ {
     delay: Duration,
     failing_after: HashMap<String, usize>,
     descriptions: HashMap<String, (String, String)>,
+    began: HashMap<String, String>,
 }
 
 pub struct FakeMusicBrainz {
@@ -114,6 +116,21 @@ impl FakeMusicBrainz {
             .unwrap()
             .descriptions
             .insert(artist.into(), (disambiguation.into(), country.into()));
+    }
+
+    pub fn began(&self, artist: &str, date: &str) {
+        self.state
+            .lock()
+            .unwrap()
+            .began
+            .insert(artist.into(), date.into());
+    }
+
+    pub fn links_of(&self, artist: &str, wikidata_entity: Option<&str>) {
+        self.state.lock().unwrap().replies.insert(
+            format!("artist-links/{artist}"),
+            Reply::WikidataLink(wikidata_entity.map(str::to_owned)),
+        );
     }
 
     pub fn recordings_of(&self, artist: &str, reply: Reply) {
@@ -239,12 +256,14 @@ fn probes(query: &str) -> Vec<(String, u64, u64)> {
 }
 
 type Descriptions = HashMap<String, (String, String)>;
+type Began = HashMap<String, String>;
 
 fn search_page(
     uri: &Uri,
     artists: &[(String, String, u32)],
     total: u32,
     descriptions: &Descriptions,
+    began: &Began,
 ) -> Value {
     let (offset, limit) = window(uri);
     let found: Vec<Value> = artists
@@ -253,8 +272,12 @@ fn search_page(
         .take(limit)
         .map(|(id, name, score)| {
             let (disambiguation, country) = descriptions.get(id).cloned().unwrap_or_default();
-            json!({"id": id, "name": name, "type": "Person", "disambiguation": disambiguation,
-                "country": country, "score": score})
+            let mut artist = json!({"id": id, "name": name, "type": "Person",
+                "disambiguation": disambiguation, "country": country, "score": score});
+            if let Some(date) = began.get(id) {
+                artist["life-span"] = json!({"begin": date, "ended": false});
+            }
+            artist
         })
         .collect();
     json!({"count": total, "offset": offset, "artists": found})
@@ -271,6 +294,13 @@ fn key(uri: &Uri) -> Option<String> {
             .is_some_and(|query| query.contains("inc=artist-credits"))
     {
         return Some(format!("recording-artists/{id}"));
+    }
+    if let Some(id) = path.strip_prefix("artist/")
+        && uri
+            .query()
+            .is_some_and(|query| query.contains("inc=url-rels"))
+    {
+        return Some(format!("artist-links/{id}"));
     }
     if let Some((entity, id)) = path.split_once('/')
         && matches!(entity, "artist" | "release-group" | "recording")
@@ -342,7 +372,7 @@ fn key_of_target(target: &str) -> Option<String> {
 }
 
 async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> Response {
-    let (reply, delay, descriptions) = {
+    let (reply, delay, descriptions, began) = {
         let mut state = state.lock().unwrap();
         state.requests.push(request.uri().to_string());
         let key = key(request.uri());
@@ -362,7 +392,12 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
         } else {
             key.and_then(|key| state.replies.get(&key).cloned())
         };
-        (reply, state.delay, state.descriptions.clone())
+        (
+            reply,
+            state.delay,
+            state.descriptions.clone(),
+            state.began.clone(),
+        )
     };
     tokio::time::sleep(delay).await;
     let (status, body) = match (key(request.uri()), reply) {
@@ -405,7 +440,7 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             let scored = scored(&key, &artists);
             (
                 StatusCode::OK,
-                search_page(request.uri(), &scored, total, &descriptions),
+                search_page(request.uri(), &scored, total, &descriptions, &began),
             )
         }
         (Some(key), Some(Reply::Candidates(artists))) => {
@@ -413,12 +448,12 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             let total = scored.len() as u32;
             (
                 StatusCode::OK,
-                search_page(request.uri(), &scored, total, &descriptions),
+                search_page(request.uri(), &scored, total, &descriptions, &began),
             )
         }
         (_, Some(Reply::Scored(artists, total))) => (
             StatusCode::OK,
-            search_page(request.uri(), &artists, total, &descriptions),
+            search_page(request.uri(), &artists, total, &descriptions, &began),
         ),
         (_, Some(Reply::Discography(recordings))) => {
             let (offset, limit) = window(request.uri());
@@ -472,6 +507,19 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             (
                 StatusCode::OK,
                 json!({"id": id, "genres": listed, "tags": [{"name": "not a genre", "count": 3}]}),
+            )
+        }
+        (Some(key), Some(Reply::WikidataLink(entity))) => {
+            let id = key.rsplit('/').next().unwrap_or_default();
+            let mut relations = vec![json!({"type": "official homepage", "target-type": "url",
+                "url": {"resource": "https://band.invalid/"}})];
+            if let Some(entity) = entity {
+                relations.push(json!({"type": "wikidata", "target-type": "url",
+                    "url": {"resource": format!("https://www.wikidata.org/wiki/{entity}")}}));
+            }
+            (
+                StatusCode::OK,
+                json!({"id": id, "name": "Owned", "relations": relations}),
             )
         }
         (_, Some(Reply::Unavailable)) => {

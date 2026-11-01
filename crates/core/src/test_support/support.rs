@@ -20,6 +20,15 @@ pub async fn library_with_services(
     musicbrainz: Option<url::Url>,
     cover_art: Option<url::Url>,
 ) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
+    library_with_artist_images(host, musicbrainz, cover_art, None).await
+}
+
+pub async fn library_with_artist_images(
+    host: &str,
+    musicbrainz: Option<url::Url>,
+    cover_art: Option<url::Url>,
+    artist_images: Option<url::Url>,
+) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");
     std::fs::create_dir(&music).unwrap();
@@ -30,6 +39,7 @@ pub async fn library_with_services(
     );
     config.musicbrainz_loopback_endpoint = musicbrainz;
     config.cover_art_loopback_endpoint = cover_art;
+    config.artist_image_loopback_endpoint = artist_images;
     let hito = open(config).await.unwrap();
     let session = hito
         .identity

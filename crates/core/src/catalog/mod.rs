@@ -81,5 +81,6 @@ pub struct Catalog {
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) local_files: local_files::LocalFiles,
     pub(crate) cover_art: hito_metadata_musicbrainz::CoverArtClient,
+    pub(crate) artist_image: hito_metadata_musicbrainz::ArtistImageClient,
     pub(crate) featured_cache: featured::FeaturedCache,
 }

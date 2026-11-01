@@ -3141,6 +3141,9 @@ export interface components {
         };
         ArtistSearchCandidate: {
             artist: components["schemas"]["CatalogArtistRef"];
+            /** Format: int32 */
+            begin_year?: number | null;
+            country?: string | null;
             disambiguation?: string | null;
             kind?: components["schemas"]["CatalogArtistKind"] | null;
         };
@@ -8700,7 +8703,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description release or release-group */
+                /** @description release, release-group or artist */
                 kind: string;
                 mbid: string;
             };
@@ -8708,7 +8711,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Front cover fetched from the Cover Art Archive for this MusicBrainz identifier */
+            /** @description Front cover from the Cover Art Archive, or an artist photo from Wikimedia Commons, for this MusicBrainz identifier */
             200: {
                 headers: {
                     /** @description private, no-store */
@@ -8720,7 +8723,7 @@ export interface operations {
                     "image/jpeg": unknown;
                 };
             };
-            /** @description The cover is queued or being retrieved; ask again shortly */
+            /** @description The image is queued or being retrieved; ask again shortly */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -8737,7 +8740,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The archive has no cover, or none was asked for */
+            /** @description There is no image, or retrieval is switched off */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -8754,7 +8757,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The archive could not be reached; it is asked again later */
+            /** @description The image source could not be reached; it is asked again later */
             502: {
                 headers: {
                     [name: string]: unknown;
