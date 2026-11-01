@@ -241,3 +241,43 @@ async fn featured_artwork_is_authenticated_checked_and_private_to_the_connection
     let (_, shelf) = call(&setup.app, "GET", SHELF, Value::Null, Some(listener)).await;
     assert_eq!(shelf, json!({"status": "unsupported"}));
 }
+
+#[tokio::test]
+async fn opening_a_featured_playlist_twice_keeps_one_copy_and_the_shelf_names_it() {
+    let setup = start().await;
+    let server = FeaturedServer::start().await;
+    let installation = connect(&setup, &server).await;
+    server.reply(Reply::Items(vec![item("a")]));
+    let path = format!("/api/v1/plugins/{}/playlists/open", installation.id);
+    let body = || {
+        json!({
+            "request_id": uuid::Uuid::new_v4(),
+            "installation_revision": installation.revision,
+            "playlist_reference": "https://provider.example/playlist/a"
+        })
+    };
+    assert_eq!(
+        call(&setup.app, "POST", &path, body(), None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, first) = call(&setup.app, "POST", &path, body(), Some(&setup.token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(first["reused"], false);
+    let (_, second) = call(&setup.app, "POST", &path, body(), Some(&setup.token)).await;
+    assert_eq!(second["reused"], true);
+    assert_eq!(second["playlist_id"], first["playlist_id"]);
+    let (_, playlists) = call(
+        &setup.app,
+        "GET",
+        "/api/v1/playlists",
+        Value::Null,
+        Some(&setup.token),
+    )
+    .await;
+    assert_eq!(playlists.as_array().unwrap().len(), 1);
+    let (_, shelf) = call(&setup.app, "GET", SHELF, Value::Null, Some(&setup.token)).await;
+    assert_eq!(
+        shelf["items"][0]["existing_playlist_id"],
+        first["playlist_id"]
+    );
+}

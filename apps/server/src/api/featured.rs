@@ -2,14 +2,14 @@ use super::artwork::image_response;
 use crate::{
     auth::Account,
     error::{ApiResult, ErrorResponse},
-    extract::QueryParams,
+    extract::{JsonBody, QueryParams},
 };
 use axum::{
     Json,
     extract::{Path, State},
     response::Response,
 };
-use hito_core::{FeaturedShelf, Services};
+use hito_core::{FeaturedShelf, ImportProviderPlaylist, OpenedProviderPlaylist, Services};
 use serde::Deserialize;
 use utoipa::IntoParams;
 
@@ -55,4 +55,28 @@ pub async fn artwork(
         .featured_artwork(&actor, &id, query.revision, &query.artwork)
         .await?;
     image_response(Some(cover))
+}
+
+#[utoipa::path(post, path = "/api/v1/plugins/{id}/playlists/open", operation_id = "open_provider_playlist",
+    params(("id" = String, Path)), request_body = ImportProviderPlaylist,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = OpenedProviderPlaylist), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn open_playlist(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<ImportProviderPlaylist>,
+) -> ApiResult<Json<OpenedProviderPlaylist>> {
+    Ok(Json(
+        services
+            .collection
+            .open_provider_playlist(&actor, &id, request)
+            .await?,
+    ))
 }
