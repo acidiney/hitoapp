@@ -17682,13 +17682,21 @@
         "required": [
           "group",
           "tracks",
-          "automatic_tracks"
+          "automatic_tracks",
+          "evidence"
         ],
         "properties": {
           "automatic_tracks": {
             "type": "integer",
             "format": "int64",
             "description": "Of those, the tracks Hito matched by itself."
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistMatchEvidence"
+            },
+            "description": "How those tracks were matched, the largest share first."
           },
           "group": {
             "$ref": "#/components/schemas/ArtistIdentityGroup"
@@ -17697,6 +17705,23 @@
             "type": "integer",
             "format": "int64",
             "description": "Tracks of the credit that currently use this artist."
+          }
+        }
+      },
+      "ArtistMatchEvidence": {
+        "type": "object",
+        "description": "Tracks of a credit that one kind of evidence matched to the chosen artist.",
+        "required": [
+          "evidence",
+          "tracks"
+        ],
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/ArtistAssociationEvidence"
+          },
+          "tracks": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

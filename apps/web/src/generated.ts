@@ -2899,11 +2899,19 @@ export interface components {
              * @description Of those, the tracks Hito matched by itself.
              */
             automatic_tracks: number;
+            /** @description How those tracks were matched, the largest share first. */
+            evidence: components["schemas"]["ArtistMatchEvidence"][];
             group: components["schemas"]["ArtistIdentityGroup"];
             /**
              * Format: int64
              * @description Tracks of the credit that currently use this artist.
              */
+            tracks: number;
+        };
+        /** @description Tracks of a credit that one kind of evidence matched to the chosen artist. */
+        ArtistMatchEvidence: {
+            evidence: components["schemas"]["ArtistAssociationEvidence"];
+            /** Format: int64 */
             tracks: number;
         };
         ArtistMatchReceipt: {

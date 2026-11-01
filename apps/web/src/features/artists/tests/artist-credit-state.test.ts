@@ -79,7 +79,14 @@ afterEach(() => vi.unstubAllGlobals());
 test("a credit matched automatically names its artist and offers no search", async () => {
   const paths = serve(
     suggestions({
-      chosen: [{ group: chosenGroup, tracks: 106, automatic_tracks: 106 }],
+      chosen: [
+        {
+          group: chosenGroup,
+          tracks: 106,
+          automatic_tracks: 106,
+          evidence: [],
+        },
+      ],
     }),
     status("idle"),
   );
@@ -141,8 +148,8 @@ test("a credit whose tracks map to several chosen artists lists each with its co
   serve(
     suggestions({
       chosen: [
-        { group: chosenGroup, tracks: 80, automatic_tracks: 80 },
-        { group: other, tracks: 26, automatic_tracks: 0 },
+        { group: chosenGroup, tracks: 80, automatic_tracks: 80, evidence: [] },
+        { group: other, tracks: 26, automatic_tracks: 0, evidence: [] },
       ],
     }),
     status("idle"),
@@ -152,4 +159,61 @@ test("a credit whose tracks map to several chosen artists lists each with its co
   expect(first.textContent).toContain("Ed Sheeran");
   expect(screen.getByText(/26 tracks · chosen by you/)).toBeTruthy();
   expect(screen.getAllByRole("link", { name: "Open artist" })).toHaveLength(2);
+});
+
+test("a credit says in plain words how its tracks were matched", async () => {
+  serve(
+    suggestions({
+      chosen: [
+        {
+          group: chosenGroup,
+          tracks: 112,
+          automatic_tracks: 108,
+          evidence: [
+            { evidence: "matched_credit_coverage", tracks: 85 },
+            { evidence: "matched_isrc", tracks: 1 },
+            { evidence: "matched_file_tag_artist_id", tracks: 12 },
+            { evidence: "matched_provider_url", tracks: 2 },
+            { evidence: "matched_name_discography", tracks: 5 },
+            { evidence: "matched_credit_evidence", tracks: 3 },
+            { evidence: "user_confirmed_candidate", tracks: 3 },
+            { evidence: "user_confirmed", tracks: 1 },
+          ],
+        },
+      ],
+    }),
+    status("idle"),
+  );
+  render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  const how = await screen.findByText(/^Matched from:/);
+  for (const part of [
+    "85 tracks: the share of this artist's tracks the credit covers",
+    "1 track: its ISRC",
+    "12 tracks: an artist identifier in the file's tags",
+    "2 tracks: the provider's artist page",
+    "5 tracks: the artist's name, corroborated by its recordings",
+    "3 tracks: other tracks of this credit",
+    "3 tracks: a candidate you confirmed",
+    "1 track: your own choice",
+  ])
+    expect(how.textContent).toContain(part);
+});
+
+test("a credit chosen only by the account lists no automatic evidence", async () => {
+  serve(
+    suggestions({
+      chosen: [
+        {
+          group: chosenGroup,
+          tracks: 4,
+          automatic_tracks: 0,
+          evidence: [{ evidence: "user_confirmed", tracks: 4 }],
+        },
+      ],
+    }),
+    status("idle"),
+  );
+  render(createElement(ArtistCreditIdentity, { account, artist: credit }));
+  await screen.findByText(/chosen by you/);
+  expect(screen.queryByText(/^Matched from:/)).toBeNull();
 });

@@ -64,3 +64,27 @@ export function associationEvidenceText(
     return coverageEvidenceText(association.coverage_evidence);
   return matched[evidence];
 }
+
+const tracksBy: Record<Association["evidence"], string> = {
+  matched_file_tag_artist_id: "an artist identifier in the file's tags",
+  matched_isrc: "its ISRC",
+  matched_provider_url: "the provider's artist page",
+  matched_name_discography: "the artist's name, corroborated by its recordings",
+  matched_credit_evidence: "other tracks of this credit",
+  matched_credit_coverage:
+    "the share of this artist's tracks the credit covers",
+  user_confirmed_candidate: "a candidate you confirmed",
+  user_confirmed: "your own choice",
+};
+
+/** How a credit's tracks reached their artist, or null when the account chose them all itself. */
+export function chosenEvidenceText(
+  evidence: Schema<"ArtistMatchChosen">["evidence"],
+): string | null {
+  if (evidence.every((how) => how.evidence === "user_confirmed")) return null;
+  const parts = evidence.map(
+    (how) =>
+      `${how.tracks === 1 ? "1 track" : `${how.tracks} tracks`}: ${tracksBy[how.evidence]}`,
+  );
+  return `Matched from: ${parts.join("; ")}`;
+}

@@ -6,6 +6,7 @@ import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
 import { useArtistMatchingStatus } from "../hooks/useArtistMatchingStatus";
 import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
 import Button from "../../../shared/ui/Button";
+import { chosenEvidenceText } from "../model/associationEvidence";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
@@ -50,20 +51,26 @@ export default function ArtistCreditIdentity({
     <section aria-label="Artist identity for this credit" aria-busy={busy}>
       <h2 className="discography-heading">Artist identity</h2>
       {read && read.chosen.length > 0 ? (
-        read.chosen.map((chosen) => (
-          <p key={chosen.group.id} aria-live="polite">
-            Artist: {chosen.group.name.value}
-            {read.chosen.length > 1 &&
-              ` · ${plural(chosen.tracks, "track", "tracks")}`}{" "}
-            · {provenance(chosen)}{" "}
-            <Link
-              className="text-link"
-              href={`/artist-groups/${encodeURIComponent(chosen.group.id)}`}
-            >
-              Open artist
-            </Link>
-          </p>
-        ))
+        read.chosen.map((chosen) => {
+          const how = chosenEvidenceText(chosen.evidence);
+          return (
+            <div key={chosen.group.id}>
+              <p aria-live="polite">
+                Artist: {chosen.group.name.value}
+                {read.chosen.length > 1 &&
+                  ` · ${plural(chosen.tracks, "track", "tracks")}`}{" "}
+                · {provenance(chosen)}{" "}
+                <Link
+                  className="text-link"
+                  href={`/artist-groups/${encodeURIComponent(chosen.group.id)}`}
+                >
+                  Open artist
+                </Link>
+              </p>
+              {how && <p className="muted">{how}</p>}
+            </div>
+          );
+        })
       ) : working ? (
         <p aria-live="polite">Hito is identifying this artist…</p>
       ) : (
