@@ -1,3 +1,5 @@
+#[path = "featured.rs"]
+mod featured;
 #[path = "support/fixture.rs"]
 mod fixture;
 #[path = "support/logging.rs"]
@@ -35,7 +37,13 @@ async fn search_to_explicit_audio_uses_typed_metadata_without_prefetching_media(
     assert_eq!(manifest.id, "org.hito.jamendo");
     assert_eq!(
         manifest.capabilities,
-        [Capability::Search, Capability::Sources].into()
+        [
+            Capability::Search,
+            Capability::Sources,
+            Capability::Playlists,
+            Capability::Featured
+        ]
+        .into()
     );
     assert!(manifest.authorization.is_none());
     assert_eq!(provider.requests(), 0, "manifest contacted the provider");

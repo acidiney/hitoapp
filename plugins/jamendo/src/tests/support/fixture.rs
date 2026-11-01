@@ -79,6 +79,8 @@ struct ProviderState {
     media: AtomicUsize,
     downloads: AtomicUsize,
     artwork: AtomicUsize,
+    albums: AtomicUsize,
+    album_changed: AtomicBool,
     rejected: AtomicBool,
 }
 
@@ -104,12 +106,16 @@ impl Provider {
             media: AtomicUsize::new(0),
             downloads: AtomicUsize::new(0),
             artwork: AtomicUsize::new(0),
+            albums: AtomicUsize::new(0),
+            album_changed: AtomicBool::new(false),
             rejected: AtomicBool::new(false),
         });
         let server = Server::serve(
             listener,
             Router::new()
                 .route("/v3.0/tracks/", get(tracks))
+                .route("/v3.0/albums/", get(albums))
+                .route("/v3.0/albums/tracks/", get(album_tracks))
                 .route("/audio/owned.wav", get(audio))
                 .route("/download/owned.wav", get(download))
                 .route("/artwork/owned.png", get(artwork))
@@ -154,6 +160,14 @@ impl Provider {
 
     pub fn artwork_requests(&self) -> usize {
         self.state.artwork.load(Ordering::SeqCst)
+    }
+
+    pub fn album_requests(&self) -> usize {
+        self.state.albums.load(Ordering::SeqCst)
+    }
+
+    pub fn change_album(&self) {
+        self.state.album_changed.store(true, Ordering::SeqCst);
     }
 
     pub fn rejected_request(&self) -> bool {
@@ -216,6 +230,87 @@ async fn tracks(
             "album_image": state.base.join("artwork/owned.png?private=artwork").unwrap(),
             "shareurl": format!("https://share.invalid/track/99?private=share&client_id={CLIENT_ID}"),
             "shorturl": format!("https://short.invalid/t/99?private=short&client_id={CLIENT_ID}")
+        }]
+    }))
+    .into_response()
+}
+
+async fn albums(
+    State(state): State<Arc<ProviderState>>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    state.albums.fetch_add(1, Ordering::SeqCst);
+    let permitted = ["client_id", "format", "order", "limit", "imagesize"];
+    if !private_headers_absent(&headers)
+        || query.get("client_id").is_none_or(|id| id != CLIENT_ID)
+        || query.get("format").is_none_or(|format| format != "json")
+        || query
+            .get("order")
+            .is_none_or(|order| order != "popularity_week")
+        || query.get("limit").is_none_or(|limit| limit != "12")
+        || query.keys().any(|key| !permitted.contains(&key.as_str()))
+    {
+        state.rejected.store(true, Ordering::SeqCst);
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    Json(json!({
+        "headers": {"status": "success", "code": 0, "error_message": "", "warnings": "", "results_count": 2},
+        "results": [
+            {"id": "23", "name": ALBUM, "artist_id": "17", "artist_name": ARTIST,
+             "releasedate": "2025-01-01",
+             "image": state.base.join("artwork/owned.png?private=artwork").unwrap(),
+             "shareurl": format!("https://share.invalid/album/23?private=share&client_id={CLIENT_ID}")},
+            {"id": "24", "name": "Second owned album", "artist_id": "18", "artist_name": "Second performer",
+             "releasedate": "2025-02-01",
+             "image": state.base.join("artwork/owned.png?private=artwork").unwrap()}
+        ]
+    }))
+    .into_response()
+}
+
+async fn album_tracks(
+    State(state): State<Arc<ProviderState>>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    state.albums.fetch_add(1, Ordering::SeqCst);
+    let permitted = ["client_id", "format", "id", "audioformat"];
+    if !private_headers_absent(&headers)
+        || query.get("client_id").is_none_or(|id| id != CLIENT_ID)
+        || query.get("format").is_none_or(|format| format != "json")
+        || query
+            .get("audioformat")
+            .is_none_or(|format| format != "mp32")
+        || query.keys().any(|key| !permitted.contains(&key.as_str()))
+    {
+        state.rejected.store(true, Ordering::SeqCst);
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let id = query.get("id").map(String::as_str).unwrap_or_default();
+    if id != "23" {
+        return Json(json!({
+            "headers": {"status": "success", "code": 0, "error_message": "", "warnings": "", "results_count": 0},
+            "results": []
+        }))
+        .into_response();
+    }
+    let audio = state.base.join("audio/owned.wav?private=stream").unwrap();
+    let mut tracks = vec![
+        json!({"id": "42", "name": TITLE, "duration": 1, "position": 1, "audio": audio,
+               "license_ccurl": "https://creativecommons.org/licenses/by/4.0/"}),
+        json!({"id": "43", "name": "Owned second signal", "duration": 2, "position": 2, "audio": audio}),
+    ];
+    if state.album_changed.load(Ordering::SeqCst) {
+        tracks.push(json!({"id": "44", "name": "Owned late signal", "duration": 3, "position": 3, "audio": audio}));
+    }
+    Json(json!({
+        "headers": {"status": "success", "code": 0, "error_message": "", "warnings": "", "results_count": 1},
+        "results": [{
+            "id": "23", "name": ALBUM, "artist_id": "17", "artist_name": ARTIST,
+            "releasedate": "2025-01-01",
+            "image": state.base.join("artwork/owned.png?private=artwork").unwrap(),
+            "tracks": tracks
         }]
     }))
     .into_response()

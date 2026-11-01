@@ -1,6 +1,6 @@
 use crate::{Config, InitError, error::Error};
 use axum::http::Method;
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -16,6 +16,7 @@ pub(crate) struct Transport {
     control: reqwest::Client,
     media: reqwest::Client,
     endpoint: Url,
+    albums: Url,
     client_id: Zeroizing<String>,
     slots: Arc<Semaphore>,
     #[cfg(test)]
@@ -43,9 +44,28 @@ pub(crate) struct Track {
 }
 
 #[derive(Deserialize)]
-struct Page {
+pub(crate) struct Album {
+    pub id: String,
+    pub name: String,
+    pub artist_name: String,
+    #[serde(default)]
+    pub tracks: Vec<AlbumTrack>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct AlbumTrack {
+    pub id: String,
+    pub name: String,
+    pub duration: u64,
+    pub position: Option<u32>,
+    #[serde(default)]
+    pub audio: String,
+}
+
+#[derive(Deserialize)]
+struct Page<T> {
     headers: Headers,
-    results: Vec<Track>,
+    results: Vec<T>,
 }
 
 #[derive(Deserialize)]
@@ -78,9 +98,14 @@ impl Transport {
             .pool_max_idle_per_host(0)
             .build()
             .map_err(|_| InitError::HttpClient)?;
+        let albums = config
+            .endpoint
+            .join("../albums/")
+            .map_err(|_| InitError::HttpClient)?;
         Ok(Self {
             control,
             media,
+            albums,
             endpoint: config.endpoint,
             client_id: config.client_id,
             slots: Arc::new(Semaphore::new(16)),
@@ -90,17 +115,57 @@ impl Transport {
     }
 
     pub(crate) async fn tracks(&self, selection: Selection<'_>) -> Result<Vec<Track>, Error> {
+        let operation = match &selection {
+            Selection::Search { .. } => "search",
+            Selection::Track(_) => "track",
+        };
+        self.observed(operation, self.read(selection)).await
+    }
+
+    pub(crate) async fn featured_albums(&self, limit: u16) -> Result<Vec<Album>, Error> {
+        let limit_value = limit;
+        let limit = limit.to_string();
+        self.observed(
+            "featured",
+            self.fetch(
+                self.albums.clone(),
+                &[("order", "popularity_week"), ("limit", limit.as_str())],
+                usize::from(limit_value),
+            ),
+        )
+        .await
+    }
+
+    pub(crate) async fn album(&self, id: &str) -> Result<Album, Error> {
+        let endpoint = self
+            .albums
+            .join("tracks/")
+            .map_err(|_| Error::InvalidRequest)?;
+        let mut albums: Vec<Album> = self
+            .observed(
+                "album",
+                self.fetch(endpoint, &[("id", id), ("audioformat", FORMAT)], 1),
+            )
+            .await?;
+        let album = albums.pop().ok_or(Error::NotFound)?;
+        if album.id != id {
+            return Err(Error::InvalidResponse);
+        }
+        Ok(album)
+    }
+
+    async fn observed<T>(
+        &self,
+        operation: &'static str,
+        work: impl std::future::Future<Output = Result<Vec<T>, Error>>,
+    ) -> Result<Vec<T>, Error> {
         let _permit = self
             .slots
             .clone()
             .try_acquire_owned()
             .map_err(|_| Error::Busy)?;
         let started = Instant::now();
-        let operation = match &selection {
-            Selection::Search { .. } => "search",
-            Selection::Track(_) => "track",
-        };
-        let result = self.read(selection).await;
+        let result = work.await;
         tracing::debug!(
             event = "jamendo_provider_complete",
             operation,
@@ -115,29 +180,45 @@ impl Transport {
     }
 
     async fn read(&self, selection: Selection<'_>) -> Result<Vec<Track>, Error> {
-        let mut endpoint = self.endpoint.clone();
-        let maximum = match &selection {
-            Selection::Search { limit, .. } => usize::from(*limit),
-            Selection::Track(_) => 1,
+        let (maximum, pairs) = match &selection {
+            Selection::Search { query, limit } => (
+                usize::from(*limit),
+                vec![
+                    ("type", "single albumtrack".to_owned()),
+                    ("audioformat", FORMAT.to_owned()),
+                    ("search", (*query).to_owned()),
+                    ("limit", limit.to_string()),
+                    ("offset", "0".to_owned()),
+                ],
+            ),
+            Selection::Track(id) => (
+                1,
+                vec![
+                    ("type", "single albumtrack".to_owned()),
+                    ("audioformat", FORMAT.to_owned()),
+                    ("id", (*id).to_owned()),
+                ],
+            ),
         };
+        let pairs: Vec<(&str, &str)> = pairs
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect();
+        self.fetch(self.endpoint.clone(), &pairs, maximum).await
+    }
+
+    async fn fetch<T: DeserializeOwned>(
+        &self,
+        mut endpoint: Url,
+        pairs: &[(&str, &str)],
+        maximum: usize,
+    ) -> Result<Vec<T>, Error> {
         {
             let mut query = endpoint.query_pairs_mut();
             query.append_pair("client_id", &self.client_id);
             query.append_pair("format", "json");
-            query.append_pair("type", "single albumtrack");
-            query.append_pair("audioformat", FORMAT);
-            match selection {
-                Selection::Search {
-                    query: search,
-                    limit,
-                } => {
-                    query.append_pair("search", search);
-                    query.append_pair("limit", &limit.to_string());
-                    query.append_pair("offset", "0");
-                }
-                Selection::Track(id) => {
-                    query.append_pair("id", id);
-                }
+            for (key, value) in pairs {
+                query.append_pair(key, value);
             }
         }
         let mut response = self
@@ -162,7 +243,7 @@ impl Transport {
             }
             bytes.extend_from_slice(&chunk);
         }
-        let page: Page = serde_json::from_slice(&bytes).map_err(|_| Error::InvalidResponse)?;
+        let page: Page<T> = serde_json::from_slice(&bytes).map_err(|_| Error::InvalidResponse)?;
         match page.headers.code {
             0 if matches!(page.headers.status.as_str(), "success" | "succeed") => {}
             6 => return Err(Error::Busy),

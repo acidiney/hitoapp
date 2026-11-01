@@ -45,7 +45,13 @@ fn runtime_manifest_rejections_and_joined_shutdown_keep_operator_inputs_private(
     assert_eq!(manifest.id, "org.hito.jamendo");
     assert_eq!(
         manifest.capabilities,
-        [Capability::Search, Capability::Sources].into()
+        [
+            Capability::Search,
+            Capability::Sources,
+            Capability::Playlists,
+            Capability::Featured
+        ]
+        .into()
     );
     assert!(manifest.authorization.is_none());
     for path in ["/v1/download", "/v1/cache"] {

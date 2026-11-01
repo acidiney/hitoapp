@@ -13,8 +13,9 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::{
-    Capability, ContentPolicy, Manifest, PROTOCOL_VERSION, ProviderRecording, RecordingRequest,
-    SearchPage, SearchRequest, SourcePage, SourcePersistence,
+    Capability, ContentPolicy, FeaturedPage, FeaturedRequest, Manifest, PROTOCOL_VERSION,
+    PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage, ProviderPlaylist, ProviderRecording,
+    RecordingRequest, SearchPage, SearchRequest, SourcePage, SourcePersistence,
 };
 use std::{
     sync::Arc,
@@ -36,6 +37,9 @@ pub fn router(config: Config) -> Result<Router, InitError> {
         .route("/v1/search", post(search))
         .route("/v1/recordings/detail", post(detail))
         .route("/v1/sources", post(sources))
+        .route("/v1/featured", post(featured))
+        .route("/v1/playlists/detail", post(playlist_detail))
+        .route("/v1/playlists/items", post(playlist_items))
         .route("/v1/audio", get(audio_response))
         .layer(DefaultBodyLimit::max(4096))
         .layer(from_fn(observe))
@@ -47,7 +51,13 @@ async fn manifest() -> Json<Manifest> {
         id: "org.hito.jamendo".into(),
         name: "Jamendo music".into(),
         protocol_version: PROTOCOL_VERSION,
-        capabilities: [Capability::Search, Capability::Sources].into(),
+        capabilities: [
+            Capability::Search,
+            Capability::Sources,
+            Capability::Playlists,
+            Capability::Featured,
+        ]
+        .into(),
         authorization: None,
         content_policy: Some(ContentPolicy {
             source_persistence: SourcePersistence::PlaybackOnly,
@@ -61,6 +71,30 @@ async fn search(
 ) -> Result<Json<SearchPage>, Error> {
     let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
     state.catalog.search(request).await.map(Json)
+}
+
+async fn featured(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<FeaturedRequest>, JsonRejection>,
+) -> Result<Json<FeaturedPage>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+    state.catalog.featured(request).await.map(Json)
+}
+
+async fn playlist_detail(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<PlaylistDetailRequest>, JsonRejection>,
+) -> Result<Json<ProviderPlaylist>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+    state.catalog.playlist_detail(request).await.map(Json)
+}
+
+async fn playlist_items(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<PlaylistItemsRequest>, JsonRejection>,
+) -> Result<Json<PlaylistPage>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+    state.catalog.playlist_items(request).await.map(Json)
 }
 
 async fn detail(
@@ -105,6 +139,9 @@ async fn observe(request: Request, next: Next) -> Response {
         "/v1/recordings/detail" => "detail",
         "/v1/sources" => "sources",
         "/v1/audio" => "audio",
+        "/v1/featured" => "featured",
+        "/v1/playlists/detail" => "playlist_detail",
+        "/v1/playlists/items" => "playlist_items",
         _ => "unknown",
     };
     let span = tracing::debug_span!("jamendo_request", %request_id, operation);

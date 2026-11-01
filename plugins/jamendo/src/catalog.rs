@@ -1,11 +1,14 @@
 use crate::{
     error::Error,
-    transport::{FORMAT, Selection, Track, Transport},
+    transport::{Album, FORMAT, Selection, Track, Transport},
 };
 use hito_plugin_sdk::{
-    ProviderRecording, ProviderRelease, ProviderSource, RecordingAttribution, SearchPage,
-    SearchRequest, SourcePage,
+    FeaturedItem, FeaturedKind, FeaturedPage, FeaturedRequest, PlaylistAttribution,
+    PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage, ProviderPlaylist,
+    ProviderPlaylistEntry, ProviderPlaylistItem, ProviderRecording, ProviderRelease,
+    ProviderSource, RecordingAttribution, SearchPage, SearchRequest, SourcePage,
 };
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use url::Url;
 
@@ -66,6 +69,106 @@ impl Catalog {
                 ready,
             }],
         })
+    }
+
+    pub(crate) async fn featured(&self, request: FeaturedRequest) -> Result<FeaturedPage, Error> {
+        request.validate().map_err(|_| Error::InvalidRequest)?;
+        let albums = self.transport.featured_albums(request.limit).await?;
+        let items = albums
+            .iter()
+            .map(|album| {
+                let reference =
+                    album_reference(numeric_id(&album.id).ok_or(Error::InvalidResponse)?);
+                Ok(FeaturedItem {
+                    id: reference.clone(),
+                    title: album.name.clone(),
+                    subtitle: Some(album.artist_name.clone())
+                        .filter(|name| !name.trim().is_empty()),
+                    kind: FeaturedKind::Album,
+                    reference,
+                    artwork_id: None,
+                    item_count: None,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let page = FeaturedPage { items };
+        page.validate_for(&request)
+            .map_err(|_| Error::InvalidResponse)?;
+        Ok(page)
+    }
+
+    pub(crate) async fn playlist_detail(
+        &self,
+        request: PlaylistDetailRequest,
+    ) -> Result<ProviderPlaylist, Error> {
+        request.validate().map_err(|_| Error::InvalidRequest)?;
+        let owner = match &request {
+            PlaylistDetailRequest::Reference { reference } => album_from_reference(reference)?,
+            PlaylistDetailRequest::Canonical { playlist_id } => album_owner(playlist_id)?,
+        };
+        let album = self.transport.album(owner).await?;
+        let detail = ProviderPlaylist {
+            id: album_reference(owner),
+            name: album.name.clone(),
+            snapshot: snapshot(&album),
+            total_count: u32::try_from(album.tracks.len()).map_err(|_| Error::InvalidResponse)?,
+            attribution: PlaylistAttribution {
+                label: "Jamendo".into(),
+            },
+        };
+        detail.validate().map_err(|_| Error::InvalidResponse)?;
+        Ok(detail)
+    }
+
+    pub(crate) async fn playlist_items(
+        &self,
+        request: PlaylistItemsRequest,
+    ) -> Result<PlaylistPage, Error> {
+        request.validate().map_err(|_| Error::InvalidRequest)?;
+        let owner = album_owner(&request.playlist_id)?;
+        let offset = match request.cursor.as_deref() {
+            None => 0,
+            Some(cursor) => cursor.parse::<usize>().map_err(|_| Error::InvalidRequest)?,
+        };
+        let album = self.transport.album(owner).await?;
+        if snapshot(&album) != request.snapshot {
+            return Err(Error::Stale);
+        }
+        let limit = usize::from(request.limit);
+        let items = album
+            .tracks
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|track| {
+                let track = Track {
+                    id: track.id.clone(),
+                    name: track.name.clone(),
+                    artist_name: album.artist_name.clone(),
+                    duration: track.duration,
+                    album_id: album.id.clone(),
+                    album_name: album.name.clone(),
+                    position: track.position,
+                    audio: track.audio.clone(),
+                };
+                Ok(ProviderPlaylistEntry {
+                    occurrence_id: None,
+                    item: ProviderPlaylistItem::Recording {
+                        recording: Box::new(recording(&track)?),
+                    },
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let consumed = offset.saturating_add(items.len());
+        let page = PlaylistPage {
+            playlist_id: album_reference(owner),
+            snapshot: request.snapshot,
+            next_cursor: (consumed < album.tracks.len()).then(|| consumed.to_string()),
+            items,
+        };
+        page.validate(request.limit)
+            .map_err(|_| Error::InvalidResponse)?;
+        Ok(page)
     }
 
     pub(crate) async fn stream(&self, source_id: &str) -> Result<Url, Error> {
@@ -159,4 +262,44 @@ fn numeric_id(value: &str) -> Option<&str> {
         return None;
     }
     Some(value)
+}
+
+fn album_reference(owner: &str) -> String {
+    format!("jamendo:album:v1:{owner}")
+}
+
+fn album_owner(value: &str) -> Result<&str, Error> {
+    value
+        .strip_prefix("jamendo:album:v1:")
+        .and_then(numeric_id)
+        .ok_or(Error::InvalidRequest)
+}
+
+fn album_from_reference(reference: &str) -> Result<&str, Error> {
+    if reference.starts_with("jamendo:") {
+        return album_owner(reference);
+    }
+    let rest = reference
+        .strip_prefix("https://www.jamendo.com/album/")
+        .or_else(|| reference.strip_prefix("https://jamendo.com/album/"))
+        .ok_or(Error::InvalidRequest)?;
+    let owner = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    numeric_id(owner).ok_or(Error::InvalidRequest)
+}
+
+fn snapshot(album: &Album) -> String {
+    let mut digest = Sha256::new();
+    digest.update(album.name.as_bytes());
+    for track in &album.tracks {
+        digest.update([0]);
+        digest.update(track.id.as_bytes());
+        digest.update([0]);
+        digest.update(track.name.as_bytes());
+        digest.update(track.duration.to_le_bytes());
+    }
+    let hash = digest.finalize();
+    hash.iter()
+        .take(16)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }

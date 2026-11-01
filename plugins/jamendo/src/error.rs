@@ -9,6 +9,7 @@ pub(crate) enum Error {
     InvalidRequest,
     InvalidRange,
     NotFound,
+    Stale,
     Busy,
     Unavailable,
     InvalidResponse,
@@ -20,6 +21,7 @@ impl Error {
         match self {
             Self::InvalidRequest | Self::InvalidRange => "invalid_request",
             Self::NotFound => "not_found",
+            Self::Stale => "stale",
             Self::Busy => "capacity",
             Self::Unavailable => "unavailable",
             Self::InvalidResponse => "invalid_response",
@@ -37,6 +39,7 @@ impl IntoResponse for Error {
                 "The audio range is unsupported",
             ),
             Self::NotFound => (StatusCode::NOT_FOUND, "The Jamendo source was not found"),
+            Self::Stale => (StatusCode::CONFLICT, "The Jamendo album changed"),
             Self::Busy => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The Jamendo service is busy. Try again later",
