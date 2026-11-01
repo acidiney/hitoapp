@@ -232,35 +232,54 @@ async fn chosen_artists(
     artist: &str,
 ) -> Result<Vec<ArtistMatchChosen>> {
     let mut query = QueryBuilder::<Sqlite>::new(
-        "SELECT choice.group_id,
-            COALESCE((SELECT m.evidence_kind FROM artist_association_matches m WHERE m.association_id=choice.association_id),
-                (SELECT m.evidence_kind FROM artist_association_provider_matches m WHERE m.association_id=choice.association_id),
-                (SELECT m.evidence_kind FROM artist_association_name_matches m WHERE m.association_id=choice.association_id),
-                (SELECT 'credit' FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id),
-                (SELECT 'coverage' FROM artist_association_coverage_matches m WHERE m.association_id=choice.association_id),
-                (SELECT m.evidence_kind FROM artist_association_candidate_confirmations m WHERE m.association_id=choice.association_id),
-                'user_confirmed') AS kind,
-            count(*) ",
+        "SELECT current.group_id,
+            CASE WHEN tag.association_id IS NOT NULL THEN tag.evidence_kind
+                WHEN provider.association_id IS NOT NULL THEN provider.evidence_kind
+                WHEN name.association_id IS NOT NULL THEN name.evidence_kind
+                WHEN credit.association_id IS NOT NULL THEN 'credit'
+                WHEN coverage.association_id IS NOT NULL THEN 'coverage'
+                WHEN confirmed.association_id IS NOT NULL THEN confirmed.evidence_kind END AS kind,
+            count(*)
+         FROM (SELECT choice.group_id AS group_id,choice.association_id AS association_id ",
     );
     query.push(current_choices());
     query
         .push_bind(actor.id().to_owned())
         .push(" AND choice.artist_id=")
         .push_bind(artist.to_owned())
-        .push(" GROUP BY choice.group_id,kind ORDER BY count(*) DESC,kind");
-    let rows: Vec<(String, String, i64)> =
+        .push(
+            ") current
+         LEFT JOIN artist_association_matches tag ON tag.association_id=current.association_id
+         LEFT JOIN artist_association_provider_matches provider ON provider.association_id=current.association_id
+         LEFT JOIN artist_association_name_matches name ON name.association_id=current.association_id
+         LEFT JOIN artist_association_credit_matches credit ON credit.association_id=current.association_id
+         LEFT JOIN artist_association_coverage_matches coverage ON coverage.association_id=current.association_id
+         LEFT JOIN artist_association_candidate_confirmations confirmed ON confirmed.association_id=current.association_id
+         GROUP BY current.group_id,kind ORDER BY count(*) DESC,kind",
+        );
+    let rows: Vec<(String, Option<String>, i64)> =
         query.build_query_as().fetch_all(&mut *connection).await?;
     let mut by_group: HashMap<String, Vec<ArtistMatchEvidence>> = HashMap::new();
     for (group, kind, tracks) in rows {
-        let evidence = match kind.as_str() {
-            "file_tag_artist_id" => ArtistAssociationEvidence::MatchedFileTagArtistId,
-            "isrc" => ArtistAssociationEvidence::MatchedIsrc,
-            "provider_url" => ArtistAssociationEvidence::MatchedProviderUrl,
-            "name_discography" => ArtistAssociationEvidence::MatchedNameDiscography,
-            "credit" => ArtistAssociationEvidence::MatchedCreditEvidence,
-            "coverage" => ArtistAssociationEvidence::MatchedCreditCoverage,
-            "user_confirmed_candidate" => ArtistAssociationEvidence::UserConfirmedCandidate,
-            _ => ArtistAssociationEvidence::UserConfirmed,
+        let evidence = match kind.as_deref() {
+            None => ArtistAssociationEvidence::UserConfirmed,
+            Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
+            Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
+            Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
+            Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
+            Some("credit") => ArtistAssociationEvidence::MatchedCreditEvidence,
+            Some("coverage") => ArtistAssociationEvidence::MatchedCreditCoverage,
+            Some("user_confirmed_candidate") => ArtistAssociationEvidence::UserConfirmedCandidate,
+            Some(_) => {
+                tracing::error!(
+                    operation = "artist_match_chosen",
+                    outcome = "invalid_provenance",
+                    "Stored artist match provenance is invalid"
+                );
+                return Err(Error::Internal(
+                    "Stored artist match provenance is invalid".into(),
+                ));
+            }
         };
         by_group
             .entry(group)
