@@ -51,6 +51,7 @@ pub struct CoreConfig {
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
     pub folder_watching: crate::FolderWatchSettings,
+    pub metadata_contact: Option<String>,
     #[cfg(any(test, feature = "test-support"))]
     pub musicbrainz_loopback_endpoint: Option<url::Url>,
     #[cfg(any(test, feature = "test-support"))]
@@ -94,6 +95,7 @@ impl CoreConfig {
             community: None,
             community_rankings: None,
             folder_watching: Default::default(),
+            metadata_contact: None,
             #[cfg(any(test, feature = "test-support"))]
             musicbrainz_loopback_endpoint: None,
             #[cfg(any(test, feature = "test-support"))]

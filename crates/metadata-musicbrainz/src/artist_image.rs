@@ -1,4 +1,6 @@
-use crate::{CoverArt, Error, MusicBrainzClient, cover_art::read_image, identifiers};
+use crate::{
+    CoverArt, Error, MusicBrainzClient, cover_art::read_image, identifiers, user_agent::user_agent,
+};
 use serde_json::Value;
 use std::{
     sync::{Arc, OnceLock},
@@ -27,16 +29,18 @@ pub struct ArtistImageClient {
     wikidata: reqwest::Url,
     commons: reqwest::Url,
     loopback: bool,
+    user_agent: String,
     next_start: Arc<Mutex<Option<Instant>>>,
 }
 
 impl ArtistImageClient {
-    pub fn new(musicbrainz: MusicBrainzClient) -> Result<Self, Error> {
+    pub fn new(musicbrainz: MusicBrainzClient, contact: Option<&str>) -> Result<Self, Error> {
         Ok(Self::build(
             musicbrainz,
             WIKIDATA_ROOT.parse().map_err(|_| Error::Configuration)?,
             COMMONS_ROOT.parse().map_err(|_| Error::Configuration)?,
             false,
+            user_agent(contact)?,
         ))
     }
 
@@ -58,7 +62,13 @@ impl ArtistImageClient {
         {
             return Err(Error::Configuration);
         }
-        Ok(Self::build(musicbrainz, endpoint.clone(), endpoint, true))
+        Ok(Self::build(
+            musicbrainz,
+            endpoint.clone(),
+            endpoint,
+            true,
+            user_agent(None)?,
+        ))
     }
 
     fn build(
@@ -66,6 +76,7 @@ impl ArtistImageClient {
         wikidata: reqwest::Url,
         commons: reqwest::Url,
         loopback: bool,
+        user_agent: String,
     ) -> Self {
         Self {
             musicbrainz,
@@ -73,6 +84,7 @@ impl ArtistImageClient {
             wikidata,
             commons,
             loopback,
+            user_agent,
             next_start: Arc::new(Mutex::new(None)),
         }
     }
@@ -90,11 +102,7 @@ impl ArtistImageClient {
             .connect_timeout(Duration::from_secs(3))
             .timeout(Duration::from_secs(15))
             .retry(reqwest::retry::never())
-            .user_agent(concat!(
-                "Hito/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            .user_agent(&self.user_agent)
             .build()
             .map_err(|_| Error::Configuration)?;
         Ok(self.client.get_or_init(|| client))

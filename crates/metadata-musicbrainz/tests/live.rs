@@ -51,7 +51,7 @@ async fn exercise(
         }
         error_code(error)
     };
-    let client = MusicBrainzClient::new().map_err(provider_error)?;
+    let client = MusicBrainzClient::new(None).map_err(provider_error)?;
     let search_request = ArtistSearchRequest {
         query: "Radiohead".into(),
         cursor: None,

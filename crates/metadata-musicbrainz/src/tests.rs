@@ -184,11 +184,7 @@ async fn artist_profile_uses_identified_json_requests_and_rejects_another_return
                 .headers
                 .get("user-agent")
                 .and_then(|value| value.to_str().ok()),
-            Some(concat!(
-                "Hito/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            Some(concat!("Hito/", env!("CARGO_PKG_VERSION")))
         );
         assert!(request.headers.get("authorization").is_none());
         assert!(request.headers.get("cookie").is_none());

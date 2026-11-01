@@ -9,6 +9,7 @@ mod identifiers;
 mod projection;
 mod search;
 mod transport;
+mod user_agent;
 
 pub use artist_image::ArtistImageClient;
 pub use client::MusicBrainzClient;

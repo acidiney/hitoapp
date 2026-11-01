@@ -88,3 +88,7 @@ Browsers with Web Crypto retain encrypted Inertia history. On local HTTP without
 Cookie-authenticated mutations send `X-Hito-Request: 1`. API clients can use bearer tokens. Login/setup have per-client rate limits, bounded request bodies, a body-read timeout, and limited password-hashing concurrency. Do not trust arbitrary forwarded IP headers; the server uses its actual connection peer. Behind a reverse proxy, shared peer limits apply until trusted-proxy handling is implemented.
 
 Logs omit session tokens and request bodies. Compose enables structured JSON with bounded rotation. [Logging](logging.md) documents filters, browser logs, correlation, and redaction tests. Plugin installation and credential workflows have dedicated trace-redaction checks. Future capability operations and official provider adapters require their own verification before release.
+
+## Metadata contact
+
+`HITO_METADATA_CONTACT` is optional. When set, it is added to the User-Agent of the requests the server makes to MusicBrainz, the Cover Art Archive, Wikidata and Wikimedia Commons, as `Hito/<version> (<contact>)`, so those services can reach the operator. Use an address or page you are willing to publish to them. It must be 1 to 128 visible ASCII characters with no spaces or parentheses; any other value stops the server from starting. Unset, the User-Agent is `Hito/<version>`. The value is never logged or sent elsewhere.

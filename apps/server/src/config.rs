@@ -104,6 +104,10 @@ impl RuntimeConfig {
                 .ok()
                 .as_deref(),
         )?;
+        config.core.metadata_contact = std::env::var("HITO_METADATA_CONTACT")
+            .ok()
+            .map(|contact| contact.trim().to_owned())
+            .filter(|contact| !contact.is_empty());
         config.listen = std::env::var("HITO_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:8080".into())
             .parse()?;

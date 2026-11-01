@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, user_agent::user_agent};
 use std::{
     sync::{Arc, OnceLock},
     time::Duration,
@@ -36,12 +36,17 @@ pub struct CoverArtClient {
     client: Arc<OnceLock<reqwest::Client>>,
     endpoint: reqwest::Url,
     loopback: bool,
+    user_agent: String,
     next_start: Arc<Mutex<Option<Instant>>>,
 }
 
 impl CoverArtClient {
-    pub fn new() -> Result<Self, Error> {
-        Self::build(CAA_ROOT.parse().map_err(|_| Error::Configuration)?, false)
+    pub fn new(contact: Option<&str>) -> Result<Self, Error> {
+        Self::build(
+            CAA_ROOT.parse().map_err(|_| Error::Configuration)?,
+            false,
+            user_agent(contact)?,
+        )
     }
 
     #[cfg(any(test, feature = "test-support"))]
@@ -59,14 +64,15 @@ impl CoverArtClient {
         {
             return Err(Error::Configuration);
         }
-        Self::build(endpoint, true)
+        Self::build(endpoint, true, user_agent(None)?)
     }
 
-    fn build(endpoint: reqwest::Url, loopback: bool) -> Result<Self, Error> {
+    fn build(endpoint: reqwest::Url, loopback: bool, user_agent: String) -> Result<Self, Error> {
         Ok(Self {
             client: Default::default(),
             endpoint,
             loopback,
+            user_agent,
             next_start: Arc::new(Mutex::new(None)),
         })
     }
@@ -84,11 +90,7 @@ impl CoverArtClient {
             .connect_timeout(Duration::from_secs(3))
             .timeout(Duration::from_secs(15))
             .retry(reqwest::retry::never())
-            .user_agent(concat!(
-                "Hito/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            .user_agent(&self.user_agent)
             .build()
             .map_err(|_| Error::Configuration)?;
         Ok(self.client.get_or_init(|| client))

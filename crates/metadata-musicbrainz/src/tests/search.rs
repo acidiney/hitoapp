@@ -213,11 +213,7 @@ async fn artist_search_escapes_literal_queries_and_preserves_distinct_paginated_
                 .headers
                 .get("user-agent")
                 .and_then(|value| value.to_str().ok()),
-            Some(concat!(
-                "Hito/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            Some(concat!("Hito/", env!("CARGO_PKG_VERSION")))
         );
         for private_header in ["authorization", "cookie", "x-hito-plugin-protocol"] {
             assert!(observed.headers.get(private_header).is_none());

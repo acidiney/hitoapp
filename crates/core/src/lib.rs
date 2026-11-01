@@ -184,10 +184,13 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         Some(endpoint) => {
             hito_metadata_musicbrainz::MusicBrainzClient::with_loopback_endpoint(endpoint)
         }
-        None => hito_metadata_musicbrainz::MusicBrainzClient::new(),
+        None => {
+            hito_metadata_musicbrainz::MusicBrainzClient::new(config.metadata_contact.as_deref())
+        }
     };
     #[cfg(not(any(test, feature = "test-support")))]
-    let builtin_metadata = hito_metadata_musicbrainz::MusicBrainzClient::new();
+    let builtin_metadata =
+        hito_metadata_musicbrainz::MusicBrainzClient::new(config.metadata_contact.as_deref());
     let builtin_metadata = builtin_metadata.map_err(|_| {
         Error::Internal("The built-in metadata client could not be initialized".into())
     })?;
@@ -207,10 +210,13 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 Some(endpoint) => {
                     hito_metadata_musicbrainz::CoverArtClient::with_loopback_endpoint(endpoint)
                 }
-                None => hito_metadata_musicbrainz::CoverArtClient::new(),
+                None => hito_metadata_musicbrainz::CoverArtClient::new(
+                    config.metadata_contact.as_deref(),
+                ),
             };
             #[cfg(not(any(test, feature = "test-support")))]
-            let client = hito_metadata_musicbrainz::CoverArtClient::new();
+            let client =
+                hito_metadata_musicbrainz::CoverArtClient::new(config.metadata_contact.as_deref());
             client.map_err(|_| {
                 Error::Internal("The cover art client could not be initialized".into())
             })?
@@ -224,11 +230,16 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                         endpoint,
                     )
                 }
-                None => hito_metadata_musicbrainz::ArtistImageClient::new(builtin_metadata.clone()),
+                None => hito_metadata_musicbrainz::ArtistImageClient::new(
+                    builtin_metadata.clone(),
+                    config.metadata_contact.as_deref(),
+                ),
             };
             #[cfg(not(any(test, feature = "test-support")))]
-            let client =
-                hito_metadata_musicbrainz::ArtistImageClient::new(builtin_metadata.clone());
+            let client = hito_metadata_musicbrainz::ArtistImageClient::new(
+                builtin_metadata.clone(),
+                config.metadata_contact.as_deref(),
+            );
             client.map_err(|_| {
                 Error::Internal("The artist image client could not be initialized".into())
             })?

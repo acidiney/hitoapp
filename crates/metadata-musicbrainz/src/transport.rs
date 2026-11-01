@@ -15,7 +15,7 @@ pub(super) struct Transport {
 }
 
 impl Transport {
-    pub(super) fn new(endpoint: reqwest::Url) -> Result<Self, Error> {
+    pub(super) fn new(endpoint: reqwest::Url, user_agent: String) -> Result<Self, Error> {
         if rustls::crypto::CryptoProvider::get_default().is_none() {
             let _ = rustls::crypto::ring::default_provider().install_default();
         }
@@ -25,11 +25,7 @@ impl Transport {
             .connect_timeout(Duration::from_secs(2))
             .timeout(Duration::from_secs(10))
             .retry(reqwest::retry::never())
-            .user_agent(concat!(
-                "Hito/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            .user_agent(user_agent)
             .build()
             .map_err(|_| Error::Configuration)?;
         Ok(Self {

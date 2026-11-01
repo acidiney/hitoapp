@@ -1,6 +1,7 @@
 use crate::{
     ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, RecordingProbe, discography,
     edition, edition_listing, identifiers, projection, search, transport::Transport,
+    user_agent::user_agent,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -18,10 +19,10 @@ pub struct MusicBrainzClient {
 }
 
 impl MusicBrainzClient {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(contact: Option<&str>) -> Result<Self, Error> {
         let endpoint = MUSICBRAINZ_ROOT.parse().map_err(|_| Error::Configuration)?;
         Ok(Self {
-            transport: Transport::new(endpoint)?,
+            transport: Transport::new(endpoint, user_agent(contact)?)?,
         })
     }
 
@@ -46,7 +47,7 @@ impl MusicBrainzClient {
             return Err(Error::Configuration);
         }
         Ok(Self {
-            transport: Transport::new(endpoint)?,
+            transport: Transport::new(endpoint, user_agent(None)?)?,
         })
     }
 
