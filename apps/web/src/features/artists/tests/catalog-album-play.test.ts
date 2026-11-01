@@ -348,6 +348,30 @@ test("leaving the page while the first track is being searched starts no playbac
   expect(audioBodies).toHaveLength(1);
 });
 
+test("once playback started, leaving the page or switching edition does not stop the album's queue supply", async () => {
+  serve({ editions: twoEditionsPage });
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Play album" }));
+  });
+  await waitFor(() => expect(player.selected).toHaveBeenCalledTimes(1));
+  const selection = player.selected.mock.calls[0][0] as {
+    more: { next(signal: AbortSignal): Promise<unknown[]> };
+  };
+  fireEvent.change(card.getByRole("combobox", { name: "Edition" }), {
+    target: { value: secondEdition.id },
+  });
+  expect(await selection.more.next(new AbortController().signal)).toEqual([
+    foundRecording(1),
+  ]);
+  cleanup();
+  player.queue.total = 2;
+  expect(await selection.more.next(new AbortController().signal)).toEqual([
+    foundRecording(2),
+  ]);
+  expect(audioBodies).toHaveLength(3);
+});
+
 test("switching edition while a track is being searched retires the old search", async () => {
   serve({ editions: twoEditionsPage });
   let release!: () => void;

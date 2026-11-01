@@ -61,6 +61,15 @@ export function useCatalogPlayback(
   const [consentOff, setConsentOff] = useState(false);
   const saved = useRef(new Map<string, Schema<"Recording">>());
   const running = useRef<AbortController | null>(null);
+  const [life] = useState(() => {
+    const state = {
+      epoch: 0,
+      retire: () => {
+        state.epoch++;
+      },
+    };
+    return state;
+  });
 
   useEffect(() => {
     saved.current = new Map();
@@ -68,10 +77,11 @@ export function useCatalogPlayback(
     setHalted("");
     setConsentOff(false);
     return () => {
+      life.retire();
       running.current?.abort();
       running.current = null;
     };
-  }, [account, recording, association.id, group.id, edition]);
+  }, [life, account, recording, association.id, group.id, edition]);
 
   async function search(
     occurrence: string,
@@ -110,22 +120,24 @@ export function useCatalogPlayback(
     }
   }
 
-  function run(controller: AbortController): CatalogRun {
-    const current = () => running.current === controller;
+  function run(controller: AbortController, owned: boolean): CatalogRun {
+    const mine = life.epoch;
     return {
       occurrences,
       failures: 0,
-      stopped: () => controller.signal.aborted,
+      stopped: () => owned && controller.signal.aborted,
       find: (occurrence, signal) =>
-        whileEither(signal, controller.signal, (joined) =>
-          search(occurrence, joined),
-        ),
+        owned
+          ? whileEither(signal, controller.signal, (joined) =>
+              search(occurrence, joined),
+            )
+          : search(occurrence, signal),
       mark: (occurrence, state) => {
-        if (current())
+        if (life.epoch === mine)
           setRows((value) => new Map(value).set(occurrence, state));
       },
       halt: (stop) => {
-        if (!current()) return;
+        if (life.epoch !== mine) return;
         if (stop.consent) setConsentOff(true);
         else setHalted(stop.message);
       },
@@ -140,7 +152,7 @@ export function useCatalogPlayback(
     setHalted("");
     setConsentOff(false);
     const select = player.prepareSelection();
-    const catalog = run(controller);
+    const catalog = run(controller, true);
     const started = performance.now();
     let outcome = "cancelled";
     try {
@@ -151,10 +163,12 @@ export function useCatalogPlayback(
       }
       if (controller.signal.aborted) return false;
       outcome = "found";
+      const feeding = run(controller, false);
+      feeding.failures = catalog.failures;
       const began = await select({
         queue: [first.recording],
         index: 0,
-        more: catalogSupply(catalog, player, first.index + 1),
+        more: catalogSupply(feeding, player, first.index + 1),
       });
       outcome = began ? "played" : "superseded";
       return began;

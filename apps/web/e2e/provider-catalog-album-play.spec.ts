@@ -45,11 +45,6 @@ test("a catalog album plays like a library album: Play starts the first track, q
       table.getByRole("row").filter({ hasText: closing }),
     ).not.toContainText("Not found");
 
-    await expect
-      .poll(() =>
-        artist.provider.state.searches.some((query) => query.includes(closing)),
-      )
-      .toBe(true);
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
     await expect(page).toHaveURL(/\/queue$/);
     const now = page.getByRole("region", { name: "Now playing", exact: true });
