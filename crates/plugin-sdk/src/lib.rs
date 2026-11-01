@@ -46,9 +46,9 @@ pub use catalog::{
     ReleaseGroupEditionsRequest, SimilarArtist,
 };
 pub use content::{
-    AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRecordingRef,
-    ProviderRelease, ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage,
-    SearchRequest, SourcePage,
+    AUDIO_PATH, CreditRole, CreditedArtist, DETAIL_PATH, MAX_SOURCES_PER_RECORDING,
+    ProviderRecording, ProviderRecordingRef, ProviderRelease, ProviderSource, RecordingRequest,
+    SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
 };
 pub use curated::{
     CuratedCatalogError, CuratedEntryView, MAX_CURATED_CATALOG_BYTES, MAX_CURATED_ENTRIES,

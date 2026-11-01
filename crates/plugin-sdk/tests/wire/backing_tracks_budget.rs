@@ -19,6 +19,7 @@ fn complete_encoded_backings_accept_the_exact_budget_and_reject_one_more_valid_b
             .map(|index| ProviderRecording {
                 isrc: None,
                 artist_urls: Vec::new(),
+                artists: Vec::new(),
                 id: format!("backing:owned/{index}/{}", "é".repeat(110)),
                 title: "\"".repeat(1024),
                 artist: "é".repeat(1024),

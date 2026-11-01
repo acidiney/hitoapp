@@ -253,6 +253,7 @@ fn recording(id: &str) -> ProviderRecording {
     ProviderRecording {
         isrc: None,
         artist_urls: Vec::new(),
+        artists: Vec::new(),
         id: id.into(),
         title: if id == FIRST {
             "Owned first HTTP recording"

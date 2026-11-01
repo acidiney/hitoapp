@@ -86,6 +86,7 @@ pub fn catalog_with(count: usize, title_padding: usize) -> Value {
             let recording = ProviderRecording {
                 isrc: None,
                 artist_urls: Vec::new(),
+                artists: Vec::new(),
                 id: format!("{PRIVATE}recording-{index}"),
                 title: format!("{PRIVATE}title-{index}{}", "x".repeat(title_padding)),
                 artist: format!("{PRIVATE}artist"),

@@ -45,6 +45,37 @@ pub struct ProviderRecording {
     /// MusicBrainz artist; a provider that cannot name all performers omits the list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub artist_urls: Vec<String>,
+    /// The credited artists in the provider's own order, when the provider knows them as a list.
+    /// `artist` stays the display text; hosts that find a list use it instead of splitting text.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artists: Vec<CreditedArtist>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CreditRole {
+    #[default]
+    Main,
+    Featured,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CreditedArtist {
+    pub name: String,
+    /// The provider's own identifier for the artist. Hosts keep it as evidence only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_artist_id: Option<String>,
+    /// The artist's canonical page in the same allowlisted form as `artist_urls`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_url: Option<String>,
+    #[serde(default)]
+    pub role: CreditRole,
+    /// The text that follows this artist in the display credit, such as " & " or " feat. ".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,6 +197,7 @@ impl ProviderRecording {
             return Err("The provider returned a malformed ISRC");
         }
         validate_artist_urls(&self.artist_urls)?;
+        validate_credited_artists(&self.artists)?;
         Ok(())
     }
 
@@ -181,6 +213,42 @@ impl ProviderRecordingRef {
     }
 }
 
+const MAX_CREDITED_ARTISTS: usize = 16;
+const MAX_ARTIST_NAME_BYTES: usize = 256;
+const MAX_PROVIDER_ARTIST_ID_BYTES: usize = 128;
+const MAX_JOIN_BYTES: usize = 32;
+
+fn validate_credited_artists(artists: &[CreditedArtist]) -> Result<(), &'static str> {
+    if artists.is_empty() {
+        return Ok(());
+    }
+    if artists.len() > MAX_CREDITED_ARTISTS {
+        return Err("The provider returned too many credited artists");
+    }
+    if !artists.iter().any(|artist| artist.role == CreditRole::Main) {
+        return Err("The provider credited no main artist");
+    }
+    let mut names = HashSet::new();
+    let mut ids = HashSet::new();
+    for artist in artists {
+        text(&artist.name, MAX_ARTIST_NAME_BYTES)?;
+        if !names.insert(artist.name.trim().to_lowercase()) {
+            return Err("The provider credited the same artist twice");
+        }
+        if let Some(id) = &artist.provider_artist_id {
+            text(id, MAX_PROVIDER_ARTIST_ID_BYTES)?;
+            if id.chars().any(char::is_whitespace) || !ids.insert(id) {
+                return Err("The provider returned a malformed credited artist identifier");
+            }
+        }
+        optional(artist.join.as_deref(), MAX_JOIN_BYTES)?;
+        if let Some(page) = &artist.page_url {
+            validate_artist_page(page)?;
+        }
+    }
+    Ok(())
+}
+
 const MAX_ARTIST_URLS: usize = 8;
 const MAX_ARTIST_URL_BYTES: usize = 512;
 
@@ -191,23 +259,31 @@ fn validate_artist_urls(urls: &[String]) -> Result<(), &'static str> {
     }
     let mut seen = HashSet::new();
     for value in urls {
-        let canonical = value.len() <= MAX_ARTIST_URL_BYTES
-            && url::Url::parse(value).is_ok_and(|url| {
-                url.scheme() == "https"
-                    && url.host_str().is_some()
-                    && url.username().is_empty()
-                    && url.password().is_none()
-                    && url.port().is_none()
-                    && url.query().is_none()
-                    && url.fragment().is_none()
-                    && url.as_str() == value
-            })
-            && crate::artist_page_provider(value).is_some();
-        if !canonical || !seen.insert(value) {
+        if validate_artist_page(value).is_err() || !seen.insert(value) {
             return Err(MALFORMED);
         }
     }
     Ok(())
+}
+
+fn validate_artist_page(value: &str) -> Result<(), &'static str> {
+    let canonical = value.len() <= MAX_ARTIST_URL_BYTES
+        && url::Url::parse(value).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.port().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+                && url.as_str() == value
+        })
+        && crate::artist_page_provider(value).is_some();
+    if canonical {
+        Ok(())
+    } else {
+        Err("The provider returned a malformed artist page URL")
+    }
 }
 
 pub(crate) fn text(value: &str, maximum: usize) -> Result<(), &'static str> {

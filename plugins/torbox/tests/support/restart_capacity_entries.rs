@@ -64,6 +64,7 @@ fn recording(id: String, source_id: String, binding: TorrentFileBinding) -> Cura
         recording: ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id,
             title: "owned-private-capacity-title".into(),
             artist: "owned-private-capacity-artist".into(),

@@ -107,6 +107,7 @@ impl Track {
         ProviderRecording {
             isrc: self.isrc.clone(),
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id: self.id.clone(),
             title: self.title.clone(),
             artist: self.artist.clone(),

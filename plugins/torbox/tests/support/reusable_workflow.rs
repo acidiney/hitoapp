@@ -58,6 +58,7 @@ impl Workflow {
                     recording: ProviderRecording {
                         isrc: None,
                         artist_urls: Vec::new(),
+                        artists: Vec::new(),
                         id: RECORDING.into(),
                         title: "owned-private-reuse-title".into(),
                         artist: "owned-private-reuse-artist".into(),

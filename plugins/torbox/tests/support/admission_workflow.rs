@@ -16,6 +16,7 @@ pub fn selection(index: usize) -> CuratedWavRecording {
         recording: ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id: format!("curated-admission-recording-{index}"),
             title: "owned-private-admission-title".into(),
             artist: "owned-private-admission-artist".into(),

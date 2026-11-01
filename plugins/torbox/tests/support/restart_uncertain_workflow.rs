@@ -89,6 +89,7 @@ impl Fixture {
                     recording: ProviderRecording {
                         isrc: None,
                         artist_urls: Vec::new(),
+                        artists: Vec::new(),
                         id: RECORDING.into(),
                         title: "owned-private-uncertain-title".into(),
                         artist: "owned-private-uncertain-artist".into(),

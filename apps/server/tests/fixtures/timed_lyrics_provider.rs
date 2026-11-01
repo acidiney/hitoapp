@@ -288,6 +288,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
                         recording: ProviderRecording {
                             isrc: None,
                             artist_urls: Vec::new(),
+                            artists: Vec::new(),
                             id: PROVIDER_ID.into(),
                             title: TITLE.into(),
                             artist: "Owned lyric performer".into(),

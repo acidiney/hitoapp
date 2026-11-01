@@ -102,6 +102,7 @@ async fn rejected_control_requests_and_catalog_pagination_do_not_contact_the_pro
     let second = ProviderRecording {
         isrc: None,
         artist_urls: Vec::new(),
+        artists: Vec::new(),
         id: "curated-recording-2".into(),
         title: format!("{} second", first.title),
         ..first.clone()

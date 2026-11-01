@@ -64,6 +64,7 @@ fn timed_content_preserves_exact_provider_versions_and_distinct_backing_recordin
     let backing = ProviderRecording {
         isrc: None,
         artist_urls: Vec::new(),
+        artists: Vec::new(),
         id: "recording:owned/instrumental~á".into(),
         title: "Owned instrumental take".into(),
         artist: "Owned ensemble".into(),

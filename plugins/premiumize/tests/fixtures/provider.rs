@@ -131,6 +131,7 @@ pub fn recording(peer: bool) -> ProviderRecording {
     ProviderRecording {
         isrc: None,
         artist_urls: Vec::new(),
+        artists: Vec::new(),
         id: if peer { PEER_RECORDING } else { RECORDING }.into(),
         title: if peer { PEER_TITLE } else { TITLE }.into(),
         artist: ARTIST.into(),

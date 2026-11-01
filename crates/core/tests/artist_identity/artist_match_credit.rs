@@ -19,6 +19,7 @@ fn stating(index: usize) -> Evidence {
     Evidence {
         isrc: Some(code(index)),
         artist_urls: Vec::new(),
+        artists: Vec::new(),
     }
 }
 

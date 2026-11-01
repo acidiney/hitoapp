@@ -26,6 +26,7 @@ fn small(index: usize) -> Entry {
         recording: ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id: format!("recording-{index:04}"),
             title: format!("Title {index}"),
             artist: "Artist".into(),

@@ -107,6 +107,7 @@ impl SearchEntry {
         let recording = ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id: entry.id,
             title: entry.title,
             artist,

@@ -34,6 +34,7 @@ impl Inputs {
         let recording = ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
+            artists: Vec::new(),
             id: RECORDING.into(),
             title: TITLE.into(),
             artist: "owned-private-premiumize-runtime-artist".into(),

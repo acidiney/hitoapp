@@ -154,6 +154,7 @@ fn recording() -> ProviderRecording {
     ProviderRecording {
         isrc: None,
         artist_urls: Vec::new(),
+        artists: Vec::new(),
         id: RECORDING.into(),
         title: TITLE.into(),
         artist: ARTIST.into(),
