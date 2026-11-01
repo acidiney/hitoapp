@@ -1,4 +1,5 @@
 mod artwork;
+mod credits;
 mod model;
 mod session;
 mod snapshot;

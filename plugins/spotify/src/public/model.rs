@@ -1,3 +1,4 @@
+use super::credits::{Credited, credited_artists};
 use crate::error::Error;
 use hito_plugin_sdk::{
     ProviderPlaylistEntry, ProviderPlaylistItem, ProviderRecording, ProviderRelease,
@@ -161,13 +162,26 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
                 .map(|id| format!("https://open.spotify.com/artist/{id}"))
         })
         .collect();
-    let artist = track
+    let credited: Vec<Credited> = track
         .artists
         .items
         .into_iter()
-        .map(|artist| artist.profile.name)
+        .map(|artist| Credited {
+            id: artist
+                .uri
+                .as_ref()
+                .and_then(|uri| uri.as_str()?.strip_prefix("spotify:artist:"))
+                .filter(|id| valid_id(id))
+                .map(str::to_owned),
+            name: artist.profile.name,
+        })
+        .collect();
+    let artist = credited
+        .iter()
+        .map(|artist| artist.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+    let artists = credited_artists(&credited, &track.name);
     let release = if let Some(album) = track.album_of_track {
         let id = album
             .uri
@@ -182,9 +196,10 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     } else {
         None
     };
-    let recording = ProviderRecording {
+    let mut recording = ProviderRecording {
         isrc: None,
         artist_urls: pages.unwrap_or_default(),
+        artists,
         id: id.to_owned(),
         title: track.name,
         artist,
@@ -195,6 +210,9 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
         revision: None,
         attribution: None,
     };
+    if recording.validate().is_err() {
+        recording.artists.clear();
+    }
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(ProviderPlaylistEntry {
         occurrence_id: None,
