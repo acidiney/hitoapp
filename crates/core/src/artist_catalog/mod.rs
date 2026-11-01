@@ -31,6 +31,7 @@ pub use library_availability::{
     DiscographyLibrary, LibraryAlbum, LibraryReleaseGroup, ReadDiscographyLibrary,
 };
 pub use matching::*;
+pub(crate) use matching::{Title, tolerance_ms};
 
 pub use album_audio::{AlbumTrackAudio, FindAlbumTrackAudio};
 pub use album_edition_choice::{

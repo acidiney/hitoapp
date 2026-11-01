@@ -3,6 +3,7 @@ mod artwork;
 mod availability;
 mod browse;
 mod genres;
+mod groups;
 pub(crate) mod local_files;
 mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
@@ -31,6 +32,9 @@ mod album_anchor_work;
 #[cfg(test)]
 #[path = "tests/genre_work.rs"]
 mod genre_work;
+#[cfg(test)]
+#[path = "tests/group_work.rs"]
+mod group_work;
 mod playback_sources;
 #[cfg(test)]
 #[path = "tests/release_query_work.rs"]
@@ -55,6 +59,8 @@ pub(crate) use availability::{
 pub use browse::Browse;
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};
+pub(crate) use groups::group_step;
+pub use groups::{RecordingCopies, RecordingCopy, RecordingGroupProof, RecordingSplit};
 pub use releases::{
     AlbumArtistInference, AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack,
 };

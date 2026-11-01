@@ -46,7 +46,7 @@ pub(crate) const REFERENCING_TABLES: [&str; 25] = [
 
 /// Tables whose rows belong to the recording itself and leave with it.
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 19] = [
+pub(crate) const REMOVED_TABLES: [&str; 21] = [
     "account_recording_credits",
     "account_source_credits",
     "artist_match_checks",
@@ -57,6 +57,8 @@ pub(crate) const REMOVED_TABLES: [&str; 19] = [
     "metadata_observations",
     "recording_artist_associations",
     "recording_artist_url_observations",
+    "recording_group_members",
+    "recording_group_splits",
     "recording_evidence",
     "recording_isrc_observations",
     "recording_musicbrainz_observations",
@@ -362,8 +364,10 @@ async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) ->
     Ok(())
 }
 
-const REMOVAL: [&str; 10] = [
+const REMOVAL: [&str; 12] = [
     "UPDATE recordings SET metadata_source_id = NULL, metadata_observation_id = NULL WHERE id = ?1",
+    "DELETE FROM recording_group_members WHERE recording_id = ?1 OR canonical_id = ?1",
+    "DELETE FROM recording_group_splits WHERE recording_id = ?1 OR other_id = ?1",
     "DELETE FROM account_source_credits WHERE recording_id = ?1",
     "DELETE FROM account_recording_credits WHERE recording_id = ?1",
     "DELETE FROM source_artist_credits WHERE source_id IN (SELECT id FROM sources WHERE recording_id = ?1)",
@@ -497,6 +501,52 @@ mod tests {
                 "{table}: only a credit that still has a recording keeps its rows"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn purging_a_recording_dissolves_its_groups_and_forgets_its_splits() {
+        let (_directory, hito, actor, library, _music) = support::library("groups").await;
+        let pool = hito.storage.store.pool.clone();
+        seed(&pool, &library, "gone", 2, false).await;
+        seed(&pool, &library, "kept", 1, true).await;
+        for member in ["gone-00001", "kept-00000"] {
+            sqlx::query("INSERT INTO recording_group_members(user_id,recording_id,canonical_id,proof) VALUES(?,?,'gone-00000','isrc')")
+                .bind(actor.id())
+                .bind(member)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("INSERT INTO recording_group_splits(user_id,recording_id,other_id) VALUES(?,'gone-00001','kept-00000')")
+            .bind(actor.id())
+            .execute(&pool)
+            .await
+            .unwrap();
+        let removal = hito
+            .storage
+            .purge_expired_missing_recordings()
+            .await
+            .unwrap();
+        assert_eq!(removal.removed, 2);
+        for table in ["recording_group_members", "recording_group_splits"] {
+            let left: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(
+                left, 0,
+                "{table}: rows of a removed recording leave with it"
+            );
+        }
+        let kept: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM recordings WHERE id = 'kept-00000'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(
+            kept, 1,
+            "the available copy stays and shows as its own card"
+        );
     }
 
     #[tokio::test]

@@ -35,6 +35,30 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
             .await
             .unwrap();
     }
+    for (account, recording) in [
+        (&world.admin.user.id, kept.recording),
+        (&world.member.user.id, erased.recording),
+    ] {
+        let (low, high) = if recording < world.shared_recording {
+            (recording, world.shared_recording)
+        } else {
+            (world.shared_recording, recording)
+        };
+        sqlx::query("INSERT INTO recording_group_members(user_id, recording_id, canonical_id, proof) VALUES (?1, ?2, ?3, 'isrc')")
+            .bind(account)
+            .bind(recording.to_string())
+            .bind(world.shared_recording.to_string())
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO recording_group_splits(user_id, recording_id, other_id) VALUES (?1, ?2, ?3)")
+            .bind(account)
+            .bind(low.to_string())
+            .bind(high.to_string())
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
     let admin_before = rows_of(&mut connection, &world.admin.user.id).await;
     let member_before = rows_of(&mut connection, &world.member.user.id).await;
     assert!(member_before.iter().map(|(_, n)| n).sum::<i64>() > 20);

@@ -137,13 +137,19 @@ fn filters(
             " AND r.rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH "
         }).push_bind(if personal { scoped_terms(actor, "{title artist}", terms) } else { terms.to_owned() }).push(")");
     }
+    if terms.is_empty() {
+        query
+            .push(" AND NOT EXISTS (SELECT 1 FROM recording_group_members grouped WHERE grouped.user_id = ")
+            .push_bind(actor.id().to_owned())
+            .push(" AND grouped.recording_id = r.id)");
+    }
     if search.liked == Some(true) {
         query.push(" AND l.liked = 1");
     }
     if let Some(artist) = &search.artist {
         query.push(" AND EXISTS (SELECT 1 FROM account_recording_credits credit WHERE credit.user_id = ")
             .push_bind(actor.id().to_owned()).push(" AND credit.artist_id = ").push_bind(artist.clone())
-            .push(" AND credit.recording_id = r.id)");
+            .push(" AND (credit.recording_id = r.id OR credit.recording_id IN (SELECT grouped.recording_id FROM recording_group_members grouped WHERE grouped.user_id = credit.user_id AND grouped.canonical_id = r.id)))");
     }
     if let Some(library) = &search.library {
         query

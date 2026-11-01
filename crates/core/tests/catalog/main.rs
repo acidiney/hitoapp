@@ -25,5 +25,7 @@ mod pin_locks_upgrade;
 mod provider_album_artwork;
 mod recording_credits_migration_scale;
 mod recording_credits_upgrade;
+mod recording_groups;
+mod recording_groups_upgrade;
 mod release_credits_upgrade;
 mod release_credits_upgrade_work;

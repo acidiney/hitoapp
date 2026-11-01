@@ -56,7 +56,7 @@ const FILLER: [&str; 17] = [
 const FEATURING: [&str; 3] = ["feat", "ft", "featuring"];
 
 #[derive(Clone, Debug)]
-pub(super) struct Title {
+pub(crate) struct Title {
     /// The title with qualifiers and featured artists removed, as written.
     pub text: String,
     /// The folded base used to compare titles.
@@ -171,7 +171,7 @@ fn trailing_dash(text: &str) -> Option<(usize, usize)> {
 }
 
 impl Title {
-    pub(super) fn parse(raw: &str) -> Self {
+    pub(crate) fn parse(raw: &str) -> Self {
         let mut base = raw.trim();
         let mut kinds = 0;
         loop {
@@ -205,7 +205,7 @@ impl Title {
 /// The length tolerance within which a listed title is the same recording as the library title,
 /// or `None` when the titles do not match. A remix matches only remixes of the same base title;
 /// any other qualified title matches the same qualifier kinds or the unqualified base title.
-pub(super) fn tolerance_ms(candidate: &Title, listed: &Title) -> Option<u64> {
+pub(crate) fn tolerance_ms(candidate: &Title, listed: &Title) -> Option<u64> {
     if candidate.key != listed.key {
         return None;
     }

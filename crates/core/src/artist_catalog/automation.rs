@@ -8,6 +8,7 @@ use sqlx::{FromRow, SqliteConnection};
 use std::time::Instant;
 use uuid::Uuid;
 
+const GROUP_CURSOR: &str = "groups:";
 const LEASE_SECONDS: i64 = 90;
 /// Walks that met an unavailable provider are repeated this many times, with the delay doubling
 /// from two minutes up to an hour.
@@ -224,7 +225,20 @@ impl ArtistCatalog {
             .as_deref()
             .and_then(|cursor| cursor.strip_prefix(GENRE_CURSOR))
             .filter(|_| job.phase == "provider");
-        let result = if let Some(position) = genre_position {
+        let group_position = job
+            .cursor
+            .as_deref()
+            .and_then(|cursor| cursor.strip_prefix(GROUP_CURSOR))
+            .filter(|_| job.phase == "provider");
+        let result = if let Some(position) = group_position {
+            crate::catalog::group_step(
+                &self.store,
+                &job.user_id,
+                Some(position).filter(|p| !p.is_empty()),
+            )
+            .await
+            .map(|step| (step.next, false, "groups", step.grouped))
+        } else if let Some(position) = genre_position {
             self.collect_musicbrainz_genres(&actor, Some(position).filter(|p| !p.is_empty()))
                 .await
                 .map(|receipt| (receipt.next_after, receipt.unavailable > 0, "genres", 0))
@@ -265,9 +279,21 @@ impl ArtistCatalog {
                 unavailable,
                 matched,
             },
-            Ok((None, unavailable, "genres", matched)) => Step::Complete {
+            Ok((None, unavailable, "genres", matched)) => Step::Continue {
+                phase: "provider",
+                cursor: Some(GROUP_CURSOR.to_owned()),
                 unavailable,
                 matched,
+            },
+            Ok((Some(cursor), unavailable, "groups", _)) => Step::Continue {
+                phase: "provider",
+                cursor: Some(format!("{GROUP_CURSOR}{cursor}")),
+                unavailable,
+                matched: 0,
+            },
+            Ok((None, unavailable, "groups", _)) => Step::Complete {
+                unavailable,
+                matched: 0,
             },
             Ok((Some(cursor), unavailable, phase, matched)) => Step::Continue {
                 phase,

@@ -221,6 +221,8 @@ fn personal_catalog() -> Vec<String> {
             "account_pin_locks",
             "personal_recording_metadata",
             "personal_release_metadata",
+            "recording_group_members",
+            "recording_group_splits",
             "likes",
             "listening_progress",
             "jobs",

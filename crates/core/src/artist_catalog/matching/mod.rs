@@ -18,4 +18,5 @@ mod work;
 pub(crate) use provider_evidence::{
     LOOKUP_DEADLINE, LOOKUP_WINDOW, MAX_CONSECUTIVE_FAILURES, MAX_LOOKUPS, SPECIAL_PURPOSE_ARTISTS,
 };
+pub(crate) use title::{Title, tolerance_ms};
 pub use types::*;
