@@ -13,9 +13,6 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// While alive, every player opened by this process sees a device that offers
-/// only the listed sample rates. Holders exclude each other and the previous
-/// restriction returns when one is dropped.
 pub struct OutputRates {
     previous: Option<Vec<u32>>,
     _exclusive: MutexGuard<'static, ()>,

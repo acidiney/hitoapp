@@ -45,7 +45,6 @@ struct State_ {
     delay: Duration,
     /// Keys that answer this many requests normally and then fail as unavailable.
     failing_after: HashMap<String, usize>,
-    /// Disambiguation and country that name searches state for an artist identifier.
     descriptions: HashMap<String, (String, String)>,
 }
 
@@ -82,7 +81,6 @@ impl FakeMusicBrainz {
             .insert(format!("isrc/{isrc}"), reply);
     }
 
-    /// Answers the lookup of one recording by identifier; the first listed recording is the answer.
     pub fn recording(&self, mbid: &str, reply: Reply) {
         self.state
             .lock()
@@ -126,7 +124,6 @@ impl FakeMusicBrainz {
             .insert(format!("search/{name}"), Reply::Scored(found, total));
     }
 
-    /// Makes name searches state a disambiguation and a country for this artist identifier.
     pub fn describe(&self, artist: &str, disambiguation: &str, country: &str) {
         self.state
             .lock()

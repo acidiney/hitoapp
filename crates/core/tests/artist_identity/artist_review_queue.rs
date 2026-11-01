@@ -31,7 +31,6 @@ async fn queue(library: &NameLibrary) -> Vec<ArtistReviewItem> {
         .items
 }
 
-/// Two namesakes, neither of which lists enough of the library to corroborate it.
 async fn undecided_namesakes() -> NameLibrary {
     let library = NameLibrary::nova().await;
     library
@@ -578,8 +577,6 @@ async fn another_account_cannot_restore_or_see_the_dismissals_of_this_one() {
     library.origin.shutdown().await;
 }
 
-/// 260 undecided tracks of one credit, the 250 with the lowest identifiers hidden by a shared
-/// correction so that applying the candidate to them is declined.
 async fn mostly_declined() -> NameLibrary {
     let credit = |count: usize, offset: usize| -> Vec<(String, String, u64)> {
         (0..count)

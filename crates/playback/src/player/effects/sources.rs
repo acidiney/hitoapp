@@ -181,8 +181,6 @@ impl Sources {
     }
 }
 
-/// The device reason outranks later lookup failures, so the user is told about
-/// the format; a withdrawn authorization always wins.
 fn merged(current: PlayerError, incoming: PlayerError) -> PlayerError {
     if current == PlayerError::OutputFormat && incoming != PlayerError::Unauthorized {
         current

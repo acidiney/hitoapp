@@ -127,8 +127,6 @@ impl NameLibrary {
         }
     }
 
-    /// Imports one more playlist of recordings without evidence, each listed as (credit, title,
-    /// length), because one playlist page holds at most 100 items. The recordings are appended.
     pub async fn import_more(&mut self, name: &str, entries: &[(&str, &str, u64)]) {
         let first = self.recordings.len();
         provider::playlist(
@@ -172,8 +170,6 @@ impl NameLibrary {
         );
     }
 
-    /// Publishes the recordings at the given positions again, as a provider refresh would,
-    /// each listed as (position, credit, title, length, evidence).
     pub async fn reimport(&self, name: &str, entries: &[(usize, &str, &str, u64, Evidence)]) {
         provider::playlist(
             &self.origin,
@@ -202,7 +198,6 @@ impl NameLibrary {
             .unwrap();
     }
 
-    /// Runs statements that need foreign keys off, for states no capability produces.
     pub async fn execute_batch(&self, sql: &str) {
         let mut connection = sqlx::SqliteConnection::connect(&format!(
             "sqlite://{}?mode=rw",
