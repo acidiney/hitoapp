@@ -14,39 +14,56 @@ type Queue = Schema<"ArtistReviewQueuePage">;
 type View = {
   status: "loading" | "ready" | "failed";
   queue: Queue | null;
+  /** Credits whose candidates the account dismissed; null when they could not be read. */
+  dismissed: Queue | null;
   /** The credit a decision is being saved for. */
   pending: string | null;
   error: string;
+  restoreError: string;
 };
 
 /**
- * The credits the automatic walk could not identify. It reads the stored queue (no provider is
- * asked), saves one decision at a time and reads the queue again afterwards. Confirming also
- * refreshes the artist lists so the artist appears among the chosen artists.
+ * The credits the automatic walk could not identify, and the candidates the account dismissed. It
+ * reads the stored lists (no provider is asked), saves one decision at a time and reads both lists
+ * again afterwards. Confirming also refreshes the artist lists so the artist appears among the
+ * chosen artists.
  */
 export function useArtistReviewQueue(account: string, refreshKey: string) {
   const scope = useRequestScope(account);
   const [view, setView] = useState<View>({
     status: "loading",
     queue: null,
+    dismissed: null,
     pending: null,
     error: "",
+    restoreError: "",
   });
 
   const read = useCallback(async () => {
     const request = scope.capture();
+    const dismissedRead = artistMatchingApi
+      .dismissedReviews(account, request.signal)
+      .catch(() => null);
     try {
       const queue = await artistMatchingApi.reviewQueue(
         account,
         request.signal,
       );
+      const dismissed = await dismissedRead;
       if (!request.active()) return;
-      setView((current) => ({ ...current, status: "ready", queue }));
-      log.debug("artist_review_queue.loaded", { count: queue.items.length });
+      setView((current) => ({ ...current, status: "ready", queue, dismissed }));
+      log.debug("artist_review_queue.loaded", {
+        count: queue.items.length,
+      });
     } catch {
       if (request.active()) {
         log.debug("artist_review_queue.unavailable");
-        setView((current) => ({ ...current, status: "failed", queue: null }));
+        setView((current) => ({
+          ...current,
+          status: "failed",
+          queue: null,
+          dismissed: null,
+        }));
       }
     }
   }, [account, scope]);
@@ -62,7 +79,12 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
       reason: string,
     ) => {
       const request = scope.capture();
-      setView((current) => ({ ...current, pending: credit, error: "" }));
+      setView((current) => ({
+        ...current,
+        pending: credit,
+        error: "",
+        restoreError: "",
+      }));
       const started = performance.now();
       let changedArtists = false;
       try {
@@ -83,10 +105,18 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
           router.reload({ only: ["artists", "identity_groups"] });
           await read();
         }
-        setView((current) => ({
-          ...current,
-          error: "This decision could not be saved. Try again.",
-        }));
+        setView((current) =>
+          reason === "restored"
+            ? {
+                ...current,
+                restoreError:
+                  "These suggestions could not be restored. Try again.",
+              }
+            : {
+                ...current,
+                error: "This decision could not be saved. Try again.",
+              },
+        );
       } finally {
         if (request.active())
           setView((current) => ({ ...current, pending: null }));
@@ -118,6 +148,23 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     [account, decide],
   );
 
+  const restore = useCallback(
+    (credit: string, artist: string | null) =>
+      decide(
+        credit,
+        async (signal) => {
+          await artistMatchingApi.restoreCandidates(
+            account,
+            credit,
+            artist === null ? {} : { provider_artist_id: artist },
+            signal,
+          );
+        },
+        "restored",
+      ),
+    [account, decide],
+  );
+
   const dismiss = useCallback(
     (credit: string, artist: string | null) =>
       decide(
@@ -135,5 +182,5 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     [account, decide],
   );
 
-  return { ...view, confirm, dismiss };
+  return { ...view, confirm, dismiss, restore };
 }

@@ -9,6 +9,7 @@ import ArtistReviewQueue from "../components/ArtistReviewQueue";
 
 const account = "10000000-0000-4000-8000-000000000001";
 const QUEUE = "/api/v1/artist-matching/review-queue?limit=50";
+const DISMISSED = "/api/v1/artist-matching/review-queue/dismissed?limit=50";
 const NOVA = "44444444-4444-4444-8444-444444444444";
 const OTHER = "55555555-5555-4555-8555-555555555555";
 
@@ -63,13 +64,17 @@ type Posted = { path: string; body: Record<string, unknown> };
 function serve(
   reads: (() => Response)[],
   post: (path: string, body: Record<string, unknown>) => Response,
+  dismissed: (() => Response)[] = [() => page([])],
 ) {
   const posted: Posted[] = [];
   let read = 0;
+  let readDismissed = 0;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {
       if (path === QUEUE) return reads[Math.min(read++, reads.length - 1)]();
+      if (path === DISMISSED)
+        return dismissed[Math.min(readDismissed++, dismissed.length - 1)]();
       const body = JSON.parse(options?.body as string);
       posted.push({ path, body });
       return post(path, body);
@@ -265,4 +270,80 @@ test("the queue is read again when the artist lists change", async () => {
   );
   await waitFor(() => expect(reads()).toBe(2));
   expect(calls.length).toBe(0);
+});
+
+const restored = () => Response.json({ artist_id: "credit-1", restored: 1 });
+
+function dismissedItem(over: Record<string, unknown> = {}) {
+  return item("credit-1", { candidates: [candidate()], ...over });
+}
+
+test("dismissed suggestions stay reachable when nothing else needs confirmation", async () => {
+  serve([() => page([])], restored, [() => page([dismissedItem()])]);
+  const { container } = show();
+  await screen.findByText("Dismissed suggestions (1)");
+  expect(screen.queryByText(/Needs your confirmation/)).toBeNull();
+  const disclosures = container.querySelectorAll("details");
+  expect(disclosures.length).toBe(1);
+  expect(disclosures[0].open).toBe(false);
+});
+
+test("a dismissed candidate is listed with its details and Restore offers it again", async () => {
+  const posted = serve([() => page([]), () => page([item()])], restored, [
+    () => page([dismissedItem()]),
+    () => page([]),
+  ]);
+  show();
+  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  expect(screen.getByText(/Lisbon fado band/)).toBeTruthy();
+  expect(screen.getByText("4 tracks")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Restore Nova Quartet, Lisbon fado band, for Nova Quartet",
+    }),
+  );
+  await waitFor(() => expect(posted.length).toBe(1));
+  expect(posted[0].path).toBe(
+    "/api/v1/artist-matching/review-queue/credit-1/restore",
+  );
+  expect(posted[0].body).toEqual({ provider_artist_id: NOVA });
+  await screen.findByText("Needs your confirmation (1)");
+  expect(screen.queryByText(/Dismissed suggestions/)).toBeNull();
+  expect(reload).not.toHaveBeenCalled();
+});
+
+test("a credit with several dismissed candidates can restore them all at once", async () => {
+  const posted = serve([() => page([])], restored, [
+    () => page([item()]),
+    () => page([]),
+  ]);
+  show();
+  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Restore all for Nova Quartet" }),
+  );
+  await waitFor(() => expect(posted.length).toBe(1));
+  expect(posted[0].body).toEqual({});
+});
+
+test("a failed restore keeps the row and says so", async () => {
+  serve([() => page([])], () => new Response("{}", { status: 500 }), [
+    () => page([dismissedItem()]),
+  ]);
+  show();
+  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  fireEvent.click(screen.getAllByRole("button", { name: /^Restore/ })[0]);
+  expect((await screen.findByRole("alert")).textContent).toMatch(
+    /could not be restored/i,
+  );
+  expect(screen.getByText("4 tracks")).toBeTruthy();
+});
+
+test("a dismissed list that cannot be read leaves the confirmation queue working", async () => {
+  serve([() => page([item()])], restored, [
+    () => new Response("{}", { status: 500 }),
+  ]);
+  show();
+  await screen.findByText("Needs your confirmation (1)");
+  expect(screen.queryByText(/Dismissed suggestions/)).toBeNull();
 });

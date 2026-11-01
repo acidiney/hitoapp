@@ -40,6 +40,7 @@ function expectOnlyMatching(fetch: { mock: { calls: unknown[][] } }) {
       [
         "/api/v1/artist-matching/status",
         "/api/v1/artist-matching/review-queue?limit=50",
+        "/api/v1/artist-matching/review-queue/dismissed?limit=50",
       ],
       "only the status and queue reads, never a pass or provider request",
     ).toContain(path);
