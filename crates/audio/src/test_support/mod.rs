@@ -3,7 +3,30 @@ pub mod capture;
 use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},
+    sync::Mutex,
 };
+
+static OUTPUT_RATES: Mutex<Option<Vec<u32>>> = Mutex::new(None);
+
+/// While alive, every player opened by this process sees a device that offers
+/// only the listed sample rates.
+pub struct OutputRates(());
+
+pub fn restrict_output_rates(rates: &[u32]) -> OutputRates {
+    *OUTPUT_RATES.lock().unwrap() = Some(rates.to_vec());
+    OutputRates(())
+}
+
+impl Drop for OutputRates {
+    fn drop(&mut self) {
+        *OUTPUT_RATES.lock().unwrap() = None;
+    }
+}
+
+#[cfg(feature = "device")]
+pub(crate) fn restricted_output_rates() -> Option<Vec<u32>> {
+    OUTPUT_RATES.lock().unwrap().clone()
+}
 
 pub fn wave(rate: u32, channels: u16, frames: u32, sample: impl Fn(u32, u16) -> i16) -> File {
     let mut file = tempfile::tempfile().unwrap();

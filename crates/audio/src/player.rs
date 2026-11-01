@@ -49,7 +49,11 @@ pub struct Player {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
     pub fn open(input: impl Input + 'static) -> Result<Self> {
-        Self::start(input, None)
+        #[cfg(feature = "test-support")]
+        let rates = crate::test_support::restricted_output_rates();
+        #[cfg(not(feature = "test-support"))]
+        let rates = None;
+        Self::start(input, rates)
     }
 
     /// Opens a player whose device offers only the listed sample rates.
