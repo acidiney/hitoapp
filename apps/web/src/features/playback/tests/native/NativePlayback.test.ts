@@ -11,7 +11,7 @@ test("a device that cannot play the source says so instead of the generic playba
     await player.reconnect();
     await vi.waitFor(() =>
       expect(player.snapshot().error).toBe(
-        "This device can't play this audio format.",
+        "The audio output can't play this format.",
       ),
     );
   } finally {
@@ -30,7 +30,7 @@ test("a queued track skipped for an unplayable format keeps the specific reason"
     await player.reconnect();
     await vi.waitFor(() =>
       expect(player.snapshot().error).toBe(
-        "This device can't play a queued track's audio format.",
+        "The audio output can't play a queued track's format.",
       ),
     );
   } finally {

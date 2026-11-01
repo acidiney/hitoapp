@@ -1,12 +1,11 @@
 import { log } from "../../../shared/log";
 import { HttpError } from "../../../shared/http";
-import {
-  UNSUPPORTED_FORMAT_MESSAGE,
-  type PlaybackPosition,
-  type PlaybackView,
-  type QueuePage,
-  type QueueView,
-  type Player,
+import type {
+  PlaybackPosition,
+  PlaybackView,
+  QueuePage,
+  QueueView,
+  Player,
 } from "../model";
 import type { Position, Snapshot } from "./api";
 import { NativeSession, type Failure } from "./Session";
@@ -38,11 +37,11 @@ function playbackError(value: Snapshot | null) {
       : value?.persistence_error
         ? "Listening progress could not be saved. Hito will retry."
         : value?.error === "output_format"
-          ? UNSUPPORTED_FORMAT_MESSAGE
+          ? "The audio output can't play this format."
           : value?.error
             ? "Audio could not be played. Try selecting the track again."
             : value?.last_failure?.error === "output_format"
-              ? "This device can't play a queued track's audio format."
+              ? "The audio output can't play a queued track's format."
               : value?.last_failure
                 ? "Audio was unavailable for a queued track."
                 : "";
