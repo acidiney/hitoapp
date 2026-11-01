@@ -46,8 +46,9 @@ unsafe extern "C" fn reject_journal_mode(
 ) -> c_int {
     if action == sqlite::SQLITE_PRAGMA
         && !name.is_null()
-        // SQLite owns the terminated name throughout this authorizer callback.
-        && unsafe { CStr::from_ptr(name) }.to_bytes().eq_ignore_ascii_case(b"journal_mode")
+        && unsafe { CStr::from_ptr(name) }
+            .to_bytes()
+            .eq_ignore_ascii_case(b"journal_mode")
     {
         if let Some(gate) = GATE.get() {
             gate.rejected.store(true, Ordering::Release);
@@ -63,7 +64,6 @@ unsafe extern "C" fn unused_function(
     _: c_int,
     _: *mut *mut sqlite::sqlite3_value,
 ) {
-    // SQLite supplies the live context if this unused fixture function is called.
     unsafe { sqlite::sqlite3_result_null(context) };
 }
 
@@ -105,7 +105,6 @@ unsafe extern "C" fn install_failure(
     _: *mut *mut c_char,
     _: *const sqlite::sqlite3_api_routines,
 ) -> c_int {
-    // The auto-extension exclusively receives the actual newly opened handle.
     let status = unsafe {
         sqlite::sqlite3_set_authorizer(connection, Some(reject_journal_mode), std::ptr::null_mut())
     };
@@ -135,7 +134,6 @@ impl Drop for Registration {
             gate.release();
         }
         unsafe {
-            // This integration target has one case; its static callbacks outlive every worker.
             sqlite::sqlite3_cancel_auto_extension(Some(install_failure));
         }
     }

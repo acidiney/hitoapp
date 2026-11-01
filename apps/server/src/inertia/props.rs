@@ -92,7 +92,6 @@ pub struct HomePageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub home: Option<hito_core::Home>,
-    /// A short page of chosen artists for the Home shelf.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artists: Option<ArtistIdentityGroupPage>,
@@ -114,7 +113,6 @@ pub struct SearchPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artists: Option<ArtistPage>,
-    /// Chosen artists matching the search, exact names first.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artist_groups: Option<crate::api::artist_identity_groups::ArtistIdentityGroupPage>,
@@ -295,11 +293,9 @@ pub struct DiscoverPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub service_names: Option<BTreeMap<String, String>>,
-    /// The busiest genres of the library, for the By genre tiles.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub genres: Option<Vec<hito_core::Genre>>,
-    /// A short page of chosen artists that radio can start from.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artists: Option<ArtistIdentityGroupPage>,

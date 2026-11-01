@@ -34,7 +34,6 @@ impl CorrectionStatus {
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SuggestCorrection {
-    /// Version-4 UUID. Reversing the source pair preserves the same assertion.
     pub(crate) submission_id: Uuid,
     pub(crate) left: SourceRef,
     pub(crate) right: SourceRef,
@@ -45,7 +44,6 @@ pub(crate) struct SuggestCorrection {
 pub(crate) struct CorrectionReceipt {
     pub(crate) correction_id: Uuid,
     pub(crate) submission_id: Uuid,
-    /// Immutable submission acknowledgement, independent of subsequent moderation.
     pub(crate) status: &'static str,
 }
 
@@ -103,7 +101,6 @@ impl ReviewDecision {
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ReviewCorrection {
-    /// Version-4 UUID identifying this decision, independent of current approval state.
     pub(crate) request_id: Uuid,
     #[schema(minimum = 1, maximum = 9_007_199_254_740_990_i64)]
     pub(crate) expected_revision: i64,
@@ -117,7 +114,6 @@ pub(crate) struct ReviewReceipt {
     #[schema(minimum = 2, maximum = 9_007_199_254_740_991_i64)]
     pub(crate) revision: i64,
     pub(crate) decision: ReviewDecision,
-    /// Historical acknowledgement. Read the administrator queue for current approval state.
     pub(crate) status: CorrectionStatus,
     pub(crate) validation_method: &'static str,
 }

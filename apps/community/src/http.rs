@@ -39,7 +39,6 @@ pub fn router(service: Service) -> Router {
         .with_state(service)
 }
 
-/// Provision a pseudonymous reporter. The random credential is returned only on creation.
 #[utoipa::path(post, path = "/v1/admin/reporters",
     request_body(content = ProvisionReporter, description = "Strict JSON body, at most 16 KiB."),
     security(("administratorBearer" = [])), responses(
@@ -60,7 +59,6 @@ async fn provision(
     ))
 }
 
-/// Revoke a reporter credential and erase its outcomes. Existing and unknown UUIDs return 204.
 #[utoipa::path(delete, path = "/v1/admin/reporters/{reporter_id}",
     params(("reporter_id" = Uuid, Path, description = "Reporter pseudonym to revoke.")),
     security(("administratorBearer" = [])), responses(
@@ -79,7 +77,6 @@ async fn revoke(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Accept a successful-playback claim; exact retries recover the original durable receipt.
 #[utoipa::path(post, path = "/v1/outcomes",
     request_body(content = SubmitOutcome, description = "Strict JSON body, at most 16 KiB."),
     security(("reporterBearer" = [])), responses(
@@ -107,7 +104,6 @@ async fn submit(
     ))
 }
 
-/// Rank only the supplied public candidates by distinct reporters of successful playback.
 #[utoipa::path(post, path = "/v1/rankings",
     request_body(content = RankCandidates, description = "Strict JSON body, at most 16 KiB."),
     responses(

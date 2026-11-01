@@ -71,7 +71,6 @@ async fn matched_pair() -> (
     (dir, app, token, musicbrainz, origin, imported[0].clone())
 }
 
-/// Imports one playlist of recordings through an owned provider and returns their identifiers.
 async fn import(
     app: &axum::Router,
     token: &str,

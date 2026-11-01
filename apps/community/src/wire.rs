@@ -26,8 +26,6 @@ impl Provider {
 #[serde(deny_unknown_fields)]
 pub(crate) struct SourceRef {
     pub(crate) provider: Provider,
-    /// YouTube requires exactly 11 ASCII letters, digits, underscores, or hyphens.
-    /// Jamendo requires a positive canonical decimal u64 without leading zeros.
     #[schema(min_length = 1, max_length = 20)]
     pub(crate) recording_id: String,
 }
@@ -73,7 +71,6 @@ pub(crate) enum OutcomeKind {
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SubmitOutcome {
-    /// Version-4 UUID. Accepted UUID text forms normalize to the same submission identifier.
     pub(crate) submission_id: Uuid,
     pub(crate) source: SourceRef,
     pub(crate) outcome: OutcomeKind,

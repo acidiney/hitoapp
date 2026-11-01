@@ -33,8 +33,6 @@ impl Drop for Waiter {
     }
 }
 
-/// Hosted resolutions remain owned through cooperative cleanup and publication.
-/// Embedded routers run inline with the embedding caller's lifetime.
 pub(crate) async fn run<Operation, Pending>(
     host: Option<Resolutions>,
     operation: Operation,

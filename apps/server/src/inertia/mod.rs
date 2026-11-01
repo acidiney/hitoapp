@@ -26,8 +26,6 @@ pub(super) struct PageQuery {
     genre: Option<String>,
 }
 
-/// Unknown paths: API paths answer JSON and file-like paths a bare 404 before any session or
-/// version work; other paths render the not-found page.
 pub async fn fallback(
     State(services): State<Services>,
     request: axum::extract::Request,
