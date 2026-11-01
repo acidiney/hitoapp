@@ -32,6 +32,7 @@ impl CachedFile {
 
     pub(super) fn into_indexed(self, snapshot: Snapshot) -> IndexedFile {
         IndexedFile {
+            credits: Vec::new(),
             path: snapshot.path,
             checksum: snapshot.checksum,
             size: snapshot.size,

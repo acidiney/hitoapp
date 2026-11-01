@@ -54,7 +54,7 @@ async fn recording_id(
         .await
         .unwrap();
     let observation = detail.selected_observation.unwrap();
-    assert_eq!(observation.inspection_version, Some(7));
+    assert_eq!(observation.inspection_version, Some(8));
     observation
         .tags
         .unwrap()

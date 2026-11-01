@@ -128,5 +128,6 @@ async fn observe(
         file.tag_details.as_deref(),
     )
     .await?;
+    crate::metadata::retain_credited_artists(tx, &observation, recording, &file.credits).await?;
     Ok(observation)
 }

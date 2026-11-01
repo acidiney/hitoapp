@@ -25,6 +25,7 @@ pub(super) struct MediaSnapshot {
     pub path: PathBuf,
     pub directory: Arc<TempDir>,
     pub recording_id: Option<String>,
+    pub artists: Option<super::tagged_artists::TaggedArtists>,
 }
 
 pub(super) struct Prepared {

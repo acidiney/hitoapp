@@ -94,6 +94,7 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
     output.flush().map_err(|_| unreadable())?;
     let tags = super::id3::neutralise(&mut output, control)?;
     drop(output);
+    let artists = super::super::tagged_artists::read(&media_path);
     if tags.decompressed > 0 || tags.ignored() > 0 || tags.io_failed > 0 {
         tracing::debug!(
             event = "id3_compressed_frames",
@@ -117,6 +118,7 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
             path: media_path,
             directory,
             recording_id: tags.recording_id,
+            artists,
         }),
     })
 }

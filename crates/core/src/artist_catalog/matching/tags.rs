@@ -166,14 +166,26 @@ impl ArtistCatalog {
     }
 }
 
+type Row = (
+    String,
+    Option<String>,
+    String,
+    Option<String>,
+    Option<String>,
+);
+
 async fn candidates(
     connection: &mut SqliteConnection,
     actor: &Actor,
     after: Option<&str>,
     limit: i64,
 ) -> Result<(Vec<Candidate>, Option<String>)> {
-    let mut rows: Vec<(String, Option<String>, String, Option<String>)> = sqlx::query_as(&format!(
-        "SELECT r.id,o.tags,r.metadata_observation_id,p.artist_operation_id FROM recordings r
+    let mut rows: Vec<Row> = sqlx::query_as(&format!(
+        "SELECT r.id,o.tags,r.metadata_observation_id,p.artist_operation_id,
+            (SELECT json_group_array(json_array(c.role,c.provider_artist_id)) FROM
+                (SELECT role,provider_artist_id FROM recording_credited_artist_observations
+                 WHERE observation_id=r.metadata_observation_id AND recording_id=r.id ORDER BY position) c)
+         FROM recordings r
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=?
          JOIN metadata_observations o ON o.id=r.metadata_observation_id AND o.recording_id=r.id
          LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=m.user_id
@@ -199,17 +211,45 @@ async fn candidates(
     };
     let candidates = rows
         .into_iter()
-        .map(|(recording, tags, observation, operation)| Candidate {
-            recording,
-            evidence: evidence(tags.as_deref()),
-            observation,
-            operation,
-        })
+        .map(
+            |(recording, tags, observation, operation, credits)| Candidate {
+                recording,
+                evidence: evidence(tags.as_deref(), credits.as_deref()),
+                observation,
+                operation,
+            },
+        )
         .collect();
     Ok((candidates, next_after))
 }
 
-fn evidence(tags: Option<&str>) -> Evidence {
+fn artist_id(value: &str) -> Option<String> {
+    let id = Uuid::parse_str(value.trim()).ok()?;
+    (provider::validate_builtin_id(&id.hyphenated().to_string()).is_ok()
+        && value.trim().len() == 36)
+        .then(|| id.hyphenated().to_string())
+}
+
+/// A file whose tags list its credited artists is decided by its main artists: several are
+/// undecided whatever the identifier tags show, and a lone main artist with an identifier is
+/// that artist even when featured artists carry identifiers too.
+fn credited_evidence(credits: Option<&str>) -> Option<Evidence> {
+    let credits: Vec<serde_json::Value> = serde_json::from_str(credits?).ok()?;
+    let mains: Vec<&serde_json::Value> = credits
+        .iter()
+        .filter(|credit| credit[0] == "main")
+        .collect();
+    match mains.as_slice() {
+        [] => None,
+        [only] => only[1].as_str().and_then(artist_id).map(Evidence::Artist),
+        _ => Some(Evidence::Ambiguous),
+    }
+}
+
+fn evidence(tags: Option<&str>, credits: Option<&str>) -> Evidence {
+    if let Some(decided) = credited_evidence(credits) {
+        return decided;
+    }
     let Some(tags) = tags.and_then(|tags| serde_json::from_str::<serde_json::Value>(tags).ok())
     else {
         return Evidence::None;
@@ -226,14 +266,11 @@ fn evidence(tags: Option<&str>) -> Evidence {
         let Some(value) = tag["value"].as_str() else {
             return Evidence::Ambiguous;
         };
-        match Uuid::parse_str(value.trim()) {
-            Ok(id)
-                if provider::validate_builtin_id(&id.hyphenated().to_string()).is_ok()
-                    && value.trim().len() == 36 =>
-            {
-                artists.insert(id.hyphenated().to_string());
+        match artist_id(value) {
+            Some(id) => {
+                artists.insert(id);
             }
-            _ => return Evidence::Ambiguous,
+            None => return Evidence::Ambiguous,
         }
     }
     let mut artists = artists.into_iter();
@@ -261,27 +298,48 @@ mod tests {
 
     #[test]
     fn only_one_distinct_performer_identifier_is_evidence() {
-        assert!(matches!(evidence(Some(&tags(&[("artist", A)]))), Evidence::Artist(id) if id == A));
+        assert!(
+            matches!(evidence(Some(&tags(&[("artist", A)])), None), Evidence::Artist(id) if id == A)
+        );
         assert!(matches!(
-            evidence(Some(&tags(&[("artist", A), ("artist", &A.to_uppercase())]))),
+            evidence(Some(&tags(&[("artist", A), ("artist", &A.to_uppercase())])), None),
             Evidence::Artist(id) if id == A
         ));
         assert!(matches!(
-            evidence(Some(&tags(&[("artist", A), ("artist", B)]))),
+            evidence(Some(&tags(&[("artist", A), ("artist", B)])), None),
             Evidence::Ambiguous
         ));
         assert!(matches!(
-            evidence(Some(&tags(&[("artist", &format!("{A};{B}"))]))),
+            evidence(Some(&tags(&[("artist", &format!("{A};{B}"))])), None),
             Evidence::Ambiguous
         ));
         assert!(matches!(
-            evidence(Some(&tags(&[("artist", "not-an-id")]))),
+            evidence(Some(&tags(&[("artist", "not-an-id")])), None),
             Evidence::Ambiguous
         ));
         assert!(matches!(
-            evidence(Some(&tags(&[("album_artist", A)]))),
+            evidence(Some(&tags(&[("album_artist", A)])), None),
             Evidence::None
         ));
-        assert!(matches!(evidence(None), Evidence::None));
+        assert!(matches!(evidence(None, None), Evidence::None));
+    }
+
+    #[test]
+    fn listed_main_artists_decide_before_the_identifier_tags() {
+        let both = tags(&[("artist", A), ("artist", B)]);
+        let lone = format!(r#"[["main","{A}"],["featured","{B}"]]"#);
+        assert!(matches!(evidence(Some(&both), Some(&lone)), Evidence::Artist(id) if id == A));
+        let pair = format!(r#"[["main","{A}"],["main","{B}"]]"#);
+        let one_tag = tags(&[("artist", A)]);
+        assert!(matches!(
+            evidence(Some(&one_tag), Some(&pair)),
+            Evidence::Ambiguous
+        ));
+        let unnamed = r#"[["main",null],["featured",null]]"#;
+        assert!(matches!(evidence(Some(&one_tag), Some(unnamed)), Evidence::Artist(id) if id == A));
+        assert!(matches!(
+            evidence(Some(&both), Some("[]")),
+            Evidence::Ambiguous
+        ));
     }
 }

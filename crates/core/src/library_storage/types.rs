@@ -25,6 +25,7 @@ pub(super) struct IndexedFile {
     pub disc_number: Option<i64>,
     pub track_number: Option<i64>,
     pub tag_details: Option<String>,
+    pub credits: Vec<hito_plugin_sdk::CreditedArtist>,
     pub size: i64,
 }
 
@@ -34,4 +35,4 @@ pub(super) struct AudioEvidence {
 }
 
 pub(super) const AUDIO_ALGORITHM: &str = "ffmpeg-pcm-f64-v1";
-pub(super) const METADATA_VERSION: i64 = 7;
+pub(super) const METADATA_VERSION: i64 = 8;

@@ -115,7 +115,7 @@ async fn unchanged_version_two_inspections_refresh_tags_without_decoding_audio()
     assert_eq!(current.observations.items.len(), 2);
     let selected = current.selected_observation.unwrap();
     assert_ne!(selected.id, previous_id);
-    assert_eq!(selected.inspection_version, Some(7));
+    assert_eq!(selected.inspection_version, Some(8));
     assert_eq!(
         selected.tags.as_ref().unwrap().isrc.as_ref().unwrap().value,
         "USRC17607839"

@@ -5,6 +5,7 @@ mod ownership;
 mod probe;
 mod read_probe;
 mod snapshot;
+mod tagged_artists;
 
 use super::{
     root::Root,
@@ -167,8 +168,10 @@ impl FileInspector {
             .tag("artist")
             .unwrap_or_else(|| "Unknown artist".into());
         let album_artist = probe.tag("album_artist").unwrap_or_else(|| artist.clone());
+        let credits = tagged_artists::credits(&artist, media.artists.as_ref());
         Ok((
             IndexedFile {
+                credits,
                 path: before.path,
                 checksum: before.checksum,
                 size: before.size,
