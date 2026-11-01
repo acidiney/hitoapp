@@ -19,6 +19,7 @@ mod provider_audio_admission;
 mod provider_audio_bodies;
 mod provider_audio_framing;
 mod provider_audio_lifetime;
+mod provider_audio_logging;
 mod provider_audio_protocol;
 mod provider_audio_timing;
 mod provider_search;

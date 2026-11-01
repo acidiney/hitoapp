@@ -68,7 +68,7 @@ impl AudioStream {
             span: tracing::Span::current(),
         }
     }
-    #[tracing::instrument(level = "trace", skip_all, err(Debug))]
+    #[tracing::instrument(level = "trace", skip_all)]
     pub async fn chunk(&mut self) -> Result<Option<Bytes>> {
         let Some(inner) = &mut self.inner else {
             return Ok(None);
@@ -84,8 +84,7 @@ impl AudioStream {
                     .expected
                     .is_some_and(|expected| self.transferred > expected)
                 {
-                    self.finish("failed");
-                    return Err(Error::Upstream("Audio exceeded the declared length"));
+                    return Err(self.fail(Error::Upstream("Audio exceeded the declared length")));
                 }
                 Ok(Some(bytes))
             }
@@ -94,17 +93,27 @@ impl AudioStream {
                     .expected
                     .is_some_and(|expected| expected != self.transferred)
                 {
-                    self.finish("failed");
-                    return Err(Error::Upstream("Audio ended before the declared length"));
+                    return Err(
+                        self.fail(Error::Upstream("Audio ended before the declared length"))
+                    );
                 }
                 self.finish("complete");
                 Ok(None)
             }
-            Err(error) => {
-                self.finish("failed");
-                Err(error)
-            }
+            Err(error) => Err(self.fail(error)),
         }
+    }
+    fn fail(&mut self, error: Error) -> Error {
+        self.finish("failed");
+        let _entered = self.span.enter();
+        tracing::warn!(
+            event = "audio_stream_failed",
+            error_kind = error.code(),
+            bytes = self.transferred,
+            elapsed_ms = self.started.elapsed().as_millis(),
+            "Audio stream failed"
+        );
+        error
     }
     fn finish(&mut self, outcome: &'static str) {
         self.outcome = outcome;
