@@ -26,10 +26,6 @@ pub(super) const NAME_CURSOR: &str = "name:";
 /// hold count after this mark so that the cursor still moves forward.
 const HOLD_MARK: char = '~';
 const MAX_HOLDS: u32 = 40;
-/// The rule that settled a name check. Checks of another rule do not hide a recording. Rule 3
-/// compares version titles, continues an artist already matched for the credit and lets one
-/// artist's coverage of the credit decide its remaining tracks. Rule 4 counts distinct titles for
-/// the share, asks every other namesake about the remaining tracks and lets choices and strong
 pub(super) const NAME_RULE: i64 = 5;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;

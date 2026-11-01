@@ -96,7 +96,6 @@ impl Probe {
         }
     }
 
-    /// An ID3 "MusicBrainz Track Id" text frame is ambiguous (taggers disagree on whether it names
     fn carries_id3(&self) -> bool {
         matches!(
             self.format
