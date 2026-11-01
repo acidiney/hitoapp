@@ -11,12 +11,8 @@ use std::{
 
 const SKIP: u64 = 10_000;
 
-/// Native window handle for platforms that bind media controls to a window.
 pub type WindowHandle = Arc<OnceLock<usize>>;
 
-/// Now Playing and remote commands through the operating system: macOS
-/// MPNowPlayingInfoCenter, Windows SystemMediaTransportControls, and MPRIS on
-/// Linux.
 pub struct OsControls(MediaControls);
 
 impl OsControls {

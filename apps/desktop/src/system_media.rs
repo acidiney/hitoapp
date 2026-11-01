@@ -7,8 +7,6 @@ use std::{
 };
 use url::Url;
 
-/// The operating-system surface for one media session. Implementations only
-/// translate; they own no playback decisions.
 pub trait Controls: Send + 'static {
     fn metadata(&mut self, metadata: &Metadata<'_>);
     fn playback(&mut self, playing: bool, progress: Duration);
@@ -25,15 +23,10 @@ pub struct Metadata<'a> {
 
 pub enum Create<C> {
     Ready(C),
-    /// A prerequisite such as the window handle is missing. Try again at the
-    /// next update.
     Later,
     Failed,
 }
 
-/// Builds the controls on first use. A `Later` result is retried at the next
-/// update. A failure is final and logs one safe warning, so media keys never
-/// prevent playback.
 pub struct Lazy<C: Controls> {
     init: Option<Box<dyn FnMut() -> Create<C> + Send>>,
     controls: Option<C>,
@@ -86,10 +79,6 @@ impl<C: Controls> Controls for Lazy<C> {
     }
 }
 
-/// Publishes the playback owner's authorized state to the operating system.
-/// Artwork bytes the owner already bounded are written to one owner-only file
-/// per track; the operating system reads it through a `file:` URL. The file is
-/// removed when the track changes or the session clears.
 pub struct SystemMedia<C: Controls> {
     controls: C,
     artwork: ArtworkFile,
