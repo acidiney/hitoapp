@@ -2,6 +2,7 @@
 
 mod playlist_follow;
 mod playlist_follow_admission;
+mod playlist_follow_approval_upgrade;
 mod playlist_follow_auto_resume;
 mod playlist_follow_content_revision;
 mod playlist_follow_deleted_history;

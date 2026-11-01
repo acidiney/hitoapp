@@ -303,7 +303,7 @@ async fn a_removed_playlists_ability_cannot_be_resumed_and_a_ready_follow_has_no
 }
 
 #[tokio::test]
-async fn a_follow_from_before_the_baseline_existed_resumes_when_playlists_is_still_approved() {
+async fn a_follow_without_a_recorded_approval_stays_paused_and_asks_for_approval() {
     let scenario = followed("follow-auto-legacy", &["playlists"]).await;
     reconnect(
         &scenario,
@@ -314,6 +314,57 @@ async fn a_follow_from_before_the_baseline_existed_resumes_when_playlists_is_sti
     )
     .await;
     assert_eq!(status(&scenario).await["status"], "paused");
+    clear_baseline(&scenario).await;
+    assert!(
+        !scenario
+            .hito
+            .collection
+            .run_next_follow_refresh_until(std::future::pending())
+            .await
+            .unwrap()
+    );
+    let paused = status(&scenario).await;
+    assert_eq!(paused["status"], "paused");
+    assert_eq!(paused["review"]["resumable"], true);
+    assert_eq!(
+        paused["review"]["changes"],
+        json!([{"kind": "capabilities", "before": [], "after": ["search", "playlists"]}])
+    );
+}
+
+#[tokio::test]
+async fn a_malformed_recorded_approval_is_not_compatible_and_does_not_fail_the_poll() {
+    let scenario = followed("follow-auto-malformed", &["playlists"]).await;
+    reconnect(
+        &scenario,
+        &scenario.installation,
+        "Rebuilt fixture",
+        &["playlists"],
+        None,
+    )
+    .await;
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(scenario._directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE playlist_follows SET approved_capabilities = '{broken',generation = generation",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    connection.close().await.unwrap();
+    scenario
+        .hito
+        .collection
+        .run_next_follow_refresh_until(std::future::pending())
+        .await
+        .unwrap();
+    assert_eq!(status(&scenario).await["status"], "paused");
+}
+
+async fn clear_baseline(scenario: &Followed) {
     let mut connection = SqliteConnection::connect_with(
         &SqliteConnectOptions::new().filename(scenario._directory.path().join("hito.db")),
     )
@@ -326,13 +377,4 @@ async fn a_follow_from_before_the_baseline_existed_resumes_when_playlists_is_sti
     .await
     .unwrap();
     connection.close().await.unwrap();
-    assert!(
-        scenario
-            .hito
-            .collection
-            .run_next_follow_refresh_until(std::future::pending())
-            .await
-            .unwrap()
-    );
-    assert_eq!(status(&scenario).await["status"], "ready");
 }

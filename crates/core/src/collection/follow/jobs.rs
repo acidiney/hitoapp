@@ -66,7 +66,11 @@ impl Collection {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn playlist_follow(&self, actor: &Actor, playlist: &str) -> Result<PlaylistFollow> {
         actor.check_session(&self.store).await?;
-        self.resume_compatible_follows(Some(playlist)).await?;
+        let owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM playlist_follows WHERE playlist_id = ? AND user_id = ? AND active = 1)")
+            .bind(playlist).bind(actor.id()).fetch_one(&self.store.pool).await?;
+        if owned {
+            self.resume_compatible_follows(Some(playlist)).await?;
+        }
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT f.interval_seconds,f.snapshot,f.last_refreshed_at,f.next_refresh_at,f.error,

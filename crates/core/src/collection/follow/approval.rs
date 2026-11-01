@@ -4,7 +4,10 @@ use super::types::{PlaylistFollowChange, PlaylistFollowChangeKind, PlaylistFollo
 use crate::Result;
 use sqlx::{Row, SqliteConnection};
 use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
+
+static REPORTED: AtomicBool = AtomicBool::new(false);
 
 const CREDENTIAL_MARKER: &str =
     "CASE WHEN i.credential IS NULL THEN NULL ELSE hex(substr(i.credential,34,24)) END";
@@ -20,10 +23,12 @@ fn compatible(scope: &str) -> String {
         WHERE f.active = 1 {scope}
             AND NOT EXISTS(SELECT 1 FROM current_playlist_follow_authority a WHERE a.playlist_id = f.playlist_id)
             AND EXISTS(SELECT 1 FROM json_each(i.manifest,'$.capabilities') WHERE value = 'playlists')
-            AND (f.approved_capabilities IS NULL OR (
+            AND f.approved_capabilities IS NOT NULL AND json_valid(f.approved_capabilities)
+            AND CASE WHEN json_valid(f.approved_capabilities) THEN
                 NOT EXISTS(SELECT 1 FROM json_each(i.manifest,'$.capabilities') c
                     WHERE c.value NOT IN (SELECT value FROM json_each(f.approved_capabilities)))
-                AND f.approved_credential IS ({CREDENTIAL_MARKER})))"
+                AND f.approved_credential IS ({CREDENTIAL_MARKER})
+                ELSE 0 END"
     )
 }
 
@@ -44,6 +49,22 @@ pub(super) async fn record_baseline(
 }
 
 impl Collection {
+    async fn report_malformed_approvals(&self) -> Result<()> {
+        if REPORTED.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+        let malformed: i64 = sqlx::query_scalar("SELECT count(*) FROM playlist_follows WHERE approved_capabilities IS NOT NULL AND NOT json_valid(approved_capabilities)")
+            .fetch_one(&self.store.pool)
+            .await?;
+        if malformed > 0 && !REPORTED.swap(true, Ordering::Relaxed) {
+            tracing::warn!(
+                malformed_follows = malformed,
+                "Playlist follows with an unreadable approval record stay paused"
+            );
+        }
+        Ok(())
+    }
+
     pub(super) async fn resume_compatible_follows(&self, playlist: Option<&str>) -> Result<u64> {
         let started = Instant::now();
         let scope = if playlist.is_some() {
@@ -58,6 +79,7 @@ impl Collection {
             probe = probe.bind(playlist);
         }
         if !probe.fetch_one(&self.store.pool).await? {
+            self.report_malformed_approvals().await?;
             return Ok(0);
         }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -170,7 +192,7 @@ pub(super) async fn review(
     let mut changes = Vec::new();
     let before = names(approved.as_deref());
     let current_set: BTreeSet<&String> = current.iter().collect();
-    if approved.is_some() && before.iter().collect::<BTreeSet<_>>() != current_set {
+    if approved.is_none() || before.iter().collect::<BTreeSet<_>>() != current_set {
         changes.push(PlaylistFollowChange {
             kind: PlaylistFollowChangeKind::Capabilities,
             before,
