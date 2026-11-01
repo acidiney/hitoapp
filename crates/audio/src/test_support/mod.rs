@@ -3,29 +3,42 @@ pub mod capture;
 use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},
-    sync::Mutex,
+    sync::{Mutex, MutexGuard, PoisonError},
 };
 
 static OUTPUT_RATES: Mutex<Option<Vec<u32>>> = Mutex::new(None);
+static HOLDERS: Mutex<()> = Mutex::new(());
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
 
 /// While alive, every player opened by this process sees a device that offers
-/// only the listed sample rates.
-pub struct OutputRates(());
+/// only the listed sample rates. Holders exclude each other and the previous
+/// restriction returns when one is dropped.
+pub struct OutputRates {
+    previous: Option<Vec<u32>>,
+    _exclusive: MutexGuard<'static, ()>,
+}
 
 pub fn restrict_output_rates(rates: &[u32]) -> OutputRates {
-    *OUTPUT_RATES.lock().unwrap() = Some(rates.to_vec());
-    OutputRates(())
+    let exclusive = lock(&HOLDERS);
+    let previous = lock(&OUTPUT_RATES).replace(rates.to_vec());
+    OutputRates {
+        previous,
+        _exclusive: exclusive,
+    }
 }
 
 impl Drop for OutputRates {
     fn drop(&mut self) {
-        *OUTPUT_RATES.lock().unwrap() = None;
+        *lock(&OUTPUT_RATES) = self.previous.take();
     }
 }
 
 #[cfg(feature = "device")]
 pub(crate) fn restricted_output_rates() -> Option<Vec<u32>> {
-    OUTPUT_RATES.lock().unwrap().clone()
+    lock(&OUTPUT_RATES).clone()
 }
 
 pub fn wave(rate: u32, channels: u16, frames: u32, sample: impl Fn(u32, u16) -> i16) -> File {
