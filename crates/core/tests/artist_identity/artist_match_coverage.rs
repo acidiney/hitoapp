@@ -36,7 +36,6 @@ async fn credit(tracks: Vec<(String, String, u64, Evidence)>) -> NameLibrary {
     NameLibrary::prepare_with_evidence(&entries).await
 }
 
-/// The artist lists the tracks with these indexes, each with the library's length.
 fn lists(indexes: impl Iterator<Item = usize>) -> Reply {
     let titles: Vec<(String, Option<u64>)> = indexes
         .map(|index| (title(index), Some(length(index))))
@@ -263,7 +262,6 @@ async fn a_namesake_listing_a_title_of_the_tail_keeps_the_tail_out() {
     }
 }
 
-/// A track decided by the account for another artist, by removing the provenance of a name match.
 async fn choose_other_artist(library: &NameLibrary) {
     library
         .execute("DROP TRIGGER artist_association_name_match_retained")
@@ -278,8 +276,6 @@ async fn choose_other_artist(library: &NameLibrary) {
 
 #[tokio::test]
 async fn a_personal_choice_for_another_artist_in_the_credit_keeps_the_tail_out() {
-    // The first request samples six of the eight tracks, so the other artist needs both of its
-    // titles in the sample; libraries are built again until it has them.
     let library = loop {
         let library = credit(entries(CREDIT, 8)).await;
         library.musicbrainz.search(

@@ -9,9 +9,6 @@ const TAGS: [(&str, &str); 4] = [
     ("release_track", "musicbrainz_release_track_id"),
 ];
 
-/// Retains the well-formed MusicBrainz identifiers a file observation states for its release and
-/// recording. Malformed or nil values stay raw tag assertions only. Retaining never changes a
-/// release, a recording or a personal edit.
 pub(crate) async fn retain_tag_identities(
     connection: &mut SqliteConnection,
     observation: &str,

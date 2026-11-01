@@ -31,8 +31,6 @@ fn within(tables: &[&str], column: &str, set: &str) -> Vec<String> {
         .collect()
 }
 
-/// The ordered statements, each bound to the erased account as `?1`, that remove everything an
-/// account owns. Rows come out before the rows they reference, and the account row goes last.
 pub(super) fn statements() -> Vec<String> {
     let mut plan = vec![
         "INSERT INTO erased_download_files(file_id,attempt_id,host_device) SELECT id,attempt_id,host_device FROM download_files WHERE account_id=?1 AND state IN ('staging','ready','deleting') ON CONFLICT DO NOTHING".to_string(),
@@ -63,9 +61,6 @@ pub(super) fn statements() -> Vec<String> {
     plan
 }
 
-/// Cached MusicBrainz genre lookups are public reference data, but an identity that no remaining
-/// account's library names no longer needs one: artists are named by the groups of the remaining
-/// accounts, release groups and recordings by the retained tag identities.
 fn unreferenced_genre_lookups() -> Vec<String> {
     const UNREFERENCED: &str = "(entity='artist' AND mbid NOT IN (SELECT provider_artist_id FROM account_artist_identity_groups WHERE provider_kind='builtin_musicbrainz' AND user_id<>?1))
         OR (entity<>'artist' AND NOT EXISTS (SELECT 1 FROM recording_musicbrainz_observations o WHERE o.entity=musicbrainz_genre_lookups.entity AND o.mbid=musicbrainz_genre_lookups.mbid))";
@@ -346,9 +341,6 @@ mod tests {
 
     #[tokio::test]
     async fn every_table_reaching_users_by_foreign_key_or_account_named_column_is_in_the_plan() {
-        // Guarantees: a table with a foreign key path to users, or a column named user_id,
-        // account_id, owner_id, author_id or *_by (even without a foreign key), is touched by
-        // the plan. It cannot see an account reference hidden in a differently named column.
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(&directory.path().join("plan.db"))
             .await

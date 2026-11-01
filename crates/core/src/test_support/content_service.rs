@@ -89,7 +89,6 @@ impl ProviderServer {
     pub async fn offline(&self) {
         *self.state.offline.write().await = true;
     }
-    /// Replies with `value` to the `call`th (1-based) and later requests to `path`.
     pub async fn reply_from_call(&self, path: &str, call: usize, value: Value) {
         self.state
             .later

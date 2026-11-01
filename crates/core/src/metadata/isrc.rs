@@ -16,8 +16,6 @@ impl IsrcOrigin {
     }
 }
 
-/// Retains the allowlisted artist pages an observation states. Only an observation naming exactly
-/// one page can identify an artist, but every supported page is kept as evidence.
 pub(crate) async fn retain_artist_pages(
     connection: &mut SqliteConnection,
     observation: &str,
@@ -38,7 +36,6 @@ pub(crate) async fn retain_artist_pages(
     Ok(())
 }
 
-/// Retains the canonical ISRC an observation states, if any. A malformed value is ignored.
 pub(crate) async fn retain(
     connection: &mut SqliteConnection,
     observation: &str,

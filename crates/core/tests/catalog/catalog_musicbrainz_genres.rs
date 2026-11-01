@@ -70,7 +70,6 @@ impl World {
         tag.save_to_path(&path, Default::default()).unwrap();
     }
 
-    /// A FLAC file, whose Vorbis comment names the recording; an ID3 track id is ambiguous.
     fn flac_track(&self, offset: i16, title: &str, recording: &str) {
         let source = self.directory.path().join(format!("{title}.wav"));
         support::write_wav(&source, offset);

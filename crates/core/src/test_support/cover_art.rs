@@ -23,7 +23,6 @@ struct State_ {
     requests: Vec<String>,
 }
 
-/// An owned loopback stand-in for the Cover Art Archive.
 pub struct FakeCoverArt {
     pub endpoint: url::Url,
     state: Arc<Mutex<State_>>,
@@ -48,7 +47,6 @@ impl FakeCoverArt {
         }
     }
 
-    /// Answers the front cover of `kind` (`release` or `release-group`) and identifier.
     pub fn front(&self, kind: &str, mbid: &str, reply: Reply) {
         self.state
             .lock()

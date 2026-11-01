@@ -214,7 +214,6 @@ impl World {
     }
 }
 
-/// Every table column that names an account, as table and column.
 pub async fn account_columns(connection: &mut SqliteConnection) -> Vec<(String, String)> {
     sqlx::query_as(
         "SELECT m.name,p.name FROM sqlite_master m, pragma_table_info(m.name) p
@@ -240,7 +239,6 @@ pub async fn rows_of(connection: &mut SqliteConnection, account: &str) -> Vec<(S
     rows
 }
 
-/// Tables and columns whose text mentions the account anywhere, including JSON payloads.
 pub async fn mentions(connection: &mut SqliteConnection, account: &str) -> Vec<String> {
     let columns: Vec<(String, String)> = sqlx::query_as(
         "SELECT m.name,p.name FROM sqlite_master m, pragma_table_info(m.name) p

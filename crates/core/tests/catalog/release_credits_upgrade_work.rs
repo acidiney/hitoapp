@@ -22,8 +22,6 @@ const SMALL: i64 = 128;
 const LARGE: i64 = 2048;
 const ACCOUNTS: i64 = 10;
 const FIXED_WORK: u64 = 200_000;
-// The allowance covers ten account projections and private credits per album,
-// including their index construction and the migration's foreign-key audit.
 const WORK_PER_ALBUM: u64 = 20_000;
 const OTHER_TOKEN: &str = "release-credit-work-other-token";
 type Counts = (i64, i64, i64, i64, i64, i64, i64);

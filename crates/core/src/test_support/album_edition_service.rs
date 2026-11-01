@@ -155,7 +155,6 @@ impl AlbumProvider {
         self.behavior.outage.store(outage, Ordering::SeqCst);
     }
 
-    /// Changes the credit and duration the edition reports for the bonus track.
     pub fn set_bonus(&self, credit: &str, duration_ms: Option<u64>) {
         *self.behavior.bonus.lock().unwrap() = (credit.into(), duration_ms);
     }

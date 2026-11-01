@@ -95,7 +95,6 @@ async fn an_old_worker_retires_without_overwriting_a_resumed_generations_error_s
     })
     .await
     .expect("The real old-generation worker must request the held canonical detail");
-    // Keep the owned worker future unpolled until the reviewed Resume has committed.
     assert_eq!(
         hito.collection
             .playlist_follow(&actor, &playlist)

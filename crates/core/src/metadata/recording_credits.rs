@@ -33,7 +33,6 @@ impl Scope<'_> {
         query.push(") ");
     }
 
-    /// A `WITH targets(recording_id)` prefix naming the recordings in this scope.
     pub(crate) fn recordings(&self) -> QueryBuilder<'static, Sqlite> {
         let mut query = QueryBuilder::new(
             "WITH targets AS MATERIALIZED (SELECT r.id AS recording_id FROM recordings r WHERE 1",

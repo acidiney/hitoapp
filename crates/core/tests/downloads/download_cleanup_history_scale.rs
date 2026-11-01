@@ -254,7 +254,6 @@ fn statement(prefix: &str) -> &'static str {
 }
 
 async fn history(connection: &mut SqliteConnection, transfer: &str, first: i64, last: i64) {
-    // Inactive diagnostic intents reuse the owned recording and its captured provider origin.
     let inserted = sqlx::query("WITH RECURSIVE n(i) AS (VALUES(?) UNION ALL SELECT i+1 FROM n WHERE i<?)
         INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,
             provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,

@@ -16,8 +16,6 @@ pub struct MigrationOutcome {
     pub applied_count: usize,
 }
 
-/// Apply embedded migrations after the operator has stopped application writers.
-/// Canceling the observer leaves the owned migration and connection close running.
 #[tracing::instrument(level = "info", skip_all, err(Debug), fields(maintenance_id = %uuid::Uuid::new_v4()))]
 pub async fn migrate_existing(
     database: PathBuf,

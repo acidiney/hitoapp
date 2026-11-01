@@ -249,7 +249,6 @@ async fn grow(
     first_failure: i64,
     last_failure: i64,
 ) {
-    // These diagnostic clones retain valid FKs; provider authority and transfer workers never run.
     let entries = sqlx::query(
         "WITH RECURSIVE n(i) AS (VALUES(?) UNION ALL SELECT i+1 FROM n WHERE i<?)
         INSERT INTO playlist_entries(playlist_id,id,recording_id,position)

@@ -10,7 +10,6 @@ use std::{
 use tokio::sync::watch;
 
 impl Downloads {
-    /// Wait for managed filesystem work after callers and transfer workers have stopped.
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn finish_downloads(&self) -> Result<()> {
         self.files.settle().await

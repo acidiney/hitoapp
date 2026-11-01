@@ -1,9 +1,3 @@
-//! Ownership rules shared by files that hold credential material.
-//!
-//! On Unix a private file is a regular file with one hard link, owned by the
-//! effective user, whose permission bits are one of the accepted modes.
-//! Windows has no verified owner-only ACL check yet, so it never qualifies.
-
 use std::fs::Metadata;
 
 #[cfg(unix)]

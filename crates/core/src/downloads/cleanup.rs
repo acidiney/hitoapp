@@ -18,8 +18,6 @@ impl Downloads {
         Ok(self.reclaim(None).await? || erased)
     }
 
-    /// Removes the managed files of deleted accounts that belong to this host. An entry whose
-    /// file cannot be removed stays in the ledger and never holds back the others.
     async fn reclaim_erased(&self) -> Result<bool> {
         let entries: Vec<(String, String)> = sqlx::query_as(
             "SELECT file_id,attempt_id FROM erased_download_files WHERE host_device=? ORDER BY file_id LIMIT 256",

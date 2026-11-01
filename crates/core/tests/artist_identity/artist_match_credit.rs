@@ -23,7 +23,6 @@ fn stating(index: usize) -> Evidence {
     }
 }
 
-/// Twenty-one tracks of one credit; the ones listed in `stated` carry an ISRC.
 async fn credit(name: &str, stated: &[usize]) -> NameLibrary {
     let entries: Vec<(&str, String, u64, Evidence)> = (0..21)
         .map(|index| {

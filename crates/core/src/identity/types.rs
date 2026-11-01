@@ -120,7 +120,6 @@ pub struct Unlock {
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteAccount {
-    /// The account name the administrator saw, so a stale or mistaken request cannot erase a different account.
     pub username: String,
 }
 

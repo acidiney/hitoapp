@@ -14,7 +14,6 @@ pub const NOVA: &str = "44444444-4444-4444-8444-444444444444";
 pub const NAMESAKE: &str = "55555555-5555-4555-8555-555555555555";
 pub const TRIBUTE: &str = "66666666-6666-4666-8666-666666666666";
 
-/// Title and length in milliseconds of the imported recordings of one credit.
 pub const TRACKS: [(&str, u64); 4] = [
     ("Morning Light", 201_000),
     ("Second Wind", 187_500),
@@ -32,7 +31,6 @@ pub struct NameLibrary {
     installation: (String, i64),
 }
 
-/// Provider evidence an imported recording states about itself.
 #[derive(Default, Clone)]
 pub struct Evidence {
     pub isrc: Option<String>,
@@ -49,7 +47,6 @@ fn imported(index: usize, credit: &str, title: &str, length: u64, evidence: &Evi
     }}})
 }
 
-/// Reply to every lookup of the default credit: no namesake is known to MusicBrainz.
 pub fn nova_discography(
     items: &[(&str, Option<u64>)],
 ) -> hito_core::test_support::musicbrainz::Reply {
@@ -62,8 +59,6 @@ pub fn nova_discography(
 }
 
 impl NameLibrary {
-    /// Imports one playlist whose recordings carry no identifier, ISRC or artist page, each
-    /// listed as (credit, title, length in milliseconds).
     pub async fn prepare(entries: &[(&str, &str, u64)]) -> Self {
         let entries: Vec<(&str, &str, u64, Evidence)> = entries
             .iter()
@@ -72,7 +67,6 @@ impl NameLibrary {
         Self::prepare_with_evidence(&entries).await
     }
 
-    /// Like `prepare`, with the ISRC and artist pages each recording states.
     pub async fn prepare_with_evidence(entries: &[(&str, &str, u64, Evidence)]) -> Self {
         let musicbrainz = FakeMusicBrainz::start().await;
         let (directory, hito, actor, _library, _music) =
@@ -208,7 +202,6 @@ impl NameLibrary {
         sqlx::raw_sql(sql).execute(&mut connection).await.unwrap();
     }
 
-    /// The default library: the four `TRACKS` of one credit.
     pub async fn nova() -> Self {
         let entries: Vec<(&str, &str, u64)> = TRACKS
             .iter()
@@ -249,7 +242,6 @@ impl NameLibrary {
             .await
     }
 
-    /// Walks the cursor like the web app and sums the receipts.
     pub async fn run(&self) -> ArtistProviderMatchReceipt {
         let mut total = ArtistProviderMatchReceipt {
             request_id: Uuid::new_v4(),
@@ -309,7 +301,6 @@ impl NameLibrary {
             .unwrap()
     }
 
-    /// Runs the automatic matching worker until it has no due work, returning the steps taken.
     pub async fn automatic(&self) -> usize {
         let mut steps = 0;
         while self
@@ -325,7 +316,6 @@ impl NameLibrary {
         steps
     }
 
-    /// Runs a statement against the database, for states no capability produces.
     pub async fn execute(&self, sql: &str) {
         let mut connection = sqlx::SqliteConnection::connect(&format!(
             "sqlite://{}?mode=rw",

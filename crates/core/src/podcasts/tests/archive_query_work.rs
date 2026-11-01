@@ -129,7 +129,6 @@ async fn podcast_episode_pages_stay_bounded_across_a_large_retained_archive() {
     }
 }
 
-// The unreleased contract orders equal dates and the final undated group by descending episode ID.
 fn expected_index(depth: u32) -> u32 {
     if depth < 60_000 {
         depth / 3 * 3 + 2 - depth % 3

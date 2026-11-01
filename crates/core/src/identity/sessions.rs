@@ -115,8 +115,6 @@ impl Actor {
         })
     }
 
-    /// The account acting on its own behalf with no browser session, for work the server starts
-    /// after the account has shown consent through its saved settings.
     pub(crate) async fn unattended_on(
         connection: &mut sqlx::SqliteConnection,
         account: &str,

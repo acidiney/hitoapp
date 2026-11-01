@@ -5,11 +5,6 @@ use std::time::Instant;
 use uuid::Uuid;
 
 impl Identity {
-    /// Erases one account and everything it owns in a single transaction.
-    ///
-    /// Only an administrator may delete, never their own account, and never the last
-    /// administrator. Managed download files leave the disk after the commit, from a ledger that
-    /// survives a crash.
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(operation = "account_delete", request_id = %Uuid::new_v4()))]
     pub async fn delete_account(
         &self,

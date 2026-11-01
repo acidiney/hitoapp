@@ -15,24 +15,13 @@ use tokio::{net::TcpListener, task::JoinHandle};
 
 #[derive(Clone)]
 pub enum Reply {
-    /// Recordings that carry the code, each with its credited artist identifiers.
     Recordings(Vec<(String, Vec<String>)>),
-    /// Artists related to a provider URL.
     Artists(Vec<String>),
-    /// Artists found by a name search, each with its identifier and name.
     Candidates(Vec<(String, String)>),
-    /// A search page with a stated total that may exceed the page.
     CandidatesOf(Vec<(String, String)>, u32),
-    /// A search page with explicit relevance scores and a stated total.
     Scored(Vec<(String, String, u32)>, u32),
-    /// Every recording of an artist, each title with its length in milliseconds. A recording
-    /// search answers with the recordings whose title contains a probe's title as a phrase of words and
-    /// whose length lies in the probe's range, at most one page of them, and states how many
-    /// match in all.
     Discography(Vec<(String, Option<u64>)>),
-    /// One browse page of release groups, each with its identifier and primary type.
     ReleaseGroups(Vec<(String, Option<String>)>),
-    /// The official genres of one entity, each with its name and vote count.
     Genres(Vec<(String, u32)>),
     NotFound,
     Unavailable,
@@ -43,12 +32,10 @@ struct State_ {
     replies: HashMap<String, Reply>,
     requests: Vec<String>,
     delay: Duration,
-    /// Keys that answer this many requests normally and then fail as unavailable.
     failing_after: HashMap<String, usize>,
     descriptions: HashMap<String, (String, String)>,
 }
 
-/// An owned loopback stand-in for the MusicBrainz web service.
 pub struct FakeMusicBrainz {
     pub endpoint: url::Url,
     state: Arc<Mutex<State_>>,
@@ -97,7 +84,6 @@ impl FakeMusicBrainz {
             .insert(format!("url/{resource}"), reply);
     }
 
-    /// Answers an artist search for exactly this name.
     pub fn search(&self, name: &str, reply: Reply) {
         self.state
             .lock()
@@ -106,7 +92,6 @@ impl FakeMusicBrainz {
             .insert(format!("search/{name}"), reply);
     }
 
-    /// Answers an artist search whose total exceeds the returned page.
     pub fn search_total(&self, name: &str, found: Vec<(String, String)>, total: u32) {
         self.state
             .lock()
@@ -115,7 +100,6 @@ impl FakeMusicBrainz {
             .insert(format!("search/{name}"), Reply::CandidatesOf(found, total));
     }
 
-    /// Answers an artist search with explicit relevance scores and a total beyond the page.
     pub fn search_scored(&self, name: &str, found: Vec<(String, String, u32)>, total: u32) {
         self.state
             .lock()
@@ -132,7 +116,6 @@ impl FakeMusicBrainz {
             .insert(artist.into(), (disambiguation.into(), country.into()));
     }
 
-    /// Answers the recordings browse of one artist.
     pub fn recordings_of(&self, artist: &str, reply: Reply) {
         self.state
             .lock()
@@ -141,7 +124,6 @@ impl FakeMusicBrainz {
             .insert(format!("recordings/{artist}"), reply);
     }
 
-    /// Answers the release-group browse of one artist, for one primary type or for all of them.
     pub fn release_groups_of(&self, artist: &str, release_type: Option<&str>, reply: Reply) {
         self.state.lock().unwrap().replies.insert(
             format!("release-groups/{artist}/{}", release_type.unwrap_or("all")),
@@ -149,7 +131,6 @@ impl FakeMusicBrainz {
         );
     }
 
-    /// Answers the genre lookup of one artist, release group or recording.
     pub fn genres_of(&self, entity: &str, id: &str, reply: Reply) {
         self.state
             .lock()
@@ -158,7 +139,6 @@ impl FakeMusicBrainz {
             .insert(format!("genres/{entity}/{id}"), reply);
     }
 
-    /// Makes the recordings browse of one artist answer this many requests, then fail with 503.
     pub fn recordings_fail_after(&self, artist: &str, answered: usize) {
         self.state
             .lock()
@@ -171,7 +151,6 @@ impl FakeMusicBrainz {
         self.state.lock().unwrap().delay = delay;
     }
 
-    /// Request targets in arrival order, with the query string.
     pub fn requests(&self) -> Vec<String> {
         self.state.lock().unwrap().requests.clone()
     }
@@ -213,8 +192,6 @@ fn normalized(text: &str) -> String {
         .to_lowercase()
 }
 
-/// The phrases and length ranges a recording search asks about, in the shape
-/// `(recording:"phrase" AND dur:[low TO high])`. Phrases are returned normalized and unescaped.
 fn words(text: &str) -> Vec<String> {
     text.split(|character: char| !character.is_alphanumeric())
         .filter(|word| !word.is_empty())
@@ -222,7 +199,6 @@ fn words(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Whether the title's words contain the phrase's words next to each other, like a phrase search.
 fn has_phrase(title: &str, phrase: &str) -> bool {
     let (title, phrase) = (words(title), words(phrase));
     !phrase.is_empty() && title.windows(phrase.len()).any(|window| window == phrase)
@@ -348,7 +324,6 @@ fn key(uri: &Uri) -> Option<String> {
     None
 }
 
-/// Exact-name artists score 100 and sort first, like MusicBrainz phrase searches.
 fn scored(key: &str, artists: &[(String, String)]) -> Vec<(String, String, u32)> {
     let wanted = normalized(key.trim_start_matches("search/"));
     let mut found: Vec<(String, String, u32)> = artists

@@ -99,8 +99,6 @@ impl Plugins {
 }
 
 impl Plugins {
-    /// Reads the service's current declaration with the saved credential and reports whether it
-    /// differs from the accepted one. Nothing is stored.
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn check_declaration(
         &self,

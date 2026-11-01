@@ -159,8 +159,6 @@ async fn history(connection: &mut SqliteConnection, transfer: &str, first: i64, 
         SELECT printf('10000000-0000-4000-8000-%012x',n.i),i.library_id,'Owned failed diagnostic recording',r.artist,'provider_response'
         FROM n CROSS JOIN download_intents i JOIN recordings r ON r.id=i.recording_id WHERE i.id=?")
         .bind(first).bind(last).bind(transfer).execute(&mut *connection).await.unwrap();
-    // Diagnostic intents keep valid FKs and reuse an owned origin without running transfer authority or workers.
-    // Their IDs sort before the public transfer so an account/state scan cannot find the matching control early.
     let inserted = sqlx::query("WITH RECURSIVE n(i) AS (VALUES(?) UNION ALL SELECT i+1 FROM n WHERE i<?)
         INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,
             provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,

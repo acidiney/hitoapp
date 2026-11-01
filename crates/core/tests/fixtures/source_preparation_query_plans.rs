@@ -125,7 +125,6 @@ impl Fixture {
     }
 
     pub async fn active(&self, connection: &mut SqliteConnection) {
-        // These two diagnostic rows deliberately lack authority; only this owned connection disables foreign keys.
         sqlx::query("WITH n(i) AS (VALUES(0),(1))
             INSERT INTO source_preparations(id,user_id,recording_id,source_id,library_id,access_grant,
                 binding_id,binding_revision,provider_recording_id,remote_source_id,installation_id,installation_revision,

@@ -225,7 +225,6 @@ pub fn typed_group(id: &str, kind: CatalogReleaseGroupKind) -> CatalogReleaseGro
     }
 }
 
-/// Two albums on two pages, one EP and no singles.
 pub fn typed_page(
     filter: CatalogReleaseTypeFilter,
     cursor: Option<&str>,

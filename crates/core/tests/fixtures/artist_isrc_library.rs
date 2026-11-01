@@ -236,8 +236,6 @@ impl Library {
             .unwrap();
     }
 
-    /// Walks the cursor like the web app: every recording is examined once, a failed lookup does
-    /// not stop the walk, and the receipts are summed.
     pub async fn run(&self) -> ArtistProviderMatchReceipt {
         self.run_as(&self.actor).await
     }
@@ -305,8 +303,6 @@ impl Library {
             .unwrap()
     }
 
-    /// Stores an artist page row for the recording's current observation without the plugin
-    /// contract, like data written by an earlier version.
     pub async fn plant_page(&self, recording: &str, url: &str) {
         let mut connection = sqlx::SqliteConnection::connect(&format!(
             "sqlite://{}?mode=rw",

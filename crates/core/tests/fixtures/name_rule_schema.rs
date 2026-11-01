@@ -6,8 +6,6 @@ pub const ADDED: &[(&str, &str)] = &[];
 
 type Column = (i64, String, String, i64, Option<String>, i64, i64);
 
-/// The column 0072 appends to each table: name, declared type, not-null flag, default and its
-/// exact declaration text.
 const COLUMNS: &[(&str, &str, &str, i64, &str, &str)] = &[
     (
         "artist_name_checks",

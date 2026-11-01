@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 const SEARCH: &str = "/ws/2/artist?query=%22Nova+Quartet%22&fmt=json&limit=100&offset=0";
 
-/// The recording searches made about one artist.
 fn probes_of(library: &NameLibrary, artist: &str) -> Vec<String> {
     let prefix = format!("/ws/2/recording?query=arid%3A{artist}+AND");
     library
@@ -33,7 +32,6 @@ fn candidates(entries: &[(&str, &str)]) -> Reply {
     )
 }
 
-/// Three of the four library tracks appear in the discography with a length inside two seconds.
 fn corroborating() -> Reply {
     nova_discography(&[
         ("morning light", Some(202_900)),
@@ -497,7 +495,6 @@ const MAIN: &str = "0f700000-0000-4000-8000-000000000a01";
 const SECOND: &str = "0f700000-0000-4000-8000-000000000a02";
 const THIRD: &str = "0f700000-0000-4000-8000-000000000a03";
 
-/// Tracks "Song 0" to "Song {count-1}" of one credit, each with its own length.
 fn songs(count: u64) -> Vec<(String, u64)> {
     (0..count)
         .map(|index| (format!("Song {index}"), 100_000 + index * 1000))
@@ -512,8 +509,6 @@ async fn credit_of(tracks: &[(String, u64)]) -> NameLibrary {
     NameLibrary::prepare(&entries).await
 }
 
-/// An artist with thousands of recordings: the library's songs among remixes, live versions and
-/// unrelated recordings.
 fn prolific(listed: &[(String, u64)], filler: usize) -> Reply {
     let mut items: Vec<(String, Option<u64>)> = (0..filler)
         .map(|index| (format!("Other Song {index}"), Some(100_000 + index as u64)))

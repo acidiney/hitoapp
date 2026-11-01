@@ -256,8 +256,6 @@ pub struct HomeAlbum {
     pub title: String,
     #[schema(required = true)]
     pub artist: Option<String>,
-    /// Display album artist derived from the tracks when the album has none, the same value an
-    /// album read carries.
     #[sqlx(skip)]
     #[schema(required = true)]
     pub inferred_artist: Option<crate::AlbumArtistInference>,
@@ -265,7 +263,6 @@ pub struct HomeAlbum {
     pub played: i64,
 }
 
-/// An album that entered the library recently, newest first.
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
 pub struct AddedAlbum {
     pub id: String,

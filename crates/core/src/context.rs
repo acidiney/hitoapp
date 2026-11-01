@@ -51,10 +51,8 @@ pub struct CoreConfig {
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
     pub folder_watching: crate::FolderWatchSettings,
-    /// Redirects built-in MusicBrainz requests to an owned loopback fake. Exists only in tests.
     #[cfg(any(test, feature = "test-support"))]
     pub musicbrainz_loopback_endpoint: Option<url::Url>,
-    /// Redirects Cover Art Archive requests to an owned loopback fake. Exists only in tests.
     #[cfg(any(test, feature = "test-support"))]
     pub cover_art_loopback_endpoint: Option<url::Url>,
 }
