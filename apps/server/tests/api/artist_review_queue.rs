@@ -11,7 +11,7 @@ const NOVA: &str = "44444444-4444-4444-8444-444444444444";
 const NAMESAKE: &str = "55555555-5555-4555-8555-555555555555";
 const QUEUE: &str = "/api/v1/artist-matching/review-queue";
 
-async fn queued() -> (
+pub(super) async fn queued() -> (
     tempfile::TempDir,
     axum::Router,
     String,

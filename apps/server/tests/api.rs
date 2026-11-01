@@ -169,6 +169,8 @@ mod artist_review_fixture;
 mod artist_review_host;
 #[path = "api/artist_review_queue.rs"]
 mod artist_review_queue;
+#[path = "api/artist_review_releases.rs"]
+mod artist_review_releases;
 #[path = "fixtures/artist_review_tcp.rs"]
 mod artist_review_tcp;
 #[path = "api/artist_similarity.rs"]

@@ -8,8 +8,8 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    ArtistAssociation, ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability,
-    ArtistReviewContext, Error, MetadataProvider, Services,
+    ArtistAssociation, ArtistCandidatePreviewAvailability, ArtistCandidateReleasesAvailability,
+    ArtistCandidateSearchAvailability, ArtistReviewContext, Error, MetadataProvider, Services,
 };
 use hito_plugin_sdk::ArtistSearchRequest;
 use serde::Deserialize;
@@ -150,6 +150,48 @@ pub async fn preview(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist candidate preview HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/artist-review/releases", operation_id = "list_artist_candidate_releases",
+    params(("id" = String, Path)), request_body = SelectArtistCandidate,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistCandidateReleasesAvailability), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_artist_candidate_releases", request_id = %Uuid::new_v4()))]
+pub async fn releases(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<SelectArtistCandidate>,
+) -> ApiResult<Json<ArtistCandidateReleasesAvailability>> {
+    let started = Instant::now();
+    let result = async {
+        require_recording(&id, &request.context)?;
+        services
+            .artist_catalog
+            .known_releases_of_artist_candidate_until(
+                &actor,
+                &request.context,
+                &request.provider_artist_id,
+                std::future::pending(),
+            )
+            .await
+    }
+    .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map(|_| "returned")
+            .unwrap_or_else(|error| error.code()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Artist candidate releases HTTP request completed"
     );
     Ok(Json(result?))
 }
