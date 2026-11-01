@@ -216,7 +216,9 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(ProviderPlaylistEntry {
         occurrence_id: None,
-        item: ProviderPlaylistItem::Recording { recording },
+        item: ProviderPlaylistItem::Recording {
+            recording: Box::new(recording),
+        },
     })
 }
 

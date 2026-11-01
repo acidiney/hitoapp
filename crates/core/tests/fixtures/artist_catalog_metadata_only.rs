@@ -58,7 +58,7 @@ impl Imported {
                 .map(|(index, id)| ProviderPlaylistEntry {
                     occurrence_id: Some(format!("owned-occurrence-{index}")),
                     item: ProviderPlaylistItem::Recording {
-                        recording: recording(id),
+                        recording: Box::new(recording(id)),
                     },
                 })
                 .collect(),

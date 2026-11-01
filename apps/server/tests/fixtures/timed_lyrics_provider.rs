@@ -285,7 +285,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
                 .map(|index| ProviderPlaylistEntry {
                     occurrence_id: Some(format!("owned-lyrics-occurrence-{index}")),
                     item: ProviderPlaylistItem::Recording {
-                        recording: ProviderRecording {
+                        recording: Box::new(ProviderRecording {
                             isrc: None,
                             artist_urls: Vec::new(),
                             artists: Vec::new(),
@@ -298,7 +298,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
                             track_number: None,
                             revision: reference().revision,
                             attribution: None,
-                        }
+                        })
                     },
                 })
                 .collect(),

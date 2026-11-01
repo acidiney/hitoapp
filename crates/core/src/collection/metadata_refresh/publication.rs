@@ -27,7 +27,7 @@ pub(super) async fn publish(
     let mut metadata = HashMap::new();
     for entry in snapshot.entries {
         if let ProviderPlaylistItem::Recording { recording } = entry.item {
-            metadata.entry(recording.id.clone()).or_insert(recording);
+            metadata.entry(recording.id.clone()).or_insert(*recording);
         }
     }
     let mut receipt = ImportedPlaylistMetadataRefresh {

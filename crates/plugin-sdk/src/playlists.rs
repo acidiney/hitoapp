@@ -69,7 +69,7 @@ pub struct ProviderPlaylistEntry {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProviderPlaylistItem {
     Recording {
-        recording: ProviderRecording,
+        recording: Box<ProviderRecording>,
     },
     Unavailable {
         provider_recording_id: Option<String>,

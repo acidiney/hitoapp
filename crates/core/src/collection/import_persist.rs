@@ -84,7 +84,7 @@ pub(super) async fn publish(
                         library_id,
                         release_id: published.release_id.as_deref().map(identity).transpose()?,
                         observation_id: identity(&published.observation_id)?,
-                        metadata,
+                        metadata: *metadata,
                     });
                     recording_id
                 };

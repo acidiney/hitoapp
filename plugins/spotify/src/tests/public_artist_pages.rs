@@ -57,7 +57,7 @@ async fn recording_of(entry: Value) -> ProviderRecording {
     let ProviderPlaylistItem::Recording { recording } = &page.items[0].item else {
         panic!("Expected the owned recording");
     };
-    recording.clone()
+    (**recording).clone()
 }
 
 async fn recording_pages(entry: Value) -> (Vec<String>, Option<String>) {

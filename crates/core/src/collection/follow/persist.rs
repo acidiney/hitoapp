@@ -197,7 +197,7 @@ async fn snapshot_for_publication(
                             .map(receipts::identity)
                             .transpose()?,
                         observation_id: receipts::identity(&published.observation_id)?,
-                        metadata,
+                        metadata: *metadata,
                     });
                     id
                 };
