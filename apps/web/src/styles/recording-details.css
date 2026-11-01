@@ -238,6 +238,16 @@
 .rd-candidate > :not(.button):not(.rd-candidate-photo) {
   grid-column: 2;
 }
+.rd-candidate-releases ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.rd-candidate-releases .button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
 .rd-candidate-photo {
   grid-column: 1;
   grid-row: 1 / span 3;

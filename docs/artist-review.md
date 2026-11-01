@@ -34,9 +34,17 @@ Workflow events record generated correlation IDs, outcomes, counts and timings. 
 
 ## Candidate photos and facts
 
-Each candidate row has a round photo on the left, then the name, one line such as "Person · GB · 2008–" (type, MusicBrainz country code and the year the life span began, each only when MusicBrainz states it) and the disambiguation. The built-in provider fills `country` and `begin_year` from the search answer, which already carries them; both fields are optional in the shared SDK type and absent from the wire when empty, so personal providers and their earlier bytes are unchanged. Known releases are not shown: a MusicBrainz artist search does not list releases and asking per candidate would cost one paced request each.
+Each candidate row has a round photo on the left, then the name, one line such as "Person · United Kingdom · 2008–" (type, country name and the year the life span began, each only when MusicBrainz states it; the web app turns the MusicBrainz country code into its English name and shows the raw code if the name is unknown) and the disambiguation. The built-in provider fills `country` and `begin_year` from the search answer, which already carries them; both fields are optional in the shared SDK type and absent from the wire when empty, so personal providers and their earlier bytes are unchanged.
 
 The photo comes from `GET /api/v1/cover-art/artist/{mbid}` ([how it is fetched](plugin-artwork.md#artist-photos)). Only candidates of the built-in provider ask for it, because only those identifiers are MusicBrainz identifiers. A candidate with no photo, a photo still being fetched, an exhausted retry (three tries in all, the retries 2 s and 5 s after the previous failure) or automatic artwork switched off shows the round fallback cover with the artist's initials, never an empty circle. The chosen-artist cards and the chosen-artist page header use the same photo for built-in identities and fall back to the library artwork and then the initials.
+
+## Known releases per candidate
+
+A MusicBrainz artist search does not list releases, so the answer cannot come with the candidates. Each candidate row has a "Show known releases" button instead. Only when the owner presses it, the web app calls `POST /api/v1/recordings/{id}/artist-review/releases` with the review context and that one provider artist identifier. Searching alone makes no release request, and one press makes exactly one request.
+
+Core rechecks the review context as it does for a preview, then reads the first three release groups of that artist through the provider's existing discography call (a bounded browse with limit 3, paced by the shared MusicBrainz client). It returns up to three titles and the same context. A personal provider is asked the same way only when it supports discography; otherwise the answer is `unsupported`. The route writes nothing and has the same `available`, `disabled`, `unsupported`, `unavailable` and `cancelled` answers as preview. A failed request shows a short message and a "Try again" button.
+
+Covered by two core cases (three titles from five with one request, and the unavailable, invalid identifier and disabled answers), one HTTP case and three DOM cases.
 
 ## Verified source and remaining work
 

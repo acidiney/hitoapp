@@ -55,6 +55,23 @@ export const artistReviewApi = {
       },
     );
   },
+  async releases(
+    account: string,
+    recording: string,
+    body: Schema<"SelectArtistCandidate">,
+    signal: AbortSignal,
+  ): Promise<Schema<"ArtistCandidateReleasesAvailability">> {
+    return requestJson<Schema<"ArtistCandidateReleasesAvailability">>(
+      `/recordings/${part(recording)}/artist-review/releases`,
+      {
+        action: "artist_review.releases",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+  },
   async confirm(
     account: string,
     recording: string,

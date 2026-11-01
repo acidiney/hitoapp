@@ -15,6 +15,7 @@ import { useArtistReview } from "../hooks/useArtistReview";
 import { useSharedUnlink } from "../hooks/useSharedUnlink";
 import ArtistDiscography from "./ArtistDiscography";
 import ArtistPhoto from "./ArtistPhoto";
+import CandidateReleases from "./CandidateReleases";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
 import SharedUnlink from "./SharedUnlink";
@@ -198,6 +199,9 @@ export default function ArtistReview({
           )}
           {workflow.results && (
             <ArtistCandidates
+              account={account}
+              recording={detail.recording_id}
+              context={workflow.results.context}
               candidates={workflow.results.page.items}
               photos={workflow.provider?.value.kind === "builtin_musicbrainz"}
               disabled={workflow.pending !== null}
@@ -335,11 +339,17 @@ function candidateFacts(candidate: Schema<"ArtistSearchCandidate">) {
 }
 
 function ArtistCandidates({
+  account,
+  recording,
+  context,
   candidates,
   photos,
   disabled,
   onReview,
 }: {
+  account: string;
+  recording: string;
+  context: Schema<"ArtistReviewContext">;
   candidates: Schema<"ArtistSearchCandidate">[];
   photos: boolean;
   disabled: boolean;
@@ -360,6 +370,12 @@ function ArtistCandidates({
           <h3>{candidate.artist.name}</h3>
           <p>{candidateFacts(candidate)}</p>
           {candidate.disambiguation && <p>{candidate.disambiguation}</p>}
+          <CandidateReleases
+            account={account}
+            recording={recording}
+            context={context}
+            artist={candidate.artist.id}
+          />
           <Button
             type="button"
             className="rd-row-action"
