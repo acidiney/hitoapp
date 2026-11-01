@@ -4,7 +4,6 @@ import { log } from "../../../shared/log";
 import { errorMessage } from "../../../shared/format";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { artistEditionApi } from "../api/artistEditionApi";
-import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
 import {
   catalogSupply,
   nextFound,
@@ -32,6 +31,24 @@ function pause(ms: number, signal: AbortSignal) {
   });
 }
 
+async function whileEither<T>(
+  first: AbortSignal,
+  second: AbortSignal,
+  work: (signal: AbortSignal) => Promise<T>,
+) {
+  const joined = new AbortController();
+  const stop = () => joined.abort();
+  first.addEventListener("abort", stop, { once: true });
+  second.addEventListener("abort", stop, { once: true });
+  if (first.aborted || second.aborted) stop();
+  try {
+    return await work(joined.signal);
+  } finally {
+    first.removeEventListener("abort", stop);
+    second.removeEventListener("abort", stop);
+  }
+}
+
 export function useCatalogPlayback(
   context: ArtistEditionContext,
   edition: string | null,
@@ -50,6 +67,10 @@ export function useCatalogPlayback(
     setRows(new Map());
     setHalted("");
     setConsentOff(false);
+    return () => {
+      running.current?.abort();
+      running.current = null;
+    };
   }, [account, recording, association.id, group.id, edition]);
 
   async function search(
@@ -89,53 +110,60 @@ export function useCatalogPlayback(
     }
   }
 
-  function run(): CatalogRun {
+  function run(controller: AbortController): CatalogRun {
+    const current = () => running.current === controller;
     return {
       occurrences,
-      find: search,
-      mark: (occurrence, state) =>
-        setRows((value) => new Map(value).set(occurrence, state)),
-      halt: setHalted,
+      failures: 0,
+      stopped: () => controller.signal.aborted,
+      find: (occurrence, signal) =>
+        whileEither(signal, controller.signal, (joined) =>
+          search(occurrence, joined),
+        ),
+      mark: (occurrence, state) => {
+        if (current())
+          setRows((value) => new Map(value).set(occurrence, state));
+      },
+      halt: (stop) => {
+        if (!current()) return;
+        if (stop.consent) setConsentOff(true);
+        else setHalted(stop.message);
+      },
     };
   }
 
-  async function start(from: number) {
-    if (edition === null || from >= occurrences.length) return;
+  async function start(from: number): Promise<boolean> {
+    if (edition === null || from >= occurrences.length) return false;
     running.current?.abort();
     const controller = new AbortController();
     running.current = controller;
     setHalted("");
+    setConsentOff(false);
     const select = player.prepareSelection();
-    const catalog = run();
+    const catalog = run(controller);
     const started = performance.now();
     let outcome = "cancelled";
     try {
-      const settings = await metadataPreferencesApi.settings(
-        account,
-        controller.signal,
-      );
-      setConsentOff(!settings.automatic_service_search);
-      if (!settings.automatic_service_search) {
-        outcome = "consent_off";
-        return;
-      }
       const first = await nextFound(catalog, from, controller.signal);
       if (!first) {
         outcome = "nothing_found";
-        return;
+        return false;
       }
+      if (controller.signal.aborted) return false;
       outcome = "found";
-      await select({
+      const began = await select({
         queue: [first.recording],
         index: 0,
         more: catalogSupply(catalog, player, first.index + 1),
       });
-      outcome = "played";
+      outcome = began ? "played" : "superseded";
+      return began;
     } catch (error) {
       if (!controller.signal.aborted) {
         outcome = "failed";
         setHalted(errorMessage(error));
       }
+      return false;
     } finally {
       log.debug("catalog_album_play.finished", {
         reason: outcome,
@@ -146,8 +174,8 @@ export function useCatalogPlayback(
 
   async function shuffle() {
     if (occurrences.length === 0) return;
-    await start(Math.floor(Math.random() * occurrences.length));
-    if (!player.snapshot().shuffle) player.shuffle();
+    const began = await start(Math.floor(Math.random() * occurrences.length));
+    if (began && !player.snapshot().shuffle) player.shuffle();
   }
 
   return { rows, halted, consentOff, start, shuffle };

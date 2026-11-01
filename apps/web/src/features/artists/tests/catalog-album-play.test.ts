@@ -2,6 +2,7 @@ import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
   fireEvent,
+  cleanup,
   render,
   screen,
   waitFor,
@@ -18,7 +19,6 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 import {
-  automationSettings,
   catalogAlbumEdition,
   catalogAlbumTitles,
   catalogAlbumTrackList,
@@ -66,10 +66,18 @@ const base = `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-assoc
 const audioPath = `${base}/edition-track-audio`;
 const notFound = new Set<string>();
 const audioBodies: Array<{ occurrence_id: string }> = [];
+const control: {
+  searchOn: boolean;
+  failing: boolean;
+  hold: Promise<void> | null;
+} = { searchOn: true, failing: false, hold: null };
 
 afterEach(() => {
   notFound.clear();
   audioBodies.length = 0;
+  control.searchOn = true;
+  control.failing = false;
+  control.hold = null;
   player.queue.total = 1;
   player.queue.currentIndex = 0;
   player.selected.mockClear();
@@ -77,10 +85,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function serve(options: { automatic?: boolean; editions?: unknown } = {}) {
+function serve(options: { editions?: unknown } = {}) {
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
-    if (path === "/api/v1/metadata/settings")
-      return Response.json(automationSettings(options.automatic ?? true));
     if (path === `${base}/discography`)
       return Response.json(firstDiscographyPage);
     if (path === `${base}/release-group-editions`)
@@ -95,6 +101,9 @@ function serve(options: { automatic?: boolean; editions?: unknown } = {}) {
     if (path === audioPath) {
       const body = JSON.parse(init!.body as string);
       audioBodies.push(body);
+      if (control.hold) await control.hold;
+      if (!control.searchOn) return Response.json({ status: "search_off" });
+      if (control.failing) return Response.json({ status: "unavailable" });
       const index = Number(body.occurrence_id.split("/").pop()) - 1;
       return Response.json(
         notFound.has(body.occurrence_id)
@@ -255,8 +264,9 @@ test("clicking a track row plays from that track and a first track that is not f
   expect(card.getByText("Not found on your services")).toBeTruthy();
 });
 
-test("without the automatic service search choice Play explains itself, links to the setting and searches nothing", async () => {
-  const fetch = serve({ automatic: false });
+test("without the automatic service search choice Play explains itself, links to the setting and Shuffle leaves the player's shuffle alone", async () => {
+  serve();
+  control.searchOn = false;
   const card = await openAlbum();
   await act(async () => {
     fireEvent.click(card.getByRole("button", { name: "Play album" }));
@@ -269,10 +279,95 @@ test("without the automatic service search choice Play explains itself, links to
       .getByRole("link", { name: "Turn it on in Settings" })
       .getAttribute("href"),
   ).toBe("/settings?section=privacy");
-  expect(fetch.mock.calls.filter(([path]) => path === audioPath)).toHaveLength(
-    0,
-  );
   expect(player.selected).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Shuffle album" }));
+  });
+  await waitFor(() => expect(audioBodies.length).toBeGreaterThan(1));
+  expect(player.shuffle).not.toHaveBeenCalled();
+  expect(player.selected).not.toHaveBeenCalled();
+});
+
+test("Shuffle turns the player's shuffle on once playback began", async () => {
+  serve();
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Shuffle album" }));
+  });
+  await waitFor(() => expect(player.shuffle).toHaveBeenCalledTimes(1));
+  expect(player.selected).toHaveBeenCalledTimes(1);
+});
+
+test("turning the choice off while an album plays stops its queue supply with the same explanation", async () => {
+  serve();
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Play album" }));
+  });
+  await waitFor(() => expect(player.selected).toHaveBeenCalledTimes(1));
+  const selection = player.selected.mock.calls[0][0] as {
+    more: { next(signal: AbortSignal): Promise<unknown[]> };
+  };
+  control.searchOn = false;
+  expect(await selection.more.next(new AbortController().signal)).toEqual([]);
+  expect(
+    await card.findByText(/Search connected services automatically/),
+  ).toBeTruthy();
+  expect(audioBodies).toHaveLength(2);
+});
+
+test("three failed searches in a row stop the album with one quiet message and no further search", async () => {
+  serve();
+  control.failing = true;
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Play album" }));
+  });
+  expect(await card.findByText(/not answering right now/)).toBeTruthy();
+  expect(audioBodies).toHaveLength(3);
+  expect(player.selected).not.toHaveBeenCalled();
+});
+
+test("leaving the page while the first track is being searched starts no playback", async () => {
+  serve();
+  let release!: () => void;
+  control.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Play album" }));
+  });
+  await waitFor(() => expect(audioBodies).toHaveLength(1));
+  cleanup();
+  release();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+  expect(player.selected).not.toHaveBeenCalled();
+  expect(audioBodies).toHaveLength(1);
+});
+
+test("switching edition while a track is being searched retires the old search", async () => {
+  serve({ editions: twoEditionsPage });
+  let release!: () => void;
+  control.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const card = await openAlbum();
+  await act(async () => {
+    fireEvent.click(card.getByRole("button", { name: "Play album" }));
+  });
+  await waitFor(() => expect(audioBodies).toHaveLength(1));
+  fireEvent.change(card.getByRole("combobox", { name: "Edition" }), {
+    target: { value: secondEdition.id },
+  });
+  release();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+  expect(player.selected).not.toHaveBeenCalled();
+  expect(audioBodies).toHaveLength(1);
 });
 
 test("a service that is not connected stops the album with one honest message", async () => {
