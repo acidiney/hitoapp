@@ -6,7 +6,7 @@ use super::{
 };
 use crate::artist_catalog::{MetadataProvider, REQUEST_BUDGET, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Error, Result};
-use hito_metadata_musicbrainz::IsrcRecording;
+use hito_metadata_musicbrainz::{Error as MusicBrainzError, IsrcRecording};
 use sqlx::SqliteConnection;
 use std::{collections::HashMap, time::Duration};
 use tokio::time::Instant;
@@ -330,7 +330,13 @@ impl ArtistCatalog {
                 .await
                 .map(|artists| single_artist(&artists)),
         };
-        answer.unwrap_or(Resolution::Unavailable)
+        match answer {
+            Ok(resolution) => resolution,
+            Err(MusicBrainzError::InvalidLookup | MusicBrainzError::InvalidLookupRequest) => {
+                Resolution::Uncertain
+            }
+            Err(_) => Resolution::Unavailable,
+        }
     }
 }
 
