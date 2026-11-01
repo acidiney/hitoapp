@@ -1,5 +1,3 @@
-/// One output configuration a device offers: a channel count with a continuous
-/// range of sample rates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OutputConfig {
     pub channels: u16,
@@ -7,7 +5,6 @@ pub(crate) struct OutputConfig {
     pub max_rate: u32,
 }
 
-/// The representation the engine should deliver to the device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Target {
     pub sample_rate: u32,
@@ -24,7 +21,6 @@ impl OutputConfig {
         (self.min_rate..=self.max_rate).contains(&rate)
     }
 
-    /// The offered rate nearest to `rate`, preferring the higher on a tie.
     fn nearest(&self, rate: u32) -> u32 {
         rate.clamp(self.min_rate, self.max_rate)
     }
@@ -37,16 +33,6 @@ fn family(rate: u32) -> &'static [u32] {
         .unwrap_or(&[])
 }
 
-/// Chooses the output representation for a source whose rate has already been
-/// reduced to at most 192 kHz.
-///
-/// A rate and channel count the device offers are kept unchanged. Otherwise the
-/// rate moves within the source's 44.1 or 48 kHz family when the device offers
-/// one: the device default if it belongs to the family, else the highest offered
-/// rate not above the source (or the lowest above it when the device offers
-/// nothing lower). A source outside both families, or a family the device does
-/// not offer, uses the device default, then the nearest offered rate. A mono
-/// source on a device without mono output is duplicated to stereo.
 pub(crate) fn choose(
     source_rate: u32,
     source_channels: u16,

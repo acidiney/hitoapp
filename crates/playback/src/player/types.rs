@@ -96,8 +96,6 @@ impl Default for PlayerSnapshot {
         }
     }
 }
-/// Speeds, in thousandths, that the current source can present. A source that
-/// supports only unit speed reports `min == max == 1000`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerSpeedSupport {

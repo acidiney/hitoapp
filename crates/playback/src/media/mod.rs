@@ -1,9 +1,3 @@
-//! Operating-system media integration seam.
-//!
-//! The playback owner publishes authorized track metadata and coarse playback
-//! state to a [`MediaSink`] and receives transport requests through a
-//! [`MediaCommand`] channel. Backends contain no playback logic.
-
 pub(crate) mod artwork;
 pub(crate) mod publisher;
 mod threaded;
@@ -27,9 +21,6 @@ pub enum MediaPlayback {
     Paused { position_ms: u64 },
 }
 
-/// Receives structural changes only. Position is an anchor: backends let the
-/// operating system extrapolate while `Playing` and are updated again on
-/// pause, resume, seek, speed change and track change.
 pub trait MediaSink: Send + 'static {
     fn set_track(&mut self, track: &MediaTrack);
     fn set_playback(&mut self, playback: MediaPlayback);
@@ -64,8 +55,6 @@ impl MediaIntegration {
     }
 }
 
-/// Creates the bounded command channel a backend feeds from operating-system
-/// callbacks. Backends use `try_send` and drop commands when it is full.
 pub fn media_commands() -> (MediaCommandSender, mpsc::Receiver<MediaCommand>) {
     mpsc::channel(16)
 }

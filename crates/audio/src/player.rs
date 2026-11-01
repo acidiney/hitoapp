@@ -56,7 +56,6 @@ impl Player {
         Self::start(input, rates)
     }
 
-    /// Opens a player whose device offers only the listed sample rates.
     #[cfg(feature = "test-support")]
     pub fn open_with_output_rates(input: impl Input + 'static, rates: &[u32]) -> Result<Self> {
         Self::start(input, Some(rates.to_vec()))
@@ -106,7 +105,6 @@ impl Player {
         })
     }
 
-    /// The representation presented to the output device after negotiation.
     pub fn output_format(&self) -> AudioFormat {
         self.output
     }

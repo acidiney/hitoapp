@@ -25,9 +25,6 @@ fn playable(format: SampleFormat) -> bool {
 }
 
 impl Output {
-    /// Chooses the representation to open the default device with for a source
-    /// already reduced to `wanted`. `rates` replaces the device's offered rates
-    /// with a fixed list, for tests that need a device of a known capability.
     pub fn negotiate(wanted: AudioFormat, rates: Option<&[u32]>) -> Result<Target> {
         let device = cpal::default_host()
             .default_output_device()

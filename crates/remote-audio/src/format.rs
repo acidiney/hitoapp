@@ -4,7 +4,6 @@ use crate::{Error, Pcm16WavFormat, mp3, wav};
 pub enum AudioKind {
     #[default]
     Pcm16Wav,
-    /// MPEG-1 Layer III with an optional bounded ID3v2.3 or ID3v2.4 prefix.
     Mp3,
 }
 
@@ -24,7 +23,6 @@ impl AudioKind {
     }
 }
 
-/// Parameters established from consecutive frame headers, without decoding the full file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Mp3Format {
     pub sample_rate: u32,

@@ -29,8 +29,6 @@ pub(crate) struct Loaded {
     pub server_duration_ms: u64,
 }
 
-/// Prefers the recording's known duration only when the decoded or estimated
-/// one is more than 10 percent and more than 5 seconds longer.
 pub(crate) fn reconcile(decoded_ms: Option<u64>, server_ms: u64) -> Option<u64> {
     match (decoded_ms.filter(|decoded| *decoded > 0), server_ms) {
         (Some(decoded), server) if server > 0 => {
@@ -84,7 +82,6 @@ impl Publisher {
         }
     }
 
-    /// Returns the track whose metadata must now be loaded, if it changed.
     pub fn observe(&mut self, observation: Option<&Observation>) -> Option<TrackKey> {
         let Some(observation) = observation else {
             self.clear();

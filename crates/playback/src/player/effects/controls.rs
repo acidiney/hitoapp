@@ -213,9 +213,6 @@ impl Controls {
     }
 }
 
-/// The speed to present for a source: the chosen speed when the source supports
-/// it, otherwise unit speed. The chosen speed is never forgotten, so the next
-/// capable source restores it.
 fn negotiate(capability: Option<SpeedCapability>, chosen: u16) -> u16 {
     match capability {
         Some(capability) if !capability.supports(f32::from(chosen) / 1000.) => 1000,

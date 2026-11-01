@@ -20,7 +20,6 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
         .subscribe_position(&f.actor, attached.lease)
         .await
         .unwrap();
-    // The periodic owner timer can start before playback is requested.
     tokio::time::sleep(Duration::from_millis(1500)).await;
     for (sequence, revision, action) in [
         (

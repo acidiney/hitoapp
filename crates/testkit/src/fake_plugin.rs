@@ -47,13 +47,8 @@ pub enum Fault {
     Malformed,
     DropConnection,
     Hold(Arc<Gate>),
-    /// Parks the next accepted request in a worker that outlives its connection.
     HoldNext(Arc<Gate>),
-    /// Sends the first `prefix` body bytes, then waits for the gate to be released.
-    StallBody {
-        gate: Arc<Gate>,
-        prefix: usize,
-    },
+    StallBody { gate: Arc<Gate>, prefix: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

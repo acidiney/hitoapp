@@ -3,11 +3,6 @@ use std::f64::consts::PI;
 const TAPS_PER_FACTOR: usize = 32;
 const KAISER_BETA: f64 = 9.;
 
-/// Streaming linear-phase low-pass decimator for interleaved frames.
-///
-/// Output frame `k` is centred on input frame `factor * k`, so media time maps
-/// directly to the decimated stream without a latency offset. Frames before the
-/// start are treated as silence; `finish` supplies the trailing silence.
 pub(crate) struct Decimator {
     factor: usize,
     channels: usize,
@@ -87,8 +82,6 @@ fn design(factor: usize, half: usize) -> Vec<f32> {
     taps.into_iter().map(|tap| tap as f32).collect()
 }
 
-/// Kaiser-windowed sinc low-pass sampled `offset` input frames from its centre.
-/// `cutoff` is a fraction of the input rate; the window spans `half` frames.
 fn kernel(offset: f64, cutoff: f64, half: usize) -> f64 {
     let ratio = offset / half as f64;
     if ratio.abs() > 1. {
@@ -117,16 +110,6 @@ fn bessel(x: f64) -> f64 {
 
 const MAX_PHASES: u64 = 4_096;
 
-/// Streaming band-limited resampler for interleaved frames at any rational
-/// ratio, using a polyphase bank of Kaiser-windowed sinc filters.
-///
-/// Like `Decimator`, output frame `k` is centred on input position
-/// `k * input_rate / output_rate`, so media time needs no latency offset;
-/// frames before the start are silence and `finish` supplies the trailing
-/// silence. The low-pass sits at 90 percent of the lower of the two Nyquist
-/// rates, so content that the output rate cannot represent is removed before it
-/// can fold. A ratio that needs more than `MAX_PHASES` filters rounds the
-/// fractional position to the nearest of that many.
 pub(crate) struct Resampler {
     channels: usize,
     half: usize,
@@ -218,8 +201,6 @@ impl Resampler {
         self.push(&silence, output);
     }
 
-    /// The input frame at or before output frame `index`, and the filter phase
-    /// for the remainder.
     fn position(&self, index: u64) -> (i64, usize) {
         let scaled = u128::from(index) * u128::from(self.step);
         let base = (scaled / u128::from(self.period)) as i64;

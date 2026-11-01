@@ -7,10 +7,6 @@ use symphonia::core::audio::{Channels, Position};
 
 const CENTER: f32 = std::f32::consts::FRAC_1_SQRT_2;
 
-/// Presents a decoded source in the representation the output device path
-/// accepts: at most 192 kHz (or the rate the device negotiated) and at most two
-/// channels. A source that already has such a representation is forwarded
-/// unchanged.
 pub struct Converter {
     decoder: Decoder,
     output: AudioFormat,
@@ -76,8 +72,6 @@ impl Rate {
     }
 }
 
-/// Maps converted frames to media time. A segment starts at the first packet
-/// after a start, a seek, or a gap in packet times.
 #[derive(Default, Clone, Copy)]
 struct Segment {
     time: Duration,
@@ -85,17 +79,11 @@ struct Segment {
 }
 
 impl Converter {
-    /// Presents the source at the rate and channel count the output path accepts
-    /// without a device: the source itself unless it is above 192 kHz or has
-    /// more than two channels.
     pub fn new(decoder: Decoder) -> Self {
         let output = decoder.format().output_format();
         Self::with_output(decoder, output.sample_rate, output.channels)
     }
 
-    /// Presents the source at a rate and channel count the output device
-    /// negotiated. A source with more than two channels is mixed to stereo; a
-    /// mono source is duplicated when stereo is requested.
     pub fn with_output(decoder: Decoder, sample_rate: u32, channels: u16) -> Self {
         let source = decoder.format();
         let channels = if source.channels == 1 {
@@ -126,7 +114,6 @@ impl Converter {
         }
     }
 
-    /// The converted representation. Its duration is the source duration.
     pub fn format(&self) -> AudioFormat {
         self.output
     }
@@ -217,7 +204,6 @@ impl Stage {
         self.process(input);
     }
 
-    /// The media position of the samples ready to be read, which are then consumed.
     fn emitted(&mut self) -> Duration {
         let offset = self.produced as f64 * self.ratio - self.segment.consumed as f64;
         let seconds = self.segment.time.as_secs_f64() + offset / self.source_rate;
@@ -280,9 +266,6 @@ impl Stage {
     }
 }
 
-/// Keeps a downmixed stereo signal at or below full scale. The gain is unity
-/// until a frame would exceed full scale, drops at once to keep that frame at
-/// full scale, and returns to unity over `RELEASE_SECONDS`.
 struct Limiter {
     gain: f32,
     release: f32,
@@ -322,12 +305,6 @@ impl Limiter {
     }
 }
 
-/// Stereo weights per source channel using ITU-R BS.775 coefficients: front
-/// channels at unity, centre and surround channels at -3 dB, low-frequency
-/// channels dropped. The weights are not normalised, so a front-only signal
-/// keeps its level; the limiter keeps loud multichannel mixes below full scale.
-/// A layout without speaker positions uses the default speaker order for its
-/// channel count, and alternates channels between left and right beyond eight.
 fn downmix(layout: &Channels) -> Vec<[f32; 2]> {
     match layout {
         Channels::Positioned(positions) => positions.iter().map(position_weight).collect(),

@@ -21,8 +21,6 @@ const RETRY_DELAYS: [Duration; 5] = [
     Duration::from_secs(4),
     Duration::from_secs(8),
 ];
-/// Free request slots that must remain for clients before a system command is
-/// queued.
 pub(super) const RESERVED_CLIENT_SLOTS: usize = 16;
 
 enum Fetched {
@@ -50,7 +48,6 @@ pub(super) struct Driver {
     last_dispatch: Instant,
 }
 
-/// What a command needs to know about the current playback.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct View {
     pub has_current: bool,
@@ -85,8 +82,6 @@ pub(super) fn action(command: MediaCommand, view: &View) -> Option<PlayerAction>
     }
 }
 
-/// Delay before the next attempt to load metadata for the same track, or
-/// `None` once attempts are exhausted.
 pub(super) fn retry_delay(attempt: usize) -> Option<Duration> {
     RETRY_DELAYS.get(attempt).copied()
 }
@@ -167,8 +162,6 @@ impl Driver {
         self.artwork = None;
     }
 
-    /// Completes loads and returns the next system command that is due. Only
-    /// the newest waiting command is kept, and commands are spaced apart.
     pub async fn next(&mut self) -> MediaCommand {
         loop {
             tokio::select! {
@@ -237,10 +230,6 @@ impl Driver {
 }
 
 impl State {
-    /// Resolves a system command against the owner's state right now, which
-    /// is after the session check and in the same step that admits it. The
-    /// command takes the next sequence number and the current revision; the
-    /// caller restores the sequence counter so clients keep their own.
     pub(super) fn resolve_host(
         &self,
         actor: &Actor,

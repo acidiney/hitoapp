@@ -150,7 +150,6 @@ impl State {
     }
 
     pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool) {
-        // One callback writes observations; worker resets have their own publication sequence.
         self.presented_sequence.fetch_add(1, Ordering::AcqRel);
         fence(Ordering::Release);
         self.position.store(position, Ordering::Relaxed);

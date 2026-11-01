@@ -52,8 +52,6 @@ enum Action {
         id: Uuid,
         command: Option<PlayerCommand>,
     },
-    /// A command from the host's operating-system media controls. The owner
-    /// resolves it against its state at admission, after the session check.
     Host {
         command: crate::MediaCommand,
         duration_ms: Option<u64>,

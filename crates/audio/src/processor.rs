@@ -17,7 +17,6 @@ pub(crate) struct Processor {
 
 impl Processor {
     pub fn new(format: AudioFormat, speed: f32) -> Result<Self> {
-        // C++ owns construction, layout and destruction. The worker exclusively owns this handle.
         let handle = unsafe {
             hito_tempo_create(
                 format.sample_rate,

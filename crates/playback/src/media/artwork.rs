@@ -7,8 +7,6 @@ pub struct MediaArtwork {
     pub bytes: Vec<u8>,
 }
 
-/// Accepts only PNG or JPEG whose header proves a size within the browser
-/// bridge's bounds. The declared content type is not trusted.
 pub(crate) fn bound(bytes: Vec<u8>) -> Option<MediaArtwork> {
     if bytes.is_empty() || bytes.len() > MAX_BYTES {
         return None;

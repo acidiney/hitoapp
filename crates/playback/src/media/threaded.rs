@@ -23,10 +23,6 @@ impl Shared {
     }
 }
 
-/// Runs a sink on its own thread. Calls from the playback owner only update a
-/// small pending slot and never wait for the operating system. When the sink
-/// is slow, the newest track and playback state replace older ones, and a
-/// clear discards anything not yet delivered.
 pub(crate) struct ThreadedSink {
     shared: Arc<Shared>,
 }
