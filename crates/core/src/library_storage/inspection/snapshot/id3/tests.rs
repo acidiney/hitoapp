@@ -293,7 +293,7 @@ fn an_unusable_first_musicbrainz_ufid_leaves_no_recording_id_even_when_a_later_f
     ] {
         assert_eq!(found(&id3(4, 0, &[bad.clone(), valid.clone()])), None);
         let mut stacked = id3(4, 0, &[bad]);
-        stacked.extend(id3(4, 0, &[valid.clone()]));
+        stacked.extend(id3(4, 0, std::slice::from_ref(&valid)));
         assert_eq!(found(&stacked), None, "stacked tags");
     }
     let other = ufid(4, [0, 0], b"http://example.org", b"");
