@@ -1,0 +1,39 @@
+.follow-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+}
+.follow-changes > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+.follow-changes dt {
+  min-width: 88px;
+  color: var(--muted);
+}
+.follow-changes dd {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+.follow-change-before {
+  color: var(--muted);
+  font-weight: 400;
+}
+.follow-resume .button.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.follow-resume .button.quiet:hover {
+  background: var(--subtle);
+  color: var(--ink);
+}

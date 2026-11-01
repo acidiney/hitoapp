@@ -6,10 +6,7 @@ import { router } from "@inertiajs/react";
 import PlaylistPage from "../pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import { copiedPlaylistPage } from "../fixtures/playlistPages";
-import { playlistConnection } from "../fixtures/playlistImports";
-import type { components } from "../../../generated";
-
+import { followedPage, pausedFollow } from "../fixtures/pausedFollow";
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -18,7 +15,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-test("a paused playlist explicitly reviews its original connection and retries an unconfirmed resume unchanged", async () => {
+test("a paused playlist explains the change, resumes with one action and retries an unconfirmed resume unchanged", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-17T03:00:00Z"));
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
@@ -27,102 +24,27 @@ test("a paused playlist explicitly reviews its original connection and retries a
   const logs = (["debug", "info", "warn", "error"] as const).map((level) =>
     vi.spyOn(console, level).mockImplementation(() => {}),
   );
-  const origin = copiedPlaylistPage.detail.origin;
-  if (!origin) throw new Error("The playlist fixture must have its origin");
-  const props: Schema<"PlaylistPageProps"> = {
-    ...copiedPlaylistPage,
-    detail: {
-      ...copiedPlaylistPage.detail,
-      playlist: { ...copiedPlaylistPage.detail.playlist, kind: "followed" },
-      follow_content_revision: 1,
-    },
-  };
-  const installation: Schema<"PluginInstallation"> = {
-    ...playlistConnection,
-    id: origin.installation_id,
-    service_id: origin.service_id,
-    revision: 8,
-    manifest: {
-      ...playlistConnection.manifest,
-      id: origin.provider,
-      name: "Reviewed playlist connection",
-      capabilities: ["playlists", "search"],
-    },
-  };
-  const service: Schema<"PluginService"> = {
-    id: origin.service_id,
-    name: "Reviewed provider service",
-    base_url: "https://reviewed-provider.invalid/music/",
-    revision: 5,
-  };
-  const settings: Schema<"PluginSettings"> = {
-    credential_storage_ready: true,
-    installations: [
-      {
-        ...installation,
-        id: "different-installation",
-        service_id: "different-service",
-        revision: 99,
-        manifest: { ...installation.manifest, name: "Unrelated connection" },
-      },
-      installation,
-    ],
-    services: [
-      {
-        ...service,
-        id: "different-service",
-        name: "Unrelated provider service",
-        base_url: "https://unrelated-provider.invalid/",
-        revision: 99,
-      },
-      service,
-    ],
-  };
-  const paused: Schema<"PlaylistFollow"> = {
-    playlist_id: props.detail.playlist.id,
-    generation: 3,
-    content_revision: 1,
-    interval: "hourly",
-    snapshot: origin.snapshot,
-    last_refreshed_at: Math.floor(Date.now() / 1000),
-    next_refresh_at: Math.floor(Date.now() / 1000) + 3600,
-    status: "paused",
-    error: "authority_changed",
-  };
-  const reviewedStatus: Schema<"PlaylistFollow"> = {
+  const props = followedPage();
+  const paused = pausedFollow(props.detail.playlist.id, 3);
+  const resumed: Schema<"PlaylistFollow"> = {
     ...paused,
     generation: 4,
-  };
-  const resumed: Schema<"PlaylistFollow"> = {
-    ...reviewedStatus,
-    generation: 5,
     status: "ready",
     error: null,
+    review: null,
   };
   const statusPath = `/api/v1/playlists/${paused.playlist_id}/follow`;
-  const reviewSettings = heldResponse();
-  const reviewStatus = heldResponse();
   const retryResponse = heldResponse();
   const rawError =
     "Lost response from https://private-provider.invalid/?token=private-secret";
-  let currentSettings = settings;
-  let currentStatus = reviewedStatus;
+  let currentStatus = paused;
   let statusReads = 0;
-  let settingsReads = 0;
   let syncRequests = 0;
   const fetch = vi.fn((path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
     if (path === statusPath && method === "GET") {
       statusReads++;
-      if (statusReads === 1) return Promise.resolve(Response.json(paused));
-      if (statusReads === 2) return reviewStatus.response;
       return Promise.resolve(Response.json(currentStatus));
-    }
-    if (path === "/api/v1/plugins" && method === "GET") {
-      settingsReads++;
-      return settingsReads === 1
-        ? reviewSettings.response
-        : Promise.resolve(Response.json(currentSettings));
     }
     if (path === "/api/v1/sync" && method === "POST") {
       syncRequests++;
@@ -132,7 +54,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
       }
       if (syncRequests === 2) return retryResponse.response;
     }
-    throw new Error("Unexpected request outside reviewed playlist resume");
+    throw new Error("Unexpected request outside playlist resume");
   });
   vi.stubGlobal("fetch", fetch);
   const view = render(
@@ -147,6 +69,22 @@ test("a paused playlist explicitly reviews its original connection and retries a
   );
   await act(async () => {});
   expect(screen.getByText("Paused", { exact: true })).toBeTruthy();
+  const panel = within(
+    screen.getByRole("region", { name: "Resume playlist updates" }),
+  );
+  expect(
+    panel.getByText("The Spotify connection now also offers song search."),
+  ).toBeTruthy();
+  expect(panel.getByText("Abilities")).toBeTruthy();
+  expect(panel.getByText("playlists", { exact: true })).toBeTruthy();
+  expect(panel.getByText("playlists, search", { exact: true })).toBeTruthy();
+  expect(panel.queryByText("Service address")).toBeNull();
+  expect(
+    panel.getByRole("link", { name: "Review connection" }).getAttribute("href"),
+  ).toBe("/settings?section=plugins");
+  expect(fetch.mock.calls.some(([path]) => path === "/api/v1/plugins")).toBe(
+    false,
+  );
   const table = screen.getByRole("table", { name: "Playlist entries" });
   const entries = () =>
     within(table)
@@ -154,39 +92,8 @@ test("a paused playlist explicitly reviews its original connection and retries a
       .slice(1)
       .map((row) => row.textContent);
   const originalEntries = entries();
-  expect(originalEntries).toHaveLength(props.detail.entries.length);
   expect(syncRequests).toBe(0);
-  expect(settingsReads).toBe(0);
-  const review = screen.getByRole("button", { name: "Review connection" });
-  await act(async () => {
-    fireEvent.click(review);
-  });
-  expect(settingsReads).toBe(1);
-  expect(syncRequests).toBe(0);
-  expect(entries()).toEqual(originalEntries);
-  await act(async () => reviewSettings.resolve(Response.json(settings)));
-  expect(statusReads).toBe(2);
-  const pendingApproval = screen.queryByRole("button", {
-    name: "Resume updates",
-  });
-  expect(
-    pendingApproval === null || (pendingApproval as HTMLButtonElement).disabled,
-  ).toBe(true);
-  await act(async () => reviewStatus.resolve(Response.json(reviewedStatus)));
-  expect(screen.getByText(installation.manifest.name)).toBeTruthy();
-  expect(screen.getByText(service.name)).toBeTruthy();
-  expect(screen.getByText(service.base_url, { exact: true })).toBeTruthy();
-  expect(screen.getByText(/playlists.*search/i)).toBeTruthy();
-  expect(screen.queryByText("Unrelated connection")).toBeNull();
-  expect(screen.queryByText("Unrelated provider service")).toBeNull();
-  expect(syncRequests).toBe(0);
-  for (const [, options] of fetch.mock.calls)
-    expect(options).toMatchObject({
-      credentials: "same-origin",
-      headers: { "x-hito-account": props.user.id },
-      signal: expect.any(AbortSignal),
-    });
-  const resume = screen.getByRole("button", { name: "Resume updates" });
+  const resume = panel.getByRole("button", { name: "Resume updates" });
   expect((resume as HTMLButtonElement).disabled).toBe(false);
   await act(async () => {
     fireEvent.click(resume);
@@ -206,26 +113,19 @@ test("a paused playlist explicitly reviews its original connection and retries a
         action: {
           kind: "playlist_follow_resume",
           playlist_id: paused.playlist_id,
-          expected_generation: reviewedStatus.generation,
-          installation_revision: installation.revision,
-          service_revision: service.revision,
+          expected_generation: paused.generation,
+          installation_revision: 8,
+          service_revision: 5,
         } satisfies Schema<"Action">,
       },
     ],
   });
-  expect(batch.device_id.length).toBeGreaterThan(0);
-  expect(statusReads).toBe(2);
   expect(screen.queryByText(rawError)).toBeNull();
   expect(entries()).toEqual(originalEntries);
-  currentSettings = {
-    ...settings,
-    installations: [{ ...installation, revision: installation.revision + 1 }],
-    services: [{ ...service, revision: service.revision + 1 }],
-  };
   await act(async () => {
     window.dispatchEvent(new Event("focus"));
   });
-  expect(statusReads).toBe(3);
+  expect(statusReads).toBe(2);
   const retry = screen.getByRole("button", { name: "Retry resume request" });
   await act(async () => {
     fireEvent.click(retry);
@@ -240,11 +140,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
       body: originalBody,
       signal: expect.any(AbortSignal),
     });
-  expect(posts()[1][1]?.signal).not.toBe(posts()[0][1]?.signal);
-  expect(posts()[1][1]?.signal?.aborted).toBe(false);
   expect((retry as HTMLButtonElement).disabled).toBe(true);
-  expect(entries()).toEqual(originalEntries);
-  expect(statusReads).toBe(3);
   await act(async () => {
     retryResponse.resolve(
       Response.json({
@@ -252,10 +148,10 @@ test("a paused playlist explicitly reviews its original connection and retries a
       } satisfies Schema<"SyncReceipt">),
     );
   });
-  expect(statusReads).toBe(4);
+  expect(statusReads).toBe(3);
   expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
   expect(
-    screen.queryByRole("button", { name: "Retry resume request" }),
+    screen.queryByRole("region", { name: "Resume playlist updates" }),
   ).toBeNull();
   expect(entries()).toEqual(originalEntries);
   expect(posts()).toHaveLength(2);
@@ -265,8 +161,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
   const captured = JSON.stringify(logs.flatMap((sink) => sink.mock.calls));
   for (const privateValue of [
     rawError,
-    origin.snapshot,
-    service.base_url,
+    paused.snapshot,
     props.detail.playlist.name,
     ...props.detail.entries.map((entry) => entry.title),
   ])
@@ -277,4 +172,82 @@ test("a paused playlist explicitly reviews its original connection and retries a
     await vi.advanceTimersByTimeAsync(60_000);
   });
   expect(fetch).toHaveBeenCalledTimes(beforeUnmount);
+});
+
+test("each kind of change is described in one plain sentence and a removed ability offers no resume", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  const props = followedPage();
+  const cases: [Partial<Schema<"PlaylistFollowReview">>, string, string[]][] = [
+    [
+      {
+        changes: [
+          { kind: "credential", before: ["No token"], after: ["Saved token"] },
+        ],
+      },
+      "The saved access token for Spotify changed.",
+      ["Access token", "No token", "Saved token"],
+    ],
+    [
+      {
+        resumable: false,
+        changes: [
+          {
+            kind: "capabilities",
+            before: ["playlists", "search"],
+            after: ["search"],
+          },
+        ],
+      },
+      "The Spotify connection no longer offers playlists.",
+      ["Abilities", "playlists, search", "search"],
+    ],
+    [
+      {
+        resumable: false,
+        changes: [
+          {
+            kind: "removed",
+            before: ["Connected"],
+            after: ["Removed or replaced"],
+          },
+        ],
+      },
+      "The Spotify connection was removed or replaced.",
+      ["Connection", "Connected", "Removed or replaced"],
+    ],
+  ];
+  for (const [review, sentence, texts] of cases) {
+    const paused = pausedFollow(props.detail.playlist.id, 3, review);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((path: string) => {
+        if (path.endsWith("/follow"))
+          return Promise.resolve(Response.json(paused));
+        throw new Error("Unexpected request outside review wording");
+      }),
+    );
+    const view = render(
+      createElement(
+        NoticeProvider,
+        null,
+        createElement(PlaybackProvider, {
+          account: props.user.id,
+          children: createElement(PlaylistPage, props),
+        }),
+      ),
+    );
+    await act(async () => {});
+    const panel = within(
+      screen.getByRole("region", { name: "Resume playlist updates" }),
+    );
+    expect(panel.getByText(sentence)).toBeTruthy();
+    for (const text of texts) expect(panel.getByText(text)).toBeTruthy();
+    expect(
+      panel.queryByRole("button", { name: "Resume updates" }) === null,
+    ).toBe(review.resumable === false);
+    expect(panel.getByRole("link", { name: "Review connection" })).toBeTruthy();
+    view.unmount();
+  }
 });

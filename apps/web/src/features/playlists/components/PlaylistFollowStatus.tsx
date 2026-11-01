@@ -1,5 +1,4 @@
 import type { Schema } from "../../../shared/schema";
-import { Link } from "@inertiajs/react";
 
 import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
@@ -104,15 +103,6 @@ export default function PlaylistFollowStatus({
             {follow.status === "failed" && (
               <p className="status-strip-note">
                 The last update failed. Your saved entries remain available.
-              </p>
-            )}
-            {paused && (
-              <p className="status-strip-note">
-                Updates are paused because this playlist's connection changed.
-                Your saved entries remain available.{" "}
-                <Link href="/settings?section=plugins">
-                  Check plugin settings
-                </Link>
               </p>
             )}
           </>

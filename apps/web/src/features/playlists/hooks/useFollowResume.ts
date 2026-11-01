@@ -1,52 +1,33 @@
 import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { prepareChange, submitChange } from "../../../shared/sync";
-import { pluginsApi } from "../../plugins/api/pluginsApi";
-import { playlistFollowApi } from "../api/playlistFollowApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
-export type FollowResumeReview = {
-  installation: Schema<"PluginInstallation">;
-  service: Schema<"PluginService">;
-  generation: number;
-};
 type ResumeOwner = {
   run: AbortController | null;
-  review: FollowResumeReview | null;
   attempt: Schema<"SyncBatch"> | null;
   error: string;
 };
 type ResumeState = {
   owner: ResumeOwner;
-  review: FollowResumeReview | null;
   pending: boolean;
   hasAttempt: boolean;
   error: string;
 };
 
-function positiveRevision(value: number) {
-  return Number.isSafeInteger(value) && value > 0;
-}
-
 export function useFollowResume(
   account: string,
   playlist: string | null,
-  origin: Schema<"PlaylistDetail">["origin"],
+  follow: Schema<"PlaylistFollow"> | null,
   recheckStatus: () => Promise<void>,
 ) {
-  const key = JSON.stringify([
-    account,
-    playlist,
-    origin?.installation_id,
-    origin?.service_id,
-    origin?.provider,
-  ]);
+  const key = JSON.stringify([account, playlist]);
   const scope = useRequestScope(key);
   const owner = useMemo<ResumeOwner>(
-    () => ({ run: null, review: null, attempt: null, error: "" }),
+    () => ({ run: null, attempt: null, error: "" }),
     [key],
   );
   const recheck = useRef(recheckStatus);
@@ -57,7 +38,6 @@ export function useFollowResume(
   function publish() {
     setState({
       owner,
-      review: owner.review,
       pending: owner.run !== null,
       hasAttempt: owner.attempt !== null,
       error: owner.error,
@@ -72,89 +52,12 @@ export function useFollowResume(
     [owner],
   );
 
-  async function reviewConnection(): Promise<boolean> {
-    const request = scope.capture();
-    if (!playlist || !origin || !request.active() || owner.run || owner.attempt)
-      return false;
-    const run = new AbortController();
-    const signal = AbortSignal.any([request.signal, run.signal]);
-    const active = () =>
-      request.active() && !signal.aborted && owner.run === run;
-    owner.run = run;
-    owner.review = null;
-    owner.error = "";
-    publish();
-    const started = performance.now();
-    const fields = { account_id: account, playlist_id: playlist };
-    log.info("playlist_follow.review_started", fields);
-    try {
-      const [settings, follow] = await Promise.all([
-        pluginsApi.settings(account, signal),
-        playlistFollowApi.status(account, playlist, signal),
-      ]);
-      if (!active()) return false;
-      const installation = settings.installations.find(
-        (value) => value.id === origin.installation_id,
-      );
-      const service = settings.services.find(
-        (value) => value.id === origin.service_id,
-      );
-      if (
-        !installation ||
-        !service ||
-        installation.service_id !== origin.service_id ||
-        installation.manifest.id !== origin.provider ||
-        !installation.manifest.capabilities.includes("playlists") ||
-        !positiveRevision(installation.revision) ||
-        !positiveRevision(service.revision) ||
-        follow.playlist_id !== playlist ||
-        !positiveRevision(follow.generation) ||
-        follow.status !== "paused"
-      ) {
-        owner.error =
-          "This playlist's original connection cannot be approved for updates. Check plugin settings and the latest playlist status, then review again.";
-        log.warn("playlist_follow.review_rejected", {
-          ...fields,
-          reason: "connection_changed",
-          duration_ms: Math.round(performance.now() - started),
-        });
-        return false;
-      }
-      owner.review = { installation, service, generation: follow.generation };
-      log.info("playlist_follow.review_ready", {
-        ...fields,
-        duration_ms: Math.round(performance.now() - started),
-      });
-      return true;
-    } catch (error) {
-      if (active()) {
-        owner.error =
-          "Hito could not review this connection. Check plugin settings and try again.";
-        log.warn("playlist_follow.review_failed", {
-          ...fields,
-          reason: error instanceof HttpError ? "http" : "request",
-          status: error instanceof HttpError ? error.status : undefined,
-          duration_ms: Math.round(performance.now() - started),
-        });
-      }
-      return false;
-    } finally {
-      run.abort();
-      if (owner.run === run) {
-        owner.run = null;
-        if (request.active()) publish();
-      }
-      if (!request.active())
-        log.debug("playlist_follow.review_cancelled", fields);
-    }
-  }
-
   async function perform(
     batch: Schema<"SyncBatch">,
     retry: boolean,
   ): Promise<boolean> {
     const request = scope.capture();
-    if (!playlist || !origin || !request.active() || owner.run) return false;
+    if (!playlist || !request.active() || owner.run) return false;
     const run = new AbortController();
     const signal = AbortSignal.any([request.signal, run.signal]);
     const active = () =>
@@ -170,14 +73,13 @@ export function useFollowResume(
       operation_id: batch.operations[0].id,
       action: retry ? "retry" : "resume",
     };
-    let accepted = false;
+    let settled = false;
     log.info("playlist_follow.resume_started", fields);
     try {
       await submitChange(account, batch, signal);
       if (!active()) return false;
       owner.attempt = null;
-      owner.review = null;
-      accepted = true;
+      settled = true;
       log.info("playlist_follow.resume_accepted", {
         ...fields,
         duration_ms: Math.round(performance.now() - started),
@@ -186,9 +88,9 @@ export function useFollowResume(
       if (active()) {
         if (error instanceof HttpError && error.status === 409) {
           owner.attempt = null;
-          owner.review = null;
+          settled = true;
           owner.error =
-            "This playlist or its connection changed after review. Review the current connection again before resuming updates.";
+            "This playlist or its connection changed. Check what changed, then resume updates again.";
         } else {
           owner.error =
             "Hito could not confirm whether updates resumed. Retry the same request to recover its result.";
@@ -208,32 +110,37 @@ export function useFollowResume(
       if (!request.active() || signal.aborted)
         log.debug("playlist_follow.resume_cancelled", fields);
     }
-    if (accepted && request.active()) await recheck.current();
+    const accepted = settled && owner.error === "";
+    if (settled && request.active()) await recheck.current();
     return accepted;
   }
 
   async function resume(): Promise<boolean> {
-    const review = owner.review;
+    const review = follow?.review;
     if (
       !playlist ||
-      !review ||
+      !follow ||
+      follow.status !== "paused" ||
+      !review?.resumable ||
       owner.run ||
       owner.attempt ||
       !scope.capture().active()
     )
       return false;
     try {
-      const batch = prepareChange({
-        kind: "playlist_follow_resume",
-        playlist_id: playlist,
-        expected_generation: review.generation,
-        installation_revision: review.installation.revision,
-        service_revision: review.service.revision,
-      });
-      return perform(batch, false);
+      return perform(
+        prepareChange({
+          kind: "playlist_follow_resume",
+          playlist_id: playlist,
+          expected_generation: follow.generation,
+          installation_revision: review.installation_revision,
+          service_revision: review.service_revision,
+        }),
+        false,
+      );
     } catch {
       owner.error =
-        "Hito could not prepare this approval. Review the connection again.";
+        "Hito could not prepare this approval. Check the connection and try again.";
       publish();
       log.warn("playlist_follow.resume_rejected", {
         account_id: account,
@@ -245,11 +152,9 @@ export function useFollowResume(
   }
 
   return {
-    review: current?.review ?? null,
     pending: current?.pending ?? false,
     hasAttempt: current?.hasAttempt ?? false,
     error: current?.error ?? "",
-    reviewConnection,
     resume,
     retry: () =>
       owner.attempt ? perform(owner.attempt, true) : Promise.resolve(false),

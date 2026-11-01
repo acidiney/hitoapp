@@ -1,76 +1,89 @@
+import type { Schema } from "../../../shared/schema";
+import { ArrowRight } from "lucide-react";
 import { Link } from "@inertiajs/react";
-import type { FollowResumeReview } from "../hooks/useFollowResume";
 import Button from "../../../shared/ui/Button";
+import {
+  changeLabel,
+  changeValue,
+  reviewSentence,
+} from "../model/followReview";
 
 type FollowResumeProps = {
-  paused: boolean;
-  review: FollowResumeReview | null;
+  follow: Schema<"PlaylistFollow"> | null;
   pending: boolean;
   hasAttempt: boolean;
   error: string;
-  reviewConnection: () => Promise<boolean>;
   resume: () => Promise<boolean>;
   retry: () => Promise<boolean>;
 };
 
 export default function PlaylistFollowResume({
-  paused,
-  review,
+  follow,
   pending,
   hasAttempt,
   error,
-  reviewConnection,
   resume,
   retry,
 }: FollowResumeProps) {
+  const paused = follow?.status === "paused";
+  const review = paused ? (follow.review ?? null) : null;
   if (!paused && !hasAttempt && !error) return null;
   return (
-    <section aria-label="Resume playlist updates">
-      <h2>Resume playlist updates</h2>
-      <p>
-        Review the original connection before allowing it to update this
-        playlist again. Your saved entries remain available.
-      </p>
-      <Button
-        disabled={pending || hasAttempt || !paused}
-        onClick={() => void reviewConnection()}
-      >
-        Review connection
-      </Button>
-      {review && (
-        <>
-          <dl>
-            <dt>Connection</dt>
-            <dd>{review.installation.manifest.name}</dd>
-            <dt>Declared capabilities</dt>
-            <dd>
-              {review.installation.manifest.capabilities
-                .map((value) => value.replaceAll("_", " "))
-                .join(", ")}
-            </dd>
-            <dt>Service</dt>
-            <dd>{review.service.name}</dd>
-            <dt>Service address</dt>
-            <dd>{review.service.base_url}</dd>
-          </dl>
-          {!hasAttempt && (
-            <Button disabled={pending || !paused} onClick={() => void resume()}>
-              Resume updates
-            </Button>
-          )}
-        </>
-      )}
-      {error && (
-        <>
-          <p role="alert">{error}</p>
-          <Link href="/settings?section=plugins">Check plugin settings</Link>
-        </>
-      )}
-      {hasAttempt && (
-        <Button disabled={pending} onClick={() => void retry()}>
-          Retry resume request
-        </Button>
-      )}
+    <section
+      className="status-strip follow-resume"
+      aria-label="Resume playlist updates"
+    >
+      <h2 className="sr-only">Resume playlist updates</h2>
+      <div className="status-strip-main">
+        {review && (
+          <>
+            <p className="status-strip-line">
+              <strong>{reviewSentence(review)}</strong>
+            </p>
+            <dl className="follow-changes">
+              {review.changes.map((change) => (
+                <div key={change.kind}>
+                  <dt>{changeLabel(change)}</dt>
+                  <dd>
+                    <span className="follow-change-before">
+                      {changeValue(change.before)}
+                    </span>
+                    <ArrowRight size={14} aria-hidden="true" />
+                    <span>{changeValue(change.after)}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+        {paused && (
+          <p className="status-strip-note">
+            Your saved entries remain available.
+          </p>
+        )}
+        {error && <p role="alert">{error}</p>}
+      </div>
+      <div className="status-strip-actions">
+        {review?.resumable && !hasAttempt && (
+          <Button
+            variant="primary"
+            disabled={pending}
+            onClick={() => void resume()}
+          >
+            Resume updates
+          </Button>
+        )}
+        {hasAttempt && (
+          <Button disabled={pending} onClick={() => void retry()}>
+            Retry resume request
+          </Button>
+        )}
+        {paused && (
+          <Link className="button quiet" href="/settings?section=plugins">
+            Review connection
+          </Link>
+        )}
+      </div>
     </section>
   );
 }

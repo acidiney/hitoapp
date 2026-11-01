@@ -50,7 +50,7 @@ export default function PlaylistPage({
   const resume = useFollowResume(
     user.id,
     followed ? detail.playlist.id : null,
-    followed ? detail.origin : null,
+    follow.follow,
     follow.retryStatus,
   );
   const rows = detail.entries.map<TrackTableRow>((entry) => {
@@ -184,10 +184,7 @@ export default function PlaylistPage({
       <PlaylistDownloadStrip local={native_playback} />
       {copied && <PlaylistMetadataRefresh {...metadata} />}
       {followed && detail.origin && (
-        <PlaylistFollowResume
-          {...resume}
-          paused={follow.follow?.status === "paused"}
-        />
+        <PlaylistFollowResume {...resume} follow={follow.follow} />
       )}
       {entryCount > 0 ? (
         <>
