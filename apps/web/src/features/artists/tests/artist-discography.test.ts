@@ -197,7 +197,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
     );
     expect(
       within(region).queryByRole("button", {
-        name: /play|download|import|add to library/i,
+        name: /download|import|add to library/i,
       }),
     ).toBeNull();
     expect(fetch.mock.calls.map(([path]) => path)).toEqual([

@@ -1,7 +1,6 @@
-import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import ArtistEditions from "../components/ArtistEditions";
+import { catalogAlbumElement } from "../fixtures/catalogAlbumPlay";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
   bonusTrackList,
@@ -16,6 +15,10 @@ import {
 } from "../fixtures/artistReview";
 import { log } from "../../../shared/log";
 import { flush } from "../../../test/async";
+
+vi.mock("../../playback/components/PlaybackProvider", async () =>
+  (await import("../fixtures/idlePlayer")).idlePlayerModule(),
+);
 
 test.each(["editions", "track list"] as const)(
   "%s reads stop at twenty seconds through headers, success bodies and error bodies",
@@ -32,8 +35,9 @@ test.each(["editions", "track list"] as const)(
       http.hold("body", { error: "Private late continuation failure" }, 409),
     ];
     http.reply(accepted);
+    if (phase === "editions") http.reply(bonusTrackList);
     const view = render(
-      createElement(ArtistEditions, {
+      catalogAlbumElement({
         account: artistReviewAccount,
         recording: artistReviewDetail.recording_id,
         association: artistAssociation,
@@ -46,19 +50,12 @@ test.each(["editions", "track list"] as const)(
     const reads = () =>
       http.fetch.mock.calls.filter(([path]) => path.endsWith(`/${endpoint}`));
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-      if (phase === "track list") {
-        await flush();
-        fireEvent.click(screen.getByRole("button", { name: "Choose edition" }));
-      }
+      if (phase === "track list") await flush();
       for (let attempt = 0; attempt < held.length; attempt++) {
         await act(async () => {
           await held[attempt].entered;
         });
-        const region = screen.getByRole("region", {
-          name:
-            phase === "editions" ? "Editions" : "Selected edition track list",
-        });
+        const region = screen.getByRole("region", { name: "Album" });
         expect(region.getAttribute("aria-busy")).toBe("true");
         if (attempt > 0) expect(held[attempt].response.bodyUsed).toBe(true);
         await act(async () => {
@@ -94,12 +91,7 @@ test.each(["editions", "track list"] as const)(
       await flush();
       expect(reads()).toHaveLength(4);
       expect(screen.queryByRole("alert")).toBeNull();
-      if (phase === "editions")
-        expect(screen.getByText("Bonus edition", { exact: true })).toBeTruthy();
-      else
-        expect(
-          screen.getByRole("list", { name: "Disc 2 tracks" }),
-        ).toBeTruthy();
+      expect(screen.getByRole("table", { name: "Tracks" })).toBeTruthy();
       const completed = warn.mock.calls.filter(
         ([event]) =>
           event ===

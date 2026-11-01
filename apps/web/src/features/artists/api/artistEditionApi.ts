@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
+import { audioOutcome } from "./albumEditionApi";
 
 const part = encodeURIComponent;
 const INVALID_RESPONSE =
@@ -72,6 +73,26 @@ export const artistEditionApi = {
         `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-list`,
         {
           action: "artist_edition_track_list.read",
+          method: "POST",
+          account,
+          body,
+          signal,
+        },
+      ),
+    );
+  },
+  async audio(
+    account: string,
+    recording: string,
+    association: string,
+    body: Schema<"FindArtistTrackAudio">,
+    signal: AbortSignal,
+  ): Promise<Schema<"AlbumTrackAudio">> {
+    return audioOutcome(
+      await request(
+        `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-audio`,
+        {
+          action: "artist_edition_track_audio.find",
           method: "POST",
           account,
           body,

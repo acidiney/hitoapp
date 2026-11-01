@@ -9,15 +9,21 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
-import ArtistEditions from "../components/ArtistEditions";
+import {
+  catalogAlbumElement,
+  tracksOfEdition,
+} from "../fixtures/catalogAlbumPlay";
 import type { Schema } from "../../../shared/schema";
 import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
+  bonusEdition,
   editionGroup,
   firstEditionPage,
   lastEditionPage,
+  standardEdition,
 } from "../fixtures/artistEditions";
+import { flush } from "../../../test/async";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -25,7 +31,11 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 
-test("one StrictMode Browse starts one edition read and replacement ownership requires a new explicit action", async () => {
+vi.mock("../../playback/components/PlaybackProvider", async () =>
+  (await import("../fixtures/idlePlayer")).idlePlayerModule(),
+);
+
+test("one StrictMode open starts one edition read and replacement ownership requires a new explicit action", async () => {
   const http = discographyHttp();
   const held = http.hold("body", lastEditionPage);
   const initial = {
@@ -36,11 +46,10 @@ test("one StrictMode Browse starts one edition read and replacement ownership re
     group: editionGroup,
   };
   const view = render(
-    createElement(StrictMode, null, createElement(ArtistEditions, initial)),
+    createElement(StrictMode, null, catalogAlbumElement(initial)),
   );
   try {
-    expect(http.fetch).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
+    await flush();
     await act(async () => {
       await held.entered;
     });
@@ -52,19 +61,20 @@ test("one StrictMode Browse starts one edition read and replacement ownership re
       association: { ...initial.association, account_id: account },
     };
     view.rerender(
-      createElement(StrictMode, null, createElement(ArtistEditions, changed)),
+      createElement(StrictMode, null, catalogAlbumElement(changed)),
     );
     await act(async () => {
       for (let step = 0; step < 8; step++) await Promise.resolve();
     });
     expect(held.signal()?.aborted).toBe(true);
     expect(held.aborts()).toBe(1);
-    expect(screen.queryByRole("region", { name: "Editions" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
     expect(http.fetch).toHaveBeenCalledTimes(1);
     http.reply(lastEditionPage);
-    fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-    await screen.findByText("Bonus edition", { exact: true });
-    expect(http.fetch).toHaveBeenCalledTimes(2);
+    http.reply(tracksOfEdition(bonusEdition));
+    fireEvent.click(screen.getByRole("button", { name: "Open album" }));
+    await screen.findByRole("table", { name: "Tracks" });
+    expect(http.fetch).toHaveBeenCalledTimes(3);
     expect(
       new Headers(http.fetch.mock.calls[1][1]?.headers).get("x-hito-account"),
     ).toBe(account);
@@ -140,12 +150,11 @@ test("closed edition choices do not multiply owned request controllers as discog
     expect(http.fetch).toHaveBeenCalledTimes(2);
     expect(twenty.controllers).toBeLessThanOrEqual(one.controllers + 2);
     http.reply(firstEditionPage);
+    http.reply(tracksOfEdition(standardEdition));
     const row = within(twenty.list).getAllByRole("listitem")[0];
-    fireEvent.click(
-      within(row).getByRole("button", { name: "Browse editions" }),
-    );
-    await within(row).findByText("Standard edition", { exact: true });
-    expect(http.fetch).toHaveBeenCalledTimes(3);
+    fireEvent.click(within(row).getByRole("button", { name: "Open album" }));
+    await within(row).findByRole("table", { name: "Tracks" });
+    expect(http.fetch).toHaveBeenCalledTimes(4);
     expect(http.fetch.mock.calls[2][0]).toBe(
       `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-associations/${artistAssociation.id}/release-group-editions`,
     );
@@ -154,9 +163,6 @@ test("closed edition choices do not multiply owned request controllers as discog
       limit: 20,
       continuation: null,
     });
-    expect(
-      screen.queryByRole("region", { name: "Selected edition track list" }),
-    ).toBeNull();
     expect(play).not.toHaveBeenCalled();
     expect(http.responses.every((response) => response.bodyUsed)).toBe(true);
   } finally {

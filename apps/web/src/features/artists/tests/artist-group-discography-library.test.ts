@@ -281,7 +281,7 @@ test("each release shows one availability state and the missing-only filter hide
   const region = await open();
   await within(region).findByText("Partial · 6 of 10");
   expect(within(region).getByText("In library")).toBeTruthy();
-  expect(within(region).getByText("Catalog only")).toBeTruthy();
+  expect(within(region).getByText("Not in your library")).toBeTruthy();
   const missing = within(region).getByRole("button", {
     name: "Only what I'm missing",
   });

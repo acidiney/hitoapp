@@ -4,12 +4,12 @@ import {
   type ArtistEditionContext,
 } from "../hooks/useArtistEditions";
 import { useAlbumEditionTrackList } from "../hooks/useAlbumEditionTrackList";
-import { useArtistEditionTrackList } from "../hooks/useArtistEditionTrackList";
 import AlbumEditionTrackList from "./AlbumEditionTrackList";
-import ArtistEditionTrackList from "./ArtistEditionTrackList";
 import Button from "../../../shared/ui/Button";
 
-export default function ArtistEditions(context: ArtistEditionContext) {
+type LibraryEditionContext = ArtistEditionContext & { release: string };
+
+export default function ArtistEditions(context: LibraryEditionContext) {
   const [opened, setOpened] = useState(false);
   if (!opened)
     return (
@@ -20,16 +20,12 @@ export default function ArtistEditions(context: ArtistEditionContext) {
   return <ArtistEditionBrowser {...context} />;
 }
 
-function ArtistEditionBrowser(context: ArtistEditionContext) {
+function ArtistEditionBrowser(context: LibraryEditionContext) {
   const workflow = useArtistEditions(context, true);
-  const tracks = useArtistEditionTrackList(
-    context,
-    context.release === undefined ? workflow.chosen : null,
-  );
   const comparison = useAlbumEditionTrackList(
     context,
-    context.release ?? "",
-    context.release === undefined ? null : workflow.chosen,
+    context.release,
+    workflow.chosen,
   );
   const read = comparison.comparison;
   useEffect(() => {
@@ -134,24 +130,16 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
           Load more editions
         </Button>
       )}
-      {workflow.chosen &&
-        (context.release === undefined ? (
-          <ArtistEditionTrackList
-            edition={tracks.edition}
-            pending={tracks.pending}
-            error={tracks.error}
-            retry={tracks.retry}
-          />
-        ) : (
-          <AlbumEditionTrackList
-            account={context.account}
-            source={{ release: context.release, recording: context.recording }}
-            comparison={comparison.comparison}
-            pending={comparison.pending}
-            error={comparison.error}
-            retry={comparison.retry}
-          />
-        ))}
+      {workflow.chosen && (
+        <AlbumEditionTrackList
+          account={context.account}
+          source={{ release: context.release, recording: context.recording }}
+          comparison={comparison.comparison}
+          pending={comparison.pending}
+          error={comparison.error}
+          retry={comparison.retry}
+        />
+      )}
     </section>
   );
 }

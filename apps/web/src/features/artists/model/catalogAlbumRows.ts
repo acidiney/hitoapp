@@ -1,0 +1,47 @@
+import type { Schema } from "../../../shared/schema";
+
+type Credit = Schema<"CatalogEditionSummary">["artist_credit"];
+
+export type CatalogRow = {
+  id: string;
+  number: string;
+  title: string;
+  credit: string | null;
+  durationMs: number | null;
+};
+
+export function creditText(credit: Credit | undefined): string | null {
+  const text = credit
+    ?.map((member) => member.credited_name + member.join_phrase)
+    .join("");
+  return text ? text : null;
+}
+
+export function albumRows(
+  edition: Schema<"CatalogEditionTrackList">,
+  albumCredit: string | null,
+): CatalogRow[] {
+  const discs = edition.media.length;
+  return edition.media.flatMap((medium) =>
+    medium.tracks.flatMap((track) =>
+      track.kind === "audio"
+        ? [
+            {
+              id: track.id,
+              number: `${discs > 1 ? `${medium.position}.` : ""}${track.number ?? track.position}`,
+              title: track.title,
+              credit:
+                creditText(track.artist_credit) === albumCredit
+                  ? null
+                  : creditText(track.artist_credit),
+              durationMs: track.duration_ms ?? null,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
+export function totalMs(rows: CatalogRow[]): number {
+  return rows.reduce((sum, row) => sum + (row.durationMs ?? 0), 0);
+}

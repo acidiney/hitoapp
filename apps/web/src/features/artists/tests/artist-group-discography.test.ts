@@ -281,7 +281,7 @@ test("one action browses the chosen artist's exact full discography independentl
   }
   expect(responses.every((response) => response.bodyUsed)).toBe(true);
   expect(
-    within(region).queryByRole("button", { name: /play|download|import/i }),
+    within(region).queryByRole("button", { name: /download|import/i }),
   ).toBeNull();
   expect(detail).toEqual(before);
   expect(audio).not.toHaveBeenCalled();

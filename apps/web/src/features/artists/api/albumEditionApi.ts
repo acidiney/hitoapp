@@ -64,6 +64,15 @@ export async function availability(
   return value as Schema<"AlbumEditionTrackListAvailability">;
 }
 
+export async function audioOutcome(
+  response: Response,
+): Promise<Schema<"AlbumTrackAudio">> {
+  const value = await statusBody(response);
+  if (!Object.hasOwn(audioStatuses, value.status))
+    throw new Error(INVALID_RESPONSE);
+  return value as Schema<"AlbumTrackAudio">;
+}
+
 export const albumEditionApi = {
   async tracks(
     account: string,
@@ -122,9 +131,6 @@ export const albumEditionApi = {
         signal,
       },
     );
-    const value = await statusBody(response);
-    if (!Object.hasOwn(audioStatuses, value.status))
-      throw new Error(INVALID_RESPONSE);
-    return value as Schema<"AlbumTrackAudio">;
+    return audioOutcome(response);
   },
 };

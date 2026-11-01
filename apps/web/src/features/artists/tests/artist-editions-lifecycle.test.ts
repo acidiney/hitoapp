@@ -1,14 +1,5 @@
-import { createElement, type ComponentProps } from "react";
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import ArtistEditions from "../components/ArtistEditions";
 import type { Schema } from "../../../shared/schema";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
@@ -25,10 +16,16 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
+import { catalogAlbumElement } from "../fixtures/catalogAlbumPlay";
+import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { log } from "../../../shared/log";
 import { flush } from "../../../test/async";
 
-type Props = ComponentProps<typeof ArtistEditions>;
+vi.mock("../../playback/components/PlaybackProvider", async () =>
+  (await import("../fixtures/idlePlayer")).idlePlayerModule(),
+);
+
+type Props = ArtistEditionContext;
 const initial: Props = {
   account: artistReviewAccount,
   recording: artistReviewDetail.recording_id,
@@ -39,6 +36,30 @@ const initial: Props = {
 const lateTitle = "Private retired-owner edition";
 const freshTitle = "Current chosen edition";
 
+function tracksOf(
+  props: Props,
+  edition: { id: string },
+  firstTitle?: string,
+): Schema<"EditionTrackListAvailability"> {
+  return {
+    ...bonusTrackList,
+    association_id: props.association.id,
+    edition: {
+      ...bonusTrackList.edition,
+      id: edition.id,
+      release_group_id: props.group.id,
+      media: bonusTrackList.edition.media.map((medium, index) => ({
+        ...medium,
+        tracks: medium.tracks.map((track, position) =>
+          index === 1 && position === 0 && firstTitle
+            ? { ...track, title: firstTitle }
+            : track,
+        ),
+      })),
+    },
+  };
+}
+
 function currentPage(props: Props) {
   return {
     ...lastEditionPage,
@@ -46,33 +67,19 @@ function currentPage(props: Props) {
     page: {
       ...lastEditionPage.page,
       release_group_id: props.group.id,
-      items: [{ ...bonusEdition, title: freshTitle }],
+      items: [bonusEdition],
     },
   } satisfies Schema<"ReleaseGroupEditionsAvailability">;
 }
 
-function currentTracks(props: Props) {
-  return {
-    ...bonusTrackList,
-    association_id: props.association.id,
-    edition: {
-      ...bonusTrackList.edition,
-      release_group_id: props.group.id,
-      title: freshTitle,
-    },
-  } satisfies Schema<"EditionTrackListAvailability">;
-}
-
 test.each(["listing", "chosen track list"] as const)(
-  "replacing the owner during a held %s aborts it before a fresh explicit browse",
+  "replacing the owner during a held %s aborts it before a fresh explicit open",
   async (phase) => {
     const errors = vi.spyOn(console, "error");
-    const play = vi
-      .spyOn(HTMLMediaElement.prototype, "play")
-      .mockResolvedValue();
     const debug = vi.spyOn(log, "debug");
     const http = discographyHttp();
     http.reply(phase === "listing" ? firstEditionPage : lastEditionPage);
+    if (phase === "listing") http.reply(tracksOf(initial, standardEdition));
     const held = http.hold(
       "body",
       phase === "listing"
@@ -83,23 +90,17 @@ test.each(["listing", "chosen track list"] as const)(
               items: [{ ...bonusEdition, title: lateTitle }],
             },
           }
-        : {
-            ...bonusTrackList,
-            edition: { ...bonusTrackList.edition, title: lateTitle },
-          },
+        : tracksOf(initial, bonusEdition, lateTitle),
     );
-    const view = render(createElement(ArtistEditions, initial));
+    const view = render(catalogAlbumElement(initial));
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-      await screen.findByText(
-        phase === "listing" ? "Standard edition" : "Bonus edition",
-        { exact: true },
-      );
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: phase === "listing" ? "Load more editions" : "Choose edition",
-        }),
-      );
+      if (phase === "listing") {
+        await screen.findByRole("table", { name: "Tracks" });
+        fireEvent.click(
+          screen.getByRole("button", { name: "Load more editions" }),
+        );
+      }
+      await flush();
       await act(async () => {
         await held.entered;
       });
@@ -135,16 +136,21 @@ test.each(["listing", "chosen track list"] as const)(
                 id: "opaque:release-group/current-context",
               },
             };
-      view.rerender(createElement(ArtistEditions, changed));
+      view.rerender(catalogAlbumElement(changed));
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
-      expect(screen.queryByRole("region", { name: "Editions" })).toBeNull();
-      expect(http.fetch).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
+      expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+      expect(http.fetch).toHaveBeenCalledTimes(phase === "listing" ? 3 : 2);
+      const before = http.fetch.mock.calls.length;
       http.reply(currentPage(changed));
-      fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-      await screen.findByRole("heading", { name: freshTitle });
-      const [, request] = http.fetch.mock.calls[2];
-      expect(http.fetch.mock.calls[2][0]).toBe(
+      http.reply(tracksOf(changed, bonusEdition, freshTitle));
+      fireEvent.click(screen.getByRole("button", { name: "Open album" }));
+      await within(
+        await screen.findByRole("table", { name: "Tracks" }),
+      ).findByText(freshTitle);
+      const [path, request] = http.fetch.mock.calls[before];
+      expect(path).toBe(
         `/api/v1/recordings/${encodeURIComponent(changed.recording)}/artist-associations/${encodeURIComponent(changed.association.id)}/release-group-editions`,
       );
       expect(new Headers(request?.headers).get("x-hito-account")).toBe(
@@ -155,20 +161,15 @@ test.each(["listing", "chosen track list"] as const)(
         limit: 20,
         continuation: null,
       });
-      if (phase === "chosen track list") {
-        http.reply(currentTracks(changed));
-        fireEvent.click(screen.getByRole("button", { name: "Choose edition" }));
-        const detail = await screen.findByRole("region", {
-          name: "Selected edition track list",
-        });
-        await within(detail).findByRole("heading", { name: freshTitle });
-        expect(JSON.parse(http.fetch.mock.calls[3][1]?.body as string)).toEqual(
-          { release_group_id: changed.group.id, edition_id: bonusEdition.id },
-        );
-      }
+      expect(
+        JSON.parse(http.fetch.mock.calls[before + 1][1]?.body as string),
+      ).toEqual({
+        release_group_id: changed.group.id,
+        edition_id: bonusEdition.id,
+      });
       await act(async () => held.release());
       await flush();
-      expect(screen.queryByRole("heading", { name: lateTitle })).toBeNull();
+      expect(screen.queryByText(lateTitle)).toBeNull();
       expect(screen.queryByRole("alert")).toBeNull();
       const finishedEvent =
         phase === "listing"
@@ -183,7 +184,6 @@ test.each(["listing", "chosen track list"] as const)(
         ),
       ).toBe(true);
       expect(JSON.stringify(debug.mock.calls)).not.toContain(lateTitle);
-      expect(play).not.toHaveBeenCalled();
       expect(errors).not.toHaveBeenCalled();
       expect(http.responses.every((response) => response.bodyUsed)).toBe(true);
     } finally {
@@ -205,19 +205,12 @@ test.each(["listing headers", "track list body"] as const)(
       phase === "listing headers" ? "headers" : "body",
       phase === "listing headers"
         ? { error: "Private unmounted catalog failure" }
-        : {
-            ...bonusTrackList,
-            edition: { ...bonusTrackList.edition, title: lateTitle },
-          },
+        : tracksOf(initial, bonusEdition, lateTitle),
       phase === "listing headers" ? 409 : 200,
     );
-    const view = render(createElement(ArtistEditions, initial));
+    const view = render(catalogAlbumElement(initial));
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-      if (phase === "track list body") {
-        await screen.findByText("Bonus edition", { exact: true });
-        fireEvent.click(screen.getByRole("button", { name: "Choose edition" }));
-      }
+      await flush();
       await act(async () => {
         await held.entered;
       });
@@ -226,7 +219,7 @@ test.each(["listing headers", "track list body"] as const)(
       expect(held.aborts()).toBe(1);
       await act(async () => held.release());
       await flush();
-      expect(screen.queryByRole("region", { name: "Editions" })).toBeNull();
+      expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(errors).not.toHaveBeenCalled();
       expect(http.fetch).toHaveBeenCalledTimes(
@@ -254,45 +247,28 @@ test.each(["late success body", "late error headers"] as const)(
     const held = http.hold(
       mode === "late success body" ? "body" : "headers",
       mode === "late success body"
-        ? {
-            ...bonusTrackList,
-            edition: {
-              ...bonusTrackList.edition,
-              id: standardEdition.id,
-              title: lateTitle,
-            },
-          }
+        ? tracksOf(initial, standardEdition, lateTitle)
         : { error: "Private retired edition failure" },
       mode === "late success body" ? 200 : 409,
     );
     http.reply(bonusTrackList);
-    const view = render(createElement(ArtistEditions, initial));
+    const view = render(catalogAlbumElement(initial));
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-      await screen.findByText("Bonus edition", { exact: true });
-      const list = screen.getByRole("list", { name: "Available editions" });
-      const rows = within(list).getAllByRole("listitem");
-      fireEvent.click(
-        within(rows[0]).getByRole("button", { name: "Choose edition" }),
-      );
+      await flush();
       await act(async () => {
         await held.entered;
       });
-      fireEvent.click(
-        within(rows[1]).getByRole("button", { name: "Choose edition" }),
-      );
+      fireEvent.change(screen.getByRole("combobox", { name: "Edition" }), {
+        target: { value: bonusEdition.id },
+      });
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
-      const detail = await screen.findByRole("region", {
-        name: "Selected edition track list",
-      });
-      await within(detail).findByRole("list", { name: "Disc 2 tracks" });
+      const table = await screen.findByRole("table", { name: "Tracks" });
+      await within(table).findAllByText("Tema repetido");
       await act(async () => held.release());
       await flush();
-      expect(
-        within(detail).getAllByText("Tema repetido", { exact: true }),
-      ).toHaveLength(2);
-      expect(screen.queryByRole("heading", { name: lateTitle })).toBeNull();
+      expect(within(table).getAllByText("Tema repetido")).toHaveLength(2);
+      expect(screen.queryByText(lateTitle)).toBeNull();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(http.fetch).toHaveBeenCalledTimes(3);
       expect(

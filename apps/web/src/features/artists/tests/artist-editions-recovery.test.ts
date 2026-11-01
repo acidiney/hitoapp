@@ -1,4 +1,3 @@
-import { createElement } from "react";
 import {
   act,
   fireEvent,
@@ -8,12 +7,10 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import ArtistEditions from "../components/ArtistEditions";
 import type { Schema } from "../../../shared/schema";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
   bonusEdition,
-  bonusTrackList,
   editionGroup,
   firstEditionPage,
   hostEditionContinuation,
@@ -26,6 +23,15 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
+import {
+  catalogAlbumElement,
+  tracksOfEdition,
+} from "../fixtures/catalogAlbumPlay";
+import { flush } from "../../../test/async";
+
+vi.mock("../../playback/components/PlaybackProvider", async () =>
+  (await import("../fixtures/idlePlayer")).idlePlayerModule(),
+);
 
 const props = {
   account: artistReviewAccount,
@@ -34,26 +40,22 @@ const props = {
   profile: reviewedArtistProfile.profile,
   group: editionGroup,
 };
+const lateTitle = "Private late detail of a restarted listing";
 
 test("a rejected later-page token can be restarted explicitly after server key loss without retaining the chosen detail", async () => {
   const http = discographyHttp();
   http.reply(firstEditionPage);
-  const detail = http.hold("body", {
-    ...bonusTrackList,
-    edition: { ...bonusTrackList.edition, id: standardEdition.id },
-  });
+  const detail = http.hold("body", tracksOfEdition(standardEdition, lateTitle));
   http.reply({ error: "The catalog continuation is invalid." }, 400);
   http.reply({ error: "The catalog is temporarily unavailable." }, 503);
   const restart = http.hold("headers", lastEditionPage);
+  http.reply(tracksOfEdition(bonusEdition));
   const before = structuredClone(props);
-  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const push = vi.spyOn(window.history, "pushState");
   const replace = vi.spyOn(window.history, "replaceState");
-  const view = render(createElement(ArtistEditions, props));
+  const view = render(catalogAlbumElement(props));
   try {
-    fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-    await screen.findByText("Standard edition", { exact: true });
-    fireEvent.click(screen.getByRole("button", { name: "Choose edition" }));
+    await flush();
     await act(async () => {
       await detail.entered;
     });
@@ -62,9 +64,6 @@ test("a rejected later-page token can be restarted explicitly after server key l
       "The catalog continuation is invalid.",
     );
     expect(detail.signal()?.aborted).toBe(false);
-    expect(
-      screen.getByRole("region", { name: "Selected edition track list" }),
-    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Restart editions" }),
     ).toBeTruthy();
@@ -93,27 +92,27 @@ test("a rejected later-page token can be restarted explicitly after server key l
     });
     expect(detail.signal()?.aborted).toBe(true);
     expect(detail.aborts()).toBe(1);
+    expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
     expect(
-      screen.queryByRole("region", { name: "Selected edition track list" }),
-    ).toBeNull();
-    expect(screen.getByText("Standard edition", { exact: true })).toBeTruthy();
-    expect(screen.queryByText("Bonus edition", { exact: true })).toBeNull();
+      screen.getByRole("option", { name: /Standard edition/ }),
+    ).toBeTruthy();
     await act(async () => {
       restart.release();
     });
-    await screen.findByText("Bonus edition", { exact: true });
+    await within(
+      await screen.findByRole("table", { name: "Tracks" }),
+    ).findAllByText("Tema repetido");
     await act(async () => {
       detail.release();
     });
-    expect(screen.queryByText("Standard edition", { exact: true })).toBeNull();
     expect(
-      screen.queryByRole("region", { name: "Selected edition track list" }),
+      screen.queryByRole("option", { name: /Standard edition/ }),
     ).toBeNull();
+    expect(screen.queryByText(lateTitle)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(http.fetch).toHaveBeenCalledTimes(5);
+    expect(http.fetch).toHaveBeenCalledTimes(6);
     expect(http.responses.every((response) => response.bodyUsed)).toBe(true);
     expect(props).toEqual(before);
-    expect(play).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   } finally {
@@ -127,12 +126,13 @@ test("a rejected later-page token can be restarted explicitly after server key l
 test("a conflicting edition continuation offers only an explicit restart and replaces the old page after acceptance", async () => {
   const http = discographyHttp();
   http.reply(firstEditionPage);
+  http.reply(tracksOfEdition(standardEdition));
   http.reply({ error: "The catalog continuation changed. Start again." }, 409);
   http.reply(lastEditionPage);
-  const view = render(createElement(ArtistEditions, props));
+  http.reply(tracksOfEdition(bonusEdition));
+  const view = render(catalogAlbumElement(props));
   try {
-    fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-    await screen.findByText("Standard edition", { exact: true });
+    await screen.findByRole("table", { name: "Tracks" });
     fireEvent.click(screen.getByRole("button", { name: "Load more editions" }));
     await screen.findByRole("alert");
     expect(
@@ -141,15 +141,17 @@ test("a conflicting edition continuation offers only an explicit restart and rep
     expect(
       screen.queryByRole("button", { name: "Load more editions" }),
     ).toBeNull();
-    expect(http.fetch).toHaveBeenCalledTimes(2);
+    expect(http.fetch).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole("button", { name: "Restart editions" }));
-    await screen.findByText("Bonus edition", { exact: true });
-    expect(screen.queryByText("Standard edition", { exact: true })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole("combobox", { name: "Edition" })).toBeNull(),
+    );
+    await flush();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(
-      http.fetch.mock.calls.map(([, options]) =>
-        JSON.parse(options?.body as string),
-      ),
+      http.fetch.mock.calls
+        .filter(([path]) => path.endsWith("/release-group-editions"))
+        .map(([, options]) => JSON.parse(options?.body as string)),
     ).toEqual([
       { release_group_id: editionGroup.id, limit: 20, continuation: null },
       {
@@ -170,27 +172,30 @@ test("a conflicting edition continuation offers only an explicit restart and rep
 
 test("edition browsing stops at fifty explicitly requested bounded pages", async () => {
   const http = discographyHttp();
-  for (let page = 1; page <= 50; page++)
+  const edition = (page: number) => ({
+    ...bonusEdition,
+    id: `opaque:edition/cap/${page}`,
+  });
+  for (let page = 1; page <= 50; page++) {
     http.reply({
       ...firstEditionPage,
       continuation: `private-host-edition-page:${page + 1}`,
-      page: {
-        ...firstEditionPage.page,
-        items: [{ ...bonusEdition, id: `opaque:edition/cap/${page}` }],
-      },
+      page: { ...firstEditionPage.page, items: [edition(page)] },
     } satisfies Schema<"ReleaseGroupEditionsAvailability">);
-  const view = render(createElement(ArtistEditions, props));
+    if (page === 1) http.reply(tracksOfEdition(edition(1)));
+  }
+  const view = render(catalogAlbumElement(props));
   try {
-    fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));
-    const list = await screen.findByRole("list", {
-      name: "Available editions",
-    });
-    await waitFor(() => expect(list.children).toHaveLength(1));
+    await screen.findByRole("table", { name: "Tracks" });
+    const options = () =>
+      within(screen.getByRole("combobox", { name: "Edition" })).getAllByRole(
+        "option",
+      );
     for (let page = 2; page <= 50; page++) {
       fireEvent.click(screen.getByText("Load more editions"));
-      await waitFor(() => expect(list.children).toHaveLength(page));
+      await waitFor(() => expect(options()).toHaveLength(page));
     }
-    expect(http.fetch).toHaveBeenCalledTimes(50);
+    expect(http.fetch).toHaveBeenCalledTimes(51);
     expect(
       screen.getByText("Showing the first 50 pages of editions.", {
         exact: true,
@@ -199,18 +204,17 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
     expect(
       screen.queryByRole("button", { name: "Load more editions" }),
     ).toBeNull();
-    expect(
-      screen.queryByRole("region", { name: "Selected edition track list" }),
-    ).toBeNull();
-    for (const [index, [path, options]] of http.fetch.mock.calls.entries()) {
-      expect(path.endsWith("/release-group-editions")).toBe(true);
+    const reads = http.fetch.mock.calls.filter(([path]) =>
+      path.endsWith("/release-group-editions"),
+    );
+    expect(reads).toHaveLength(50);
+    for (const [index, [, options]] of reads.entries())
       expect(JSON.parse(options?.body as string)).toEqual({
         release_group_id: editionGroup.id,
         limit: 20,
         continuation:
           index === 0 ? null : `private-host-edition-page:${index + 1}`,
       });
-    }
     expect(http.responses.every((response) => response.bodyUsed)).toBe(true);
   } finally {
     await act(async () => {

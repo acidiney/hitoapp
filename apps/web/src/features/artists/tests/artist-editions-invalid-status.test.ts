@@ -22,6 +22,10 @@ import {
 } from "../fixtures/artistReview";
 import { log } from "../../../shared/log";
 
+vi.mock("../../playback/components/PlaybackProvider", async () =>
+  (await import("../fixtures/idlePlayer")).idlePlayerModule(),
+);
+
 test.each([
   [
     "editions",
@@ -62,6 +66,8 @@ test.each([
         requested === `${base}/release-group-editions`
       )
         return Response.json(lastEditionPage);
+      if (phase === "editions" && requested === `${base}/edition-track-list`)
+        return Response.json(bonusTrackList);
       throw new Error(
         "The invalid catalog response must wait for an explicit retry",
       );
@@ -84,15 +90,9 @@ test.each([
       });
       await within(groups).findByRole("heading", { name: editionGroup.title });
       fireEvent.click(
-        within(groups).getByRole("button", { name: "Browse editions" }),
+        within(groups).getByRole("button", { name: "Open album" }),
       );
-      const region = await screen.findByRole("region", { name: "Editions" });
-      if (phase === "track list") {
-        await within(region).findByText("Bonus edition", { exact: true });
-        fireEvent.click(
-          within(region).getByRole("button", { name: "Choose edition" }),
-        );
-      }
+      const region = await screen.findByRole("region", { name: "Album" });
       const finished = () =>
         [...debug.mock.calls, ...warn.mock.calls].filter(
           ([event]) => event === finishedEvent,
@@ -117,14 +117,7 @@ test.each([
       expect(region.textContent).not.toContain(sentinel);
       expect(reads).toBe(1);
       fireEvent.click(retry);
-      if (phase === "editions")
-        await within(region).findByText("Bonus edition", { exact: true });
-      else {
-        const detail = await within(region).findByRole("region", {
-          name: "Selected edition track list",
-        });
-        await within(detail).findByRole("list", { name: "Disc 2 tracks" });
-      }
+      await within(region).findByRole("table", { name: "Tracks" });
       expect(reads).toBe(2);
       expect(within(region).queryByRole("alert")).toBeNull();
       expect(

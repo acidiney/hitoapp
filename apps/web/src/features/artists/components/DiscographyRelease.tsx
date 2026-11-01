@@ -1,11 +1,14 @@
 import type { Schema } from "../../../shared/schema";
+import { useState } from "react";
 import { Link } from "@inertiajs/react";
 
-import FallbackCover from "../../../shared/ui/FallbackCover";
+import CatalogCover from "./CatalogCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import AlbumLevelCheck from "./AlbumLevelCheck";
 import ArtistEditions from "./ArtistEditions";
+import CatalogAlbum from "./CatalogAlbum";
+import Button from "../../../shared/ui/Button";
 
 const kinds = {
   album: "Album",
@@ -79,13 +82,35 @@ export default function DiscographyRelease({
   release?: string;
   onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
+  const [view, setView] = useState<"card" | "open" | "play">("card");
+  if (release === undefined && view !== "card")
+    return (
+      <li className="release-card" data-open="">
+        <CatalogAlbum
+          context={{
+            account,
+            recording,
+            association,
+            profile,
+            group,
+            onAlbumEdition,
+          }}
+          heading={Heading}
+          playOnReady={view === "play"}
+        />
+        {library && (
+          <Availability account={account} albums={library} group={group.id} />
+        )}
+      </li>
+    );
   return (
     <li className="release-card">
       <div className="release-cover">
-        <FallbackCover
-          id={group.id}
+        <CatalogCover
+          group={group.id}
+          edition={null}
           title={group.title}
-          artist={group.artist_credit?.[0]?.credited_name}
+          artist={group.artist_credit?.[0]?.credited_name ?? null}
         />
       </div>
       <Heading>{group.title}</Heading>
@@ -110,21 +135,35 @@ export default function DiscographyRelease({
       {library && (
         <AvailabilityLabel
           state={releaseAvailability(library).state}
-          label={releaseAvailability(library).label}
+          label={
+            releaseAvailability(library).label ??
+            (library.length === 0 ? "Not in your library" : undefined)
+          }
         />
       )}
       {library && (
         <Availability account={account} albums={library} group={group.id} />
       )}
-      <ArtistEditions
-        account={account}
-        recording={recording}
-        association={association}
-        profile={profile}
-        group={group}
-        release={release}
-        onAlbumEdition={onAlbumEdition}
-      />
+      {release === undefined ? (
+        <div className="release-actions">
+          <Button type="button" onClick={() => setView("play")}>
+            Play album
+          </Button>
+          <Button type="button" onClick={() => setView("open")}>
+            Open album
+          </Button>
+        </div>
+      ) : (
+        <ArtistEditions
+          account={account}
+          recording={recording}
+          association={association}
+          profile={profile}
+          group={group}
+          release={release}
+          onAlbumEdition={onAlbumEdition}
+        />
+      )}
     </li>
   );
 }

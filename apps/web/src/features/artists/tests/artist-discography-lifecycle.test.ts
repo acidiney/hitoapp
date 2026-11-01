@@ -320,7 +320,7 @@ test.each([403, 404])(
         } satisfies Schema<"ReadArtistDiscography">);
       expect(
         screen.queryByRole("button", {
-          name: /play|download|import|add to library/i,
+          name: /download|import|add to library/i,
         }),
       ).toBeNull();
     } finally {
@@ -358,7 +358,7 @@ test.each([
       ).toBeNull();
       expect(
         within(region).queryByRole("button", {
-          name: /play|download|import|add to library/i,
+          name: /download|import|add to library/i,
         }),
       ).toBeNull();
       await flush();
