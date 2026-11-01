@@ -16,6 +16,7 @@ pub(in crate::library_storage::inspection) struct Report {
     pub ignored_unsupported: u32,
     pub io_failed: u32,
     pub recording_id: Option<String>,
+    pub(super) recording_decided: bool,
     pub(super) charged: usize,
 }
 
@@ -90,10 +91,13 @@ pub(super) fn normalise(
     let Some(frames) = frames(version, &body, tag_unsynchronised) else {
         return Ok(None);
     };
-    if report.recording_id.is_none() {
-        report.recording_id = frames
+    if !report.recording_decided
+        && let Some(identifier) = frames
             .iter()
-            .find_map(|frame| musicbrainz_recording_id(version, frame));
+            .find_map(|frame| musicbrainz_identifier(version, frame))
+    {
+        report.recording_decided = true;
+        report.recording_id = identifier;
     }
     if !frames.iter().any(|frame| compressed(version, frame)) {
         return Ok(None);
@@ -183,9 +187,11 @@ fn frames(version: Version, body: &[u8], tag_unsynchronised: bool) -> Option<Vec
 const MUSICBRAINZ_OWNER: &[u8] = b"http://musicbrainz.org";
 const MAX_IDENTIFIER_BYTES: usize = 64;
 
-/// The identifier of a plain UFID frame owned by musicbrainz.org. Frames that are compressed,
-/// encrypted, grouped, individually unsynchronised or prefixed with a data length are skipped.
-fn musicbrainz_recording_id(version: Version, frame: &Frame) -> Option<String> {
+/// The first plain UFID frame owned by musicbrainz.org decides the recording identifier: when
+/// its value is unusable there is none, and later frames or tags are not consulted. Frames that
+/// are compressed, encrypted, grouped, individually unsynchronised or prefixed with a data length
+/// cannot be read and are passed over.
+fn musicbrainz_identifier(version: Version, frame: &Frame) -> Option<Option<String>> {
     let unsupported = match version {
         Version::V23 => 0xe0,
         Version::V24 => 0x4f,
@@ -194,15 +200,18 @@ fn musicbrainz_recording_id(version: Version, frame: &Frame) -> Option<String> {
         return None;
     }
     let terminator = frame.body.iter().position(|byte| *byte == 0)?;
-    let (owner, identifier) = (&frame.body[..terminator], &frame.body[terminator + 1..]);
-    if owner != MUSICBRAINZ_OWNER
-        || identifier.is_empty()
-        || identifier.len() > MAX_IDENTIFIER_BYTES
-        || !identifier.iter().all(|byte| (0x20..0x7f).contains(byte))
-    {
+    if &frame.body[..terminator] != MUSICBRAINZ_OWNER {
         return None;
     }
-    String::from_utf8(identifier.to_vec()).ok()
+    let identifier = &frame.body[terminator + 1..];
+    let usable = !identifier.is_empty()
+        && identifier.len() <= MAX_IDENTIFIER_BYTES
+        && identifier.iter().all(|byte| (0x20..0x7f).contains(byte));
+    Some(
+        usable
+            .then(|| String::from_utf8(identifier.to_vec()).ok())
+            .flatten(),
+    )
 }
 
 fn deunsynchronise_frame(flags: u8, body: &[u8]) -> Vec<u8> {

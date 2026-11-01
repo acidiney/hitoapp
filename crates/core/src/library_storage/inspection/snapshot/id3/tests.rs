@@ -281,8 +281,165 @@ fn unusable_ufid_frames_yield_no_recording_id() {
 }
 
 #[test]
-fn malformed_tag_headers_never_panic_and_never_invent_a_recording_id() {
-    let good = id3(4, 0, &[ufid(4, [0, 0], OWNER, RECORDING.as_bytes())]);
+fn an_unusable_first_musicbrainz_ufid_leaves_no_recording_id_even_when_a_later_frame_or_tag_is_valid()
+ {
+    let long = [b'a'; 65];
+    let valid = ufid(4, [0, 0], OWNER, RECORDING.as_bytes());
+    for bad in [
+        ufid(4, [0, 0], OWNER, b""),
+        ufid(4, [0, 0], OWNER, &long),
+        ufid(4, [0, 0], OWNER, b"abc\x07"),
+        ufid(4, [0, 0], OWNER, b"padded\0\0\0"),
+    ] {
+        assert_eq!(found(&id3(4, 0, &[bad.clone(), valid.clone()])), None);
+        let mut stacked = id3(4, 0, &[bad]);
+        stacked.extend(id3(4, 0, &[valid.clone()]));
+        assert_eq!(found(&stacked), None, "stacked tags");
+    }
+    let other = ufid(4, [0, 0], b"http://example.org", b"");
+    let unreadable = ufid(4, [0, 0x09], OWNER, b"x");
+    assert_eq!(
+        found(&id3(4, 0, &[other, unreadable, valid])).as_deref(),
+        Some(RECORDING)
+    );
+}
+
+fn unsync(bytes: &[u8]) -> Vec<u8> {
+    let mut output = Vec::new();
+    for (index, byte) in bytes.iter().enumerate() {
+        output.push(*byte);
+        if *byte == 0xff
+            && bytes
+                .get(index + 1)
+                .is_none_or(|next| *next == 0 || *next >= 0xe0)
+        {
+            output.push(0);
+        }
+    }
+    output
+}
+
+fn raw_tag(version: u8, flags: u8, body: &[u8], footer: bool) -> Vec<u8> {
+    let mut bytes = vec![b'I', b'D', b'3', version, 0, flags];
+    bytes.extend(syncsafe(body.len()));
+    bytes.extend(body);
+    if footer {
+        bytes.extend(b"3DI");
+        bytes.extend([version, 0, flags]);
+        bytes.extend(syncsafe(body.len()));
+    }
+    bytes
+}
+
+fn good_frames(version: u8) -> Vec<u8> {
+    [
+        frame(version, b"TIT2", [0, 0], b"\x00Title"),
+        ufid(version, [0, 0], OWNER, RECORDING.as_bytes()),
+    ]
+    .concat()
+}
+
+#[test]
+fn extended_headers_footers_and_unsynchronised_neighbours_still_yield_the_recording_id() {
+    let v23_extended = [&[0, 0, 0, 6, 0, 0, 0, 0, 0, 0][..], &good_frames(3)].concat();
+    assert_eq!(
+        found(&raw_tag(3, 0x40, &v23_extended, false)).as_deref(),
+        Some(RECORDING)
+    );
+    let v24_extended = [&[0, 0, 0, 6, 1, 0][..], &good_frames(4)].concat();
+    assert_eq!(
+        found(&raw_tag(4, 0x40, &v24_extended, false)).as_deref(),
+        Some(RECORDING)
+    );
+    assert_eq!(
+        found(&raw_tag(4, 0x10, &good_frames(4), true)).as_deref(),
+        Some(RECORDING)
+    );
+    let mut footed = raw_tag(4, 0x10, &good_frames(4), true);
+    footed.extend(id3(4, 0, &[]));
+    assert_eq!(
+        found(&footed).as_deref(),
+        Some(RECORDING),
+        "a tag after a footer"
+    );
+
+    let neighbour = |version| frame(version, b"TXXX", [0, 0], b"\x00a\0\xff\x00\xe0\xff\xff");
+    let v23 = [neighbour(3), good_frames(3)].concat();
+    assert_eq!(
+        found(&raw_tag(3, 0x80, &unsync(&v23), false)).as_deref(),
+        Some(RECORDING)
+    );
+    let v24 = [neighbour(4), good_frames(4)].concat();
+    let encoded = [
+        frame(
+            4,
+            b"TXXX",
+            [0, 0x02],
+            &unsync(b"\x00a\0\xff\x00\xe0\xff\xff"),
+        ),
+        good_frames(4),
+    ]
+    .concat();
+    assert_eq!(
+        found(&raw_tag(4, 0x00, &encoded, false)).as_deref(),
+        Some(RECORDING),
+        "frame flag without tag flag"
+    );
+    assert_eq!(
+        found(&raw_tag(4, 0x80, &v24, false)).as_deref(),
+        Some(RECORDING)
+    );
+}
+
+#[test]
+fn riff_chunks_with_odd_sizes_and_truncation_are_walked_safely() {
+    let tag = id3(4, 0, &[ufid(4, [0, 0], OWNER, RECORDING.as_bytes())]);
+    let riff = |chunks: Vec<Vec<u8>>| [b"RIFFxxxxWAVE".to_vec(), chunks.concat()].concat();
+    assert_eq!(
+        found(&riff(vec![chunk(b"junk", b"abc"), chunk(b"id3 ", &tag)])).as_deref(),
+        Some(RECORDING),
+        "odd chunk before the tag"
+    );
+    let odd_tag = tag.clone();
+    assert_eq!(odd_tag.len() % 2, 1);
+    assert_eq!(
+        found(&riff(vec![
+            chunk(b"id3 ", &odd_tag),
+            chunk(b"data", b"abcd")
+        ]))
+        .as_deref(),
+        Some(RECORDING),
+        "odd tag chunk with padding"
+    );
+    let mut trailing = riff(vec![chunk(b"id3 ", &tag)]);
+    trailing.extend(b"data\x10\0");
+    assert_eq!(
+        found(&trailing).as_deref(),
+        Some(RECORDING),
+        "truncated chunk header after the tag"
+    );
+    let mut cut = riff(vec![chunk(b"id3 ", &tag)]);
+    cut.truncate(cut.len() - 5);
+    assert_eq!(found(&cut), None, "chunk larger than the file");
+    let mut hostile = riff(vec![chunk(b"junk", b"abc")]);
+    hostile.extend(b"zzzz");
+    hostile.extend(u32::MAX.to_le_bytes());
+    hostile.extend(&tag);
+    assert_eq!(found(&hostile), None, "declared size beyond the file");
+}
+
+#[test]
+fn malformed_tag_headers_never_panic_and_pin_which_mutations_survive() {
+    let good = id3(
+        4,
+        0,
+        &[
+            frame(4, b"TIT2", [0, 0], b"\x00Title"),
+            ufid(4, [0, 0], OWNER, RECORDING.as_bytes()),
+        ],
+    );
+    let title_body = 20..20 + 6;
+    let identifier = good.len() - RECORDING.len()..good.len();
     let mut cases: Vec<(String, Vec<u8>)> = vec![("empty".into(), vec![])];
     for length in 0..good.len() {
         cases.push((format!("truncated at {length}"), good[..length].to_vec()));
@@ -299,16 +456,79 @@ fn malformed_tag_headers_never_panic_and_never_invent_a_recording_id() {
         bytes[6..10].copy_from_slice(&syncsafe(size as usize));
         cases.push((format!("declared tag size {size}"), bytes));
     }
-    for size in [0u32, 1, 0xffff_ffff] {
-        let mut bytes = id3(3, 0, &[ufid(3, [0, 0], OWNER, RECORDING.as_bytes())]);
-        bytes[14..18].copy_from_slice(&size.to_be_bytes());
-        cases.push((format!("declared v2.3 frame size {size}"), bytes));
-    }
     for (name, bytes) in cases {
-        if let Some(found) = found(&bytes) {
-            assert_eq!(found, RECORDING, "{name}");
+        let result = found(&bytes);
+        let position = name
+            .strip_prefix("byte ")
+            .and_then(|rest| rest.split(' ').next())
+            .and_then(|position| position.parse::<usize>().ok());
+        match position {
+            Some(position) if title_body.contains(&position) => {
+                assert_eq!(result.as_deref(), Some(RECORDING), "{name}");
+            }
+            Some(position) if identifier.contains(&position) => {
+                let mutated = std::str::from_utf8(&bytes[identifier.clone()]).ok();
+                assert!(
+                    result.is_none() || result.as_deref() == mutated,
+                    "{name}: {result:?}"
+                );
+            }
+            _ => assert!(
+                result.is_none() || result.as_deref() == Some(RECORDING),
+                "{name}"
+            ),
         }
     }
     assert_eq!(found(&good[..good.len() - 1]), None);
     assert_eq!(found(&good).as_deref(), Some(RECORDING));
+}
+
+#[test]
+fn every_tag_flag_value_and_frame_size_of_a_v23_tag_is_survived() {
+    let good = id3(
+        3,
+        0,
+        &[
+            frame(3, b"TIT2", [0, 0], b"\x00Title"),
+            ufid(3, [0, 0], OWNER, RECORDING.as_bytes()),
+        ],
+    );
+    for flags in 0..=255u8 {
+        let mut bytes = good.clone();
+        bytes[5] = flags;
+        let result = found(&bytes);
+        if flags & 0x40 == 0 {
+            assert_eq!(result.as_deref(), Some(RECORDING), "flags {flags:#x}");
+        } else {
+            assert!(
+                result.is_none() || result.as_deref() == Some(RECORDING),
+                "flags {flags:#x}"
+            );
+        }
+    }
+    for size in [0u32, 1, 0xffff_ffff, 0x7fff_ffff] {
+        let mut bytes = good.clone();
+        bytes[20 - 6..20 - 2].copy_from_slice(&size.to_be_bytes());
+        let result = found(&bytes);
+        assert!(
+            result.is_none() || result.as_deref() == Some(RECORDING),
+            "frame size {size}"
+        );
+    }
+    for version in [3u8, 4] {
+        for tail in [
+            &[0xffu8][..],
+            &[0xff, 0xff, 0xff],
+            &[0xff, 0x00, 0xff],
+            &[0xe0, 0xff],
+        ] {
+            let mut body = good_frames(version);
+            body.extend(tail);
+            let result = found(&raw_tag(version, 0x80, &body, false));
+            assert!(
+                result.is_none() || result.as_deref() == Some(RECORDING),
+                "v2.{version} tail {tail:?}"
+            );
+        }
+    }
 }
