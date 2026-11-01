@@ -11,6 +11,8 @@ pub(crate) use authority::Authority;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 
+const ACCOUNT_ADMISSION_WAIT: Duration = Duration::from_millis(500);
+
 #[derive(Clone)]
 pub(super) struct MediaClient {
     client: reqwest::Client,
@@ -45,7 +47,10 @@ impl MediaClient {
         request: AudioRequest,
         authority: Authority,
     ) -> Result<OpenedAudio> {
-        let account = self.accounts.enter(&authority.account)?;
+        let account = self
+            .accounts
+            .enter_within(&authority.account, ACCOUNT_ADMISSION_WAIT)
+            .await?;
         let global = self
             .slots
             .clone()
