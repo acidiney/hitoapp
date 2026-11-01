@@ -22,6 +22,7 @@ import {
   type SourcePreparer,
   type SourceResolver,
 } from "./api/playbackSources";
+import { sourceWasDelivered } from "./browser/BrowserFormatProbe";
 import { BrowserTraversal } from "./browser/BrowserTraversal";
 import { BrowserQueue } from "./browser/BrowserQueue";
 import { BrowserObservation } from "./browser/BrowserObservation";
@@ -81,7 +82,7 @@ export class Playback implements Player {
   private durationChanged: (() => void) | null = null;
   private serverBound: number | null = null;
   private entryEnded = false;
-  private formatRejected = false;
+  private formatProbe: Promise<boolean> = Promise.resolve(false);
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
   private lookahead: BrowserLookahead | null;
   private stopListening: () => void = () => {};
@@ -217,12 +218,15 @@ export class Playback implements Player {
       },
       error: () => {
         this.community?.reset();
-        this.formatRejected = media.error?.code === MEDIA_ERR_SRC_NOT_SUPPORTED;
+        const rejected = media.error?.code === MEDIA_ERR_SRC_NOT_SUPPORTED;
         log.warn("playback.media_failed", {
           recording_id: this.state.current?.id,
-          reason: this.formatRejected ? "format_unsupported" : "media_error",
+          reason: rejected ? "format_rejected" : "media_error",
         });
-        if (this.activeSource) void this.recover();
+        if (this.activeSource) {
+          if (rejected) this.probeFormat(this.activeSource);
+          void this.recover();
+        }
       },
       ended: () => {
         if (!this.activeSource || this.entryEnded) return;
@@ -470,7 +474,7 @@ export class Playback implements Player {
       (current ? new PlaybackSources(current.id, this.resolve) : null);
     if (!continuation) this.media.pause();
     this.activeSource = null;
-    this.formatRejected = false;
+    this.formatProbe = Promise.resolve(false);
     this.media.removeAttribute("src");
     this.media.load();
     if (continuation) this.applySpeed(continuation.speed);
@@ -615,8 +619,12 @@ export class Playback implements Player {
       if (error instanceof Error && error.name === "NotAllowedError")
         this.update({ loading: false, error: "Press play to start audio." });
       else {
-        this.formatRejected =
-          error instanceof Error && error.name === "NotSupportedError";
+        if (
+          error instanceof Error &&
+          error.name === "NotSupportedError" &&
+          this.activeSource
+        )
+          this.probeFormat(this.activeSource);
         await this.recover();
       }
     }
@@ -646,7 +654,16 @@ export class Playback implements Player {
     }
   }
 
+  private probeFormat(source: Source) {
+    this.formatProbe = sourceWasDelivered(
+      `/api/v1/sources/${encodeURIComponent(source.id)}/audio`,
+    );
+  }
+
   private async skipFailed() {
+    const generation = this.generation;
+    const formatRejected = await this.formatProbe;
+    if (generation !== this.generation) return;
     const providerUnavailable =
       this.sources?.outcome === "provider_unavailable";
     log.warn("playback.unavailable", {
@@ -654,14 +671,14 @@ export class Playback implements Player {
       index: this.state.index,
       reason: providerUnavailable
         ? "provider_unavailable"
-        : this.formatRejected
+        : formatRejected
           ? "format_unsupported"
           : "exhausted",
     });
     this.update({
       error: providerUnavailable
         ? "An audio service is unavailable. Select the track again to retry."
-        : this.formatRejected
+        : formatRejected
           ? UNSUPPORTED_FORMAT_MESSAGE
           : `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
       loading: false,
