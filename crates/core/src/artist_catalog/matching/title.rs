@@ -62,6 +62,8 @@ pub(crate) struct Title {
     /// The folded base used to compare titles.
     pub key: String,
     kinds: u16,
+    /// The exact wording of live and remix qualifiers, which name a venue or a remixer.
+    specific: String,
 }
 
 /// Titles are equal when their base and qualifier kinds are; the wording is only for display.
@@ -174,27 +176,41 @@ impl Title {
     pub(crate) fn parse(raw: &str) -> Self {
         let mut base = raw.trim();
         let mut kinds = 0;
+        let mut specific = Vec::new();
         loop {
             let cut = if let Some(start) = trailing_bracket(base) {
-                qualifier(&base[start + 1..base.len() - 1]).map(|found| (start, found))
+                let part = &base[start + 1..base.len() - 1];
+                qualifier(part).map(|found| (start, found, part))
             } else if let Some((start, after)) = trailing_dash(base) {
-                qualifier(&base[after..]).map(|found| (start, found))
+                let part = &base[after..];
+                qualifier(part).map(|found| (start, found, part))
             } else {
                 None
             };
             match cut {
-                Some((start, found)) if !base[..start].trim().is_empty() => {
+                Some((start, found, part)) if !base[..start].trim().is_empty() => {
                     kinds |= found;
+                    if found & (LIVE | REMIX) != 0 {
+                        specific.push(tokens(part).join(" "));
+                    }
                     base = base[..start].trim_end();
                 }
                 _ => break,
             }
         }
+        specific.sort();
         Self {
             text: base.to_owned(),
             key: tokens(base).join(" "),
             kinds,
+            specific: specific.join("|"),
         }
+    }
+
+    /// Live and remix qualifiers name a venue or a remixer, so two titles are the same version
+    /// only when that wording is the same too.
+    pub(crate) fn same_specific_wording(&self, other: &Self) -> bool {
+        self.specific == other.specific
     }
 
     pub(super) fn is_qualified(&self) -> bool {
@@ -391,5 +407,14 @@ mod tests {
             "Thinking Out Loud (Remix)",
             0
         ));
+    }
+
+    #[test]
+    fn live_and_remix_qualifiers_must_match_in_wording() {
+        let same = |a: &str, b: &str| Title::parse(a).same_specific_wording(&Title::parse(b));
+        assert!(!same("Song (Remix by A)", "Song (Remix by B)"));
+        assert!(!same("Song - Live at Paris", "Song - Live at Rome"));
+        assert!(same("Song (Remix by A)", "Song - Remix by A"));
+        assert!(same("Song (Remastered 2011)", "Song (2015 Remaster)"));
     }
 }

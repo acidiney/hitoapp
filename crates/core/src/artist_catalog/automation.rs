@@ -50,7 +50,7 @@ pub(crate) async fn request_for_account(
     connection: &mut SqliteConnection,
     account: &str,
 ) -> Result<()> {
-    if !allowed(connection, account).await? {
+    if !account_exists(connection, account).await? {
         return Ok(());
     }
     sqlx::query(
@@ -81,7 +81,7 @@ pub(crate) async fn request_for_library(
     Ok(())
 }
 
-async fn allowed(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
+async fn lookups_allowed(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
     let actor = match Actor::unattended_on(connection, account).await {
         Ok(actor) => actor,
         Err(Error::NotFound) => return Ok(false),
@@ -90,6 +90,16 @@ async fn allowed(connection: &mut SqliteConnection, account: &str) -> Result<boo
     let settings = policy::read(connection, &actor).await?;
     Ok(settings.automatic_artist_lookup
         && policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz))
+}
+
+/// Jobs are queued for every account: an account that turned lookups off still gets its local
+/// recording groups.
+async fn account_exists(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
+    match Actor::unattended_on(connection, account).await {
+        Ok(_) => Ok(true),
+        Err(Error::NotFound) => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 impl ArtistCatalog {
@@ -121,7 +131,10 @@ impl ArtistCatalog {
             .bind(&account)
             .fetch_one(&mut *tx)
             .await?;
-            if !job_started && (!finished || genre_lookups::has_pending(&mut tx, &account).await?) {
+            if !job_started
+                && (!finished || genre_lookups::has_pending(&mut tx, &account).await?)
+                && lookups_allowed(&mut tx, &account).await?
+            {
                 request_for_account(&mut tx, &account).await?;
                 let now_queued: bool = sqlx::query_scalar(
                     "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?)",
@@ -216,7 +229,8 @@ impl ArtistCatalog {
         .await;
         let actor = match actor {
             Ok(Some(actor)) => actor,
-            Ok(None) | Err(Error::NotFound) => return Step::Dropped,
+            Ok(None) => return self.grouping_only(job).await,
+            Err(Error::NotFound) => return Step::Dropped,
             Err(_) => return Step::Failed,
         };
         let request_id = Uuid::new_v4();
@@ -315,6 +329,38 @@ impl ArtistCatalog {
             },
             Err(Error::Conflict(_)) => Step::Busy,
             Err(Error::Unauthorized | Error::NotFound | Error::Forbidden) => Step::Dropped,
+            Err(_) => Step::Failed,
+        }
+    }
+
+    /// An account that turned lookups off still gets its local recording groups: the job skips
+    /// every provider phase and ends after the grouping steps.
+    async fn grouping_only(&self, job: &Job) -> Step {
+        let position = job
+            .cursor
+            .as_deref()
+            .filter(|_| job.phase == "provider")
+            .and_then(|cursor| cursor.strip_prefix(GROUP_CURSOR));
+        let Some(position) = position else {
+            return Step::Continue {
+                phase: "provider",
+                cursor: Some(GROUP_CURSOR.to_owned()),
+                unavailable: false,
+                matched: 0,
+            };
+        };
+        let position = Some(position).filter(|p| !p.is_empty());
+        match crate::catalog::group_step(&self.store, &job.user_id, position).await {
+            Ok(step) => match step.next {
+                Some(next) => Step::Continue {
+                    phase: "provider",
+                    cursor: Some(format!("{GROUP_CURSOR}{next}")),
+                    unavailable: false,
+                    matched: 0,
+                },
+                None => Step::Dropped,
+            },
+            Err(Error::Conflict(_)) => Step::Busy,
             Err(_) => Step::Failed,
         }
     }
