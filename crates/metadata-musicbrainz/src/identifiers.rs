@@ -267,8 +267,6 @@ fn canonical_id(value: &str) -> Result<(), Error> {
     }
 }
 
-/// MusicBrainz answers a merged identifier with the surviving recording, so the answer's
-/// identifier may differ from the requested one.
 pub(super) fn credited_recording(bytes: &[u8]) -> Result<IsrcRecording, Error> {
     let recording: Recording = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
     credited(recording)

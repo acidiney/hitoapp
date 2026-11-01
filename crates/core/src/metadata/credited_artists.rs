@@ -18,8 +18,6 @@ fn role_of(name: &str) -> CreditRole {
     }
 }
 
-/// The credit a structured list states, as its main artists in the provider's order. Featured
-/// artists are not part of it.
 const MAX_IDENTIFYING_PAGES: usize = 8;
 const MAX_LABEL_BYTES: usize = 4352;
 const MAX_KEY_BYTES: usize = 8192;
@@ -33,7 +31,6 @@ pub(crate) fn credit_label(artists: &[CreditedArtist]) -> Option<String> {
     (!mains.is_empty()).then(|| mains.join(" & "))
 }
 
-/// Identifies the same set of main artists in any order and casing.
 pub(crate) fn credit_key(artists: &[CreditedArtist]) -> Option<String> {
     let mut mains: Vec<String> = artists
         .iter()
@@ -44,8 +41,6 @@ pub(crate) fn credit_key(artists: &[CreditedArtist]) -> Option<String> {
     (!mains.is_empty()).then(|| mains.join("\u{1f}"))
 }
 
-/// The artist pages that can identify the credit: those of its main artists, and only when every
-/// main artist has one. A recording without a list keeps the pages the provider listed.
 pub(crate) fn identifying_pages(details: &ProviderRecording) -> Vec<String> {
     if details.artists.is_empty() {
         return details.artist_urls.clone();
@@ -109,8 +104,6 @@ pub(crate) async fn retain(
     Ok(())
 }
 
-/// The credited artists of the recording's current observation, each linked to the account's
-/// artist page of exactly that name when it has one. A personal artist text hides them.
 pub(crate) async fn read(
     connection: &mut SqliteConnection,
     actor: &Actor,

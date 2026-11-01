@@ -97,9 +97,6 @@ impl Probe {
     }
 
     /// An ID3 "MusicBrainz Track Id" text frame is ambiguous (taggers disagree on whether it names
-    /// the recording or the release track), so it is never read as a recording identifier. ID3
-    /// files state the recording in the UFID frame owned by musicbrainz.org, which FFprobe does
-    /// not expose and Hito reads from the private media copy instead.
     fn carries_id3(&self) -> bool {
         matches!(
             self.format

@@ -187,10 +187,6 @@ fn frames(version: Version, body: &[u8], tag_unsynchronised: bool) -> Option<Vec
 const MUSICBRAINZ_OWNER: &[u8] = b"http://musicbrainz.org";
 const MAX_IDENTIFIER_BYTES: usize = 64;
 
-/// The first plain UFID frame owned by musicbrainz.org decides the recording identifier: when
-/// its value is unusable there is none, and later frames or tags are not consulted. Frames that
-/// are compressed, encrypted, grouped, individually unsynchronised or prefixed with a data length
-/// cannot be read and are passed over.
 fn musicbrainz_identifier(version: Version, frame: &Frame) -> Option<Option<String>> {
     let unsupported = match version {
         Version::V23 => 0xe0,

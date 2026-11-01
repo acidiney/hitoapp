@@ -16,8 +16,6 @@ pub struct RecordingMetadata {
     pub artist: TextMetadata,
     #[schema(required = true)]
     pub selected_observation: Option<MetadataObservation>,
-    /// The artists the provider credited for the shown text, in its order. Empty for a personal
-    /// artist edit and for credits that were only text.
     pub credited_artists: Vec<CreditedArtistView>,
     pub observations: ObservationPage,
 }
@@ -28,7 +26,6 @@ pub struct CreditedArtistView {
     pub role: CreditRole,
     #[schema(required = true)]
     pub join: Option<String>,
-    /// The account's artist page for exactly this name, when one exists.
     #[schema(required = true)]
     pub artist_id: Option<String>,
 }

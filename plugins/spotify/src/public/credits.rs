@@ -5,8 +5,6 @@ pub(super) struct Credited {
     pub id: Option<String>,
 }
 
-/// The credited artists in Spotify's order. An artist is featured only when the title's own
-/// feature clause names it; the credit always keeps at least one main artist.
 pub(super) fn credited_artists(artists: &[Credited], title: &str) -> Vec<CreditedArtist> {
     let named = bracketed_feature_names(title);
     let featured: Vec<bool> = artists

@@ -129,8 +129,6 @@ async fn observed(case: &Case, with_ids: bool) -> Option<[Option<String>; 4]> {
     ])
 }
 
-/// MP3 and WAV carry the recording identifier in the ID3 UFID frame owned by musicbrainz.org,
-/// which Hito reads itself because FFprobe does not expose it.
 #[tokio::test]
 async fn release_and_recording_musicbrainz_ids_are_retained_as_source_assertions_in_every_supported_dialect()
  {

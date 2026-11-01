@@ -54,10 +54,8 @@ pub struct NameCandidate {
     pub id: String,
     pub name: String,
     pub score: u32,
-    /// The artist type in lower case (`person`, `group`, ...), when MusicBrainz states a known one.
     pub kind: Option<String>,
     pub disambiguation: Option<String>,
-    /// The country code MusicBrainz states for the artist.
     pub country: Option<String>,
 }
 

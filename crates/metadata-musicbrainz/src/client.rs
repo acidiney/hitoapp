@@ -225,8 +225,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Looks up one recording by its MusicBrainz identifier and returns the distinct artists in
-    /// its credit. An unknown recording is `None`.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "recording_lookup", request_id = tracing::field::Empty))]
     pub async fn recording_artists(&self, id: &str) -> Result<Option<IsrcRecording>, Error> {
         let started = Instant::now();

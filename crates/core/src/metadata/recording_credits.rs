@@ -76,13 +76,9 @@ const REGISTER_TEXT_CREDITS: &str = "INSERT INTO account_artists(user_id, id, li
         WHERE t.name IS NOT NULL AND t.credit_key IS NULL
         ON CONFLICT(user_id, library_id, name) DO NOTHING";
 
-/// The first-seen recording of each credit key names the artist unless the key already has one.
 const FIRST_SEEN: &str = "(SELECT t.*, ROW_NUMBER() OVER (PARTITION BY t.user_id, t.library_id, t.credit_key ORDER BY t.credit_order) AS first_seen
         FROM targets t WHERE t.credit_key IS NOT NULL)";
 
-/// A credit key that has no artist yet takes over the text credit the provider's own display text
-/// already named, so refreshing a recording with a list does not split it from its siblings.
-/// Credits with a featured artist describe fewer artists than the text, so they never adopt.
 fn adopt_text_credits() -> String {
     format!(
         "INSERT OR IGNORE INTO account_credit_keys(user_id, library_id, credit_key, artist_id)

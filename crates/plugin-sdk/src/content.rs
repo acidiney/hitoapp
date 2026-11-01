@@ -45,8 +45,6 @@ pub struct ProviderRecording {
     /// MusicBrainz artist; a provider that cannot name all performers omits the list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub artist_urls: Vec<String>,
-    /// The credited artists in the provider's own order, when the provider knows them as a list.
-    /// `artist` stays the display text; hosts that find a list use it instead of splitting text.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub artists: Vec<CreditedArtist>,
 }
@@ -65,15 +63,12 @@ pub enum CreditRole {
 #[serde(deny_unknown_fields)]
 pub struct CreditedArtist {
     pub name: String,
-    /// The provider's own identifier for the artist. Hosts keep it as evidence only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_artist_id: Option<String>,
-    /// The artist's canonical page in the same allowlisted form as `artist_urls`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_url: Option<String>,
     #[serde(default)]
     pub role: CreditRole,
-    /// The text that follows this artist in the display credit, such as " & " or " feat. ".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join: Option<String>,
 }
