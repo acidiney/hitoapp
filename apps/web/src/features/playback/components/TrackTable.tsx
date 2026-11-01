@@ -1,7 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { useSyncExternalStore } from "react";
 import { Link } from "@inertiajs/react";
-import { Play } from "lucide-react";
 import { time } from "../../../shared/format";
 import { usePlayer } from "./PlaybackProvider";
 import type { PlaybackStart, Track } from "../model";
@@ -9,6 +8,7 @@ import type { PlaybackStart, Track } from "../model";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
 import EntryMoves from "./EntryMoves";
+import RowPlay from "./RowPlay";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
@@ -110,18 +110,15 @@ export default function TrackTable({
               >
                 <td>
                   {track ? (
-                    <button
-                      className="row-play icon-button"
-                      aria-label={`Play ${track.title}`}
-                      onClick={() => play(track)}
-                    >
-                      <span>
-                        {track.track_number != null
+                    <RowPlay
+                      title={track.title}
+                      number={
+                        track.track_number != null
                           ? `${track.disc_number && track.disc_number > 1 ? `${track.disc_number}.` : ""}${track.track_number}`
-                          : index + 1 + offset}
-                      </span>
-                      <Play size={15} />
-                    </button>
+                          : index + 1 + offset
+                      }
+                      onPlay={() => play(track)}
+                    />
                   ) : (
                     <span>{index + 1 + offset}</span>
                   )}

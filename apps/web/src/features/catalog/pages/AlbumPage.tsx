@@ -15,6 +15,7 @@ import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
 import { releaseCreditLabel } from "../model/albumCredit";
 import { releaseTracksListing } from "../api/trackListings";
+import AlbumHeader from "../components/AlbumHeader";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
 export default function AlbumPage({
@@ -35,60 +36,63 @@ export default function AlbumPage({
   const listing = releaseTracksListing(user.id, release.id, page);
   return (
     <>
-      <header className="album-header">
-        <Breadcrumbs
-          crumbs={[
-            { label: "Library", href: "/library" },
-            { label: "Albums", href: "/albums" },
-            { label: release.title },
-          ]}
-        />
-        <div className="album-header-body">
-          <div className="album-header-cover">
-            <Artwork
-              release={release.id}
-              fallback={{
-                id: release.id,
-                title: release.title,
-                artist: release.artist,
-              }}
+      <AlbumHeader
+        crumbs={
+          <Breadcrumbs
+            crumbs={[
+              { label: "Library", href: "/library" },
+              { label: "Albums", href: "/albums" },
+              { label: release.title },
+            ]}
+          />
+        }
+        cover={
+          <Artwork
+            release={release.id}
+            fallback={{
+              id: release.id,
+              title: release.title,
+              artist: release.artist,
+            }}
+          />
+        }
+        title={release.title}
+        credit={
+          release.artist !== null && release.artist_id !== null ? (
+            <Link
+              className="album-artist"
+              href={`/artists/${encodeURIComponent(release.artist_id)}`}
+            >
+              {release.artist}
+            </Link>
+          ) : (
+            credit && <span className="album-artist">{credit}</span>
+          )
+        }
+        stats={
+          <>
+            {release.track_count}{" "}
+            {release.track_count === 1 ? "track" : "tracks"} ·{" "}
+            {time(release.duration_ms / 1000)}
+          </>
+        }
+        actions={
+          <>
+            <PlayShuffle
+              tracks={tracks}
+              listing={listing}
+              label="album"
+              tone="plain"
             />
-          </div>
-          <div className="album-header-copy">
-            <span className="album-eyebrow">Album</span>
-            <h1>{release.title}</h1>
-            {release.artist !== null && release.artist_id !== null ? (
-              <Link
-                className="album-artist"
-                href={`/artists/${encodeURIComponent(release.artist_id)}`}
-              >
-                {release.artist}
-              </Link>
-            ) : (
-              credit && <span className="album-artist">{credit}</span>
-            )}
-            <span className="album-stats">
-              {release.track_count}{" "}
-              {release.track_count === 1 ? "track" : "tracks"} ·{" "}
-              {time(release.duration_ms / 1000)}
-            </span>
-            <div className="album-actions">
-              <PlayShuffle
-                tracks={tracks}
-                listing={listing}
-                label="album"
-                tone="plain"
-              />
-              <Link
-                className="button"
-                href={`/albums/${encodeURIComponent(release.id)}/details`}
-              >
-                Edit album details
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+            <Link
+              className="button"
+              href={`/albums/${encodeURIComponent(release.id)}/details`}
+            >
+              Edit album details
+            </Link>
+          </>
+        }
+      />
       <ArtworkStatus release={release.id} />
       {tracks.length ? (
         <>
