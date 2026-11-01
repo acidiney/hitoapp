@@ -326,20 +326,20 @@ test.describe("isolated provider playlist Resume", () => {
         name: "Resume playlist updates",
         exact: true,
       });
-      await approval
-        .getByRole("button", { name: "Review connection", exact: true })
-        .click();
       await expect(
-        approval.getByText(proposed.name, { exact: true }),
+        approval.getByText(
+          `The ${proposed.name} connection now also offers song search.`,
+          { exact: true },
+        ),
       ).toBeVisible();
       await expect(
-        approval.getByText(service.name, { exact: true }),
+        approval.getByText("Abilities", { exact: true }),
       ).toBeVisible();
       await expect(
-        approval.getByText(service.base_url, { exact: true }),
+        approval.getByText("playlists, search", { exact: true }),
       ).toBeVisible();
       await expect(
-        approval.getByText("playlists", { exact: true }),
+        approval.getByRole("link", { name: "Review connection", exact: true }),
       ).toBeVisible();
       const resume = approval.getByRole("button", {
         name: "Resume updates",
@@ -354,7 +354,7 @@ test.describe("isolated provider playlist Resume", () => {
         feedBefore,
       );
       expect(fixture.counts()).toEqual({
-        manifest: 5,
+        manifest: 7,
         reference: 2,
         canonical: 2,
         items: 2,
@@ -555,7 +555,7 @@ test.describe("isolated provider playlist Resume", () => {
           ).length,
         ).toBe(0);
       expect(fixture.counts()).toEqual({
-        manifest: 5,
+        manifest: 7,
         reference: 2,
         canonical: 4,
         items: 3,
@@ -580,7 +580,8 @@ test.describe("isolated provider playlist Resume", () => {
         unexpectedResumeFailures,
       ]).toEqual([1, 1, 1, 0]);
       expect([pageErrors, externalRequests, audioRequests]).toEqual([0, 0, 0]);
-    } catch {
+    } catch (error) {
+      console.log(String(error), (error as Error).stack);
       failed = true;
     } finally {
       if (installedRoute && syncUrl) {

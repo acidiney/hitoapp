@@ -28,6 +28,11 @@ export async function playlistFollowFixture() {
   const reviewedManifest = {
     ...manifest,
     name: "Reviewed playlist Follow fixture",
+    capabilities: ["search", "playlists"],
+  } satisfies Schema<"Manifest">;
+  const rebuiltManifest = {
+    ...manifest,
+    name: "Rebuilt playlist Follow fixture",
   } satisfies Schema<"Manifest">;
   let currentManifest: Schema<"Manifest"> = manifest;
   const recordings = {
@@ -255,6 +260,11 @@ export async function playlistFollowFixture() {
     initial,
     updated,
     counts: () => ({ ...counts }),
+    rebuildManifest() {
+      if (closed) throw new Error("The owned manifest control is unavailable");
+      currentManifest = rebuiltManifest;
+      return rebuiltManifest;
+    },
     reviewManifest() {
       if (closed) throw new Error("The owned manifest control is unavailable");
       currentManifest = reviewedManifest;
