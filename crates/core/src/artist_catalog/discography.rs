@@ -138,8 +138,6 @@ impl ArtistCatalog {
         })
     }
 
-    /// Queues the cover lookup of each card when the account allows automatic artwork. A failure
-    /// only means the cards show no cover yet.
     async fn queue_covers(&self, actor: &Actor, groups: &[hito_plugin_sdk::CatalogReleaseGroup]) {
         let queued = async {
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;

@@ -6,7 +6,6 @@ use std::time::Instant;
 use tokio::time::Instant as Clock;
 use uuid::Uuid;
 
-/// Marks the genre pass inside the stored position of an automatic walk.
 pub(crate) const GENRE_CURSOR: &str = "genres:";
 const REFRESH_SECONDS: i64 = 30 * 24 * 60 * 60;
 const MAX_GENRES_PER_ENTITY: usize = 8;
@@ -45,15 +44,12 @@ impl Candidate {
 
 enum Answer {
     Genres(Vec<String>),
-    /// The service answered with something that cannot be read; asked again after a week.
     Invalid,
     Unavailable,
 }
 
 const NO_FILE_GENRE: &str = "NOT EXISTS (SELECT 1 FROM sources fs JOIN source_genres fg ON fg.source_id = fs.id WHERE fs.recording_id = r.id)";
 
-/// The MusicBrainz identities the account's readable library names that have no fresh lookup,
-/// artists first, then release groups, then recordings, in identifier order after `after`.
 async fn pending(
     connection: &mut SqliteConnection,
     account: &str,
@@ -135,17 +131,11 @@ async fn pending(
         .collect())
 }
 
-/// Whether the account's library names a MusicBrainz identity whose genres were never read or
-/// are older than the refresh period.
 pub(crate) async fn has_pending(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
     Ok(!pending(connection, account, None, 1).await?.is_empty())
 }
 
 impl ArtistCatalog {
-    /// Reads the official MusicBrainz genres of the identities the account's library names: its
-    /// chosen artists, then the release groups and recordings named by file tags, a bounded
-    /// batch per call. Answers are cached by identifier and asked again after thirty days. Only
-    /// identifiers leave the host; an outage leaves the identity uncached for a later pass.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "musicbrainz_genres", request_id = %Uuid::new_v4()))]
     pub(crate) async fn collect_musicbrainz_genres(
         &self,
@@ -229,8 +219,6 @@ impl ArtistCatalog {
         })
     }
 
-    /// Asks for each candidate in turn within the lookup count and time bounds; the first is
-    /// always asked. Returns the answers and how many leading candidates were examined.
     async fn ask_genres(&self, candidates: &[Candidate]) -> (Vec<Answer>, usize) {
         let started = Clock::now();
         let mut answers = Vec::new();

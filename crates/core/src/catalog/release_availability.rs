@@ -11,7 +11,6 @@ pub(crate) struct ReleaseCounts {
     pub contains_wanted: bool,
 }
 
-/// A recording an album is expected to still list.
 #[derive(Serialize)]
 pub(crate) struct WantedRecording<'a> {
     pub release_id: &'a str,
@@ -19,8 +18,6 @@ pub(crate) struct WantedRecording<'a> {
 }
 
 impl Catalog {
-    /// Track and playable counts for the account's own albums. An album reports whether it
-    /// still lists any wanted recording.
     pub(crate) async fn release_counts_on(
         &self,
         connection: &mut SqliteConnection,

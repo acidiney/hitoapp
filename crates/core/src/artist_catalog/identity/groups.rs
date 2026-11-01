@@ -57,7 +57,6 @@ impl Summary {
     }
 }
 
-/// Reads one group's summary when it still has a current, accessible member.
 pub(in crate::artist_catalog) async fn group_summary(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
@@ -227,9 +226,6 @@ impl ArtistCatalog {
 const EXACT_SCAN_PAGE: i64 = 500;
 const MAX_EXACT_SCAN: i64 = 20_000;
 
-/// Identifiers (as a JSON array) of the matching groups whose name equals the search text
-/// without regard to case, spacing or common accents. Every matching group is examined, page by
-/// page, up to a fixed bound.
 async fn exact_names(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
@@ -270,7 +266,6 @@ async fn exact_names(
         .map_err(|_| Error::Internal("Artist search could not be ordered".into()))
 }
 
-/// Lowercases, collapses spacing and removes the accents of common Latin letters.
 pub(in crate::artist_catalog) fn fold(text: &str) -> String {
     let mut folded = String::with_capacity(text.len());
     for letter in text
@@ -338,7 +333,6 @@ fn bounds(offset: Option<i64>, limit: Option<i64>) -> (i64, i64) {
     )
 }
 
-/// Current choices whose reviewed association is still linked for the account, including shared corrections.
 pub(in crate::artist_catalog) fn current_choices() -> String {
     format!(
         "FROM recording_artist_identity_choices choice
@@ -354,7 +348,6 @@ pub(in crate::artist_catalog) fn current_choices() -> String {
     )
 }
 
-/// A library-credit table alias, always a literal chosen by the caller.
 #[derive(Clone, Copy)]
 pub(crate) struct CreditAlias(&'static str);
 
@@ -364,7 +357,6 @@ impl CreditAlias {
     }
 }
 
-/// A query that starts with the actor's current chosen recordings as one materialized set.
 pub(crate) struct ChosenRecordings(QueryBuilder<'static, Sqlite>);
 
 impl ChosenRecordings {
@@ -377,8 +369,6 @@ impl ChosenRecordings {
         Self(query)
     }
 
-    /// Keeps only library credits that no reviewed identity fully represents: a credit is
-    /// represented when every recording and every release it holds has a chosen recording.
     pub(crate) fn exclude_represented(&mut self, credit: CreditAlias) {
         let credit = credit.0;
         self.0.push(format!(
@@ -419,7 +409,6 @@ pub(in crate::artist_catalog) fn visible(
     visible_in(actor, library, group.map_or(Groups::Any, Groups::One))
 }
 
-/// Which groups a `visible` query covers.
 pub(in crate::artist_catalog) enum Groups<'a> {
     Any,
     One(&'a str),
@@ -474,8 +463,6 @@ pub(in crate::artist_catalog) fn visible_in(
     query
 }
 
-/// The account's current chosen artists whose identity is exactly one of the given
-/// built-in MusicBrainz artist identifiers. Names are never compared.
 pub(in crate::artist_catalog) async fn chosen_groups_by_musicbrainz_id(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,

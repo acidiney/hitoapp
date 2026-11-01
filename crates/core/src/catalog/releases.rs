@@ -19,8 +19,6 @@ pub struct Release {
     pub track_count: i64,
     pub duration_ms: i64,
     pub artwork_recording_id: Option<String>,
-    /// Display album artist derived from the tracks when the release has no album artist. It is
-    /// never stored and never replaces a stated or personal album artist.
     #[schema(required = true)]
     pub inferred_artist: Option<AlbumArtistInference>,
 }
@@ -28,9 +26,7 @@ pub struct Release {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AlbumArtistInference {
-    /// Every track names this one artist.
     Named { name: String },
-    /// The tracks name different artists.
     Various,
 }
 
@@ -259,7 +255,6 @@ pub(crate) async fn releases_by_ids_on(
     Ok(releases)
 }
 
-/// The account's albums among the requested identifiers; unknown or hidden ones are left out.
 pub(crate) async fn releases_among_ids_on(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
@@ -289,7 +284,6 @@ pub(crate) async fn releases_among_ids_on(
     Ok(query.build_query_as().fetch_all(connection).await?)
 }
 
-/// The `entries` view of the account's own albums among the wanted recordings.
 pub(super) fn selected_among(
     actor: &Actor,
     wanted: &[WantedRecording<'_>],

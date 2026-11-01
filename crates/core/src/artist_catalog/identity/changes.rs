@@ -15,9 +15,7 @@ pub(super) const MAX_MOVED: usize = 100;
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SplitDestination {
-    /// Each recording returns to the library credit it was tagged with.
     Credit,
-    /// Each recording moves to an exact artist identity it already reviewed.
     Identity {
         provider: MetadataProvider,
         provider_artist_id: String,
@@ -69,7 +67,6 @@ pub struct ArtistIdentityChangeReceipt {
     pub destination_group_id: Option<String>,
 }
 
-/// The selected side of one recording's identity choice, without its revision.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Side {
     pub group: String,
@@ -108,7 +105,6 @@ impl Item {
         )
     }
 
-    /// The item that undoes this one: the same recording, with both sides exchanged.
     fn reversed(&self) -> Self {
         Self {
             recording_id: self.recording_id.clone(),

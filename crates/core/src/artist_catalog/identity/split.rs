@@ -60,7 +60,6 @@ struct Member {
     selection_order: i64,
 }
 
-/// The group's current chosen recordings that match the selection, one more than the limit at most.
 async fn members(
     connection: &mut SqliteConnection,
     actor: &Actor,

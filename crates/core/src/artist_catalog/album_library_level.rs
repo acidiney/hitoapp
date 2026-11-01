@@ -16,10 +16,8 @@ pub struct ReadAlbumLibraryLevel {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum LibraryLevel {
-    /// Every audio track of the remembered edition matches a library recording.
     InLibrary,
     Partly,
-    /// The album is linked to the edition but none of its tracks match by provider identity.
     Linked,
 }
 
@@ -52,7 +50,6 @@ impl AlbumLibraryLevel {
 }
 
 impl ArtistCatalog {
-    /// Compares an album with the edition the account remembered for it, by exact provider identity.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "album_library_level", request_id = %uuid::Uuid::new_v4()))]
     pub async fn album_library_level_until(
         &self,

@@ -80,8 +80,6 @@ pub(super) fn push_managed_access(
         );
 }
 
-/// True when a connected, enabled service of the account holds a binding that can resolve
-/// sources for the recording. Reads only stored bindings and connection state.
 pub(crate) fn push_plays_from_services(query: &mut QueryBuilder<'_, Sqlite>, account: &str) {
     query
         .push(

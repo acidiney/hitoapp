@@ -20,16 +20,11 @@ pub struct MetadataSettings {
     pub revision: i64,
     pub enabled: bool,
     pub providers: Vec<MetadataProvider>,
-    /// Match library artists on MusicBrainz in the background. Applies only while enrichment is
-    /// enabled and the built-in provider is selected.
     pub automatic_artist_lookup: bool,
-    /// Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier.
     pub automatic_artwork: bool,
-    /// Search connected services for playable sources of saved recordings without being asked.
     pub automatic_service_search: bool,
 }
 
-/// Omitted choices keep their current value.
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateAutomaticLookups {
@@ -41,25 +36,18 @@ pub struct UpdateAutomaticLookups {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtistMatchingState {
-    /// Nothing is waiting, or automatic matching is off for this account.
     Idle,
-    /// A walk is waiting for its turn or for a later retry.
     Queued,
-    /// A walk is working through the library now.
     Running,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchingStatus {
-    /// Whether the account's settings allow automatic matching.
     pub enabled: bool,
     pub state: ArtistMatchingState,
-    /// Recordings matched so far by the walk in progress.
     pub matched_so_far: i64,
-    /// Unix seconds when the last walk finished, if one has.
     #[schema(required = true)]
     pub last_finished_at: Option<i64>,
-    /// Recordings the last finished walk matched.
     pub last_matched: i64,
 }
 
@@ -85,10 +73,7 @@ pub enum ArtistAssociationEvidence {
     MatchedIsrc,
     MatchedProviderUrl,
     MatchedNameDiscography,
-    /// The credit's other tracks, following tracks that were matched from `credit_evidence`.
     MatchedCreditEvidence,
-    /// The credit's remaining tracks, following one artist that the credit's probed tracks mostly
-    /// share; see `coverage_evidence`.
     MatchedCreditCoverage,
     UserConfirmedCandidate,
     MatchedRecordingId,
@@ -103,15 +88,12 @@ pub enum CreditEvidenceKind {
     NameDiscography,
 }
 
-/// What a credit-level match started from and how many of the credit's tracks supplied it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
 pub struct CreditEvidence {
     pub kind: CreditEvidenceKind,
     pub tracks: i64,
 }
 
-/// How many of a credit's probed tracks the artist listed when the credit's remaining tracks
-/// followed it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
 pub struct CoverageEvidence {
     pub matched_tracks: i64,
@@ -268,7 +250,6 @@ impl ArtistProfileAvailability {
 pub struct ReadArtistDiscography {
     pub limit: u16,
     pub continuation: Option<String>,
-    /// Pages one release type at a time from providers that declare the filter.
     #[serde(default)]
     pub release_type: Option<CatalogReleaseTypeFilter>,
 }
@@ -283,7 +264,6 @@ pub enum ArtistDiscographyAvailability {
     },
     Disabled,
     Unsupported,
-    /// The provider reads discographies but cannot page one release type at a time.
     TypeFilterUnsupported,
     Unavailable,
     Cancelled,

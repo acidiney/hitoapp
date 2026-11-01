@@ -42,8 +42,6 @@ pub struct DiscographyLibrary {
 type Choice = (String, String, String, String, String);
 
 impl ArtistCatalog {
-    /// Which of the account's albums are linked to the given provider release groups.
-    /// A link is the edition the account chose for an album, so no name is ever compared.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "discography_library", request_id = %Uuid::new_v4()))]
     pub async fn discography_library(
         &self,

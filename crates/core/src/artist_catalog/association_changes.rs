@@ -44,7 +44,6 @@ pub struct ArtistAssociationUndo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtistCorrectionRetirement {
-    /// The recording was retagged, so the credit the correction was made for is gone.
     CreditChanged,
 }
 
@@ -59,13 +58,9 @@ pub struct ArtistAssociationChanges {
     pub recording_id: String,
     pub revision: i64,
     pub undo: Option<ArtistAssociationUndo>,
-    /// Unlinks that no longer apply to the recording's current credit; they keep hiding their association.
     pub retired: Vec<ArtistAssociationRetirement>,
-    /// Saved reviews of this recording that an administrator's shared correction hides for this account.
     pub shared_hidden: i64,
-    /// An administrator can share the latest unlink, a built-in artist review, with every account.
     pub shareable: bool,
-    /// The applied shared correction made from the latest unlink; only administrators see it.
     pub shared: Option<SharedCorrectionRef>,
 }
 

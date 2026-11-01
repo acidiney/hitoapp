@@ -121,8 +121,6 @@ impl ArtistCatalog {
         })
     }
 
-    /// Admission for matching lookups. Background walks have their own slots, so they never take
-    /// the ones the account's own profile, preview and review requests need.
     fn admit_matching(
         &self,
         actor: &crate::Actor,

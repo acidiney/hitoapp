@@ -81,12 +81,6 @@ impl From<AlbumEditionTrackListAvailability> for AlbumTrackAudio {
 }
 
 impl ArtistCatalog {
-    /// Finds playable audio for one catalog-only track of a chosen edition
-    /// through the account's approved source providers and saves the one
-    /// accepted recording. The track's evidence comes from a fresh read of the
-    /// edition, never from the caller. A candidate that the automatic source
-    /// policy does not accept is never saved, and the provider's answer at
-    /// save time must equal the answer that was accepted.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "album_track_audio", request_id = %Uuid::new_v4()))]
     pub async fn find_album_track_audio_until(
         &self,

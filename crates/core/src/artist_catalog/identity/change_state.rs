@@ -17,13 +17,10 @@ pub struct ArtistIdentityChangeSummary {
     pub revision: i64,
     pub kind: ArtistIdentityChangeKind,
     pub recordings: i64,
-    /// Items whose recording no longer carries the credit the change was made for.
     pub retired: i64,
     pub destination_group_id: Option<String>,
     pub undoable: bool,
-    /// An administrator can apply this split for every account.
     pub shareable: bool,
-    /// The applied shared correction made from this change; only administrators see it.
     pub shared: Option<SharedCorrectionRef>,
 }
 
@@ -43,7 +40,6 @@ pub(crate) struct SplitChange {
     pub observations: Vec<(String, String)>,
 }
 
-/// The latest change of a group with the observation each moved recording was reviewed under.
 pub(crate) async fn split_change(
     connection: &mut SqliteConnection,
     actor: &Actor,

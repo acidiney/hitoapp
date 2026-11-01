@@ -2,9 +2,6 @@ use crate::Result;
 use crate::metadata::RecordingScope;
 use sqlx::{Sqlite, Transaction};
 
-/// Marks corrections whose recording no longer carries the credit they were made for. Retired
-/// corrections are never revived and never create or merge identities; they stay readable so the
-/// account can see that they no longer apply.
 pub(crate) async fn retire_stale(
     tx: &mut Transaction<'_, Sqlite>,
     scope: &RecordingScope<'_>,

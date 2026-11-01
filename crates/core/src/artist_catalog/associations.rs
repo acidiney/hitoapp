@@ -10,9 +10,6 @@ use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
 
-/// An association is linked unless the account's latest personal change unlinked it, or an
-/// applied shared correction postdates that change and names the same recording, observation and
-/// built-in artist. A personal change recorded after a shared correction always wins.
 pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND assoc.provider_kind='builtin_musicbrainz'
         AND EXISTS (SELECT 1 FROM shared_artist_correction_subjects subject
             JOIN shared_artist_corrections correction ON correction.seq=subject.correction_seq

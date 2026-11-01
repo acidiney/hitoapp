@@ -15,8 +15,6 @@ const TRACKS: usize = 96;
 const PAGE_SIZE: i64 = 5;
 const SMALL_COPIES: i64 = 32;
 const LARGE_COPIES: i64 = 4096;
-// Extend each measured small-history read by an allowance for several linear
-// passes over the added source/credit rows, without multiplying by album tracks.
 const WORK_PER_ADDED_COPY: u64 = 400;
 const FIXED_WORK: u64 = 20_000;
 

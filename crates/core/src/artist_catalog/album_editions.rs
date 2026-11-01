@@ -389,8 +389,6 @@ impl ArtistCatalog {
     }
 }
 
-/// The reviewed association when the account can still use it now: metadata is
-/// enabled, its provider is selected and installed, and the credit is unchanged.
 pub(super) async fn readable_association(
     connection: &mut SqliteConnection,
     actor: &Actor,

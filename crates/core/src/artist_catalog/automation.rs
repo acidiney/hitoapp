@@ -10,8 +10,6 @@ use uuid::Uuid;
 
 const GROUP_CURSOR: &str = "groups:";
 const LEASE_SECONDS: i64 = 90;
-/// Walks that met an unavailable provider are repeated this many times, with the delay doubling
-/// from two minutes up to an hour.
 const MAX_ATTEMPTS: i64 = 8;
 const BUSY_RETRY_SECONDS: i64 = 2;
 
@@ -43,9 +41,6 @@ enum Step {
     Failed,
 }
 
-/// Schedules a background matching walk for an account whose settings allow it. Repeated
-/// requests share the account's single job; a request that arrives while the walk is under way
-/// asks for one more walk afterwards.
 pub(crate) async fn request_for_account(
     connection: &mut SqliteConnection,
     account: &str,
@@ -101,9 +96,6 @@ async fn account_exists(connection: &mut SqliteConnection, account: &str) -> Res
 }
 
 impl ArtistCatalog {
-    /// Queues a matching walk for every account that can read a library, has automatic lookups
-    /// on and either has never had a walk or names MusicBrainz identities whose genres were never
-    /// read or are older than the refresh period. Accounts that already have a job are left alone.
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn queue_first_automatic_matching(&self) -> Result<usize> {
         let started = Instant::now();
@@ -153,9 +145,6 @@ impl ArtistCatalog {
         Ok(queued)
     }
 
-    /// Runs one batch of the oldest due matching walk: the tag pass, then the provider evidence
-    /// and name passes, resuming from the stored position. A shutdown abandons the batch and
-    /// leaves the walk to continue from the same position.
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn run_next_automatic_matching_until(
         &self,

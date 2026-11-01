@@ -10,8 +10,6 @@ use std::{collections::BTreeSet, iter::Take, sync::Arc, vec::IntoIter};
 
 const DETAIL_LIMIT: usize = 3;
 
-/// What a search looks for: the musical evidence, and the saved recording
-/// (when there is one) whose access and exclusive provider bindings apply.
 pub(super) struct Subject<'a> {
     pub(super) musical: &'a MusicalRecording,
     pub(super) recording: Option<&'a str>,

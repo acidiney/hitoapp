@@ -131,7 +131,6 @@ impl ArtistCatalog {
         .await
     }
 
-    /// Reads the remembered edition, optionally only while it still belongs to one release group.
     pub(super) async fn read_saved_album_edition(
         &self,
         actor: &Actor,

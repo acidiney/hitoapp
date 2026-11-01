@@ -13,13 +13,14 @@ const DEFAULT_LISTED: i64 = 25;
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PromotionSource {
-    /// The administrator's own unlink of one built-in artist review.
     Unlink {
         recording_id: String,
         association_id: Uuid,
     },
-    /// The administrator's latest split of one built-in artist identity group.
-    Split { group_id: String, revision: i64 },
+    Split {
+        group_id: String,
+        revision: i64,
+    },
 }
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
@@ -58,7 +59,6 @@ pub struct SharedArtistCorrection {
     pub id: String,
     pub kind: SharedCorrectionKind,
     pub recordings: i64,
-    /// Recordings whose tags changed after the correction was shared.
     pub retired: i64,
     pub applied: bool,
     pub revision: i64,
@@ -86,7 +86,6 @@ pub struct SharedCorrectionRef {
     pub revision: i64,
 }
 
-/// The applied shared correction made from a split, if any.
 pub(crate) async fn applied_for_change(
     connection: &mut SqliteConnection,
     change: &str,
@@ -94,7 +93,6 @@ pub(crate) async fn applied_for_change(
     applied(connection, "correction.source_change_id", change).await
 }
 
-/// The applied shared correction made from an unlink, if any.
 pub(crate) async fn applied_for_association(
     connection: &mut SqliteConnection,
     association: &str,
@@ -295,7 +293,6 @@ async fn already_shared(connection: &mut SqliteConnection, subjects: &[Subject])
     Ok(true)
 }
 
-/// Identifier, kind, author, subjects, retired subjects, revision and whether it applies.
 type ListedCorrection = (String, String, Option<String>, i64, i64, i64, bool);
 
 impl ArtistCatalog {

@@ -17,8 +17,6 @@ const PROVENANCE_TABLES: [&str; 7] = [
 ];
 
 impl ArtistCatalog {
-    /// Removes every private artist-correction decision of an account so that it can be deleted.
-    /// Corrections an administrator shared stay in force and lose only their author.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_corrections_erase", request_id = %Uuid::new_v4()))]
     pub async fn erase_account_corrections(&self, actor: &Actor, account: &str) -> Result<()> {
         actor.require_admin()?;
@@ -62,7 +60,6 @@ async fn run(
     Ok(removed)
 }
 
-/// Runs statements under an erasure scope and returns how many rows the deletes removed.
 pub(crate) async fn scoped(
     connection: &mut SqliteConnection,
     kind: &str,
@@ -117,8 +114,6 @@ async fn erase_within_scope(
     Ok(removed)
 }
 
-/// Removes scopes a failed or interrupted erasure could have left, which would otherwise
-/// permit deletes of retained corrections.
 pub(crate) async fn clear_stray_scopes(pool: &sqlx::SqlitePool) -> Result<()> {
     let cleared = sqlx::query("DELETE FROM correction_erasure_scopes")
         .execute(pool)
@@ -180,7 +175,6 @@ pub(crate) fn account_statements() -> Vec<String> {
     statements
 }
 
-/// Called by the transaction that removes a recording, before the recording row itself.
 pub(crate) async fn erase_recording_corrections(
     connection: &mut SqliteConnection,
     recording: &str,
@@ -195,8 +189,6 @@ pub(crate) async fn erase_recording_corrections(
     .map(|_| ())
 }
 
-/// Statements that remove every correction naming the recordings selected by `recordings`, a
-/// parenthesized list or subquery. The caller holds a `recording` scope for each of them.
 pub(crate) fn recording_statements(recordings: &str) -> Vec<String> {
     let associations = format!(
         "(SELECT id FROM recording_artist_associations WHERE recording_id IN {recordings})"

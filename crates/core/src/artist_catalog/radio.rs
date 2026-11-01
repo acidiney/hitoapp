@@ -24,15 +24,11 @@ struct Pick {
 #[derive(Serialize, ToSchema)]
 pub struct ArtistRadio {
     pub artist: String,
-    /// How many of the account's chosen artists, named as similar, contributed tracks.
     pub similar_artists: i64,
     pub tracks: Vec<Recording>,
 }
 
 impl ArtistCatalog {
-    /// A shuffled mix of one chosen artist's library tracks and, when a similarity provider
-    /// answers, library tracks of the chosen artists it names. Reads only the library, plus one
-    /// bounded similarity request that carries an artist identity and a limit.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_radio", request_id = %Uuid::new_v4()))]
     pub async fn artist_radio(&self, actor: &Actor, group: &str) -> Result<ArtistRadio> {
         let started = Instant::now();
@@ -134,8 +130,6 @@ impl ArtistCatalog {
         }
     }
 
-    /// Random playable recordings of the given groups, at most `RADIO_TRACKS`, and at most
-    /// `per_group` for each group when that is set.
     async fn sample(
         &self,
         actor: &Actor,
@@ -165,12 +159,9 @@ impl ArtistCatalog {
 
 struct Mixed {
     ids: Vec<String>,
-    /// Distinct similar artists that put at least one track into the queue.
     similar_groups: usize,
 }
 
-/// Chooses up to `limit` ids: two fifths from the artist's own tracks when other tracks exist
-/// (the rest from those), topping up from whichever side has more, then shuffles the result.
 fn blend(own: Vec<String>, others: Vec<Pick>, limit: usize) -> Mixed {
     let own_share = if others.is_empty() {
         limit

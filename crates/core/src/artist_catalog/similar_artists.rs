@@ -26,7 +26,6 @@ pub struct SimilarArtistView {
     pub provider_artist_id: String,
     pub name: String,
     pub score: Option<f64>,
-    /// The account's chosen artist with exactly this provider identity, if any.
     pub chosen_artist_id: Option<String>,
 }
 
@@ -57,8 +56,6 @@ impl SimilarArtistsAvailability {
 }
 
 impl ArtistCatalog {
-    /// Similar artists for a chosen artist identity, from the account's chosen similarity
-    /// providers in priority order. Nothing is adopted, imported or merged.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "similar_artists", request_id = %Uuid::new_v4()))]
     pub async fn recording_similar_artists_until(
         &self,

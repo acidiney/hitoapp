@@ -17,7 +17,6 @@ pub enum CoverArtKind {
 }
 
 impl CoverArtKind {
-    /// Parses the path segment used by the API: `release` or `release-group`.
     pub fn from_path(segment: &str) -> Option<Self> {
         match segment {
             "release" => Some(Self::Release),
@@ -44,13 +43,9 @@ impl CoverArtKind {
 
 pub enum CoverArtLookup {
     Ready(Artwork),
-    /// Waiting for its turn or for a retry after the archive could not be reached.
     Pending,
-    /// The archive holds no front cover for this identifier.
     Missing,
-    /// The archive could not be reached often enough; it is asked again later.
     Unavailable,
-    /// Nothing has asked for this cover.
     Unknown,
 }
 
@@ -69,8 +64,6 @@ fn canonical(mbid: &str) -> Result<()> {
     }
 }
 
-/// Queues a front cover lookup when the account allows automatic artwork. A cover asked for
-/// before is not asked for again until a missing or unreachable answer is a day old.
 pub(crate) async fn enqueue(
     connection: &mut SqliteConnection,
     account: &str,
@@ -106,7 +99,6 @@ pub(crate) async fn enqueue(
 }
 
 impl Catalog {
-    /// The stored front cover or the honest state of its lookup. Never contacts the archive.
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn cover_art(
         &self,
@@ -148,8 +140,6 @@ impl Catalog {
         Ok(found)
     }
 
-    /// The archive cover of an album with a MusicBrainz identifier in its tags. An album seen
-    /// for the first time queues its lookups, so a later read finds the cover.
     pub(super) async fn library_cover_art(
         &self,
         actor: &Actor,
@@ -211,7 +201,6 @@ impl Catalog {
         Ok(found)
     }
 
-    /// Runs the oldest due cover lookup. A shutdown puts it back to wait.
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn run_next_cover_art_lookup_until(
         &self,

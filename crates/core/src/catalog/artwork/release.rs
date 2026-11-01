@@ -122,8 +122,6 @@ impl Catalog {
         Ok(fetch)
     }
 
-    /// Queues the provider cover for an album that has none, when the account allows automatic
-    /// artwork. A pending or failed request for the album is not repeated.
     pub(super) async fn queue_provider_release_artwork(
         &self,
         actor: &Actor,

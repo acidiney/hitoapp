@@ -28,8 +28,6 @@ pub struct GenreDetail {
     pub tracks: Vec<Recording>,
 }
 
-/// The stable key and display label of a genre name: spacing collapsed, case ignored for the
-/// key, both bounded. Names with no letters or digits have no identity.
 pub(crate) fn genre_identity(name: &str) -> Option<(String, String)> {
     let label: String = name
         .split_whitespace()
@@ -48,19 +46,11 @@ pub(crate) fn genre_identity(name: &str) -> Option<(String, String)> {
     ))
 }
 
-/// How a genre query names its genre: a bound key, or a column of an enclosing query.
 enum Key<'a> {
     Bound(&'a str),
     Column(&'static str),
 }
 
-/// Appends one `SELECT * FROM (...)` per genre source over the account's playable library
-/// recordings of one genre, joined by `UNION ALL`: `r` is the recording and `g` the genre row.
-/// File-tag genres come first and, for a recording that has any, are the only ones used;
-/// otherwise the genres MusicBrainz lists for the recording's chosen artist, release group or
-/// recording count. Each source stops at `limit` rows, so the work depends on the limit and not
-/// on how many tracks a genre has. Podcast episodes, other accounts' libraries and recordings
-/// without a playable source never match.
 fn genre_recordings(
     query: &mut QueryBuilder<'_, sqlx::Sqlite>,
     host: &crate::HostDeviceId,
@@ -145,8 +135,6 @@ enum GenreSource {
     Identity,
 }
 
-/// A release group row is skipped when the recording's own identity names the same genre, so
-/// the identity source yields each recording once and its limit counts recordings.
 const NO_RECORDING_REPEAT: &str = " AND (g.entity = 'recording' OR NOT EXISTS (
     SELECT 1 FROM recording_musicbrainz_observations o2
     JOIN musicbrainz_genres g2 ON g2.entity = 'recording' AND g2.mbid = o2.mbid
@@ -156,8 +144,6 @@ const NO_RECORDING_REPEAT: &str = " AND (g.entity = 'recording' OR NOT EXISTS (
 const NO_FILE_GENRE: &str = "NOT EXISTS (SELECT 1 FROM sources fs
     JOIN source_genres fg ON fg.source_id = fs.id WHERE fs.recording_id = r.id)";
 
-/// Appends the smallest genre key above `after` that one of the account's own recordings
-/// carries in any genre source, so other accounts' keys never use up the key walk.
 fn push_next_key(query: &mut QueryBuilder<'_, sqlx::Sqlite>, actor: &Actor, after: &str) {
     let account = actor.id().to_owned();
     query.push("(SELECT min(k) FROM (");
@@ -202,8 +188,6 @@ impl Catalog {
         self.genres_within(actor, GENRE_COUNT_CAP).await
     }
 
-    /// Tiles whose counts stop at `cap`: each genre is read through its index until the cap, so
-    /// the work depends on the number of genres and the cap, not on how many tracks a genre has.
     pub(crate) async fn genres_within(&self, actor: &Actor, cap: i64) -> Result<Vec<Genre>> {
         let mut query = QueryBuilder::new("WITH RECURSIVE keys(k, n) AS (SELECT ");
         push_next_key(&mut query, actor, "''");
