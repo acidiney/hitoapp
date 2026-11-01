@@ -28,6 +28,15 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 - On 2026-10-31 the local Spotify plugin container was rebuilt from `docker/plugin.Dockerfile` (image `hito-plugin-spotify:artwork-3bb07e3b`; the previous container is kept stopped as `hito-plugin-spotify-1-pre-artwork`). The listener accepted the artwork capability, and real Spotify album covers then appeared on the Albums page.
 - Older sections below still say "not deployed" or "migration 0046" for work that now runs locally. They are dated evidence from when they were written.
 
+**Streaming-style cards and artist photos, 2026-11-01 (source only: migration 0080 not applied to the running server, nothing redeployed)**
+
+- Owner feedback: the artist candidates had no image, and the discography card carried a badge and two large buttons. Done in source: one `MediaCard` shared by the discography, the Discover "From your services" shelf and the Home shelves (see [design system](design-system.md#components)), and artist photos on candidate rows, the chosen-artist cards and the chosen-artist page (see [plugin artwork](plugin-artwork.md#artist-photos) and [artist review](artist-review.md#candidate-photos-and-facts)).
+- Candidate rows state type, MusicBrainz country code and start year ("Person · GB · 2008–"). The country shows as the MusicBrainz code, not "UK". Known releases per candidate are not built: the search answer has none and one request per candidate would break the pacing budget.
+- Photos come from MusicBrainz URL relations, Wikidata P18 and Commons thumbnails, fetched server-side only, behind the existing artwork choice, bounded and cached like Cover Art Archive covers. The Spotify artist page relation is not used. Nothing ran against the live services.
+- Class prefix: the first commit of the card used `media-card`, which podcasts and audiobooks already use; the next commit renames it to `shelf-card`.
+- Tested evidence (Docker): see the totals the final report of this slice lists. RED logs: `red-cards-b.log` (card and discography DOM). The artist-photo core, HTTP and DOM cases were written with the implementation and have no separate RED log.
+- Not verified: live MusicBrainz, Wikidata and Commons, the built-in candidate photo in a browser (the end-to-end server cannot reach a MusicBrainz fake, so the browser case checks the personal-provider fallback), Safari and Firefox.
+
 **Featured music on Discover, 2026-11-01 (source only: no migration, not deployed, plugin containers not rebuilt)**
 
 - Product direction: the app should find music by itself and always have something to play. Discover now has a "From your services" shelf that connected services fill, and every card plays with one click. Design reference: the prototype's "Em destaque", which the earlier Discover work listed as not built.

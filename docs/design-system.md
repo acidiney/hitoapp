@@ -130,6 +130,7 @@ Geist for the interface, Geist Mono for technical values.
 - **Settings card**: header with title and one action, then rows; a shared settings navigation lists Perfil, Privacidade e bloqueio, Música e fornecedores, Plugins, Reprodução, Downloads e espaço, Contas, Atualizações and Sobre.
 - **Section warning**: amber or red box inside the affected section, saying what happened, what still works and what to do.
 - **Fallback cover**: typographic cover (title, artist, one shape) used only when there is no real artwork.
+- **Media card** (`MediaCard`): one card for the discography, the Discover "From your services" shelf and the Home shelves. A rounded cover (a circle for artists), a bold title of at most two lines and one muted line such as "Single · 2008". The whole card opens its target through one link or button. When the card can play, a separate round play button sits on the bottom-right of the cover, labelled "Play <title>": it appears on hover and keyboard focus on a pointer device and is always visible on touch and at 390 px. A small check on the top-left of the cover marks a release already in the library; the card has no badges or extra buttons, and no control sits inside another. Library detail and the comparison control moved into the opened album. The CSS prefix is `shelf-card` because `media-card` is already the podcast and audiobook tile.
 
 ## Prototype screens
 

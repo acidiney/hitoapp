@@ -58,6 +58,10 @@ The scope table is empty outside a transaction. Nothing disables a trigger at ru
 
 An upgrade test builds a populated migration-64 database with three shared corrections (numbers 1, 2 and 5), their subjects and states, applies 0065 with foreign keys enforced, and requires identical rows, a clean foreign key check, the high-water mark of 5 and a next number of 6. Before upgrading a deployment, stop writers and take the whole-volume backup described above; running `hito-server migrate --expect-version 64` applies 0065 after any pending earlier migration. Restoring the backup is the rollback.
 
+## Migration 0080, artist photos
+
+Migration 0080 rebuilds `cover_art_lookups` with the same columns, keys and indexes so its kind check also admits `artist`. Existing rows are copied unchanged; no table or index is added or removed, so the schema snapshot bounds do not change. It is covered by an upgrade case that keeps release and release-group lookups exactly, admits an artist lookup and still refuses other kinds. It has not been applied to the running local server.
+
 ## Migration 0066, automatic metadata
 
 Migration 0066 adds `account_metadata_automation` (the automatic artist lookup, artwork and service search choices, plus the last matching result), `artist_matching_jobs` (one resumable matching walk per account) and `cover_art_lookups` (Cover Art Archive lookups per account). It only adds 3 tables and 6 indexes, and the server schema snapshot bounds are now 646 objects and 150 tables. It runs on the local development server. During development the file was edited in place after first being written, so a development volume that applied an earlier 0066 must be recreated (or have those three tables dropped and `_sqlx_migrations` row 66 removed) before upgrading; the normal local volume did not have the early version. Rollback of a deployment is the whole-volume backup described above.

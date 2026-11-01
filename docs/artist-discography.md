@@ -54,6 +54,10 @@ Twenty-two React boundary cases cover explicit two-page browsing, exact identity
 
 This qualifies the shared recording-detail workflow in source. The 50-page boundary, 1,000-row rendering performance, full artist-page navigation and deployment remain separate work. Packaged recording-detail browsing is qualified below; the later chosen-page source qualification is separate.
 
+## Release cards
+
+A catalog release is a `MediaCard` ([design system](design-system.md#components)): a rounded cover, the title (at most two lines) and one muted line with the type, any secondary types and the first release year, for example "Single · 2008". The card opens the album in place; a round play button on the bottom-right of the cover ("Play <title>") opens it and starts the first track once the tracks are ready. A small check on the cover marks a release linked to a library album, with a longer accessible label such as "In your library, partial · 7 of 10". The "Not in your library" badge and the Play album and Open album buttons are gone. The per-album library line, the comparison with the saved edition and the link into the library appear in the opened album.
+
 ## Chosen-artist pages
 
 An explicitly chosen artist page offers Browse full discography. The workflow reads the anchor recording's saved association, checks its account, recording, artist and exact provider identity, then reads that reviewed profile. A matching response opens the existing catalog controls and requests the first page of 20 release groups. Library track and catalog pagination remain independent. Later pages and retries require an explicit action.
