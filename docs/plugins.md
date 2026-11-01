@@ -170,7 +170,7 @@ flowchart LR
 
 **Which services offer it.** Jamendo implements it in source (popular albums of the week, see [Jamendo](plugin-jamendo.md#featured-albums)). Spotify does not: its public embed protocol exposes only a playlist given by link, and its browse or featured endpoints need a developer application or a user sign-in, which the public plugin deliberately avoids. Spotify featured music is planned (see [Spotify](plugin-spotify.md#featured-music-planned)). YouTube and the folder plugin do not declare it.
 
-**Evidence.** SDK wire cases (`crates/plugin-sdk/tests/wire/featured.rs`), core cases with an owned `FakePlugin` (`crates/core/tests/plugins/featured.rs`), HTTP cases (`apps/server/tests/api/featured.rs`), Jamendo protocol cases against an owned fake of its API, DOM cases (`discover-featured.test.ts`) and a browser case with an owned provider (`apps/web/e2e/discover-featured.spec.ts`). See the [status entry](status.md#featured-music-on-discover-2026-11-01-source-only).
+**Evidence.** SDK wire cases (`crates/plugin-sdk/tests/wire/featured.rs`), core cases with an owned `FakePlugin` (`crates/core/tests/plugins/featured.rs`), HTTP cases (`apps/server/tests/api/featured.rs`), Jamendo protocol cases against an owned fake of its API, DOM cases (`discover-featured.test.ts`) and a browser case with an owned provider (`apps/web/e2e/provider-featured.spec.ts`). See the [status entry](status.md).
 
 ## Audio relay
 

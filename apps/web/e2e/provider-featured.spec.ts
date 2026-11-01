@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { featuredShelfFixture } from "./fixtures/featured-shelf";
 import type { Schema } from "../src/shared/schema";
@@ -16,6 +17,7 @@ test("Discover shows music featured by a connected service and every card opens 
       failed.push(`${response.status()} ${new URL(response.url()).pathname}`);
   });
   let connection: Schema<"PluginInstallation"> | null = null;
+  let service: Schema<"PluginService"> | null = null;
   const automation = (value: boolean) =>
     page.request.put("/api/v1/metadata/automation", {
       headers,
@@ -41,12 +43,12 @@ test("Discover shows music featured by a connected service and every card opens 
       } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema<"PluginService"> = await offered.json();
+    service = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
-        service_id: service.id,
-        service_revision: service.revision,
+        service_id: service!.id,
+        service_revision: service!.revision,
         bearer_token: fixture.token,
       } satisfies Schema<"InstallPlugin">,
     });
@@ -67,7 +69,7 @@ test("Discover shows music featured by a connected service and every card opens 
       .toBeGreaterThan(0);
     await expect(shelf.locator("img")).toHaveCount(1);
     await page.screenshot({
-      path: "/workspace/test-results/discover-featured-desktop.png",
+      path: "/workspace/test-results/provider-featured-desktop.png",
     });
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -88,7 +90,7 @@ test("Discover shows music featured by a connected service and every card opens 
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);
     expect(dock).not.toBeNull();
     await page.screenshot({
-      path: "/workspace/test-results/discover-featured-mobile.png",
+      path: "/workspace/test-results/provider-featured-mobile.png",
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
 
@@ -165,6 +167,29 @@ test("Discover shows music featured by a connected service and every card opens 
       await page.request.delete(`/api/v1/plugins/${connection.id}`, {
         headers,
         data: { revision: connection.revision },
+      });
+    const copies: { id: string; name: string }[] = await (
+      await page.request.get("/api/v1/playlists")
+    ).json();
+    for (const copy of copies.filter((item) =>
+      item.name.startsWith(fixture.prefix),
+    ))
+      await page.request.post("/api/v1/sync", {
+        headers,
+        data: {
+          device_id: "featured-e2e-cleanup",
+          operations: [
+            {
+              id: randomUUID(),
+              action: { kind: "playlist_delete", playlist_id: copy.id },
+            },
+          ],
+        },
+      });
+    if (service)
+      await page.request.delete(`/api/v1/plugins/services/${service.id}`, {
+        headers,
+        data: { revision: service.revision },
       });
     await fixture.close();
   }
