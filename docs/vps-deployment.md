@@ -1,6 +1,6 @@
 # VPS deployment
 
-The development deployment at `https://hito.example.com` runs source revision `9279340057d102a56c398b20b457efdfcbb4bb40`, installed on 2026-10-20. It is available for testing. YouTube audio does not work from the VPS (see [YouTube extraction on the VPS](#youtube-extraction-on-the-vps)); search and metadata do. This installation does not satisfy the public release gates.
+The development deployment runs source revision `9279340057d102a56c398b20b457efdfcbb4bb40`, installed on 2026-10-20. It is available for testing. YouTube audio does not work from the VPS (see [YouTube extraction on the VPS](#youtube-extraction-on-the-vps)); search and metadata do. This installation does not satisfy the public release gates.
 
 ## Installed services
 

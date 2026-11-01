@@ -25,7 +25,8 @@ services:
     ports:
       - "127.0.0.1:18080:8080"
     environment:
-      HITO_PUBLIC_ORIGIN: https://hito.example.com
+      HITO_PUBLIC_ORIGIN: ${HITO_PUBLIC_ORIGIN:?Set the exact public HTTPS origin}
+      HITO_METADATA_CONTACT: ${HITO_METADATA_CONTACT:-}
       HITO_LISTEN: 0.0.0.0:8080
       HITO_DATABASE: /data/hito.db
       HITO_STORAGE_MANIFEST: /run/hito/storage.json

@@ -1,6 +1,6 @@
 # VPS installation
 
-This configuration targets the existing `forge-alita` Linux amd64 host and `https://hito.example.com`. It uses the host's existing Caddy service. Only Hito's server is published, on `127.0.0.1:18080`. Plugin ports are reachable on the separate `hito-vps` Docker network. There is no Docker socket, compiler, browser test service or reverse-proxy container in the runtime configuration.
+This configuration targets the existing `forge-alita` Linux amd64 host and the public origin you set in `HITO_PUBLIC_ORIGIN` (for example `https://hito.example.com`). It uses the host's existing Caddy service. Only Hito's server is published, on `127.0.0.1:18080`. Plugin ports are reachable on the separate `hito-vps` Docker network. There is no Docker socket, compiler, browser test service or reverse-proxy container in the runtime configuration.
 
 These files describe an installation. They are not evidence of a completed deployment or public release. Platform, provider, recovery and load acceptance remain recorded in [the release status](../../docs/status.md).
 
@@ -78,7 +78,7 @@ hito.example.com {
 }
 ```
 
-Validate the actual host configuration before reloading Caddy. Do not replace its complete configuration or bind another process to ports 80 or 443. The exact public origin is already configured in Compose. No additional origins or forwarded-client-IP trust are enabled. Login and setup rate limits currently share the reverse proxy's peer address. Keep request access logging disabled unless it has an independently verified redaction policy.
+Validate the actual host configuration before reloading Caddy. Do not replace its complete configuration or bind another process to ports 80 or 443. Export the exact public origin as `HITO_PUBLIC_ORIGIN` before running Compose; it has no default. `HITO_METADATA_CONTACT` is optional ([operations](../../docs/operations.md)). No additional origins or forwarded-client-IP trust are enabled. Login and setup rate limits currently share the reverse proxy's peer address. Keep request access logging disabled unless it has an independently verified redaction policy.
 
 ## Connect folders and plugins
 
