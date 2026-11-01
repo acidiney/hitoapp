@@ -21,6 +21,8 @@ pub mod credit_matches_schema;
 pub mod credited_artists_schema;
 #[path = "correction_erasure_schema.rs"]
 pub mod erasure_schema;
+#[path = "follow_approval_schema.rs"]
+pub mod follow_approval_schema;
 #[path = "source_genres_schema.rs"]
 pub mod genre_schema;
 #[path = "artist_identity_selection_schema.rs"]
@@ -422,6 +424,10 @@ pub async fn reference_78() -> SqliteConnection {
     credited_artists_schema::reference(reference_77().await).await
 }
 
+pub async fn reference_79() -> SqliteConnection {
+    follow_approval_schema::reference(reference_78().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -455,6 +461,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         76 => reference_76().await,
         77 => reference_77().await,
         78 => reference_78().await,
+        79 => reference_79().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -610,6 +617,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 78),
+    )
+    .chain(
+        follow_approval_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 79),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

@@ -1,4 +1,4 @@
-use super::history;
+use super::{approval, history};
 use crate::{Actor, Error, Result};
 use sqlx::{Sqlite, Transaction};
 use std::time::Instant;
@@ -86,6 +86,7 @@ pub(in crate::collection) async fn resume(
             "This playlist changed. Review its connection again.".into(),
         ));
     }
+    approval::record_baseline(tx, &playlist).await?;
     let cancelled = sqlx::query("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'approval_changed',updated_at = unixepoch()
         WHERE playlist_id = ? AND user_id = ? AND generation = ? AND status = 'queued'")
         .bind(&playlist).bind(actor.id()).bind(generation).execute(&mut **tx).await?.rows_affected();

@@ -21,6 +21,7 @@ pub(super) struct Lease {
 
 impl Collection {
     pub(super) async fn claim_follow_job(&self) -> Result<Option<Lease>> {
+        self.resume_compatible_follows(None).await?;
         let eligible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM playlist_follow_jobs WHERE status = 'queued' AND next_attempt_at <= unixepoch())
             OR EXISTS(SELECT 1 FROM playlist_follow_jobs WHERE status = 'running' AND lease_until <= unixepoch())
             OR EXISTS(SELECT 1 FROM playlist_follows f JOIN current_playlist_follow_authority authority ON authority.playlist_id = f.playlist_id

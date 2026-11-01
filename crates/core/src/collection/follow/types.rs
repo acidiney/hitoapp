@@ -58,4 +58,29 @@ pub struct PlaylistFollow {
     pub next_refresh_at: i64,
     pub status: PlaylistFollowStatus,
     pub error: Option<String>,
+    pub review: Option<PlaylistFollowReview>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, ToSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaylistFollowChangeKind {
+    Capabilities,
+    Credential,
+    Removed,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PlaylistFollowChange {
+    pub kind: PlaylistFollowChangeKind,
+    pub before: Vec<String>,
+    pub after: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PlaylistFollowReview {
+    pub connection_name: String,
+    pub installation_revision: i64,
+    pub service_revision: i64,
+    pub resumable: bool,
+    pub changes: Vec<PlaylistFollowChange>,
 }

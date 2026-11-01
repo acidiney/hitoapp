@@ -1,5 +1,6 @@
 use super::{
-    FollowProviderPlaylist, PlaylistFollowInterval, PlaylistFollowReceipt, receipts, reconcile,
+    FollowProviderPlaylist, PlaylistFollowInterval, PlaylistFollowReceipt, approval, receipts,
+    reconcile,
 };
 use crate::collection::{
     CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
@@ -39,6 +40,7 @@ pub(super) async fn create(
         .bind(operation.installation_revision).bind(operation.service_revision).bind(&operation.provider)
         .bind(&snapshot.detail.id).bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(attribution)
         .bind(request.interval.seconds()).bind(request.interval.seconds()).execute(&mut **tx).await?;
+    approval::record_baseline(tx, &playlist).await?;
     let entry_ids = reconcile::identities(tx, &playlist, &snapshot.entries).await?;
     let publication =
         snapshot_for_publication(tx, operation, &playlist, snapshot, entry_ids).await?;

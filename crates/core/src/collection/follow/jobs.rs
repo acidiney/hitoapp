@@ -1,6 +1,6 @@
 use super::{
     Collection, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowRefresh,
-    PlaylistFollowStatus, RefreshFollowedPlaylist, receipts,
+    PlaylistFollowStatus, RefreshFollowedPlaylist, approval, receipts,
 };
 use crate::{Actor, Error, Result};
 use sqlx::{Row, SqliteConnection};
@@ -65,6 +65,8 @@ impl Collection {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn playlist_follow(&self, actor: &Actor, playlist: &str) -> Result<PlaylistFollow> {
+        actor.check_session(&self.store).await?;
+        self.resume_compatible_follows(Some(playlist)).await?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT f.interval_seconds,f.snapshot,f.last_refreshed_at,f.next_refresh_at,f.error,
@@ -86,6 +88,11 @@ impl Collection {
                 _ => PlaylistFollowStatus::Ready,
             }
         };
+        let review = if authorized {
+            None
+        } else {
+            Some(approval::review(&mut tx, playlist).await?)
+        };
         let result = PlaylistFollow {
             playlist_id: receipts::identity(playlist)?,
             generation: row.try_get("generation")?,
@@ -100,6 +107,7 @@ impl Collection {
             } else {
                 Some("authority_changed".into())
             },
+            review,
         };
         tx.commit().await?;
         actor.check_session(&self.store).await?;

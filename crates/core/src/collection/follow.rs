@@ -1,3 +1,4 @@
+mod approval;
 pub(in crate::collection) mod history;
 mod jobs;
 mod lease;
