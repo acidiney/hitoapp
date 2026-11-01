@@ -2604,7 +2604,6 @@ export interface components {
         Activity: {
             history: components["schemas"]["HistoryEntry"][];
         };
-        /** @description An album that entered the library recently, newest first. */
         AddedAlbum: {
             artist: string | null;
             id: string;
@@ -2796,17 +2795,12 @@ export interface components {
         };
         ArtistAssociationChanges: {
             recording_id: string;
-            /** @description Unlinks that no longer apply to the recording's current credit; they keep hiding their association. */
             retired: components["schemas"]["ArtistAssociationRetirement"][];
             /** Format: int64 */
             revision: number;
-            /** @description An administrator can share the latest unlink, a built-in artist review, with every account. */
             shareable: boolean;
             shared?: components["schemas"]["SharedCorrectionRef"] | null;
-            /**
-             * Format: int64
-             * @description Saved reviews of this recording that an administrator's shared correction hides for this account.
-             */
+            /** Format: int64 */
             shared_hidden: number;
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
@@ -2913,14 +2907,10 @@ export interface components {
             kind: components["schemas"]["ArtistIdentityChangeKind"];
             /** Format: int64 */
             recordings: number;
-            /**
-             * Format: int64
-             * @description Items whose recording no longer carries the credit the change was made for.
-             */
+            /** Format: int64 */
             retired: number;
             /** Format: int64 */
             revision: number;
-            /** @description An administrator can apply this split for every account. */
             shareable: boolean;
             shared?: components["schemas"]["SharedCorrectionRef"] | null;
             undoable: boolean;
@@ -2991,19 +2981,12 @@ export interface components {
             identity_groups: components["schemas"]["ArtistIdentityGroupPage"];
             query: string;
         };
-        /** @description A chosen artist that some of the credit's tracks already use. */
         ArtistMatchChosen: {
-            /**
-             * Format: int64
-             * @description Of those, the tracks Hito matched by itself.
-             */
+            /** Format: int64 */
             automatic_tracks: number;
             evidence: components["schemas"]["ArtistMatchEvidence"][];
             group: components["schemas"]["ArtistIdentityGroup"];
-            /**
-             * Format: int64
-             * @description Tracks of the credit that currently use this artist.
-             */
+            /** Format: int64 */
             tracks: number;
         };
         ArtistMatchEvidence: {
@@ -3024,59 +3007,32 @@ export interface components {
         };
         ArtistMatchSuggestion: {
             group: components["schemas"]["ArtistIdentityGroup"];
-            /**
-             * Format: int64
-             * @description Tracks of the credit that match a chosen track by title and length (within three seconds).
-             */
+            /** Format: int64 */
             same_length_tracks: number;
-            /**
-             * Format: int64
-             * @description Distinct release titles the credit shares with the chosen artist's releases.
-             */
+            /** Format: int64 */
             shared_albums: number;
-            /**
-             * Format: int64
-             * @description Tracks of the credit that have no current artist choice and would be updated.
-             */
+            /** Format: int64 */
             undecided_tracks: number;
         };
         ArtistMatchSuggestions: {
             artist_id: string;
-            /** @description Chosen artists the credit's tracks already use, the most used first. */
             chosen: components["schemas"]["ArtistMatchChosen"][];
-            /**
-             * Format: int64
-             * @description Suggestions the account dismissed for this credit; they are not in `items`.
-             */
+            /** Format: int64 */
             dismissed: number;
-            /** @description The dismissed suggestions that could still apply to undecided tracks, so each can be restored. */
             dismissed_items: components["schemas"]["ArtistMatchSuggestion"][];
             items: components["schemas"]["ArtistMatchSuggestion"][];
-            /**
-             * Format: int64
-             * @description Tracks of the credit with no current artist choice.
-             */
+            /** Format: int64 */
             undecided_tracks: number;
         };
         /** @enum {string} */
         ArtistMatchingState: "idle" | "queued" | "running";
         ArtistMatchingStatus: {
-            /** @description Whether the account's settings allow automatic matching. */
             enabled: boolean;
-            /**
-             * Format: int64
-             * @description Unix seconds when the last walk finished, if one has.
-             */
+            /** Format: int64 */
             last_finished_at: number | null;
-            /**
-             * Format: int64
-             * @description Recordings the last finished walk matched.
-             */
+            /** Format: int64 */
             last_matched: number;
-            /**
-             * Format: int64
-             * @description Recordings matched so far by the walk in progress.
-             */
+            /** Format: int64 */
             matched_so_far: number;
             state: components["schemas"]["ArtistMatchingState"];
         };
@@ -3103,33 +3059,21 @@ export interface components {
             status: "cancelled";
         };
         ArtistProviderMatchReceipt: {
-            /**
-             * Format: int64
-             * @description Recordings with an earlier personal decision or unlinked association.
-             */
+            /** Format: int64 */
             declined: number;
             /** Format: int64 */
             matched: number;
             next_after?: string | null;
             /** Format: uuid */
             request_id: string;
-            /**
-             * Format: int64
-             * @description Recordings whose lookup could not be completed; they are asked again by a later pass.
-             */
+            /** Format: int64 */
             unavailable: number;
-            /**
-             * Format: int64
-             * @description Provider answers that name no artist, several recordings or several artists.
-             */
+            /** Format: int64 */
             uncertain: number;
         };
         ArtistRadio: {
             artist: string;
-            /**
-             * Format: int64
-             * @description How many of the account's chosen artists, named as similar, contributed tracks.
-             */
+            /** Format: int64 */
             similar_artists: number;
             tracks: components["schemas"]["Recording"][];
         };
@@ -3373,11 +3317,7 @@ export interface components {
         };
         /** @enum {string} */
         CatalogReleaseGroupKind: "album" | "ep" | "single" | "broadcast" | "other";
-        /**
-         * @description Restricts a discography read to one release type. `Other` covers every group that is not an
-         *     album, EP or single, including broadcasts and groups without a known type.
-         * @enum {string}
-         */
+        /** @enum {string} */
         CatalogReleaseTypeFilter: "album" | "ep" | "single" | "other";
         /** @enum {string} */
         CatalogTrackKind: "audio" | "pregap" | "data";
@@ -3490,10 +3430,6 @@ export interface components {
         ContentPolicy: {
             source_persistence: components["schemas"]["SourcePersistence"];
         };
-        /**
-         * @description How many of a credit's probed tracks the artist listed when the credit's remaining tracks
-         *     followed it.
-         */
         CoverageEvidence: {
             /** Format: int64 */
             matched_tracks: number;
@@ -3504,7 +3440,6 @@ export interface components {
             password: string;
             username: string;
         };
-        /** @description What a credit-level match started from and how many of the credit's tracks supplied it. */
         CreditEvidence: {
             kind: components["schemas"]["CreditEvidenceKind"];
             /** Format: int64 */
@@ -3528,7 +3463,6 @@ export interface components {
             role: components["schemas"]["CreditRole"];
         };
         DeleteAccount: {
-            /** @description The account name the administrator saw, so a stale or mistaken request cannot erase a different account. */
             username: string;
         };
         DirectoryEntry: {
@@ -3550,10 +3484,8 @@ export interface components {
             groups: components["schemas"]["LibraryReleaseGroup"][];
         };
         DiscoverPageProps: components["schemas"]["SharedPageProps"] & {
-            /** @description A short page of chosen artists that radio can start from. */
             artists: components["schemas"]["ArtistIdentityGroupPage"];
             connections: components["schemas"]["PluginInstallation"][];
-            /** @description The busiest genres of the library, for the By genre tiles. */
             genres: components["schemas"]["Genre"][];
             service_names: {
                 [key: string]: string;
@@ -3730,7 +3662,6 @@ export interface components {
             title: string;
         };
         HomePageProps: components["schemas"]["SharedPageProps"] & {
-            /** @description A short page of chosen artists for the Home shelf. */
             artists: components["schemas"]["ArtistIdentityGroupPage"];
             home: components["schemas"]["Home"];
         };
@@ -3961,14 +3892,8 @@ export interface components {
             kind: "http_plugin";
         };
         MetadataSettings: {
-            /**
-             * @description Match library artists on MusicBrainz in the background. Applies only while enrichment is
-             *     enabled and the built-in provider is selected.
-             */
             automatic_artist_lookup: boolean;
-            /** @description Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier. */
             automatic_artwork: boolean;
-            /** @description Search connected services for playable sources of saved recordings without being asked. */
             automatic_service_search: boolean;
             enabled: boolean;
             providers: components["schemas"]["MetadataProvider"][];
@@ -3976,17 +3901,10 @@ export interface components {
             revision: number;
         };
         MissingRecordingsRemoval: {
-            /**
-             * Format: int64
-             * @description Recordings whose files are gone but that an account still uses, which stay.
-             */
+            /** Format: int64 */
             kept_referenced: number;
-            /** @description More removable recordings remain; run the action again. */
             more: boolean;
-            /**
-             * Format: int64
-             * @description Recordings removed by this call.
-             */
+            /** Format: int64 */
             removed: number;
         };
         /** @enum {string} */
@@ -4141,7 +4059,6 @@ export interface components {
                 inherited_title: string;
                 library_id: string;
                 liked: boolean;
-                /** @description A connected, enabled service of this account can resolve sources for the recording. */
                 plays_from_services: boolean;
                 release_id?: string | null;
                 title: string;
@@ -4418,10 +4335,6 @@ export interface components {
             /** Format: int32 */
             volume: number;
         };
-        /**
-         * @description Speeds, in thousandths, that the current source can present. A source that
-         *     supports only unit speed reports `min == max == 1000`.
-         */
         PlayerSpeedSupport: {
             /** Format: int32 */
             max: number;
@@ -4591,7 +4504,6 @@ export interface components {
             action: "replace";
             bearer_token: string;
         };
-        /** @description What a read-only look at a connected service found against the declaration the account accepted. */
         PluginDeclarationCheck: {
             /** @enum {string} */
             kind: "current";
@@ -4737,10 +4649,6 @@ export interface components {
         };
         ProviderRecording: {
             artist: string;
-            /**
-             * @description Canonical https pages of every credited performer. Hosts may match a lone page to one
-             *     MusicBrainz artist; a provider that cannot name all performers omits the list.
-             */
             artist_urls?: string[];
             artists?: components["schemas"]["CreditedArtist"][];
             attribution?: components["schemas"]["RecordingAttribution"] | null;
@@ -4749,7 +4657,6 @@ export interface components {
             /** Format: int64 */
             duration_ms?: number | null;
             id: string;
-            /** @description ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity. */
             isrc?: string | null;
             release?: components["schemas"]["ProviderRelease"] | null;
             revision?: string | null;
@@ -4827,7 +4734,6 @@ export interface components {
             inherited_title: string;
             library_id: string;
             liked: boolean;
-            /** @description A connected, enabled service of this account can resolve sources for the recording. */
             plays_from_services: boolean;
             release_id?: string | null;
             title: string;
@@ -5045,7 +4951,6 @@ export interface components {
             next_cursor?: string | null;
         };
         SearchPageProps: components["schemas"]["SharedPageProps"] & {
-            /** @description Chosen artists matching the search, exact names first. */
             artist_groups: components["schemas"]["ArtistIdentityGroupPage"];
             artists: components["schemas"]["ArtistPage"];
             connections: components["schemas"]["PluginInstallation"][];
@@ -5077,10 +4982,7 @@ export interface components {
             promoted_by_me: boolean;
             /** Format: int64 */
             recordings: number;
-            /**
-             * Format: int64
-             * @description Recordings whose tags changed after the correction was shared.
-             */
+            /** Format: int64 */
             retired: number;
             /** Format: int64 */
             revision: number;
@@ -5129,7 +5031,6 @@ export interface components {
             user: components["schemas"]["User"];
         };
         SimilarArtistView: {
-            /** @description The account's chosen artist with exactly this provider identity, if any. */
             chosen_artist_id?: string | null;
             name: string;
             provider_artist_id: string;
@@ -5363,7 +5264,6 @@ export interface components {
             /** Format: uuid */
             request_id: string;
         };
-        /** @description Omitted choices keep their current value. */
         UpdateAutomaticLookups: {
             automatic_artist_lookup?: boolean | null;
             automatic_artwork?: boolean | null;

@@ -16667,7 +16667,6 @@
       },
       "AddedAlbum": {
         "type": "object",
-        "description": "An album that entered the library recently, newest first.",
         "required": [
           "id",
           "title",
@@ -16720,7 +16719,6 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "Every track names this one artist.",
             "required": [
               "name",
               "kind"
@@ -16739,7 +16737,6 @@
           },
           {
             "type": "object",
-            "description": "The tracks name different artists.",
             "required": [
               "kind"
             ],
@@ -17529,22 +17526,19 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ArtistAssociationRetirement"
-            },
-            "description": "Unlinks that no longer apply to the recording's current credit; they keep hiding their association."
+            }
           },
           "revision": {
             "type": "integer",
             "format": "int64"
           },
           "shareable": {
-            "type": "boolean",
-            "description": "An administrator can share the latest unlink, a built-in artist review, with every account."
+            "type": "boolean"
           },
           "shared": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/SharedCorrectionRef",
-                "description": "The applied shared correction made from the latest unlink; only administrators see it."
+                "$ref": "#/components/schemas/SharedCorrectionRef"
               },
               {
                 "type": "null"
@@ -17553,8 +17547,7 @@
           },
           "shared_hidden": {
             "type": "integer",
-            "format": "int64",
-            "description": "Saved reviews of this recording that an administrator's shared correction hides for this account."
+            "format": "int64"
           },
           "undo": {
             "oneOf": [
@@ -17867,7 +17860,6 @@
           },
           {
             "type": "object",
-            "description": "The provider reads discographies but cannot page one release type at a time.",
             "required": [
               "status"
             ],
@@ -18018,22 +18010,19 @@
           },
           "retired": {
             "type": "integer",
-            "format": "int64",
-            "description": "Items whose recording no longer carries the credit the change was made for."
+            "format": "int64"
           },
           "revision": {
             "type": "integer",
             "format": "int64"
           },
           "shareable": {
-            "type": "boolean",
-            "description": "An administrator can apply this split for every account."
+            "type": "boolean"
           },
           "shared": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/SharedCorrectionRef",
-                "description": "The applied shared correction made from this change; only administrators see it."
+                "$ref": "#/components/schemas/SharedCorrectionRef"
               },
               {
                 "type": "null"
@@ -18296,7 +18285,6 @@
       },
       "ArtistMatchChosen": {
         "type": "object",
-        "description": "A chosen artist that some of the credit's tracks already use.",
         "required": [
           "group",
           "tracks",
@@ -18306,8 +18294,7 @@
         "properties": {
           "automatic_tracks": {
             "type": "integer",
-            "format": "int64",
-            "description": "Of those, the tracks Hito matched by itself."
+            "format": "int64"
           },
           "evidence": {
             "type": "array",
@@ -18320,8 +18307,7 @@
           },
           "tracks": {
             "type": "integer",
-            "format": "int64",
-            "description": "Tracks of the credit that currently use this artist."
+            "format": "int64"
           }
         }
       },
@@ -18388,18 +18374,15 @@
           },
           "same_length_tracks": {
             "type": "integer",
-            "format": "int64",
-            "description": "Tracks of the credit that match a chosen track by title and length (within three seconds)."
+            "format": "int64"
           },
           "shared_albums": {
             "type": "integer",
-            "format": "int64",
-            "description": "Distinct release titles the credit shares with the chosen artist's releases."
+            "format": "int64"
           },
           "undecided_tracks": {
             "type": "integer",
-            "format": "int64",
-            "description": "Tracks of the credit that have no current artist choice and would be updated."
+            "format": "int64"
           }
         }
       },
@@ -18421,20 +18404,17 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ArtistMatchChosen"
-            },
-            "description": "Chosen artists the credit's tracks already use, the most used first."
+            }
           },
           "dismissed": {
             "type": "integer",
-            "format": "int64",
-            "description": "Suggestions the account dismissed for this credit; they are not in `items`."
+            "format": "int64"
           },
           "dismissed_items": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ArtistMatchSuggestion"
-            },
-            "description": "The dismissed suggestions that could still apply to undecided tracks, so each can be restored."
+            }
           },
           "items": {
             "type": "array",
@@ -18444,8 +18424,7 @@
           },
           "undecided_tracks": {
             "type": "integer",
-            "format": "int64",
-            "description": "Tracks of the credit with no current artist choice."
+            "format": "int64"
           }
         }
       },
@@ -18468,26 +18447,22 @@
         ],
         "properties": {
           "enabled": {
-            "type": "boolean",
-            "description": "Whether the account's settings allow automatic matching."
+            "type": "boolean"
           },
           "last_finished_at": {
             "type": [
               "integer",
               "null"
             ],
-            "format": "int64",
-            "description": "Unix seconds when the last walk finished, if one has."
+            "format": "int64"
           },
           "last_matched": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings the last finished walk matched."
+            "format": "int64"
           },
           "matched_so_far": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings matched so far by the walk in progress."
+            "format": "int64"
           },
           "state": {
             "$ref": "#/components/schemas/ArtistMatchingState"
@@ -18609,8 +18584,7 @@
         "properties": {
           "declined": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings with an earlier personal decision or unlinked association."
+            "format": "int64"
           },
           "matched": {
             "type": "integer",
@@ -18628,13 +18602,11 @@
           },
           "unavailable": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings whose lookup could not be completed; they are asked again by a later pass."
+            "format": "int64"
           },
           "uncertain": {
             "type": "integer",
-            "format": "int64",
-            "description": "Provider answers that name no artist, several recordings or several artists."
+            "format": "int64"
           }
         }
       },
@@ -18651,8 +18623,7 @@
           },
           "similar_artists": {
             "type": "integer",
-            "format": "int64",
-            "description": "How many of the account's chosen artists, named as similar, contributed tracks."
+            "format": "int64"
           },
           "tracks": {
             "type": "array",
@@ -19730,7 +19701,6 @@
       },
       "CatalogReleaseTypeFilter": {
         "type": "string",
-        "description": "Restricts a discography read to one release type. `Other` covers every group that is not an\nalbum, EP or single, including broadcasts and groups without a known type.",
         "enum": [
           "album",
           "ep",
@@ -20147,7 +20117,6 @@
       },
       "CoverageEvidence": {
         "type": "object",
-        "description": "How many of a credit's probed tracks the artist listed when the credit's remaining tracks\nfollowed it.",
         "required": [
           "matched_tracks",
           "probed_tracks"
@@ -20181,7 +20150,6 @@
       },
       "CreditEvidence": {
         "type": "object",
-        "description": "What a credit-level match started from and how many of the credit's tracks supplied it.",
         "required": [
           "kind",
           "tracks"
@@ -20281,8 +20249,7 @@
         ],
         "properties": {
           "username": {
-            "type": "string",
-            "description": "The account name the administrator saw, so a stale or mistaken request cannot erase a different account."
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -20379,8 +20346,7 @@
             ],
             "properties": {
               "artists": {
-                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
-                "description": "A short page of chosen artists that radio can start from."
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage"
               },
               "connections": {
                 "type": "array",
@@ -20392,8 +20358,7 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Genre"
-                },
-                "description": "The busiest genres of the library, for the By genre tiles."
+                }
               },
               "service_names": {
                 "type": "object",
@@ -21091,8 +21056,7 @@
           "inferred_artist": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/AlbumArtistInference",
-                "description": "Display album artist derived from the tracks when the album has none, the same value an\nalbum read carries."
+                "$ref": "#/components/schemas/AlbumArtistInference"
               },
               {
                 "type": "null"
@@ -21125,8 +21089,7 @@
             ],
             "properties": {
               "artists": {
-                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
-                "description": "A short page of chosen artists for the Home shelf."
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage"
               },
               "home": {
                 "$ref": "#/components/schemas/Home"
@@ -22159,16 +22122,13 @@
         ],
         "properties": {
           "automatic_artist_lookup": {
-            "type": "boolean",
-            "description": "Match library artists on MusicBrainz in the background. Applies only while enrichment is\nenabled and the built-in provider is selected."
+            "type": "boolean"
           },
           "automatic_artwork": {
-            "type": "boolean",
-            "description": "Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier."
+            "type": "boolean"
           },
           "automatic_service_search": {
-            "type": "boolean",
-            "description": "Search connected services for playable sources of saved recordings without being asked."
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -22195,17 +22155,14 @@
         "properties": {
           "kept_referenced": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings whose files are gone but that an account still uses, which stay."
+            "format": "int64"
           },
           "more": {
-            "type": "boolean",
-            "description": "More removable recordings remain; run the action again."
+            "type": "boolean"
           },
           "removed": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings removed by this call."
+            "format": "int64"
           }
         }
       },
@@ -22798,8 +22755,7 @@
                   "type": "boolean"
                 },
                 "plays_from_services": {
-                  "type": "boolean",
-                  "description": "A connected, enabled service of this account can resolve sources for the recording."
+                  "type": "boolean"
                 },
                 "release_id": {
                   "type": [
@@ -22879,8 +22835,7 @@
                 "inferred_artist": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/AlbumArtistInference",
-                      "description": "Display album artist derived from the tracks when the release has no album artist. It is\nnever stored and never replaces a stated or personal album artist."
+                      "$ref": "#/components/schemas/AlbumArtistInference"
                     },
                     {
                       "type": "null"
@@ -23911,7 +23866,6 @@
       },
       "PlayerSpeedSupport": {
         "type": "object",
-        "description": "Speeds, in thousandths, that the current source can present. A source that\nsupports only unit speed reports `min == max == 1000`.",
         "required": [
           "min",
           "max"
@@ -24588,8 +24542,7 @@
               }
             }
           }
-        ],
-        "description": "What a read-only look at a connected service found against the declaration the account accepted."
+        ]
       },
       "PluginInstallation": {
         "type": "object",
@@ -25023,7 +24976,6 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "The administrator's own unlink of one built-in artist review.",
             "required": [
               "recording_id",
               "association_id",
@@ -25047,7 +24999,6 @@
           },
           {
             "type": "object",
-            "description": "The administrator's latest split of one built-in artist identity group.",
             "required": [
               "group_id",
               "revision",
@@ -25107,8 +25058,7 @@
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "description": "Canonical https pages of every credited performer. Hosts may match a lone page to one\nMusicBrainz artist; a provider that cannot name all performers omits the list."
+            }
           },
           "artists": {
             "type": "array",
@@ -25149,8 +25099,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity."
+            ]
           },
           "release": {
             "oneOf": [
@@ -25329,8 +25278,7 @@
           "release_type": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/CatalogReleaseTypeFilter",
-                "description": "Pages one release type at a time from providers that declare the filter."
+                "$ref": "#/components/schemas/CatalogReleaseTypeFilter"
               },
               {
                 "type": "null"
@@ -25473,8 +25421,7 @@
             "type": "boolean"
           },
           "plays_from_services": {
-            "type": "boolean",
-            "description": "A connected, enabled service of this account can resolve sources for the recording."
+            "type": "boolean"
           },
           "release_id": {
             "type": [
@@ -25932,8 +25879,7 @@
           "inferred_artist": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/AlbumArtistInference",
-                "description": "Display album artist derived from the tracks when the release has no album artist. It is\nnever stored and never replaces a stated or personal album artist."
+                "$ref": "#/components/schemas/AlbumArtistInference"
               },
               {
                 "type": "null"
@@ -26396,8 +26342,7 @@
             ],
             "properties": {
               "artist_groups": {
-                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
-                "description": "Chosen artists matching the search, exact names first."
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage"
               },
               "artists": {
                 "$ref": "#/components/schemas/ArtistPage"
@@ -26518,8 +26463,7 @@
           },
           "retired": {
             "type": "integer",
-            "format": "int64",
-            "description": "Recordings whose tags changed after the correction was shared."
+            "format": "int64"
           },
           "revision": {
             "type": "integer",
@@ -26687,8 +26631,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The account's chosen artist with exactly this provider identity, if any."
+            ]
           },
           "name": {
             "type": "string"
@@ -27133,7 +27076,6 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "Each recording returns to the library credit it was tagged with.",
             "required": [
               "kind"
             ],
@@ -27148,7 +27090,6 @@
           },
           {
             "type": "object",
-            "description": "Each recording moves to an exact artist identity it already reviewed.",
             "required": [
               "provider",
               "provider_artist_id",
@@ -27601,7 +27542,6 @@
       },
       "UpdateAutomaticLookups": {
         "type": "object",
-        "description": "Omitted choices keep their current value.",
         "properties": {
           "automatic_artist_lookup": {
             "type": [
