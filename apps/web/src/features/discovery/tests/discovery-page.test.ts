@@ -3,6 +3,7 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import DiscoverPage from "../pages/DiscoverPage";
+import { skippingFeatured } from "../fixtures/skippingFeatured";
 
 const { player } = vi.hoisted(() => ({
   player: { prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)) },
@@ -50,7 +51,7 @@ test("discovery searches the selected service and offers explicit play and libra
   const fetch = vi
     .fn()
     .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props));
   expect(fetch).not.toHaveBeenCalled();
   const services = screen.getByRole("group", { name: "Music service" });
@@ -105,7 +106,7 @@ test("switching named services clears results and preserves the search draft", a
         JSON.stringify({ items: [{ ...hit, title: "Archive song" }] }),
       ),
     );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(
     createElement(DiscoverPage, {
       ...props,
@@ -147,7 +148,7 @@ test("a failed selection offers service refresh without starting audio", async (
         { status: 409 },
       ),
     );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props));
   fireEvent.change(screen.getByRole("searchbox", { name: "Search music" }), {
     target: { value: "song" },
@@ -165,10 +166,12 @@ test("a failed selection offers service refresh without starting audio", async (
 test("a failed search does not claim there are no matching tracks", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: "The service is unavailable." }), {
-        status: 502,
-      }),
+    skippingFeatured(
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "The service is unavailable." }), {
+          status: 502,
+        }),
+      ),
     ),
   );
   render(createElement(DiscoverPage, props));
@@ -188,7 +191,9 @@ test("a service without sources offers adding to the library but not playing", a
   const hit = { id: "remote", title: "Provider song", artist: "Fixture" };
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [hit] }))),
+    skippingFeatured(
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [hit] }))),
+    ),
   );
   render(
     createElement(DiscoverPage, {

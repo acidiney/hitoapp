@@ -13,6 +13,7 @@ const NEW_LABELS: Record<Capability, string> = {
   dashboard: "a service dashboard",
   lyrics: "lyrics",
   backing_tracks: "backing tracks",
+  featured: "featured music on Discover",
 };
 const NEW_ORDER: Capability[] = [
   "search",
@@ -24,6 +25,7 @@ const NEW_ORDER: Capability[] = [
   "artwork",
   "source_preparation",
   "backing_tracks",
+  "featured",
   "dashboard",
 ];
 
@@ -42,6 +44,7 @@ function phrases(name: string, has: (value: Capability) => boolean) {
   if (has("source_preparation") && !has("sources"))
     found.push("gets songs ready to play sooner");
   if (has("backing_tracks")) found.push("offers backing tracks");
+  if (has("featured")) found.push("features music on Discover");
   return found;
 }
 

@@ -45,3 +45,15 @@ test("new capabilities are named in listener words", () => {
   ).toEqual(["playlist import", "lyrics"]);
   expect(newCapabilities(caps("search"), caps("search"))).toEqual([]);
 });
+
+test("featured music is named in the summary and in the changes to accept", () => {
+  expect(serviceSummary("Jamendo", caps("playlists", "featured"))).toBe(
+    "Imports and follows Jamendo playlists, and features music on Discover.",
+  );
+  expect(
+    newCapabilities(
+      caps("playlists"),
+      caps("playlists", "featured", "artwork"),
+    ),
+  ).toEqual(["album covers", "featured music on Discover"]);
+});

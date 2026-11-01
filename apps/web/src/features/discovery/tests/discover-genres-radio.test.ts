@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import DiscoverPage from "../pages/DiscoverPage";
+import { skippingFeatured } from "../fixtures/skippingFeatured";
 
 const { player } = vi.hoisted(() => ({
   player: {
@@ -85,7 +86,7 @@ afterEach(() => {
 
 test("genre tiles come from the library and open their genre page without any request", () => {
   const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props()));
   const section = screen.getByRole("region", { name: "By genre" });
   const links = within(section).getAllByRole("link");
@@ -129,7 +130,7 @@ test("radio starts from one chosen artist with one request and plays the returne
       }),
     ),
   );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props()));
   const section = screen.getByRole("region", { name: "Radio from…" });
   expect(within(section).getByText("12 tracks in your library")).toBeTruthy();
@@ -163,7 +164,7 @@ test("a radio with no playable tracks or a failed request says so and keeps the 
         status: 500,
       }),
     );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props()));
   fireEvent.click(
     screen.getByRole("button", { name: "Start radio from Bruma" }),
