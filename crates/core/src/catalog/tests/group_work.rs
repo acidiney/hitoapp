@@ -116,7 +116,7 @@ async fn the_library_list_probes_group_membership_by_key() {
     assert_eq!(alone.total, 4000);
     assert_eq!(grouped.total, 2000);
     assert!(
-        with_groups < plain + plain / 2 + FIXED_WORK,
-        "Hiding grouped copies used {with_groups} VM steps against {plain} without groups"
+        with_groups < plain + 2000 * 200 + FIXED_WORK,
+        "Deciding 2000 grouped copies used {with_groups} VM steps against {plain} without groups"
     );
 }

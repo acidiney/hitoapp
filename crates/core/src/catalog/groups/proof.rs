@@ -1,4 +1,4 @@
-use super::RecordingGroupProof;
+use super::{DECISIONS, RecordingGroupProof, rank_sql};
 use crate::{
     Result,
     artist_catalog::{Title, tolerance_ms},
@@ -50,11 +50,17 @@ impl Key {
     }
 }
 
-fn position(cursor: Option<&str>) -> (Key, String) {
+enum Phase {
+    Verify(String),
+    Prove(Key, String),
+}
+
+fn position(cursor: Option<&str>) -> Phase {
     match cursor.and_then(|cursor| cursor.split_once(':')) {
-        Some(("i", key)) => (Key::Isrc, key.to_owned()),
-        Some((_, key)) => (Key::Recording, key.to_owned()),
-        None => (Key::Recording, String::new()),
+        Some(("m", key)) => Phase::Prove(Key::Recording, key.to_owned()),
+        Some(("i", key)) => Phase::Prove(Key::Isrc, key.to_owned()),
+        Some((_, key)) => Phase::Verify(key.to_owned()),
+        None => Phase::Verify(String::new()),
     }
 }
 
@@ -73,6 +79,7 @@ impl Candidate {
         }
         let (mine, theirs) = (Title::parse(&self.title), Title::parse(&other.title));
         mine == theirs
+            && mine.same_specific_wording(&theirs)
             && tolerance_ms(&mine, &theirs)
                 .is_some_and(|tolerance| self.duration_ms.abs_diff(other.duration_ms) <= tolerance)
     }
@@ -93,7 +100,10 @@ pub(crate) async fn group_step(
     cursor: Option<&str>,
 ) -> Result<GroupStep> {
     let started = Instant::now();
-    let (key, after) = position(cursor);
+    let (key, after) = match position(cursor) {
+        Phase::Verify(after) => return verify_step(store, account, &after, started).await,
+        Phase::Prove(key, after) => (key, after),
+    };
     let mut tx = store.pool.begin_with("BEGIN IMMEDIATE").await?;
     let rows: Vec<(String, String, String)> = sqlx::query_as(key.query())
         .bind(&after)
@@ -293,38 +303,147 @@ async fn attach(
 }
 
 async fn candidate(tx: &mut SqliteConnection, account: &str, id: &str) -> Result<Candidate> {
-    let (title, duration_ms, rank): (String, i64, i64) = sqlx::query_as(
-        "SELECT r.title,r.duration_ms,
-            CASE WHEN EXISTS(SELECT 1 FROM sources s WHERE s.recording_id=r.id AND s.ready=1) THEN 2
-                 WHEN EXISTS(SELECT 1 FROM provider_items item JOIN plugin_installations p ON p.id=item.installation_id
-                    WHERE item.recording_id=r.id AND item.retired=0 AND p.user_id=?1) THEN 1 ELSE 0 END
-         FROM recordings r WHERE r.id=?2",
-    )
+    let (title, duration_ms, rank): (String, i64, i64) = sqlx::query_as(&format!(
+        "SELECT r.title,r.duration_ms,{} FROM recordings r WHERE r.id=?2",
+        rank_sql("r.id", "?1")
+    ))
     .bind(account)
     .bind(id)
     .fetch_one(&mut *tx)
     .await?;
-    let decisions: Vec<String> = sqlx::query_scalar(
-        "SELECT 'like' FROM likes WHERE user_id=?1 AND recording_id=?2 AND liked=1
-         UNION ALL SELECT 'edit' FROM personal_recording_metadata WHERE user_id=?1 AND recording_id=?2
-         UNION ALL SELECT 'source' FROM recording_source_choices WHERE user_id=?1 AND recording_id=?2",
-    )
-    .bind(account)
-    .bind(id)
-    .fetch_all(&mut *tx)
-    .await?;
+    let held = DECISIONS
+        .iter()
+        .map(|(table, column, filter)| {
+            format!(
+                "SELECT '{table}' FROM {table} held WHERE held.{column}=?1 AND held.recording_id=?2 {}",
+                filter.replace("{}", "held")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" UNION ALL ");
+    let held: Vec<String> = sqlx::query_scalar(&held)
+        .bind(account)
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
     Ok(Candidate {
         id: id.to_owned(),
         title,
         duration_ms,
         rank: rank as u8,
-        decisions: decisions
+        decisions: DECISIONS
             .iter()
-            .map(|decision| match decision.as_str() {
-                "like" => "like",
-                "edit" => "edit",
-                _ => "source",
-            })
+            .map(|decision| decision.0)
+            .filter(|table| held.iter().any(|name| name == table))
             .collect(),
     })
+}
+
+const VERIFIED_PER_STEP: i64 = 200;
+
+/// Drops the account's group members whose proof or version no longer holds, for example after a
+/// retag, then hands over to the identifier walk.
+async fn verify_step(
+    store: &Store,
+    account: &str,
+    after: &str,
+    started: Instant,
+) -> Result<GroupStep> {
+    let mut tx = store.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let members: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT recording_id,canonical_id,proof FROM recording_group_members
+         WHERE user_id=?1 AND recording_id>?2 ORDER BY recording_id LIMIT ?3",
+    )
+    .bind(account)
+    .bind(after)
+    .bind(VERIFIED_PER_STEP)
+    .fetch_all(&mut *tx)
+    .await?;
+    let mut dropped = 0;
+    for (member, carrier, proof) in &members {
+        let holds = still_holds(&mut tx, account, member, carrier, proof).await?;
+        if !holds {
+            sqlx::query("DELETE FROM recording_group_members WHERE user_id=? AND recording_id=?")
+                .bind(account)
+                .bind(member)
+                .execute(&mut *tx)
+                .await?;
+            dropped += 1;
+        }
+    }
+    tx.commit().await?;
+    let next = if members.len() as i64 == VERIFIED_PER_STEP {
+        members.last().map(|member| format!("v:{}", member.0))
+    } else {
+        Some("m:".to_owned())
+    };
+    tracing::info!(
+        event = "recording_groups_verified",
+        checked = members.len(),
+        dropped,
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Recording group proofs checked"
+    );
+    Ok(GroupStep { next, grouped: 0 })
+}
+
+async fn still_holds(
+    tx: &mut SqliteConnection,
+    account: &str,
+    member: &str,
+    carrier: &str,
+    proof: &str,
+) -> Result<bool> {
+    let shared: bool = match proof {
+        "isrc" => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM recording_isrc_observations a
+                   JOIN recordings ra ON ra.id=a.recording_id AND ra.metadata_observation_id=a.observation_id
+                   JOIN recording_isrc_observations b ON b.isrc=a.isrc
+                   JOIN recordings rb ON rb.id=b.recording_id AND rb.metadata_observation_id=b.observation_id
+                   WHERE ra.id=?2 AND rb.id<>ra.id AND (rb.id=?3 OR rb.id IN
+                      (SELECT recording_id FROM recording_group_members WHERE user_id=?1 AND canonical_id=?3)))",
+            )
+        }
+        _ => {
+            sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM recording_musicbrainz_observations a
+                   JOIN recordings ra ON ra.id=a.recording_id AND ra.metadata_observation_id=a.observation_id
+                   JOIN recording_musicbrainz_observations b ON b.entity='recording' AND b.mbid=a.mbid
+                   JOIN recordings rb ON rb.id=b.recording_id AND rb.metadata_observation_id=b.observation_id
+                   WHERE a.entity='recording' AND ra.id=?2 AND rb.id<>ra.id AND (rb.id=?3 OR rb.id IN
+                      (SELECT recording_id FROM recording_group_members WHERE user_id=?1 AND canonical_id=?3)))",
+            )
+        }
+    }
+    .bind(account)
+    .bind(member)
+    .bind(carrier)
+    .fetch_one(&mut *tx)
+    .await?;
+    if !shared {
+        return Ok(false);
+    }
+    let rows: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT title,duration_ms FROM recordings WHERE id IN (?1,?2) ORDER BY id=?2",
+    )
+    .bind(carrier)
+    .bind(member)
+    .fetch_all(&mut *tx)
+    .await?;
+    let [
+        (carrier_title, carrier_length),
+        (member_title, member_length),
+    ] = rows.as_slice()
+    else {
+        return Ok(false);
+    };
+    let at = |title: &str, length: &i64| Candidate {
+        id: String::new(),
+        title: title.to_owned(),
+        duration_ms: *length,
+        rank: 0,
+        decisions: BTreeSet::new(),
+    };
+    Ok(at(carrier_title, carrier_length).same_version_and_length(&at(member_title, member_length)))
 }

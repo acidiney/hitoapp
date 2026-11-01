@@ -76,6 +76,16 @@ impl Catalog {
         .fetch_optional(&mut *connection)
         .await?
         .unwrap_or_else(|| recording.to_owned());
+        if canonical != recording
+            && recording_access(&mut connection, actor, &canonical)
+                .await
+                .is_err()
+        {
+            return Ok(RecordingCopies {
+                canonical_id: recording.to_owned(),
+                copies: Vec::new(),
+            });
+        }
         let members: Vec<(String, String)> = sqlx::query_as(
             "SELECT recording_id,proof FROM recording_group_members
              WHERE user_id=? AND canonical_id=? ORDER BY created_at,recording_id",

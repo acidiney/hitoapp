@@ -138,10 +138,7 @@ fn filters(
         }).push_bind(if personal { scoped_terms(actor, "{title artist}", terms) } else { terms.to_owned() }).push(")");
     }
     if terms.is_empty() {
-        query
-            .push(" AND NOT EXISTS (SELECT 1 FROM recording_group_members grouped WHERE grouped.user_id = ")
-            .push_bind(actor.id().to_owned())
-            .push(" AND grouped.recording_id = r.id)");
+        super::groups::push_cards_only(query, actor.id());
     }
     if search.liked == Some(true) {
         query.push(" AND l.liked = 1");
