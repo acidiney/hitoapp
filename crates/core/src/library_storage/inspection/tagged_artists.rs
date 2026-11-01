@@ -1,6 +1,6 @@
 use hito_plugin_sdk::{CreditRole, CreditedArtist, credit_feature_names};
 use lofty::{config::ParseOptions, file::TaggedFileExt, prelude::ItemKey, probe::Probe, tag::Tag};
-use std::{collections::HashSet, path::Path};
+use std::{collections::HashSet, panic::AssertUnwindSafe, path::Path};
 use uuid::Uuid;
 
 const MAX_ARTISTS: usize = 16;
@@ -14,12 +14,28 @@ pub(in crate::library_storage::inspection) struct TaggedArtists {
 fn values(tag: &Tag, key: &ItemKey) -> Vec<String> {
     tag.get_strings(key)
         .flat_map(|value| value.split('\0'))
-        .map(|value| value.trim().to_owned())
+        .map(str::trim)
         .filter(|value| !value.is_empty())
+        .take(MAX_ARTISTS + 1)
+        .map(|value| value.chars().take(MAX_NAME_BYTES + 1).collect())
         .collect()
 }
 
+fn guarded<T>(read: impl FnOnce() -> Option<T>) -> Option<T> {
+    match std::panic::catch_unwind(AssertUnwindSafe(read)) {
+        Ok(value) => value,
+        Err(_) => {
+            tracing::warn!("Reading tagged artists failed; the credit stays text");
+            None
+        }
+    }
+}
+
 pub(in crate::library_storage::inspection) fn read(path: &Path) -> Option<TaggedArtists> {
+    guarded(|| read_file(path))
+}
+
+fn read_file(path: &Path) -> Option<TaggedArtists> {
     let options = ParseOptions::new()
         .read_properties(false)
         .read_cover_art(false);
@@ -110,4 +126,41 @@ pub(in crate::library_storage::inspection) fn credits(
             join: None,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lofty::tag::{ItemValue, TagItem, TagType};
+
+    #[test]
+    fn a_tag_with_thousands_of_values_is_cut_to_one_more_than_the_limit() {
+        let mut tag = Tag::new(TagType::VorbisComments);
+        for index in 0..5000 {
+            tag.push(TagItem::new(
+                ItemKey::TrackArtists,
+                ItemValue::Text(format!("Artist {index}")),
+            ));
+        }
+        assert_eq!(values(&tag, &ItemKey::TrackArtists).len(), MAX_ARTISTS + 1);
+    }
+
+    #[test]
+    fn a_huge_value_is_cut_to_just_over_the_name_limit() {
+        let mut tag = Tag::new(TagType::VorbisComments);
+        tag.push(TagItem::new(
+            ItemKey::TrackArtists,
+            ItemValue::Text("a".repeat(1_000_000)),
+        ));
+        assert_eq!(
+            values(&tag, &ItemKey::TrackArtists)[0].len(),
+            MAX_NAME_BYTES + 1
+        );
+    }
+
+    #[test]
+    fn a_panicking_read_degrades_to_no_tagged_artists() {
+        let read: Option<TaggedArtists> = guarded(|| panic!("a malformed tag"));
+        assert!(read.is_none());
+    }
 }

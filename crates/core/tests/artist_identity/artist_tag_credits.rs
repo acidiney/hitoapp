@@ -436,3 +436,21 @@ async fn files_inspected_before_version_eight_gain_their_credits_on_the_next_sca
     pool.close().await;
     assert_eq!(due, 1, "The scan alone queues the account's matching walk");
 }
+
+#[tokio::test]
+async fn a_file_with_thousands_of_artist_tags_keeps_its_text_credit_and_stays_playable() {
+    let names: Vec<String> = (0..3000)
+        .map(|index| format!("Crowd artist {index}"))
+        .collect();
+    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    let world = World::prepare(&[Song {
+        name: "crowd",
+        extension: "flac",
+        artist: "Crowd",
+        artists: &refs,
+        ids: &[],
+    }])
+    .await;
+    assert!(world.credited("crowd").await.is_empty());
+    assert_eq!(world.artists().await, [("Crowd".to_owned(), 1)]);
+}
