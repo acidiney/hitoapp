@@ -6,7 +6,7 @@ use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{
     ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem, ArtistReviewQueueQuery,
     ConfirmArtistReviewCandidate, DismissArtistReviewCandidates, Error,
-    ResetRecordingArtistIdentity,
+    ResetRecordingArtistIdentity, RestoreArtistReviewCandidates,
 };
 use library::{CREDIT, NAMESAKE, NOVA, NameLibrary, TRIBUTE, nova_discography};
 use uuid::Uuid;
@@ -369,6 +369,131 @@ async fn a_dismissed_candidate_leaves_the_queue_and_the_walk_does_not_bring_it_b
         confirm(&library, &credit, NOVA).await,
         Err(Error::NotFound)
     ));
+    library.origin.shutdown().await;
+}
+
+async fn dismissed(library: &NameLibrary) -> Vec<ArtistReviewItem> {
+    library
+        .hito
+        .artist_catalog
+        .dismissed_artist_reviews(&library.actor, ArtistReviewQueueQuery::default())
+        .await
+        .unwrap()
+        .items
+}
+
+async fn restore(
+    library: &NameLibrary,
+    credit: &str,
+    artist: Option<&str>,
+) -> hito_core::Result<hito_core::ArtistReviewRestoration> {
+    library
+        .hito
+        .artist_catalog
+        .restore_artist_review_candidates(
+            &library.actor,
+            credit,
+            RestoreArtistReviewCandidates {
+                provider_artist_id: artist.map(Into::into),
+            },
+        )
+        .await
+}
+
+#[tokio::test]
+async fn dismissed_candidates_are_listed_and_restoring_them_brings_the_credit_back() {
+    let library = undecided_namesakes().await;
+    let credit = credit_id(&library).await;
+    assert!(
+        dismissed(&library).await.is_empty(),
+        "Nothing is dismissed yet"
+    );
+    library
+        .hito
+        .artist_catalog
+        .dismiss_artist_review_candidates(
+            &library.actor,
+            &credit,
+            DismissArtistReviewCandidates {
+                provider_artist_id: Some(NOVA.into()),
+            },
+        )
+        .await
+        .unwrap();
+    let listed = dismissed(&library).await;
+    assert_eq!(listed.len(), 1);
+    assert_eq!(
+        (listed[0].artist_id.as_str(), listed[0].undecided_tracks),
+        (credit.as_str(), 4)
+    );
+    let ids: Vec<&str> = listed[0]
+        .candidates
+        .iter()
+        .map(|candidate| candidate.provider_artist_id.as_str())
+        .collect();
+    assert_eq!(ids, vec![NOVA], "Only what was dismissed is listed");
+
+    let asked = library.musicbrainz.requests().len();
+    let restored = restore(&library, &credit, Some(NOVA)).await.unwrap();
+    assert_eq!(
+        (restored.artist_id.as_str(), restored.restored),
+        (credit.as_str(), 1)
+    );
+    assert!(dismissed(&library).await.is_empty());
+    assert_eq!(queue(&library).await[0].candidates.len(), 2);
+    assert_eq!(
+        restore(&library, &credit, Some(NOVA))
+            .await
+            .unwrap()
+            .restored,
+        0
+    );
+    assert_eq!(
+        library.musicbrainz.requests().len(),
+        asked,
+        "Restoring asks MusicBrainz nothing"
+    );
+
+    library
+        .hito
+        .artist_catalog
+        .dismiss_artist_review_candidates(
+            &library.actor,
+            &credit,
+            DismissArtistReviewCandidates {
+                provider_artist_id: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(queue(&library).await.is_empty());
+    assert_eq!(dismissed(&library).await[0].candidates.len(), 2);
+    assert_eq!(restore(&library, &credit, None).await.unwrap().restored, 2);
+    assert_eq!(queue(&library).await[0].candidates.len(), 2);
+    assert_eq!(restore(&library, &credit, None).await.unwrap().restored, 0);
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn only_the_accounts_own_credit_and_a_listed_dismissal_can_be_restored() {
+    let library = undecided_namesakes().await;
+    let credit = credit_id(&library).await;
+    assert!(matches!(
+        restore(&library, "no-such-credit", None).await,
+        Err(Error::NotFound)
+    ));
+    assert!(matches!(
+        restore(&library, &credit, Some("")).await,
+        Err(Error::NotFound)
+    ));
+    assert_eq!(
+        restore(&library, &credit, Some(NOVA))
+            .await
+            .unwrap()
+            .restored,
+        0,
+        "A candidate that was never dismissed has nothing to restore"
+    );
     library.origin.shutdown().await;
 }
 

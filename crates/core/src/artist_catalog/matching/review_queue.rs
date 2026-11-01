@@ -3,7 +3,8 @@
 //! contact no provider.
 use super::{
     ArtistReviewCandidate, ArtistReviewConfirmation, ArtistReviewDismissal, ArtistReviewItem,
-    ArtistReviewQueueQuery, ConfirmArtistReviewCandidate, DismissArtistReviewCandidates,
+    ArtistReviewQueueQuery, ArtistReviewRestoration, ConfirmArtistReviewCandidate,
+    DismissArtistReviewCandidates, RestoreArtistReviewCandidates,
     apply::{EvidenceKind, Planned, REPLACEABLE, commit, plan},
     name_discography::NAME_RULE,
     name_probe::{Assessment, Candidate, distinct_titles},
@@ -122,17 +123,36 @@ fn undecided(credit_filter: &str) -> String {
     )
 }
 
+const DISMISSED_MATCH: &str = "EXISTS (SELECT 1 FROM artist_review_dismissals d
+    WHERE d.user_id=c.user_id AND d.artist_id=c.artist_id AND d.provider_artist_id=c.provider_artist_id)";
 const OFFERED: &str = "NOT EXISTS (SELECT 1 FROM artist_review_dismissals d
     WHERE d.user_id=c.user_id AND d.artist_id=c.artist_id AND d.provider_artist_id=c.provider_artist_id)";
 
-fn queued() -> String {
+/// Which candidates of an undecided credit a read lists.
+#[derive(Clone, Copy)]
+enum Listing {
+    Offered,
+    Dismissed,
+}
+
+impl Listing {
+    fn filter(self) -> &'static str {
+        match self {
+            Self::Offered => OFFERED,
+            Self::Dismissed => DISMISSED_MATCH,
+        }
+    }
+}
+
+fn queued(listing: Listing) -> String {
+    let filter = listing.filter();
     format!(
         "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id)
          SELECT a.id AS id,a.name AS name,u.tracks AS tracks FROM undecided u
          JOIN account_artists a ON a.id=u.artist_id AND a.user_id=?1
          JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
          WHERE EXISTS (SELECT 1 FROM artist_name_candidates c
-            WHERE c.user_id=a.user_id AND c.artist_id=a.id AND {OFFERED})",
+            WHERE c.user_id=a.user_id AND c.artist_id=a.id AND {filter})",
         undecided("")
     )
 }
@@ -146,11 +166,14 @@ impl ArtistCatalog {
         query: ArtistReviewQueueQuery,
     ) -> Result<Page<ArtistReviewItem>> {
         let started = Instant::now();
-        let result = tokio::time::timeout(REQUEST_BUDGET, self.read_review_queue(actor, query))
-            .await
-            .unwrap_or(Err(Error::Conflict(
-                "The review queue took too long. Try again.".into(),
-            )));
+        let result = tokio::time::timeout(
+            REQUEST_BUDGET,
+            self.read_review_queue(actor, query, Listing::Offered),
+        )
+        .await
+        .unwrap_or(Err(Error::Conflict(
+            "The review queue took too long. Try again.".into(),
+        )));
         tracing::debug!(
             outcome = result.as_ref().map_or_else(|e| e.code(), |_| "success"),
             credits = result.as_ref().map_or(0, |page| page.items.len()),
@@ -160,10 +183,37 @@ impl ArtistCatalog {
         result
     }
 
+    /// The credits with undecided tracks whose candidates the account dismissed, each with the
+    /// dismissed candidates, so that they can be offered again.
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_review_dismissed", request_id = %Uuid::new_v4()))]
+    pub async fn dismissed_artist_reviews(
+        &self,
+        actor: &Actor,
+        query: ArtistReviewQueueQuery,
+    ) -> Result<Page<ArtistReviewItem>> {
+        let started = Instant::now();
+        let result = tokio::time::timeout(
+            REQUEST_BUDGET,
+            self.read_review_queue(actor, query, Listing::Dismissed),
+        )
+        .await
+        .unwrap_or(Err(Error::Conflict(
+            "The dismissed suggestions took too long. Try again.".into(),
+        )));
+        tracing::debug!(
+            outcome = result.as_ref().map_or_else(|e| e.code(), |_| "success"),
+            credits = result.as_ref().map_or(0, |page| page.items.len()),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Dismissed artist reviews loaded"
+        );
+        result
+    }
+
     async fn read_review_queue(
         &self,
         actor: &Actor,
         query: ArtistReviewQueueQuery,
+        listing: Listing,
     ) -> Result<Page<ArtistReviewItem>> {
         let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
         let offset = query.offset.unwrap_or(0);
@@ -174,7 +224,8 @@ impl ArtistCatalog {
         }
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let base = queued();
+        let base = queued(listing);
+        let filter = listing.filter();
         let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(&format!(
             "SELECT id,name,tracks,count(*) OVER () FROM ({base}) ORDER BY tracks DESC,name,id LIMIT ?2 OFFSET ?3"
         ))
@@ -200,7 +251,7 @@ impl ArtistCatalog {
                         c.corroborated_titles,
                         EXISTS (SELECT 1 FROM account_artist_identity_groups g WHERE g.user_id=c.user_id
                             AND g.provider_kind='builtin_musicbrainz' AND g.provider_artist_id=c.provider_artist_id) AS in_library
-                 FROM artist_name_candidates c WHERE c.user_id=? AND c.artist_id=? AND {OFFERED}
+                 FROM artist_name_candidates c WHERE c.user_id=? AND c.artist_id=? AND {filter}
                  ORDER BY in_library DESC,c.corroborated_titles DESC,c.position LIMIT ?"
             ))
             .bind(actor.id())
@@ -452,6 +503,63 @@ impl ArtistCatalog {
         Ok(ArtistReviewDismissal {
             artist_id: artist.into(),
             dismissed: dismissed as i64,
+        })
+    }
+
+    /// Offers one dismissed candidate again, or every dismissed candidate of the credit. Only the
+    /// account's own dismissals are removed, and removing none is not an error.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_review_restore", request_id = %Uuid::new_v4()))]
+    pub async fn restore_artist_review_candidates(
+        &self,
+        actor: &Actor,
+        artist: &str,
+        request: RestoreArtistReviewCandidates,
+    ) -> Result<ArtistReviewRestoration> {
+        let started = Instant::now();
+        let result = self.remove_review_dismissals(actor, artist, request).await;
+        tracing::info!(
+            outcome = result.as_ref().map_or_else(|e| e.code(), |_| "restored"),
+            restored = result
+                .as_ref()
+                .map_or(0, |restoration| restoration.restored),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Artist review dismissals restored"
+        );
+        result
+    }
+
+    async fn remove_review_dismissals(
+        &self,
+        actor: &Actor,
+        artist: &str,
+        request: RestoreArtistReviewCandidates,
+    ) -> Result<ArtistReviewRestoration> {
+        if artist.is_empty()
+            || artist.len() > MAX_ID_LENGTH
+            || request
+                .provider_artist_id
+                .as_ref()
+                .is_some_and(|id| id.is_empty() || id.len() > MAX_ID_LENGTH)
+        {
+            return Err(Error::NotFound);
+        }
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
+        credit_name(&mut tx, actor, artist).await?;
+        let restored = sqlx::query(
+            "DELETE FROM artist_review_dismissals WHERE user_id=?1 AND artist_id=?2
+             AND (?3 IS NULL OR provider_artist_id=?3)",
+        )
+        .bind(actor.id())
+        .bind(artist)
+        .bind(&request.provider_artist_id)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        tx.commit().await?;
+        Ok(ArtistReviewRestoration {
+            artist_id: artist.into(),
+            restored: restored as i64,
         })
     }
 }

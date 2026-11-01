@@ -154,3 +154,17 @@ pub struct ArtistReviewDismissal {
     pub artist_id: String,
     pub dismissed: i64,
 }
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RestoreArtistReviewCandidates {
+    /// The one dismissed artist to offer again, or every dismissed candidate of the credit when absent.
+    pub provider_artist_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ArtistReviewRestoration {
+    pub artist_id: String,
+    /// Dismissals removed; restoring something that is not dismissed removes none.
+    pub restored: i64,
+}
