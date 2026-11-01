@@ -560,7 +560,7 @@ mod tests {
             .execute(&pool)
             .await
             .unwrap();
-        sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES('observed','gone-00000','A')")
+        sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES('observed','gone-00000','A','a')")
             .execute(&pool)
             .await
             .unwrap();

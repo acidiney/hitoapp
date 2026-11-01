@@ -45,7 +45,9 @@ impl Scope<'_> {
     fn account_recordings(&self) -> QueryBuilder<'static, Sqlite> {
         let mut query = QueryBuilder::new(
             "WITH targets AS (SELECT access.user_id, r.library_id, r.id AS recording_id,
-            COALESCE(p.override_artist, credit.credit_label, r.artist) AS name
+            COALESCE(p.override_artist, credit.credit_label, r.artist) AS name,
+            CASE WHEN p.override_artist IS NULL THEN credit.credit_key END AS credit_key,
+            credit.rowid AS credit_order
          FROM recordings r JOIN library_members access ON access.library_id = r.library_id
          LEFT JOIN personal_recording_metadata p ON p.user_id = access.user_id AND p.recording_id = r.id
          LEFT JOIN recording_credit_observations credit ON credit.observation_id = r.metadata_observation_id WHERE 1",
@@ -65,15 +67,55 @@ impl Scope<'_> {
     }
 }
 
+const REGISTER_TEXT_CREDITS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
+        SELECT t.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), t.library_id, t.name FROM targets t
+        LEFT JOIN artists shared ON shared.library_id = t.library_id AND shared.name = t.name COLLATE BINARY
+        WHERE t.name IS NOT NULL AND t.credit_key IS NULL
+        ON CONFLICT(user_id, library_id, name) DO NOTHING";
+
+/// The first-seen recording of each credit key names the artist unless the key already has one.
+const FIRST_SEEN: &str = "(SELECT t.*, ROW_NUMBER() OVER (PARTITION BY t.user_id, t.library_id, t.credit_key ORDER BY t.credit_order) AS first_seen
+        FROM targets t WHERE t.credit_key IS NOT NULL)";
+
+fn register_keyed_credits() -> String {
+    format!(
+        "INSERT INTO account_artists(user_id, id, library_id, name)
+        SELECT t.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), t.library_id, t.name FROM {first_seen} t
+        LEFT JOIN artists shared ON shared.library_id = t.library_id AND shared.name = t.name COLLATE BINARY
+        WHERE t.first_seen = 1 AND NOT EXISTS (SELECT 1 FROM account_credit_keys k
+            WHERE k.user_id = t.user_id AND k.library_id = t.library_id AND k.credit_key = t.credit_key)
+        ON CONFLICT(user_id, library_id, name) DO NOTHING",
+        first_seen = FIRST_SEEN
+    )
+}
+
+fn record_credit_keys() -> String {
+    format!("INSERT OR IGNORE INTO account_credit_keys(user_id, library_id, credit_key, artist_id)
+        SELECT t.user_id, t.library_id, t.credit_key, a.id FROM {first_seen} t
+        JOIN account_artists a ON a.user_id = t.user_id AND a.library_id = t.library_id AND a.name = t.name COLLATE BINARY
+        WHERE t.first_seen = 1",
+        first_seen = FIRST_SEEN
+    )
+}
+
 #[tracing::instrument(level = "trace", skip_all, err(Debug))]
 pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) -> Result<()> {
     let mut register = scope.account_recordings();
-    register.push(super::projection::REGISTER_ARTISTS);
+    register.push(REGISTER_TEXT_CREDITS);
     register.build().execute(&mut **tx).await?;
+    let mut keyed = scope.account_recordings();
+    keyed.push(register_keyed_credits());
+    keyed.build().execute(&mut **tx).await?;
+    let mut keys = scope.account_recordings();
+    keys.push(record_credit_keys());
+    keys.build().execute(&mut **tx).await?;
     let mut bind = scope.account_recordings();
     bind.push("INSERT INTO account_recording_credits(user_id, recording_id, artist_id)
-        SELECT t.user_id, t.recording_id, c.id FROM targets t
-        JOIN account_artists c ON c.user_id = t.user_id AND c.library_id = t.library_id AND c.name = t.name COLLATE BINARY WHERE 1
+        SELECT user_id, recording_id, artist_id FROM (
+            SELECT t.user_id, t.recording_id, COALESCE(
+                (SELECT k.artist_id FROM account_credit_keys k WHERE k.user_id = t.user_id AND k.library_id = t.library_id AND k.credit_key = t.credit_key),
+                (SELECT c.id FROM account_artists c WHERE c.user_id = t.user_id AND c.library_id = t.library_id AND c.name = t.name COLLATE BINARY)) AS artist_id
+            FROM targets t) WHERE artist_id IS NOT NULL
         ON CONFLICT(user_id, recording_id) DO UPDATE SET artist_id = excluded.artist_id
         WHERE artist_id IS NOT excluded.artist_id");
     let changed = bind.build().execute(&mut **tx).await?.rows_affected();

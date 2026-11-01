@@ -3,6 +3,7 @@ use sqlx::SqliteConnection;
 pub const TABLES: &[&str] = &[
     "recording_credit_observations",
     "recording_credited_artist_observations",
+    "account_credit_keys",
 ];
 
 pub const ADDED: &[(&str, &str)] = &[
@@ -17,6 +18,9 @@ pub const ADDED: &[(&str, &str)] = &[
     ),
     ("index", "recording_credited_artist_observation_recording"),
     ("trigger", "recording_credited_artist_observation_immutable"),
+    ("table", "account_credit_keys"),
+    ("index", "sqlite_autoindex_account_credit_keys_1"),
+    ("index", "account_credit_key_artist"),
 ];
 
 pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {

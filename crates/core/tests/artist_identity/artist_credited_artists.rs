@@ -286,3 +286,52 @@ async fn only_the_main_artists_pages_can_identify_a_credit() {
     assert!(lookups[0].contains("0000000000000000000011"), "{lookups:?}");
     library.origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn a_collaboration_keeps_the_wording_and_order_it_was_first_seen_with() {
+    let library = NameLibrary::prepare_with_evidence(&[
+        (
+            "Simon & Garfunkel",
+            "Song 0",
+            100_000,
+            structured(
+                vec![
+                    main_artist("Simon", Some(" & "), None),
+                    main_artist("Garfunkel", None, None),
+                ],
+                &[],
+            ),
+        ),
+        (
+            "Garfunkel & Simon",
+            "Song 1",
+            100_001,
+            structured(
+                vec![
+                    main_artist("Garfunkel", Some(" & "), None),
+                    main_artist("Simon", None, None),
+                ],
+                &[],
+            ),
+        ),
+        (
+            "SIMON & garfunkel",
+            "Song 2",
+            100_002,
+            structured(
+                vec![
+                    main_artist("SIMON", Some(" & "), None),
+                    main_artist("garfunkel", None, None),
+                ],
+                &[],
+            ),
+        ),
+    ])
+    .await;
+    assert_eq!(
+        credits(&library).await,
+        [("Simon & Garfunkel".to_owned(), 3)],
+        "Every order and casing is one credit, labelled as first seen"
+    );
+    library.origin.shutdown().await;
+}

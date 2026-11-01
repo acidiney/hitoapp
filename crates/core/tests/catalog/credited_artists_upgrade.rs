@@ -47,9 +47,10 @@ async fn migration_0078_only_adds_the_credited_artist_tables_and_changes_no_cred
     connection.close().await.unwrap();
 }
 
-const TABLES: [&str; 2] = [
+const TABLES: [&str; 3] = [
     "recording_credit_observations",
     "recording_credited_artist_observations",
+    "account_credit_keys",
 ];
 
 #[tokio::test]
@@ -62,7 +63,7 @@ async fn the_tables_refuse_malformed_rows_and_changes() {
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
     schema::through(78).run(&mut connection).await.unwrap();
     for rejected in [
-        "INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES('o','r','')",
+        "INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES('o','r','','k')",
         "INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES('o',16,'r','A','main')",
         "INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES('o',0,'r','','main')",
         "INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES('o',0,'r','A','producer')",
@@ -77,7 +78,7 @@ async fn the_tables_refuse_malformed_rows_and_changes() {
             "{rejected}"
         );
     }
-    sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES('o','r','A')")
+    sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES('o','r','A','a')")
         .execute(&mut connection)
         .await
         .unwrap();

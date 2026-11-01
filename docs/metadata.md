@@ -102,22 +102,22 @@ Tests build tags byte by byte and scan them through the public capability. They 
 
 ## Credited artists from providers
 
-A provider that knows who is credited sends them as a list beside the display text (`ProviderRecording.artists`, see the [plugin contract](plugin-catalog.md#recording-evidence)). Core keeps that list as evidence of the observation that stated it: `recording_credit_observations` holds one row per observation with the credit label, and `recording_credited_artist_observations` one row per artist (position, name, role, join text, provider identifier and artist page). Both are written once beside the observation and never change (migration 0078), and rows of observations from files or from plugins that send no list do not exist. Nothing is rewritten for existing recordings, and the display `artist` text, recording identifiers and personal edits never change.
+A provider that knows who is credited sends them as a list beside the display text (`ProviderRecording.artists`, see the [plugin contract](plugin-catalog.md#recording-evidence)). Core keeps that list as evidence of the observation that stated it: `recording_credit_observations` holds one row per observation with the credit label, and `recording_credited_artist_observations` one row per artist (position, name, role, join text, provider identifier and artist page). The two observation tables are written once beside the observation and never change (migration 0078), and rows of observations from files or from plugins that send no list do not exist. Nothing is rewritten for existing recordings, and the display `artist` text, recording identifiers and personal edits never change.
 
 Current behavior, tested with real temporary SQLite and an owned provider:
 
-- **Credit identity.** For a recording whose current observation has a list, the account's credit (the artist row that groups its recordings) is the label built from the main artists in alphabetical order, case ignored, joined with ` & `. "Ada & Bo", "Bo, Ada" and "Bo & Ada" therefore land in one credit, while the recording rows keep showing the provider's own wording. Featured artists are not part of the label, so "Bo feat. Ada" with Ada featured is credited to Bo. A personal artist edit still wins over the label. A credit written only as text keeps its text and is never split or merged by guessing.
+- **Credit identity.** For a recording whose current observation has a list, the account's credit (the artist row that groups its recordings) is found by a key, the main artists' names in sorted, case-folded order (`account_credit_keys`, one row per account, library and key). "Ada & Bo", "Bo, Ada" and "bo & ADA" therefore land in one credit. The credit keeps the label of the first recording seen with that key (the main artists in the provider's order joined with ` & `, so "Simon & Garfunkel" is never shown as "Garfunkel & Simon"), and the recording rows keep showing the provider's own wording. If a text-only credit already has exactly the label's text, the key adopts that artist. Featured artists are not part of the label, so "Bo feat. Ada" with Ada featured is credited to Bo. A personal artist edit still wins over the label. A credit written only as text keeps its text and is never split or merged by guessing.
 - **Matching evidence.** The lone-artist-page rule of [provider evidence](artist-matching.md#matching-from-provider-evidence) looks at the main artists only: the observation's pages are the pages of its main artists, and only when every main artist has one. A featured artist's page never identifies the credit, and a collaboration of several main artists stays uncertain. A recording without a list keeps the pages the provider listed.
 - **Reading.** `GET /api/v1/recordings/{id}/metadata` returns `credited_artists` for the current observation (name, role, join text and the account's artist page for exactly that name, if it has one). It is empty after a personal artist edit and for text-only credits.
 - **Page.** The recording page shows the credit line with each artist that has a page linked separately, using the provider's join text.
-- **Removal.** Both tables leave with the recording when missing recordings are purged and when an account's library is erased.
+- **Removal.** The two observation tables leave with the recording, and the keys leave with the account when missing recordings are purged and when an account's library is erased.
 
 ```mermaid
 flowchart LR
     P[Provider sends artists list] --> V[SDK validation: count, lengths, one main artist, no repeats]
     V --> O[(Observation JSON)]
     V --> E[(Credit and artist evidence rows)]
-    E --> L[Credit label: main artists in stable order]
+    E --> L[Credit key: sorted main artists, first-seen label]
     L --> C[Account credit and artist page]
     E --> M[Main artists' pages: lone page rule]
     E --> R[Recording metadata read: linked credit line]

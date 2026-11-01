@@ -18,19 +18,26 @@ fn role_of(name: &str) -> CreditRole {
     }
 }
 
-/// The credit a structured list identifies: its main artists in a fixed alphabetical order, so
-/// that every ordering of the same artists is the same credit. Featured artists are not part of it.
+/// The credit a structured list states, as its main artists in the provider's order. Featured
+/// artists are not part of it.
 pub(crate) fn credit_label(artists: &[CreditedArtist]) -> Option<String> {
-    let mut mains: Vec<&str> = artists
+    let mains: Vec<&str> = artists
         .iter()
         .filter(|artist| artist.role == CreditRole::Main)
         .map(|artist| artist.name.trim())
         .collect();
-    if mains.is_empty() {
-        return None;
-    }
-    mains.sort_by_cached_key(|name| (name.to_lowercase(), (*name).to_owned()));
-    Some(mains.join(" & "))
+    (!mains.is_empty()).then(|| mains.join(" & "))
+}
+
+/// Identifies the same set of main artists in any order and casing.
+pub(crate) fn credit_key(artists: &[CreditedArtist]) -> Option<String> {
+    let mut mains: Vec<String> = artists
+        .iter()
+        .filter(|artist| artist.role == CreditRole::Main)
+        .map(|artist| artist.name.trim().to_lowercase())
+        .collect();
+    mains.sort();
+    (!mains.is_empty()).then(|| mains.join("\u{1f}"))
 }
 
 /// The artist pages that can identify the credit: those of its main artists, and only when every
@@ -54,13 +61,14 @@ pub(crate) async fn retain(
     recording: &str,
     artists: &[CreditedArtist],
 ) -> Result<()> {
-    let Some(label) = credit_label(artists) else {
+    let (Some(label), Some(key)) = (credit_label(artists), credit_key(artists)) else {
         return Ok(());
     };
-    sqlx::query("INSERT OR IGNORE INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES(?,?,?)")
+    sqlx::query("INSERT OR IGNORE INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES(?,?,?,?)")
         .bind(observation)
         .bind(recording)
         .bind(label)
+        .bind(key)
         .execute(&mut *connection)
         .await?;
     for (position, artist) in artists.iter().enumerate() {

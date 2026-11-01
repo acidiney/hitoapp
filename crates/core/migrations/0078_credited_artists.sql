@@ -3,7 +3,8 @@
 CREATE TABLE recording_credit_observations (
     observation_id TEXT PRIMARY KEY REFERENCES metadata_observations(id),
     recording_id TEXT NOT NULL REFERENCES recordings(id),
-    credit_label TEXT NOT NULL CHECK(length(CAST(credit_label AS BLOB)) BETWEEN 1 AND 4352)
+    credit_label TEXT NOT NULL CHECK(length(CAST(credit_label AS BLOB)) BETWEEN 1 AND 4352),
+    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 4352)
 );
 CREATE INDEX recording_credit_observation_recording ON recording_credit_observations(recording_id);
 CREATE TRIGGER recording_credit_observation_immutable BEFORE UPDATE ON recording_credit_observations BEGIN
@@ -25,3 +26,15 @@ CREATE INDEX recording_credited_artist_observation_recording ON recording_credit
 CREATE TRIGGER recording_credited_artist_observation_immutable BEFORE UPDATE ON recording_credited_artist_observations BEGIN
     SELECT RAISE(ABORT,'Credited artist observations are immutable');
 END;
+
+-- The artist that a set of main artists is credited as in one library, whatever their order or
+-- casing. The artist keeps the name it was first seen with. Credits written as text have no key.
+CREATE TABLE account_credit_keys (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    library_id TEXT NOT NULL,
+    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 4352),
+    artist_id TEXT NOT NULL,
+    PRIMARY KEY(user_id,library_id,credit_key),
+    FOREIGN KEY(user_id,artist_id) REFERENCES account_artists(user_id,id)
+);
+CREATE INDEX account_credit_key_artist ON account_credit_keys(user_id,artist_id);

@@ -59,6 +59,15 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
             .await
             .unwrap();
     }
+    for account in [&world.admin.user.id, &world.member.user.id] {
+        let keys = sqlx::query("INSERT INTO account_credit_keys(user_id,library_id,credit_key,artist_id) SELECT user_id,library_id,'a b',id FROM account_artists WHERE user_id=? LIMIT 1")
+            .bind(account)
+            .execute(&mut connection)
+            .await
+            .unwrap()
+            .rows_affected();
+        assert_eq!(keys, 1, "each account has an artist to key");
+    }
     let admin_before = rows_of(&mut connection, &world.admin.user.id).await;
     let member_before = rows_of(&mut connection, &world.member.user.id).await;
     assert!(member_before.iter().map(|(_, n)| n).sum::<i64>() > 20);
@@ -78,7 +87,7 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
         let id = format!("credited-{recording}");
         for statement in [
             "INSERT INTO metadata_observations(id,recording_id,provider,origin,title,artist,duration_ms) VALUES(?1,?2,'owned','provider_response','T','A & B',1000)",
-            "INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES(?1,?2,'A & B')",
+            "INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES(?1,?2,'A & B','a b')",
             "INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES(?1,0,?2,'A','main')",
         ] {
             sqlx::query(statement)

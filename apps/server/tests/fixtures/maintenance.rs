@@ -795,6 +795,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ),
         ("index", "recording_credited_artist_observation_recording"),
         ("trigger", "recording_credited_artist_observation_immutable"),
+        ("table", "account_credit_keys"),
+        ("index", "sqlite_autoindex_account_credit_keys_1"),
+        ("index", "account_credit_key_artist"),
         ("table", "recording_musicbrainz_observations"),
         (
             "index",
