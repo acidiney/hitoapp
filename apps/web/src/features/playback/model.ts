@@ -123,6 +123,11 @@ export interface Player {
   retrySaved?(): Promise<void>;
 }
 
+export const UNSUPPORTED_FORMAT_MESSAGE =
+  "This device can't play this audio format.";
+
+export const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+
 export interface MediaPort extends EventTarget {
   src: string;
   currentTime: number;
@@ -133,6 +138,7 @@ export interface MediaPort extends EventTarget {
   paused: boolean;
   ended?: boolean;
   readyState?: number;
+  error?: { code: number } | null;
   seeking?: boolean;
   currentSrc?: string;
   play(): Promise<void>;

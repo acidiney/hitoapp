@@ -1,11 +1,12 @@
 import { log } from "../../../shared/log";
 import { HttpError } from "../../../shared/http";
-import type {
-  PlaybackPosition,
-  PlaybackView,
-  QueuePage,
-  QueueView,
-  Player,
+import {
+  UNSUPPORTED_FORMAT_MESSAGE,
+  type PlaybackPosition,
+  type PlaybackView,
+  type QueuePage,
+  type QueueView,
+  type Player,
 } from "../model";
 import type { Position, Snapshot } from "./api";
 import { NativeSession, type Failure } from "./Session";
@@ -36,11 +37,15 @@ function playbackError(value: Snapshot | null) {
       ? "Saved playback position could not be loaded. Try again."
       : value?.persistence_error
         ? "Listening progress could not be saved. Hito will retry."
-        : value?.error
-          ? "Audio could not be played. Try selecting the track again."
-          : value?.last_failure
-            ? "Audio was unavailable for a queued track."
-            : "";
+        : value?.error === "output_format"
+          ? UNSUPPORTED_FORMAT_MESSAGE
+          : value?.error
+            ? "Audio could not be played. Try selecting the track again."
+            : value?.last_failure?.error === "output_format"
+              ? "This device can't play a queued track's audio format."
+              : value?.last_failure
+                ? "Audio was unavailable for a queued track."
+                : "";
 }
 
 export class NativePlayback implements Player {

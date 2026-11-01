@@ -3,6 +3,41 @@ import { NativePlayback } from "../../native/NativePlayback";
 import type { Snapshot } from "../../native/api";
 import { nativeService } from "../../fixtures/native/service";
 
+test("a device that cannot play the source says so instead of the generic playback failure", async () => {
+  const service = nativeService();
+  service.state.error = "output_format";
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() =>
+      expect(player.snapshot().error).toBe(
+        "This device can't play this audio format.",
+      ),
+    );
+  } finally {
+    player.close();
+  }
+});
+
+test("a queued track skipped for an unplayable format keeps the specific reason", async () => {
+  const service = nativeService();
+  service.state.last_failure = {
+    entry: { id: "entry-1", recording_id: "recording-1" },
+    error: "output_format",
+  };
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() =>
+      expect(player.snapshot().error).toBe(
+        "This device can't play a queued track's audio format.",
+      ),
+    );
+  } finally {
+    player.close();
+  }
+});
+
 test("position reconnection preserves an unresolved Rust progress warning", async () => {
   const service = nativeService();
   service.state.persistence_error = "persistence";
