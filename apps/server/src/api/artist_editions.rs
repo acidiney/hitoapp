@@ -8,8 +8,8 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    EditionTrackListAvailability, ReadEditionTrackList, ReadReleaseGroupEditions,
-    ReleaseGroupEditionsAvailability, Services,
+    AlbumTrackAudio, EditionTrackListAvailability, FindArtistTrackAudio, ReadEditionTrackList,
+    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -113,6 +113,39 @@ pub async fn track_list(
         track_count,
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Recording artist edition track list HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/artist-associations/{association}/edition-track-audio", operation_id = "recording_artist_edition_track_audio",
+    params(("id" = String, Path), ("association" = String, Path)),
+    request_body = FindArtistTrackAudio,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AlbumTrackAudio, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 500, body = ErrorResponse), (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_recording_artist_edition_track_audio", request_id = %Uuid::new_v4()))]
+pub async fn track_audio(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((id, association)): Path<(String, String)>,
+    JsonBody(request): JsonBody<FindArtistTrackAudio>,
+) -> ApiResult<Json<AlbumTrackAudio>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .find_artist_track_audio_until(&actor, &id, &association, request, std::future::pending())
+        .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |found| found.outcome()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Recording artist edition track audio HTTP request completed"
     );
     Ok(Json(result?))
 }

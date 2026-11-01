@@ -41,7 +41,7 @@ pub use artist_catalog::{
     ChooseRecordingArtistIdentity, ClearAlbumEdition, ConfirmArtistReviewCandidate,
     CoverageEvidence, CreditEvidence, CreditEvidenceKind, DiscographyLibrary,
     DismissArtistMatchSuggestion, DismissArtistReviewCandidates, EditionTrackListAvailability,
-    FindAlbumTrackAudio, LibraryAlbum, LibraryLevel, LibraryReleaseGroup,
+    FindAlbumTrackAudio, FindArtistTrackAudio, LibraryAlbum, LibraryLevel, LibraryReleaseGroup,
     MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
     PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel,
     ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions,

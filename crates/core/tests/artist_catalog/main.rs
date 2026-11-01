@@ -23,3 +23,4 @@ mod artist_catalog_metadata_privacy;
 mod artist_catalog_playback_isolation;
 mod artist_catalog_profile_lifecycle;
 mod artist_catalog_profiles;
+mod artist_track_audio;

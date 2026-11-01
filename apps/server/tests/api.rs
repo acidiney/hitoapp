@@ -167,6 +167,8 @@ mod artist_review_queue;
 mod artist_review_tcp;
 #[path = "api/artist_similarity.rs"]
 mod artist_similarity;
+#[path = "api/artist_track_audio.rs"]
+mod artist_track_audio;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
 #[path = "api/metadata.rs"]

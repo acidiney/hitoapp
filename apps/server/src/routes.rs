@@ -178,6 +178,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::album_editions::clear))
         .routes(routes!(api::artist_editions::list))
         .routes(routes!(api::artist_editions::track_list))
+        .routes(routes!(api::artist_editions::track_audio))
         .routes(routes!(api::lyrics::read))
         .routes(routes!(api::lyrics::providers))
         .routes(routes!(api::metadata::recording_metadata))

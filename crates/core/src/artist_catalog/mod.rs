@@ -33,7 +33,7 @@ pub use library_availability::{
 pub use matching::*;
 pub(crate) use matching::{Title, tolerance_ms};
 
-pub use album_audio::{AlbumTrackAudio, FindAlbumTrackAudio};
+pub use album_audio::{AlbumTrackAudio, FindAlbumTrackAudio, FindArtistTrackAudio};
 pub use album_edition_choice::{
     AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState, ChooseAlbumEdition,
     ClearAlbumEdition, SavedAlbumEdition,

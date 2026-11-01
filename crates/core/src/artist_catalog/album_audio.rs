@@ -1,5 +1,5 @@
 use super::{
-    REQUEST_BUDGET,
+    REQUEST_BUDGET, ReadEditionTrackList,
     album_editions::{AlbumEditionTrackListAvailability, ReadAlbumEditionTrackList},
     editions::EditionRead,
 };
@@ -18,6 +18,14 @@ use uuid::Uuid;
 pub struct FindAlbumTrackAudio {
     pub recording_id: String,
     pub association_id: String,
+    pub release_group_id: String,
+    pub edition_id: String,
+    pub occurrence_id: String,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FindArtistTrackAudio {
     pub release_group_id: String,
     pub edition_id: String,
     pub occurrence_id: String,
@@ -85,6 +93,50 @@ impl ArtistCatalog {
         request: FindAlbumTrackAudio,
         cancelled: impl Future<Output = ()> + Send,
     ) -> Result<AlbumTrackAudio> {
+        self.bounded_track_audio(actor, cancelled, |permit| async move {
+            self.find_album_track_audio(actor, release, request, &permit)
+                .await
+        })
+        .await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_track_audio", request_id = %Uuid::new_v4()))]
+    pub async fn find_artist_track_audio_until(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        association: &str,
+        request: FindArtistTrackAudio,
+        cancelled: impl Future<Output = ()> + Send,
+    ) -> Result<AlbumTrackAudio> {
+        self.bounded_track_audio(actor, cancelled, |permit| async move {
+            let read = self
+                .read_edition(
+                    actor,
+                    recording,
+                    association,
+                    ReadEditionTrackList {
+                        release_group_id: request.release_group_id,
+                        edition_id: request.edition_id,
+                    },
+                )
+                .await?;
+            self.audio_for_occurrence(actor, read, &request.occurrence_id, &permit)
+                .await
+        })
+        .await
+    }
+
+    async fn bounded_track_audio<Search, Searching>(
+        &self,
+        actor: &Actor,
+        cancelled: impl Future<Output = ()> + Send,
+        search: Search,
+    ) -> Result<AlbumTrackAudio>
+    where
+        Search: FnOnce(AudioPermit) -> Searching,
+        Searching: Future<Output = Result<AlbumTrackAudio>>,
+    {
         let started = Instant::now();
         let permit = match self.catalog.admit_catalog_audio(actor).await {
             Ok(permit) => permit,
@@ -95,7 +147,7 @@ impl ArtistCatalog {
         let result = tokio::select! {
             biased;
             _ = &mut cancelled => Ok(AlbumTrackAudio::Cancelled),
-            result = tokio::time::timeout(REQUEST_BUDGET, self.find_album_track_audio(actor, release, request, &permit)) => {
+            result = tokio::time::timeout(REQUEST_BUDGET, search(permit)) => {
                 result.unwrap_or(Ok(AlbumTrackAudio::Unavailable))
             }
         };
@@ -105,7 +157,7 @@ impl ArtistCatalog {
                 .map(AlbumTrackAudio::outcome)
                 .unwrap_or_else(|error| error.code()),
             elapsed_ms = started.elapsed().as_millis() as u64,
-            "Album track audio search completed"
+            "Catalog track audio search completed"
         );
         result
     }
@@ -130,13 +182,24 @@ impl ArtistCatalog {
                 },
             )
             .await?;
+        self.audio_for_occurrence(actor, read, &occurrence, permit)
+            .await
+    }
+
+    async fn audio_for_occurrence(
+        &self,
+        actor: &Actor,
+        read: EditionRead,
+        occurrence: &str,
+        permit: &AudioPermit,
+    ) -> Result<AlbumTrackAudio> {
         let edition = match read {
             EditionRead::Available(found) => found.edition,
             EditionRead::Missing(status) => {
                 return Ok(AlbumEditionTrackListAvailability::from(status).into());
             }
         };
-        let track = catalog_track(&edition, &occurrence).ok_or(Error::NotFound)?;
+        let track = catalog_track(&edition, occurrence).ok_or(Error::NotFound)?;
         let found = match self
             .catalog
             .find_audio_for_catalog_track(actor, track, permit)
