@@ -13,3 +13,16 @@ WHEN NOT (EXISTS (SELECT 1 FROM correction_erasure_scopes s WHERE s.kind='accoun
     OR EXISTS (SELECT 1 FROM correction_erasure_scopes s WHERE s.kind='recording' AND s.subject=(SELECT a.recording_id FROM recording_artist_associations a WHERE a.id=old.association_id))) BEGIN
     SELECT RAISE(ABORT,'Artist association recording identifier match provenance must be retained');
 END;
+
+-- Recordings whose tags carry a recording identifier are examined again, and their accounts walk
+-- again, even when an earlier pass settled them without it.
+INSERT INTO artist_matching_jobs(user_id)
+    SELECT DISTINCT m.user_id FROM recording_musicbrainz_observations t
+    JOIN recordings r ON r.id=t.recording_id AND r.metadata_observation_id=t.observation_id
+    JOIN library_members m ON m.library_id=r.library_id
+    WHERE t.entity='recording'
+    ON CONFLICT(user_id) DO UPDATE SET rerun=1;
+DELETE FROM artist_provider_checks WHERE EXISTS (
+    SELECT 1 FROM recording_musicbrainz_observations t
+    JOIN recordings r ON r.id=t.recording_id AND r.metadata_observation_id=t.observation_id
+    WHERE t.entity='recording' AND r.id=artist_provider_checks.recording_id);
