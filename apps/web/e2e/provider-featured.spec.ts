@@ -140,6 +140,14 @@ test("Discover shows music featured by a connected service and every card opens 
     await page.goto("/discover");
     await expect(shelf.getByRole("listitem")).toHaveCount(2);
     expect(fixture.featuredRequests().length).toBe(asked.length);
+    await expect
+      .poll(() =>
+        shelf
+          .locator("img")
+          .first()
+          .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
 
     expect((await automation(false)).ok()).toBe(true);
     await page.goto("/discover");
