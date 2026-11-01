@@ -102,7 +102,9 @@ test("a probe that fails or returns another content type keeps the generic messa
   const html = await playing();
   await refuse(html.media, MEDIA_ERR_SRC_NOT_SUPPORTED);
   await vi.waitFor(() =>
-    expect(html.player.snapshot().error).toBe("Audio is unavailable for first."),
+    expect(html.player.snapshot().error).toBe(
+      "Audio is unavailable for first.",
+    ),
   );
 });
 
