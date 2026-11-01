@@ -237,7 +237,7 @@ impl MusicBrainzClient {
                 return Err(Error::InvalidLookupRequest);
             }
             match self.transport.recording_credits(id).await {
-                Ok(bytes) => identifiers::credited_recording(&bytes, id).map(Some),
+                Ok(bytes) => identifiers::credited_recording(&bytes).map(Some),
                 Err(Error::Status(404)) => Ok(None),
                 Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
                 Err(error) => Err(error),

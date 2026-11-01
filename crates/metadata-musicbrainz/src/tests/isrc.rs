@@ -286,7 +286,7 @@ async fn a_recording_lookup_returns_its_distinct_credited_artists_without_loggin
 }
 
 #[tokio::test]
-async fn an_unknown_recording_is_none_an_outage_is_typed_and_a_different_recording_is_invalid() {
+async fn an_unknown_recording_is_none_an_outage_is_typed_and_a_merged_one_is_answered() {
     let mut missing = Reply::json(br#"{"error":"Not Found"}"#.to_vec());
     missing.status = StatusCode::NOT_FOUND;
     assert_eq!(recording_artists(missing, RECORDING).await.0.unwrap(), None);
@@ -297,6 +297,17 @@ async fn an_unknown_recording_is_none_an_outage_is_typed_and_a_different_recordi
     assert_eq!(requests.len(), 1);
     assert_eq!(
         recording_artists(single(OTHER_RECORDING, &[ARTIST]), RECORDING)
+            .await
+            .0
+            .unwrap(),
+        Some(IsrcRecording {
+            id: OTHER_RECORDING.into(),
+            artist_ids: vec![ARTIST.into()],
+        }),
+        "A merged identifier is answered with the surviving recording"
+    );
+    assert_eq!(
+        recording_artists(single("not-an-id", &[ARTIST]), RECORDING)
             .await
             .0
             .unwrap_err(),
