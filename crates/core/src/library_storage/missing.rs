@@ -46,7 +46,7 @@ pub(crate) const REFERENCING_TABLES: [&str; 25] = [
 
 /// Tables whose rows belong to the recording itself and leave with it.
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 21] = [
+pub(crate) const REMOVED_TABLES: [&str; 23] = [
     "account_recording_credits",
     "account_source_credits",
     "artist_match_checks",
@@ -57,6 +57,8 @@ pub(crate) const REMOVED_TABLES: [&str; 21] = [
     "metadata_observations",
     "recording_artist_associations",
     "recording_artist_url_observations",
+    "recording_credit_observations",
+    "recording_credited_artist_observations",
     "recording_group_members",
     "recording_group_splits",
     "recording_evidence",
@@ -547,6 +549,45 @@ mod tests {
             kept, 1,
             "the available copy stays and shows as its own card"
         );
+    }
+
+    #[tokio::test]
+    async fn purging_a_recording_forgets_the_credited_artists_its_observations_stated() {
+        let (_directory, hito, _actor, library, _music) = support::library("credits").await;
+        let pool = hito.storage.store.pool.clone();
+        seed(&pool, &library, "gone", 1, false).await;
+        sqlx::query("INSERT INTO metadata_observations(id,recording_id,provider,origin,title,artist,duration_ms) VALUES('observed','gone-00000','owned','provider_response','Seed','Seed',1000)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES('observed','gone-00000','A')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES('observed',0,'gone-00000','A','main')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let removal = hito
+            .storage
+            .purge_expired_missing_recordings()
+            .await
+            .unwrap();
+        assert_eq!(removal.removed, 1);
+        for table in [
+            "recording_credit_observations",
+            "recording_credited_artist_observations",
+            "metadata_observations",
+        ] {
+            let left: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(
+                left, 0,
+                "{table}: rows of a removed recording leave with it"
+            );
+        }
     }
 
     #[tokio::test]

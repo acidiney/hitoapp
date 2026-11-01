@@ -45,9 +45,10 @@ impl Scope<'_> {
     fn account_recordings(&self) -> QueryBuilder<'static, Sqlite> {
         let mut query = QueryBuilder::new(
             "WITH targets AS (SELECT access.user_id, r.library_id, r.id AS recording_id,
-            COALESCE(p.override_artist, r.artist) AS name
+            COALESCE(p.override_artist, credit.credit_label, r.artist) AS name
          FROM recordings r JOIN library_members access ON access.library_id = r.library_id
-         LEFT JOIN personal_recording_metadata p ON p.user_id = access.user_id AND p.recording_id = r.id WHERE 1",
+         LEFT JOIN personal_recording_metadata p ON p.user_id = access.user_id AND p.recording_id = r.id
+         LEFT JOIN recording_credit_observations credit ON credit.observation_id = r.metadata_observation_id WHERE 1",
         );
         self.push_filter(&mut query, Some("access.user_id"));
         query

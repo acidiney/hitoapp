@@ -43,6 +43,7 @@ impl Catalog {
         } else {
             None
         };
+        let credited_artists = super::read_credited_artists(&mut tx, actor, &recording_id).await?;
         let observations =
             history::page(&mut tx, history::Target::Recording(&recording_id), page).await?;
         tx.commit().await?;
@@ -55,6 +56,7 @@ impl Catalog {
             title,
             artist,
             selected_observation,
+            credited_artists,
             observations,
         })
     }

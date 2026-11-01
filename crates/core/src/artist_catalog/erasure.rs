@@ -224,6 +224,8 @@ pub(crate) fn recording_statements(recordings: &str) -> Vec<String> {
             "DELETE FROM recording_artist_association_changes",
             "DELETE FROM recording_artist_associations",
             "DELETE FROM shared_artist_correction_subjects",
+            "DELETE FROM recording_credit_observations",
+            "DELETE FROM recording_credited_artist_observations",
             "DELETE FROM recording_isrc_observations",
             "DELETE FROM recording_artist_url_observations",
             "DELETE FROM recording_musicbrainz_observations",

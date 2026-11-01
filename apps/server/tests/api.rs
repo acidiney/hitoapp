@@ -27,6 +27,9 @@ mod catalog;
 #[path = "api/recording_groups.rs"]
 mod recording_groups;
 
+#[path = "api/credited_artists.rs"]
+mod credited_artists;
+
 #[path = "api/browsing.rs"]
 mod browsing;
 

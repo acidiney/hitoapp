@@ -37,7 +37,14 @@ pub(super) async fn observe(
         tx,
         &observation,
         &binding.recording_id,
-        &details.artist_urls,
+        &crate::metadata::identifying_pages(details),
+    )
+    .await?;
+    crate::metadata::retain_credited_artists(
+        tx,
+        &observation,
+        &binding.recording_id,
+        &details.artists,
     )
     .await?;
     Ok(observation)

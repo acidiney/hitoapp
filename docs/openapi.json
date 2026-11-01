@@ -19729,6 +19729,79 @@
           "name_discography"
         ]
       },
+      "CreditRole": {
+        "type": "string",
+        "enum": [
+          "main",
+          "featured"
+        ]
+      },
+      "CreditedArtist": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "join": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The text that follows this artist in the display credit, such as \" & \" or \" feat. \"."
+          },
+          "name": {
+            "type": "string"
+          },
+          "page_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The artist's canonical page in the same allowlisted form as `artist_urls`."
+          },
+          "provider_artist_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The provider's own identifier for the artist. Hosts keep it as evidence only."
+          },
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreditedArtistView": {
+        "type": "object",
+        "required": [
+          "name",
+          "role",
+          "join",
+          "artist_id"
+        ],
+        "properties": {
+          "artist_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The account's artist page for exactly this name, when one exists."
+          },
+          "join": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          }
+        }
+      },
       "DeleteAccount": {
         "type": "object",
         "required": [
@@ -24390,6 +24463,13 @@
             },
             "description": "Canonical https pages of every credited performer. Hosts may match a lone page to one\nMusicBrainz artist; a provider that cannot name all performers omits the list."
           },
+          "artists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditedArtist"
+            },
+            "description": "The credited artists in the provider's own order, when the provider knows them as a list.\n`artist` stays the display text; hosts that find a list use it instead of splitting text."
+          },
           "attribution": {
             "oneOf": [
               {
@@ -25017,11 +25097,19 @@
           "title",
           "artist",
           "selected_observation",
+          "credited_artists",
           "observations"
         ],
         "properties": {
           "artist": {
             "$ref": "#/components/schemas/TextMetadata"
+          },
+          "credited_artists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditedArtistView"
+            },
+            "description": "The artists the provider credited for the shown text, in its order. Empty for a personal\nartist edit and for credits that were only text."
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationPage"

@@ -74,6 +74,21 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
         .await
         .unwrap();
     }
+    for recording in [erased.recording, kept.recording] {
+        let id = format!("credited-{recording}");
+        for statement in [
+            "INSERT INTO metadata_observations(id,recording_id,provider,origin,title,artist,duration_ms) VALUES(?1,?2,'owned','provider_response','T','A & B',1000)",
+            "INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label) VALUES(?1,?2,'A & B')",
+            "INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role) VALUES(?1,0,?2,'A','main')",
+        ] {
+            sqlx::query(statement)
+                .bind(&id)
+                .bind(recording.to_string())
+                .execute(&mut connection)
+                .await
+                .unwrap();
+        }
+    }
     let genres_before: i64 = sqlx::query_scalar("SELECT count(*) FROM source_genres")
         .fetch_one(&mut connection)
         .await
@@ -114,6 +129,21 @@ async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_
         .await
         .unwrap();
     assert!(foreign.is_empty(), "foreign keys must hold: {foreign:?}");
+    for table in [
+        "recording_credit_observations",
+        "recording_credited_artist_observations",
+    ] {
+        let remaining: Vec<String> =
+            sqlx::query_scalar(&format!("SELECT recording_id FROM {table} ORDER BY 1"))
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(
+            remaining,
+            [kept.recording.to_string()],
+            "{table}: the erased account's recording takes its structured credits with it"
+        );
+    }
     let erased_genres: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM source_genres g JOIN sources s ON s.id = g.source_id WHERE s.recording_id = ?",
     )

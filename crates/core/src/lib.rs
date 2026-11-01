@@ -91,6 +91,7 @@ pub use downloads::{
     PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
 };
 pub use error::{Error, Result};
+pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
     AccountDeletion, Actor, AuthSession, Credentials, DeleteAccount, Identity, Library, LockStatus,
     RemovePin, SetPin, Unlock, User,
@@ -105,9 +106,9 @@ pub use library_storage::{
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
-    InspectedTags, MetadataHistoryQuery, MetadataObservation, MusicBrainzArtistRole,
-    MusicBrainzArtistTag, ObservationOrigin, ObservationPage, ObservedTag, OptionalTextMetadata,
-    RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
+    CreditedArtistView, InspectedTags, MetadataHistoryQuery, MetadataObservation,
+    MusicBrainzArtistRole, MusicBrainzArtistTag, ObservationOrigin, ObservationPage, ObservedTag,
+    OptionalTextMetadata, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio, PlaybackAccess,

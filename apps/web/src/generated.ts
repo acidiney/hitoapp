@@ -3466,6 +3466,25 @@ export interface components {
         };
         /** @enum {string} */
         CreditEvidenceKind: "file_tag_artist_id" | "isrc" | "provider_url" | "name_discography";
+        /** @enum {string} */
+        CreditRole: "main" | "featured";
+        CreditedArtist: {
+            /** @description The text that follows this artist in the display credit, such as " & " or " feat. ". */
+            join?: string | null;
+            name: string;
+            /** @description The artist's canonical page in the same allowlisted form as `artist_urls`. */
+            page_url?: string | null;
+            /** @description The provider's own identifier for the artist. Hosts keep it as evidence only. */
+            provider_artist_id?: string | null;
+            role?: components["schemas"]["CreditRole"];
+        };
+        CreditedArtistView: {
+            /** @description The account's artist page for exactly this name, when one exists. */
+            artist_id: string | null;
+            join: string | null;
+            name: string;
+            role: components["schemas"]["CreditRole"];
+        };
         DeleteAccount: {
             /** @description The account name the administrator saw, so a stale or mistaken request cannot erase a different account. */
             username: string;
@@ -4640,6 +4659,11 @@ export interface components {
              *     MusicBrainz artist; a provider that cannot name all performers omits the list.
              */
             artist_urls?: string[];
+            /**
+             * @description The credited artists in the provider's own order, when the provider knows them as a list.
+             *     `artist` stays the display text; hosts that find a list use it instead of splitting text.
+             */
+            artists?: components["schemas"]["CreditedArtist"][];
             attribution?: components["schemas"]["RecordingAttribution"] | null;
             /** Format: int32 */
             disc_number?: number | null;
@@ -4786,6 +4810,11 @@ export interface components {
         };
         RecordingMetadata: {
             artist: components["schemas"]["TextMetadata"];
+            /**
+             * @description The artists the provider credited for the shown text, in its order. Empty for a personal
+             *     artist edit and for credits that were only text.
+             */
+            credited_artists: components["schemas"]["CreditedArtistView"][];
             observations: components["schemas"]["ObservationPage"];
             recording_id: string;
             selected_observation: components["schemas"]["MetadataObservation"] | null;

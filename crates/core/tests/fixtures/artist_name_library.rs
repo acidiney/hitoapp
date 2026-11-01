@@ -37,6 +37,7 @@ pub struct NameLibrary {
 pub struct Evidence {
     pub isrc: Option<String>,
     pub artist_urls: Vec<String>,
+    pub artists: Vec<Value>,
 }
 
 fn imported(index: usize, credit: &str, title: &str, length: u64, evidence: &Evidence) -> Value {
@@ -44,7 +45,7 @@ fn imported(index: usize, credit: &str, title: &str, length: u64, evidence: &Evi
     json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
         "id": id, "title": title, "artist": credit, "duration_ms": length, "release": null,
         "disc_number": null, "track_number": null, "revision": "v1", "isrc": evidence.isrc,
-        "artist_urls": evidence.artist_urls
+        "artist_urls": evidence.artist_urls, "artists": evidence.artists
     }}})
 }
 

@@ -1,3 +1,4 @@
+mod credited_artists;
 mod history;
 mod isrc;
 mod musicbrainz_ids;
@@ -15,6 +16,9 @@ pub(crate) use recording_fields::{
 };
 pub use types::*;
 
+pub(crate) use credited_artists::{
+    identifying_pages, read as read_credited_artists, retain as retain_credited_artists,
+};
 pub(crate) use isrc::{IsrcOrigin, retain as retain_isrc, retain_artist_pages};
 pub(crate) use musicbrainz_ids::retain_tag_identities;
 pub(crate) use projection::release as refresh_release;
