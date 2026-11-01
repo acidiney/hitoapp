@@ -13,6 +13,7 @@ import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import { useArtistReview } from "../hooks/useArtistReview";
 import { useSharedUnlink } from "../hooks/useSharedUnlink";
 import ArtistDiscography from "./ArtistDiscography";
+import ArtistPhoto from "./ArtistPhoto";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
 import SharedUnlink from "./SharedUnlink";
@@ -197,6 +198,7 @@ export default function ArtistReview({
           {workflow.results && (
             <ArtistCandidates
               candidates={workflow.results.page.items}
+              photos={workflow.provider?.value.kind === "builtin_musicbrainz"}
               disabled={workflow.pending !== null}
               onReview={workflow.previewCandidate}
             />
@@ -321,12 +323,24 @@ function ArtistSummary({
   );
 }
 
+function candidateFacts(candidate: Schema<"ArtistSearchCandidate">) {
+  return [
+    candidate.kind ? kinds[candidate.kind] : "Type not provided",
+    candidate.country,
+    candidate.begin_year ? `${candidate.begin_year}–` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function ArtistCandidates({
   candidates,
+  photos,
   disabled,
   onReview,
 }: {
   candidates: Schema<"ArtistSearchCandidate">[];
+  photos: boolean;
   disabled: boolean;
   onReview(candidate: Schema<"ArtistSearchCandidate">): Promise<void>;
 }) {
@@ -334,8 +348,16 @@ function ArtistCandidates({
     <ul className="rd-rows" aria-label="Artist search results">
       {candidates.map((candidate) => (
         <li className="rd-row rd-candidate" key={candidate.artist.id}>
+          <span className="rd-candidate-photo">
+            <ArtistPhoto
+              artist={candidate.artist.id}
+              identity={candidate.artist.id}
+              name={candidate.artist.name}
+              enabled={photos}
+            />
+          </span>
           <h3>{candidate.artist.name}</h3>
-          <p>{candidate.kind ? kinds[candidate.kind] : "Type not provided"}</p>
+          <p>{candidateFacts(candidate)}</p>
           {candidate.disambiguation && <p>{candidate.disambiguation}</p>}
           <Button
             type="button"

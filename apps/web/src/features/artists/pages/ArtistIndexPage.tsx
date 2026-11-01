@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { Link, usePage } from "@inertiajs/react";
 
 import Artwork from "../../artwork/components/Artwork";
+import ArtistPhoto from "../components/ArtistPhoto";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -47,10 +48,17 @@ export default function ArtistIndexPage({
                 key={group.id}
                 href={`/artist-groups/${encodeURIComponent(group.id)}${suffix}`}
               >
-                <Artwork
-                  recording={group.name.recording_id}
-                  fallback={{ id: group.id, title: group.name.value }}
-                />
+                <ArtistPhoto
+                  artist={group.provider_artist_id}
+                  identity={group.id}
+                  name={group.name.value}
+                  enabled={group.provider.kind === "builtin_musicbrainz"}
+                >
+                  <Artwork
+                    recording={group.name.recording_id}
+                    fallback={{ id: group.id, title: group.name.value }}
+                  />
+                </ArtistPhoto>
                 <h2>{group.name.value}</h2>
                 <small>
                   {group.recording_count}{" "}

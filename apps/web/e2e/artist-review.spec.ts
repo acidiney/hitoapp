@@ -38,6 +38,11 @@ test("an account reviews a namesake through its chosen metadata provider without
   page.setDefaultTimeout(10_000);
   page.setDefaultNavigationTimeout(15_000);
   let stage = "fresh disposable server";
+  const photoRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/cover-art/artist/"))
+      photoRequests.push(request.url());
+  });
   let checks: Record<string, boolean | number> = {};
   let failed = false;
   let provider: Awaited<ReturnType<typeof artistReviewProvider>> | null = null;
@@ -289,6 +294,14 @@ test("an account reviews a namesake through its chosen metadata provider without
       exact: true,
     });
     await expect(results.getByRole("listitem")).toHaveCount(2);
+    await expect(
+      results.locator(".rd-candidate-photo .fallback-cover"),
+    ).toHaveCount(2);
+    await expect(results.locator(".rd-candidate-photo img")).toHaveCount(0);
+    await expect(
+      results.locator(".rd-candidate-photo .fallback-cover-title").first(),
+    ).not.toBeEmpty();
+    expect(photoRequests).toEqual([]);
     const second = results
       .getByRole("listitem")
       .filter({ hasText: owned.candidates[1].disambiguation });

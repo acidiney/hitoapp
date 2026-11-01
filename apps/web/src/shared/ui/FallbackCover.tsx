@@ -6,11 +6,13 @@ export default function FallbackCover({
   title,
   artist,
   inline = true,
+  monogram,
 }: {
   id: string;
   title: string;
   artist?: string | null;
   inline?: boolean;
+  monogram?: string;
 }) {
   const style = coverStyle(id);
   const colours = {
@@ -29,9 +31,9 @@ export default function FallbackCover({
       {artist && <span className="fallback-cover-artist">{artist}</span>}
       <span
         className="fallback-cover-title"
-        data-text={inline ? undefined : title}
+        data-text={inline || monogram ? undefined : title}
       >
-        {inline ? title : null}
+        {monogram ?? (inline ? title : null)}
       </span>
     </div>
   );
