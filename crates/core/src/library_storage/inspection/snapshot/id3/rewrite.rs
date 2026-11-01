@@ -56,8 +56,6 @@ pub(super) fn span(header: &[u8; 10]) -> Option<u64> {
     Some(u64::from(syncsafe(&header[6..10])?) + 10 + footer)
 }
 
-/// Returns the replacement for a tag that contains compressed frames, with the
-/// same length as the original, or `None` when the tag should stay untouched.
 pub(super) fn normalise(
     tag: &[u8],
     report: &mut Report,

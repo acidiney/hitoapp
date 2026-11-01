@@ -56,8 +56,6 @@ pub enum WatchBackend {
     Polling,
 }
 
-/// Monotonic per-watcher event counts, readable without locks so tests and
-/// diagnostics can wait on real progress instead of sleeping.
 #[derive(Debug, Default)]
 pub struct WatchCounters {
     pub(super) relevant: AtomicU64,

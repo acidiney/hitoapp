@@ -227,8 +227,6 @@ fn classify(root: &Path, event: &notify::Event) -> Verdict {
     }
 }
 
-/// Decides whether a changed path can alter the library. `is_dir` is `None`
-/// when the path no longer exists, so removals and renames stay conservative.
 fn matters(path: &Path, is_dir: Option<bool>) -> bool {
     match is_dir {
         Some(true) => true,
@@ -266,8 +264,6 @@ const NOISE_EXTENSIONS: [&str; 20] = [
 ];
 const NOISE_NAMES: [&str; 3] = [".DS_Store", "Thumbs.db", "desktop.ini"];
 
-/// A vanished path is noise only when its name says so; anything else might
-/// have been a directory full of music.
 fn known_noise(path: &Path) -> bool {
     let name = path
         .file_name()

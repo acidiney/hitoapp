@@ -31,11 +31,6 @@ impl Endian {
     }
 }
 
-/// Prepares ID3v2 tags in the private media copy for FFmpeg. Compressed text
-/// frames become plain frames of equal total length, and frames that break the
-/// limits are dropped. In RIFF files with an ID3 chunk, the chunk is renamed to
-/// `id3 ` and `LIST`/`INFO` chunks to `JUNK`, because FFmpeg ignores the ID3
-/// tag when an INFO list exists. The ID3 tag therefore takes precedence.
 pub(super) fn neutralise(file: &mut File, control: &Control) -> Result<Report> {
     let mut report = Report::default();
     scan(file, control, &mut report)?;

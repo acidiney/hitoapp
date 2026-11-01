@@ -3,7 +3,6 @@ use sqlx::{Sqlite, Transaction};
 
 const MAX_GENRES_PER_SOURCE: usize = 8;
 
-/// Replaces the genres of a source with the ones named by its current genre tag.
 pub(super) async fn retain(
     tx: &mut Transaction<'_, Sqlite>,
     source: &str,

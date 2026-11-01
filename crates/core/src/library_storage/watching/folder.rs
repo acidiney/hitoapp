@@ -147,9 +147,6 @@ impl LibraryStorage {
         }
     }
 
-    /// Returns false when watching should end. Waits for any running scan
-    /// with plain reads, queues at most one follow-up, retries a failed scan a
-    /// few times and backs off when the request itself fails.
     async fn request_when_idle(
         &self,
         folder: &Folder,

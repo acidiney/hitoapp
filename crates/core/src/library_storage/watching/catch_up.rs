@@ -7,9 +7,6 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Semaphore;
 
 impl LibraryStorage {
-    /// Cheap comparison of the folder's files with what the last scan indexed:
-    /// names, sizes and modification times only, never checksums. Files that
-    /// changed while no watcher was running are found here.
     pub(super) async fn changed_since_last_scan(
         &self,
         folder: &Folder,

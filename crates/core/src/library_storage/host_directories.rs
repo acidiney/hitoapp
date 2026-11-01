@@ -42,8 +42,6 @@ impl Guard {
 }
 
 impl LibraryStorage {
-    /// Reports whether trusted host code's folder already lies inside a grant.
-    /// It never grants anything.
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn find_host_directory(
         &self,
@@ -76,8 +74,6 @@ impl LibraryStorage {
         .map_err(|_| unavailable())?
     }
 
-    /// Maps a folder chosen by trusted host code to a shared-directory reference,
-    /// granting it when no existing grant contains it. Web input never reaches this.
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn grant_host_directory(&self, actor: &Actor, path: &Path) -> Result<DirectoryRef> {
         actor.require_admin()?;

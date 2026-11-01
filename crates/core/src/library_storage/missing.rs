@@ -6,16 +6,12 @@ use std::time::Instant;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-/// How long every source of a library recording must have been unavailable before maintenance
-/// removes the recording.
 pub(crate) const RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;
 const BATCH: usize = 50;
 const MAINTENANCE_LIMIT: i64 = 500;
 const ADMINISTRATOR_LIMIT: i64 = 2000;
 const REPORT_LIMIT: i64 = 100_000;
 
-/// Tables whose rows mean an account still uses the recording. Any row, including an unlike or a
-/// removed playlist entry, keeps the recording.
 pub(crate) const REFERENCING_TABLES: [&str; 25] = [
     "likes",
     "listening_progress",
@@ -44,7 +40,6 @@ pub(crate) const REFERENCING_TABLES: [&str; 25] = [
     "artist_identity_change_items",
 ];
 
-/// Tables whose rows belong to the recording itself and leave with it.
 #[cfg(test)]
 pub(crate) const REMOVED_TABLES: [&str; 23] = [
     "account_recording_credits",
@@ -74,11 +69,8 @@ pub(crate) const REMOVED_TABLES: [&str; 23] = [
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, ToSchema)]
 pub struct MissingRecordingsRemoval {
-    /// Recordings removed by this call.
     pub removed: i64,
-    /// Recordings whose files are gone but that an account still uses, which stay.
     pub kept_referenced: i64,
-    /// More removable recordings remain; run the action again.
     pub more: bool,
 }
 
@@ -126,8 +118,6 @@ fn unreferenced() -> String {
 }
 
 impl LibraryStorage {
-    /// Removes the library recordings whose files are all gone, immediately and whatever their
-    /// age. Recordings an account still uses are kept and counted.
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(operation = "missing_recordings_remove", request_id = %Uuid::new_v4(), account_id = actor.id(), library_id = library))]
     pub async fn remove_missing_recordings(
         &self,
@@ -167,8 +157,6 @@ impl LibraryStorage {
         .await
     }
 
-    /// One bounded maintenance pass: removes library recordings whose every file has been gone
-    /// longer than the retention window and that no account uses.
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(operation = "missing_recordings_purge", request_id = %Uuid::new_v4()))]
     pub async fn purge_expired_missing_recordings(&self) -> Result<MissingRecordingsRemoval> {
         self.purge(

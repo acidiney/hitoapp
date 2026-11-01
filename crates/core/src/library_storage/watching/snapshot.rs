@@ -15,8 +15,6 @@ pub(super) struct Visit<'a> {
     pub modified_secs: Option<i64>,
 }
 
-/// Visits supported audio files inside the granted root without following
-/// links. Returns true when the file cap stopped the walk early.
 pub(super) fn walk(root: &Root, max_files: u64, mut visit: impl FnMut(Visit<'_>)) -> bool {
     let Ok(entries) = root.directory.entries() else {
         return false;
