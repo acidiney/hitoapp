@@ -8,6 +8,7 @@ mod content;
 mod curated;
 mod encoded_size;
 mod feature_clause;
+mod featured;
 mod isrc;
 mod lyrics;
 mod metadata;
@@ -56,6 +57,10 @@ pub use curated::{
     admit_curated_catalog,
 };
 pub use feature_clause::{bracketed_feature_names, credit_feature_names};
+pub use featured::{
+    FEATURED_PATH, FeaturedItem, FeaturedKind, FeaturedPage, FeaturedRequest, MAX_FEATURED_BYTES,
+    MAX_FEATURED_ITEMS,
+};
 pub use isrc::normalize_isrc;
 pub use lyrics::{
     LYRICS_CAPABILITIES_PATH, LYRICS_PATH, LYRICS_VERSION, LyricsCapabilities, LyricsRequest,
@@ -122,6 +127,7 @@ pub enum Capability {
     Dashboard,
     Lyrics,
     BackingTracks,
+    Featured,
 }
 
 impl Manifest {
@@ -153,6 +159,11 @@ impl Manifest {
             && !self.capabilities.contains(&Capability::Sources)
         {
             return Err("Source preparation requires the sources capability".into());
+        }
+        if self.capabilities.contains(&Capability::Featured)
+            && !self.capabilities.contains(&Capability::Playlists)
+        {
+            return Err("Featured items need the playlists capability to open".into());
         }
         if let Some(authorization) = &self.authorization {
             authorization.validate().map_err(str::to_owned)?;

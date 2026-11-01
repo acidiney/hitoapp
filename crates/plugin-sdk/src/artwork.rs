@@ -7,6 +7,7 @@ pub const ARTWORK_PATH: &str = "v1/artwork";
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArtworkEntity {
+    Featured,
     Playlist,
     Recording,
     Release,

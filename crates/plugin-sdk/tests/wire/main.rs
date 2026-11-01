@@ -7,6 +7,7 @@ mod backing_tracks_validation;
 mod content_policy;
 mod contract;
 mod curated_catalog;
+mod featured;
 mod metadata;
 mod preparation;
 mod recording_artist_urls;
