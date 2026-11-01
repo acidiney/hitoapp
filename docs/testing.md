@@ -68,6 +68,7 @@ All default specs share one `e2e-server` and one database. Its data directory is
 - Global setup is skipped when any `HITO_*_E2E=1` gate variable is set. Those gated specs run on their own and use their own sign-in.
 - The server allows 10 sign-in or setup attempts per minute per address. The default run uses about 9. A new default-run spec should reuse the shared session, or create accounts through the API, instead of adding UI sign-ins.
 - Browser fixtures own their images in `apps/web/e2e/fixtures/images`.
+- A spec that injects a provider audio failure must not assert how many range requests the browser sends. Chromium sends one or two requests after a seek, and the count changes with load. `source-attachment.spec.ts` requires every failed audio response to be the injected 502 and at least one to occur.
 - The gated specs have their own Playwright configs in `apps/web`, registered as npm scripts: `e2e:collection-artwork`, `e2e:community-ranking` and `e2e:lyric-provider-choice`. `make e2e E2E_SCRIPT=<script>` runs one against the isolated `e2e-server`. The default `playwright.config.ts` ignores their specs. Each gated run needs its own fixtures and, for the first two, an `/evidence` output directory, so the scripts in `scripts/artwork`, `scripts/community/rankings` and `scripts/lyrics/provider-choice` remain the supported way to run them.
 
 ## Fake plugins
