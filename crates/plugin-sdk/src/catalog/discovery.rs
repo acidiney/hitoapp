@@ -42,6 +42,10 @@ pub struct ArtistSearchCandidate {
     pub artist: CatalogArtistRef,
     pub kind: Option<CatalogArtistKind>,
     pub disambiguation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub begin_year: Option<u16>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,7 +89,15 @@ impl ArtistSearchRequest {
 impl ArtistSearchCandidate {
     pub fn validate(&self) -> Result<(), &'static str> {
         self.artist.validate()?;
-        optional(self.disambiguation.as_deref(), 2048)
+        optional(self.disambiguation.as_deref(), 2048)?;
+        optional(self.country.as_deref(), 8)?;
+        if self
+            .begin_year
+            .is_some_and(|year| !(1000..=2999).contains(&year))
+        {
+            return Err("Use a four-digit artist start year");
+        }
+        Ok(())
     }
 }
 

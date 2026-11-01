@@ -135,7 +135,7 @@ impl CoverArtClient {
                     }
                 }
             }
-            result = self.read(response).await;
+            result = read_image(response).await;
             break;
         }
         tracing::debug!(
@@ -164,55 +164,6 @@ impl CoverArtClient {
                 .is_some_and(|host| host == "archive.org" || host.ends_with(".archive.org"))
     }
 
-    async fn read(&self, mut response: reqwest::Response) -> Result<Option<CoverArt>, Error> {
-        let status = response.status();
-        if status == reqwest::StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-        if !status.is_success() {
-            return Err(Error::Status(status.as_u16()));
-        }
-        if response
-            .headers()
-            .get("content-encoding")
-            .is_some_and(|value| value != "identity")
-        {
-            return Err(Error::InvalidResponse);
-        }
-        let content_type = match response
-            .headers()
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.split(';').next())
-            .map(|value| value.trim().to_ascii_lowercase())
-            .as_deref()
-        {
-            Some("image/jpeg") => "image/jpeg",
-            Some("image/png") => "image/png",
-            _ => return Err(Error::InvalidResponse),
-        };
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_COVER_BYTES as u64)
-        {
-            return Err(Error::ResponseTooLarge);
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
-            if chunk.len() > MAX_COVER_BYTES - bytes.len() {
-                return Err(Error::ResponseTooLarge);
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        if bytes.is_empty() {
-            return Err(Error::InvalidResponse);
-        }
-        Ok(Some(CoverArt {
-            content_type,
-            bytes,
-        }))
-    }
-
     async fn wait_for_start(&self) {
         let mut next_start = self.next_start.lock().await;
         if let Some(next_start) = *next_start {
@@ -220,4 +171,53 @@ impl CoverArtClient {
         }
         *next_start = Some(Instant::now() + Duration::from_secs(1));
     }
+}
+
+pub(crate) async fn read_image(mut response: reqwest::Response) -> Result<Option<CoverArt>, Error> {
+    let status = response.status();
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    if !status.is_success() {
+        return Err(Error::Status(status.as_u16()));
+    }
+    if response
+        .headers()
+        .get("content-encoding")
+        .is_some_and(|value| value != "identity")
+    {
+        return Err(Error::InvalidResponse);
+    }
+    let content_type = match response
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("image/jpeg") => "image/jpeg",
+        Some("image/png") => "image/png",
+        _ => return Err(Error::InvalidResponse),
+    };
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_COVER_BYTES as u64)
+    {
+        return Err(Error::ResponseTooLarge);
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
+        if chunk.len() > MAX_COVER_BYTES - bytes.len() {
+            return Err(Error::ResponseTooLarge);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if bytes.is_empty() {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(Some(CoverArt {
+        content_type,
+        bytes,
+    }))
 }

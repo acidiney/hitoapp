@@ -62,6 +62,17 @@ impl Transport {
         self.json(endpoint, MAX_PROFILE_BODY_BYTES).await
     }
 
+    pub(super) async fn artist_links(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("artist/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint
+            .query_pairs_mut()
+            .extend_pairs([("fmt", "json"), ("inc", "url-rels")]);
+        self.json(endpoint, MAX_PROFILE_BODY_BYTES).await
+    }
+
     pub(super) async fn release_groups(
         &self,
         artist_id: &str,

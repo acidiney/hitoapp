@@ -1,3 +1,4 @@
+mod artist_image;
 mod client;
 mod cover_art;
 mod discography;
@@ -9,6 +10,7 @@ mod projection;
 mod search;
 mod transport;
 
+pub use artist_image::ArtistImageClient;
 pub use client::MusicBrainzClient;
 pub use cover_art::{CoverArt, CoverArtClient, CoverKind};
 pub use error::Error;

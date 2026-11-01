@@ -301,6 +301,8 @@ fn escaped_candidate_pages_accept_exactly_64_kib_and_reject_one_more_valid_byte(
                 },
                 kind: None,
                 disambiguation: Some("\\".repeat(600)),
+                country: None,
+                begin_year: None,
             })
             .collect(),
         total_count: None,

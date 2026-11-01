@@ -306,3 +306,51 @@ pub(super) fn isrc_recordings(bytes: &[u8], isrc: &str) -> Result<Vec<IsrcRecord
         })
         .collect()
 }
+
+#[derive(Deserialize)]
+struct ArtistLinks {
+    id: String,
+    #[serde(default)]
+    relations: Vec<LinkRelation>,
+}
+
+#[derive(Deserialize)]
+struct LinkRelation {
+    #[serde(rename = "type")]
+    kind: String,
+    url: Option<LinkUrl>,
+}
+
+#[derive(Deserialize)]
+struct LinkUrl {
+    resource: String,
+}
+
+pub(super) fn wikidata_entity(bytes: &[u8], artist: &str) -> Result<Option<String>, Error> {
+    let links: ArtistLinks = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    if links.id != artist || links.relations.len() > 1024 {
+        return Err(Error::InvalidLookup);
+    }
+    Ok(links
+        .relations
+        .into_iter()
+        .filter(|relation| relation.kind == "wikidata")
+        .filter_map(|relation| relation.url)
+        .find_map(|url| entity_of(&url.resource)))
+}
+
+fn entity_of(resource: &str) -> Option<String> {
+    let rest = resource
+        .strip_prefix("https://www.wikidata.org/wiki/")
+        .or_else(|| resource.strip_prefix("http://www.wikidata.org/wiki/"))
+        .or_else(|| resource.strip_prefix("https://www.wikidata.org/entity/"))
+        .or_else(|| resource.strip_prefix("http://www.wikidata.org/entity/"))?;
+    valid_entity(rest).then(|| rest.to_owned())
+}
+
+pub(crate) fn valid_entity(entity: &str) -> bool {
+    let digits = entity.strip_prefix('Q').unwrap_or_default();
+    (1..=16).contains(&digits.len())
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && !digits.starts_with('0')
+}

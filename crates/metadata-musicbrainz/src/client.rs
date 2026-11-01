@@ -315,6 +315,35 @@ impl MusicBrainzClient {
         result
     }
 
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_links", request_id = tracing::field::Empty))]
+    pub async fn artist_wikidata(&self, id: &str) -> Result<Option<String>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::canonical_artist(id) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.artist_links(id).await {
+                Ok(bytes) => identifiers::wikidata_entity(&bytes, id),
+                Err(Error::Status(404)) => Ok(None),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(Some(_)) => "found",
+                Ok(None) => "absent",
+                Err(error) => error.code(),
+            },
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz artist links completed"
+        );
+        result
+    }
+
     #[tracing::instrument(level = "info", skip_all, fields(operation = "url_lookup", request_id = tracing::field::Empty))]
     pub async fn artists_by_url(&self, resource: &str) -> Result<Vec<String>, Error> {
         let started = Instant::now();

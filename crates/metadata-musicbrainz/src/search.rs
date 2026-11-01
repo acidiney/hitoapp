@@ -25,6 +25,28 @@ struct Artist {
     kind: Option<String>,
     disambiguation: Option<String>,
     country: Option<String>,
+    #[serde(rename = "life-span")]
+    life_span: Option<LifeSpan>,
+}
+
+#[derive(Deserialize)]
+struct LifeSpan {
+    begin: Option<String>,
+}
+
+impl LifeSpan {
+    fn year(&self) -> Option<u16> {
+        let begin = self.begin.as_deref()?;
+        let year = begin.get(..4)?;
+        if !year.bytes().all(|byte| byte.is_ascii_digit())
+            || begin.len() > 4 && begin.as_bytes()[4] != b'-'
+        {
+            return None;
+        }
+        year.parse()
+            .ok()
+            .filter(|year| (1000..=2999).contains(year))
+    }
 }
 
 #[derive(Deserialize)]
@@ -95,8 +117,8 @@ pub(super) fn name_search(bytes: &[u8]) -> Result<NameSearch, Error> {
                 return Err(Error::InvalidSearch);
             }
             previous = score;
-            let country = artist.country.clone().filter(|code| !code.is_empty());
             let candidate = artist.into_candidate()?;
+            let country = candidate.country.clone();
             Ok(NameCandidate {
                 id: candidate.artist.id,
                 name: candidate.artist.name,
@@ -222,6 +244,10 @@ impl Artist {
             },
             kind: self.kind.as_deref().and_then(projection::artist_kind),
             disambiguation: self.disambiguation.filter(|value| !value.is_empty()),
+            country: self
+                .country
+                .filter(|value| !value.is_empty() && value.len() <= 8),
+            begin_year: self.life_span.as_ref().and_then(LifeSpan::year),
         };
         candidate.validate().map_err(|_| Error::InvalidSearch)?;
         Ok(candidate)
@@ -263,5 +289,30 @@ mod tests {
             found.items[1].country, None,
             "An empty country is not stated"
         );
+    }
+
+    #[test]
+    fn a_candidate_states_its_country_and_the_year_its_life_span_began() {
+        let page = br#"{"count":4,"offset":0,"artists":[
+            {"id":"11111111-1111-4111-8111-111111111111","name":"A","score":100,
+             "country":"GB","life-span":{"begin":"2008-04-20"}},
+            {"id":"22222222-2222-4222-8222-222222222222","name":"B","score":99,
+             "life-span":{"begin":"1971"}},
+            {"id":"33333333-3333-4333-8333-333333333333","name":"C","score":98,
+             "country":"","life-span":{"begin":"20x8"}},
+            {"id":"44444444-4444-4444-8444-444444444444","name":"D","score":97,
+             "life-span":{"begin":null}}]}"#;
+        let found = name_search(page).unwrap();
+        assert_eq!(found.items[0].country.as_deref(), Some("GB"));
+        let request = ArtistSearchRequest {
+            query: "x".into(),
+            cursor: None,
+            snapshot: None,
+            limit: 20,
+        };
+        let candidates = super::page(page, &request, 0).unwrap().items;
+        let started: Vec<Option<u16>> = candidates.iter().map(|item| item.begin_year).collect();
+        assert_eq!(started, vec![Some(2008), Some(1971), None, None]);
+        assert_eq!(candidates[2].country, None);
     }
 }

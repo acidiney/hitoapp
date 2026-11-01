@@ -100,6 +100,8 @@ fn oversized_artist_search_validation_bounds_its_largest_allocation_request() {
                 },
                 kind: None,
                 disambiguation: Some("\\".repeat(2048)),
+                country: None,
+                begin_year: None,
             })
             .collect(),
         total_count: Some(20),
