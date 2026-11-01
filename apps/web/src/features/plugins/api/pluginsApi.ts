@@ -37,6 +37,23 @@ export const pluginsApi = {
       },
     );
   },
+  async openPlaylist(
+    account: string,
+    installation: string,
+    body: Schema<"ImportProviderPlaylist">,
+    signal: AbortSignal,
+  ): Promise<Schema<"OpenedProviderPlaylist">> {
+    return requestJson<Schema<"OpenedProviderPlaylist">>(
+      `/plugins/${part(installation)}/playlists/open`,
+      {
+        action: "playlists.open",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+  },
   async adopt(
     account: string,
     installation: string,

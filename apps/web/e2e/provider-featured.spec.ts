@@ -109,6 +109,15 @@ test("Discover shows music featured by a connected service and every card opens 
       `${fixture.prefix} morning mix`,
     );
 
+    await play.click();
+    await expect(page.getByRole("status")).toContainText("Playing");
+    const again: { name: string }[] = await (
+      await page.request.get("/api/v1/playlists")
+    ).json();
+    expect(
+      again.filter((item) => item.name === `${fixture.prefix} morning mix`),
+    ).toHaveLength(1);
+
     await shelf
       .getByRole("button", { name: `Open ${fixture.prefix} fresh album` })
       .click();

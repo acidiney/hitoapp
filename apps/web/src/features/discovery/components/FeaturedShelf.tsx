@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { featuredApi } from "../api/featuredApi";
@@ -20,14 +20,30 @@ function meta(entry: Schema<"FeaturedEntry">): string {
   return `${kind} · ${entry.item_count} ${entry.item_count === 1 ? "track" : "tracks"}`;
 }
 
+const COVER_RETRY_MS = 1000;
+
 function FeaturedCover({ entry }: { entry: Schema<"FeaturedEntry"> }) {
   const url = featuredApi.artworkUrl(entry);
+  const [attempt, setAttempt] = useState(0);
+  const [waiting, setWaiting] = useState(false);
   const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(() => {
+      setAttempt((value) => value + 1);
+      setWaiting(false);
+    }, COVER_RETRY_MS);
+    return () => clearTimeout(timer);
+  }, [waiting]);
+  function missed() {
+    if (attempt === 0) setWaiting(true);
+    else setFailed(true);
+  }
   return (
     <>
       <FallbackCover id={entry.id} title={entry.title} inline={false} />
-      {url && !failed && (
-        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} />
+      {url && !failed && !waiting && (
+        <img key={attempt} src={url} alt="" loading="lazy" onError={missed} />
       )}
     </>
   );

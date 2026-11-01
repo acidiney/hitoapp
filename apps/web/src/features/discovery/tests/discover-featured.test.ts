@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -54,6 +55,7 @@ const entry = (
   reference: `https://provider.example/playlist/${id}`,
   artwork_id: `art-${id}`,
   item_count: 12,
+  existing_playlist_id: null,
   ...extra,
 });
 
@@ -86,9 +88,13 @@ function stub(
       if (shelf instanceof Error) throw shelf;
       return shelf instanceof Response ? shelf : Response.json(shelf);
     }
-    if (url === "/api/v1/plugins/install-1/playlists/import")
+    if (url === "/api/v1/plugins/install-1/playlists/open")
       return importStatus === 200
-        ? Response.json({ request_id: body.request_id, playlist_id: "pl-1" })
+        ? Response.json({
+            request_id: body.request_id,
+            playlist_id: "pl-1",
+            reused: false,
+          })
         : Response.json(
             { error: "The provider is unavailable" },
             { status: importStatus },
@@ -183,9 +189,7 @@ test("Play on a card imports a copy, queues its recordings and keeps the page", 
   await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
   const queued = player.playQueue.mock.calls[0][0] as { id: string }[];
   expect(queued.map((item) => item.id)).toEqual(["rec-1", "rec-2"]);
-  const imported = calls.find((call) =>
-    call.url.endsWith("/playlists/import"),
-  )!;
+  const imported = calls.find((call) => call.url.endsWith("/playlists/open"))!;
   expect(imported.method).toBe("POST");
   expect(imported.body).toEqual({
     request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
@@ -226,7 +230,7 @@ test("a failed import says so beside the shelf and leaves every card usable", as
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(false);
-  expect(calls.filter((call) => call.url.endsWith("/import"))).toHaveLength(1);
+  expect(calls.filter((call) => call.url.endsWith("/open"))).toHaveLength(1);
 });
 
 test("a copy with nothing playable reports it instead of playing", async () => {
@@ -248,7 +252,7 @@ test("only one card imports at a time", async () => {
   fireEvent.click(first);
   fireEvent.click(screen.getByRole("button", { name: "Open Featured b" }));
   await waitFor(() => expect(player.playQueue).toHaveBeenCalled());
-  expect(calls.filter((call) => call.url.endsWith("/import"))).toHaveLength(1);
+  expect(calls.filter((call) => call.url.endsWith("/open"))).toHaveLength(1);
 });
 
 test("leaving the page cancels the shelf request", async () => {
@@ -264,4 +268,87 @@ test("leaving the page cancels the shelf request", async () => {
   await waitFor(() => expect(signal).toBeDefined());
   view.unmount();
   expect(signal?.aborted).toBe(true);
+});
+
+test("a card that already has a copy skips the import and a second action reuses the first", async () => {
+  const calls = stub(
+    shelfOf(entry("a", { existing_playlist_id: "pl-1" }), entry("b")),
+  );
+  render(createElement(DiscoverPage, props));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Play Featured a" }),
+  );
+  await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
+  expect(calls.some((call) => call.url.endsWith("/open"))).toBe(false);
+
+  fireEvent.click(screen.getByRole("button", { name: "Play Featured b" }));
+  await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getByRole("button", { name: "Open Featured b" }));
+  await waitFor(() =>
+    expect(router.visit).toHaveBeenCalledWith("/playlists/pl-1"),
+  );
+  expect(calls.filter((call) => call.url.endsWith("/open"))).toHaveLength(1);
+});
+
+test("a timed out import says a copy may already exist", async () => {
+  stub(shelfOf(entry("a")));
+  const original = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input).endsWith("/open")
+      ? Promise.reject(new DOMException("aborted", "AbortError"))
+      : original(input, init),
+  );
+  render(createElement(DiscoverPage, props));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Play Featured a" }),
+  );
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain("may already be in your Playlists");
+});
+
+test("the shelf empties when the account changes and the new answer has nothing", async () => {
+  stub(shelfOf(entry("a")));
+  const view = render(createElement(DiscoverPage, props));
+  await screen.findByRole("region", { name: "From your services" });
+  stub({ status: "unsupported" });
+  view.rerender(
+    createElement(DiscoverPage, {
+      ...props,
+      user: { id: "bob", username: "Bob", admin: false },
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("region", { name: "From your services" }),
+    ).toBeNull(),
+  );
+});
+
+test("a cover that fails to load is asked for once more before the generated cover stays", async () => {
+  stub(shelfOf(entry("a")));
+  vi.useFakeTimers({ toFake: ["setTimeout"], shouldAdvanceTime: true });
+  try {
+    const { container } = render(createElement(DiscoverPage, props));
+    await screen.findByRole("region", { name: "From your services" });
+    fireEvent.error(container.querySelector(".featured-card img")!);
+    expect(container.querySelector(".featured-card img")).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    const retry = container.querySelector(".featured-card img");
+    expect(retry).not.toBeNull();
+    fireEvent.error(retry!);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(container.querySelector(".featured-card img")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("the page says that playing a card adds a playlist copy", async () => {
+  stub({ status: "unsupported" });
+  render(createElement(DiscoverPage, props));
+  expect(screen.getByText(/adds a copy to your Playlists/)).toBeTruthy();
 });

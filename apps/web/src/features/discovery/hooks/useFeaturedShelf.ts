@@ -10,6 +10,7 @@ export function useFeaturedShelf(account: string): Schema<"FeaturedEntry">[] {
   const [items, setItems] = useState<Schema<"FeaturedEntry">[]>([]);
 
   useEffect(() => {
+    setItems([]);
     const request = scope.capture();
     const requestId = createUuid();
     const started = performance.now();
@@ -23,7 +24,7 @@ export function useFeaturedShelf(account: string): Schema<"FeaturedEntry">[] {
           return;
         }
         outcome = shelf.status;
-        if (shelf.status === "available") setItems(shelf.items);
+        setItems(shelf.status === "available" ? shelf.items : []);
       })
       .catch(() => {
         if (request.signal.aborted) outcome = "cancelled";

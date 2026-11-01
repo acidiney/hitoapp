@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { useRef, useState } from "react";
 import { errorMessage } from "../../../shared/format";
+import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { createUuid } from "../../../shared/uuid";
@@ -44,6 +45,7 @@ export function useFeaturedPlayback(
 ) {
   const scope = useRequestScope(account);
   const busy = useRef(false);
+  const copies = useRef(new Map<string, string>());
   const [state, setState] = useState<FeaturedPlaybackState>({
     pending: null,
     notice: null,
@@ -69,28 +71,37 @@ export function useFeaturedPlayback(
       action,
     });
     try {
-      const receipt = await pluginsApi.importPlaylist(
-        account,
-        entry.installation_id,
-        {
-          request_id: requestId,
-          installation_revision: entry.installation_revision,
-          playlist_reference: entry.reference,
-        },
-        controller.signal,
-      );
-      if (!request.active()) return;
-      if (receipt.request_id !== requestId)
-        throw new Error("Hito returned a different import receipt. Try again.");
+      const known =
+        entry.existing_playlist_id ?? copies.current.get(featuredKey(entry));
+      let playlistId = known;
+      if (!playlistId) {
+        const receipt = await pluginsApi.openPlaylist(
+          account,
+          entry.installation_id,
+          {
+            request_id: requestId,
+            installation_revision: entry.installation_revision,
+            playlist_reference: entry.reference,
+          },
+          controller.signal,
+        );
+        if (!request.active()) return;
+        if (receipt.request_id !== requestId)
+          throw new Error(
+            "Hito returned a different import receipt. Try again.",
+          );
+        playlistId = receipt.playlist_id;
+        copies.current.set(featuredKey(entry), playlistId);
+      }
       if (action === "open") {
         outcome = "opened";
         setState({ pending: null, notice: null });
-        router.visit(`/playlists/${encodeURIComponent(receipt.playlist_id)}`);
+        router.visit(`/playlists/${encodeURIComponent(playlistId)}`);
         return;
       }
       const detail = await playlistDetailApi.read(
         account,
-        receipt.playlist_id,
+        playlistId,
         controller.signal,
       );
       if (!request.active()) return;
@@ -119,9 +130,12 @@ export function useFeaturedPlayback(
     } catch (error) {
       if (request.active()) {
         outcome = "failed";
+        const uncertain = !(error instanceof HttpError)
+          ? " A copy may already be in your Playlists."
+          : "";
         setState({
           pending: null,
-          notice: { tone: "error", text: errorMessage(error) },
+          notice: { tone: "error", text: `${errorMessage(error)}${uncertain}` },
         });
       }
     } finally {
