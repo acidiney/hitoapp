@@ -177,6 +177,15 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if expected.0 == "table" && expected.1 == "playlist_follows" {
+            expected.3 = expected.3.map(|ddl| {
+                ddl.replacen(
+                    "error TEXT\n)",
+                    "error TEXT\n, approved_capabilities TEXT, approved_credential TEXT)",
+                    1,
+                )
+            });
+        }
         if expected.1 == "recording_artwork" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(
@@ -193,7 +202,8 @@ pub async fn assert_schema_preserved(
         }
         assert!(
             after.contains(&expected),
-            "the artwork upgrade must retain unrelated schema and every original index and lifecycle trigger"
+            "the artwork upgrade must retain unrelated schema and every original index and lifecycle trigger: {}",
+            expected.1
         );
     }
     for name in changed {
