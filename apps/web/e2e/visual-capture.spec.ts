@@ -217,10 +217,6 @@ type InertiaPage = {
   version: string | null;
 };
 
-/**
- * The capture server has no reachable feed, so these surfaces are rendered from
- * fixed Inertia and API responses. The data exists for the screenshots only.
- */
 async function captureMockedPodcasts(page: Page) {
   await page.goto("/home");
   const base: InertiaPage = await page.evaluate(() =>
@@ -359,7 +355,6 @@ async function captureListening(page: Page) {
   }
 }
 
-/** The capture server already has an administrator, so the first-run state is rendered by flipping the page prop. */
 async function captureSetup(page: Page) {
   await page.route("**/", async (route) => {
     const response = await route.fetch();

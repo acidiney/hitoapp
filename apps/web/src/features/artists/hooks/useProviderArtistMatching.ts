@@ -22,7 +22,6 @@ export type ProviderMatchState =
 
 const NAME_PHASE = "name:";
 
-/** A cursor moves forward within a phase; entering the name phase is always progress. */
 function advances(previous: string | undefined, next: string) {
   if (previous === undefined) return true;
   if (previous.startsWith(NAME_PHASE) !== next.startsWith(NAME_PHASE))
@@ -30,12 +29,6 @@ function advances(previous: string | undefined, next: string) {
   return next > previous;
 }
 
-/**
- * The manual provider pass behind "Match again". The server already matches in the background; this
- * walks the same cursor on request (evidence phase, then name phase), stops when the provider is
- * unavailable or a cursor does not advance, and is cancelled when the page is left. It never starts
- * by itself.
- */
 export function useProviderArtistMatching(account: string, onDone: () => void) {
   const scope = useRequestScope(account);
   const [state, setState] = useState<ProviderMatchState>({ status: "ready" });

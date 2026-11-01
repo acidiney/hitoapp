@@ -3,7 +3,6 @@ import { artistCorrectionApi } from "../api/artistCorrectionApi";
 import { createUuid } from "../../../shared/uuid";
 import { useRetainedCommand } from "./useRetainedCommand";
 
-/** Lets an administrator share, or withdraw, the unlink they made on this recording. */
 export function useSharedUnlink(
   account: string,
   recording: string,

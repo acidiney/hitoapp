@@ -211,7 +211,6 @@ test("a conflicting reset reconciles download eligibility without trusting stale
   expect(oldRead?.signal?.aborted).toBe(true);
   expectDownloadUnverified();
 
-  // This new post-B2 response deliberately violates the revision contract.
   await act(async () =>
     inconsistentFreshStatus.resolve(Response.json(savedA1)),
   );
@@ -238,7 +237,6 @@ test("a conflicting reset reconciles download eligibility without trusting stale
     download().getByRole("button", { name: "Remove download" }),
   ).toHaveProperty("disabled", false);
 
-  // This older response really was snapshotted before the other client's B2.
   await act(async () => olderSnapshot.resolve(Response.json(savedA1)));
   expect(download().getByText(/previous source/i)).toBeTruthy();
   expect(download().queryByText("Saved on this server")).toBeNull();

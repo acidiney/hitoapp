@@ -57,7 +57,6 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["minute", 60],
 ];
 
-/** "5 minutes ago" for a Unix timestamp in seconds; under a minute reads "just now". */
 export function relativeTime(
   unixSeconds: number,
   now: number = Date.now(),

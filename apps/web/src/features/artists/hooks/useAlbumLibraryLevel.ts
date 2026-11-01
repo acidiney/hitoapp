@@ -35,7 +35,6 @@ const messages: Record<
   cancelled: "The comparison was cancelled. Try again.",
 };
 
-/** One explicit comparison of a library album with the edition remembered for it. */
 export function useAlbumLibraryLevel(
   account: string,
   release: string,

@@ -2,7 +2,6 @@ import type { ComponentProps, MouseEvent } from "react";
 import { router } from "@inertiajs/react";
 import { log } from "../log";
 
-/** Moves focus to the new page's heading once the router has swapped the page in. */
 export function focusPageHeading() {
   window.setTimeout(() => {
     const heading = document.querySelector<HTMLElement>("main h1");

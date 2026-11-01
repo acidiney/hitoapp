@@ -24,10 +24,6 @@ function empty(owner: Owner): View {
   return { owner, pending: null, retrying: false, error: "", notice: "" };
 }
 
-/**
- * Runs one revisioned command at a time. An uncertain outcome keeps the exact request so an
- * explicit retry recovers its stored result; a rejected request reloads the current state.
- */
 export function useRetainedCommand(
   key: string,
   reload: (signal: AbortSignal) => Promise<void>,

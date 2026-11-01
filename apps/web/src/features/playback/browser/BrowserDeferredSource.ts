@@ -28,7 +28,6 @@ function pause(ms: number, signal: AbortSignal) {
 
 export type Submission = "open" | "stopped";
 
-/** Asks the provider to prepare one waiting source and reports whether it became ready. */
 export async function prepareDeferredSource(
   preparer: SourcePreparer,
   recording: string,

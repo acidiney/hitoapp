@@ -9,7 +9,6 @@ import { QUEUE_ROW } from "../hooks/useQueueWindow";
 type Props = {
   entry: PlaybackOccurrence;
   index: number;
-  /** First index of the list this row belongs to; positions count from here. */
   first: number;
   total: number;
   current: boolean;

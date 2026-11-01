@@ -1,4 +1,3 @@
-/* podcasts and audiobooks */
 .media-index-head {
   display: flex;
   flex-wrap: wrap;
@@ -167,7 +166,6 @@
   margin: 0;
 }
 
-/* progress bars */
 .progress-bar {
   height: 4px;
   border-radius: 2px;
@@ -180,7 +178,6 @@
   background: var(--ink);
 }
 
-/* round icon buttons */
 .round-button {
   display: inline-flex;
   align-items: center;
@@ -203,7 +200,6 @@
   background: var(--ink-hover);
 }
 
-/* tinted header additions */
 .tinted-header[data-size="podcast"] h1 {
   font-size: 64px;
   line-height: 0.92;
@@ -254,7 +250,6 @@
   background: #ffffff;
 }
 
-/* podcast episodes */
 .episode-list,
 .chapter-list,
 .bookmark-list {
@@ -329,7 +324,6 @@
   }
 }
 
-/* audiobook chapters and bookmarks */
 .chapter-row {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 160px 64px 44px;

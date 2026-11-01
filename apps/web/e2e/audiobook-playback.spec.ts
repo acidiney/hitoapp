@@ -573,7 +573,6 @@ async function assertQueue(page: Page, titles: string[], selected: number) {
   await expect(page.locator("footer.player")).toBeVisible();
 }
 
-/** Removes the first chapter from the Played section and returns how many rows the queue then shows. */
 async function removeEarlierChapter(page: Page, titles: string[]) {
   await page
     .locator("footer.player")

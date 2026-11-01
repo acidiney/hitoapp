@@ -85,9 +85,7 @@ export async function liveMediaDiagnostics(page: Page) {
               url.pathname,
             ),
         );
-      } catch {
-        /* Report only numeric source-validity flags. */
-      }
+      } catch {}
     }
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("button.row-play"),

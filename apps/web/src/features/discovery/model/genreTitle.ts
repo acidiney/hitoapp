@@ -5,7 +5,6 @@ const titleWord = (word: string): string =>
     ? word.toUpperCase()
     : word.charAt(0).toUpperCase() + word.slice(1);
 
-/** Display form of a genre label; the genre key used in URLs is never changed. */
 export function genreTitle(label: string): string {
   if (/\p{Lu}/u.test(label)) return label;
   return label

@@ -388,9 +388,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
           ...(await liveMediaDiagnostics(page)),
         };
         mediaEvents = await spotifyYouTubeMediaEvents(page);
-      } catch {
-        /* Keep the original failure private. */
-      }
+      } catch {}
       console.info(
         JSON.stringify({
           event: "spotify_youtube_live_browser_failed",

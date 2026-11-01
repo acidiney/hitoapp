@@ -27,7 +27,6 @@ export function usePlayTracks(tracks: Track[], listing?: TrackListing) {
       ? listingSupply(listing, from, loaded)
       : undefined;
   return {
-    /** Starts from a random track and turns shuffle on only once playback was accepted. */
     async shuffleAll() {
       const from = !listing || listing.offset === 0;
       const index = from ? Math.floor(Math.random() * tracks.length) : 0;

@@ -23,7 +23,6 @@ export default function CollectionHeader({
   cover?: ReactNode;
   crumbs?: ReactNode;
   actions?: ReactNode;
-  /** Content between the stats line and the actions, such as a progress bar. */
   extra?: ReactNode;
   headingRef?: Ref<HTMLHeadingElement>;
   children?: ReactNode;

@@ -1,7 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
-/** An owned catalog service with one artist, one owned recording and a discography of every primary type. */
 export const artistLibrary = {
   credit: "Library performer",
   artist: "e2e:artist/library",

@@ -7,7 +7,6 @@ import {
 } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 
-// Allow media-clock quantization, without adding transport time to saved progress.
 const mediaPrecisionMs = 100;
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -167,7 +166,6 @@ export async function pauseOwnedPlayback(
     .getByRole("button", { name: "Pause", exact: true })
     .click({ timeout: 1000 });
   episode.afterPause = await heardMedia(page, episode.source);
-  // Media clocks, not elapsed wall time, bound the checkpoint. The click has a 1s deadline.
   expect(
     episode.afterPause.paused &&
       episode.afterPause.position_ms >=

@@ -1,6 +1,5 @@
 import type { Page } from "@playwright/test";
 
-/** Opens a collection page from Library, entering Library first when the section strip is not on screen. */
 export async function openLibrarySection(page: Page, name: string) {
   const sections = page.getByRole("navigation", {
     name: "Library sections",

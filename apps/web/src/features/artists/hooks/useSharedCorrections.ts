@@ -7,7 +7,6 @@ import { useRetainedCommand } from "./useRetainedCommand";
 
 const pageSize = 25;
 
-/** Lists the corrections shared with every account and lets an administrator withdraw or restore them. */
 export function useSharedCorrections(account: string) {
   const scope = useRequestScope(account);
   const [offset, setOffset] = useState(0);

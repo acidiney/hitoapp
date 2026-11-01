@@ -16,7 +16,6 @@ const FALLBACK_HEIGHT = 560;
 type Block = { version: number; entries: PlaybackOccurrence[] };
 type Viewport = { first: number; height: number };
 
-/** `from` is the first queue index the window may show; entries before it are never loaded. */
 export function useQueueWindow(player: Player, from = 0, to?: number) {
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const [viewport, setViewport] = useState<Viewport>(() => ({

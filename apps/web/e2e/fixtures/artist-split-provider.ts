@@ -1,7 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
-/** An owned catalog service with three recordings that share one credit and two artist identities. */
 export const artistSplit = {
   credit: "Split performer",
   artists: ["e2e:artist/split-first", "e2e:artist/split-second"],

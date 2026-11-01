@@ -29,7 +29,6 @@ function useDownloadState() {
   return state;
 }
 
-/** Owns the download workflow so polling re-renders only its consumers. */
 export function PlaylistDownloadProvider({
   account,
   playlist,

@@ -508,7 +508,6 @@ test.describe("isolated provider playlist Follow", () => {
             partialDetailRequest(response.request(), origin, ownedFollowPath),
           { timeout: 10000 },
         ),
-        // Headless tab activation can omit focus; exercise the mounted DOM listener.
         page
           .evaluate(() => {
             let events = 0;

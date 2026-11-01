@@ -1,6 +1,5 @@
 export class DeadlineError extends Error {}
 
-/** Runs a request that is cancelled by its scope or by a deadline, whichever comes first. */
 export async function withDeadline<T>(
   parent: AbortSignal,
   milliseconds: number,

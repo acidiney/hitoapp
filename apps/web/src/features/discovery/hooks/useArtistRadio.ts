@@ -10,7 +10,6 @@ import { radioApi } from "../api/radioApi";
 const REQUEST_DEADLINE_MS = 25_000;
 
 export type RadioState = {
-  /** The chosen artist whose radio is being built. */
   pending: string | null;
   notice: { tone: "status" | "error"; text: string } | null;
 };

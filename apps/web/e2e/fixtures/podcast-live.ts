@@ -51,9 +51,7 @@ export async function liveAudio(page: Page) {
           );
         if (url.origin === location.origin && !url.search && !url.hash && match)
           sourceId = match[1];
-      } catch {
-        /* Return a validity flag without exposing the address. */
-      }
+      } catch {}
       return {
         time: audio.currentTime,
         duration: audio.duration,

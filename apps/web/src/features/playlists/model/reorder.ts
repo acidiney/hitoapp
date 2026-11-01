@@ -3,13 +3,6 @@ export type EntryMove = { entry_id: string; position: number };
 
 export const MAX_REORDER_MOVES = 200;
 
-/**
- * The position changes that move one entry a single step, or null when the
- * order cannot be made exact without more than MAX_REORDER_MOVES changes.
- * Entries must be in display order. Distinct positions are swapped. A tie
- * renumbers only the tied run around the moved entry, and shifts later entries
- * only as far as it must to stay distinct.
- */
 export function reorderMoves(
   entries: OrderedEntry[],
   entryId: string,

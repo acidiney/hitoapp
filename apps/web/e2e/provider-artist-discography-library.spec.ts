@@ -223,7 +223,6 @@ test("a chosen artist's full discography is grouped by type and marks only exact
       cleanup.push(["restore settings", response.status()]);
     }
     if (connection) {
-      // The API has no recording delete; removing the connection retires its provider items.
       const response = await page.request.delete(
         `/api/v1/plugins/${connection.id}`,
         {

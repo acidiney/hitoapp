@@ -15,7 +15,6 @@ const HOSTS: Record<string, string> = {
 };
 const SCHEMES: Record<string, string> = { spotify: "spotify" };
 
-/** The service a pasted link or URI belongs to; only exact known hosts and schemes count. */
 function serviceKeyword(reference: string): string | null {
   const text = reference.trim().toLowerCase();
   const scheme = /^([a-z][a-z0-9+.-]*):(?!\/\/)/.exec(text);
@@ -32,13 +31,10 @@ function serviceKeyword(reference: string): string | null {
 
 export type InferredService = {
   provider: Connection | null;
-  /** The pasted text names one of the connected services. */
   recognised: boolean;
-  /** Several services are connected and the text does not choose one. */
   ambiguous: boolean;
 };
 
-/** Chooses the playlist service from a pasted link or identifier. */
 export function inferPlaylistService(
   reference: string,
   providers: Connection[],

@@ -5,11 +5,6 @@ export type AudiobookProgress = {
   overall: { percent: number; leftMs: number } | null;
 };
 
-/**
- * Position in the book: the continuing chapter's saved position plus the full
- * length of the chapters before it. The overall figure needs a known duration
- * for every chapter.
- */
 export function audiobookProgress(
   detail: Schema<"AudiobookDetail">,
 ): AudiobookProgress | null {

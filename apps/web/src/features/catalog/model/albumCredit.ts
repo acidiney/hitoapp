@@ -2,10 +2,6 @@ import type { Schema } from "../../../shared/schema";
 
 export const VARIOUS_ARTISTS = "Various artists";
 
-/**
- * The credit shown for an album: its own album artist, else the single artist
- * every loaded track shares, else "Various artists". Null when nothing is known.
- */
 export function albumCreditLabel(
   albumArtist: string | null | undefined,
   trackArtists: readonly string[],
@@ -19,11 +15,6 @@ export function albumCreditLabel(
   if (credits.size === 1) return [...credits][0];
   return VARIOUS_ARTISTS;
 }
-/**
- * The credit shown for a release: its own album artist, else the server's inference. The loaded
- * tracks decide only when the inference field is absent from the payload; a null inference means
- * the server found nothing to claim.
- */
 export function releaseCreditLabel(
   release: Pick<Schema<"Release">, "artist" | "inferred_artist">,
   trackArtists: readonly string[] = [],

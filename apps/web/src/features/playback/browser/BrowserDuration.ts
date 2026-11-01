@@ -11,13 +11,6 @@ export type ReconciledDuration = Readonly<{
   server: boolean;
 }>;
 
-/**
- * Browsers estimate the duration of some streams (variable-bitrate MP3 without
- * a seek table, mis-signalled AAC) far above the real length. The recording's
- * known duration wins only when the browser value exceeds it by more than ten
- * percent and more than five seconds; smaller differences are normal provider
- * imprecision and shorter browser values are measurements.
- */
 export function reconcileDuration(
   media: number,
   serverMs: number | undefined,
@@ -34,11 +27,6 @@ export function reconcileDuration(
     : { seconds: media, server: false };
 }
 
-/**
- * Ends an entry whose browser timeline was overridden by the server duration:
- * playback that reaches that duration, or stalls just before it, never
- * produces a trustworthy ended event.
- */
 export class BrowserEndGuard {
   private timer: ReturnType<typeof setTimeout> | null = null;
 

@@ -10,7 +10,6 @@ export default function FallbackCover({
   id: string;
   title: string;
   artist?: string | null;
-  /** When false the title is painted by CSS so it is not duplicated in page text. */
   inline?: boolean;
 }) {
   const style = coverStyle(id);

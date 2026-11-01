@@ -51,7 +51,6 @@ function coverageEvidenceText(evidence: Schema<"CoverageEvidence"> | null) {
   return `Matched from ${evidence.matched_tracks} of ${evidence.probed_tracks} tracks of this artist.`;
 }
 
-/** How an automatic match was made, or null for a review the account confirmed itself. */
 export function associationEvidenceText(
   association: Pick<
     Association,

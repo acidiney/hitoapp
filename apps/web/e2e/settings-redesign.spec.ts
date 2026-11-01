@@ -41,7 +41,6 @@ test("settings deep links, legacy aliases and the grouped navigation work for an
     page.getByRole("heading", { name: "About", level: 2 }),
   ).toBeFocused();
 
-  // phone drill-down
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings");
   await expect(nav).toBeVisible();

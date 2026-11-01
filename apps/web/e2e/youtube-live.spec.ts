@@ -417,9 +417,7 @@ test.describe("isolated packaged YouTube", () => {
           diagnostic_available: 1,
           ...(await liveMediaDiagnostics(page)),
         };
-      } catch {
-        /* Preserve the original failure without raw browser diagnostics. */
-      }
+      } catch {}
       console.info(
         JSON.stringify({
           event: "youtube_live_browser_failed",

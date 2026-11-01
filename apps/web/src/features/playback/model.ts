@@ -50,9 +50,7 @@ export type PlaybackView = {
   repeat: "off" | "all" | "one";
   shuffle: boolean;
   speed: number;
-  /** The speed the current source is presented at; below `speed` when the source cannot present it. */
   effectiveSpeed?: number;
-  /** Speeds the current source can present, or null while unknown. */
   speedRange?: SpeedRange | null;
   volume: number;
   connection: "connecting" | "ready" | "disconnected";

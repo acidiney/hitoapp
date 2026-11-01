@@ -58,7 +58,6 @@ function belongs(
   return type === "other" ? !named : kind === type;
 }
 
-/** Pages one release type at a time, from providers that can, beside the whole-catalog read. */
 export function useDiscographyTypes(
   account: string,
   recording: string,

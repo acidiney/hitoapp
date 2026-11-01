@@ -728,7 +728,6 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     ])
       expect(observations).not.toContain(secret);
     expect(errors).toEqual([]);
-    // Sign-in probing, absent covers, absent saved copies and the injected audio fault are HTTP diagnostics.
     const knownResponses = new Map([
       [new URL(`/api/v1/recordings/${recording}/artwork`, baseURL).href, 404],
       [new URL(`/api/v1/sources/${sources[0].id}/audio`, baseURL).href, 502],

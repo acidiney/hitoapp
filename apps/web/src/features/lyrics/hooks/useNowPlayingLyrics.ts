@@ -23,11 +23,6 @@ export type NowPlayingLyricsState =
 
 const DEADLINE_MS = 15_000;
 
-/**
- * Loads the lyrics of the playing track from the account's first lyrics provider as soon as the
- * panel opens. Another provider can be chosen afterwards. Leaving the panel or changing the track
- * cancels whatever is in flight.
- */
 export function useNowPlayingLyrics(
   account: string,
   recording: string,

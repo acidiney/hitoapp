@@ -14,11 +14,6 @@ function working(status: Status | null) {
   return status !== null && status.enabled && status.state !== "idle";
 }
 
-/**
- * Shows what the server's background matching is doing. It reads the status while the tab is
- * visible (quickly while a walk is queued or running, slowly otherwise), stops when the page is
- * left or the account turns matching off, and refreshes the artist lists once when a walk ends.
- */
 export function useArtistMatchingStatus(account: string) {
   const scope = useRequestScope(account);
   const [status, setStatus] = useState<Status | null>(null);

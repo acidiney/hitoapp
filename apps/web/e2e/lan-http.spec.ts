@@ -3,8 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { openLibrarySection } from "./fixtures/library-sections";
 
-// Requires a fresh e2e-server with scripts/audio-fixtures.mjs --e2e fixtures.
-// Its configured origins must include both test URLs in the browser namespace.
 const lanOrigin = process.env.HITO_TEST_URL ?? "http://e2e-server:8080";
 const localhostOrigin =
   process.env.HITO_TEST_LOCALHOST_URL ?? "http://localhost:8080";
@@ -80,7 +78,6 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
   expect(localhost.hostname).toBe("localhost");
   expect(localhost.origin).not.toBe(lan.origin);
 
-  // Refuse initialized servers before typing any owned fixture credentials.
   const setup = await request.get(new URL("/api/v1/setup", lan).href);
   expect(setup.status()).toBe(200);
   expect(await setup.json()).toEqual({ needs_setup: true });

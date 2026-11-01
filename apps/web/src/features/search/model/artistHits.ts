@@ -9,10 +9,6 @@ export type ArtistHit = {
   albums: number;
 };
 
-/**
- * Chosen artists keep the server's order (exact names first), followed by library credits that do
- * not repeat a chosen artist's name.
- */
 export function artistHits(
   groups: Schema<"ArtistIdentityGroup">[],
   credits: Schema<"Artist">[],
@@ -38,7 +34,6 @@ export function artistHits(
   ];
 }
 
-/** The hit whose name is exactly the query, else the first one. */
 export function topArtistHit(
   query: string,
   hits: ArtistHit[],

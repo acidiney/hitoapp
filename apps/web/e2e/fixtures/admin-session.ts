@@ -12,7 +12,6 @@ export const sharedAdminSession = !Object.entries(process.env).some(
   ([name, value]) => /^HITO_.+_E2E$/.test(name) && value === "1",
 );
 
-/** Creates the administrator through the first-run screen, or signs in when it already exists. */
 export async function enterAdmin(page: Page) {
   await page.goto("/");
   const setup = page.getByRole("heading", { name: "Set up Hito" });

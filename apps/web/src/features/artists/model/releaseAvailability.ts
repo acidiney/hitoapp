@@ -6,7 +6,6 @@ export type ReleaseAvailability = {
   complete: boolean;
 };
 
-/** The one rule for what a library holds of a catalog release; labels and filters both use it. */
 export function releaseAvailability(
   albums: Schema<"LibraryAlbum">[],
 ): ReleaseAvailability {

@@ -19,10 +19,6 @@ function subscribe(notify: () => void) {
   };
 }
 
-/**
- * A per-account, per-browser on/off choice that is on by default. When browser storage is
- * unavailable the choice cannot be read or kept, so it counts as off.
- */
 export function useAccountSwitch(name: string, account: string) {
   const enabled = useSyncExternalStore(subscribe, () => read(name, account));
   const set = useCallback(

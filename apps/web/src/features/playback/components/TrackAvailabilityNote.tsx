@@ -2,10 +2,6 @@ import { useSyncExternalStore } from "react";
 import type { Track } from "../model";
 import { usePlayer } from "./PlaybackProvider";
 
-/**
- * A track that is not stored here is resolved from the account's services when played, if the
- * server says a connected service can resolve it. Local tracks and unanswered rows show nothing.
- */
 export default function TrackAvailabilityNote({
   track,
   as: Tag = "small",

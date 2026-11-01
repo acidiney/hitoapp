@@ -24,10 +24,6 @@ function choices(settings: Schema<"MetadataSettings">): AutomaticLookups {
   };
 }
 
-/**
- * The account's automation choices are stored by the server. Until they are read, nothing counts as
- * enabled, so a failed read never turns a lookup on. A change sends only its own field.
- */
 export function useAutomaticLookups(account: string) {
   const scope = useRequestScope(account);
   const [state, setState] = useState<State>({
