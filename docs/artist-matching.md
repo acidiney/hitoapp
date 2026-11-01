@@ -40,6 +40,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     Tag[File tag: one performer MusicBrainz id] --> TagPass[Tag pass: no network]
+    RecId[File tag: MusicBrainz recording id] --> Lookup
     Isrc[ISRC from a provider response or a file tag] --> Lookup
     Page[Provider response: exactly one credited artist page] --> Lookup
     Lookup[Provider pass: bounded, paced, cancellable MusicBrainz lookups] --> Answer{Exactly one recording, exactly one credited ordinary artist?}
@@ -91,13 +92,16 @@ Recordings that were examined and not matched (an ambiguous or valueless tag, a 
 
 ## Matching from provider evidence
 
-Recordings carry two kinds of provider evidence. Both are stored as immutable rows beside the observation that stated them, so a later observation can never inherit an older answer.
+Recordings carry three kinds of evidence for this pass. All are stored as immutable rows beside the observation that stated them, so a later observation can never inherit an older answer.
+
+- Recording identifier from a file tag. Since migration 0076 the well-formed `recording` row of `recording_musicbrainz_observations` (see [below](#release-and-recording-identifiers-from-tags)) is a candidate on its own and is asked about before the ISRC and the artist page, because it names one exact MusicBrainz recording.
 
 - ISRC. A provider states it on a recording (`ProviderRecording.isrc`; see the [plugin contract](plugin-catalog.md#recording-evidence)); a local file states it in a tag, retained since inspection version 4 as `InspectedTags.isrc` (ID3 `TSRC`, Vorbis `ISRC` and MP4 `----:com.apple.iTunes:ISRC`, read through FFprobe as `TSRC`, `ISRC` and `ISRC`; the raw value is kept like any other tag). The code is normalized (case and the hyphenated display form) and stored in `recording_isrc_observations` with its origin, `file_tag` or `provider_response`. A malformed code is ignored and never fails an import or scan.
 - Artist pages. A provider may list the canonical pages of every credited performer (`ProviderRecording.artist_urls`). Only an allowlisted shape is accepted: `https://open.spotify.com/artist/` followed by exactly 22 base62 characters. The allowlist is a small typed list in the plugin SDK (`artist_page_provider`), enforced when a plugin response is validated, when pages are stored, when the MusicBrainz client validates a request, and again before each lookup, so rows from earlier versions with any other address are never looked up. Another provider is added by adding one shape. Accepted pages are stored in `recording_artist_url_observations`. Only a recording that lists exactly one page is a candidate, because two pages would not say which artist a one-artist group should receive.
 
 A candidate is a recording of a library the account can read whose current observation has such evidence, which the account has not yet decided about and which no earlier provider pass settled for the same observation and personal artist operation. Candidates are read in recording-identifier order. The pass then asks the built-in MusicBrainz client:
 
+- `GET /ws/2/recording/<id>?inc=artist-credits` for a tagged recording identifier and requires the recording's credit to name exactly one distinct artist. A 404 is an empty answer, and a response for a different recording is invalid. A match is stored in `artist_association_recording_id_matches` and read as `matched_recording_id` ("Matched automatically from the MusicBrainz recording identifier in the file's tags.").
 - `GET /ws/2/isrc/<ISRC>?inc=artist-credits` and requires exactly one returned recording whose credit names exactly one distinct artist. A 404 is an empty answer.
 - `GET /ws/2/url?resource=<page>&inc=artist-rels` and requires exactly one related artist. A 404 is an empty answer.
 
@@ -190,10 +194,17 @@ flowchart LR
     Inspect --> Valid{Well-formed UUID?}
     Valid -->|no| Raw[Raw tag only]
     Valid -->|yes| Row[Immutable evidence row for the recording and release]
-    Row -.->|not yet| Later[Lookup, provider links and display]
+    Row -->|release, release group| Cover[Cover Art Archive lookups, genres]
+    Row -->|recording| Walk[Background provider pass, only with consent]
+    Walk --> Artist{One credited ordinary artist?}
+    Artist -->|yes| Match[Artist match, provenance matched_recording_id]
+    Artist -->|no, unknown or unreachable| Rest[Stays separate]
+    Row -.->|planned| Later[Release lookup, provider links and display]
 ```
 
-Nothing is merged or applied from these rows: releases with the same identifier stay separate, no recording is grouped by them, and personal edits are untouched. They are the verified starting point for later release and recording matching.
+Current use. The release and release group identifiers drive Cover Art Archive covers and MusicBrainz genres. The recording identifier is evidence for the credited artist: the provider pass (see [matching from provider evidence](#matching-from-provider-evidence)) asks MusicBrainz for that one recording and matches it when exactly one ordinary artist is credited. The scan itself makes no network call; the lookup runs only in the background pass, only while `automatic_artist_lookup` and the metadata policy allow it, at the same one request per second, and it never touches a recording the account has decided about. The lookup sends only the recording identifier.
+
+Nothing else is merged or applied from these rows: releases with the same identifier stay separate, no recording is grouped by an identifier alone, and personal edits are untouched. A recording identifier match does not extend to the credit's other tracks (the credit-level step starts only from file-tag artist, ISRC and artist-page matches), because every tagged track carries its own identifier.
 
 ## Automatic matching and consent
 
@@ -312,6 +323,7 @@ Public core cases use real temporary SQLite and owned deterministic WAV files ta
 - A personal reset and a personal unlink are not overridden, an unlink made before any choice is respected, and disabled enrichment matches nothing.
 - Suggestions rank by evidence, include name-only items last, never change a choice, can be dismissed per credit and chosen artist, and end once accepted through the existing path.
 - Another account's pass cannot undo an administrator's shared correction; a retagged automatic match is matched again while a reset or split one is not; personal artist edits, splits and retired choices are left alone; two concurrent passes match each recording once; a second pass reads no candidates and writes nothing; and work-budget cases bound the pass and the suggestions.
+- Recording identifier matching (`artist_match_recording_id.rs`, FLAC files with a Vorbis recording id, owned loopback MusicBrainz): the scan sends nothing; a single credited artist matches with `matched_recording_id` and the exact request target; two artists, an unknown recording, a malformed tag value and an outage match nothing; settled answers are not asked again but an outage is; a personally reset recording is never looked up; the automatic walk matches without a click and asks nothing while `automatic_artist_lookup` is off. The client's recording lookup is covered against the loopback server (credited artists, 404, 503 without retry, a different recording, non-canonical identifiers sending nothing, log redaction). Migration 0076 has exact-schema coverage (`artist_recording_id_matches_upgrade.rs` and the shared schema fixtures), the account and recording erasure case covers the new table, and the web case covers the sentence. The red logs are `red-mbid-recording.log` and `red-mbid-client.log` in the session scratchpad.
 - Release and recording identifiers: five tag dialects (the matrix), an identity case with real temporary SQLite (well-formed, malformed, upper-case, shared across two releases, no merge, a second scan adds nothing, a personal title edit survives) and migration 0064 with exact-schema upgrade coverage and immutability.
 - Migration 0060 upgrades from 0059 with exact schema comparison, immutable provenance, a per-account dismissal key and no implied matches.
 
@@ -333,6 +345,7 @@ HTTP cases use the real router for statuses, validation, replay, access, a secon
 
 ## Open work
 
+- Planned, not built: looking up the release identifier to choose the exact edition on album pages (see [artist discography](artist-discography.md)), linking releases and recordings to provider entities, showing the identifiers on album and recording pages, the ID3 `UFID` recording identifier (files with ID3 tags still retain no recording id, so they get no recording identifier match), and using the release group identifier as evidence for the album artist. The recording identifier match is covered by owned fakes only; no live MusicBrainz recording lookup was made.
 - Automatic matching is covered by owned fakes only; an earlier manual live run is recorded as matching sixteen recordings, but the adapter's live gate has only seen HTTP 503, so live behavior stays unverified. The automatic job runs on the local development server and has not been measured against the live service. A per-account job runs one batch per second at most, so a very large library takes a long time by design.
 - Account deletion erases the account's `account_metadata_automation`, `artist_matching_jobs` and `cover_art_lookups` rows with its other private rows ([account deletion](architecture.md#account-deletion)).
 - A persistent cache of MusicBrainz artist answers beyond genres, shared across accounts (genres are cached, see above), re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
