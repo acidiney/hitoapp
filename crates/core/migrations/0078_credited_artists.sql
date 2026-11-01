@@ -4,7 +4,7 @@ CREATE TABLE recording_credit_observations (
     observation_id TEXT PRIMARY KEY REFERENCES metadata_observations(id),
     recording_id TEXT NOT NULL REFERENCES recordings(id),
     credit_label TEXT NOT NULL CHECK(length(CAST(credit_label AS BLOB)) BETWEEN 1 AND 4352),
-    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 4352)
+    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 8192)
 );
 CREATE INDEX recording_credit_observation_recording ON recording_credit_observations(recording_id);
 CREATE TRIGGER recording_credit_observation_immutable BEFORE UPDATE ON recording_credit_observations BEGIN
@@ -32,7 +32,7 @@ END;
 CREATE TABLE account_credit_keys (
     user_id TEXT NOT NULL REFERENCES users(id),
     library_id TEXT NOT NULL,
-    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 4352),
+    credit_key TEXT NOT NULL CHECK(length(CAST(credit_key AS BLOB)) BETWEEN 1 AND 8192),
     artist_id TEXT NOT NULL,
     PRIMARY KEY(user_id,library_id,credit_key),
     FOREIGN KEY(user_id,artist_id) REFERENCES account_artists(user_id,id)

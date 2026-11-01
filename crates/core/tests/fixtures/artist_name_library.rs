@@ -172,6 +172,36 @@ impl NameLibrary {
         );
     }
 
+    /// Publishes the recordings at the given positions again, as a provider refresh would,
+    /// each listed as (position, credit, title, length, evidence).
+    pub async fn reimport(&self, name: &str, entries: &[(usize, &str, &str, u64, Evidence)]) {
+        provider::playlist(
+            &self.origin,
+            name,
+            &format!("{name}-v1"),
+            entries
+                .iter()
+                .map(|(index, credit, title, length, evidence)| {
+                    imported(*index, credit, title, *length, evidence)
+                })
+                .collect(),
+        )
+        .await;
+        self.hito
+            .collection
+            .import_provider_playlist(
+                &self.actor,
+                &self.installation.0,
+                ImportProviderPlaylist {
+                    request_id: Uuid::new_v4(),
+                    installation_revision: self.installation.1,
+                    playlist_reference: format!("https://provider.invalid/{name}"),
+                },
+            )
+            .await
+            .unwrap();
+    }
+
     /// Runs statements that need foreign keys off, for states no capability produces.
     pub async fn execute_batch(&self, sql: &str) {
         let mut connection = sqlx::SqliteConnection::connect(&format!(

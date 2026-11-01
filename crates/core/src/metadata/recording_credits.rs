@@ -47,7 +47,10 @@ impl Scope<'_> {
             "WITH targets AS (SELECT access.user_id, r.library_id, r.id AS recording_id,
             COALESCE(p.override_artist, credit.credit_label, r.artist) AS name,
             CASE WHEN p.override_artist IS NULL THEN credit.credit_key END AS credit_key,
-            credit.rowid AS credit_order
+            credit.rowid AS credit_order,
+            (SELECT o.artist FROM metadata_observations o WHERE o.id = r.metadata_observation_id) AS observed,
+            EXISTS (SELECT 1 FROM recording_credited_artist_observations f
+                WHERE f.observation_id = credit.observation_id AND f.role = 'featured') AS featured
          FROM recordings r JOIN library_members access ON access.library_id = r.library_id
          LEFT JOIN personal_recording_metadata p ON p.user_id = access.user_id AND p.recording_id = r.id
          LEFT JOIN recording_credit_observations credit ON credit.observation_id = r.metadata_observation_id WHERE 1",
@@ -77,6 +80,22 @@ const REGISTER_TEXT_CREDITS: &str = "INSERT INTO account_artists(user_id, id, li
 const FIRST_SEEN: &str = "(SELECT t.*, ROW_NUMBER() OVER (PARTITION BY t.user_id, t.library_id, t.credit_key ORDER BY t.credit_order) AS first_seen
         FROM targets t WHERE t.credit_key IS NOT NULL)";
 
+/// A credit key that has no artist yet takes over the text credit the provider's own display text
+/// already named, so refreshing a recording with a list does not split it from its siblings.
+/// Credits with a featured artist describe fewer artists than the text, so they never adopt.
+fn adopt_text_credits() -> String {
+    format!(
+        "INSERT OR IGNORE INTO account_credit_keys(user_id, library_id, credit_key, artist_id)
+        SELECT t.user_id, t.library_id, t.credit_key, a.id FROM {first_seen} t
+        JOIN account_artists a ON a.user_id = t.user_id AND a.library_id = t.library_id AND a.name = t.observed COLLATE BINARY
+        WHERE t.first_seen = 1 AND t.featured = 0
+            AND NOT EXISTS (SELECT 1 FROM account_credit_keys k
+                WHERE k.user_id = t.user_id AND k.library_id = t.library_id AND k.credit_key = t.credit_key)
+            AND NOT EXISTS (SELECT 1 FROM account_credit_keys k WHERE k.user_id = a.user_id AND k.artist_id = a.id)",
+        first_seen = FIRST_SEEN
+    )
+}
+
 fn register_keyed_credits() -> String {
     format!(
         "INSERT INTO account_artists(user_id, id, library_id, name)
@@ -103,9 +122,12 @@ pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) 
     let mut register = scope.account_recordings();
     register.push(REGISTER_TEXT_CREDITS);
     register.build().execute(&mut **tx).await?;
+    let mut adopt = scope.account_recordings();
+    adopt.push(adopt_text_credits());
+    adopt.build().execute(&mut **tx).await?;
     let mut keyed = scope.account_recordings();
     keyed.push(register_keyed_credits());
-    keyed.build().execute(&mut **tx).await?;
+    let created = keyed.build().execute(&mut **tx).await?.rows_affected();
     let mut keys = scope.account_recordings();
     keys.push(record_credit_keys());
     keys.build().execute(&mut **tx).await?;
@@ -119,6 +141,14 @@ pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) 
         ON CONFLICT(user_id, recording_id) DO UPDATE SET artist_id = excluded.artist_id
         WHERE artist_id IS NOT excluded.artist_id");
     let changed = bind.build().execute(&mut **tx).await?.rows_affected();
+    if created > 0 {
+        let mut accounts = scope.account_recordings();
+        accounts.push("SELECT DISTINCT user_id FROM targets");
+        let accounts: Vec<String> = accounts.build_query_scalar().fetch_all(&mut **tx).await?;
+        for account in accounts {
+            crate::artist_catalog::automation::request_for_account(tx, &account).await?;
+        }
+    }
     crate::artist_catalog::identity::retire_changed(tx, scope.chosen_recordings()).await?;
     crate::artist_catalog::reconcile::retire_stale(tx, &scope).await?;
     tracing::trace!(changed, "Account recording credits refreshed");

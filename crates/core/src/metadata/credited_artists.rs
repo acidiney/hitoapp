@@ -20,6 +20,10 @@ fn role_of(name: &str) -> CreditRole {
 
 /// The credit a structured list states, as its main artists in the provider's order. Featured
 /// artists are not part of it.
+const MAX_IDENTIFYING_PAGES: usize = 8;
+const MAX_LABEL_BYTES: usize = 4352;
+const MAX_KEY_BYTES: usize = 8192;
+
 pub(crate) fn credit_label(artists: &[CreditedArtist]) -> Option<String> {
     let mains: Vec<&str> = artists
         .iter()
@@ -52,6 +56,7 @@ pub(crate) fn identifying_pages(details: &ProviderRecording) -> Vec<String> {
         .filter(|artist| artist.role == CreditRole::Main)
         .map(|artist| artist.page_url.clone())
         .collect::<Option<Vec<String>>>()
+        .filter(|pages| pages.len() <= MAX_IDENTIFYING_PAGES)
         .unwrap_or_default()
 }
 
@@ -64,7 +69,23 @@ pub(crate) async fn retain(
     let (Some(label), Some(key)) = (credit_label(artists), credit_key(artists)) else {
         return Ok(());
     };
-    sqlx::query("INSERT OR IGNORE INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES(?,?,?,?)")
+    if label.len() > MAX_LABEL_BYTES || key.len() > MAX_KEY_BYTES {
+        tracing::warn!(
+            count = artists.len(),
+            "Credited artists exceed the retention bounds"
+        );
+        return Ok(());
+    }
+    let retained: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM recording_credit_observations WHERE observation_id=?)",
+    )
+    .bind(observation)
+    .fetch_one(&mut *connection)
+    .await?;
+    if retained {
+        return Ok(());
+    }
+    sqlx::query("INSERT INTO recording_credit_observations(observation_id,recording_id,credit_label,credit_key) VALUES(?,?,?,?)")
         .bind(observation)
         .bind(recording)
         .bind(label)
@@ -72,7 +93,7 @@ pub(crate) async fn retain(
         .execute(&mut *connection)
         .await?;
     for (position, artist) in artists.iter().enumerate() {
-        sqlx::query("INSERT OR IGNORE INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role,join_phrase,provider_artist_id,page_url) VALUES(?,?,?,?,?,?,?,?)")
+        sqlx::query("INSERT INTO recording_credited_artist_observations(observation_id,position,recording_id,name,role,join_phrase,provider_artist_id,page_url) VALUES(?,?,?,?,?,?,?,?)")
             .bind(observation)
             .bind(position as i64)
             .bind(recording)

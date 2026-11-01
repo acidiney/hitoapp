@@ -230,6 +230,7 @@ fn validate_credited_artists(artists: &[CreditedArtist]) -> Result<(), &'static 
     }
     let mut names = HashSet::new();
     let mut ids = HashSet::new();
+    let mut pages = HashSet::new();
     for artist in artists {
         text(&artist.name, MAX_ARTIST_NAME_BYTES)?;
         if !names.insert(artist.name.trim().to_lowercase()) {
@@ -244,6 +245,9 @@ fn validate_credited_artists(artists: &[CreditedArtist]) -> Result<(), &'static 
         optional(artist.join.as_deref(), MAX_JOIN_BYTES)?;
         if let Some(page) = &artist.page_url {
             validate_artist_page(page)?;
+            if !pages.insert(page) {
+                return Err("The provider credited the same artist page twice");
+            }
         }
     }
     Ok(())

@@ -102,3 +102,15 @@ fn constructing_a_credited_artist_by_hand_serializes_like_the_wire_form() {
         json!({"name": "A", "role": "main"})
     );
 }
+
+#[test]
+fn a_page_belongs_to_one_credited_artist() {
+    let page = "https://open.spotify.com/artist/0000000000000000000001";
+    assert!(
+        recording(json!([
+            {"name": "A", "page_url": page}, {"name": "B", "page_url": page}
+        ]))
+        .validate()
+        .is_err()
+    );
+}
