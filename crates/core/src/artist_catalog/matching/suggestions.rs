@@ -224,49 +224,13 @@ impl ArtistCatalog {
     }
 }
 
-/// The chosen artists the credit's tracks use now, with how many were matched automatically.
+/// The chosen artists the credit's tracks use now, with how many were matched automatically and by
+/// which evidence.
 async fn chosen_artists(
     connection: &mut SqliteConnection,
     actor: &Actor,
     artist: &str,
 ) -> Result<Vec<ArtistMatchChosen>> {
-    let mut query = QueryBuilder::<Sqlite>::new(
-        "SELECT choice.group_id,count(*),
-            sum(EXISTS (SELECT 1 FROM artist_association_matches m WHERE m.association_id=choice.association_id)
-                OR EXISTS (SELECT 1 FROM artist_association_provider_matches m WHERE m.association_id=choice.association_id)
-                OR EXISTS (SELECT 1 FROM artist_association_name_matches m WHERE m.association_id=choice.association_id)
-                OR EXISTS (SELECT 1 FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id)
-                OR EXISTS (SELECT 1 FROM artist_association_coverage_matches m WHERE m.association_id=choice.association_id)) ",
-    );
-    query.push(current_choices());
-    query
-        .push_bind(actor.id().to_owned())
-        .push(" AND choice.artist_id=")
-        .push_bind(artist.to_owned())
-        .push(" GROUP BY choice.group_id ORDER BY count(*) DESC,choice.group_id LIMIT ")
-        .push_bind(MAX_GROUPS);
-    let rows: Vec<(String, i64, i64)> = query.build_query_as().fetch_all(&mut *connection).await?;
-    let mut chosen = Vec::new();
-    let mut evidence = evidence_counts(connection, actor, artist).await?;
-    for (id, tracks, automatic_tracks) in rows {
-        if let Some(group) = group_summary(connection, actor, &id).await? {
-            chosen.push(ArtistMatchChosen {
-                group,
-                tracks,
-                automatic_tracks,
-                evidence: evidence.remove(&id).unwrap_or_default(),
-            });
-        }
-    }
-    Ok(chosen)
-}
-
-/// The tracks of the credit each chosen artist has, by the evidence that matched them.
-async fn evidence_counts(
-    connection: &mut SqliteConnection,
-    actor: &Actor,
-    artist: &str,
-) -> Result<HashMap<String, Vec<ArtistMatchEvidence>>> {
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT choice.group_id,
             COALESCE((SELECT m.evidence_kind FROM artist_association_matches m WHERE m.association_id=choice.association_id),
@@ -276,7 +240,7 @@ async fn evidence_counts(
                 (SELECT 'coverage' FROM artist_association_coverage_matches m WHERE m.association_id=choice.association_id),
                 (SELECT m.evidence_kind FROM artist_association_candidate_confirmations m WHERE m.association_id=choice.association_id),
                 'user_confirmed') AS kind,
-            count(*) AS tracks ",
+            count(*) ",
     );
     query.push(current_choices());
     query
@@ -286,7 +250,7 @@ async fn evidence_counts(
         .push(" GROUP BY choice.group_id,kind ORDER BY count(*) DESC,kind");
     let rows: Vec<(String, String, i64)> =
         query.build_query_as().fetch_all(&mut *connection).await?;
-    let mut counts: HashMap<String, Vec<ArtistMatchEvidence>> = HashMap::new();
+    let mut by_group: HashMap<String, Vec<ArtistMatchEvidence>> = HashMap::new();
     for (group, kind, tracks) in rows {
         let evidence = match kind.as_str() {
             "file_tag_artist_id" => ArtistAssociationEvidence::MatchedFileTagArtistId,
@@ -298,12 +262,43 @@ async fn evidence_counts(
             "user_confirmed_candidate" => ArtistAssociationEvidence::UserConfirmedCandidate,
             _ => ArtistAssociationEvidence::UserConfirmed,
         };
-        counts
+        by_group
             .entry(group)
             .or_default()
             .push(ArtistMatchEvidence { evidence, tracks });
     }
-    Ok(counts)
+    let mut groups: Vec<(String, Vec<ArtistMatchEvidence>)> = by_group.into_iter().collect();
+    let total =
+        |evidence: &[ArtistMatchEvidence]| evidence.iter().map(|how| how.tracks).sum::<i64>();
+    groups.sort_by(|left, right| {
+        total(&right.1)
+            .cmp(&total(&left.1))
+            .then(left.0.cmp(&right.0))
+    });
+    groups.truncate(MAX_GROUPS as usize);
+    let mut chosen = Vec::new();
+    for (id, evidence) in groups {
+        if let Some(group) = group_summary(connection, actor, &id).await? {
+            let automatic_tracks = evidence
+                .iter()
+                .filter(|how| {
+                    !matches!(
+                        how.evidence,
+                        ArtistAssociationEvidence::UserConfirmed
+                            | ArtistAssociationEvidence::UserConfirmedCandidate
+                    )
+                })
+                .map(|how| how.tracks)
+                .sum();
+            chosen.push(ArtistMatchChosen {
+                group,
+                tracks: total(&evidence),
+                automatic_tracks,
+                evidence,
+            });
+        }
+    }
+    Ok(chosen)
 }
 
 fn ranking(left: &ArtistMatchSuggestion, right: &ArtistMatchSuggestion) -> std::cmp::Ordering {
