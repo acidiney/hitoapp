@@ -74,6 +74,9 @@ mod playlist_follow;
 #[path = "api/playlist_follow_access.rs"]
 mod playlist_follow_access;
 
+#[path = "api/playlist_follow_auto_resume.rs"]
+mod playlist_follow_auto_resume;
+
 #[path = "api/playlist_follow_input.rs"]
 mod playlist_follow_input;
 

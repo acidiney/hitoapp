@@ -24244,6 +24244,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlaylistFollowReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "snapshot": {
             "type": "string"
           },
@@ -24251,6 +24261,39 @@
             "$ref": "#/components/schemas/PlaylistFollowStatus"
           }
         }
+      },
+      "PlaylistFollowChange": {
+        "type": "object",
+        "required": [
+          "kind",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "after": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "before": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaylistFollowChangeKind"
+          }
+        }
+      },
+      "PlaylistFollowChangeKind": {
+        "type": "string",
+        "enum": [
+          "capabilities",
+          "credential",
+          "removed"
+        ]
       },
       "PlaylistFollowInterval": {
         "type": "string",
@@ -24295,6 +24338,38 @@
           "request_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "PlaylistFollowReview": {
+        "type": "object",
+        "required": [
+          "connection_name",
+          "installation_revision",
+          "service_revision",
+          "resumable",
+          "changes"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaylistFollowChange"
+            }
+          },
+          "connection_name": {
+            "type": "string"
+          },
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "resumable": {
+            "type": "boolean"
+          },
+          "service_revision": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

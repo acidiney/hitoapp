@@ -4432,9 +4432,17 @@ export interface components {
             next_refresh_at: number;
             /** Format: uuid */
             playlist_id: string;
+            review?: components["schemas"]["PlaylistFollowReview"] | null;
             snapshot: string;
             status: components["schemas"]["PlaylistFollowStatus"];
         };
+        PlaylistFollowChange: {
+            after: string[];
+            before: string[];
+            kind: components["schemas"]["PlaylistFollowChangeKind"];
+        };
+        /** @enum {string} */
+        PlaylistFollowChangeKind: "capabilities" | "credential" | "removed";
         /** @enum {string} */
         PlaylistFollowInterval: "hourly" | "daily";
         PlaylistFollowReceipt: {
@@ -4450,6 +4458,15 @@ export interface components {
             playlist_id: string;
             /** Format: uuid */
             request_id: string;
+        };
+        PlaylistFollowReview: {
+            changes: components["schemas"]["PlaylistFollowChange"][];
+            connection_name: string;
+            /** Format: int64 */
+            installation_revision: number;
+            resumable: boolean;
+            /** Format: int64 */
+            service_revision: number;
         };
         /** @enum {string} */
         PlaylistFollowStatus: "ready" | "queued" | "running" | "failed" | "paused";
