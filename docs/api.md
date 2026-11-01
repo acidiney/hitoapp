@@ -17,6 +17,7 @@ Responses include a generated `X-Request-Id` for correlation. Errors use an `err
 | Schedule scan / inspect progress | `POST /libraries/{id}/scan`, `GET /jobs/{id}` |
 | Paginated full-text search | `GET /recordings?q=&offset=&limit=&liked=true` |
 | Resolve verified sources | `GET /recordings/{id}/sources` |
+| Read the copies of a song, split one off | `GET /recordings/{id}/copies`, `POST /recordings/{id}/copies/split` |
 | Authorized embedded or folder artwork | `GET /recordings/{id}/artwork` |
 | Original audio with byte ranges | `GET /sources/{id}/audio` |
 | Personal playlists | `GET /playlists`, `GET /playlists/{id}` |

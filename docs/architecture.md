@@ -318,7 +318,7 @@ What each capability owns:
 
 - `Identity`: accounts, sessions, account deletion and the opaque authenticated actor.
 - `Catalog`: authorized reads, provider search and adoption, source resolution, artwork (embedded, provider and Cover Art Archive covers), and genre reads. It owns the Cover Art Archive client.
-- `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits, and runs the automatic artist matching walk (tags, ISRC, provider artist links, name and discography corroboration, then MusicBrainz genres).
+- `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits, and runs the automatic artist matching walk (tags, ISRC, provider artist links, name and discography corroboration, then MusicBrainz genres, then the local recording grouping step).
 - `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.
 - `Collection`: the single transaction that accepts a batch of personal operations and appends events. It also builds the Home read and refreshes followed playlists.
 - `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
