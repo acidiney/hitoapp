@@ -129,6 +129,31 @@ Limits. The album must have at most 1,000 tracks to be compared. The server cann
 
 The chosen-artist [discography](artist-discography.md#comparing-a-linked-album-with-its-edition) can ask how much of the remembered edition an album holds: `POST /api/v1/albums/{id}/edition/library-level` reuses this read and answers In library, Partly in library or Linked with "n of m tracks". It runs only when the user asks and fetches nothing without a remembered edition.
 
+## Playing a catalog album from a discography card
+
+Current behavior in source, covered by tests with owned fakes; not a public release. A release card in a chosen artist's discography that no library album is linked to offers **Play album** and **Open album**. Nothing is requested until one of them is pressed. Opening replaces the card with the same album header as a library album (cover, title, credit, track count and length, **Play**, **Shuffle**) and the library's track table (number that turns into a play icon on hover, title, time). The first edition the provider lists is read automatically. A compact **Edition** selector appears only when the provider lists two or more editions or more pages of them. The page no longer shows an Editions section, a duplicate title or a "has not been checked" note, and a catalog-only card says "Not in your library" instead of "Catalog only". Pregap and data tracks are not listed.
+
+```mermaid
+flowchart LR
+  Open[Open album or Play album] --> Editions[Read editions, take the first]
+  Editions --> Tracks[Read its track list]
+  Tracks --> Rows[Header and track table]
+  Rows -->|Play, Shuffle or a row| Consent{Search connected services automatically on?}
+  Consent -->|No| Explain[One line and a link to Settings, nothing searched]
+  Consent -->|Yes| First[POST edition-track-audio for the first track]
+  First --> Queue[Play it, queue it, hand the rest to a queue supply]
+  Queue --> Ahead[Resolve the next tracks, up to three queued ahead]
+  Ahead --> Prepare[Normal next-entry preparation buffers the successor]
+```
+
+Playing needs the account's `automatic_service_search` choice. It is read when Play is pressed, never on page load. When it is off, Play shows one line with a link to Settings, Privacy and searches nothing.
+
+`POST /api/v1/recordings/{id}/artist-associations/{association}/edition-track-audio` takes the release group, edition and occurrence only and answers with the same `AlbumTrackAudio` outcomes and the same automatic source policy, admission and 15-second budget as [finding audio for a library album track](#finding-audio-for-tracks-the-catalog-provider-cannot-save). It needs no library album, only the reviewed artist association of the anchor recording.
+
+Pressing Play resolves only the pressed track before playback starts. The remaining tracks go to the player as a queue supply that resolves one track at a time and stays at most three tracks ahead of the current one, so a long album does not search every track at once. Each resolved recording is appended in album order, which also lets the normal [next-entry preparation](next-entry-preparation.md) buffer it. A track that no service has shows "Not found on your services" on its row and is skipped without a pre-check. A failed search shows "Couldn't search right now" and is skipped. No connected audio provider, disabled metadata providers or an unsupported provider stop the album with one message. Clicking a row starts from that row; earlier tracks are not queued. Shuffle starts at a random track and turns the player's shuffle on, so it mixes only the tracks resolved so far. The queue keeps being fed if you leave the page.
+
+The cover is read from the Cover Art Archive route `GET /api/v1/cover-art/{release|release-group}/{mbid}` when the edition or release group identifier is a MusicBrainz identifier, falling back to the generated cover. A cover that is still being retrieved appears after the page is opened again.
+
 ## Genres and artist radio
 
 Current behavior, covered by local tests and running on the local development server (migrations 0068 and 0069). Not a public release.
