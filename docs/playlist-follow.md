@@ -52,11 +52,33 @@ Manual refresh receipts remain protected while their jobs are queued or running.
 
 Job history retains the newest 32 unreferenced terminal jobs per playlist and every job still referenced by a retained receipt. Completion, receipt expiry, lease recovery and playlist deletion apply the same pruning rule in their existing transactions. Pending and running jobs are never pruned.
 
-## Connection changes and explicit resume
+## Connection changes, automatic resume and explicit resume
 
-Accepting a changed plugin declaration does not resume an existing Follow. The last good snapshot remains available with the approval revisions under which it was actually read. Resume requires a separate synchronization operation naming the expected Follow generation and the current original installation and service revisions. Another account, stale generation, missing playlist capability or removed original connection cannot authorize it. Reinstalling the same provider creates a different connection and is not an implicit replacement.
+A Follow records what its owner approved: the connection's capability list and a marker of its saved access token (the sealed token's random nonce, never the token). A new connection revision does not interrupt a Follow when nothing relevant changed. When the same installation, the same active service (same address and identity) and the same plugin identity still declare `playlists`, declare no capability beyond the approved list and keep the same saved token, Hito resumes the Follow itself: it adopts the new revisions, advances the execution generation, clears the pause and makes the next check due. Rebuilding a plugin container and checking its connection therefore changes nothing for the listener.
 
-An accepted resume advances the execution generation and makes the next check due. It does not rewrite entries, metadata or snapshot provenance. An older running job remains charged against admission until retirement; it cannot publish, overwrite a new generation's error or postpone its schedule. Exact earlier manual receipts still replay, while a new manual request waits for obsolete running work to retire.
+The check runs when the Follow status is read and at the start of every worker poll, so existing paused Follows that meet the rule resume on the next check after startup without any action. The log records only the number of resumed Follows and cancelled queued jobs. A Follow created before this rule existed has no recorded approval; Hito treats its first compatible state as the baseline, so it resumes when `playlists` is still declared.
+
+Hito still pauses and asks when something that matters changed:
+
+| Change | Result |
+| --- | --- |
+| A capability was added that the owner had not approved for this Follow | Paused, review offered |
+| The saved token was replaced or cleared | Paused, review offered |
+| `playlists` is no longer declared | Paused, cannot be resumed |
+| The service was withdrawn or the connection removed (a different address is a different service) | Paused, cannot be resumed |
+
+Reinstalling the same provider creates a different connection and is not an implicit replacement, so a changed address cannot be approved yet; see remaining work.
+
+A paused Follow's status carries a `review` object: the connection name, the current installation and service revisions to approve, whether it can be resumed, and only the changed fields as before and after lists (`capabilities`, `credential` or `removed`). The playlist page shows one sentence, for example "The Spotify connection now also offers song search.", the changed fields as before to after, a primary **Resume updates** and a quiet **Review connection** link to Settings. Resume sends the synchronization operation below with the revisions from the review. The last good snapshot remains available with the approval revisions under which it was actually read. Resume requires a separate synchronization operation naming the expected Follow generation and the current original installation and service revisions. Another account, stale generation, missing playlist capability or removed original connection cannot authorize it.
+
+```mermaid
+flowchart TD
+    Rev[Connection revision changes] --> Same{Same service, identity, token and no new capability, playlists declared?}
+    Same -->|yes| Auto[Core resumes the Follow itself]
+    Same -->|no| Paused[Status paused with review]
+    Paused --> Ask[Resume updates or Review connection]
+    Ask --> Op[Synchronization operation with reviewed revisions]
+```
 
 After a complete successful read under the newly approved connection, Hito publishes the verified provenance and advances the content revision. If the content is identical, every accepted entry ID remains stable, including unknown entries. A further identical read under the same approval only advances freshness. Failed publication rolls back the content revision and all associated collection changes together.
 
@@ -100,6 +122,6 @@ The normal candidate first starts without published ports. Its runtime contract 
 
 ## Remaining work
 
-- Consider later interval editing and explicit identity-preserving rebind after reinstalling a connection.
+- Consider later interval editing and explicit identity-preserving rebind after reinstalling a connection or moving a plugin to another address.
 - Integrate synchronized download references when persistent downloads are implemented.
 - Complete packaged desktop, other-browser and public-release performance/recovery acceptance.
