@@ -60,11 +60,9 @@ pub struct ArtistMatchChosen {
     pub tracks: i64,
     /// Of those, the tracks Hito matched by itself.
     pub automatic_tracks: i64,
-    /// How those tracks were matched, the largest share first.
     pub evidence: Vec<ArtistMatchEvidence>,
 }
 
-/// Tracks of a credit that one kind of evidence matched to the chosen artist.
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchEvidence {
     pub evidence: ArtistAssociationEvidence,
@@ -103,28 +101,22 @@ pub struct ArtistReviewQueueQuery {
     pub limit: Option<i64>,
 }
 
-/// A MusicBrainz artist the automatic walk found under a credit's name and could not exclude.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, sqlx::FromRow, ToSchema)]
 pub struct ArtistReviewCandidate {
     pub provider_artist_id: String,
     pub name: String,
-    /// The artist type in lower case, such as `person` or `group`.
     pub kind: Option<String>,
     pub disambiguation: Option<String>,
     pub country: Option<String>,
-    /// Distinct titles of the credit's sample that this artist's recordings list.
     pub corroborated_titles: i64,
-    /// The account already has this artist among its chosen artists.
     pub in_library: bool,
 }
 
-/// A library credit whose tracks the automatic walk left undecided.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ArtistReviewItem {
     pub artist_id: String,
     pub name: String,
     pub undecided_tracks: i64,
-    /// At most three, the artists the account already has first, then the best corroborated.
     pub candidates: Vec<ArtistReviewCandidate>,
 }
 
@@ -133,7 +125,6 @@ pub struct ArtistReviewItem {
 pub struct ConfirmArtistReviewCandidate {
     pub request_id: Uuid,
     pub provider_artist_id: String,
-    /// The `next_after` of the previous step, to continue past tracks that step examined.
     pub after: Option<String>,
 }
 
@@ -142,11 +133,8 @@ pub struct ArtistReviewConfirmation {
     pub request_id: Uuid,
     pub artist_id: String,
     pub provider_artist_id: String,
-    /// Undecided tracks that now use the artist.
     pub applied: i64,
-    /// Tracks left as they were because of an earlier personal decision.
     pub kept: i64,
-    /// Undecided tracks the request did not reach; asking again with `next_after` continues.
     pub remaining: i64,
     pub next_after: Option<String>,
 }
@@ -154,7 +142,6 @@ pub struct ArtistReviewConfirmation {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DismissArtistReviewCandidates {
-    /// The one artist that is not right, or every candidate of the credit when absent.
     pub provider_artist_id: Option<String>,
 }
 
@@ -167,13 +154,11 @@ pub struct ArtistReviewDismissal {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RestoreArtistReviewCandidates {
-    /// The one dismissed artist to offer again, or every dismissed candidate of the credit when absent.
     pub provider_artist_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
 pub struct ArtistReviewRestoration {
     pub artist_id: String,
-    /// Dismissals removed; restoring something that is not dismissed removes none.
     pub restored: i64,
 }

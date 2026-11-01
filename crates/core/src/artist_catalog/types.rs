@@ -90,9 +90,7 @@ pub enum ArtistAssociationEvidence {
     /// The credit's remaining tracks, following one artist that the credit's probed tracks mostly
     /// share; see `coverage_evidence`.
     MatchedCreditCoverage,
-    /// The account confirmed one of the candidates Hito found under the credit's name.
     UserConfirmedCandidate,
-    /// The file's own tags name a MusicBrainz recording whose single credited artist was matched.
     MatchedRecordingId,
 }
 

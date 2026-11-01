@@ -30,8 +30,6 @@ const MAX_HOLDS: u32 = 40;
 /// compares version titles, continues an artist already matched for the credit and lets one
 /// artist's coverage of the credit decide its remaining tracks. Rule 4 counts distinct titles for
 /// the share, asks every other namesake about the remaining tracks and lets choices and strong
-/// evidence for another artist refuse a match. Rule 5 keeps the exact-name artists of every
-/// uncertain credit as candidates for the review queue.
 pub(super) const NAME_RULE: i64 = 5;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
@@ -166,9 +164,7 @@ impl Budget {
 struct Answers {
     namesakes: HashMap<String, Option<Vec<String>>>,
     recordings: HashMap<(String, String), ArtistRecordings>,
-    /// What the searches said about each artist they listed.
     described: HashMap<String, NameCandidate>,
-    /// The candidates to keep for each credit that was judged, none when the credit has none.
     reviews: HashMap<String, Vec<ReviewCandidate>>,
 }
 

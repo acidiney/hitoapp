@@ -38,7 +38,6 @@ pub(super) struct Settlement<'a> {
     pub digest: &'a str,
     pub next_after: Option<String>,
     pub checks: Checks,
-    /// The candidates found under each credit that was judged; empty for the evidence pass.
     pub reviews: Vec<(String, Vec<ReviewCandidate>)>,
 }
 

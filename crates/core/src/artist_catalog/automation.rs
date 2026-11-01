@@ -92,8 +92,6 @@ async fn lookups_allowed(connection: &mut SqliteConnection, account: &str) -> Re
         && policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz))
 }
 
-/// Jobs are queued for every account: an account that turned lookups off still gets its local
-/// recording groups.
 async fn account_exists(connection: &mut SqliteConnection, account: &str) -> Result<bool> {
     match Actor::unattended_on(connection, account).await {
         Ok(_) => Ok(true),
@@ -333,8 +331,6 @@ impl ArtistCatalog {
         }
     }
 
-    /// An account that turned lookups off still gets its local recording groups: the job skips
-    /// every provider phase and ends after the grouping steps.
     async fn grouping_only(&self, job: &Job) -> Step {
         let position = job
             .cursor

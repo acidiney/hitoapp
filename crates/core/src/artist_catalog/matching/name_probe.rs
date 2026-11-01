@@ -27,7 +27,6 @@ pub(super) struct Track {
     pub operation: Option<String>,
     /// The recording carries an ISRC, an artist page or a tagged artist identifier of its own.
     pub own_evidence: bool,
-    /// The recording's own tags name a MusicBrainz recording, whose answer is never overridden by a name.
     pub tagged_recording: bool,
 }
 

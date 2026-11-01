@@ -26,7 +26,6 @@ pub(crate) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "f731ccc4-e22a-43af-a747-64213329e088",
 ];
 
-/// The recording identifier the current observation's file tags state, if it is well formed.
 const TAGGED_RECORDING: &str = "(SELECT t.mbid FROM recording_musicbrainz_observations t
     WHERE t.observation_id=r.metadata_observation_id AND t.recording_id=r.id AND t.entity='recording')";
 
@@ -87,8 +86,6 @@ impl Candidate {
         recording.chain(isrc).chain(page).collect()
     }
 
-    /// The tagged recording decides first, then the ISRC; a lone artist page is consulted only
-    /// when neither names an artist.
     fn outcome(&self, resolutions: &HashMap<Lookup, Resolution>) -> Outcome {
         let mut unavailable = false;
         for (lookup, kind) in self
@@ -340,8 +337,6 @@ impl ArtistCatalog {
     }
 }
 
-/// Recording, tagged MusicBrainz recording, ISRC, lone artist page, current observation and
-/// personal artist operation.
 type Row = (
     String,
     Option<String>,

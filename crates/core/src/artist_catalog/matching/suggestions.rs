@@ -224,8 +224,6 @@ impl ArtistCatalog {
     }
 }
 
-/// The chosen artists the credit's tracks use now, with how many were matched automatically and by
-/// which evidence.
 async fn chosen_artists(
     connection: &mut SqliteConnection,
     actor: &Actor,

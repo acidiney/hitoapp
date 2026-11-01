@@ -62,7 +62,6 @@ pub(crate) struct Title {
     /// The folded base used to compare titles.
     pub key: String,
     kinds: u16,
-    /// The exact wording of live and remix qualifiers, which name a venue or a remixer.
     specific: String,
 }
 
@@ -207,8 +206,6 @@ impl Title {
         }
     }
 
-    /// Live and remix qualifiers name a venue or a remixer, so two titles are the same version
-    /// only when that wording is the same too.
     pub(crate) fn same_specific_wording(&self, other: &Self) -> bool {
         self.specific == other.specific
     }

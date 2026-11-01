@@ -34,7 +34,6 @@ pub(super) enum EvidenceKind {
     /// The credit's remaining tracks, matched because the artist listed this many of the credit's
     /// tracks of this many that were probed.
     Coverage(u32, u32),
-    /// A candidate the account confirmed in the review queue.
     UserConfirmedCandidate,
 }
 

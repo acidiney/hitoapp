@@ -1,6 +1,3 @@
-//! The review queue: credits the automatic walk could not identify, with the artists it found
-//! under their name, so that the account decides in one step. The walk stores the candidates; reads
-//! contact no provider.
 use super::{
     ArtistReviewCandidate, ArtistReviewConfirmation, ArtistReviewDismissal, ArtistReviewItem,
     ArtistReviewQueueQuery, ArtistReviewRestoration, ConfirmArtistReviewCandidate,
@@ -21,12 +18,10 @@ const DEFAULT_LIMIT: i64 = 20;
 const MAX_LIMIT: i64 = 50;
 const MAX_OFFSET: i64 = 100_000;
 const MAX_CANDIDATES: i64 = 3;
-/// Undecided tracks one confirmation applies; asking again continues.
 const MAX_APPLIED: i64 = 200;
 const MAX_ID_LENGTH: usize = 64;
 const MAX_TEXT_CHARS: usize = 200;
 
-/// An exact-name artist of a credit, as the walk saw it.
 pub(super) struct ReviewCandidate {
     id: String,
     name: String,
@@ -40,7 +35,6 @@ fn clipped(text: &str, limit: usize) -> String {
     text.chars().take(limit).collect()
 }
 
-/// The candidates of a credit in search order, with the distinct sample titles each lists.
 pub(super) fn candidates(
     ids: &[String],
     assessments: &[(String, Assessment)],
@@ -75,7 +69,6 @@ pub(super) fn candidates(
         .collect()
 }
 
-/// Replaces the candidates kept for a credit. Dismissals are separate and stay.
 pub(super) async fn keep(
     connection: &mut SqliteConnection,
     actor: &Actor,
@@ -107,8 +100,6 @@ pub(super) async fn keep(
     Ok(())
 }
 
-/// Recordings the walk examined and left undecided, which the account has not decided about and
-/// whose artist the account has not edited. `{credit}` limits them to one credit.
 fn undecided(credit_filter: &str) -> String {
     format!(
         "SELECT r.id AS id,rc.artist_id AS artist_id FROM artist_name_checks k
@@ -128,7 +119,6 @@ const DISMISSED_MATCH: &str = "EXISTS (SELECT 1 FROM artist_review_dismissals d
 const OFFERED: &str = "NOT EXISTS (SELECT 1 FROM artist_review_dismissals d
     WHERE d.user_id=c.user_id AND d.artist_id=c.artist_id AND d.provider_artist_id=c.provider_artist_id)";
 
-/// Which candidates of an undecided credit a read lists.
 #[derive(Clone, Copy)]
 enum Listing {
     Offered,
@@ -158,7 +148,6 @@ fn queued(listing: Listing) -> String {
 }
 
 impl ArtistCatalog {
-    /// The credits the walk left undecided that have candidates, the largest credit first.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_review_queue", request_id = %Uuid::new_v4()))]
     pub async fn artist_review_queue(
         &self,
@@ -183,8 +172,6 @@ impl ArtistCatalog {
         result
     }
 
-    /// The credits with undecided tracks whose candidates the account dismissed, each with the
-    /// dismissed candidates, so that they can be offered again.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_review_dismissed", request_id = %Uuid::new_v4()))]
     pub async fn dismissed_artist_reviews(
         &self,
@@ -276,8 +263,6 @@ impl ArtistCatalog {
         })
     }
 
-    /// Applies one candidate to the credit's undecided tracks. A track the account decided about,
-    /// edited or unlinked keeps its state; the artist joins the account's chosen artists.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_review_confirm", request_id = %request.request_id))]
     pub async fn confirm_artist_review_candidate(
         &self,
@@ -428,8 +413,6 @@ impl ArtistCatalog {
         Ok(receipt)
     }
 
-    /// "Not this artist" for one candidate, or "None of these" for every candidate the credit has.
-    /// The credit leaves the queue once no candidate is left, and a later walk keeps the decision.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_review_dismiss", request_id = %Uuid::new_v4()))]
     pub async fn dismiss_artist_review_candidates(
         &self,
@@ -506,8 +489,6 @@ impl ArtistCatalog {
         })
     }
 
-    /// Offers one dismissed candidate again, or every dismissed candidate of the credit. Only the
-    /// account's own dismissals are removed, and removing none is not an error.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_review_restore", request_id = %Uuid::new_v4()))]
     pub async fn restore_artist_review_candidates(
         &self,
