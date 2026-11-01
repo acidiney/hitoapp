@@ -408,6 +408,10 @@ impl Snapshot {
                     "maintenance changed legacy provider origin types, values, or rowids"
                 );
             }
+            if table.name == "playlist_follows" {
+                expected
+                    .extend(["approved_capabilities", "approved_credential"].map(str::to_owned));
+            }
             if table.name == "artwork_fetches" {
                 let target_columns = [
                     "entity_kind",
@@ -567,6 +571,15 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
                 ddl.replace(
                     "'no_suitable_source'",
                     "'no_suitable_source','provider_unavailable'",
+                )
+            });
+        }
+        if declared.0 == "table" && declared.1 == "playlist_follows" {
+            declared.3 = declared.3.map(|ddl| {
+                ddl.replacen(
+                    "error TEXT\n)",
+                    "error TEXT\n, approved_capabilities TEXT, approved_credential TEXT)",
+                    1,
                 )
             });
         }
