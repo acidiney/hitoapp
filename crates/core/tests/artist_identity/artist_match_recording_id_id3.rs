@@ -134,6 +134,22 @@ async fn mp3_and_wav_ufid_recording_ids_match_the_credited_artist_and_group_the_
     }
 }
 
+async fn queued_jobs(directory: &Path) -> i64 {
+    let pool =
+        sqlx::SqlitePool::connect(&format!("sqlite:{}", directory.join("hito.db").display()))
+            .await
+            .unwrap();
+    let due = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM artist_matching_jobs
+         WHERE next_run_at <= unixepoch() AND (lease_token IS NULL OR lease_until <= unixepoch())",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    pool.close().await;
+    due
+}
+
 #[tokio::test]
 async fn an_existing_mp3_library_is_inspected_again_and_matched_after_the_upgrade() {
     let fake = FakeMusicBrainz::start().await;
@@ -169,6 +185,11 @@ async fn an_existing_mp3_library_is_inspected_again_and_matched_after_the_upgrad
         pool.close().await;
         id
     };
+    assert_eq!(
+        queued_jobs(dir.path()).await,
+        0,
+        "nothing is queued once the walk ends"
+    );
     prior_inspection::represent_prior_inspection(&dir.path().join("hito.db"), &source).await;
     fake.recording(
         SONG,
@@ -176,6 +197,11 @@ async fn an_existing_mp3_library_is_inspected_again_and_matched_after_the_upgrad
     );
 
     support::scan(&hito, &actor, &library).await;
+    assert_eq!(
+        queued_jobs(dir.path()).await,
+        1,
+        "the scan alone queues the account's matching walk"
+    );
     walk(&hito).await;
     let linked = hito
         .artist_catalog
