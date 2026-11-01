@@ -20,7 +20,11 @@ const TWO_ARTISTS: &str = "0f700000-0000-4000-8000-0000000000b2";
 const UNKNOWN: &str = "0f700000-0000-4000-8000-0000000000b3";
 const OUTAGE: &str = "0f700000-0000-4000-8000-0000000000b4";
 const RESET: &str = "0f700000-0000-4000-8000-0000000000b5";
-const SAME_CREDIT: &str = "0f700000-0000-4000-8000-0000000000b6";
+const MERGED: &str = "0f700000-0000-4000-8000-0000000000c1";
+const SURVIVOR: &str = "0f700000-0000-4000-8000-0000000000c2";
+const BROKEN: &str = "0f700000-0000-4000-8000-0000000000c3";
+const VARIOUS: &str = "0f700000-0000-4000-8000-0000000000c4";
+const VARIOUS_ARTISTS: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
 
 struct World {
     hito: Services,
@@ -70,8 +74,16 @@ impl World {
             Reply::Recordings(vec![(RESET.into(), vec![ARTIST.into()])]),
         );
         fake.recording(
-            SAME_CREDIT,
-            Reply::Recordings(vec![(SAME_CREDIT.into(), vec![ARTIST.into()])]),
+            MERGED,
+            Reply::Recordings(vec![(SURVIVOR.into(), vec![ARTIST.into()])]),
+        );
+        fake.recording(
+            BROKEN,
+            Reply::Recordings(vec![(BROKEN.into(), vec!["not-an-artist".into()])]),
+        );
+        fake.recording(
+            VARIOUS,
+            Reply::Recordings(vec![(VARIOUS.into(), vec![VARIOUS_ARTISTS.into()])]),
         );
         let (directory, hito, actor, library, music) =
             support::library_with_musicbrainz("recording-id", Some(fake.endpoint.clone())).await;
@@ -82,6 +94,9 @@ impl World {
             (4, "Outage", OUTAGE),
             (5, "Reset", RESET),
             (6, "Malformed", "not-a-recording-id"),
+            (7, "Merged", MERGED),
+            (8, "Broken", BROKEN),
+            (9, "Various", VARIOUS),
         ] {
             flac(directory.path(), &music, offset, title, recording);
         }
@@ -144,8 +159,17 @@ async fn a_recording_id_in_the_file_tags_matches_the_single_credited_artist() {
         "Scanning never contacts MusicBrainz"
     );
     let receipt = world.run().await;
-    assert_eq!(receipt.matched, 2, "{receipt:?}");
+    assert_eq!(receipt.matched, 3, "{receipt:?}");
     assert_eq!(receipt.unavailable, 1);
+    for title in ["Reset", "Merged"] {
+        let linked = world.associations(title).await;
+        assert_eq!(linked.len(), 1, "{title}");
+        assert_eq!(linked[0].provider_artist_id, ARTIST);
+        assert_eq!(
+            linked[0].evidence,
+            ArtistAssociationEvidence::MatchedRecordingId
+        );
+    }
 
     let linked = world.associations("One").await;
     assert_eq!(linked.len(), 1);
@@ -155,7 +179,14 @@ async fn a_recording_id_in_the_file_tags_matches_the_single_credited_artist() {
         linked[0].evidence,
         ArtistAssociationEvidence::MatchedRecordingId
     );
-    for title in ["Two Artists", "Unknown", "Outage", "Malformed"] {
+    for title in [
+        "Two Artists",
+        "Unknown",
+        "Outage",
+        "Malformed",
+        "Broken",
+        "Various",
+    ] {
         assert!(world.associations(title).await.is_empty(), "{title}");
     }
     let requests = world.recording_requests();
@@ -183,7 +214,7 @@ async fn settled_answers_are_not_asked_again_but_an_outage_is() {
     assert_eq!(
         world.recording_requests().len(),
         before + 1,
-        "Only the unavailable answer is asked again"
+        "Only the unavailable answer is asked again; a reply that cannot be read is settled"
     );
 }
 
@@ -269,4 +300,54 @@ async fn the_automatic_walk_asks_nothing_while_the_account_forbids_lookups() {
     world.walk().await;
     assert!(world.recording_requests().is_empty());
     assert!(world.associations("One").await.is_empty());
+}
+
+#[tokio::test]
+async fn a_track_with_its_own_recording_id_is_never_decided_by_name_or_coverage() {
+    const NOVA: &str = "44444444-4444-4444-8444-444444444444";
+    let fake = FakeMusicBrainz::start().await;
+    let titles = ["Alpha", "Beta", "Gamma"];
+    let mut tagged = Vec::new();
+    for (index, _) in titles.iter().enumerate() {
+        let id = format!("0f700000-0000-4000-8000-0000000000d{index}");
+        fake.recording(
+            &id,
+            Reply::Recordings(vec![(id.clone(), vec![ARTIST.into(), OTHER.into()])]),
+        );
+        tagged.push(id);
+    }
+    fake.search(
+        "Performer",
+        Reply::Candidates(vec![(NOVA.into(), "Performer".into())]),
+    );
+    fake.recordings_of(
+        NOVA,
+        Reply::Discography(titles.iter().map(|t| ((*t).into(), Some(1000))).collect()),
+    );
+    let (directory, hito, actor, library, music) =
+        support::library_with_musicbrainz("recording-id-name", Some(fake.endpoint.clone())).await;
+    for (index, (title, id)) in titles.iter().zip(&tagged).enumerate() {
+        flac(directory.path(), &music, index as i16 + 1, title, id);
+    }
+    support::scan(&hito, &actor, &library).await;
+    while hito
+        .artist_catalog
+        .run_next_automatic_matching_until(std::future::pending())
+        .await
+        .unwrap()
+    {}
+    for item in hito
+        .catalog
+        .recordings(&actor, Default::default())
+        .await
+        .unwrap()
+        .items
+    {
+        let linked = hito
+            .artist_catalog
+            .recording_artist_associations(&actor, &item.id)
+            .await
+            .unwrap();
+        assert!(linked.is_empty(), "{} was decided by name", item.title);
+    }
 }
