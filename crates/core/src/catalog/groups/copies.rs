@@ -17,7 +17,6 @@ pub struct RecordingCopy {
     pub title: String,
     pub artist: String,
     pub album: Option<String>,
-    /// Why Hito knows this copy is the same song; absent for the recording that carries the card.
     pub proof: Option<RecordingGroupProof>,
     pub canonical: bool,
     pub available: bool,
@@ -26,16 +25,13 @@ pub struct RecordingCopy {
 
 #[derive(Serialize, ToSchema)]
 pub struct RecordingCopies {
-    /// The recording that carries the card in lists.
     pub canonical_id: String,
-    /// Every copy including the one that carries the card; empty when the recording is alone.
     pub copies: Vec<RecordingCopy>,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct RecordingSplit {
     pub recording_id: String,
-    /// The recording now shows as its own card and will not be grouped with these copies again.
     pub separate: bool,
 }
 
@@ -57,8 +53,6 @@ impl RecordingGroupProof {
 }
 
 impl Catalog {
-    /// Every copy of the song the recording belongs to, each with its own sources. A recording
-    /// that is not grouped has no copies listed.
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn recording_copies(
         &self,
@@ -133,8 +127,6 @@ impl Catalog {
         })
     }
 
-    /// Separates one copy from its song for this account. The pair is remembered so later
-    /// passes never group it again; repeating the request changes nothing.
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(operation = "recording_split", account_id = actor.id()))]
     pub async fn split_recording_copy(
         &self,

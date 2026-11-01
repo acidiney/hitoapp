@@ -84,16 +84,11 @@ impl Candidate {
                 .is_some_and(|tolerance| self.duration_ms.abs_diff(other.duration_ms) <= tolerance)
     }
 
-    /// The card may show this recording instead of the other without losing playability or a
-    /// personal choice.
     fn can_carry(&self, other: &Self) -> bool {
         self.rank >= other.rank && other.decisions.is_subset(&self.decisions)
     }
 }
 
-/// One bounded step of the account's grouping pass. Recordings are grouped only on proof: the same
-/// tagged MusicBrainz recording or the same ISRC, with the same version wording and a compatible
-/// length. The cursor continues the identifier walk.
 pub(crate) async fn group_step(
     store: &Store,
     account: &str,
@@ -341,8 +336,6 @@ async fn candidate(tx: &mut SqliteConnection, account: &str, id: &str) -> Result
 
 const VERIFIED_PER_STEP: i64 = 200;
 
-/// Drops the account's group members whose proof or version no longer holds, for example after a
-/// retag, then hands over to the identifier walk.
 async fn verify_step(
     store: &Store,
     account: &str,

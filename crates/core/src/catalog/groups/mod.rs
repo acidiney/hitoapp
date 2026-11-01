@@ -1,7 +1,3 @@
-//! One card per proven song. A group never changes a recording, its sources or any personal
-//! reference; it only decides which recording a list shows for the account. Whether a copy is
-//! hidden is decided when a list is read, so a later like, edit, download or lost audio shows the
-//! copy again without waiting for a pass.
 mod copies;
 mod proof;
 
@@ -9,7 +5,6 @@ pub use copies::{RecordingCopies, RecordingCopy, RecordingGroupProof, RecordingS
 pub(crate) use proof::group_step;
 use sqlx::{QueryBuilder, Sqlite};
 
-/// Personal state a copy can hold: table, account column and a filter template (`{}` is the alias).
 const DECISIONS: [(&str, &str, &str); 6] = [
     ("likes", "user_id", "AND {}.liked = 1"),
     ("personal_recording_metadata", "user_id", ""),
@@ -19,8 +14,6 @@ const DECISIONS: [(&str, &str, &str); 6] = [
     ("download_intents", "account_id", ""),
 ];
 
-/// 2 when the recording has ready audio, 1 when a connected service of the account can resolve
-/// it, otherwise 0.
 fn rank_sql(recording: &str, account: &str) -> String {
     format!(
         "(CASE WHEN EXISTS (SELECT 1 FROM sources ranked WHERE ranked.recording_id = {recording} AND ranked.ready = 1) THEN 2
@@ -29,9 +22,6 @@ fn rank_sql(recording: &str, account: &str) -> String {
     )
 }
 
-/// Restricts a list of recordings `r` to the cards: a copy is hidden only while its carrier is
-/// readable by the account, the copy holds no personal state the carrier lacks and the carrier's
-/// audio is at least as good.
 pub(crate) fn push_cards_only(query: &mut QueryBuilder<'_, Sqlite>, account: &str) {
     query
         .push(" AND NOT EXISTS (SELECT 1 FROM recording_group_members grouped WHERE grouped.user_id = ")
