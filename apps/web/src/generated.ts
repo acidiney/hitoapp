@@ -708,6 +708,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/discover/featured": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["discover_featured"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/downloads/{intent_id}": {
         parameters: {
             query?: never;
@@ -1406,6 +1422,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["check_plugin_declaration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{id}/featured-artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["featured_artwork"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3262,7 +3294,7 @@ export interface components {
             offset?: number | null;
         };
         /** @enum {string} */
-        Capability: "search" | "catalog" | "metadata" | "sources" | "source_preparation" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks";
+        Capability: "search" | "catalog" | "metadata" | "sources" | "source_preparation" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks" | "featured";
         CatalogAdoption: {
             installation_id: string;
             /** Format: int64 */
@@ -3567,6 +3599,36 @@ export interface components {
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
+        };
+        FeaturedEntry: {
+            artwork_id?: string | null;
+            id: string;
+            installation_id: string;
+            /** Format: int64 */
+            installation_revision: number;
+            /** Format: int32 */
+            item_count?: number | null;
+            kind: components["schemas"]["FeaturedKind"];
+            provider: string;
+            reference: string;
+            subtitle?: string | null;
+            title: string;
+        };
+        /** @enum {string} */
+        FeaturedKind: "playlist" | "album" | "new_release";
+        FeaturedShelf: {
+            items: components["schemas"]["FeaturedEntry"][];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
         };
         FindAlbumTrackAudio: {
             association_id: string;
@@ -8762,6 +8824,59 @@ export interface operations {
             };
         };
     };
+    discover_featured: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedShelf"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     remove_download: {
         parameters: {
             query?: never;
@@ -11928,6 +12043,89 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    featured_artwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revision: number;
+                artwork: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cover of a featured item from the approved connection */
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,6 +3,9 @@ mod support;
 
 use hito_core::test_support::content_service as provider_fixture;
 
+#[path = "api/featured.rs"]
+mod featured;
+
 #[path = "api/identity.rs"]
 mod identity;
 
