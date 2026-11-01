@@ -1,6 +1,8 @@
 import type { Schema } from "../../shared/schema";
 import {
   MAX_QUEUE_ENTRIES,
+  MEDIA_ERR_SRC_NOT_SUPPORTED,
+  UNSUPPORTED_FORMAT_MESSAGE,
   type MediaPort,
   type PlaybackQueueInput,
   type QueueSupply,
@@ -79,6 +81,7 @@ export class Playback implements Player {
   private durationChanged: (() => void) | null = null;
   private serverBound: number | null = null;
   private entryEnded = false;
+  private formatRejected = false;
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
   private lookahead: BrowserLookahead | null;
   private stopListening: () => void = () => {};
@@ -214,8 +217,10 @@ export class Playback implements Player {
       },
       error: () => {
         this.community?.reset();
+        this.formatRejected = media.error?.code === MEDIA_ERR_SRC_NOT_SUPPORTED;
         log.warn("playback.media_failed", {
           recording_id: this.state.current?.id,
+          reason: this.formatRejected ? "format_unsupported" : "media_error",
         });
         if (this.activeSource) void this.recover();
       },
@@ -465,6 +470,7 @@ export class Playback implements Player {
       (current ? new PlaybackSources(current.id, this.resolve) : null);
     if (!continuation) this.media.pause();
     this.activeSource = null;
+    this.formatRejected = false;
     this.media.removeAttribute("src");
     this.media.load();
     if (continuation) this.applySpeed(continuation.speed);
@@ -608,7 +614,11 @@ export class Playback implements Player {
         return;
       if (error instanceof Error && error.name === "NotAllowedError")
         this.update({ loading: false, error: "Press play to start audio." });
-      else await this.recover();
+      else {
+        this.formatRejected =
+          error instanceof Error && error.name === "NotSupportedError";
+        await this.recover();
+      }
     }
   }
 
@@ -642,12 +652,18 @@ export class Playback implements Player {
     log.warn("playback.unavailable", {
       recording_id: this.state.current?.id,
       index: this.state.index,
-      reason: providerUnavailable ? "provider_unavailable" : "exhausted",
+      reason: providerUnavailable
+        ? "provider_unavailable"
+        : this.formatRejected
+          ? "format_unsupported"
+          : "exhausted",
     });
     this.update({
       error: providerUnavailable
         ? "An audio service is unavailable. Select the track again to retry."
-        : `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
+        : this.formatRejected
+          ? UNSUPPORTED_FORMAT_MESSAGE
+          : `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
       loading: false,
     });
     const next = this.traversal.next(
