@@ -128,6 +128,9 @@ test("an opened catalog group pages editions on request and lists only the chose
 
     const switcher = within(group).getByRole("combobox", { name: "Edition" });
     expect(within(switcher).getAllByRole("option")).toHaveLength(1);
+    expect(within(switcher).getByRole("option").textContent).toBe(
+      "Standard edition · 2024-02 · Portugal",
+    );
     fireEvent.click(
       within(group).getByRole("button", { name: "Load more editions" }),
     );

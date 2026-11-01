@@ -1,3 +1,4 @@
+import { regionName } from "../../../shared/regionName";
 import { useEffect, useState } from "react";
 import {
   useArtistEditions,
@@ -81,7 +82,9 @@ function ArtistEditionBrowser(context: LibraryEditionContext) {
                   {edition.release_date ?? "Release date not provided"}
                 </span>
                 <span className={edition.country ? "" : "placeholder"}>
-                  {edition.country ?? "Country not provided"}
+                  {edition.country
+                    ? regionName(edition.country)
+                    : "Country not provided"}
                 </span>
               </p>
             </div>

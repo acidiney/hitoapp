@@ -1,3 +1,4 @@
+import { regionName } from "../../../shared/regionName";
 import { useEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { Play, Shuffle } from "lucide-react";
@@ -137,7 +138,7 @@ export default function CatalogAlbum({
                   {[
                     edition.disambiguation ?? edition.title,
                     edition.release_date,
-                    edition.country,
+                    edition.country ? regionName(edition.country) : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}

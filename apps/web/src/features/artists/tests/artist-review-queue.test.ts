@@ -130,7 +130,7 @@ test("each credit lists its track count and candidates with their details", asyn
   expect(screen.getByText("4 tracks")).toBeTruthy();
   expect(screen.getByText(/Lisbon fado band/)).toBeTruthy();
   expect(screen.getByText(/Brazilian jazz trio/)).toBeTruthy();
-  expect(screen.getByText(/PT/)).toBeTruthy();
+  expect(screen.getByText(/Portugal/)).toBeTruthy();
   expect(
     screen.getByRole("button", {
       name: "Confirm Nova Quartet, Lisbon fado band, for Nova Quartet",

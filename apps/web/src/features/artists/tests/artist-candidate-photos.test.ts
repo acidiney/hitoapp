@@ -107,7 +107,7 @@ async function search(provider?: string) {
 test("each built-in candidate shows a round photo from the same-origin route with its country and start year beside it", async () => {
   const rows = await search();
   const first = within(rows[0]);
-  expect(first.getByText("Person · GB · 2008–")).toBeTruthy();
+  expect(first.getByText("Person · United Kingdom · 2008–")).toBeTruthy();
   expect(first.getByText("UK soul/jazz singer")).toBeTruthy();
   const image = rows[0].querySelector("img");
   expect(image?.getAttribute("src")).toBe(`/api/v1/cover-art/artist/${FIRST}`);

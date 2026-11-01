@@ -1,3 +1,4 @@
+import { regionName } from "../../../shared/regionName";
 import type { Schema } from "../../../shared/schema";
 import {
   useEffect,
@@ -326,7 +327,7 @@ function ArtistSummary({
 function candidateFacts(candidate: Schema<"ArtistSearchCandidate">) {
   return [
     candidate.kind ? kinds[candidate.kind] : "Type not provided",
-    candidate.country,
+    candidate.country ? regionName(candidate.country) : null,
     candidate.begin_year ? `${candidate.begin_year}–` : null,
   ]
     .filter(Boolean)

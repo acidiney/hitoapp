@@ -1,3 +1,4 @@
+import { regionName } from "../../../shared/regionName";
 import type { Schema } from "../../../shared/schema";
 
 type Candidate = Schema<"ArtistReviewCandidate">;
@@ -7,7 +8,11 @@ export function plural(count: number, one: string, many: string) {
 }
 
 export function candidateDetails(candidate: Candidate) {
-  const parts = [candidate.disambiguation, candidate.kind, candidate.country];
+  const parts = [
+    candidate.disambiguation,
+    candidate.kind,
+    candidate.country ? regionName(candidate.country) : null,
+  ];
   if (candidate.corroborated_titles > 0)
     parts.push(
       `${plural(candidate.corroborated_titles, "title", "titles")} match your library`,
