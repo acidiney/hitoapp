@@ -4,9 +4,10 @@ mod library;
 
 use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{
-    ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem, ArtistReviewQueueQuery,
-    ConfirmArtistReviewCandidate, DismissArtistReviewCandidates, Error,
-    ResetRecordingArtistIdentity, RestoreArtistReviewCandidates,
+    Actor, ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem,
+    ArtistReviewQueueQuery, ConfirmArtistReviewCandidate, Credentials,
+    DismissArtistReviewCandidates, Error, ResetRecordingArtistIdentity,
+    RestoreArtistReviewCandidates,
 };
 use library::{CREDIT, NAMESAKE, NOVA, NameLibrary, TRIBUTE, nova_discography};
 use uuid::Uuid;
@@ -508,6 +509,71 @@ async fn only_the_accounts_own_credit_and_a_listed_dismissal_can_be_restored() {
             .restored,
         0,
         "A candidate that was never dismissed has nothing to restore"
+    );
+    library.origin.shutdown().await;
+}
+
+async fn second_account(library: &NameLibrary) -> Actor {
+    let credentials = || Credentials {
+        username: "outsider".into(),
+        password: "owned review outsider password".into(),
+    };
+    library
+        .hito
+        .identity
+        .create_user(&library.actor, credentials())
+        .await
+        .unwrap();
+    let session = library.hito.identity.login(credentials()).await.unwrap();
+    library
+        .hito
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn another_account_cannot_restore_or_see_the_dismissals_of_this_one() {
+    let library = undecided_namesakes().await;
+    let credit = credit_id(&library).await;
+    library
+        .hito
+        .artist_catalog
+        .dismiss_artist_review_candidates(
+            &library.actor,
+            &credit,
+            DismissArtistReviewCandidates {
+                provider_artist_id: None,
+            },
+        )
+        .await
+        .unwrap();
+    let outsider = second_account(&library).await;
+    let catalog = &library.hito.artist_catalog;
+    for artist in [None, Some(NOVA.to_owned())] {
+        assert!(matches!(
+            catalog
+                .restore_artist_review_candidates(
+                    &outsider,
+                    &credit,
+                    RestoreArtistReviewCandidates {
+                        provider_artist_id: artist
+                    }
+                )
+                .await,
+            Err(Error::NotFound)
+        ));
+    }
+    let seen = catalog
+        .dismissed_artist_reviews(&outsider, ArtistReviewQueueQuery::default())
+        .await
+        .unwrap();
+    assert_eq!((seen.total, seen.items.len()), (0, 0));
+    assert_eq!(
+        dismissed(&library).await[0].candidates.len(),
+        2,
+        "The owner's dismissals are untouched"
     );
     library.origin.shutdown().await;
 }

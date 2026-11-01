@@ -138,9 +138,7 @@ const QUEUE_CREDITS: usize = 60;
 const QUEUE_TRACKS: usize = 40;
 const QUEUE_BUDGET: u64 = 300_000;
 
-#[tokio::test]
-async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
-    let (_directory, hito, actor, library, _music) = support::library("artist-queue-work").await;
+async fn seed_review_credits(hito: &crate::Services, actor: &crate::Actor, library: &str) {
     let pool = &hito.catalog.store.pool;
     let mut connection = pool.acquire().await.unwrap();
     sqlx::raw_sql("PRAGMA foreign_keys=OFF")
@@ -193,6 +191,13 @@ async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
     }
     tx.commit().await.unwrap();
     drop(connection);
+}
+
+#[tokio::test]
+async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
+    let (_directory, hito, actor, library, _music) = support::library("artist-queue-work").await;
+    seed_review_credits(&hito, &actor, &library).await;
+    let pool = &hito.catalog.store.pool;
     let meter = WorkMeter::install(pool).await;
     let (page, work) = meter
         .measure(hito.artist_catalog.artist_review_queue(
@@ -213,6 +218,40 @@ async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
     assert!(
         work < QUEUE_BUDGET,
         "The queue used {work} VM steps for {} checked recordings against {QUEUE_BUDGET}",
+        QUEUE_CREDITS * QUEUE_TRACKS
+    );
+}
+
+#[tokio::test]
+async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
+    let (_directory, hito, actor, library, _music) =
+        support::library("artist-dismissed-work").await;
+    seed_review_credits(&hito, &actor, &library).await;
+    let pool = &hito.catalog.store.pool;
+    sqlx::query("INSERT INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) SELECT user_id,artist_id,provider_artist_id FROM artist_name_candidates")
+        .execute(pool)
+        .await
+        .unwrap();
+    let meter = WorkMeter::install(pool).await;
+    let (page, work) = meter
+        .measure(hito.artist_catalog.dismissed_artist_reviews(
+            &actor,
+            crate::ArtistReviewQueueQuery {
+                offset: Some(0),
+                limit: Some(50),
+            },
+        ))
+        .await;
+    meter.remove(pool).await;
+    let page = page.unwrap();
+    eprintln!(
+        "Artist dismissed reviews VM_steps credits={QUEUE_CREDITS} tracks={QUEUE_TRACKS} work={work}"
+    );
+    assert_eq!((page.total, page.items.len()), (QUEUE_CREDITS as i64, 50));
+    assert!(page.items.iter().all(|item| item.candidates.len() == 3));
+    assert!(
+        work < QUEUE_BUDGET,
+        "The dismissed read used {work} VM steps for {} checked recordings against {QUEUE_BUDGET}",
         QUEUE_CREDITS * QUEUE_TRACKS
     );
 }

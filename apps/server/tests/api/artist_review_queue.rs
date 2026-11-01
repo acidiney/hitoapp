@@ -439,3 +439,49 @@ async fn dismissed_candidates_are_listed_and_restored_through_the_api() {
         );
     }
 }
+
+#[tokio::test]
+async fn another_account_cannot_restore_or_see_dismissals_through_the_api() {
+    let (_dir, app, session, _musicbrainz, _origin, _) = queued().await;
+    let token = Some(session.as_str());
+    let (_, page) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    let credit = page["items"][0]["artist_id"].as_str().unwrap().to_owned();
+    call(
+        &app,
+        "POST",
+        &format!("{QUEUE}/{credit}/dismiss"),
+        json!({}),
+        token,
+    )
+    .await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "outsider", "password": "owned review outsider password"}),
+        token,
+    )
+    .await;
+    let (_, login) = call(
+        &app,
+        "POST",
+        "/api/v1/login",
+        json!({"username": "outsider", "password": "owned review outsider password"}),
+        None,
+    )
+    .await;
+    let outsider = login["token"].as_str().unwrap().to_owned();
+    let outsider = Some(outsider.as_str());
+    let restore = format!("{QUEUE}/{credit}/restore");
+    for body in [json!({}), json!({"provider_artist_id": NOVA})] {
+        assert_eq!(
+            call(&app, "POST", &restore, body, outsider).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let dismissed = format!("{QUEUE}/dismissed");
+    let (_, none) = call(&app, "GET", &dismissed, Value::Null, outsider).await;
+    assert_eq!(none["total"], 0);
+    let (_, own) = call(&app, "GET", &dismissed, Value::Null, token).await;
+    assert_eq!(own["items"][0]["candidates"].as_array().unwrap().len(), 2);
+}
