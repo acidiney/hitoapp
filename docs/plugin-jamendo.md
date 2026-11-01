@@ -2,7 +2,7 @@
 
 `hito-plugin-jamendo` contains an independent Rust HTTP adapter and a development executable using Hito's plugin SDK. Its development container has isolated runtime verification. It is not deployed or ready to offer to Hito accounts. Live credentials, host integration and public-release acceptance remain unfinished.
 
-The operator supplies a private Jamendo client ID. Hito accounts do not supply that credential. The manifest declares search and sources; the adapter returns structured SDK data and adds no plugin UI.
+The operator supplies a private Jamendo client ID. Hito accounts do not supply that credential. The manifest declares search, sources, playlists and featured (the last two are source-only, see [featured albums](#featured-albums)); the adapter returns structured SDK data and adds no plugin UI.
 
 ## Ownership
 
@@ -30,10 +30,23 @@ Manifest, search, detail and source discovery retrieve no audio. An explicit aud
 | `POST /v1/recordings/detail` | One recording |
 | `POST /v1/sources` | Current playable source facts |
 | `GET /v1/audio` | Explicit source relay |
+| `POST /v1/featured` | This week's popular albums as featured items |
+| `POST /v1/playlists/detail` | One album as a playlist, by reference or canonical ID |
+| `POST /v1/playlists/items` | Pages of that album's tracks |
 
 The implementation requests Jamendo's `mp32` format and accepts one documented media host. It does not provide artwork, playlists, downloads or a media cache. The upstream API distinguishes streaming and download addresses; the adapter uses the streaming address. See the [Jamendo tracks API](https://developer.jamendo.com/v3.0/tracks).
 
 Requests have a 4 KiB body limit. Provider JSON has a 256 KiB limit. Metadata and audio each have 16 admission permits. The stream holds its permit through completion or drop, emits at most 64 KiB per chunk and limits each awaited upstream body read to 15 seconds. These implementation bounds do not establish saturation, cancellation or performance acceptance.
+
+## Featured albums
+
+Source only: the running Jamendo container is not rebuilt, no live Jamendo request was made and no operator client ID was used. The cases below run against an owned fake of the Jamendo API.
+
+`POST v1/featured` asks Jamendo's albums endpoint (`/v3.0/albums/`, `order=popularity_week`, `limit` as requested) and returns each album as a `FeaturedKind::Album` item. Its `id` and `reference` are both `jamendo:album:v1:<numeric id>`, the title is the album name and the subtitle is the artist. It sends no `artwork_id` and no `item_count`, because the adapter has no artwork endpoint yet, so Hito shows a generated cover for these cards. The capability contract, bounds and host behavior are in [featured music](plugins.md#featured-music).
+
+The `playlists` capability exists so that a featured album can be imported. A reference is `jamendo:album:v1:<id>` or an `https://www.jamendo.com/album/<id>/...` link; anything else, a non-numeric ID or an ID with a leading zero is a 400 before any request to Jamendo. The adapter reads the album with its tracks (`/v3.0/albums/tracks/`), names the playlist after the album, counts its tracks and derives the snapshot token from a SHA-256 over the album name and each track's ID, title and length. Item pages are cut from a fresh read of the album, with the offset as the cursor. If the album changed since the detail request the pages answer 409, so Hito never mixes two versions. Each track becomes the same recording projection that search uses, with the album credit and Jamendo's canonical track page as attribution; playback sources come from the existing `sources` route: a copy of the album plays through Jamendo's own search and sources by the automatic resolution described in [playlist import](playlist-import.md).
+
+Cases (`src/tests/featured.rs`): the manifest, the featured projection and the exact upstream query, out-of-contract limits that never reach Jamendo, detail by reference, link and canonical ID, paging with a cursor, invalid references, an unknown album (404), a changed album (409) and an invalid cursor. They failed first (`red-featured-plugin.log`). Not verified: the real `albums` and `albums/tracks` response shapes (taken from Jamendo's public API documentation, not observed), Jamendo's rate limits for these endpoints, and the Jamendo licence terms for listing popular albums.
 
 ## Development executable
 

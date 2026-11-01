@@ -103,6 +103,12 @@ The isolated packaged image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca
 
 The host currently retains recording covers, including those already referenced by independent copies. Release and playlist entity storage/jobs remain unfinished. See [private artwork ownership, UI retrieval and remaining work](plugin-artwork.md).
 
+## Featured music (planned)
+
+Not built. The optional [featured capability](plugins.md#featured-music) needs a list of featured playlists or albums, and the anonymous path this plugin uses cannot supply one: the embed bootstrap and paged query read one playlist that is named by a link, and nothing in them lists Spotify's featured or new-release shelves. Spotify's browse endpoints (featured playlists, new releases, categories) belong to the Web API, which needs an application registration or a signed-in account. The plugin avoids both on purpose (see above), so it declares neither `featured` nor a browse request. The first service to implement the capability is [Jamendo](plugin-jamendo.md#featured-albums).
+
+What would change this: the optional [authorization groundwork](plugins.md#optional-authorization-declaration) completed and accepted for the Web API, or a documented anonymous browse endpoint. Either needs a decision and live evidence first. Spotify playlist references already work as the `reference` of a featured item, because they are what Import a copy accepts.
+
 ## External dependency and diagnostics
 
 The plugin reads anonymous public web metadata through the embed bootstrap and paged web query. This is an undocumented Spotify web protocol. Its response shape, query hash, or bootstrap can change. A successful live check proves the observed path worked at that time, not continuing compatibility. Protocol failures must leave Hito's existing library and playlists intact.

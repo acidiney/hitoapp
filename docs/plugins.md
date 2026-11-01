@@ -123,6 +123,55 @@ The SDK passes seventeen public contract cases with schema generation enabled. Y
 
 `ProviderRecording.attribution` can retain ordered creator names, a provider label and a canonical HTTPS content backlink. Absent credits preserve existing wire bytes. Core validates and retains credits on immutable metadata observations, independently of personal edits and playback sources. This declaration grants no download permission and does not identify the currently playing source. Shared rendering and normal deployment are still unfinished. See [contract, verification and limits](recording-attribution.md).
 
+## Featured music
+
+Current behavior in source (the Spotify plugin container is not rebuilt and the local server is not redeployed). A provider can declare the optional `featured` capability to offer a short list of playlists, albums or new releases. Discover shows them as the **From your services** shelf. Old plugins are unaffected: the capability is optional, no earlier wire shape changed, and a plugin that does not declare it is never asked.
+
+**Wire contract** (`crates/plugin-sdk/src/featured.rs`). `POST v1/featured` takes `{"limit": n}` with `n` from 1 to 24 and unknown fields rejected. The reply is `{"items": [...]}` with at most `limit` items and at most 32,768 encoded bytes. Each item has:
+
+| Field | Rule |
+| --- | --- |
+| `id` | Provider identity, 1 to 256 bytes, unique in the reply |
+| `title` | 1 to 256 bytes |
+| `subtitle` | Optional, up to 256 bytes (usually the curator or artist) |
+| `kind` | `playlist`, `album` or `new_release` |
+| `reference` | 1 to 2,048 bytes, a reference the same provider accepts at `POST v1/playlists/detail` as `{"kind":"reference"}` |
+| `artwork_id` | Optional, up to 256 bytes; the provider serves the image at `POST v1/artwork` with `{"entity":"featured","provider_id":...}` |
+| `item_count` | Optional, at most 10,000 |
+
+Text must be nonblank and free of control and deceptive format characters, as for every other SDK field. Core rejects the whole reply when any rule fails. A manifest that declares `featured` without `playlists` is invalid.
+
+**Opening a card.** Every card, whatever its `kind`, is imported with the existing playlist import (`POST /api/v1/plugins/{id}/playlists/import`, Import a copy) using the item's `reference`. Albums and new releases therefore arrive as playlists of their tracks. **Open** imports and shows the playlist page. **Play** imports, reads the playlist and queues its recordings through the player, the same queue the Play button of a playlist page uses; playback of recordings without a ready source resolves as usual (see [automatic sources](automatic-sources.md)), including through the same provider when it offers `search` and `sources` (see [playlist import](playlist-import.md)). Each click makes one copy; the page does not guess that an earlier copy is the same playlist.
+
+**Reading the shelf** (`Catalog::featured`, `GET /api/v1/discover/featured`).
+
+```mermaid
+flowchart LR
+  Page[Discover page] --> Route[GET discover featured]
+  Route --> Consent{Automatic service search on?}
+  Consent -- no --> Disabled[status disabled, no service contacted]
+  Consent -- yes --> List[Active connections that declare featured, at most 4]
+  List --> Cache{Fresh answer for this connection and revision?}
+  Cache -- yes --> Merge
+  Cache -- no --> Ask[POST v1/featured limit 12, 3 s budget, admission per account]
+  Ask --> Validate[SDK validation, recheck of session and connection]
+  Validate --> Cache2[Remember 10 minutes, a failure 30 seconds]
+  Cache2 --> Merge[Take items in turn across providers, at most 24]
+  Merge --> Shelf[status available, unavailable or unsupported]
+```
+
+- Account data sent: none. The request is `{"limit":12}` with the connection's own bearer token and Hito's protocol header. No cookie, session, library, listening or search data is sent.
+- Consent: the read follows the account's **Search connected services automatically** choice (Settings, Privacy, on by default), because opening Discover contacts a service without a click. With the choice off the reply is `disabled` and no service is contacted.
+- Statuses: `available` (items), `unsupported` (no connection declares `featured`), `disabled` (choice off), `unavailable` (every capable connection failed, timed out, was busy or answered with nothing). The page hides the shelf for every status but `available` and shows no error for the others.
+- Bounds: eight seconds for the whole read, three seconds per connection, one connection at a time per account, four connections per read, 24 items per shelf. The cache is in memory, keyed by connection ID and revision, holds at most 64 answers and is lost on restart. It is not shared between accounts, because connections are personal.
+- Covers: the browser never loads a provider address. It asks `GET /api/v1/plugins/{id}/featured-artwork?revision=&artwork=`, which needs the connection's `featured` and `artwork` capabilities, a matching revision and the owning account. Core accepts only PNG or JPEG bytes whose signature matches the declared type and waits briefly when artwork admission is busy. An item from a connection without `artwork` has no cover address and shows a generated cover.
+
+**Approval.** A connection gains `featured` only when its owner accepts the changed declaration: Settings, Plugins shows "New: featured music on Discover" after the automatic look, or use **Check connection**, then **Accept changes**. Until then the connection is not asked for featured items. New installations show the capability in the initial review.
+
+**Which services offer it.** Jamendo implements it in source (popular albums of the week, see [Jamendo](plugin-jamendo.md#featured-albums)). Spotify does not: its public embed protocol exposes only a playlist given by link, and its browse or featured endpoints need a developer application or a user sign-in, which the public plugin deliberately avoids. Spotify featured music is planned (see [Spotify](plugin-spotify.md#featured-music-planned)). YouTube and the folder plugin do not declare it.
+
+**Evidence.** SDK wire cases (`crates/plugin-sdk/tests/wire/featured.rs`), core cases with an owned `FakePlugin` (`crates/core/tests/plugins/featured.rs`), HTTP cases (`apps/server/tests/api/featured.rs`), Jamendo protocol cases against an owned fake of its API, DOM cases (`discover-featured.test.ts`) and a browser case with an owned provider (`apps/web/e2e/discover-featured.spec.ts`). See the [status entry](status.md#featured-music-on-discover-2026-11-01-source-only).
+
 ## Audio relay
 
 The provider serves `GET` and `HEAD v1/audio?source_id=<encoded opaque ID>`. Only Hito selects the approved service address and supplies its personal token. The browser requests the existing `/api/v1/sources/{id}/audio` route with Hito's durable source UUID. Provider URLs, tokens, browser cookies, and arbitrary request headers never become source data returned to the browser.
@@ -186,7 +235,7 @@ Services must return a successful status with `Content-Type: application/json`, 
 }
 ```
 
-The manifest requires these fields and permits the optional source persistence and authorization declarations below. IDs contain 1–128 ASCII letters, numbers, dots, hyphens, or underscores. Names contain 1–256 bytes, cannot be blank, and cannot contain control characters. At least one known capability is required. Supported declarations are `search`, `catalog`, `metadata`, `sources`, `playlists`, `dashboard`, `lyrics`, and `backing_tracks`. Unknown capabilities and unsupported protocol versions are rejected.
+The manifest requires these fields and permits the optional source persistence and authorization declarations below. IDs contain 1–128 ASCII letters, numbers, dots, hyphens, or underscores. Names contain 1–256 bytes, cannot be blank, and cannot contain control characters. At least one known capability is required. Supported declarations are `search`, `catalog`, `metadata`, `sources`, `source_preparation`, `playlists`, `artwork`, `dashboard`, `lyrics`, `backing_tracks` and `featured`. `featured` also requires `playlists`, because a featured item opens through playlist import (see [featured music](#featured-music)). Unknown capabilities and unsupported protocol versions are rejected.
 
 The remote manifest ID, administrator service ID, and personal installation ID are separate. The reviewed digest is SHA-256 over a domain prefix and canonical SDK serialization, with capabilities sorted. JSON whitespace and capability ordering do not require review; semantic changes do.
 

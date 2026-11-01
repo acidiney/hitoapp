@@ -1,6 +1,6 @@
 # Catalog extension contracts
 
-The Apache-2.0 plugin SDK defines read-only artist search, artist profiles, paged discographies, edition listings and complete edition track lists. Artist host and browser integration have separate evidence in the [catalog host](artist-catalog-host.md) and [discography](artist-discography.md) documentation. Edition integration is described below. Existing recording metadata and playlist operations remain separate.
+The Apache-2.0 plugin SDK defines read-only artist search, artist profiles, paged discographies, edition listings and complete edition track lists. Artist host and browser integration have separate evidence in the [catalog host](artist-catalog-host.md) and [discography](artist-discography.md) documentation. Edition integration is described below. Existing recording metadata and playlist operations remain separate, and so is the optional [featured music capability](plugins.md#featured-music), which is not a catalog extension: it lists playlists and albums that a provider chooses, not an artist's discography.
 
 ## Negotiation and ownership
 
