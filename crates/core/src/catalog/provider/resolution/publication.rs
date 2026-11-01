@@ -53,9 +53,9 @@ impl Catalog {
             .await?
             {
                 Some(binding) if binding.recording_id == recording => {
-                    let automatic: bool = sqlx::query_scalar("SELECT evidence = 'automatic_policy' AND role = 'source' FROM provider_items WHERE id = ?")
+                    let writable: bool = sqlx::query_scalar("SELECT (item.evidence = 'automatic_policy' AND item.role = 'source') OR (item.role = 'primary' AND item.id = recording.metadata_binding_id) FROM provider_items item JOIN recordings recording ON recording.id = item.recording_id WHERE item.id = ?")
                         .bind(&binding.id).fetch_one(&mut *tx).await?;
-                    if !automatic {
+                    if !writable {
                         return Err(Error::Conflict(
                             "This provider recording already has a protected binding".into(),
                         ));
