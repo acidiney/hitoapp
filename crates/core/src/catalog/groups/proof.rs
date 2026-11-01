@@ -227,19 +227,16 @@ async fn group_ids(
     });
     while !free.is_empty() {
         let carrier = free.remove(0);
-        let mut attached = false;
         let mut index = 0;
         while index < free.len() {
             if attachable(tx, account, &carrier, &free[index]).await? {
                 attach(tx, account, proof, &carrier.id, &free[index].id).await?;
                 free.remove(index);
                 grouped += 1;
-                attached = true;
             } else {
                 index += 1;
             }
         }
-        let _ = attached;
     }
     Ok((grouped, ids.len() as i64 - grouped))
 }

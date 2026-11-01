@@ -126,8 +126,8 @@ async fn a_local_file_and_an_imported_track_with_one_isrc_are_one_card_until_spl
     config.musicbrainz_loopback_endpoint = Some(musicbrainz.endpoint.clone());
     let hito = hito_core::open(config).await.unwrap();
     let app = hito_server::router(hito.clone());
-    let token = admin(&app).await;
-    let token = Some(token.as_str());
+    let session = admin(&app).await;
+    let token = Some(session.as_str());
     let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, token).await;
     let library = libraries[0]["id"].as_str().unwrap().to_owned();
     call(
@@ -144,7 +144,7 @@ async fn a_local_file_and_an_imported_track_with_one_isrc_are_one_card_until_spl
         "release": null, "disc_number": null, "track_number": null, "revision": "v1",
         "isrc": "us-rc1-76-07839"
     }}});
-    let (_origin, imported) = import(&app, token.unwrap(), vec![entry]).await;
+    let (_origin, imported) = import(&app, &session, vec![entry]).await;
     let (_, before) = call(&app, "GET", "/api/v1/recordings", Value::Null, token).await;
     assert_eq!(before["total"], 2, "two cards until the walk has proof");
 
@@ -180,7 +180,7 @@ async fn a_local_file_and_an_imported_track_with_one_isrc_are_one_card_until_spl
     assert_eq!(member["recording_id"], imported[0]);
     assert_eq!(member["proof"], "isrc");
     assert!(!copies.to_string().contains(dir.path().to_str().unwrap()));
-    let details = page(&app, &format!("/recordings/{card}"), token.unwrap()).await;
+    let details = page(&app, &format!("/recordings/{card}"), &session).await;
     assert_eq!(details["component"], "RecordingDetailsPage");
     assert_eq!(details["props"]["copies"]["copies"], copies["copies"]);
     let (status, _) = call(
