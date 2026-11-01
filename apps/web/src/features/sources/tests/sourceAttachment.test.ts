@@ -239,6 +239,7 @@ test("a delayed review cannot cross an account and recording change or load the 
     playlists: [],
     detail: {
       recording_id: recordingB,
+      credited_artists: [],
       title: {
         value: bobObservation.title,
         inherited: bobObservation.title,

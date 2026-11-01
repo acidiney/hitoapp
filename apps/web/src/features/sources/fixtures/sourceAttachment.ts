@@ -64,6 +64,7 @@ export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
       operation_id: "3c878f96-8a55-4164-a877-7a65c1c88e88",
     },
     selected_observation: primary,
+    credited_artists: [],
     observations: { items: [primary], next_before: null },
   },
 };

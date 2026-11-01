@@ -11,6 +11,7 @@ import SourceAvailability from "../../sources/components/SourceAvailability";
 import SourceAttachment from "../../sources/components/SourceAttachment";
 import SourceChoiceControls from "../../sources/components/SourceChoiceControls";
 import RecordingDownload from "../../downloads/components/RecordingDownload";
+import CreditLine from "../components/CreditLine";
 import RecordingCopies from "../components/RecordingCopies";
 import { useRecordingSplit } from "../hooks/useRecordingSplit";
 import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
@@ -56,7 +57,10 @@ export default function RecordingDetailsPage({
           <span className="rd-kicker">Track details</span>
           <h1>{detail.title.value}</h1>
           <p>
-            {detail.artist.value}
+            <CreditLine
+              credits={detail.credited_artists}
+              fallback={detail.artist.value}
+            />
             {source?.album ? ` · ${source.album}` : ""}
           </p>
           <ArtworkStatus recording={detail.recording_id} />

@@ -121,6 +121,7 @@ test("a late history response cannot appear after switching accounts", async () 
   await act(async () => {
     resolve({
       recording_id: "recording",
+      credited_artists: [],
       title: {
         value: "Alice",
         inherited: "Source",
@@ -260,6 +261,7 @@ test("history requests cannot leak between recording and album targets with the 
   await act(async () => {
     resolve({
       recording_id: "same",
+      credited_artists: [],
       title: {
         value: "Title",
         inherited: "Title",
