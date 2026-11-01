@@ -157,8 +157,8 @@ impl Sources {
                         },
                         Ok((candidates, None)) => self.candidates = Some(candidates),
                         Err(error) => {
-                            self.error = error;
-                            if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable) { self.exhausted = true; return Err(error); }
+                            self.error = merged(self.error, error);
+                            if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable) { self.exhausted = true; return Err(self.error); }
                         },
                     }
                     if self.refreshed {
@@ -178,5 +178,38 @@ impl Sources {
         if let Some(mut refresh) = self.refreshing.take() {
             let _ = refresh.done.as_mut().await;
         }
+    }
+}
+
+/// The device reason outranks later lookup failures, so the user is told about
+/// the format; a withdrawn authorization always wins.
+fn merged(current: PlayerError, incoming: PlayerError) -> PlayerError {
+    if current == PlayerError::OutputFormat && incoming != PlayerError::Unauthorized {
+        current
+    } else {
+        incoming
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_device_reason_survives_later_lookup_failures_but_not_lost_authorization() {
+        for later in [PlayerError::NotFound, PlayerError::Unavailable] {
+            assert_eq!(
+                merged(PlayerError::OutputFormat, later),
+                PlayerError::OutputFormat
+            );
+        }
+        assert_eq!(
+            merged(PlayerError::OutputFormat, PlayerError::Unauthorized),
+            PlayerError::Unauthorized
+        );
+        assert_eq!(
+            merged(PlayerError::Playback, PlayerError::NotFound),
+            PlayerError::NotFound
+        );
     }
 }
