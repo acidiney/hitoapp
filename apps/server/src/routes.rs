@@ -149,6 +149,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_review_queue::queue))
         .routes(routes!(api::artist_review_queue::confirm))
         .routes(routes!(api::artist_review_queue::dismiss))
+        .routes(routes!(api::artist_review_queue::dismissed))
+        .routes(routes!(api::artist_review_queue::restore))
         .routes(routes!(api::artist_identity_groups::list))
         .routes(routes!(api::artist_identity_groups::radio))
         .routes(routes!(api::artist_identity_groups::read))

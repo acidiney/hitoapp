@@ -343,3 +343,99 @@ async fn none_of_these_leaves_the_queue_and_a_locked_session_is_refused() {
         );
     }
 }
+
+#[tokio::test]
+async fn dismissed_candidates_are_listed_and_restored_through_the_api() {
+    let (_dir, app, session, _musicbrainz, _origin, _) = queued().await;
+    let token = Some(session.as_str());
+    let dismissed = format!("{QUEUE}/dismissed");
+    let (_, page) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    let credit = page["items"][0]["artist_id"].as_str().unwrap().to_owned();
+    let (status, none) = call(&app, "GET", &dismissed, Value::Null, token).await;
+    assert_eq!((status, &none["total"]), (StatusCode::OK, &json!(0)));
+
+    call(
+        &app,
+        "POST",
+        &format!("{QUEUE}/{credit}/dismiss"),
+        json!({"provider_artist_id": NOVA}),
+        token,
+    )
+    .await;
+    let (_, listed) = call(&app, "GET", &dismissed, Value::Null, token).await;
+    assert_eq!(listed["total"], 1);
+    assert_eq!(listed["items"][0]["artist_id"], credit);
+    assert_eq!(
+        listed["items"][0]["candidates"][0]["provider_artist_id"],
+        NOVA
+    );
+
+    let restore = format!("{QUEUE}/{credit}/restore");
+    assert_eq!(
+        call(&app, "POST", &restore, json!({"extra": 1}), token)
+            .await
+            .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            &format!("{QUEUE}/no-such-credit/restore"),
+            json!({}),
+            token
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let (status, restored) = call(
+        &app,
+        "POST",
+        &restore,
+        json!({"provider_artist_id": NOVA}),
+        token,
+    )
+    .await;
+    assert_eq!((status, &restored["restored"]), (StatusCode::OK, &json!(1)));
+    let (_, again) = call(&app, "POST", &restore, json!({}), token).await;
+    assert_eq!(again["restored"], 0);
+    let (_, after) = call(&app, "GET", &dismissed, Value::Null, token).await;
+    assert_eq!(after["total"], 0);
+    let (_, queue) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    assert_eq!(queue["items"][0]["candidates"].as_array().unwrap().len(), 2);
+
+    call(
+        &app,
+        "POST",
+        &format!("{QUEUE}/{credit}/dismiss"),
+        json!({}),
+        token,
+    )
+    .await;
+    assert_eq!(
+        call(&app, "POST", &restore, json!({}), token).await.1["restored"],
+        2
+    );
+
+    assert_eq!(
+        call(
+            &app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": "administrator test password", "pin": "1234", "idle_minutes": 0}),
+            token,
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    call(&app, "POST", "/api/v1/account/lock", Value::Null, token).await;
+    for (method, path) in [("GET", dismissed), ("POST", restore)] {
+        assert_eq!(
+            call(&app, method, &path, json!({}), token).await.0,
+            StatusCode::LOCKED,
+            "{path}"
+        );
+    }
+}
