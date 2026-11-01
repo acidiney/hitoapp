@@ -7,6 +7,7 @@ mod catalog;
 mod content;
 mod curated;
 mod encoded_size;
+mod feature_clause;
 mod isrc;
 mod lyrics;
 mod metadata;
@@ -54,6 +55,7 @@ pub use curated::{
     CuratedCatalogError, CuratedEntryView, MAX_CURATED_CATALOG_BYTES, MAX_CURATED_ENTRIES,
     admit_curated_catalog,
 };
+pub use feature_clause::{bracketed_feature_names, credit_feature_names};
 pub use isrc::normalize_isrc;
 pub use lyrics::{
     LYRICS_CAPABILITIES_PATH, LYRICS_PATH, LYRICS_VERSION, LyricsCapabilities, LyricsRequest,
