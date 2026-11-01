@@ -2698,6 +2698,9 @@ export interface components {
         } | {
             /** @enum {string} */
             status: "needs_choice";
+        } | {
+            /** @enum {string} */
+            status: "search_off";
         };
         ApplyArtistIdentityToCredit: {
             after?: string | null;

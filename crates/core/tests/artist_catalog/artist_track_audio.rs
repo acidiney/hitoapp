@@ -8,7 +8,7 @@ use hito_core::test_support::album_edition_service::{self as provider, AlbumProv
 #[allow(unused_imports)]
 use hito_core::test_support::support;
 
-use hito_core::{AlbumTrackAudio, Credentials, FindArtistTrackAudio};
+use hito_core::{AlbumTrackAudio, Credentials, FindArtistTrackAudio, UpdateAutomaticLookups};
 use library::Album;
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -254,6 +254,53 @@ async fn only_audio_occurrences_can_be_searched_and_another_account_is_refused()
             .is_err()
     );
     assert!(audio.requests("v1/search").await.is_empty());
+    audio.shutdown().await;
+    assert!(catalog.finish().await);
+}
+
+#[tokio::test]
+async fn turning_off_automatic_service_search_stops_a_catalog_track_search_before_any_provider_call()
+ {
+    let mut catalog = AlbumProvider::start().await;
+    let audio = audio_provider::ProviderServer::start().await;
+    let album = Album::prepare(&catalog).await;
+    connect_audio(&album, &audio).await;
+    offer(
+        &audio,
+        "audio-provider/bonus",
+        BONUS_TITLE,
+        provider::CREDIT,
+        1000,
+    )
+    .await;
+    let before = album.library().await;
+    let search_choice = |on: bool| UpdateAutomaticLookups {
+        automatic_artist_lookup: None,
+        automatic_artwork: None,
+        automatic_service_search: Some(on),
+    };
+    album
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(&album.actor, search_choice(false))
+        .await
+        .unwrap();
+    assert!(matches!(
+        find(&album, BONUS_OCCURRENCE).await.unwrap(),
+        AlbumTrackAudio::SearchOff
+    ));
+    assert!(audio.requests("v1/search").await.is_empty());
+    assert_eq!(album.library().await, before);
+    album
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(&album.actor, search_choice(true))
+        .await
+        .unwrap();
+    assert!(matches!(
+        find(&album, BONUS_OCCURRENCE).await.unwrap(),
+        AlbumTrackAudio::Saved { .. }
+    ));
     audio.shutdown().await;
     assert!(catalog.finish().await);
 }

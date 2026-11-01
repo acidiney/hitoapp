@@ -172,6 +172,14 @@ async fn automation(
     Ok(stored.unwrap_or((true, true, true)))
 }
 
+impl ArtistCatalog {
+    pub(super) async fn automatic_service_search_allowed(&self, actor: &Actor) -> Result<bool> {
+        let mut connection = self.store.pool.acquire().await?;
+        actor.check_session_on(&mut connection).await?;
+        Ok(automation(&mut connection, actor).await?.2)
+    }
+}
+
 pub(super) async fn read(
     connection: &mut SqliteConnection,
     actor: &Actor,

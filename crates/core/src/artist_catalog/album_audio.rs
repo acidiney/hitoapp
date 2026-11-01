@@ -45,6 +45,7 @@ pub enum AlbumTrackAudio {
     Unavailable,
     Cancelled,
     NeedsChoice,
+    SearchOff,
 }
 
 impl AlbumTrackAudio {
@@ -61,6 +62,7 @@ impl AlbumTrackAudio {
             Self::Unavailable => "unavailable",
             Self::Cancelled => "cancelled",
             Self::NeedsChoice => "needs_choice",
+            Self::SearchOff => "search_off",
         }
     }
 }
@@ -127,6 +129,22 @@ impl ArtistCatalog {
         .await
     }
 
+    async fn when_search_is_on<Search, Searching>(
+        &self,
+        actor: &Actor,
+        search: Search,
+        permit: AudioPermit,
+    ) -> Result<AlbumTrackAudio>
+    where
+        Search: FnOnce(AudioPermit) -> Searching,
+        Searching: Future<Output = Result<AlbumTrackAudio>>,
+    {
+        if !self.automatic_service_search_allowed(actor).await? {
+            return Ok(AlbumTrackAudio::SearchOff);
+        }
+        search(permit).await
+    }
+
     async fn bounded_track_audio<Search, Searching>(
         &self,
         actor: &Actor,
@@ -147,7 +165,7 @@ impl ArtistCatalog {
         let result = tokio::select! {
             biased;
             _ = &mut cancelled => Ok(AlbumTrackAudio::Cancelled),
-            result = tokio::time::timeout(REQUEST_BUDGET, search(permit)) => {
+            result = tokio::time::timeout(REQUEST_BUDGET, self.when_search_is_on(actor, search, permit)) => {
                 result.unwrap_or(Ok(AlbumTrackAudio::Unavailable))
             }
         };

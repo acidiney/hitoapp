@@ -36,6 +36,7 @@ const audioStatuses: Record<Schema<"AlbumTrackAudio">["status"], true> = {
   unavailable: true,
   cancelled: true,
   needs_choice: true,
+  search_off: true,
 };
 
 async function statusBody(response: Response): Promise<{ status: string }> {

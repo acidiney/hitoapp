@@ -95,6 +95,22 @@ async fn a_reviewed_artists_catalog_track_finds_and_saves_approved_audio_over_ht
             );
             assert!(audio.requests("v1/audio").await.is_empty());
 
+            let (status, _) = account
+                .request(
+                    &app,
+                    "PUT",
+                    "/api/v1/metadata/automation",
+                    json!({"automatic_service_search": false}),
+                )
+                .await;
+            assert_eq!(status, StatusCode::OK);
+            let searches = audio.requests("v1/search").await.len();
+            let (status, _, off) =
+                fixture::exchange(&app, "POST", &path, body.clone(), account.headers()).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(off, json!({"status": "search_off"}));
+            assert_eq!(audio.requests("v1/search").await.len(), searches);
+
             let contract = serde_json::to_value(hito_server::openapi()).unwrap();
             let endpoint = &contract["paths"]
                 ["/api/v1/recordings/{id}/artist-associations/{association}/edition-track-audio"]
