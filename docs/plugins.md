@@ -81,6 +81,8 @@ Detail returns `id`, `title`, `artist`, optional `duration_ms`, optional `releas
 
 Queries use at most 512 bytes; cursors use 2,048; IDs/revisions/source labels use 256; titles/artist names use 2,048. Text must be nonblank and contain no control characters. Durations must fit JavaScript's safe integer range. Unknown fields, duplicate IDs, oversized pages, mismatched detail IDs, invalid content types, and encoded responses are rejected. Requests use the same credential, admission, redirect, and deadline policy as manifest requests below. No SQLite transaction spans HTTP work.
 
+Optional recording fields never change the protocol version. `isrc`, `artist_urls` and `artists` (the credited artist list) are omitted when absent, so older plugins keep their exact bytes, and the SDK validates each when present: `artists` holds at most 16 entries with bounded names, identifiers, join text and allowlisted page addresses, at least one main artist and no repeated name. A recording that breaks these limits is rejected as a whole, so a producer drops the list instead of sending a broken one. See [recording evidence](plugin-catalog.md#recording-evidence).
+
 ## Musical metadata in development
 
 The SDK and YouTube adapter implement `POST v1/recordings/metadata`, using the existing strict `recording_id` request. This extension belongs to the `metadata` capability. It preserves the existing recording, search, detail and source wire shapes. Core's development resolver now consumes it through explicitly approved connections. The normal server and YouTube service have not received these changes.

@@ -100,6 +100,31 @@ Unchanged files keep their earlier observation until they change; there is no fo
 
 Tests build tags byte by byte and scan them through the public capability. They cover compressed title, artist and album in v2.3 and v2.4, on MP3 and WAV, per-frame and whole-tag unsynchronisation, corrupt streams, oversize and highly expanding frames, false declared sizes, non-text compressed frames, privacy of logs and personal edits. A compatibility test writes the title, artist, album, album artist, disc and track with Lofty, FFmpeg or hand-built bytes and reads them back for these dialects: ID3v1, ID3v2.3, ID3v2.4, AAC with ID3, FLAC, Ogg Vorbis and Opus comments, M4A/MP4 atoms, WAV `LIST`/`INFO` and ID3 chunks, AIFF ID3 and WMA. ID3v1 and INFO carry no album artist or disc. FFmpeg ignores an ID3v1 tag when any ID3v2 tag exists, even an encoder-only one. ID3 tags appended at the end of a file are not read. These are Linux Docker results with FFmpeg 5.1 and do not cover other FFmpeg versions.
 
+## Credited artists from providers
+
+A provider that knows who is credited sends them as a list beside the display text (`ProviderRecording.artists`, see the [plugin contract](plugin-catalog.md#recording-evidence)). Core keeps that list as evidence of the observation that stated it: `recording_credit_observations` holds one row per observation with the credit label, and `recording_credited_artist_observations` one row per artist (position, name, role, join text, provider identifier and artist page). Both are written once beside the observation and never change (migration 0078), and rows of observations from files or from plugins that send no list do not exist. Nothing is rewritten for existing recordings, and the display `artist` text, recording identifiers and personal edits never change.
+
+Current behavior, tested with real temporary SQLite and an owned provider:
+
+- **Credit identity.** For a recording whose current observation has a list, the account's credit (the artist row that groups its recordings) is the label built from the main artists in alphabetical order, case ignored, joined with ` & `. "Ada & Bo", "Bo, Ada" and "Bo & Ada" therefore land in one credit, while the recording rows keep showing the provider's own wording. Featured artists are not part of the label, so "Bo feat. Ada" with Ada featured is credited to Bo. A personal artist edit still wins over the label. A credit written only as text keeps its text and is never split or merged by guessing.
+- **Matching evidence.** The lone-artist-page rule of [provider evidence](artist-matching.md#matching-from-provider-evidence) looks at the main artists only: the observation's pages are the pages of its main artists, and only when every main artist has one. A featured artist's page never identifies the credit, and a collaboration of several main artists stays uncertain. A recording without a list keeps the pages the provider listed.
+- **Reading.** `GET /api/v1/recordings/{id}/metadata` returns `credited_artists` for the current observation (name, role, join text and the account's artist page for exactly that name, if it has one). It is empty after a personal artist edit and for text-only credits.
+- **Page.** The recording page shows the credit line with each artist that has a page linked separately, using the provider's join text.
+- **Removal.** Both tables leave with the recording when missing recordings are purged and when an account's library is erased.
+
+```mermaid
+flowchart LR
+    P[Provider sends artists list] --> V[SDK validation: count, lengths, one main artist, no repeats]
+    V --> O[(Observation JSON)]
+    V --> E[(Credit and artist evidence rows)]
+    E --> L[Credit label: main artists in stable order]
+    L --> C[Account credit and artist page]
+    E --> M[Main artists' pages: lone page rule]
+    E --> R[Recording metadata read: linked credit line]
+```
+
+Planned, not built: one credit row per artist (so each member of a collaboration has its own artist page listing the collaboration), crediting featured artists on their own pages, `join` text in lists and search results, structured credits for local files, and splitting existing text-only credits. Until then a collaboration's members are linked on the recording page only where the account already has an artist of exactly that name.
+
 ## Ownership and data flow
 
 ```mermaid
