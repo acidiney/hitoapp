@@ -503,7 +503,7 @@ impl RetainedState {
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
         reference.close().await.unwrap();
-        let mut reference = collection_artwork_schema::reference_78().await;
+        let mut reference = collection_artwork_schema::reference_80().await;
         let declared = schema(&mut reference).await;
         for &(_, name) in collection_artwork_schema::REPLACED {
             assert!(
@@ -517,6 +517,10 @@ impl RetainedState {
             self.schema
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
+        self.schema.insert(
+            "playlist_follows".into(),
+            declared.get("playlist_follows").unwrap().clone(),
+        );
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()
             .chain(collection_artwork_schema::RANKING_ADDED)
