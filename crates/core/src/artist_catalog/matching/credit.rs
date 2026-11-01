@@ -1,17 +1,11 @@
-//! Credit-level matching: once individual tracks of one credit are matched to exactly one
-//! MusicBrainz artist, the credit's other undecided tracks that carry no evidence of their own
-//! receive the same artist, so one identified track does not leave its 100 siblings separate.
 use super::apply::{EvidenceKind, Origin, Pending, Planned, REPLACEABLE, plan};
 use crate::artist_catalog::identity::groups::current_choices;
 use crate::{Actor, Result};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
 use std::collections::BTreeMap;
 
-/// Tracks of one credit that may follow in a single settlement.
 const MAX_SIBLINGS: i64 = 1000;
 
-/// Folds the compatibility forms of the separators Hito looks for (full-width punctuation and
-/// the ideographic comma) to ASCII and lower-cases the rest.
 fn folded(name: &str) -> String {
     name.chars()
         .map(|character| match character {
@@ -49,9 +43,6 @@ fn lists_several(text: &str) -> bool {
             .any(|word| SEPARATOR_WORDS.contains(&word))
 }
 
-/// A credit name that lists several artists names no single one. Hito does not split credits, so
-/// such a credit receives nothing beyond the tracks that were matched individually. Bracketed
-/// parts are checked on their own ("(feat. B)") and then ignored ("(Live)").
 pub(super) fn names_several(name: &str) -> bool {
     let name = folded(name);
     let (mut outside, mut inside, mut depth) = (String::new(), String::new(), 0_u32);
@@ -73,14 +64,10 @@ pub(super) fn names_several(name: &str) -> bool {
 }
 
 struct Group {
-    /// How many of the credit's tracks name each artist by strong evidence (file tag identifier,
-    /// ISRC or provider artist page), matched now or earlier, with the evidence of the first.
-    /// Personal choices and name matches do not vote, and each recording counts once.
     artists: BTreeMap<String, (u32, Option<Origin>)>,
 }
 
 impl Group {
-    /// The one artist every strong match of the credit names, or `None` when they disagree.
     fn unanimous(&self) -> Option<(&str, Option<Origin>, u32)> {
         let mut artists = self.artists.iter();
         let (artist, (count, origin)) = artists.next()?;
@@ -101,7 +88,6 @@ fn origin_named(name: &str) -> Option<Origin> {
     }
 }
 
-/// The credits a settlement touched: those of its matches and of every recording it examined.
 async fn touched(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -131,8 +117,6 @@ async fn touched(
     Ok(credits)
 }
 
-/// How many of the credit's tracks currently use each artist because of strong automatic
-/// evidence, leaving out recordings that this settlement matches again.
 pub(super) async fn strong_votes(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -160,7 +144,6 @@ pub(super) async fn strong_votes(
     Ok(query.build_query_as().fetch_all(tx).await?)
 }
 
-/// The evidence an earlier match of the credit's tracks to this artist was made from.
 async fn earlier_origin(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -183,8 +166,6 @@ async fn earlier_origin(
     Ok(kind.as_deref().and_then(origin_named))
 }
 
-/// Whether a track of the credit still has evidence of its own that no pass has examined, so the
-/// credit's answer is not complete yet. Recordings in `examined` are being settled now.
 async fn evidence_unexamined(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -215,8 +196,6 @@ async fn evidence_unexamined(
     .await?)
 }
 
-/// Whether a track of the credit with strong evidence of its own was examined without a clear
-/// answer (or could not be asked), so the credit's evidence is not unanimous.
 async fn evidence_unsettled(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -248,11 +227,6 @@ async fn evidence_unsettled(
     .await?)
 }
 
-/// Extends the matches of a settlement over the undecided tracks of the credits it touched and
-/// returns the recordings that were added. A credit follows its artist only when every track with
-/// evidence of its own has been examined and the credit's matched tracks name one artist more
-/// often than all others together; a credit whose name lists several artists follows nothing.
-/// Tracks with evidence of their own are never followed: their own answer decides them.
 pub(super) async fn extend(
     tx: &mut SqliteConnection,
     actor: &Actor,

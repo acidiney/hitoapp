@@ -1,6 +1,3 @@
-//! Matches credits to a MusicBrainz artist by name, but only when the artist's own recordings
-//! corroborate the library: a name alone never matches. Corroboration asks about library titles
-//! one search at a time instead of paging an artist's whole catalog.
 use super::{
     ArtistProviderMatchReceipt,
     apply::{EvidenceKind, REPLACEABLE},
@@ -20,16 +17,12 @@ use std::{collections::HashMap, future::Future, time::Duration};
 use tokio::time::Instant;
 use uuid::Uuid;
 
-/// Cursor prefix of the name phase; the rest is the last credit identifier already handled.
 pub(super) const NAME_CURSOR: &str = "name:";
-/// A credit that is not finished in one request keeps the cursor on the credit before it, with a
-/// hold count after this mark so that the cursor still moves forward.
 const HOLD_MARK: char = '~';
 const MAX_HOLDS: u32 = 40;
 pub(super) const NAME_RULE: i64 = 5;
 const MAX_CREDITS: i64 = 8;
 const MAX_CREDIT_TRACKS: i64 = 200;
-/// The least a credit costs: one search and one sample search per exact-name artist.
 const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_NAMESAKES;
 
 struct Credit {
@@ -37,26 +30,20 @@ struct Credit {
     name: String,
 }
 
-/// Why the tracks of a credit that were not asked about were left.
 #[derive(Clone, Copy)]
 enum Cause {
-    /// The request ran out of lookups or time; the credit continues in the next request.
     Budget,
-    /// MusicBrainz failed; the credit is asked again by a later walk.
     Outage,
 }
 
-/// What decides whether an artist covers a credit.
 struct Covering<'a> {
     credit: &'a Credit,
     tracks: &'a [Track],
     standing: &'a Standing,
     namesakes: &'a [String],
-    /// No other namesake listed any title of the deciding sample.
     silent: bool,
 }
 
-/// The distinct library recordings of a credit and the sample that decides.
 struct Plan {
     candidates: Vec<Candidate>,
     sample: Vec<usize>,
@@ -68,8 +55,6 @@ enum Verdict {
         matched: Vec<usize>,
         unreached: Vec<usize>,
         cause: Option<Cause>,
-        /// Matched and probed tracks when the artist covers the credit, so that its remaining
-        /// tracks follow.
         coverage: Option<(u32, u32)>,
     },
     Uncertain,
@@ -77,7 +62,6 @@ enum Verdict {
     Refused,
 }
 
-/// A fixed word for what went wrong with a lookup; never the request or its answer.
 fn failure_reason(error: &MusicBrainzError) -> &'static str {
     match error {
         MusicBrainzError::Transport => "transport",
@@ -110,19 +94,15 @@ impl Budget {
         }
     }
 
-    /// The first lookup of a request is always allowed; later ones stop at the failure limit and
-    /// when the window has closed. Checked before every lookup.
     fn allows(&self) -> bool {
         self.lookups == 0
             || (self.failures < MAX_CONSECUTIVE_FAILURES && self.started.elapsed() <= self.window)
     }
 
-    /// Whether `needed` more lookups fit in the request: the lookup cap as well as the window.
     fn has_room(&self, needed: usize) -> bool {
         self.lookups + needed <= MAX_LOOKUPS && self.allows()
     }
 
-    /// Why `allows` said no, for the debug log.
     fn refusal(&self) -> &'static str {
         if self.failures >= MAX_CONSECUTIVE_FAILURES {
             "failure_limit"
@@ -164,8 +144,6 @@ struct Answers {
     reviews: HashMap<String, Vec<ReviewCandidate>>,
 }
 
-/// Where the cursor of a name request stands: the last credit handled and how often the credit
-/// after it was held for lack of budget.
 fn split_cursor(after: &str) -> (&str, u32) {
     match after.split_once(HOLD_MARK) {
         Some((credit, held)) => (credit, held.parse().unwrap_or(0)),
@@ -177,8 +155,6 @@ fn held_cursor(credit: &str, held: u32) -> String {
     format!("{NAME_CURSOR}{credit}{HOLD_MARK}{held:02}")
 }
 
-/// What a verdict says about one track of the credit, or `None` when the track was not reached
-/// and is left for the next request.
 fn outcome(verdict: &Verdict, position: usize, track: &Track) -> Option<Outcome> {
     match verdict {
         Verdict::Artist {
@@ -207,10 +183,6 @@ fn outcome(verdict: &Verdict, position: usize, track: &Track) -> Option<Outcome>
 }
 
 impl ArtistCatalog {
-    /// One bounded batch of the name phase: credits are examined in identifier order after the
-    /// cursor, at most `MAX_LOOKUPS` MusicBrainz requests are made, and the pass stops early when
-    /// the lookup window closes or lookups keep failing. A credit whose artist is found but whose
-    /// other tracks do not all fit in the request is held: it is examined again next time.
     pub(super) async fn match_names(
         &self,
         actor: &Actor,
@@ -453,10 +425,6 @@ impl ArtistCatalog {
         }
     }
 
-    /// Decides whether the artist covers the credit: it was matched on enough titles, lists most of
-    /// the tracks that were asked about, and no namesake lists any title it was asked about,
-    /// including the titles earlier requests matched. A credit that names several artists never
-    /// qualifies. A lookup that does not fit holds the credit for the next request.
     async fn cover(
         &self,
         artist: String,
@@ -502,9 +470,6 @@ impl ArtistCatalog {
         }
     }
 
-    /// Whether no other namesake lists any of the titles that earlier requests matched to the
-    /// artist, nor a sample of the titles that would follow. `Err` says why the question could
-    /// not be asked.
     async fn silent_on_the_rest(
         &self,
         artist: &str,
@@ -554,8 +519,6 @@ impl ArtistCatalog {
         Ok(true)
     }
 
-    /// Asks one exact-name artist about the picked library recordings; answers already read in this
-    /// request are reused.
     async fn probe(
         &self,
         artist: &str,
@@ -584,9 +547,6 @@ impl ArtistCatalog {
         Ok(listed)
     }
 
-    /// The tracks of the sample that the artist corroborates, plus the credit's other tracks whose
-    /// own title and length the artist lists, asked about a few at a time while the request has
-    /// room. Tracks not reached stay undecided and say why.
     async fn follow(
         &self,
         artist: String,
@@ -648,8 +608,6 @@ impl ArtistCatalog {
     }
 }
 
-/// Library recordings of a credit the account has not decided about and no earlier name pass
-/// settled for the same observation and personal artist operation.
 fn eligible(user: &str, artist: &str) -> String {
     format!(
         "SELECT r.id,r.title,r.duration_ms,r.metadata_observation_id,p.artist_operation_id,
@@ -672,8 +630,6 @@ fn eligible(user: &str, artist: &str) -> String {
     )
 }
 
-/// Credits with at least two undecided recordings, since fewer can never corroborate, or with one
-/// when an earlier request matched other tracks of the credit to an artist.
 async fn credits(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,

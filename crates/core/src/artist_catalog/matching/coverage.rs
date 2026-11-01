@@ -1,20 +1,12 @@
-//! Coverage: when one exact-name artist is corroborated by most of the tracks of a credit that
-//! were asked about, the credit's remaining undecided tracks follow that artist. This module holds
-//! what an earlier request already settled for the credit, the arithmetic, and the check that
-//! strong evidence of the credit does not name another artist.
 use super::{apply::EvidenceKind, credit::strong_votes, name_probe::Track, title::Title};
 use crate::artist_catalog::identity::groups::current_choices;
 use crate::{Actor, Result};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
 
-/// Distinct base titles the artist must have been corroborated by.
 const MIN_TITLES: usize = 5;
-/// The artist must list at least this many of every ten distinct titles that were asked about.
 const MIN_TENTHS: usize = 7;
-/// Name matches made under an earlier rule do not count toward an artist's coverage.
 const MIN_COUNTING_RULE: i64 = 3;
 
-/// Checked tracks of one credit that may follow in a single settlement.
 const MAX_CHECKED: i64 = 1000;
 
 #[derive(sqlx::FromRow)]
@@ -28,14 +20,11 @@ struct CheckedRow {
     tagged_recording: bool,
 }
 
-/// A track of the credit that an earlier request matched to the artist by name.
 pub(super) struct Matched {
     pub title: String,
     pub length_ms: Option<u64>,
 }
 
-/// What earlier requests settled for a credit: the artists its tracks were matched to by name, and
-/// the undecided tracks that were asked about and found nowhere.
 #[derive(Default)]
 pub(super) struct Standing {
     artists: Vec<String>,
@@ -44,7 +33,6 @@ pub(super) struct Standing {
 }
 
 impl Standing {
-    /// The one artist every name match of the credit names, or `None`.
     pub(super) fn established(&self) -> Option<&str> {
         match self.artists.as_slice() {
             [only] => Some(only.as_str()),
@@ -52,7 +40,6 @@ impl Standing {
         }
     }
 
-    /// The matched tracks as library tracks, to ask other namesakes about them.
     pub(super) fn tracks(&self) -> Vec<Track> {
         self.matched
             .iter()
@@ -145,26 +132,19 @@ pub(super) async fn standing(
     Ok(standing)
 }
 
-/// How much of the credit one artist covers.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct Tally {
-    /// Distinct base titles the artist has been matched on.
     pub titles: usize,
-    /// Distinct base titles of the tracks that were asked about, matched or not.
     pub probed_titles: usize,
-    /// Tracks of the credit matched to the artist by name, now and earlier.
     pub matched: usize,
-    /// Tracks of the credit that were asked about: the matched ones and those found nowhere.
     pub probed: usize,
 }
 
 impl Tally {
-    /// Both thresholds count distinct songs, so editions of one song do not inflate the share.
     pub(super) fn qualifies(&self) -> bool {
         self.titles >= MIN_TITLES && self.titles * 10 >= self.probed_titles * MIN_TENTHS
     }
 
-    /// The track counts shown to the listener.
     pub(super) fn counts(&self) -> (u32, u32) {
         (
             u32::try_from(self.matched).unwrap_or(u32::MAX),
@@ -180,8 +160,6 @@ fn add_key(keys: &mut Vec<String>, title: &str) {
     }
 }
 
-/// The tally for a credit all of whose tracks of this request were asked about, `matched_now` of
-/// them (positions in `tracks`) matched to the artist.
 pub(super) fn tally(standing: &Standing, tracks: &[Track], matched_now: &[usize]) -> Tally {
     let mut matched_titles: Vec<String> = Vec::new();
     for matched in &standing.matched {
@@ -222,8 +200,6 @@ async fn credits_of(
     .await?)
 }
 
-/// Whether strong evidence (file tag identifier, ISRC or artist page) of the credits of a
-/// recording names an artist other than the given one.
 async fn strong_conflict(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -239,8 +215,6 @@ async fn strong_conflict(
     Ok(false)
 }
 
-/// Whether any current choice in the credits of a recording, made by the account or by any pass,
-/// names an artist other than the given one.
 async fn other_choice(
     tx: &mut SqliteConnection,
     actor: &Actor,
@@ -267,9 +241,6 @@ async fn other_choice(
     Ok(false)
 }
 
-/// Whether evidence that arrived or was decided since the walk looked refuses a name-based
-/// match: strong evidence for another artist blocks any, and a choice for another artist in the
-/// credit also blocks the credit's remaining tracks.
 pub(super) async fn vetoed(
     tx: &mut SqliteConnection,
     actor: &Actor,

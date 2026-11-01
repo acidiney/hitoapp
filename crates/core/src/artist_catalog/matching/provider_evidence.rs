@@ -16,9 +16,7 @@ const MAX_ID_LENGTH: usize = 64;
 pub(crate) const MAX_LOOKUPS: usize = 8;
 pub(crate) const MAX_CONSECUTIVE_FAILURES: usize = 3;
 pub(crate) const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
-/// No lookup may still be running this long after the pass started, leaving room to write.
 pub(crate) const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
-/// Special-purpose MusicBrainz artists that never identify a performer.
 pub(crate) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "89ad4ac3-39f7-470e-963a-56509c546377",
     "125ec42a-7229-4250-afc5-e057484327fe",
@@ -118,13 +116,6 @@ impl Candidate {
 }
 
 impl ArtistCatalog {
-    /// Matches recordings whose provider evidence resolves, through the built-in MusicBrainz
-    /// service, to exactly one artist: the recording's own ISRC naming one recording credited to
-    /// one artist, or its lone credited artist page being linked to one artist. Names never
-    /// contribute evidence, and recordings the account has already decided about are neither
-    /// looked up nor changed. When the evidence is exhausted the cursor continues into the name
-    /// phase, which searches MusicBrainz by credit name and accepts an artist only when its own
-    /// recordings corroborate the library.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_provider_evidence", request_id = %request.request_id))]
     pub async fn match_artists_from_provider_evidence(
         &self,
@@ -247,11 +238,6 @@ impl ArtistCatalog {
         .await
     }
 
-    /// Asks MusicBrainz once for every distinct code or page the candidates need, within the
-    /// lookup and time bounds, which are checked before each lookup. An ISRC that names an artist
-    /// spares its recording's page lookup. A lookup the budget refuses for the first candidate
-    /// counts as unavailable; for a later one the candidate waits for the next batch. Returns how
-    /// many leading candidates were examined.
     async fn resolve_lookups(
         &self,
         candidates: &[Candidate],

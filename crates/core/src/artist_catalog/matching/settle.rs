@@ -1,5 +1,3 @@
-//! The write half shared by the provider passes: every examined recording is re-validated in one
-//! immediate transaction, settled answers are remembered, and matches are applied with a receipt.
 use super::{
     ArtistProviderMatchReceipt,
     apply::{self, EvidenceKind, Planned, plan},
@@ -11,14 +9,12 @@ use crate::artist_catalog::{MetadataProvider, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Result};
 use uuid::Uuid;
 
-/// What the provider evidence of one recording concludes.
 pub(super) enum Outcome {
     Artist(String, EvidenceKind),
     Uncertain,
     Unavailable,
 }
 
-/// A recording the pass asked about, with the observation and personal artist operation it saw.
 pub(super) struct Examined {
     pub recording: String,
     pub observation: String,
@@ -26,7 +22,6 @@ pub(super) struct Examined {
     pub outcome: Outcome,
 }
 
-/// Where settled uncertain answers are remembered, per pass.
 #[derive(Clone, Copy)]
 pub(super) enum Checks {
     Evidence,

@@ -1,5 +1,3 @@
-//! Decisions shared by every automatic match: personal decisions are never overridden, and a
-//! match is recorded as a reviewed association plus a chosen artist with its evidence kind.
 use crate::artist_catalog::{
     ArtistCreditRole, AssociateRecordingArtist, MetadataProvider, association_changes,
     associations,
@@ -9,8 +7,6 @@ use crate::artist_catalog::{
 use crate::{Actor, Error, Result};
 use sqlx::{Connection, SqliteConnection};
 
-/// A choice written by an earlier automatic match that no decision of the account has replaced,
-/// and whose observation is no longer current. Only such a choice may be matched again.
 pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
             SELECT association_id,receipt_order FROM artist_association_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
@@ -28,16 +24,11 @@ pub(super) enum EvidenceKind {
     Isrc,
     ProviderUrl,
     NameDiscography,
-    /// The credit's other tracks, matched because this many of its tracks were individually
-    /// matched from the originating evidence.
     Credit(Origin, u32),
-    /// The credit's remaining tracks, matched because the artist listed this many of the credit's
-    /// tracks of this many that were probed.
     Coverage(u32, u32),
     UserConfirmedCandidate,
 }
 
-/// The evidence a credit-level match started from.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Origin {
     FileTagArtistId,
@@ -83,7 +74,6 @@ impl EvidenceKind {
         }
     }
 
-    /// The evidence an individual match was made from, as the origin of its credit's other tracks.
     pub(super) fn origin(self) -> Option<Origin> {
         match self {
             Self::FileTagArtistId => Some(Origin::FileTagArtistId),

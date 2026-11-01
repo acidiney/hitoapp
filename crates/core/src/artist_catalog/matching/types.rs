@@ -32,11 +32,8 @@ pub struct MatchArtistsFromProviderEvidence {
 pub struct ArtistProviderMatchReceipt {
     pub request_id: Uuid,
     pub matched: i64,
-    /// Provider answers that name no artist, several recordings or several artists.
     pub uncertain: i64,
-    /// Recordings with an earlier personal decision or unlinked association.
     pub declined: i64,
-    /// Recordings whose lookup could not be completed; they are asked again by a later pass.
     pub unavailable: i64,
     pub next_after: Option<String>,
 }
@@ -44,21 +41,15 @@ pub struct ArtistProviderMatchReceipt {
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchSuggestion {
     pub group: ArtistIdentityGroup,
-    /// Distinct release titles the credit shares with the chosen artist's releases.
     pub shared_albums: i64,
-    /// Tracks of the credit that match a chosen track by title and length (within three seconds).
     pub same_length_tracks: i64,
-    /// Tracks of the credit that have no current artist choice and would be updated.
     pub undecided_tracks: i64,
 }
 
-/// A chosen artist that some of the credit's tracks already use.
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchChosen {
     pub group: ArtistIdentityGroup,
-    /// Tracks of the credit that currently use this artist.
     pub tracks: i64,
-    /// Of those, the tracks Hito matched by itself.
     pub automatic_tracks: i64,
     pub evidence: Vec<ArtistMatchEvidence>,
 }
@@ -72,14 +63,10 @@ pub struct ArtistMatchEvidence {
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchSuggestions {
     pub artist_id: String,
-    /// Chosen artists the credit's tracks already use, the most used first.
     pub chosen: Vec<ArtistMatchChosen>,
-    /// Tracks of the credit with no current artist choice.
     pub undecided_tracks: i64,
     pub items: Vec<ArtistMatchSuggestion>,
-    /// Suggestions the account dismissed for this credit; they are not in `items`.
     pub dismissed: i64,
-    /// The dismissed suggestions that could still apply to undecided tracks, so each can be restored.
     pub dismissed_items: Vec<ArtistMatchSuggestion>,
 }
 

@@ -28,8 +28,6 @@ struct Facts {
 }
 
 impl ArtistCatalog {
-    /// Ranks chosen artists whose members carry this credit's name. Equal names alone never
-    /// change anything: the account accepts through the existing reviewed apply, or dismisses.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "artist_match_suggestions", request_id = %Uuid::new_v4()))]
     pub async fn artist_match_suggestions(
         &self,
@@ -71,8 +69,6 @@ impl ArtistCatalog {
         self.artist_match_suggestions(actor, artist).await
     }
 
-    /// Forgets a dismissal so the suggestion is offered again. Restoring a suggestion that was
-    /// never dismissed is the same as restoring it twice: nothing changes.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_restore", request_id = %Uuid::new_v4()))]
     pub async fn restore_artist_match_suggestion(
         &self,
@@ -93,8 +89,6 @@ impl ArtistCatalog {
         self.artist_match_suggestions(actor, artist).await
     }
 
-    /// Opens a write transaction after checking the session, that the credit is the account's own
-    /// and that the chosen artist belongs to the account.
     async fn guarded_transaction(
         &self,
         actor: &Actor,
@@ -347,7 +341,6 @@ pub(super) async fn credit_name(
     .ok_or(Error::NotFound)
 }
 
-/// The credit's tracks with no current artist choice, read once for every candidate group.
 async fn undecided_tracks(
     connection: &mut SqliteConnection,
     actor: &Actor,

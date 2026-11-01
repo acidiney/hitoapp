@@ -27,9 +27,6 @@ struct Candidate {
 }
 
 impl ArtistCatalog {
-    /// Records reviewed built-in artist associations and choices for recordings whose own file
-    /// tags name exactly one performer artist identifier. Names never contribute evidence, and
-    /// recordings the account has already decided about are left alone.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_tags", request_id = %request.request_id))]
     pub async fn match_artists_from_tags(
         &self,

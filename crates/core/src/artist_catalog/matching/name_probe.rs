@@ -1,5 +1,3 @@
-//! The pure half of name matching: which exact-name artists a search proves it saw, which library
-//! recordings to ask each of them about, and what their answers corroborate.
 use hito_metadata_musicbrainz::{ArtistRecordings, NameSearch, RecordingProbe};
 
 use super::{
@@ -7,16 +5,11 @@ use super::{
     title::{EXACT_TOLERANCE_MS, Title, VERSION_TOLERANCE_MS, tolerance_ms},
 };
 
-/// More exact-name artists than this cannot be told apart within one request.
 pub(super) const MAX_NAMESAKES: usize = 3;
-/// Library recordings asked about one artist in one search, which is also the sample that decides.
 pub(super) const PROBES_PER_SEARCH: usize = hito_metadata_musicbrainz::MAX_PROBES;
-/// A shorter length is a placeholder, not a measurement.
 const MIN_KNOWN_LENGTH_MS: u64 = 1000;
-/// Distinct base titles a library must share with an artist to corroborate it.
 pub(super) const MIN_CORROBORATING: usize = 2;
 const SCORE_MAX: u32 = 100;
-/// The longest title MusicBrainz is asked about; a longer one cannot be a request.
 const MAX_TITLE_BYTES: usize = 512;
 
 pub(super) struct Track {
@@ -25,12 +18,10 @@ pub(super) struct Track {
     pub length_ms: Option<u64>,
     pub observation: String,
     pub operation: Option<String>,
-    /// The recording carries an ISRC, an artist page or a tagged artist identifier of its own.
     pub own_evidence: bool,
     pub tagged_recording: bool,
 }
 
-/// Case-folded, whitespace-collapsed text. Punctuation and diacritics are significant.
 pub(super) fn normalize(text: &str) -> String {
     text.split_whitespace()
         .collect::<Vec<_>>()
@@ -44,10 +35,6 @@ pub(super) fn known_length(length: Option<i64>) -> Option<u64> {
         .filter(|length| *length >= MIN_KNOWN_LENGTH_MS)
 }
 
-/// The ordinary artists whose name equals the credit, whatever their score, or `None` when the
-/// search cannot prove it saw every one of them: too many namesakes, or a page that may end
-/// before the last exact name. A page is conclusive when it holds the whole result set, or ends on
-/// a result that is not an exact name and scores below the maximum.
 pub(super) fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>> {
     let wanted = normalize(credit);
     let exact = |name: &str| normalize(name) == wanted;
@@ -69,14 +56,12 @@ pub(super) fn namesakes(search: &NameSearch, credit: &str) -> Option<Vec<String>
     (found.len() <= MAX_NAMESAKES).then_some(found)
 }
 
-/// One title and length of the credit's undecided recordings, with the tracks that carry them.
 pub(super) struct Candidate {
     pub title: Title,
     pub length_ms: u64,
     pub tracks: Vec<usize>,
 }
 
-/// The distinct (title, length) pairs of tracks with a known length, in track order.
 pub(super) fn candidates<'a>(tracks: impl IntoIterator<Item = &'a Track>) -> Vec<Candidate> {
     let mut found: Vec<Candidate> = Vec::new();
     for (index, track) in tracks.into_iter().enumerate() {
@@ -105,9 +90,6 @@ pub(super) fn candidates<'a>(tracks: impl IntoIterator<Item = &'a Track>) -> Vec
     found
 }
 
-/// The deciding sample: one candidate for each of the first distinct base titles, at most
-/// `PROBES_PER_SEARCH`. A title without a version qualifier is preferred to a version of the same
-/// song, because it is asked about with the narrower length range.
 pub(super) fn sample(candidates: &[Candidate]) -> Vec<usize> {
     let mut picked: Vec<usize> = Vec::new();
     for (index, candidate) in candidates.iter().enumerate() {
@@ -147,8 +129,6 @@ pub(super) fn probes(candidates: &[Candidate], picked: &[usize]) -> Vec<Recordin
         .collect()
 }
 
-/// The picked candidates that a listed recording equals by title and by length within the
-/// tolerance the two titles allow.
 pub(super) fn found(
     candidates: &[Candidate],
     picked: &[usize],
@@ -175,7 +155,6 @@ pub(super) fn found(
         .collect()
 }
 
-/// How many distinct base titles the given candidates carry.
 pub(super) fn distinct_titles(candidates: &[Candidate], hits: &[usize]) -> usize {
     let mut titles: Vec<&str> = Vec::new();
     for index in hits {
@@ -187,13 +166,10 @@ pub(super) fn distinct_titles(candidates: &[Candidate], hits: &[usize]) -> usize
     titles.len()
 }
 
-/// What one exact-name artist's answer says about the sample.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Assessment {
     Corroborated(Vec<usize>),
-    /// Fewer than two titles listed, with the sample candidates that were.
     Absent(Vec<usize>),
-    /// The answer holds fewer matches than MusicBrainz states and did not corroborate.
     NotRead,
 }
 
@@ -212,10 +188,6 @@ pub(super) fn assess(
     }
 }
 
-/// The artist, with the sample candidates it lists, when exactly one namesake corroborates and no
-/// other could still do so with matches that were not read. An artist already matched for the
-/// credit by an earlier request continues without fresh corroboration when no other namesake
-/// listed any sampled title.
 pub(super) fn decide(
     assessments: &[(String, Assessment)],
     established: Option<&str>,
@@ -246,7 +218,6 @@ pub(super) fn decide(
     }
 }
 
-/// Whether every namesake other than the artist listed none of the sampled titles.
 pub(super) fn silent_beside(assessments: &[(String, Assessment)], artist: &str) -> bool {
     assessments.iter().all(|(id, assessment)| {
         id == artist || matches!(assessment, Assessment::Absent(hits) if hits.is_empty())

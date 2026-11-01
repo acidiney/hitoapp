@@ -1,13 +1,6 @@
-//! Title comparison for name matching. Titles are folded and stripped of version qualifiers and
-//! featured artists for comparison only; the stored and displayed titles never change. A featured
-//! artist is recognized only in brackets or after a dash ("Song (feat. X)", "Song - feat. X"), never
-//! in the middle of a title, and "with" is never read as one: the credit of the recording is not
-//! known here, so "Song (With You)" stays "song with you".
 use crate::artist_catalog::identity::groups::fold;
 
-/// Length tolerance between a library title and a listed title of the same wording or base.
 pub(super) const EXACT_TOLERANCE_MS: u64 = 2000;
-/// Length tolerance when both titles carry the same kind of version qualifier.
 pub(super) const VERSION_TOLERANCE_MS: u64 = 10_000;
 
 const LIVE: u16 = 1;
@@ -22,7 +15,6 @@ const INSTRUMENTAL: u16 = 1 << 8;
 const EXPLICIT: u16 = 1 << 9;
 const DELUXE: u16 = 1 << 10;
 
-/// Words that, after "live", still describe a live version and not the rest of a title.
 const LIVE_CONTINUATIONS: [&str; 8] = [
     "at",
     "in",
@@ -33,7 +25,6 @@ const LIVE_CONTINUATIONS: [&str; 8] = [
     "recording",
     "performance",
 ];
-/// Words that may stand in a qualifier beside a kind word without adding a kind.
 const FILLER: [&str; 17] = [
     "radio",
     "single",
@@ -57,15 +48,12 @@ const FEATURING: [&str; 3] = ["feat", "ft", "featuring"];
 
 #[derive(Clone, Debug)]
 pub(crate) struct Title {
-    /// The title with qualifiers and featured artists removed, as written.
     pub text: String,
-    /// The folded base used to compare titles.
     pub key: String,
     kinds: u16,
     specific: String,
 }
 
-/// Titles are equal when their base and qualifier kinds are; the wording is only for display.
 impl PartialEq for Title {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key && self.kinds == other.kinds
@@ -102,8 +90,6 @@ fn kind_of(word: &str) -> Option<u16> {
     })
 }
 
-/// What a bracketed or dash-separated part of a title says: the version kinds it names (none for
-/// a featured artist), or `None` when it is part of the title itself.
 fn qualifier(part: &str) -> Option<u16> {
     let words = tokens(part);
     let first = words.first()?;
@@ -137,7 +123,6 @@ fn qualifier(part: &str) -> Option<u16> {
     (kinds != 0).then_some(kinds)
 }
 
-/// The start of the trailing bracketed part of the text, if it ends with one.
 fn trailing_bracket(text: &str) -> Option<usize> {
     let closing = text.chars().last()?;
     let opening = match closing {
@@ -159,7 +144,6 @@ fn trailing_bracket(text: &str) -> Option<usize> {
     None
 }
 
-/// The start of the trailing part after the last dash separator.
 fn trailing_dash(text: &str) -> Option<(usize, usize)> {
     ["\u{2013}", "\u{2014}", "-"]
         .iter()
@@ -215,9 +199,6 @@ impl Title {
     }
 }
 
-/// The length tolerance within which a listed title is the same recording as the library title,
-/// or `None` when the titles do not match. A remix matches only remixes of the same base title;
-/// any other qualified title matches the same qualifier kinds or the unqualified base title.
 pub(crate) fn tolerance_ms(candidate: &Title, listed: &Title) -> Option<u64> {
     if candidate.key != listed.key {
         return None;
