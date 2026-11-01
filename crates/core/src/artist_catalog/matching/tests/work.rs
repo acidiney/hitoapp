@@ -151,7 +151,7 @@ async fn seed_review_credits(hito: &crate::Services, actor: &crate::Actor, libra
         sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES(?,?,?,?)")
             .bind(actor.id())
             .bind(&artist)
-            .bind(&library)
+            .bind(library)
             .bind(format!("Credit {credit:03}"))
             .execute(&mut *tx)
             .await
@@ -169,7 +169,7 @@ async fn seed_review_credits(hito: &crate::Services, actor: &crate::Actor, libra
             let recording = format!("queue-{credit:03}-{track:03}");
             sqlx::query("INSERT INTO recordings(id,library_id,title,artist,metadata_observation_id) VALUES(?1,?2,?1,'Seed','observation')")
                 .bind(&recording)
-                .bind(&library)
+                .bind(library)
                 .execute(&mut *tx)
                 .await
                 .unwrap();
