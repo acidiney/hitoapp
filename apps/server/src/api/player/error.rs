@@ -22,7 +22,7 @@ impl IntoResponse for Error {
             PlayerError::NotFound => StatusCode::NOT_FOUND,
             PlayerError::Invalid => StatusCode::UNPROCESSABLE_ENTITY,
             PlayerError::Unsupported => StatusCode::NOT_IMPLEMENTED,
-            PlayerError::Playback => StatusCode::BAD_GATEWAY,
+            PlayerError::Playback | PlayerError::OutputFormat => StatusCode::BAD_GATEWAY,
             PlayerError::Persistence | PlayerError::Resume => StatusCode::INTERNAL_SERVER_ERROR,
         };
         tracing::debug!(event = "player_http_rejected", error_kind = ?self.0, status = status.as_u16(), "Playback request rejected");

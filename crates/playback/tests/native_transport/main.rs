@@ -7,6 +7,7 @@ mod player_native_failures;
 mod player_native_history;
 mod player_native_media;
 mod player_native_midstream;
+mod player_native_output_format;
 mod player_native_ownership;
 mod player_native_previous;
 mod player_native_previous_authority;

@@ -4230,7 +4230,7 @@ export interface components {
             recording_id: string;
         };
         /** @enum {string} */
-        PlayerError: "unauthorized" | "conflict" | "busy" | "closed" | "unavailable" | "not_found" | "invalid" | "unsupported" | "playback" | "persistence" | "resume";
+        PlayerError: "unauthorized" | "conflict" | "busy" | "closed" | "unavailable" | "not_found" | "invalid" | "unsupported" | "playback" | "output_format" | "persistence" | "resume";
         PlayerFailure: {
             entry: components["schemas"]["PlayerEntryRef"];
             error: components["schemas"]["PlayerError"];

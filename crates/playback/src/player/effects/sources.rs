@@ -66,8 +66,12 @@ impl Sources {
     pub fn current(&self) -> Option<&PlaybackSource> {
         self.current.as_ref()
     }
-    pub fn failed(&mut self) {
+    pub fn failed(&mut self, error: PlayerError) {
         self.current = None;
+        self.error = error;
+    }
+    pub fn failure(&self) -> PlayerError {
+        self.error
     }
     pub fn request(&mut self, actor: &Actor, recording: &str) -> bool {
         if self.demand.is_none() {

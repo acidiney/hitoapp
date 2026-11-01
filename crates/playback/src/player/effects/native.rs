@@ -136,13 +136,13 @@ impl Native {
                 _ = async { self.closing.as_mut().unwrap().await }, if self.closing.is_some() => {
                     self.closing = None;
                     if self.target.is_some() {
-                        return if self.failed { self.status(PlayerPhase::Failed, Some(PlayerError::Playback)) } else { self.status(PlayerPhase::Resolving, None) };
+                        return if self.failed { self.status(PlayerPhase::Failed, Some(self.sources.failure())) } else { self.status(PlayerPhase::Resolving, None) };
                     }
                 },
                 grant = self.sources.next() => {
                     match grant {
                         Ok(Some(_)) => return self.status(PlayerPhase::Resolving, None),
-                        Ok(None) => return self.exhausted(PlayerError::Playback),
+                        Ok(None) => return self.exhausted(self.sources.failure()),
                         Err(error) => return self.exhausted(error),
                     }
                 },
@@ -206,12 +206,18 @@ impl Native {
                 let snapshot = session.snapshot();
                 snapshot.status == Status::Revoked || snapshot.error == Some(crate::Error::Access)
             });
-        self.sources.failed();
+        let failure = failure_of(error.or_else(|| {
+            self.session
+                .as_ref()
+                .and_then(|session| session.snapshot().error)
+        }));
+        self.sources.failed(failure);
         self.retire();
         tracing::debug!(
             event = "player_source_failed",
             selection = self.target.as_ref().unwrap().key.selection,
             unverified,
+            reason = ?failure,
             "Trying another authorized source"
         );
         self.status(
@@ -219,14 +225,17 @@ impl Native {
             Some(if unverified {
                 PlayerError::Unavailable
             } else {
-                PlayerError::Playback
+                failure
             }),
         )
     }
     fn exhausted(&mut self, error: PlayerError) -> Update {
         self.failed = true;
         let mut update = self.status(PlayerPhase::Failed, Some(error));
-        update.exhausted = matches!(error, PlayerError::Playback | PlayerError::NotFound);
+        update.exhausted = matches!(
+            error,
+            PlayerError::Playback | PlayerError::OutputFormat | PlayerError::NotFound
+        );
         update
     }
     pub async fn close(&mut self) {
@@ -238,5 +247,33 @@ impl Native {
         }
         self.sources.close().await;
         tracing::info!(event = "player_native_closed", "Native effect owner joined");
+    }
+}
+
+fn failure_of(error: Option<crate::Error>) -> PlayerError {
+    match error {
+        Some(crate::Error::Native(hito_audio::Error::OutputFormat)) => PlayerError::OutputFormat,
+        _ => PlayerError::Playback,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_an_output_format_failure_has_its_own_player_error() {
+        assert_eq!(
+            failure_of(Some(crate::Error::Native(hito_audio::Error::OutputFormat))),
+            PlayerError::OutputFormat
+        );
+        for other in [
+            Some(crate::Error::Native(hito_audio::Error::Decode)),
+            Some(crate::Error::Native(hito_audio::Error::OutputUnavailable)),
+            Some(crate::Error::Input),
+            None,
+        ] {
+            assert_eq!(failure_of(other), PlayerError::Playback);
+        }
     }
 }

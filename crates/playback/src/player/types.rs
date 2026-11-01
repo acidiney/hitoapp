@@ -23,6 +23,8 @@ pub enum PlayerError {
     Unsupported,
     #[error("Audio could not be played")]
     Playback,
+    #[error("This device can't play this audio format")]
+    OutputFormat,
     #[error("Listening progress could not be saved")]
     Persistence,
     #[error("Saved playback position could not be loaded. Try again.")]
