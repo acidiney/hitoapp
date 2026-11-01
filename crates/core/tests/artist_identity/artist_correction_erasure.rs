@@ -34,11 +34,12 @@ const ACCOUNT_TABLES: [&str; 18] = [
     "album_edition_choices",
 ];
 
-const THROUGH_ASSOCIATION: [&str; 5] = [
+const THROUGH_ASSOCIATION: [&str; 6] = [
     "artist_association_matches",
     "artist_association_provider_matches",
     "artist_association_name_matches",
     "artist_association_coverage_matches",
+    "artist_association_recording_id_matches",
     "artist_association_candidate_confirmations",
 ];
 
@@ -147,6 +148,12 @@ async fn add_provenance(connection: &mut SqliteConnection, account: &Actor, reco
         .unwrap();
     }
     sqlx::query("INSERT INTO artist_association_coverage_matches(association_id,matched_tracks,probed_tracks,receipt_order) VALUES(?,5,6,?)")
+        .bind(&association)
+        .bind(receipt)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO artist_association_recording_id_matches(association_id,receipt_order) VALUES(?,?)")
         .bind(&association)
         .bind(receipt)
         .execute(&mut *connection)

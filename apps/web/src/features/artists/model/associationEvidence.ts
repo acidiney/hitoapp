@@ -11,6 +11,8 @@ const matched: Record<
 > = {
   matched_file_tag_artist_id:
     "Matched automatically from an artist identifier in the file's tags.",
+  matched_recording_id:
+    "Matched automatically from the MusicBrainz recording identifier in the file's tags.",
   matched_isrc: "Matched automatically from the recording's ISRC.",
   matched_provider_url:
     "Matched automatically from the provider's artist page.",
@@ -67,6 +69,7 @@ export function associationEvidenceText(
 
 const tracksBy: Record<Association["evidence"], string> = {
   matched_file_tag_artist_id: "an artist identifier in the file's tags",
+  matched_recording_id: "the recording identifier in the file's tags",
   matched_isrc: "its ISRC",
   matched_provider_url: "the provider's artist page",
   matched_name_discography: "the artist's name, corroborated by its recordings",

@@ -235,6 +235,7 @@ async fn chosen_artists(
         "SELECT current.group_id,
             CASE WHEN tag.association_id IS NOT NULL THEN tag.evidence_kind
                 WHEN provider.association_id IS NOT NULL THEN provider.evidence_kind
+                WHEN recording_id.association_id IS NOT NULL THEN 'recording_id'
                 WHEN name.association_id IS NOT NULL THEN name.evidence_kind
                 WHEN credit.association_id IS NOT NULL THEN 'credit'
                 WHEN coverage.association_id IS NOT NULL THEN 'coverage'
@@ -251,6 +252,7 @@ async fn chosen_artists(
             ") current
          LEFT JOIN artist_association_matches tag ON tag.association_id=current.association_id
          LEFT JOIN artist_association_provider_matches provider ON provider.association_id=current.association_id
+         LEFT JOIN artist_association_recording_id_matches recording_id ON recording_id.association_id=current.association_id
          LEFT JOIN artist_association_name_matches name ON name.association_id=current.association_id
          LEFT JOIN artist_association_credit_matches credit ON credit.association_id=current.association_id
          LEFT JOIN artist_association_coverage_matches coverage ON coverage.association_id=current.association_id
@@ -264,6 +266,7 @@ async fn chosen_artists(
         let evidence = match kind.as_deref() {
             None => ArtistAssociationEvidence::UserConfirmed,
             Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
+            Some("recording_id") => ArtistAssociationEvidence::MatchedRecordingId,
             Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
             Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
             Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,

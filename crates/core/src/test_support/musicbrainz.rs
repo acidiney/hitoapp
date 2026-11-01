@@ -82,6 +82,15 @@ impl FakeMusicBrainz {
             .insert(format!("isrc/{isrc}"), reply);
     }
 
+    /// Answers the lookup of one recording by identifier; the first listed recording is the answer.
+    pub fn recording(&self, mbid: &str, reply: Reply) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("recording-artists/{mbid}"), reply);
+    }
+
     pub fn url(&self, resource: &str, reply: Reply) {
         self.state
             .lock()
@@ -283,6 +292,13 @@ fn key(uri: &Uri) -> Option<String> {
     if let Some(isrc) = path.strip_prefix("isrc/") {
         return Some(format!("isrc/{isrc}"));
     }
+    if let Some(id) = path.strip_prefix("recording/")
+        && uri
+            .query()
+            .is_some_and(|query| query.contains("inc=artist-credits"))
+    {
+        return Some(format!("recording-artists/{id}"));
+    }
     if let Some((entity, id)) = path.split_once('/')
         && matches!(entity, "artist" | "release-group" | "recording")
         && uri
@@ -378,6 +394,16 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
     };
     tokio::time::sleep(delay).await;
     let (status, body) = match (key(request.uri()), reply) {
+        (Some(key), Some(Reply::Recordings(recordings)))
+            if key.starts_with("recording-artists/") =>
+        {
+            let (id, artists) = recordings.first().cloned().unwrap_or_default();
+            (
+                StatusCode::OK,
+                json!({"id": id, "title": "Owned recording", "artist-credit":
+                    artists.iter().map(|id| artist(id)).collect::<Vec<_>>()}),
+            )
+        }
         (_, Some(Reply::Recordings(recordings))) => {
             let isrc = request.uri().path().rsplit('/').next().unwrap_or_default();
             let recordings: Vec<Value> = recordings

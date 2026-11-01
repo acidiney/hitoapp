@@ -92,6 +92,8 @@ pub enum ArtistAssociationEvidence {
     MatchedCreditCoverage,
     /// The account confirmed one of the candidates Hito found under the credit's name.
     UserConfirmedCandidate,
+    /// The file's own tags name a MusicBrainz recording whose single credited artist was matched.
+    MatchedRecordingId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]

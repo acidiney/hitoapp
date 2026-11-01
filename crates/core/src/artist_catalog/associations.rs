@@ -28,6 +28,7 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
 
 const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_association_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_provider_matches matched WHERE matched.association_id=assoc.id),
+    (SELECT 'recording_id' FROM artist_association_recording_id_matches matched WHERE matched.association_id=assoc.id),
     (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'credit_'||matched.evidence_kind FROM artist_association_credit_matches matched WHERE matched.association_id=assoc.id),
     (SELECT 'coverage' FROM artist_association_coverage_matches matched WHERE matched.association_id=assoc.id),
@@ -96,6 +97,7 @@ impl Stored {
             evidence: match self.matched.as_deref() {
                 None => ArtistAssociationEvidence::UserConfirmed,
                 Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
+                Some("recording_id") => ArtistAssociationEvidence::MatchedRecordingId,
                 Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
                 Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
                 Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,

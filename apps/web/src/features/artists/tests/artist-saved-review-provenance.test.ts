@@ -27,6 +27,10 @@ test.each([
     "matched_file_tag_artist_id",
     "Matched automatically from an artist identifier in the file's tags.",
   ],
+  [
+    "matched_recording_id",
+    "Matched automatically from the MusicBrainz recording identifier in the file's tags.",
+  ],
   ["matched_isrc", "Matched automatically from the recording's ISRC."],
   [
     "matched_provider_url",

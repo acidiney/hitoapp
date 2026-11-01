@@ -26,8 +26,13 @@ pub(crate) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "f731ccc4-e22a-43af-a747-64213329e088",
 ];
 
+/// The recording identifier the current observation's file tags state, if it is well formed.
+const TAGGED_RECORDING: &str = "(SELECT t.mbid FROM recording_musicbrainz_observations t
+    WHERE t.observation_id=r.metadata_observation_id AND t.recording_id=r.id AND t.entity='recording')";
+
 struct Candidate {
     recording: String,
+    recording_id: Option<String>,
     isrc: Option<String>,
     page: Option<String>,
     observation: String,
@@ -36,6 +41,7 @@ struct Candidate {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum Lookup {
+    Recording(String),
     Isrc(String),
     Page(String),
 }
@@ -70,6 +76,7 @@ fn resolve(recordings: &[IsrcRecording]) -> Resolution {
 
 impl Candidate {
     fn lookups(&self) -> Vec<Lookup> {
+        let recording = self.recording_id.iter().cloned().map(Lookup::Recording);
         let isrc = self.isrc.iter().cloned().map(Lookup::Isrc);
         let page = self
             .page
@@ -77,16 +84,22 @@ impl Candidate {
             .filter(|page| hito_plugin_sdk::artist_page_provider(page).is_some())
             .cloned()
             .map(Lookup::Page);
-        isrc.chain(page).collect()
+        recording.chain(isrc).chain(page).collect()
     }
 
-    /// The ISRC decides first; a lone artist page is consulted only when the ISRC names no artist.
+    /// The tagged recording decides first, then the ISRC; a lone artist page is consulted only
+    /// when neither names an artist.
     fn outcome(&self, resolutions: &HashMap<Lookup, Resolution>) -> Outcome {
         let mut unavailable = false;
         for (lookup, kind) in self
-            .isrc
+            .recording_id
             .iter()
-            .map(|isrc| (Lookup::Isrc(isrc.clone()), EvidenceKind::Isrc))
+            .map(|id| (Lookup::Recording(id.clone()), EvidenceKind::RecordingId))
+            .chain(
+                self.isrc
+                    .iter()
+                    .map(|isrc| (Lookup::Isrc(isrc.clone()), EvidenceKind::Isrc)),
+            )
             .chain(
                 self.page
                     .iter()
@@ -301,6 +314,11 @@ impl ArtistCatalog {
 
     async fn ask(&self, lookup: &Lookup) -> Resolution {
         let answer = match lookup {
+            Lookup::Recording(id) => self.builtin.recording_artists(id).await.map(|found| {
+                found.map_or(Resolution::Uncertain, |found| {
+                    single_artist(&found.artist_ids)
+                })
+            }),
             Lookup::Isrc(isrc) => self
                 .builtin
                 .recordings_by_isrc(isrc)
@@ -316,9 +334,11 @@ impl ArtistCatalog {
     }
 }
 
-/// Recording, ISRC, lone artist page, current observation and personal artist operation.
+/// Recording, tagged MusicBrainz recording, ISRC, lone artist page, current observation and
+/// personal artist operation.
 type Row = (
     String,
+    Option<String>,
     Option<String>,
     Option<String>,
     String,
@@ -333,7 +353,7 @@ async fn candidates(
 ) -> Result<(Vec<Candidate>, Option<String>)> {
     let mut rows: Vec<Row> =
         sqlx::query_as(&format!(
-        "SELECT r.id,i.isrc,
+        "SELECT r.id,{TAGGED_RECORDING},i.isrc,
             (SELECT u.url FROM recording_artist_url_observations u
                 WHERE u.observation_id=r.metadata_observation_id
                 AND (SELECT count(*) FROM recording_artist_url_observations x WHERE x.observation_id=u.observation_id)=1),
@@ -342,7 +362,7 @@ async fn candidates(
          LEFT JOIN recording_isrc_observations i ON i.observation_id=r.metadata_observation_id AND i.recording_id=r.id
          LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=m.user_id
          WHERE r.id>?
-            AND (i.observation_id IS NOT NULL OR (SELECT count(*) FROM recording_artist_url_observations x
+            AND (i.observation_id IS NOT NULL OR {TAGGED_RECORDING} IS NOT NULL OR (SELECT count(*) FROM recording_artist_url_observations x
                 WHERE x.observation_id=r.metadata_observation_id)=1)
             AND NOT EXISTS (SELECT 1 FROM artist_provider_checks k WHERE k.user_id=m.user_id
                 AND k.recording_id=r.id AND k.observation_id=r.metadata_observation_id
@@ -365,8 +385,9 @@ async fn candidates(
     let candidates = rows
         .into_iter()
         .map(
-            |(recording, isrc, page, observation, operation)| Candidate {
+            |(recording, recording_id, isrc, page, observation, operation)| Candidate {
                 recording,
+                recording_id,
                 isrc,
                 page,
                 observation,
@@ -423,6 +444,7 @@ mod tests {
     fn candidate(isrc: &str, page: Option<&str>) -> Candidate {
         Candidate {
             recording: isrc.into(),
+            recording_id: None,
             isrc: Some(isrc.into()),
             page: page.map(str::to_owned),
             observation: "observation".into(),

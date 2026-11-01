@@ -14,6 +14,7 @@ use sqlx::{Connection, SqliteConnection};
 pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
             SELECT association_id,receipt_order FROM artist_association_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_recording_id_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches) mt
@@ -23,6 +24,7 @@ pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum EvidenceKind {
     FileTagArtistId,
+    RecordingId,
     Isrc,
     ProviderUrl,
     NameDiscography,
@@ -61,6 +63,7 @@ impl EvidenceKind {
         match self {
             Self::FileTagArtistId => "artist_association_matches",
             Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
+            Self::RecordingId => "artist_association_recording_id_matches",
             Self::NameDiscography => "artist_association_name_matches",
             Self::Credit(..) => "artist_association_credit_matches",
             Self::Coverage(..) => "artist_association_coverage_matches",
@@ -73,6 +76,7 @@ impl EvidenceKind {
             Self::FileTagArtistId => Origin::FileTagArtistId.name(),
             Self::Isrc => Origin::Isrc.name(),
             Self::ProviderUrl => Origin::ProviderUrl.name(),
+            Self::RecordingId => "recording_id",
             Self::NameDiscography => Origin::NameDiscography.name(),
             Self::Credit(origin, _) => origin.name(),
             Self::Coverage(..) => "name_coverage",
@@ -86,7 +90,8 @@ impl EvidenceKind {
             Self::FileTagArtistId => Some(Origin::FileTagArtistId),
             Self::Isrc => Some(Origin::Isrc),
             Self::ProviderUrl => Some(Origin::ProviderUrl),
-            Self::NameDiscography
+            Self::RecordingId
+            | Self::NameDiscography
             | Self::Credit(..)
             | Self::Coverage(..)
             | Self::UserConfirmedCandidate => None,
@@ -235,6 +240,7 @@ pub(super) async fn commit(
                 EvidenceKind::NameDiscography => {
                     ("association_id,evidence_kind,receipt_order,rule", "?,?,?,?")
                 }
+                EvidenceKind::RecordingId => ("association_id,receipt_order", "?,?"),
                 _ => ("association_id,evidence_kind,receipt_order", "?,?,?"),
             };
             let sql = format!(
@@ -255,6 +261,7 @@ pub(super) async fn commit(
                     .bind(item.kind.name())
                     .bind(order)
                     .bind(super::name_discography::NAME_RULE),
+                EvidenceKind::RecordingId => insert.bind(order),
                 _ => insert.bind(item.kind.name()).bind(order),
             };
             insert.execute(&mut *tx).await?;
