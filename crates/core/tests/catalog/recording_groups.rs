@@ -138,6 +138,30 @@ impl World {
             .unwrap()
     }
 
+    async fn pool(&self) -> sqlx::SqlitePool {
+        sqlx::SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(self._directory.path().join("hito.db"))
+                .foreign_keys(true),
+        )
+        .await
+        .unwrap()
+    }
+
+    async fn carrier_and_member(&self) -> (String, String) {
+        let cards = self.cards().await;
+        assert_eq!(cards.len(), 1);
+        let copies = self.copies(&cards[0].id).await;
+        let member = copies
+            .copies
+            .iter()
+            .find(|copy| !copy.canonical)
+            .unwrap()
+            .recording_id
+            .clone();
+        (copies.canonical_id, member)
+    }
+
     async fn act(&self, actions: Vec<Action>) {
         support::synchronize(&self.hito, &self.actor, actions).await;
     }
@@ -448,4 +472,242 @@ async fn a_split_and_a_group_belong_to_one_account() {
             .separate
     );
     assert_eq!(world.cards_of(&bob).await.len(), 2);
+}
+
+#[tokio::test]
+async fn a_like_added_to_a_hidden_copy_shows_it_again() {
+    let world = World::with(&[
+        ("a", "Late Like", 1.0, tagged(MBID)),
+        ("b", "Late Like", 1.0, tagged(MBID)),
+    ])
+    .await;
+    let (_, member) = world.carrier_and_member().await;
+    world
+        .act(vec![Action::LikeSet {
+            recording_id: uuid(&member),
+            liked: true,
+        }])
+        .await;
+    assert_eq!(world.cards().await.len(), 2);
+    let liked = world
+        .hito
+        .catalog
+        .liked_recordings(&world.actor, Search::default())
+        .await
+        .unwrap();
+    assert_eq!(liked.total, 1);
+    assert_eq!(liked.items[0].id, member);
+}
+
+#[tokio::test]
+async fn a_carrier_that_loses_its_audio_shows_the_playable_copy_again() {
+    let world = World::with(&[
+        ("a", "Gone Soon", 1.0, tagged(MBID)),
+        ("b", "Gone Soon", 1.0, tagged(MBID)),
+    ])
+    .await;
+    let (carrier, member) = world.carrier_and_member().await;
+    let sources = world
+        .hito
+        .catalog
+        .sources(&world.actor, &carrier)
+        .await
+        .unwrap();
+    let pool = world.pool().await;
+    sqlx::query("UPDATE sources SET ready = 0 WHERE id = ?")
+        .bind(&sources[0].id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let ids: Vec<String> = world
+        .cards()
+        .await
+        .into_iter()
+        .map(|card| card.id)
+        .collect();
+    assert!(ids.contains(&member) && ids.contains(&carrier), "{ids:?}");
+}
+
+#[tokio::test]
+async fn losing_access_to_the_carrier_never_hides_the_copy() {
+    let world = World::with(&[
+        ("a", "Moved", 1.0, tagged(MBID)),
+        ("b", "Moved", 1.0, tagged(MBID)),
+    ])
+    .await;
+    let (carrier, member) = world.carrier_and_member().await;
+    let pool = world.pool().await;
+    sqlx::query("INSERT INTO libraries(id,name) VALUES('elsewhere','Elsewhere')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE recordings SET library_id='elsewhere' WHERE id=?")
+        .bind(&carrier)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let ids: Vec<String> = world
+        .cards()
+        .await
+        .into_iter()
+        .map(|card| card.id)
+        .collect();
+    assert_eq!(ids, vec![member.clone()]);
+    let copies = world.copies(&member).await;
+    assert_eq!(copies.canonical_id, member);
+    assert!(copies.copies.is_empty());
+}
+
+fn retag(directory: &Path, file: &str, isrc: Option<&str>) {
+    let path = directory.join("music").join(format!("{file}.flac"));
+    let mut tag = Tag::new(TagType::VorbisComments);
+    tag.set_title("Retagged".into());
+    tag.set_artist("Performer".into());
+    if let Some(isrc) = isrc {
+        tag.insert_text(ItemKey::Isrc, isrc.into());
+    }
+    tag.save_to_path(&path, Default::default()).unwrap();
+}
+
+#[tokio::test]
+async fn a_retag_that_removes_the_proof_ungroups_on_the_next_pass() {
+    let world = World::with(&[
+        ("a", "Retagged", 1.0, coded(ISRC)),
+        ("b", "Retagged", 1.0, coded(ISRC)),
+    ])
+    .await;
+    assert_eq!(world.cards().await.len(), 1);
+    retag(world._directory.path(), "b", None);
+    world.rescan_and_walk().await;
+    assert_eq!(world.cards().await.len(), 2);
+}
+
+#[tokio::test]
+async fn a_retag_that_changes_the_version_ungroups_on_the_next_pass() {
+    let world = World::with(&[
+        ("a", "Retagged", 1.0, coded(ISRC)),
+        ("b", "Retagged", 1.0, coded(ISRC)),
+    ])
+    .await;
+    assert_eq!(world.cards().await.len(), 1);
+    let path = world._directory.path().join("music").join("b.flac");
+    let mut tag = Tag::new(TagType::VorbisComments);
+    tag.set_title("Retagged (Live)".into());
+    tag.set_artist("Performer".into());
+    tag.insert_text(ItemKey::Isrc, ISRC.into());
+    tag.save_to_path(&path, Default::default()).unwrap();
+    world.rescan_and_walk().await;
+    assert_eq!(world.cards().await.len(), 2);
+}
+
+#[tokio::test]
+async fn different_remixers_and_live_venues_sharing_an_isrc_stay_separate() {
+    let world = World::with(&[
+        ("a", "Song (Remix by A)", 1.0, coded(ISRC)),
+        ("b", "Song (Remix by B)", 1.0, coded(ISRC)),
+        ("c", "Other (Live at Paris)", 1.0, coded("GBAAA2600002")),
+        ("d", "Other (Live at Rome)", 1.0, coded("GBAAA2600002")),
+    ])
+    .await;
+    assert_eq!(world.cards().await.len(), 4);
+}
+
+#[tokio::test]
+async fn a_song_is_grouped_with_at_most_twelve_copies() {
+    let names: Vec<String> = (0..13).map(|index| format!("copy{index:02}")).collect();
+    let files: Vec<(&str, &str, f32, Identity<'_>)> = names
+        .iter()
+        .map(|name| (name.as_str(), "Crowd", 1.0, tagged(MBID)))
+        .collect();
+    let world = World::with(&files).await;
+    let cards = world.cards().await;
+    assert_eq!(cards.len(), 2);
+    let sizes: Vec<usize> = {
+        let mut sizes = Vec::new();
+        for card in &cards {
+            sizes.push(world.copies(&card.id).await.copies.len());
+        }
+        sizes.sort();
+        sizes
+    };
+    assert_eq!(sizes, vec![0, 12]);
+}
+
+#[tokio::test]
+async fn splitting_the_carrier_is_refused_and_strangers_find_nothing() {
+    let world = World::with(&[
+        ("a", "Guarded", 1.0, tagged(MBID)),
+        ("b", "Guarded", 1.0, tagged(MBID)),
+    ])
+    .await;
+    let (carrier, member) = world.carrier_and_member().await;
+    assert!(matches!(
+        world
+            .hito
+            .catalog
+            .split_recording_copy(&world.actor, &carrier)
+            .await,
+        Err(hito_core::Error::Conflict(_))
+    ));
+    let stranger = world
+        .hito
+        .identity
+        .create_user(
+            &world.actor,
+            Credentials {
+                username: "eve".into(),
+                password: "groups eve password".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let session = world
+        .hito
+        .identity
+        .login(Credentials {
+            username: "eve".into(),
+            password: "groups eve password".into(),
+        })
+        .await
+        .unwrap();
+    let eve = world
+        .hito
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
+    let _ = stranger;
+    assert!(matches!(
+        world.hito.catalog.recording_copies(&eve, &carrier).await,
+        Err(hito_core::Error::NotFound)
+    ));
+    assert!(matches!(
+        world.hito.catalog.split_recording_copy(&eve, &member).await,
+        Err(hito_core::Error::NotFound)
+    ));
+    assert_eq!(world.cards().await.len(), 1);
+}
+
+#[tokio::test]
+async fn grouping_runs_even_when_artist_lookups_are_off() {
+    let world = World::prepare(&[
+        ("a", "Quiet", 1.0, tagged(MBID)),
+        ("b", "Quiet", 1.0, tagged(MBID)),
+    ])
+    .await;
+    world
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(
+            &world.actor,
+            hito_core::UpdateAutomaticLookups {
+                automatic_artist_lookup: Some(false),
+                automatic_artwork: None,
+                automatic_service_search: None,
+            },
+        )
+        .await
+        .unwrap();
+    world.rescan_and_walk().await;
+    assert_eq!(world.cards().await.len(), 1);
 }
