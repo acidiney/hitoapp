@@ -7,7 +7,6 @@ use axum::{
     routing::get,
 };
 
-/// Adds the `/v1/manifest` route and the request body limit to a plugin router.
 pub fn with_manifest<S>(routes: Router<S>, manifest: Manifest, body_limit: usize) -> Router<S>
 where
     S: Clone + Send + Sync + 'static,

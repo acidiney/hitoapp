@@ -20,7 +20,6 @@ pub enum CatalogSimilarityOperation {
     ArtistSimilarity,
 }
 
-/// The identity namespace of the artists a similarity provider accepts and returns.
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -50,7 +49,6 @@ pub struct ArtistSimilarityRequest {
 #[serde(deny_unknown_fields)]
 pub struct SimilarArtist {
     pub artist: CatalogArtistRef,
-    /// Provider-relative closeness. It is only comparable within one response.
     pub score: Option<f64>,
 }
 

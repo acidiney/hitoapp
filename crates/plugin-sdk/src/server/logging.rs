@@ -3,7 +3,6 @@ use tracing_subscriber::prelude::*;
 #[derive(Debug)]
 pub struct LoggingInitError;
 
-/// Installs JSON logging that keeps only events from the listed crate targets.
 pub fn init_logging(targets: &[&str]) -> Result<(), LoggingInitError> {
     let level = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));

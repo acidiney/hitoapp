@@ -38,11 +38,8 @@ pub struct ProviderRecording {
     pub revision: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Box<crate::RecordingAttribution>>,
-    /// ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isrc: Option<String>,
-    /// Canonical https pages of every credited performer. Hosts may match a lone page to one
-    /// MusicBrainz artist; a provider that cannot name all performers omits the list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub artist_urls: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -303,8 +300,6 @@ pub(crate) fn optional(value: Option<&str>, maximum: usize) -> Result<(), &'stat
         .map(|_| ())
 }
 
-/// Invisible or reordering format characters that can disguise text. Joiners that scripts and
-/// emoji sequences need (U+200C, U+200D) stay valid.
 fn deceptive(character: char) -> bool {
     matches!(
         character,

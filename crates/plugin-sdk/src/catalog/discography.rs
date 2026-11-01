@@ -41,8 +41,6 @@ pub struct CatalogReleaseGroup {
     pub revision: Option<String>,
 }
 
-/// Restricts a discography read to one release type. `Other` covers every group that is not an
-/// album, EP or single, including broadcasts and groups without a known type.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -79,7 +77,6 @@ pub struct ArtistDiscographyRequest {
     pub cursor: Option<String>,
     pub snapshot: Option<String>,
     pub limit: u16,
-    /// Only sent to providers that declare `release_type_filter`; absent from the wire otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schema(required = false))]
     pub release_type: Option<CatalogReleaseTypeFilter>,

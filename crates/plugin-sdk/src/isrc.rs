@@ -1,6 +1,3 @@
-/// Returns the canonical 12-character ISO 3901 code (two country letters, three alphanumeric
-/// registrant characters, two year digits and five designation digits) or `None`.
-/// Case is folded and the display form with hyphens after positions 2, 5 and 7 is accepted.
 pub fn normalize_isrc(value: &str) -> Option<String> {
     let compact: String = if value.len() == 15 {
         let bytes = value.as_bytes();

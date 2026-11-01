@@ -19,7 +19,6 @@ const MAX_HEADER_BYTES: usize = 8192;
 const CONCURRENT_REQUESTS: usize = 16;
 const REQUEST_DEADLINE: Duration = Duration::from_secs(14);
 
-/// Failures the request layer itself produces, with fixed public messages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rejection {
     InvalidRequest,
@@ -58,7 +57,6 @@ pub struct Finished {
     pub elapsed_ms: u64,
 }
 
-/// Plugin-named span and completion event, built with `request_telemetry!`.
 pub struct Telemetry {
     pub span: fn(uuid::Uuid, &'static str) -> tracing::Span,
     pub finished: fn(&Finished),
@@ -72,7 +70,6 @@ pub struct RequestPolicy {
 }
 
 impl RequestPolicy {
-    /// With `auth` set, every route except the manifest needs the service bearer.
     pub fn new(telemetry: Telemetry, auth: Option<ServiceAuth>) -> Self {
         Self {
             telemetry,

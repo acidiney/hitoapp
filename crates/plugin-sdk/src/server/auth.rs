@@ -11,8 +11,6 @@ pub enum AuthFailure {
     InvalidProtocol,
 }
 
-/// Digest of a service credential, or `None` when the credential is empty,
-/// longer than 4096 bytes, or contains anything but visible ASCII.
 pub fn credential_digest(value: &str) -> Option<[u8; 32]> {
     if value.is_empty()
         || value.len() > MAX_TOKEN_BYTES
@@ -23,7 +21,6 @@ pub fn credential_digest(value: &str) -> Option<[u8; 32]> {
     Some(Sha256::digest(value.as_bytes()).into())
 }
 
-/// Digest of the single `Authorization: Bearer` credential in the request.
 pub fn bearer_digest(headers: &HeaderMap) -> Result<[u8; 32], AuthFailure> {
     let mut values = headers.get_all("authorization").iter();
     let supplied = values
@@ -38,7 +35,6 @@ pub fn bearer_digest(headers: &HeaderMap) -> Result<[u8; 32], AuthFailure> {
     Ok(supplied)
 }
 
-/// Requires exactly one protocol header with the supported version.
 pub fn require_protocol(headers: &HeaderMap) -> Result<(), AuthFailure> {
     let mut versions = headers.get_all(PROTOCOL_HEADER).iter();
     if versions.next().is_none_or(|value| value != "1") || versions.next().is_some() {
