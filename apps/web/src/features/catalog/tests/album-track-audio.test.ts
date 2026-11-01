@@ -142,6 +142,22 @@ test("finding audio sends only identities, the server saves the match and the sa
   await waitFor(() => expect(row.textContent).toContain("In your library"));
 });
 
+test("a search refused because automatic service search is off says how to turn it on", async () => {
+  serve({ [audio]: () => Response.json({ status: "search_off" }) });
+  render(page());
+  const region = await chooseEdition();
+  const row = rowWith(region, "Catalog only song");
+  await act(async () => {
+    fireEvent.click(findButton(row));
+  });
+  await waitFor(() =>
+    expect(within(row).getByRole("alert").textContent).toContain(
+      "Search connected services automatically",
+    ),
+  );
+  expect(player.playSelection).not.toHaveBeenCalled();
+});
+
 test("an uncertain match saves nothing, says so and can be retried", async () => {
   let answer: unknown = { status: "no_match" };
   const fetch = serve({ [audio]: () => Response.json(answer) });

@@ -45,6 +45,8 @@ const searchMessages: Record<
     "Audio providers are unavailable right now. Nothing was saved. Try again.",
   cancelled: "The audio search was cancelled.",
   needs_choice: "Choose the edition again to find audio for this track.",
+  search_off:
+    "Turn on Search connected services automatically in Settings, Privacy, to find audio for this track. Nothing was searched.",
 };
 
 export const foundKey = (edition: string, occurrence: string) =>
