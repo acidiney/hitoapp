@@ -6,7 +6,6 @@ import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { artistMatchingApi } from "../api/artistMatchingApi";
 
-/** A confirmation applies at most 200 tracks; a credit this long is finished in a few steps. */
 const MAX_CONFIRM_STEPS = 10;
 
 type Queue = Schema<"ArtistReviewQueuePage">;
@@ -14,21 +13,13 @@ type Queue = Schema<"ArtistReviewQueuePage">;
 type View = {
   status: "loading" | "ready" | "failed";
   queue: Queue | null;
-  /** Credits whose candidates the account dismissed; null when they could not be read. */
   dismissed: Queue | null;
   dismissedFailed: boolean;
-  /** The credit a decision is being saved for. */
   pending: string | null;
   error: string;
   restoreError: string;
 };
 
-/**
- * The credits the automatic walk could not identify, and the candidates the account dismissed. It
- * reads the stored lists (no provider is asked), saves one decision at a time and reads both lists
- * again afterwards. Confirming also refreshes the artist lists so the artist appears among the
- * chosen artists.
- */
 export function useArtistReviewQueue(account: string, refreshKey: string) {
   const scope = useRequestScope(account);
   const [view, setView] = useState<View>({

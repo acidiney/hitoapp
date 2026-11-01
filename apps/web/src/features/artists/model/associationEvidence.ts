@@ -80,7 +80,6 @@ const tracksBy: Record<Association["evidence"], string> = {
   user_confirmed: "your own choice",
 };
 
-/** How a credit's tracks reached their artist, or null when the account chose them all itself. */
 export function chosenEvidenceText(
   evidence: Schema<"ArtistMatchChosen">["evidence"],
 ): string | null {

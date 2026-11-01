@@ -6,7 +6,6 @@ export function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** What tells namesakes apart: the MusicBrainz note, type and country, then what the library shares. */
 export function candidateDetails(candidate: Candidate) {
   const parts = [candidate.disambiguation, candidate.kind, candidate.country];
   if (candidate.corroborated_titles > 0)
