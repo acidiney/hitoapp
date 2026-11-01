@@ -12223,6 +12223,137 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/copies": {
+      "get": {
+        "operationId": "recording_copies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingCopies"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/copies/split": {
+      "post": {
+        "operationId": "split_recording_copy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingSplit"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/download": {
       "get": {
         "operationId": "recording_download",
@@ -24732,6 +24863,77 @@
         },
         "additionalProperties": false
       },
+      "RecordingCopies": {
+        "type": "object",
+        "required": [
+          "canonical_id",
+          "copies"
+        ],
+        "properties": {
+          "canonical_id": {
+            "type": "string",
+            "description": "The recording that carries the card in lists."
+          },
+          "copies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordingCopy"
+            },
+            "description": "Every copy including the one that carries the card; empty when the recording is alone."
+          }
+        }
+      },
+      "RecordingCopy": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "title",
+          "artist",
+          "canonical",
+          "available",
+          "sources"
+        ],
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "canonical": {
+            "type": "boolean"
+          },
+          "proof": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordingGroupProof",
+                "description": "Why Hito knows this copy is the same song; absent for the recording that carries the card."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "RecordingDetailsPageProps": {
         "allOf": [
           {
@@ -24748,6 +24950,13 @@
               }
             }
           }
+        ]
+      },
+      "RecordingGroupProof": {
+        "type": "string",
+        "enum": [
+          "musicbrainz_recording",
+          "isrc"
         ]
       },
       "RecordingLyricsProvider": {
@@ -24853,6 +25062,22 @@
           "speed": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "RecordingSplit": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "separate"
+        ],
+        "properties": {
+          "recording_id": {
+            "type": "string"
+          },
+          "separate": {
+            "type": "boolean",
+            "description": "The recording now shows as its own card and will not be grouped with these copies again."
           }
         }
       },

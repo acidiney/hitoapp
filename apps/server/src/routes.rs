@@ -105,6 +105,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
+        .routes(routes!(api::recording_groups::copies))
+        .routes(routes!(api::recording_groups::split))
         .routes(routes!(catalog::playback_sources))
         .routes(routes!(downloads::create, downloads::status))
         .routes(routes!(

@@ -1892,6 +1892,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/copies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recording_copies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/copies/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["split_recording_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/download": {
         parameters: {
             query?: never;
@@ -4718,9 +4750,27 @@ export interface components {
             creators: string[];
             provider_label: string;
         };
+        RecordingCopies: {
+            /** @description The recording that carries the card in lists. */
+            canonical_id: string;
+            /** @description Every copy including the one that carries the card; empty when the recording is alone. */
+            copies: components["schemas"]["RecordingCopy"][];
+        };
+        RecordingCopy: {
+            album?: string | null;
+            artist: string;
+            available: boolean;
+            canonical: boolean;
+            proof?: components["schemas"]["RecordingGroupProof"] | null;
+            recording_id: string;
+            sources: components["schemas"]["Source"][];
+            title: string;
+        };
         RecordingDetailsPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["RecordingMetadata"];
         };
+        /** @enum {string} */
+        RecordingGroupProof: "musicbrainz_recording" | "isrc";
         RecordingLyricsProvider: {
             installation_id: string;
             /** Format: int64 */
@@ -4748,6 +4798,11 @@ export interface components {
             recording_id: string;
             /** Format: double */
             speed: number;
+        };
+        RecordingSplit: {
+            recording_id: string;
+            /** @description The recording now shows as its own card and will not be grouped with these copies again. */
+            separate: boolean;
         };
         RefreshFollowedPlaylist: {
             /** Format: uuid */
@@ -14594,6 +14649,104 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_copies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingCopies"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    split_recording_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingSplit"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -24,6 +24,9 @@ mod provider_attachment;
 #[path = "api/catalog.rs"]
 mod catalog;
 
+#[path = "api/recording_groups.rs"]
+mod recording_groups;
+
 #[path = "api/browsing.rs"]
 mod browsing;
 

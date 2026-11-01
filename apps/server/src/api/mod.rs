@@ -31,6 +31,7 @@ pub mod plugins;
 pub mod podcasts;
 pub mod progress;
 pub mod providers;
+pub mod recording_groups;
 pub mod source_bindings;
 pub mod source_choice;
 pub mod source_preparation;
