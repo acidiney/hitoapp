@@ -191,7 +191,7 @@ fn outcome(verdict: &Verdict, position: usize, track: &Track) -> Option<Outcome>
     match verdict {
         Verdict::Artist {
             artist, matched, ..
-        } if matched.contains(&position) => Some(Outcome::Artist(
+        } if matched.contains(&position) && !track.tagged_recording => Some(Outcome::Artist(
             artist.clone(),
             EvidenceKind::NameDiscography,
         )),
@@ -663,8 +663,10 @@ fn eligible(user: &str, artist: &str) -> String {
         "SELECT r.id,r.title,r.duration_ms,r.metadata_observation_id,p.artist_operation_id,
             (EXISTS (SELECT 1 FROM recording_isrc_observations i WHERE i.observation_id=r.metadata_observation_id)
                 OR EXISTS (SELECT 1 FROM recording_artist_url_observations u WHERE u.observation_id=r.metadata_observation_id)
+                OR EXISTS (SELECT 1 FROM recording_musicbrainz_observations t WHERE t.observation_id=r.metadata_observation_id AND t.recording_id=r.id AND t.entity='recording')
                 OR COALESCE(json_array_length((SELECT json_extract(o.tags,'$.musicbrainz_artist_tags')
-                    FROM metadata_observations o WHERE o.id=r.metadata_observation_id)),0)>0) AS own_evidence
+                    FROM metadata_observations o WHERE o.id=r.metadata_observation_id)),0)>0) AS own_evidence,
+            (EXISTS (SELECT 1 FROM recording_musicbrainz_observations t WHERE t.observation_id=r.metadata_observation_id AND t.recording_id=r.id AND t.entity='recording')) AS tagged_recording
          FROM account_recording_credits rc
          JOIN recordings r ON r.id=rc.recording_id
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=rc.user_id
@@ -719,6 +721,7 @@ struct TrackRow {
     metadata_observation_id: String,
     artist_operation_id: Option<String>,
     own_evidence: bool,
+    tagged_recording: bool,
 }
 
 async fn credit_tracks(
@@ -744,6 +747,7 @@ async fn credit_tracks(
             observation: row.metadata_observation_id,
             operation: row.artist_operation_id,
             own_evidence: row.own_evidence,
+            tagged_recording: row.tagged_recording,
         })
         .collect())
 }
@@ -776,6 +780,7 @@ mod tests {
                 observation: "o".into(),
                 operation: None,
                 own_evidence: false,
+                tagged_recording: false,
             })
             .collect()
     }
