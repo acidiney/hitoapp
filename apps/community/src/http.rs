@@ -39,7 +39,7 @@ pub fn router(service: Service) -> Router {
         .with_state(service)
 }
 
-#[utoipa::path(post, path = "/v1/admin/reporters",
+#[utoipa::path(post, path = "/v1/admin/reporters", description = "Provision a pseudonymous reporter. The random credential is returned only on creation.",
     request_body(content = ProvisionReporter, description = "Strict JSON body, at most 16 KiB."),
     security(("administratorBearer" = [])), responses(
         (status = 201, body = ReporterCredential),
@@ -59,7 +59,7 @@ async fn provision(
     ))
 }
 
-#[utoipa::path(delete, path = "/v1/admin/reporters/{reporter_id}",
+#[utoipa::path(delete, path = "/v1/admin/reporters/{reporter_id}", description = "Revoke a reporter credential and erase its outcomes. Existing and unknown UUIDs return 204.",
     params(("reporter_id" = Uuid, Path, description = "Reporter pseudonym to revoke.")),
     security(("administratorBearer" = [])), responses(
         (status = 204, description = "Reporter absent and its outcomes erased."),
@@ -77,7 +77,7 @@ async fn revoke(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[utoipa::path(post, path = "/v1/outcomes",
+#[utoipa::path(post, path = "/v1/outcomes", description = "Accept a successful-playback claim; exact retries recover the original durable receipt.",
     request_body(content = SubmitOutcome, description = "Strict JSON body, at most 16 KiB."),
     security(("reporterBearer" = [])), responses(
         (status = 201, body = OutcomeReceipt), (status = 200, body = OutcomeReceipt),
@@ -104,7 +104,7 @@ async fn submit(
     ))
 }
 
-#[utoipa::path(post, path = "/v1/rankings",
+#[utoipa::path(post, path = "/v1/rankings", description = "Rank only the supplied public candidates by distinct reporters of successful playback.",
     request_body(content = RankCandidates, description = "Strict JSON body, at most 16 KiB."),
     responses(
         (status = 200, body = Ranking), (status = 400, body = Rejection),

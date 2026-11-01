@@ -20,6 +20,7 @@ use crate::{
 };
 
 #[utoipa::path(post, path = "/v1/corrections", operation_id = "submit_correction",
+    description = "Suggest the same recording/version. Pending assertions never change success rankings.",
     request_body(content = SuggestCorrection, description = "Strict JSON body, at most 16 KiB. The source pair is unordered."),
     security(("reporterBearer" = [])), responses(
         (status = 201, body = CorrectionReceipt), (status = 200, body = CorrectionReceipt),
@@ -47,6 +48,7 @@ pub(crate) async fn submit(
 }
 
 #[utoipa::path(get, path = "/v1/admin/corrections", operation_id = "list_corrections", params(ListCorrections),
+    description = "List at most 32 suggestions for maintainer review using a status-scoped keyset cursor.",
     security(("administratorBearer" = [])), responses(
         (status = 200, body = CorrectionPage), (status = 400, body = Rejection),
         (status = 401, body = Rejection), (status = 503, body = Rejection),
@@ -62,6 +64,7 @@ pub(crate) async fn list(
 }
 
 #[utoipa::path(post, path = "/v1/admin/corrections/{correction_id}/review", operation_id = "review_correction",
+    description = "Record a maintainer decision. Exact retries return historical acknowledgements, not current approval state.",
     params(("correction_id" = Uuid, Path, description = "Version-4 correction identifier.")),
     request_body(content = ReviewCorrection, description = "Strict JSON body, at most 16 KiB. Every accepted new request advances the expected revision, including repeated decisions."),
     security(("administratorBearer" = [])), responses(
