@@ -143,7 +143,7 @@ test("the shelf lists provider items with kind, count and a cover from the appro
   expect(cards[0].textContent).toContain("By a");
   expect(cards[0].textContent).toContain("Playlist · 12 tracks");
   expect(cards[1].textContent).toContain("New release · 1 track");
-  const covers = container.querySelectorAll(".media-card img");
+  const covers = container.querySelectorAll(".shelf-card img");
   expect(covers).toHaveLength(1);
   expect(covers[0].getAttribute("src")).toBe(
     "/api/v1/plugins/install-1/featured-artwork?revision=4&artwork=art-a",
@@ -330,18 +330,18 @@ test("a cover that fails to load is asked for once more before the generated cov
   try {
     const { container } = render(createElement(DiscoverPage, props));
     await screen.findByRole("region", { name: "From your services" });
-    fireEvent.error(container.querySelector(".media-card img")!);
-    expect(container.querySelector(".media-card img")).toBeNull();
+    fireEvent.error(container.querySelector(".shelf-card img")!);
+    expect(container.querySelector(".shelf-card img")).toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);
     });
-    const retry = container.querySelector(".media-card img");
+    const retry = container.querySelector(".shelf-card img");
     expect(retry).not.toBeNull();
     fireEvent.error(retry!);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
-    expect(container.querySelector(".media-card img")).toBeNull();
+    expect(container.querySelector(".shelf-card img")).toBeNull();
   } finally {
     vi.useRealTimers();
   }

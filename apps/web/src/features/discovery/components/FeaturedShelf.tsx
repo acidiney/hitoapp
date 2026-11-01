@@ -64,7 +64,7 @@ export default function FeaturedShelf({
   return (
     <section className="discover-section" aria-labelledby="discover-featured">
       <h2 id="discover-featured">From your services</h2>
-      <ul className="media-row">
+      <ul className="shelf-row">
         {items.map((entry) => {
           const key = featuredKey(entry);
           const busy = playback.pending === key;

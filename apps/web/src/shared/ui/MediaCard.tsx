@@ -33,25 +33,25 @@ export default function MediaCard({
 }) {
   const body = (
     <>
-      <span className="media-card-cover">{cover}</span>
+      <span className="shelf-card-cover">{cover}</span>
       {HeadingTag ? (
-        <HeadingTag className="media-card-title">{title}</HeadingTag>
+        <HeadingTag className="shelf-card-title">{title}</HeadingTag>
       ) : (
-        <span className="media-card-title">{title}</span>
+        <span className="shelf-card-title">{title}</span>
       )}
-      {subtitle && <span className="media-card-subtitle">{subtitle}</span>}
+      {subtitle && <span className="shelf-card-subtitle">{subtitle}</span>}
     </>
   );
   return (
-    <div className="media-card" data-round={round || undefined}>
+    <div className="shelf-card" data-round={round || undefined}>
       {href !== undefined ? (
-        <Link className="media-card-open" href={href} aria-label={openLabel}>
+        <Link className="shelf-card-open" href={href} aria-label={openLabel}>
           {body}
         </Link>
       ) : (
         <button
           type="button"
-          className="media-card-open"
+          className="shelf-card-open"
           aria-label={openLabel}
           disabled={disabled}
           onClick={onOpen}
@@ -59,16 +59,16 @@ export default function MediaCard({
           {body}
         </button>
       )}
-      <div className="media-card-overlay">
+      <div className="shelf-card-overlay">
         {inLibrary && (
-          <span className="media-card-owned" role="img" aria-label={inLibrary}>
+          <span className="shelf-card-owned" role="img" aria-label={inLibrary}>
             <Check size={12} strokeWidth={3} aria-hidden="true" />
           </span>
         )}
         {onPlay && (
           <button
             type="button"
-            className="media-card-play"
+            className="shelf-card-play"
             aria-label={playLabel ?? `Play ${title}`}
             disabled={disabled}
             onClick={onPlay}

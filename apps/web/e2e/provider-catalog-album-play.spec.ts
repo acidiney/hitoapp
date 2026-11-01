@@ -118,8 +118,8 @@ test("the release card plays straight from its corner button and shows a discree
     );
     await expect(page.getByText("Not in your library")).toHaveCount(0);
     const cover = play
-      .locator("xpath=ancestor::div[contains(@class,'media-card')]")
-      .locator(".media-card-cover");
+      .locator("xpath=ancestor::div[contains(@class,'shelf-card')]")
+      .locator(".shelf-card-cover");
     const coverBox = (await cover.boundingBox())!;
     const playBox = (await play.boundingBox())!;
     expect(playBox.x + playBox.width).toBeLessThanOrEqual(

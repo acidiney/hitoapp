@@ -41,7 +41,7 @@ export default function HomeShelf({
           </Link>
         )}
       </div>
-      <ul className="media-row">
+      <ul className="shelf-row">
         {cards.map((card) => (
           <li key={card.key}>
             <MediaCard
