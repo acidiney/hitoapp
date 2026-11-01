@@ -17977,8 +17977,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ArtistMatchEvidence"
-            },
-            "description": "How those tracks were matched, the largest share first."
+            }
           },
           "group": {
             "$ref": "#/components/schemas/ArtistIdentityGroup"
@@ -17992,7 +17991,6 @@
       },
       "ArtistMatchEvidence": {
         "type": "object",
-        "description": "Tracks of a credit that one kind of evidence matched to the chosen artist.",
         "required": [
           "evidence",
           "tracks"
@@ -18330,7 +18328,6 @@
       },
       "ArtistReviewCandidate": {
         "type": "object",
-        "description": "A MusicBrainz artist the automatic walk found under a credit's name and could not exclude.",
         "required": [
           "provider_artist_id",
           "name",
@@ -18340,8 +18337,7 @@
         "properties": {
           "corroborated_titles": {
             "type": "integer",
-            "format": "int64",
-            "description": "Distinct titles of the credit's sample that this artist's recordings list."
+            "format": "int64"
           },
           "country": {
             "type": [
@@ -18356,15 +18352,13 @@
             ]
           },
           "in_library": {
-            "type": "boolean",
-            "description": "The account already has this artist among its chosen artists."
+            "type": "boolean"
           },
           "kind": {
             "type": [
               "string",
               "null"
-            ],
-            "description": "The artist type in lower case, such as `person` or `group`."
+            ]
           },
           "name": {
             "type": "string"
@@ -18387,16 +18381,14 @@
         "properties": {
           "applied": {
             "type": "integer",
-            "format": "int64",
-            "description": "Undecided tracks that now use the artist."
+            "format": "int64"
           },
           "artist_id": {
             "type": "string"
           },
           "kept": {
             "type": "integer",
-            "format": "int64",
-            "description": "Tracks left as they were because of an earlier personal decision."
+            "format": "int64"
           },
           "next_after": {
             "type": [
@@ -18409,8 +18401,7 @@
           },
           "remaining": {
             "type": "integer",
-            "format": "int64",
-            "description": "Undecided tracks the request did not reach; asking again with `next_after` continues."
+            "format": "int64"
           },
           "request_id": {
             "type": "string",
@@ -18569,8 +18560,7 @@
           },
           "restored": {
             "type": "integer",
-            "format": "int64",
-            "description": "Dismissals removed; restoring something that is not dismissed removes none."
+            "format": "int64"
           }
         }
       },
@@ -19776,8 +19766,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The `next_after` of the previous step, to continue past tracks that step examined."
+            ]
           },
           "provider_artist_id": {
             "type": "string"
@@ -19896,8 +19885,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The text that follows this artist in the display credit, such as \" & \" or \" feat. \"."
+            ]
           },
           "name": {
             "type": "string"
@@ -19906,15 +19894,13 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The artist's canonical page in the same allowlisted form as `artist_urls`."
+            ]
           },
           "provider_artist_id": {
             "type": [
               "string",
               "null"
-            ],
-            "description": "The provider's own identifier for the artist. Hosts keep it as evidence only."
+            ]
           },
           "role": {
             "$ref": "#/components/schemas/CreditRole"
@@ -19935,8 +19921,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The account's artist page for exactly this name, when one exists."
+            ]
           },
           "join": {
             "type": [
@@ -20105,8 +20090,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The one artist that is not right, or every candidate of the credit when absent."
+            ]
           }
         },
         "additionalProperties": false
@@ -22221,7 +22205,6 @@
             "type": "array",
             "items": {
               "type": "object",
-              "description": "A library credit whose tracks the automatic walk left undecided.",
               "required": [
                 "artist_id",
                 "name",
@@ -22236,8 +22219,7 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ArtistReviewCandidate"
-                  },
-                  "description": "At most three, the artists the account already has first, then the best corroborated."
+                  }
                 },
                 "name": {
                   "type": "string"
@@ -24637,8 +24619,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CreditedArtist"
-            },
-            "description": "The credited artists in the provider's own order, when the provider knows them as a list.\n`artist` stays the display text; hosts that find a list use it instead of splitting text."
+            }
           },
           "attribution": {
             "oneOf": [
@@ -25122,15 +25103,13 @@
         ],
         "properties": {
           "canonical_id": {
-            "type": "string",
-            "description": "The recording that carries the card in lists."
+            "type": "string"
           },
           "copies": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RecordingCopy"
-            },
-            "description": "Every copy including the one that carries the card; empty when the recording is alone."
+            }
           }
         }
       },
@@ -25163,8 +25142,7 @@
           "proof": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/RecordingGroupProof",
-                "description": "Why Hito knows this copy is the same song; absent for the recording that carries the card."
+                "$ref": "#/components/schemas/RecordingGroupProof"
               },
               {
                 "type": "null"
@@ -25278,8 +25256,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CreditedArtistView"
-            },
-            "description": "The artists the provider credited for the shown text, in its order. Empty for a personal\nartist edit and for credits that were only text."
+            }
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationPage"
@@ -25339,8 +25316,7 @@
             "type": "string"
           },
           "separate": {
-            "type": "boolean",
-            "description": "The recording now shows as its own card and will not be grouped with these copies again."
+            "type": "boolean"
           }
         }
       },
@@ -25825,8 +25801,7 @@
             "type": [
               "string",
               "null"
-            ],
-            "description": "The one dismissed artist to offer again, or every dismissed candidate of the credit when absent."
+            ]
           }
         },
         "additionalProperties": false

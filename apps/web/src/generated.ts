@@ -2947,7 +2947,6 @@ export interface components {
              * @description Of those, the tracks Hito matched by itself.
              */
             automatic_tracks: number;
-            /** @description How those tracks were matched, the largest share first. */
             evidence: components["schemas"]["ArtistMatchEvidence"][];
             group: components["schemas"]["ArtistIdentityGroup"];
             /**
@@ -2956,7 +2955,6 @@ export interface components {
              */
             tracks: number;
         };
-        /** @description Tracks of a credit that one kind of evidence matched to the chosen artist. */
         ArtistMatchEvidence: {
             evidence: components["schemas"]["ArtistAssociationEvidence"];
             /** Format: int64 */
@@ -3084,40 +3082,25 @@ export interface components {
             similar_artists: number;
             tracks: components["schemas"]["Recording"][];
         };
-        /** @description A MusicBrainz artist the automatic walk found under a credit's name and could not exclude. */
         ArtistReviewCandidate: {
-            /**
-             * Format: int64
-             * @description Distinct titles of the credit's sample that this artist's recordings list.
-             */
+            /** Format: int64 */
             corroborated_titles: number;
             country?: string | null;
             disambiguation?: string | null;
-            /** @description The account already has this artist among its chosen artists. */
             in_library: boolean;
-            /** @description The artist type in lower case, such as `person` or `group`. */
             kind?: string | null;
             name: string;
             provider_artist_id: string;
         };
         ArtistReviewConfirmation: {
-            /**
-             * Format: int64
-             * @description Undecided tracks that now use the artist.
-             */
+            /** Format: int64 */
             applied: number;
             artist_id: string;
-            /**
-             * Format: int64
-             * @description Tracks left as they were because of an earlier personal decision.
-             */
+            /** Format: int64 */
             kept: number;
             next_after?: string | null;
             provider_artist_id: string;
-            /**
-             * Format: int64
-             * @description Undecided tracks the request did not reach; asking again with `next_after` continues.
-             */
+            /** Format: int64 */
             remaining: number;
             /** Format: uuid */
             request_id: string;
@@ -3158,10 +3141,7 @@ export interface components {
         ArtistReviewQueuePage: components["schemas"]["Page_ArtistReviewItem"];
         ArtistReviewRestoration: {
             artist_id: string;
-            /**
-             * Format: int64
-             * @description Dismissals removed; restoring something that is not dismissed removes none.
-             */
+            /** Format: int64 */
             restored: number;
         };
         ArtistSearchCandidate: {
@@ -3447,7 +3427,6 @@ export interface components {
         /** @enum {string} */
         CommunityReportAdmission: "ignored" | "queued" | "already_accepted";
         ConfirmArtistReviewCandidate: {
-            /** @description The `next_after` of the previous step, to continue past tracks that step examined. */
             after?: string | null;
             provider_artist_id: string;
             /** Format: uuid */
@@ -3485,17 +3464,13 @@ export interface components {
         /** @enum {string} */
         CreditRole: "main" | "featured";
         CreditedArtist: {
-            /** @description The text that follows this artist in the display credit, such as " & " or " feat. ". */
             join?: string | null;
             name: string;
-            /** @description The artist's canonical page in the same allowlisted form as `artist_urls`. */
             page_url?: string | null;
-            /** @description The provider's own identifier for the artist. Hosts keep it as evidence only. */
             provider_artist_id?: string | null;
             role?: components["schemas"]["CreditRole"];
         };
         CreditedArtistView: {
-            /** @description The account's artist page for exactly this name, when one exists. */
             artist_id: string | null;
             join: string | null;
             name: string;
@@ -3537,7 +3512,6 @@ export interface components {
             group_id: string;
         };
         DismissArtistReviewCandidates: {
-            /** @description The one artist that is not right, or every candidate of the credit when absent. */
             provider_artist_id?: string | null;
         };
         DownloadReceipt: {
@@ -4054,7 +4028,6 @@ export interface components {
         Page_ArtistReviewItem: {
             items: {
                 artist_id: string;
-                /** @description At most three, the artists the account already has first, then the best corroborated. */
                 candidates: components["schemas"]["ArtistReviewCandidate"][];
                 name: string;
                 /** Format: int64 */
@@ -4680,10 +4653,6 @@ export interface components {
              *     MusicBrainz artist; a provider that cannot name all performers omits the list.
              */
             artist_urls?: string[];
-            /**
-             * @description The credited artists in the provider's own order, when the provider knows them as a list.
-             *     `artist` stays the display text; hosts that find a list use it instead of splitting text.
-             */
             artists?: components["schemas"]["CreditedArtist"][];
             attribution?: components["schemas"]["RecordingAttribution"] | null;
             /** Format: int32 */
@@ -4796,9 +4765,7 @@ export interface components {
             provider_label: string;
         };
         RecordingCopies: {
-            /** @description The recording that carries the card in lists. */
             canonical_id: string;
-            /** @description Every copy including the one that carries the card; empty when the recording is alone. */
             copies: components["schemas"]["RecordingCopy"][];
         };
         RecordingCopy: {
@@ -4831,10 +4798,6 @@ export interface components {
         };
         RecordingMetadata: {
             artist: components["schemas"]["TextMetadata"];
-            /**
-             * @description The artists the provider credited for the shown text, in its order. Empty for a personal
-             *     artist edit and for credits that were only text.
-             */
             credited_artists: components["schemas"]["CreditedArtistView"][];
             observations: components["schemas"]["ObservationPage"];
             recording_id: string;
@@ -4852,7 +4815,6 @@ export interface components {
         };
         RecordingSplit: {
             recording_id: string;
-            /** @description The recording now shows as its own card and will not be grouped with these copies again. */
             separate: boolean;
         };
         RefreshFollowedPlaylist: {
@@ -4974,7 +4936,6 @@ export interface components {
             group_id: string;
         };
         RestoreArtistReviewCandidates: {
-            /** @description The one dismissed artist to offer again, or every dismissed candidate of the credit when absent. */
             provider_artist_id?: string | null;
         };
         SavedAlbumEdition: {
