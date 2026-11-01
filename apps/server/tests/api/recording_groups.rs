@@ -1,15 +1,20 @@
 use super::support::{admin, call};
-use axum::http::StatusCode;
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+};
 use hito_core::test_support::{
     musicbrainz::{FakeMusicBrainz, Reply},
     playlist_service as provider,
     support::write_wav,
 };
+use http_body_util::BodyExt;
 use lofty::{
     prelude::{Accessor, ItemKey, TagExt},
     tag::{Tag, TagType},
 };
 use serde_json::{Value, json};
+use tower::ServiceExt;
 use uuid::Uuid;
 
 const ISRC: &str = "USRC17607839";
@@ -80,6 +85,23 @@ async fn import(
         .map(|entry| entry["recording_id"].as_str().unwrap().to_owned())
         .collect();
     (origin, recordings)
+}
+
+async fn page(app: &axum::Router, path: &str, token: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(path)
+                .header("x-inertia", "true")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap()
 }
 
 #[tokio::test]
@@ -158,6 +180,9 @@ async fn a_local_file_and_an_imported_track_with_one_isrc_are_one_card_until_spl
     assert_eq!(member["recording_id"], imported[0]);
     assert_eq!(member["proof"], "isrc");
     assert!(!copies.to_string().contains(dir.path().to_str().unwrap()));
+    let details = page(&app, &format!("/recordings/{card}"), token.unwrap()).await;
+    assert_eq!(details["component"], "RecordingDetailsPage");
+    assert_eq!(details["props"]["copies"]["copies"], copies["copies"]);
     let (status, _) = call(
         &app,
         "GET",

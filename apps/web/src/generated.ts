@@ -4767,6 +4767,7 @@ export interface components {
             title: string;
         };
         RecordingDetailsPageProps: components["schemas"]["SharedPageProps"] & {
+            copies: components["schemas"]["RecordingCopies"];
             detail: components["schemas"]["RecordingMetadata"];
         };
         /** @enum {string} */

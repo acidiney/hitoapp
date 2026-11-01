@@ -6,7 +6,8 @@ use hito_core::{
     PodcastEpisodePage, PodcastSubscription, RecordingProgress, User,
 };
 use hito_core::{
-    ArtistDetail, ArtistIdentityGroupDetail, RecordingMetadata, ReleaseDetail, ReleaseMetadata,
+    ArtistDetail, ArtistIdentityGroupDetail, RecordingCopies, RecordingMetadata, ReleaseDetail,
+    ReleaseMetadata,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -198,6 +199,9 @@ pub struct RecordingDetailsPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub detail: Option<RecordingMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub copies: Option<RecordingCopies>,
 }
 
 #[derive(Serialize, ToSchema)]

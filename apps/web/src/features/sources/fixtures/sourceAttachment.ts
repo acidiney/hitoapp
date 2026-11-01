@@ -48,6 +48,7 @@ export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   libraries: [],
   playlists: [copiedPlaylistPage.detail.playlist],
+  copies: { canonical_id: savedRecording.id, copies: [] },
   detail: {
     recording_id: savedRecording.id,
     title: {

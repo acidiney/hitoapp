@@ -11,6 +11,8 @@ import SourceAvailability from "../../sources/components/SourceAvailability";
 import SourceAttachment from "../../sources/components/SourceAttachment";
 import SourceChoiceControls from "../../sources/components/SourceChoiceControls";
 import RecordingDownload from "../../downloads/components/RecordingDownload";
+import RecordingCopies from "../components/RecordingCopies";
+import { useRecordingSplit } from "../hooks/useRecordingSplit";
 import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
 import { useSourceChoice } from "../../sources/hooks/useSourceChoice";
 import RecordingLyrics from "../../lyrics/components/RecordingLyrics";
@@ -19,8 +21,12 @@ import { useRecordingLyrics } from "../../lyrics/hooks/useRecordingLyrics";
 export default function RecordingDetailsPage({
   user,
   detail,
+  copies,
   native_playback,
 }: Schema<"RecordingDetailsPageProps">) {
+  const separate = useRecordingSplit(user.id, detail.recording_id, () =>
+    router.reload(),
+  );
   const download = useRecordingDownload(user.id, detail.recording_id);
   const lyrics = useRecordingLyrics(user.id, detail);
   const choice = useSourceChoice(
@@ -58,6 +64,13 @@ export default function RecordingDetailsPage({
       </header>
       <div className="rd-layout">
         <div className="rd-main">
+          <RecordingCopies
+            recording={detail.recording_id}
+            copies={copies.copies}
+            splitting={separate.splitting}
+            error={separate.error}
+            onSplit={separate.split}
+          />
           {source?.origin === "provider_response" && source.attribution && (
             <section className="rd-card" aria-label="Selected metadata credits">
               <h2>Selected metadata credits</h2>

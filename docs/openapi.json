@@ -24942,9 +24942,13 @@
           {
             "type": "object",
             "required": [
-              "detail"
+              "detail",
+              "copies"
             ],
             "properties": {
+              "copies": {
+                "$ref": "#/components/schemas/RecordingCopies"
+              },
               "detail": {
                 "$ref": "#/components/schemas/RecordingMetadata"
               }
