@@ -48,7 +48,7 @@ pub use import_publication::{
     ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
     ImportedPlaylistSnapshot, PlaylistMetadataRefreshOrigin,
 };
-pub use import_receipts::PlaylistImportReceipt;
+pub use import_receipts::{OpenedProviderPlaylist, PlaylistImportReceipt};
 pub use metadata_refresh::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
 pub(crate) use saved_playback::saved_progress;
 pub use types::{

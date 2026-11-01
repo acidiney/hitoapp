@@ -12,6 +12,13 @@ pub struct PlaylistImportReceipt {
     pub playlist_id: Uuid,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct OpenedProviderPlaylist {
+    pub request_id: Uuid,
+    pub playlist_id: Uuid,
+    pub reused: bool,
+}
+
 pub(super) fn fingerprint(installation: &str, request: &ImportProviderPlaylist) -> Result<String> {
     let contents = serde_json::to_vec(&("hito-playlist-import:v1", installation, request))
         .map_err(|_| Error::Internal("Playlist import request could not be encoded".into()))?;

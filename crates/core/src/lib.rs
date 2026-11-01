@@ -73,11 +73,12 @@ pub use collection::{
     FollowProviderPlaylist, HistoryEntry, Home, HomeAlbum, ImportProviderPlaylist,
     ImportedPlaylistEntry, ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin,
     ImportedPlaylistMetadataRefresh, ImportedPlaylistOrigin, ImportedPlaylistRecording,
-    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
-    PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
-    PlaylistImportReceipt, PlaylistMetadataRefreshOrigin, RecordingProgress,
-    RefreshFollowedPlaylist, RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent,
-    SyncPage, SyncReceipt, UnheardOnAlbum,
+    ImportedPlaylistSnapshot, OpenedProviderPlaylist, Operation, Playlist, PlaylistDetail,
+    PlaylistEntry, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
+    PlaylistFollowRefresh, PlaylistFollowStatus, PlaylistImportReceipt,
+    PlaylistMetadataRefreshOrigin, RecordingProgress, RefreshFollowedPlaylist,
+    RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    UnheardOnAlbum,
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,

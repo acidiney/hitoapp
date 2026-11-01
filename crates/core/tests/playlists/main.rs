@@ -12,3 +12,4 @@ mod playlist_import_replay;
 mod playlist_import_rollback;
 mod playlist_metadata_upgrade;
 mod playlist_metadata_upgrade_work;
+mod playlist_open_reuse;
