@@ -6,6 +6,7 @@ use std::time::Instant;
 use uuid::Uuid;
 
 const MAX_PENDING_PER_ACCOUNT: i64 = 64;
+const MAX_PENDING_ARTISTS_PER_ACCOUNT: i64 = 32;
 const MAX_ATTEMPTS: i64 = 4;
 const LEASE_SECONDS: i64 = 60;
 const RETRY_AFTER_SECONDS: i64 = 86_400;
@@ -87,6 +88,17 @@ pub(crate) async fn enqueue(
     if pending >= MAX_PENDING_PER_ACCOUNT {
         return Ok(());
     }
+    if kind == CoverArtKind::Artist {
+        let pending_artists: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND kind = 'artist' AND state IN ('queued','running')",
+        )
+        .bind(account)
+        .fetch_one(&mut *connection)
+        .await?;
+        if pending_artists >= MAX_PENDING_ARTISTS_PER_ACCOUNT {
+            return Ok(());
+        }
+    }
     sqlx::query(
         "INSERT INTO cover_art_lookups(user_id,kind,mbid,state) VALUES (?,?,?,'queued')
          ON CONFLICT(user_id,kind,mbid) DO UPDATE SET state = 'queued',attempts = 0,next_attempt_at = 0,
@@ -113,9 +125,10 @@ impl Catalog {
         canonical(mbid)?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let row: Option<(String, Option<String>)> = sqlx::query_as(
-            "SELECT state,content_hash FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
+        let row: Option<(String, Option<String>, bool)> = sqlx::query_as(
+            "SELECT state,content_hash,updated_at < unixepoch() - ? FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
         )
+        .bind(RETRY_AFTER_SECONDS)
         .bind(actor.id())
         .bind(kind.stored())
         .bind(mbid)
@@ -123,7 +136,14 @@ impl Catalog {
         .await?;
         let found = match row {
             None => CoverArtLookup::Unknown,
-            Some((state, hash)) => match (state.as_str(), hash) {
+            Some((state, hash, aged)) => match (state.as_str(), hash) {
+                ("ready", Some(_))
+                    if kind == CoverArtKind::Artist
+                        && !super::availability::automatic_artwork_allowed(&mut tx, actor.id())
+                            .await? =>
+                {
+                    CoverArtLookup::Unknown
+                }
                 ("ready", Some(hash)) => {
                     let asset: (String, Vec<u8>) = sqlx::query_as(
                         "SELECT content_type,bytes FROM artwork_assets WHERE user_id = ? AND content_hash = ?",
@@ -133,6 +153,9 @@ impl Catalog {
                     .fetch_one(&mut *tx)
                     .await?;
                     CoverArtLookup::Ready(assets::stored(asset)?)
+                }
+                ("missing" | "unavailable", _) if aged && kind == CoverArtKind::Artist => {
+                    CoverArtLookup::Unknown
                 }
                 ("missing", _) => CoverArtLookup::Missing,
                 ("unavailable", _) => CoverArtLookup::Unavailable,

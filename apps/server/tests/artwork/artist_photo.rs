@@ -112,3 +112,22 @@ async fn an_artist_photo_is_private_queued_then_served_and_never_requested_when_
     );
     assert_eq!(images.requests().len(), before);
 }
+
+#[tokio::test]
+async fn asking_for_many_unknown_artists_queues_only_a_bounded_number() {
+    let directory = tempfile::tempdir().unwrap();
+    let hito = support::services(directory.path(), &directory.path().join("music")).await;
+    let app = hito_server::router(hito);
+    let token = admin(&app).await;
+    let mut accepted = 0;
+    let mut refused = 0;
+    for index in 0..40 {
+        let path = format!("/api/v1/cover-art/artist/0f800000-0000-4000-8000-{index:012x}");
+        match read(&app, Some(&token), &path).await.0 {
+            StatusCode::ACCEPTED => accepted += 1,
+            StatusCode::NOT_FOUND => refused += 1,
+            other => panic!("unexpected status {other}"),
+        }
+    }
+    assert_eq!((accepted, refused), (32, 8));
+}

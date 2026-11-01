@@ -19,6 +19,7 @@ struct Photos {
     musicbrainz: FakeMusicBrainz,
     images: FakeArtistImages,
     recording: String,
+    database: std::path::PathBuf,
     _directory: tempfile::TempDir,
     _server: fixture::ProviderServer,
 }
@@ -72,6 +73,7 @@ impl Photos {
             musicbrainz,
             images,
             recording,
+            database: directory.path().join("hito.db"),
             _directory: directory,
             _server: server,
         }
@@ -130,6 +132,19 @@ impl Photos {
             steps += 1;
             assert!(steps < 10);
         }
+    }
+
+    async fn age_lookups(&self) {
+        use sqlx::Connection;
+        let mut connection =
+            sqlx::SqliteConnection::connect(&format!("sqlite://{}", self.database.display()))
+                .await
+                .unwrap();
+        sqlx::query("UPDATE cover_art_lookups SET updated_at = unixepoch() - 90000")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
     }
 
     fn link(&self, artist: &str, entity: &str, file: &str, photo: Photo) {
@@ -293,4 +308,71 @@ async fn a_photo_that_is_not_a_real_image_or_leaves_the_allowed_hosts_is_never_s
     for artist in &artists {
         assert!(!is_ready(&photos.photo(artist).await), "{artist}");
     }
+}
+
+#[tokio::test]
+async fn an_artist_without_a_photo_is_asked_again_only_after_a_day_and_then_gets_one() {
+    let photos = Photos::prepare().await;
+    photos.musicbrainz.links_of(ARTIST, None);
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Pending
+    ));
+    photos.drive().await;
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Missing
+    ));
+    photos.link(
+        ARTIST,
+        "Q42",
+        "Band photo.png",
+        Photo::Png(COVER_A.to_vec()),
+    );
+    photos.drive().await;
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Missing
+    ));
+    photos.age_lookups().await;
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Pending
+    ));
+    photos.drive().await;
+    assert!(is_ready(&photos.photo(ARTIST).await));
+}
+
+#[tokio::test]
+async fn a_stored_photo_is_not_served_once_automatic_artwork_is_off() {
+    let photos = Photos::prepare().await;
+    photos.link(
+        ARTIST,
+        "Q42",
+        "Band photo.png",
+        Photo::Png(COVER_A.to_vec()),
+    );
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Pending
+    ));
+    photos.drive().await;
+    assert!(is_ready(&photos.photo(ARTIST).await));
+    photos
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(
+            &photos.actor,
+            UpdateAutomaticLookups {
+                automatic_artist_lookup: None,
+                automatic_artwork: Some(false),
+                automatic_service_search: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        photos.photo(ARTIST).await,
+        CoverArtLookup::Unknown
+    ));
 }
