@@ -3,7 +3,7 @@ mod model;
 use super::{Client, transport::MAX_IMAGE_BYTES};
 use crate::error::Error;
 use axum::body::Bytes;
-use hito_plugin_sdk::ArtworkRequest;
+use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest};
 use image::ImageFormat;
 use sha2::{Digest, Sha256};
 use std::{io::Cursor, time::Instant};
@@ -38,7 +38,9 @@ impl Client {
         request
             .validate()
             .map_err(|_| Error::InvalidArtworkRequest)?;
-        if !super::model::valid_id(&request.provider_id) {
+        if request.entity == ArtworkEntity::Featured
+            || !super::model::valid_id(&request.provider_id)
+        {
             return Err(Error::InvalidArtworkRequest);
         }
         let permit = self

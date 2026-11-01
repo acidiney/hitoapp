@@ -68,6 +68,7 @@ pub(super) fn location(bytes: &[u8], request: &ArtworkRequest) -> Result<String,
         ArtworkEntity::Playlist => "playlist",
         ArtworkEntity::Recording => "track",
         ArtworkEntity::Release => "album",
+        ArtworkEntity::Featured => return Err(Error::InvalidArtworkRequest),
     };
     if entity.kind != kind
         || entity.id != request.provider_id

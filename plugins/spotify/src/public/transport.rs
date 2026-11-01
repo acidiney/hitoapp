@@ -50,6 +50,7 @@ impl Transport {
             ArtworkEntity::Playlist => "playlist",
             ArtworkEntity::Recording => "track",
             ArtworkEntity::Release => "album",
+            ArtworkEntity::Featured => return Err(Error::InvalidArtworkRequest),
         };
         self.bootstrap_path(&format!("embed/{kind}/{id}")).await
     }

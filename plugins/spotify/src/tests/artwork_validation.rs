@@ -142,6 +142,9 @@ async fn artwork_validation_binds_entities_and_uses_validated_image_bytes() {
             ArtworkEntity::Playlist => "playlist",
             ArtworkEntity::Recording => "track",
             ArtworkEntity::Release => "album",
+            ArtworkEntity::Featured => {
+                unreachable!("the validation table never asks for featured artwork")
+            }
         };
         let image = Arc::new(encoded_image(variation));
         let served_image = image.clone();

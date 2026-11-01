@@ -173,3 +173,38 @@ async fn artwork_returns_owned_raster_without_forwarding_credentials_or_exposing
             && entry["fields"]["elapsed_ms"].is_number()
     }));
 }
+
+#[tokio::test]
+async fn featured_artwork_requests_are_refused_without_contacting_spotify() {
+    let calls = Arc::new(Mutex::new(0_usize));
+    let counted = calls.clone();
+    let upstream = Server::start(Router::new().fallback(get(move || {
+        let counted = counted.clone();
+        async move {
+            *counted.lock().unwrap() += 1;
+            StatusCode::NOT_FOUND
+        }
+    })))
+    .await;
+    let app = router(Config {
+        public_base: upstream.url.clone(),
+        query_endpoint: upstream.url.join("pathfinder/v2/query").unwrap(),
+    })
+    .unwrap();
+    let plugin = Server::start(app).await;
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap()
+        .post(plugin.url.join(ARTWORK_PATH).unwrap())
+        .json(&ArtworkRequest {
+            entity: ArtworkEntity::Featured,
+            provider_id: PROVIDER_ID.to_owned(),
+        })
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(*calls.lock().unwrap(), 0);
+}
