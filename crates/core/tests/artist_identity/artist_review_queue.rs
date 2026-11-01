@@ -229,6 +229,21 @@ async fn one_click_applies_the_candidate_to_the_undecided_tracks_with_its_own_pr
         "The artist appears among the chosen artists"
     );
     assert_eq!(chosen.items[0].provider_artist_id, NOVA);
+    let read = library
+        .hito
+        .artist_catalog
+        .artist_match_suggestions(&library.actor, &credit)
+        .await
+        .unwrap();
+    assert_eq!(
+        read.chosen[0]
+            .evidence
+            .iter()
+            .map(|how| (how.evidence, how.tracks))
+            .collect::<Vec<_>>(),
+        vec![(ArtistAssociationEvidence::UserConfirmedCandidate, 4)],
+        "The credit page can say the account confirmed the candidate"
+    );
     library.origin.shutdown().await;
 }
 

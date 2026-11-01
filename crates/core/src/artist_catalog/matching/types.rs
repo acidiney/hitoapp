@@ -1,4 +1,4 @@
-use crate::ArtistIdentityGroup;
+use crate::{ArtistAssociationEvidence, ArtistIdentityGroup};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -60,6 +60,15 @@ pub struct ArtistMatchChosen {
     pub tracks: i64,
     /// Of those, the tracks Hito matched by itself.
     pub automatic_tracks: i64,
+    /// How those tracks were matched, the largest share first.
+    pub evidence: Vec<ArtistMatchEvidence>,
+}
+
+/// Tracks of a credit that one kind of evidence matched to the chosen artist.
+#[derive(Serialize, ToSchema)]
+pub struct ArtistMatchEvidence {
+    pub evidence: ArtistAssociationEvidence,
+    pub tracks: i64,
 }
 
 #[derive(Serialize, ToSchema)]

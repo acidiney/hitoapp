@@ -106,6 +106,18 @@ async fn one_isrc_matched_track_identifies_the_credit_for_all_its_undecided_sibl
         "The credit page can say the credit was identified automatically"
     );
     assert_eq!(
+        read.chosen[0]
+            .evidence
+            .iter()
+            .map(|how| (how.evidence, how.tracks))
+            .collect::<Vec<_>>(),
+        vec![
+            (ArtistAssociationEvidence::MatchedCreditEvidence, 20),
+            (ArtistAssociationEvidence::MatchedIsrc, 1),
+        ],
+        "The credit page can say how the tracks were matched, the largest share first"
+    );
+    assert_eq!(
         library.musicbrainz.requests().len(),
         1,
         "Only the one ISRC is asked: the siblings follow without a lookup"

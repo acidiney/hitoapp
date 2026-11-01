@@ -1,14 +1,17 @@
 use super::{
-    ArtistMatchChosen, ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion,
-    RestoreArtistMatchSuggestion,
+    ArtistMatchChosen, ArtistMatchEvidence, ArtistMatchSuggestion, ArtistMatchSuggestions,
+    DismissArtistMatchSuggestion, RestoreArtistMatchSuggestion,
 };
 use crate::artist_catalog::{
     LINKED, REQUEST_BUDGET,
     identity::groups::{current_choices, group_summary},
 };
-use crate::{Actor, ArtistCatalog, Error, Result};
+use crate::{Actor, ArtistAssociationEvidence, ArtistCatalog, Error, Result};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection, Transaction};
-use std::{collections::HashSet, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 use uuid::Uuid;
 
 const MAX_GROUPS: i64 = 50;
@@ -244,16 +247,63 @@ async fn chosen_artists(
         .push_bind(MAX_GROUPS);
     let rows: Vec<(String, i64, i64)> = query.build_query_as().fetch_all(&mut *connection).await?;
     let mut chosen = Vec::new();
+    let mut evidence = evidence_counts(connection, actor, artist).await?;
     for (id, tracks, automatic_tracks) in rows {
         if let Some(group) = group_summary(connection, actor, &id).await? {
             chosen.push(ArtistMatchChosen {
                 group,
                 tracks,
                 automatic_tracks,
+                evidence: evidence.remove(&id).unwrap_or_default(),
             });
         }
     }
     Ok(chosen)
+}
+
+/// The tracks of the credit each chosen artist has, by the evidence that matched them.
+async fn evidence_counts(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    artist: &str,
+) -> Result<HashMap<String, Vec<ArtistMatchEvidence>>> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT choice.group_id,
+            COALESCE((SELECT m.evidence_kind FROM artist_association_matches m WHERE m.association_id=choice.association_id),
+                (SELECT m.evidence_kind FROM artist_association_provider_matches m WHERE m.association_id=choice.association_id),
+                (SELECT m.evidence_kind FROM artist_association_name_matches m WHERE m.association_id=choice.association_id),
+                (SELECT 'credit' FROM artist_association_credit_matches m WHERE m.association_id=choice.association_id),
+                (SELECT 'coverage' FROM artist_association_coverage_matches m WHERE m.association_id=choice.association_id),
+                (SELECT m.evidence_kind FROM artist_association_candidate_confirmations m WHERE m.association_id=choice.association_id),
+                'user_confirmed') AS kind,
+            count(*) AS tracks ",
+    );
+    query.push(current_choices());
+    query
+        .push_bind(actor.id().to_owned())
+        .push(" AND choice.artist_id=")
+        .push_bind(artist.to_owned())
+        .push(" GROUP BY choice.group_id,kind ORDER BY count(*) DESC,kind");
+    let rows: Vec<(String, String, i64)> =
+        query.build_query_as().fetch_all(&mut *connection).await?;
+    let mut counts: HashMap<String, Vec<ArtistMatchEvidence>> = HashMap::new();
+    for (group, kind, tracks) in rows {
+        let evidence = match kind.as_str() {
+            "file_tag_artist_id" => ArtistAssociationEvidence::MatchedFileTagArtistId,
+            "isrc" => ArtistAssociationEvidence::MatchedIsrc,
+            "provider_url" => ArtistAssociationEvidence::MatchedProviderUrl,
+            "name_discography" => ArtistAssociationEvidence::MatchedNameDiscography,
+            "credit" => ArtistAssociationEvidence::MatchedCreditEvidence,
+            "coverage" => ArtistAssociationEvidence::MatchedCreditCoverage,
+            "user_confirmed_candidate" => ArtistAssociationEvidence::UserConfirmedCandidate,
+            _ => ArtistAssociationEvidence::UserConfirmed,
+        };
+        counts
+            .entry(group)
+            .or_default()
+            .push(ArtistMatchEvidence { evidence, tracks });
+    }
+    Ok(counts)
 }
 
 fn ranking(left: &ArtistMatchSuggestion, right: &ArtistMatchSuggestion) -> std::cmp::Ordering {
