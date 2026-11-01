@@ -338,9 +338,7 @@ test("a briefly unavailable first page is retried once automatically", async () 
   );
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 2 });
   expect(within(region).queryByRole("alert")).toBeNull();
-  expect(within(region).getByText("Type not provided")).toBeTruthy();
-  expect(within(region).getByText("Artist credit not provided")).toBeTruthy();
-  expect(within(region).getByText("Release date not provided")).toBeTruthy();
+  expect(within(region).getByText("Release")).toBeTruthy();
 });
 
 test("an unavailable first page shows one compact state without empty type sections", async () => {

@@ -705,13 +705,6 @@ section[aria-label="Discography"] > section > .button {
 .release-card[data-open] .album-header {
   margin-bottom: 18px;
 }
-.release-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 6px;
-}
 .album-note {
   margin: 0;
   font-size: 13px;

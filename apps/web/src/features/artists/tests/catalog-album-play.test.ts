@@ -135,7 +135,9 @@ async function openCard() {
 
 async function openAlbum() {
   const card = await openCard();
-  fireEvent.click(card.getByRole("button", { name: "Open album" }));
+  fireEvent.click(
+    card.getByRole("button", { name: `Open ${editionGroup.title}` }),
+  );
   await card.findByRole("button", { name: `Play ${catalogAlbumTitles[0]}` });
   return card;
 }

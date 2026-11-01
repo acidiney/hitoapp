@@ -1,5 +1,6 @@
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
+import MediaCard from "../../../shared/ui/MediaCard";
 import type { ShelfCard } from "../model/homeShelves";
 
 function ShelfCover({ card }: { card: ShelfCard }) {
@@ -40,22 +41,16 @@ export default function HomeShelf({
           </Link>
         )}
       </div>
-      <ul className="home-shelf-row">
+      <ul className="media-row">
         {cards.map((card) => (
           <li key={card.key}>
-            <Link
-              className="home-card"
-              data-round={card.cover.kind === "artist" || undefined}
+            <MediaCard
+              title={card.title}
+              subtitle={card.subtitle || undefined}
               href={card.href}
-            >
-              <span className="home-card-cover">
-                <ShelfCover card={card} />
-              </span>
-              <span className="home-card-title">{card.title}</span>
-              {card.subtitle && (
-                <span className="home-card-subtitle">{card.subtitle}</span>
-              )}
-            </Link>
+              round={card.cover.kind === "artist"}
+              cover={<ShelfCover card={card} />}
+            />
           </li>
         ))}
       </ul>

@@ -21,7 +21,6 @@ import {
   noAssociationChanges,
 } from "../fixtures/artistReview";
 import {
-  discographyCredit,
   discographyTitle,
   firstDiscographyPage,
   hostDiscographyContinuation,
@@ -133,15 +132,8 @@ test("a saved artist review browses paged catalog groups without adopting albums
     expect(
       within(initialRows[0]).getByRole("heading", { name: discographyTitle }),
     ).toBeTruthy();
-    expect(initialRows[0].textContent).toContain(discographyCredit);
     expect(
-      within(initialRows[0]).getByText("Album", { exact: true }),
-    ).toBeTruthy();
-    expect(
-      within(initialRows[0]).getByText("Live", { exact: true }),
-    ).toBeTruthy();
-    expect(
-      within(initialRows[0]).getByText("2024-02", { exact: true }),
+      within(initialRows[0]).getByText("Album · Live · 2024", { exact: true }),
     ).toBeTruthy();
     expect(posts()).toHaveLength(1);
     expect(posts()[0][0]).toBe(discographyPath);
@@ -175,17 +167,8 @@ test("a saved artist review browses paged catalog groups without adopting albums
       expect(
         within(row).getByRole("heading", { name: discographyTitle }),
       ).toBeTruthy();
-    expect(rows[0].textContent).toContain(discographyCredit);
-    expect(within(rows[0]).getByText("2024-02", { exact: true })).toBeTruthy();
-    expect(
-      within(rows[1]).getByText("Type not provided", { exact: true }),
-    ).toBeTruthy();
-    expect(
-      within(rows[1]).getByText("Artist credit not provided", { exact: true }),
-    ).toBeTruthy();
-    expect(
-      within(rows[1]).getByText("Release date not provided", { exact: true }),
-    ).toBeTruthy();
+    expect(within(rows[0]).getByText(/ · 2024$/)).toBeTruthy();
+    expect(within(rows[1]).getByText("Release", { exact: true })).toBeTruthy();
     expect(region.getAttribute("aria-busy")).not.toBe("true");
     expect(
       within(region).queryByRole("button", { name: "Load more releases" }),

@@ -430,19 +430,13 @@ test(
         releases.getByRole("heading", { name: catalog.title, exact: true }),
       ).toHaveCount(2);
       await expect(
-        releases.getByText("Type not provided", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        releases.getByText("Artist credit not provided", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        releases.getByText("Release date not provided", { exact: true }),
+        releases.getByText("Release", { exact: true }),
       ).toBeVisible();
       await expect(region.getByRole("link")).toHaveCount(0);
       await expect(region.getByRole("img")).toHaveCount(0);
       await expect(
         region.getByRole("button", {
-          name: /play|download|import|add to library/i,
+          name: /download|import|add to library/i,
         }),
       ).toHaveCount(0);
       if (editions)

@@ -53,13 +53,13 @@ test("the artist shelf uses the round cover variant with a centred title", () =>
     }),
   );
   const cover = container.querySelector(
-    ".home-card[data-round] .fallback-cover",
+    ".media-card[data-round] .fallback-cover",
   );
   expect(cover).not.toBeNull();
-  const start = css.indexOf(".home-card[data-round] .fallback-cover");
+  const start = css.indexOf(".media-card[data-round] .fallback-cover");
   expect(start).toBeGreaterThan(-1);
   const rule = css.slice(start, css.indexOf("}", start));
   expect(rule).toContain("justify-content: center");
   expect(rule).toContain("text-align: center");
-  expect(css).toContain(".home-card[data-round] .fallback-cover::before");
+  expect(css).toContain(".media-card[data-round] .fallback-cover::before");
 });

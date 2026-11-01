@@ -119,7 +119,9 @@ test("releases are grouped by primary type with exact library availability and n
     ],
   });
   const region = await open();
-  await within(region).findByText("7 of 10 tracks playable");
+  await within(region).findByRole("img", {
+    name: "In your library, partial · 7 of 10",
+  });
   expect(http.libraryRequests).toEqual([
     [
       "rg:album-linked",
@@ -145,12 +147,18 @@ test("releases are grouped by primary type with exact library availability and n
       .querySelector(":scope > ul")!.children,
   ) as HTMLElement[];
   expect(albums).toHaveLength(2);
-  const link = within(albums[0]).getByRole("link", {
+  fireEvent.click(
+    within(albums[0]).getByRole("button", { name: "Open Same title" }),
+  );
+  fireEvent.click(
+    within(albums[1]).getByRole("button", { name: "Open Same title" }),
+  );
+  const link = await within(albums[0]).findByRole("link", {
     name: "Open in your library",
   });
   expect(link.getAttribute("href")).toBe("/albums/local%20album%2F%C3%A9");
   expect(
-    within(albums[1]).getByText("Not linked to a library album"),
+    await within(albums[1]).findByText("Not linked to a library album"),
   ).toBeTruthy();
   expect(
     within(albums[1]).queryByRole("link", { name: "Open in your library" }),
@@ -190,7 +198,7 @@ test("a later page checks only the releases that are new", async () => {
   const http = artistGroupHttp();
   http.reply("discography", page([release("rg:one", "album")], "next"));
   const region = await open();
-  await within(region).findByText("Not linked to a library album");
+  await waitFor(() => expect(http.libraryRequests).toHaveLength(1));
   http.reply(
     "discography",
     page([release("rg:one", "album"), release("rg:two", "single")], null),
@@ -215,8 +223,8 @@ test("a failed library check keeps the catalog and retries only the availability
   fireEvent.click(
     within(region).getByRole("button", { name: "Check library again" }),
   );
-  await within(region).findByText("Not linked to a library album");
-  expect(http.libraryRequests).toHaveLength(2);
+  await waitFor(() => expect(http.libraryRequests).toHaveLength(2));
+  expect(within(region).queryByText(/could not be checked/)).toBeNull();
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 1 });
 });
 
@@ -279,9 +287,13 @@ test("each release shows one availability state and the missing-only filter hide
     ],
   });
   const region = await open();
-  await within(region).findByText("Partial · 6 of 10");
-  expect(within(region).getByText("In library")).toBeTruthy();
-  expect(within(region).getByText("Not in your library")).toBeTruthy();
+  await within(region).findByRole("img", {
+    name: "In your library, partial · 6 of 10",
+  });
+  expect(
+    within(region).getAllByRole("img", { name: /In your library/ }),
+  ).toHaveLength(2);
+  expect(within(region).queryByText("Not in your library")).toBeNull();
   const missing = within(region).getByRole("button", {
     name: "Only what I'm missing",
   });
@@ -353,7 +365,7 @@ test("the missing-only filter says so when every release is already in the libra
     ],
   });
   const region = await open();
-  await within(region).findByText("In library");
+  await within(region).findByRole("img", { name: "In your library" });
   fireEvent.click(
     within(region).getByRole("button", { name: "Only what I'm missing" }),
   );

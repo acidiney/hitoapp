@@ -90,7 +90,9 @@ test("an opened catalog group pages editions on request and lists only the chose
     await within(groups).findByRole("heading", { name: editionGroup.title });
     const group = within(groups).getAllByRole("listitem")[0];
     expect(fetch).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(group).getByRole("button", { name: "Open album" }));
+    fireEvent.click(
+      within(group).getByRole("button", { name: `Open ${editionGroup.title}` }),
+    );
     const table = await within(group).findByRole("table", { name: "Tracks" });
     expect(fetch.mock.calls.map(([path]) => path)).toEqual([
       `${base}/discography`,

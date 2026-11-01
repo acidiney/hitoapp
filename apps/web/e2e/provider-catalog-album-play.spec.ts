@@ -16,7 +16,9 @@ test("a catalog album plays like a library album: Play starts the first track, q
   artist.provider.state.available.delete(hidden);
   try {
     await page.goto(artist.path);
-    await page.getByRole("button", { name: "Open album" }).click();
+    await page
+      .getByRole("button", { name: `Open ${catalogAlbum.groupTitle}` })
+      .click();
     await expect(
       page.getByRole("heading", { name: catalogAlbum.groupTitle }),
     ).toHaveCount(1);
@@ -79,7 +81,9 @@ test("with automatic service search off, Play says why, links to the setting and
   expect((await automation(false)).status()).toBe(200);
   try {
     await page.goto(artist.path);
-    await page.getByRole("button", { name: "Open album" }).click();
+    await page
+      .getByRole("button", { name: `Open ${catalogAlbum.groupTitle}` })
+      .click();
     await page.getByRole("button", { name: "Play album" }).click();
     const note = page.getByRole("status").filter({
       hasText: "Search connected services automatically",
@@ -92,6 +96,47 @@ test("with automatic service search off, Play says why, links to the setting and
     expect(artist.provider.audioRequests).toEqual([]);
   } finally {
     await automation(true);
+    await artist.close();
+  }
+});
+
+test("the release card plays straight from its corner button and shows a discreet play control on a phone", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(90_000);
+  const artist = await connectCatalogArtist(page, baseURL!);
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(artist.path);
+    const play = page.getByRole("button", {
+      name: `Play ${catalogAlbum.groupTitle}`,
+    });
+    await expect(play).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open album" })).toHaveCount(
+      0,
+    );
+    await expect(page.getByText("Not in your library")).toHaveCount(0);
+    const cover = play
+      .locator("xpath=ancestor::div[contains(@class,'media-card')]")
+      .locator(".media-card-cover");
+    const coverBox = (await cover.boundingBox())!;
+    const playBox = (await play.boundingBox())!;
+    expect(playBox.x + playBox.width).toBeLessThanOrEqual(
+      coverBox.x + coverBox.width + 1,
+    );
+    expect(playBox.y + playBox.height).toBeLessThanOrEqual(
+      coverBox.y + coverBox.height + 1,
+    );
+    expect(playBox.x).toBeGreaterThan(coverBox.x + coverBox.width / 2);
+    await play.click();
+    const audio = page.locator("audio[data-hito-player]");
+    await expect
+      .poll(() =>
+        audio.evaluate((element: HTMLAudioElement) => element.currentTime),
+      )
+      .toBeGreaterThan(0.2);
+  } finally {
     await artist.close();
   }
 });

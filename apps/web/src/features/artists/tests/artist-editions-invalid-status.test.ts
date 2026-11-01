@@ -90,7 +90,9 @@ test.each([
       });
       await within(groups).findByRole("heading", { name: editionGroup.title });
       fireEvent.click(
-        within(groups).getByRole("button", { name: "Open album" }),
+        within(groups).getByRole("button", {
+          name: `Open ${editionGroup.title}`,
+        }),
       );
       const region = await screen.findByRole("region", { name: "Album" });
       const finished = () =>

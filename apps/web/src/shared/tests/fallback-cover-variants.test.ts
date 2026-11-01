@@ -52,7 +52,7 @@ const rule = (selector: string) => {
 };
 
 const roundCovers =
-  '.artist-card.round .fallback-cover, .home-card[data-round] .fallback-cover, .tinted-header[data-size="artist"] .fallback-cover';
+  '.artist-card.round .fallback-cover, .media-card[data-round] .fallback-cover, .tinted-header[data-size="artist"] .fallback-cover';
 
 test("round covers centre the title inside the circle and drop the corner shapes", () => {
   const round = rule(roundCovers);

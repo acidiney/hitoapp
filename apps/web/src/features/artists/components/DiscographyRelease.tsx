@@ -8,7 +8,7 @@ import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import AlbumLevelCheck from "./AlbumLevelCheck";
 import ArtistEditions from "./ArtistEditions";
 import CatalogAlbum from "./CatalogAlbum";
-import Button from "../../../shared/ui/Button";
+import MediaCard from "../../../shared/ui/MediaCard";
 
 const kinds = {
   album: "Album",
@@ -103,6 +103,39 @@ export default function DiscographyRelease({
         )}
       </li>
     );
+  const availability = library ? releaseAvailability(library) : null;
+  const year = group.first_release_date?.slice(0, 4);
+  const kind = group.kind ? kinds[group.kind] : "Release";
+  if (release === undefined)
+    return (
+      <li className="release-card">
+        <MediaCard
+          title={group.title}
+          subtitle={[kind, ...group.secondary_types, year]
+            .filter(Boolean)
+            .join(" · ")}
+          heading={Heading}
+          cover={
+            <CatalogCover
+              group={group.id}
+              edition={null}
+              title={group.title}
+              artist={group.artist_credit?.[0]?.credited_name ?? null}
+            />
+          }
+          openLabel={`Open ${group.title}`}
+          onOpen={() => setView("open")}
+          onPlay={() => setView("play")}
+          inLibrary={
+            availability?.state === "library"
+              ? availability.label
+                ? `In your library, ${availability.label.toLowerCase()}`
+                : "In your library"
+              : undefined
+          }
+        />
+      </li>
+    );
   return (
     <li className="release-card">
       <div className="release-cover">
@@ -132,38 +165,27 @@ export default function DiscographyRelease({
           {group.first_release_date ?? "Release date not provided"}
         </span>
       </p>
-      {library && (
+      {availability && (
         <AvailabilityLabel
-          state={releaseAvailability(library).state}
+          state={availability.state}
           label={
-            releaseAvailability(library).label ??
-            (library.length === 0 ? "Not in your library" : undefined)
+            availability.label ??
+            (library?.length === 0 ? "Not in your library" : undefined)
           }
         />
       )}
       {library && (
         <Availability account={account} albums={library} group={group.id} />
       )}
-      {release === undefined ? (
-        <div className="release-actions">
-          <Button type="button" onClick={() => setView("play")}>
-            Play album
-          </Button>
-          <Button type="button" onClick={() => setView("open")}>
-            Open album
-          </Button>
-        </div>
-      ) : (
-        <ArtistEditions
-          account={account}
-          recording={recording}
-          association={association}
-          profile={profile}
-          group={group}
-          release={release}
-          onAlbumEdition={onAlbumEdition}
-        />
-      )}
+      <ArtistEditions
+        account={account}
+        recording={recording}
+        association={association}
+        profile={profile}
+        group={group}
+        release={release}
+        onAlbumEdition={onAlbumEdition}
+      />
     </li>
   );
 }

@@ -152,7 +152,9 @@ test("closed edition choices do not multiply owned request controllers as discog
     http.reply(firstEditionPage);
     http.reply(tracksOfEdition(standardEdition));
     const row = within(twenty.list).getAllByRole("listitem")[0];
-    fireEvent.click(within(row).getByRole("button", { name: "Open album" }));
+    fireEvent.click(
+      within(row).getByRole("button", { name: `Open ${editionGroup.title}` }),
+    );
     await within(row).findByRole("table", { name: "Tracks" });
     expect(http.fetch).toHaveBeenCalledTimes(4);
     expect(http.fetch.mock.calls[2][0]).toBe(

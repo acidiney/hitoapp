@@ -150,17 +150,13 @@ test("a chosen artist's full discography is grouped by type and marks only exact
       .getByRole("region", { name: "Albums", exact: true })
       .locator("> ul > li");
     await expect(albums).toHaveCount(2);
-    await expect(albums.nth(0)).toContainText("none playable yet");
     await expect(
-      albums.nth(0).getByRole("link", { name: "Open in your library" }),
-    ).toHaveAttribute(
-      "href",
-      `/albums/${encodeURIComponent(recording.release_id!)}`,
-    );
-    await expect(albums.nth(1)).toContainText("Not linked to a library album");
-    await expect(region.getByText("Not linked to a library album")).toHaveCount(
-      4,
-    );
+      albums.nth(0).getByRole("img", { name: /^In your library/ }),
+    ).toBeVisible();
+    await expect(albums.nth(1).getByRole("img")).toHaveCount(0);
+    await expect(
+      region.getByRole("img", { name: /^In your library/ }),
+    ).toHaveCount(1);
 
     await region.getByRole("button", { name: /^EPs · \d+$/ }).click();
     await expect(

@@ -84,6 +84,12 @@ async function open(albumsByGroup: Record<string, string[]>) {
   const { detail } = artistIdentityBrowsing();
   render(createElement(ArtistIdentityGroupPage, detail));
   const region = await screen.findByRole("region", { name: "Discography" });
+  for (const id of Object.keys(albumsByGroup))
+    fireEvent.click(
+      await within(region).findByRole("button", {
+        name: `Open Title of ${id}`,
+      }),
+    );
   await within(region).findAllByText(/Compare|Not linked/);
   return { http, region };
 }
@@ -165,9 +171,11 @@ test("a provider outage is retryable and keeps the link to the album", async () 
   const { http, region } = await open({ "rg:one": ["one"] });
   http.replyLevel({ status: "unavailable" });
   fireEvent.click(within(region).getByRole("button", compare));
-  expect((await within(region).findByRole("alert")).textContent).toContain(
-    "The edition could not be read. Try again.",
-  );
+  expect(
+    await within(region).findByText(
+      "The edition could not be read. Try again.",
+    ),
+  ).toBeTruthy();
   expect(
     within(region).getByRole("link", { name: "Open in your library" }),
   ).toBeTruthy();
