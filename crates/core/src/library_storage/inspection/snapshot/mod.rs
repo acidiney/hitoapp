@@ -24,6 +24,7 @@ pub(super) struct Snapshot {
 pub(super) struct MediaSnapshot {
     pub path: PathBuf,
     pub directory: Arc<TempDir>,
+    pub recording_id: Option<String>,
 }
 
 pub(super) struct Prepared {

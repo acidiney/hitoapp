@@ -116,6 +116,7 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
         media: Some(MediaSnapshot {
             path: media_path,
             directory,
+            recording_id: tags.recording_id,
         }),
     })
 }

@@ -37,6 +37,7 @@ mod artist_match_name_discography;
 mod artist_match_name_versions;
 mod artist_match_provider_url;
 mod artist_match_recording_id;
+mod artist_match_recording_id_id3;
 mod artist_match_suggestions;
 mod artist_match_tags;
 mod artist_matching_upgrade;

@@ -129,23 +129,16 @@ async fn observed(case: &Case, with_ids: bool) -> Option<[Option<String>; 4]> {
     ])
 }
 
-/// FFprobe does not expose an ID3 UFID frame, the place MusicBrainz Picard stores the recording
-/// identifier in MP3 and WAV, so those dialects retain every other identifier but not that one.
+/// MP3 and WAV carry the recording identifier in the ID3 UFID frame owned by musicbrainz.org,
+/// which Hito reads itself because FFprobe does not expose it.
 #[tokio::test]
 async fn release_and_recording_musicbrainz_ids_are_retained_as_source_assertions_in_every_supported_dialect()
  {
     let all = [RELEASE, GROUP, RECORDING, RELEASE_TRACK].map(|id| Some(id.to_owned()));
-    let mut without_recording = all.clone();
-    without_recording[2] = None;
     let mut failures = Vec::new();
     for case in &CASES {
         let found = observed(case, true).await;
-        let expected = if case.tag_type == TagType::Id3v2 {
-            &without_recording
-        } else {
-            &all
-        };
-        if found.as_ref() != Some(expected) {
+        if found.as_ref() != Some(&all) {
             failures.push(format!("{}: {found:?}", case.name));
         }
         assert_eq!(

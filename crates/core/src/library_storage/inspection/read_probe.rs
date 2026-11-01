@@ -55,7 +55,12 @@ impl FileInspector {
         };
         let probe: Probe = serde_json::from_slice(&bytes)
             .map_err(|_| Error::Invalid("Media inspection returned invalid metadata".into()))?;
-        let tags = probe.tags(artist_tags_known);
+        tracing::debug!(
+            event = "id3_recording_identifier",
+            found = media.recording_id.is_some(),
+            "ID3 recording identifier frame inspected"
+        );
+        let tags = probe.tags(artist_tags_known, media.recording_id.clone());
         Ok((probe, tags))
     }
 }

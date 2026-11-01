@@ -15,6 +15,7 @@ pub(in crate::library_storage::inspection) struct Report {
     pub ignored_invalid: u32,
     pub ignored_unsupported: u32,
     pub io_failed: u32,
+    pub recording_id: Option<String>,
     pub(super) charged: usize,
 }
 
@@ -89,6 +90,11 @@ pub(super) fn normalise(
     let Some(frames) = frames(version, &body, tag_unsynchronised) else {
         return Ok(None);
     };
+    if report.recording_id.is_none() {
+        report.recording_id = frames
+            .iter()
+            .find_map(|frame| musicbrainz_recording_id(version, frame));
+    }
     if !frames.iter().any(|frame| compressed(version, frame)) {
         return Ok(None);
     }
@@ -172,6 +178,31 @@ fn frames(version: Version, body: &[u8], tag_unsynchronised: bool) -> Option<Vec
         frames.push(frame);
     }
     Some(frames)
+}
+
+const MUSICBRAINZ_OWNER: &[u8] = b"http://musicbrainz.org";
+const MAX_IDENTIFIER_BYTES: usize = 64;
+
+/// The identifier of a plain UFID frame owned by musicbrainz.org. Frames that are compressed,
+/// encrypted, grouped, individually unsynchronised or prefixed with a data length are skipped.
+fn musicbrainz_recording_id(version: Version, frame: &Frame) -> Option<String> {
+    let unsupported = match version {
+        Version::V23 => 0xe0,
+        Version::V24 => 0x4f,
+    };
+    if &frame.id != b"UFID" || frame.flags[1] & unsupported != 0 {
+        return None;
+    }
+    let terminator = frame.body.iter().position(|byte| *byte == 0)?;
+    let (owner, identifier) = (&frame.body[..terminator], &frame.body[terminator + 1..]);
+    if owner != MUSICBRAINZ_OWNER
+        || identifier.is_empty()
+        || identifier.len() > MAX_IDENTIFIER_BYTES
+        || !identifier.iter().all(|byte| (0x20..0x7f).contains(byte))
+    {
+        return None;
+    }
+    String::from_utf8(identifier.to_vec()).ok()
 }
 
 fn deunsynchronise_frame(flags: u8, body: &[u8]) -> Vec<u8> {

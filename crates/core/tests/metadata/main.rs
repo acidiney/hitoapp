@@ -16,4 +16,5 @@ mod metadata_release_history;
 mod metadata_release_reset;
 mod metadata_releases;
 mod metadata_titles;
+mod metadata_ufid;
 mod metadata_upgrade;

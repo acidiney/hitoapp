@@ -59,7 +59,11 @@ impl Probe {
         self.observed_tag(name).map(|tag| tag.value)
     }
 
-    pub(super) fn tags(&self, artist_tags_known: bool) -> InspectedTags {
+    pub(super) fn tags(
+        &self,
+        artist_tags_known: bool,
+        id3_recording_id: Option<String>,
+    ) -> InspectedTags {
         InspectedTags {
             title: self.observed_tag("title"),
             artist: self.observed_tag("artist"),
@@ -75,7 +79,10 @@ impl Probe {
             musicbrainz_release_group_id: self
                 .first_tag(&["musicbrainz release group id", "musicbrainz_releasegroupid"]),
             musicbrainz_recording_id: if self.carries_id3() {
-                None
+                id3_recording_id.map(|value| ObservedTag {
+                    value,
+                    location: TagLocation::Format,
+                })
             } else {
                 self.first_tag(&["musicbrainz track id", "musicbrainz_trackid"])
             },
@@ -90,7 +97,9 @@ impl Probe {
     }
 
     /// An ID3 "MusicBrainz Track Id" text frame is ambiguous (taggers disagree on whether it names
-    /// the recording or the release track), so it is never read as a recording identifier.
+    /// the recording or the release track), so it is never read as a recording identifier. ID3
+    /// files state the recording in the UFID frame owned by musicbrainz.org, which FFprobe does
+    /// not expose and Hito reads from the private media copy instead.
     fn carries_id3(&self) -> bool {
         matches!(
             self.format
