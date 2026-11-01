@@ -78,7 +78,8 @@ async fn featured_items_come_from_an_approved_provider_without_sending_account_d
             "kind": "playlist",
             "reference": "https://provider.example/playlist/a",
             "artwork_id": "art-a",
-            "item_count": 12
+            "item_count": 12,
+            "existing_playlist_id": null
         })
     );
     assert_eq!(wire["items"][1]["kind"], "album");
@@ -365,7 +366,12 @@ async fn featured_artwork_is_fetched_through_the_approved_connection_only() {
     server.cover(Cover::Missing);
     assert!(matches!(
         hito.catalog
-            .featured_artwork(&actor, &installation.id, installation.revision, "art-a")
+            .featured_artwork(
+                &actor,
+                &installation.id,
+                installation.revision,
+                "art-missing"
+            )
             .await,
         Err(Error::NotFound)
     ));
@@ -375,9 +381,136 @@ async fn featured_artwork_is_fetched_through_the_approved_connection_only() {
     ));
     assert!(matches!(
         hito.catalog
-            .featured_artwork(&actor, &installation.id, installation.revision, "art-a")
+            .featured_artwork(&actor, &installation.id, installation.revision, "art-html")
             .await,
         Err(Error::Upstream(_))
     ));
     assert!(plain.artwork_requests().is_empty());
+}
+
+#[tokio::test]
+async fn an_entry_names_the_account_copy_that_already_exists() {
+    let server = FeaturedServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("featured-existing").await;
+    let installation = connect(&hito, &actor, &server).await;
+    server.reply(Reply::Items(vec![item("a"), item("b")]));
+    let wire = serde_json::to_value(hito.catalog.featured(&actor).await.unwrap()).unwrap();
+    assert_eq!(wire["items"][0]["existing_playlist_id"], Value::Null);
+
+    let opened = hito
+        .collection
+        .open_provider_playlist(
+            &actor,
+            &installation.id,
+            hito_core::ImportProviderPlaylist {
+                request_id: uuid::Uuid::new_v4(),
+                installation_revision: installation.revision,
+                playlist_reference: "https://provider.example/playlist/a".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let wire = serde_json::to_value(hito.catalog.featured(&actor).await.unwrap()).unwrap();
+    assert_eq!(
+        wire["items"][0]["existing_playlist_id"],
+        opened.playlist_id.to_string()
+    );
+    assert_eq!(wire["items"][1]["existing_playlist_id"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_slow_budget_end_keeps_what_faster_providers_already_gave() {
+    let fast = FeaturedServer::with_capabilities(
+        "org.hito.fast-fixture",
+        "Fast service",
+        [
+            hito_plugin_sdk::Capability::Playlists,
+            hito_plugin_sdk::Capability::Featured,
+        ],
+    )
+    .await;
+    let (_dir, hito, actor, _library, _music) = support::library("featured-partial").await;
+    let mut slow = Vec::new();
+    for index in 0..3 {
+        let server = FeaturedServer::with_capabilities(
+            &format!("org.hito.slow-fixture-{index}"),
+            &format!("Slow service {index}"),
+            [
+                hito_plugin_sdk::Capability::Playlists,
+                hito_plugin_sdk::Capability::Featured,
+            ],
+        )
+        .await;
+        connect(&hito, &actor, &server).await;
+        server.reply(Reply::Items(vec![item("slow")]));
+        server.delay_featured(Duration::from_secs(30));
+        slow.push(server);
+    }
+    connect(&hito, &actor, &fast).await;
+    fast.reply(Reply::Items(vec![item("fast")]));
+    let started = Instant::now();
+    let shelf = hito.catalog.featured(&actor).await.unwrap();
+    assert!(started.elapsed() < Duration::from_secs(9));
+    assert_eq!(titles(&shelf), ["Featured fast"]);
+}
+
+#[tokio::test]
+async fn featured_artwork_follows_the_consent_choice_and_is_remembered() {
+    let server = FeaturedServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("featured-art-cache").await;
+    let installation = connect(&hito, &actor, &server).await;
+    for _ in 0..3 {
+        hito.catalog
+            .featured_artwork(&actor, &installation.id, installation.revision, "art-a")
+            .await
+            .unwrap();
+    }
+    assert_eq!(server.artwork_requests().len(), 1);
+    hito.artist_catalog
+        .set_automatic_lookups(
+            &actor,
+            UpdateAutomaticLookups {
+                automatic_artist_lookup: None,
+                automatic_artwork: None,
+                automatic_service_search: Some(false),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        hito.catalog
+            .featured_artwork(&actor, &installation.id, installation.revision, "art-a")
+            .await,
+        Err(Error::NotFound)
+    ));
+    assert_eq!(server.artwork_requests().len(), 1);
+}
+
+#[tokio::test]
+async fn featured_artwork_with_absurd_dimensions_is_rejected() {
+    let server = FeaturedServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("featured-art-size").await;
+    let installation = connect(&hito, &actor, &server).await;
+    let mut png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR".to_vec();
+    png.extend(100_000_u32.to_be_bytes());
+    png.extend(100_000_u32.to_be_bytes());
+    png.extend([8, 2, 0, 0, 0, 0, 0, 0, 0]);
+    server.cover(Cover::Bytes(png, "image/png"));
+    assert!(matches!(
+        hito.catalog
+            .featured_artwork(&actor, &installation.id, installation.revision, "art-a")
+            .await,
+        Err(Error::Upstream(_))
+    ));
+    let mut jpeg = b"\xff\xd8\xff\xc0\x00\x11\x08".to_vec();
+    jpeg.extend(60_000_u16.to_be_bytes());
+    jpeg.extend(60_000_u16.to_be_bytes());
+    jpeg.extend([3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+    server.cover(Cover::Bytes(jpeg, "image/jpeg"));
+    assert!(matches!(
+        hito.catalog
+            .featured_artwork(&actor, &installation.id, installation.revision, "art-b")
+            .await,
+        Err(Error::Upstream(_))
+    ));
 }

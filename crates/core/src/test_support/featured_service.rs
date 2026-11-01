@@ -13,6 +13,8 @@ use std::{
 };
 
 const REQUEST_LIMIT: usize = 64;
+const DETAIL: &str = "v1/playlists/detail";
+const ITEMS: &str = "v1/playlists/items";
 
 #[derive(Clone)]
 pub enum Reply {
@@ -115,6 +117,32 @@ impl FeaturedServer {
                     Reply::Status(status) => fake::Reply::Status(*status),
                 }
             }
+        })
+        .post(DETAIL, |request| {
+            let body = request.json();
+            let id = body["reference"]
+                .as_str()
+                .and_then(|reference| reference.rsplit('/').next())
+                .or_else(|| body["playlist_id"].as_str())
+                .unwrap_or("unknown")
+                .to_owned();
+            fake::Reply::Json(serde_json::json!({
+                "id": id, "name": format!("Featured {id}"), "snapshot": "snapshot-one",
+                "total_count": 1, "attribution": {"label": "Owned featured service"}
+            }))
+        })
+        .post(ITEMS, |request| {
+            let id = request.json()["playlist_id"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_owned();
+            fake::Reply::Json(serde_json::json!({
+                "playlist_id": id, "snapshot": "snapshot-one", "next_cursor": null,
+                "items": [{"occurrence_id": null, "item": {"kind": "recording", "recording": {
+                    "id": format!("{id}/recording"), "title": format!("Tune {id}"),
+                    "artist": "Performer", "duration_ms": 60000
+                }}}]
+            }))
         })
         .post(ARTWORK_PATH, {
             let behavior = behavior.clone();

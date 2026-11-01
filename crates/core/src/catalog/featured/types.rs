@@ -14,6 +14,7 @@ pub struct FeaturedEntry {
     pub reference: String,
     pub artwork_id: Option<String>,
     pub item_count: Option<u32>,
+    pub existing_playlist_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

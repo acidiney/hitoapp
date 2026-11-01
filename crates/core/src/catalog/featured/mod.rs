@@ -29,13 +29,7 @@ impl Catalog {
         let request_id = Uuid::new_v4();
         let span =
             tracing::debug_span!("featured_shelf", operation = "featured_shelf", %request_id);
-        let result = async {
-            tokio::time::timeout(READ_BUDGET, self.read_featured(actor))
-                .await
-                .unwrap_or(Ok(FeaturedShelf::Unavailable))
-        }
-        .instrument(span)
-        .await;
+        let result = self.read_featured(actor).instrument(span).await;
         tracing::debug!(
             outcome = result
                 .as_ref()
@@ -52,6 +46,7 @@ impl Catalog {
     }
 
     async fn read_featured(&self, actor: &Actor) -> Result<FeaturedShelf> {
+        let deadline = Instant::now() + READ_BUDGET;
         actor.check_session(&self.store).await?;
         if !self.automatic_service_contact_allowed(actor).await? {
             return Ok(FeaturedShelf::Disabled);
@@ -84,21 +79,38 @@ impl Catalog {
         }
         let mut lists = Vec::new();
         for provider in &capable {
-            let items = self.provider_featured(actor, provider).await?;
-            lists.push(items);
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            lists.push(
+                self.provider_featured(actor, provider, remaining.min(PROVIDER_BUDGET))
+                    .await?,
+            );
         }
-        let items = interleave(&capable, lists);
-        Ok(if items.is_empty() {
-            FeaturedShelf::Unavailable
-        } else {
-            FeaturedShelf::Available { items }
-        })
+        let mut items = interleave(&capable, lists);
+        if items.is_empty() {
+            return Ok(FeaturedShelf::Unavailable);
+        }
+        let mut connection = self.store.pool.acquire().await?;
+        for entry in &mut items {
+            entry.existing_playlist_id = crate::collection::existing_copy(
+                &mut connection,
+                actor,
+                &entry.installation_id,
+                &entry.id,
+            )
+            .await?
+            .map(|id| id.to_string());
+        }
+        Ok(FeaturedShelf::Available { items })
     }
 
     async fn provider_featured(
         &self,
         actor: &Actor,
         provider: &Capable,
+        budget: Duration,
     ) -> Result<Vec<FeaturedItem>> {
         if let Some(answer) = self
             .featured_cache
@@ -121,7 +133,7 @@ impl Catalog {
                 .await?;
             operation.featured(&request).await
         };
-        match tokio::time::timeout(PROVIDER_BUDGET, asked).await {
+        match tokio::time::timeout(budget, asked).await {
             Ok(Ok(page)) => {
                 self.featured_cache.put(
                     &provider.installation_id,
@@ -130,19 +142,28 @@ impl Catalog {
                 );
                 Ok(page.items)
             }
-            Ok(Err(Error::Upstream(_))) | Err(_) => {
+            Ok(Err(Error::Unauthorized)) => Err(Error::Unauthorized),
+            Ok(Err(Error::ProviderBusy(_) | Error::NotFound | Error::Conflict(_))) => {
+                Ok(Vec::new())
+            }
+            Ok(Err(error)) => {
+                tracing::debug!(
+                    error_kind = error.code(),
+                    "A featured provider failed and was left out"
+                );
                 self.featured_cache
                     .put(&provider.installation_id, provider.revision, None);
                 Ok(Vec::new())
             }
-            Ok(Err(Error::ProviderBusy(_) | Error::NotFound | Error::Conflict(_))) => {
+            Err(_) => {
+                self.featured_cache
+                    .put(&provider.installation_id, provider.revision, None);
                 Ok(Vec::new())
             }
-            Ok(Err(error)) => Err(error),
         }
     }
 
-    async fn automatic_service_contact_allowed(&self, actor: &Actor) -> Result<bool> {
+    pub(super) async fn automatic_service_contact_allowed(&self, actor: &Actor) -> Result<bool> {
         let stored: Option<bool> = sqlx::query_scalar(
             "SELECT service_search FROM account_metadata_automation WHERE user_id=?",
         )
@@ -174,6 +195,7 @@ fn interleave(capable: &[Capable], lists: Vec<Vec<FeaturedItem>>) -> Vec<Feature
                     reference: item.reference,
                     artwork_id: item.artwork_id.filter(|_| provider.artwork),
                     item_count: item.item_count,
+                    existing_playlist_id: None,
                 });
             }
         }

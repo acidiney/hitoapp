@@ -43,6 +43,7 @@ pub use follow::{
     PlaylistFollowRefresh, PlaylistFollowStatus, RefreshFollowedPlaylist,
 };
 pub use import::ImportProviderPlaylist;
+pub(crate) use import::existing_copy;
 pub use import_publication::{
     CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
     ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
