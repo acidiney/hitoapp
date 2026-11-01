@@ -91,9 +91,9 @@ export const artistMatchingApi = {
       },
     );
   },
-  reviewQueue(account: string, signal: AbortSignal) {
+  reviewQueue(account: string, signal: AbortSignal, offset = 0) {
     return json<Schema<"ArtistReviewQueuePage">>(
-      "/artist-matching/review-queue?limit=50",
+      `/artist-matching/review-queue?limit=50${offset > 0 ? `&offset=${offset}` : ""}`,
       { action: "artist_matching.review_queue", account, signal },
     );
   },
@@ -131,9 +131,9 @@ export const artistMatchingApi = {
       },
     );
   },
-  dismissedReviews(account: string, signal: AbortSignal) {
+  dismissedReviews(account: string, signal: AbortSignal, offset = 0) {
     return json<Schema<"ArtistReviewQueuePage">>(
-      "/artist-matching/review-queue/dismissed?limit=50",
+      `/artist-matching/review-queue/dismissed?limit=50${offset > 0 ? `&offset=${offset}` : ""}`,
       { action: "artist_matching.review_dismissed", account, signal },
     );
   },

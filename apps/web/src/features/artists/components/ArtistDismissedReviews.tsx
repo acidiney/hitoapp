@@ -12,11 +12,13 @@ export default function ArtistDismissedReviews({
   pending,
   error,
   restore,
+  more,
 }: {
   dismissed: Schema<"ArtistReviewQueuePage">;
   pending: string | null;
   error: string;
   restore(credit: string, artist: string | null): Promise<void>;
+  more(): void;
 }) {
   const titleId = useId();
   return (
@@ -83,6 +85,15 @@ export default function ArtistDismissedReviews({
             </li>
           ))}
         </ul>
+        {dismissed.items.length < dismissed.total && (
+          <Button
+            disabled={pending !== null}
+            aria-label="Show more dismissed"
+            onClick={more}
+          >
+            Show more
+          </Button>
+        )}
       </details>
     </section>
   );

@@ -16,6 +16,7 @@ type View = {
   queue: Queue | null;
   /** Credits whose candidates the account dismissed; null when they could not be read. */
   dismissed: Queue | null;
+  dismissedFailed: boolean;
   /** The credit a decision is being saved for. */
   pending: string | null;
   error: string;
@@ -34,6 +35,7 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     status: "loading",
     queue: null,
     dismissed: null,
+    dismissedFailed: false,
     pending: null,
     error: "",
     restoreError: "",
@@ -51,7 +53,13 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
       );
       const dismissed = await dismissedRead;
       if (!request.active()) return;
-      setView((current) => ({ ...current, status: "ready", queue, dismissed }));
+      setView((current) => ({
+        ...current,
+        status: "ready",
+        queue,
+        dismissed,
+        dismissedFailed: dismissed === null,
+      }));
       log.debug("artist_review_queue.loaded", {
         count: queue.items.length,
       });
@@ -148,6 +156,30 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     [account, decide],
   );
 
+  const more = useCallback(
+    async (list: "queue" | "dismissed") => {
+      const request = scope.capture();
+      const have = view[list]?.items.length ?? 0;
+      try {
+        const next = await (list === "queue"
+          ? artistMatchingApi.reviewQueue(account, request.signal, have)
+          : artistMatchingApi.dismissedReviews(account, request.signal, have));
+        if (!request.active()) return;
+        setView((current) => {
+          const base = current[list];
+          if (!base) return current;
+          return {
+            ...current,
+            [list]: { ...next, items: [...base.items, ...next.items] },
+          };
+        });
+      } catch {
+        log.debug("artist_review_queue.more_failed", { reason: list });
+      }
+    },
+    [account, scope, view],
+  );
+
   const restore = useCallback(
     (credit: string, artist: string | null) =>
       decide(
@@ -182,5 +214,5 @@ export function useArtistReviewQueue(account: string, refreshKey: string) {
     [account, decide],
   );
 
-  return { ...view, confirm, dismiss, restore };
+  return { ...view, confirm, dismiss, restore, more };
 }

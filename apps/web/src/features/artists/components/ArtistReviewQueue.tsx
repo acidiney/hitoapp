@@ -18,12 +18,14 @@ export default function ArtistReviewQueue({
   const {
     queue,
     dismissed,
+    dismissedFailed,
     pending,
     error,
     restoreError,
     confirm,
     dismiss,
     restore,
+    more,
   } = useArtistReviewQueue(account, refreshKey);
   const titleId = useId();
   return (
@@ -95,8 +97,19 @@ export default function ArtistReviewQueue({
                 );
               })}
             </ul>
+            {queue.items.length < queue.total && (
+              <Button
+                disabled={pending !== null}
+                onClick={() => void more("queue")}
+              >
+                Show more
+              </Button>
+            )}
           </details>
         </section>
+      )}
+      {queue && dismissedFailed && (
+        <p className="muted">Dismissed suggestions could not be loaded.</p>
       )}
       {dismissed && dismissed.total > 0 && (
         <ArtistDismissedReviews
@@ -104,6 +117,7 @@ export default function ArtistReviewQueue({
           pending={pending}
           error={restoreError}
           restore={restore}
+          more={() => void more("dismissed")}
         />
       )}
     </>

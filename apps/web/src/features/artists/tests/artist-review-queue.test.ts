@@ -72,8 +72,9 @@ function serve(
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {
-      if (path === QUEUE) return reads[Math.min(read++, reads.length - 1)]();
-      if (path === DISMISSED)
+      if (path === QUEUE || path.startsWith(`${QUEUE}&offset=`))
+        return reads[Math.min(read++, reads.length - 1)]();
+      if (path === DISMISSED || path.startsWith(`${DISMISSED}&offset=`))
         return dismissed[Math.min(readDismissed++, dismissed.length - 1)]();
       const body = JSON.parse(options?.body as string);
       posted.push({ path, body });
@@ -274,8 +275,8 @@ test("the queue is read again when the artist lists change", async () => {
 
 const restored = () => Response.json({ artist_id: "credit-1", restored: 1 });
 
-function dismissedItem(over: Record<string, unknown> = {}) {
-  return item("credit-1", { candidates: [candidate()], ...over });
+function dismissedItem(id = "credit-1", over: Record<string, unknown> = {}) {
+  return item(id, { candidates: [candidate()], ...over });
 }
 
 test("dismissed suggestions stay reachable when nothing else needs confirmation", async () => {
@@ -345,5 +346,57 @@ test("a dismissed list that cannot be read leaves the confirmation queue working
   ]);
   show();
   await screen.findByText("Needs your confirmation (1)");
-  expect(screen.queryByText(/Dismissed suggestions/)).toBeNull();
+  expect(screen.queryByText(/Dismissed suggestions \(/)).toBeNull();
+  expect(
+    screen.getByText("Dismissed suggestions could not be loaded."),
+  ).toBeTruthy();
+});
+
+test("an unreadable dismissed list says so even when nothing else needs confirmation", async () => {
+  serve([() => page([])], restored, [
+    () => new Response("{}", { status: 500 }),
+  ]);
+  show();
+  expect(
+    await screen.findByText("Dismissed suggestions could not be loaded."),
+  ).toBeTruthy();
+});
+
+function pageOf(items: unknown[], total: number, offset = 0) {
+  return Response.json({ items, total, offset, limit: 50 });
+}
+
+test("dismissed credits past the first page are reachable with Show more", async () => {
+  serve([() => page([])], restored, [
+    () => pageOf([dismissedItem("c1")], 2),
+    () => pageOf([dismissedItem("c2", { name: "Second Credit" })], 2, 1),
+  ]);
+  show();
+  fireEvent.click(await screen.findByText("Dismissed suggestions (2)"));
+  expect(screen.queryByText("Second Credit")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show more dismissed" }));
+  await screen.findByText("Second Credit");
+  expect(vi.mocked(fetch).mock.calls.map(([path]) => path)).toContain(
+    `${DISMISSED}&offset=1`,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Show more dismissed" }),
+  ).toBeNull();
+});
+
+test("credits past the first page of the queue are reachable with Show more", async () => {
+  serve(
+    [
+      () => pageOf([item("c1")], 2),
+      () => pageOf([item("c2", { name: "Second Credit" })], 2, 1),
+    ],
+    restored,
+  );
+  show();
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await screen.findByText("Second Credit");
+  expect(vi.mocked(fetch).mock.calls.map(([path]) => path)).toContain(
+    `${QUEUE}&offset=1`,
+  );
 });
