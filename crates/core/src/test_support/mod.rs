@@ -36,6 +36,8 @@ pub mod cover_art;
 #[cfg(feature = "test-support")]
 pub mod covers;
 #[cfg(feature = "test-support")]
+pub mod featured_service;
+#[cfg(feature = "test-support")]
 pub mod media_tool;
 #[cfg(feature = "test-support")]
 pub mod metadata_tag_logs;

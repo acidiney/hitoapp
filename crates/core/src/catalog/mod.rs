@@ -2,6 +2,7 @@ mod artists;
 mod artwork;
 mod availability;
 mod browse;
+mod featured;
 mod genres;
 mod groups;
 pub(crate) mod local_files;
@@ -57,6 +58,7 @@ pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_source_access,
 };
 pub use browse::Browse;
+pub use featured::{FeaturedEntry, FeaturedShelf};
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};
 pub(crate) use groups::group_step;
@@ -79,4 +81,5 @@ pub struct Catalog {
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) local_files: local_files::LocalFiles,
     pub(crate) cover_art: hito_metadata_musicbrainz::CoverArtClient,
+    pub(crate) featured_cache: featured::FeaturedCache,
 }

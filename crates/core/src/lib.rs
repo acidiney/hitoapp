@@ -57,14 +57,14 @@ pub use artist_catalog::{
 pub use catalog::{
     AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
-    Browse, Catalog, ChooseSource, CoverArtKind, CoverArtLookup, Genre, GenreDetail, LyricsLookup,
-    Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
-    ProviderSourceReview, ReadRecordingLyrics, Recording, RecordingCopies, RecordingCopy,
-    RecordingGroupProof, RecordingLyricsProvider, RecordingLyricsProviders, RecordingSplit,
-    Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource,
-    Search, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
-    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    Browse, Catalog, ChooseSource, CoverArtKind, CoverArtLookup, FeaturedEntry, FeaturedShelf,
+    Genre, GenreDetail, LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate,
+    ProviderSearch, ProviderSourceReview, ReadRecordingLyrics, Recording, RecordingCopies,
+    RecordingCopy, RecordingGroupProof, RecordingLyricsProvider, RecordingLyricsProviders,
+    RecordingSplit, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice,
+    ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
+    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -186,6 +186,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
+        featured_cache: Default::default(),
         local_files: local_files.clone(),
         cover_art: {
             #[cfg(any(test, feature = "test-support"))]

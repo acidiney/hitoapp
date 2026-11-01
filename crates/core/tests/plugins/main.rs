@@ -1,5 +1,6 @@
 #![allow(clippy::duplicate_mod)]
 
+mod featured;
 mod plugin_authorization_key_recovery;
 mod plugin_connections;
 mod plugin_install_authority;
