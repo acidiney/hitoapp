@@ -140,3 +140,31 @@ test("the release card plays straight from its corner button and shows a discree
     await artist.close();
   }
 });
+
+test("on a desktop the corner play button appears on hover and keyboard focus only", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(90_000);
+  const artist = await connectCatalogArtist(page, baseURL!);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(artist.path);
+    const open = page.getByRole("button", {
+      name: `Open ${catalogAlbum.groupTitle}`,
+    });
+    const play = page.getByRole("button", {
+      name: `Play ${catalogAlbum.groupTitle}`,
+    });
+    await expect(open).toBeVisible();
+    await expect(play).toHaveCSS("opacity", "0");
+    await open.hover();
+    await expect(play).toHaveCSS("opacity", "1");
+    await page.mouse.move(0, 0);
+    await expect(play).toHaveCSS("opacity", "0");
+    await play.focus();
+    await expect(play).toHaveCSS("opacity", "1");
+  } finally {
+    await artist.close();
+  }
+});
