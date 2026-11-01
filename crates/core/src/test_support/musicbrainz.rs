@@ -22,6 +22,7 @@ pub enum Reply {
     Scored(Vec<(String, String, u32)>, u32),
     Discography(Vec<(String, Option<u64>)>),
     ReleaseGroups(Vec<(String, Option<String>)>),
+    ReleaseGroupTitles(Vec<String>),
     Genres(Vec<(String, u32)>),
     WikidataLink(Option<String>),
     NotFound,
@@ -496,6 +497,24 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             (
                 StatusCode::OK,
                 json!({"release-group-count": listed.len(), "release-group-offset": 0, "release-groups": listed}),
+            )
+        }
+        (_, Some(Reply::ReleaseGroupTitles(titles))) => {
+            let (offset, limit) = window(request.uri());
+            let listed: Vec<Value> = titles
+                .iter()
+                .enumerate()
+                .skip(offset)
+                .take(limit)
+                .map(|(index, title)| {
+                    json!({"id": format!("0f700000-0000-4000-8000-{:012x}", index + 1),
+                        "title": title, "primary-type": "Album",
+                        "secondary-types": [], "first-release-date": "2020"})
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                json!({"release-group-count": titles.len(), "release-group-offset": offset, "release-groups": listed}),
             )
         }
         (Some(key), Some(Reply::Genres(genres))) => {

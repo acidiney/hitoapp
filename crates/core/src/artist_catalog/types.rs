@@ -222,6 +222,31 @@ impl ArtistCandidatePreviewAvailability {
 
 #[derive(Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
+pub enum ArtistCandidateReleasesAvailability {
+    Available {
+        context: Box<ArtistReviewContext>,
+        titles: Vec<String>,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl ArtistCandidateReleasesAvailability {
+    pub(super) fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
 pub enum ArtistProfileAvailability {
     Available {
         association_id: String,

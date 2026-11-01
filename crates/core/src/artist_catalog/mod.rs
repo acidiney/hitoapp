@@ -6,6 +6,7 @@ mod association_changes;
 mod associations;
 mod authority;
 pub(crate) mod automation;
+mod candidate_releases;
 mod confirmation;
 mod continuation;
 mod discography;
@@ -58,11 +59,12 @@ pub use shared_corrections::{
 pub use similar_artists::{ReadSimilarArtists, SimilarArtistView, SimilarArtistsAvailability};
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
-    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
-    ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability, ArtistReviewConnection,
-    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CoverageEvidence,
-    CreditEvidence, CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider,
-    MetadataSettings, ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
+    ArtistCandidateReleasesAvailability, ArtistCandidateSearchAvailability, ArtistCreditRole,
+    ArtistDiscographyAvailability, ArtistMatchingState, ArtistMatchingStatus,
+    ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
+    ArtistReviewMetadataBinding, AssociateRecordingArtist, CoverageEvidence, CreditEvidence,
+    CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider, MetadataSettings,
+    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
     ReleaseGroupEditionsAvailability, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 

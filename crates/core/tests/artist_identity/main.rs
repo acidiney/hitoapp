@@ -3,6 +3,7 @@
 mod artist_association_bulk;
 mod artist_association_changes;
 mod artist_association_changes_upgrade;
+mod artist_candidate_releases;
 mod artist_correction_erasure;
 mod artist_correction_erasure_upgrade;
 mod artist_correction_promotion;
