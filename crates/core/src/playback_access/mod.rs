@@ -25,7 +25,7 @@ pub struct PlaybackAccess {
 }
 
 impl PlaybackAccess {
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
     pub async fn playback_source(
         &self,
         actor: &Actor,
@@ -42,7 +42,7 @@ impl PlaybackAccess {
         )))
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
     pub async fn open_audio(
         &self,
         actor: &Actor,
@@ -60,7 +60,7 @@ impl PlaybackAccess {
         self.source_grant(actor, source).await?.open(request).await
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), source_id))]
+    #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id(), source_id))]
     pub async fn audio_file(&self, actor: &Actor, source: &str) -> Result<AudioFile> {
         actor.check_session(&self.store).await?;
         for origin in self.origins.iter() {
@@ -71,7 +71,7 @@ impl PlaybackAccess {
         Err(Error::NotFound)
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
     async fn source_grant(&self, actor: &Actor, source: &str) -> Result<PlaybackSource> {
         tokio::time::timeout(Duration::from_secs(1), async {
             actor.check_session(&self.store).await?;

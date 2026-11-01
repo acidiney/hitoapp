@@ -37,7 +37,7 @@ impl MediaClient {
             accounts: Accounts::new(2),
         })
     }
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(super) async fn open(
         &self,
         base_url: &str,
