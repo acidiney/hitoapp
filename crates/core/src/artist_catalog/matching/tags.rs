@@ -230,9 +230,6 @@ fn artist_id(value: &str) -> Option<String> {
         .then(|| id.hyphenated().to_string())
 }
 
-/// A file whose tags list its credited artists is decided by its main artists: several are
-/// undecided whatever the identifier tags show, and a lone main artist with an identifier is
-/// that artist even when featured artists carry identifiers too.
 fn credited_evidence(credits: Option<&str>) -> Option<Evidence> {
     let credits: Vec<serde_json::Value> = serde_json::from_str(credits?).ok()?;
     let mains: Vec<&serde_json::Value> = credits

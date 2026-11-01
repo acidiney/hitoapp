@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 const MARKERS: [&str; 5] = ["featuring ", "feat. ", "feat ", "ft. ", "ft "];
 
-/// The byte offset in `text` where a feature marker's names begin, after optional blanks.
 fn names_start(text: &str) -> Option<usize> {
     let lower = text.to_ascii_lowercase();
     let trimmed = lower.trim_start();
@@ -30,7 +29,6 @@ fn clause_names(clauses: Vec<&str>) -> HashSet<String> {
     names
 }
 
-/// The lower-cased names a title's bracketed or dashed feature clauses state.
 pub fn bracketed_feature_names(title: &str) -> HashSet<String> {
     let mut clauses = Vec::new();
     for (open, close) in [('(', ')'), ('[', ']')] {
@@ -52,8 +50,6 @@ pub fn bracketed_feature_names(title: &str) -> HashSet<String> {
     clause_names(clauses)
 }
 
-/// The lower-cased names a display artist text states after a feature marker, either bracketed
-/// or running to the end of the text, as in "Ada feat. Bo & Cy".
 pub fn credit_feature_names(credit: &str) -> HashSet<String> {
     let mut names = bracketed_feature_names(credit);
     let lower = credit.to_ascii_lowercase();

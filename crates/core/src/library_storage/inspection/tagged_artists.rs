@@ -6,8 +6,6 @@ use uuid::Uuid;
 const MAX_ARTISTS: usize = 16;
 const MAX_NAME_BYTES: usize = 256;
 
-/// The artists a file's tags list one by one, with the MusicBrainz artist identifiers that line
-/// up with them, if any.
 pub(in crate::library_storage::inspection) struct TaggedArtists {
     names: Vec<String>,
     ids: Vec<String>,
@@ -21,9 +19,6 @@ fn values(tag: &Tag, key: &ItemKey) -> Vec<String> {
         .collect()
 }
 
-/// Reads the repeated artist tags (Vorbis, ID3v2.4 and MP4 spell them differently, lofty maps
-/// them to one key) from the private media copy. FFprobe joins or drops repeated values, so it
-/// cannot supply them.
 pub(in crate::library_storage::inspection) fn read(path: &Path) -> Option<TaggedArtists> {
     let options = ParseOptions::new()
         .read_properties(false)
@@ -60,9 +55,6 @@ fn identifier(value: &str) -> Option<String> {
         .map(|id| id.hyphenated().to_string())
 }
 
-/// The structured credit the tags state for the display artist text: at least two distinct
-/// names within the bounds, the ones the text names after a feature marker featured, and the
-/// tagged identifiers attached only when every name has exactly one.
 pub(in crate::library_storage::inspection) fn credits(
     display: &str,
     tagged: Option<&TaggedArtists>,
