@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 pub(crate) const MAX_DEPTH: usize = 16;
 pub(crate) const MAX_PATH_BYTES: usize = 4096;
 
-/// Trusted caller configuration, not proof of a provider acknowledgment or recording identity.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MagnetFileBinding {
     pub magnet_id: u64,

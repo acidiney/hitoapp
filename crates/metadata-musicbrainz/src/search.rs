@@ -27,7 +27,6 @@ struct Artist {
     country: Option<String>,
 }
 
-/// MusicBrainz states the relevance score as a number or as a numeric string.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Score {
@@ -44,11 +43,9 @@ impl Score {
     }
 }
 
-/// Results per name search page. MusicBrainz caps a search page at this size.
 pub const NAME_SEARCH_LIMIT: u16 = 100;
 const EXACT_SCORE: u32 = 100;
 
-/// One artist of a name search with the relevance MusicBrainz gave it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NameCandidate {
     pub id: String,
@@ -59,7 +56,6 @@ pub struct NameCandidate {
     pub country: Option<String>,
 }
 
-/// The first page of a name search: up to `NAME_SEARCH_LIMIT` artists ordered by relevance.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NameSearch {
     pub total: u32,
@@ -67,9 +63,6 @@ pub struct NameSearch {
 }
 
 impl NameSearch {
-    /// Whether the page holds every maximum-relevance result: it is the whole result set, or a
-    /// lower-scored result ends it. An exact-name artist scores the maximum, so a conclusive page
-    /// cannot hide one beyond it.
     pub fn conclusive(&self) -> bool {
         self.items.len() as u32 >= self.total
             || self

@@ -191,8 +191,6 @@ impl AllDebridClient {
         result
     }
 
-    /// Requests one unlock after re-observation and retains its typed acknowledgment.
-    /// Generated candidates stay opaque until separate media validation.
     pub async fn prepare_bound_file(
         &self,
         binding: &MagnetFileBinding,

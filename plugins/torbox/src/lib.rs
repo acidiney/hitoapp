@@ -19,7 +19,6 @@ pub struct Config {
 
 pub struct StateConfig {
     pub directory: PathBuf,
-    /// A separate private file containing exactly 32 key bytes.
     pub key_file: PathBuf,
     pub mode: StateMode,
 }
@@ -49,7 +48,6 @@ pub enum StateError {
     AuthorityChanged,
 }
 
-/// One operator-reviewed recording and its exact canonical PCM16 WAV selection.
 pub struct CuratedWavRecording {
     pub recording: ProviderRecording,
     pub source_id: String,
@@ -95,7 +93,6 @@ impl Service {
         self.router.clone()
     }
 
-    /// Stop and join the HTTP listener before closing its private state.
     pub async fn close(self) -> Result<(), StateError> {
         let Self { router, journal } = self;
         drop(router);

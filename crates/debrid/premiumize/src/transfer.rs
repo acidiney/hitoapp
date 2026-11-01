@@ -1,7 +1,6 @@
 use crate::Error;
 use serde::{Deserialize, Serialize};
 
-/// Trusted caller configuration, not proof of file, content or recording identity.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransferBinding {
     pub transfer_id: String,

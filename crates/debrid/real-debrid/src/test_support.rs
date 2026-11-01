@@ -1,7 +1,6 @@
 use crate::{Error, RealDebridClient};
 use std::net::SocketAddr;
 
-/// Uses owned loopback TLS peers while retaining the fixed API and fixture hostnames.
 pub fn owned_protocol_client(
     provider_access_token: String,
     ca_der: &[u8],

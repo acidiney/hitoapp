@@ -30,7 +30,6 @@ impl MusicBrainzClient {
         Self::with_loopback_endpoint(endpoint)
     }
 
-    /// Targets an owned fake service on a literal loopback address. Any other origin is refused.
     #[cfg(any(test, feature = "test-support"))]
     pub fn with_loopback_endpoint(endpoint: reqwest::Url) -> Result<Self, Error> {
         let loopback = endpoint
@@ -195,7 +194,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Looks up the recordings that carry a canonical ISRC. An unknown code is an empty result.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "isrc_lookup", request_id = tracing::field::Empty))]
     pub async fn recordings_by_isrc(&self, isrc: &str) -> Result<Vec<IsrcRecording>, Error> {
         let started = Instant::now();
@@ -253,9 +251,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Asks which of up to six library recordings an artist has: each probe names a title and the
-    /// range its length may fall in. The answer lists the artist's recordings that match any
-    /// probe and says whether the page holds all of them; the caller compares titles and lengths.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_recordings", request_id = tracing::field::Empty))]
     pub async fn artist_recordings_matching(
         &self,
@@ -291,8 +286,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Reads the official genres MusicBrainz lists for an artist, release group or recording.
-    /// Free-form tags are never read. An unknown entity is an empty result.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "genre_lookup", request_id = tracing::field::Empty))]
     pub async fn genres(&self, entity: GenreEntity, id: &str) -> Result<Vec<String>, Error> {
         let started = Instant::now();
@@ -322,8 +315,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Looks up the artists MusicBrainz relates to a canonical https page. An unlinked page is an
-    /// empty result.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "url_lookup", request_id = tracing::field::Empty))]
     pub async fn artists_by_url(&self, resource: &str) -> Result<Vec<String>, Error> {
         let started = Instant::now();
@@ -353,8 +344,6 @@ impl MusicBrainzClient {
         result
     }
 
-    /// Searches artists by exact name phrase and returns up to 100 results with their relevance
-    /// scores, so the caller can tell whether every maximum-relevance result was returned.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_name_search", request_id = tracing::field::Empty))]
     pub async fn artist_name_search(&self, name: &str) -> Result<NameSearch, Error> {
         let started = Instant::now();

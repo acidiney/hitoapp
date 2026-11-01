@@ -11,7 +11,6 @@ pub struct Config {
 
 pub struct ConnectionConfig {
     pub service_bearer: String,
-    /// Rotate this key whenever the configured provider account changes.
     pub receipt_key: [u8; 32],
     pub client: PremiumizeClient,
     pub media_origins: MediaAllowlist,

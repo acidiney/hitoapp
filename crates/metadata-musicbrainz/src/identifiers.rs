@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use uuid::Uuid;
 
 const MAX_RECORDINGS: usize = 100;
-/// Titles one recording search may ask about, and the results it asks for.
 pub const MAX_PROBES: usize = 6;
 pub(super) const PROBE_RESULT_LIMIT: usize = 40;
 const MAX_CREDIT_MEMBERS: usize = 64;
@@ -12,15 +11,12 @@ const MAX_TITLE_BYTES: usize = 512;
 const MAX_GENRES: usize = 64;
 const MAX_GENRE_BYTES: usize = 64;
 
-/// A MusicBrainz recording that carries a looked-up ISRC, with the distinct artists in its credit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IsrcRecording {
     pub id: String,
     pub artist_ids: Vec<String>,
 }
 
-/// One recording credited to an artist, as listed by a browse. The length is absent when
-/// MusicBrainz does not know it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArtistRecording {
     pub id: String,
@@ -28,7 +24,6 @@ pub struct ArtistRecording {
     pub length_ms: Option<u64>,
 }
 
-/// A library recording asked about one artist: its title and the range its length may fall in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordingProbe {
     pub title: String,
@@ -36,7 +31,6 @@ pub struct RecordingProbe {
     pub max_length_ms: u64,
 }
 
-/// The recordings of an artist that match the probes, and how many MusicBrainz states in total.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArtistRecordings {
     pub total: u32,
@@ -44,13 +38,11 @@ pub struct ArtistRecordings {
 }
 
 impl ArtistRecordings {
-    /// Whether the page lists every recording MusicBrainz states for the search.
     pub fn complete(&self) -> bool {
         self.items.len() as u32 >= self.total
     }
 }
 
-/// The MusicBrainz entity kinds whose official genres can be read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GenreEntity {
     Artist,
@@ -168,8 +160,6 @@ pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {
     Ok(artists)
 }
 
-/// The search that asks whether an artist has a recording with each probe's title whose length
-/// lies in the probe's range. Titles are escaped so they cannot change the query.
 pub(super) fn probe_query(artist: &str, probes: &[RecordingProbe]) -> Result<String, Error> {
     if !canonical_artist(artist) || probes.is_empty() || probes.len() > MAX_PROBES {
         return Err(Error::InvalidLookupRequest);
@@ -226,7 +216,6 @@ pub(super) fn matching_recordings(bytes: &[u8]) -> Result<ArtistRecordings, Erro
     })
 }
 
-/// The official genre names of a lookup, strongest first and without case-only repeats.
 pub(super) fn genre_names(bytes: &[u8], id: &str) -> Result<Vec<String>, Error> {
     let lookup: GenreLookup = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
     if lookup.id != id || lookup.genres.len() > MAX_GENRES {

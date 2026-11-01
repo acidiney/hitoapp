@@ -51,7 +51,6 @@ unsafe extern "C" fn reject_journal_mode(
 ) -> c_int {
     if action == sqlite::SQLITE_PRAGMA
         && !name.is_null()
-        // SQLite owns this NUL-terminated name for the duration of the callback.
         && unsafe { CStr::from_ptr(name) }
             .to_bytes()
             .eq_ignore_ascii_case(b"journal_mode")
@@ -70,7 +69,6 @@ unsafe extern "C" fn noop(
     _: c_int,
     _: *mut *mut sqlite::sqlite3_value,
 ) {
-    // SQLite supplies a live context if it ever invokes this unused fixture function.
     unsafe { sqlite::sqlite3_result_null(context) };
 }
 
@@ -104,7 +102,6 @@ unsafe extern "C" fn install_failure(
     _: *mut *mut c_char,
     _: *const sqlite::sqlite3_api_routines,
 ) -> c_int {
-    // The auto-extension receives exclusive access to a live, newly opened handle.
     let status = unsafe {
         sqlite::sqlite3_set_authorizer(connection, Some(reject_journal_mode), std::ptr::null_mut())
     };
@@ -132,7 +129,6 @@ impl Drop for Registration {
         if let Some(gate) = GATE.get() {
             gate.release();
         }
-        // Callbacks and the gate remain valid for this isolated child's lifetime.
         unsafe {
             sqlite::sqlite3_cancel_auto_extension(Some(install_failure));
         }
@@ -237,7 +233,6 @@ fn child_case(root: &Path) {
         .is_ok()
     );
     let registration = Registration;
-    // SQLx and this fixture share bundled SQLite. Every callback avoids unwinding.
     assert_eq!(
         unsafe { sqlite::sqlite3_auto_extension(Some(install_failure)) },
         sqlite::SQLITE_OK

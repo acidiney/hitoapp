@@ -31,8 +31,6 @@ pub struct CoverArt {
     pub bytes: Vec<u8>,
 }
 
-/// Reads front covers from the Cover Art Archive by MusicBrainz identifier. Only the identifier
-/// leaves the host.
 #[derive(Clone)]
 pub struct CoverArtClient {
     client: Arc<OnceLock<reqwest::Client>>,
@@ -46,7 +44,6 @@ impl CoverArtClient {
         Self::build(CAA_ROOT.parse().map_err(|_| Error::Configuration)?, false)
     }
 
-    /// Targets an owned fake service on a literal loopback address. Any other origin is refused.
     #[cfg(any(test, feature = "test-support"))]
     pub fn with_loopback_endpoint(endpoint: reqwest::Url) -> Result<Self, Error> {
         let loopback = endpoint
@@ -74,7 +71,6 @@ impl CoverArtClient {
         })
     }
 
-    /// Built on first use, so hosts that never fetch covers pay nothing at startup.
     fn client(&self) -> Result<&reqwest::Client, Error> {
         if let Some(client) = self.client.get() {
             return Ok(client);
@@ -98,7 +94,6 @@ impl CoverArtClient {
         Ok(self.client.get_or_init(|| client))
     }
 
-    /// The front cover at 500 pixels, or nothing when the archive holds none.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "cover_art_front"))]
     pub async fn front(&self, kind: CoverKind, mbid: &str) -> Result<Option<CoverArt>, Error> {
         let canonical = Uuid::parse_str(mbid)

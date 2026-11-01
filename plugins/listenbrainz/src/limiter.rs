@@ -3,8 +3,6 @@ use tokio::{sync::Mutex, time::Instant};
 
 const MAX_WAIT: Duration = Duration::from_secs(2);
 
-/// Spaces upstream request starts. A start that would wait longer than a short bound is
-/// refused instead of queued, so a burst cannot pile up behind the upstream rate limit.
 #[derive(Clone)]
 pub(crate) struct Limiter {
     interval: Duration,
@@ -34,7 +32,6 @@ impl Limiter {
         Ok(())
     }
 
-    /// Refuses starts until the upstream asked us to wait is over.
     pub(crate) async fn back_off(&self, duration: Duration) {
         let mut next = self.next_start.lock().await;
         let until = Instant::now() + duration;

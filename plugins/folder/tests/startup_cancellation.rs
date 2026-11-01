@@ -73,7 +73,6 @@ impl Drop for Registration {
         if let Some(gate) = GATE.get() {
             gate.release();
         }
-        // The callback and gate remain valid for this isolated child process's lifetime.
         unsafe {
             sqlite::sqlite3_cancel_auto_extension(Some(gate_connection));
         }
@@ -177,7 +176,6 @@ fn child_case(root: &Path) {
         .is_ok()
     );
     let registration = Registration;
-    // SQLx and this fixture share the already-linked bundled SQLite; the callback never unwinds.
     assert_eq!(
         unsafe { sqlite::sqlite3_auto_extension(Some(gate_connection)) },
         sqlite::SQLITE_OK

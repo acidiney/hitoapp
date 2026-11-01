@@ -19,8 +19,6 @@ impl MagnetFileSelection {
     }
 }
 
-/// Upload acknowledgment metadata, not recording identity or playable audio.
-/// Deserialization requires a trusted owned snapshot, not an external authenticity claim.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MagnetUploadReceipt {

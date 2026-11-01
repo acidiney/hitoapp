@@ -5,7 +5,6 @@ use tokio::{sync::Mutex, time::Instant};
 const MAX_PROFILE_BODY_BYTES: usize = 65_536;
 const MAX_BROWSE_BODY_BYTES: usize = 1_048_576;
 const MAX_SEARCH_BODY_BYTES: usize = 262_144;
-/// A recording search result lists every release of the recording, so a page is large.
 const MAX_RECORDING_SEARCH_BODY_BYTES: usize = 2_097_152;
 
 #[derive(Clone)]

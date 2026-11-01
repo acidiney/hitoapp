@@ -20,7 +20,6 @@ pub struct Config {
     pub recordings: Vec<CuratedWavRecording>,
 }
 
-/// An operator-curated recording and its exact canonical PCM16 WAV selection.
 pub struct CuratedWavRecording {
     pub recording: ProviderRecording,
     pub source_id: String,

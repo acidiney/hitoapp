@@ -10,7 +10,6 @@ pub struct Config {
     pub(crate) catalog: Catalog,
 }
 
-/// One operator-reviewed recording and its declared encoded file.
 pub struct CuratedAudioRecording {
     pub recording: ProviderRecording,
     pub source_id: String,

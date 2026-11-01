@@ -20,10 +20,6 @@ pub enum InitError {
 }
 
 impl Config {
-    /// The public ListenBrainz labs service, at most one request per second.
-    ///
-    /// `contact` is the operator's email address or web address, sent in the User-Agent as the
-    /// upstream rules require. `service_bearer` is the secret Hito presents on every request.
     pub fn new(contact: &str, service_bearer: &str) -> Result<Self, InitError> {
         let email = contact.contains('@') && !contact.contains("://");
         let web = contact.starts_with("https://");
@@ -44,7 +40,6 @@ impl Config {
         })
     }
 
-    /// A different labs-compatible origin. Only HTTPS, or HTTP on loopback for local fakes.
     pub fn with_endpoint(mut self, endpoint: Url) -> Result<Self, InitError> {
         let loopback = matches!(
             endpoint.host_str(),

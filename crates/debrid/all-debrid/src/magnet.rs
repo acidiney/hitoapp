@@ -15,7 +15,6 @@ pub enum MagnetPhase {
     ProviderCompleted,
 }
 
-/// Current provider metadata. Completion does not establish playable audio or verify the hash.
 pub struct MagnetObservation {
     pub binding: MagnetFileBinding,
     pub phase: MagnetPhase,

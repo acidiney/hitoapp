@@ -8,7 +8,6 @@ pub enum BoundFilePhase {
     ProviderCompleted,
 }
 
-/// Current available file metadata, not proof of playable bytes or recording identity.
 pub struct BoundFileObservation {
     pub binding: TransferFileBinding,
     pub phase: BoundFilePhase,

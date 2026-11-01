@@ -7,7 +7,6 @@ use zeroize::Zeroize;
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 const MAX_TIME_LEFT: u32 = 7 * 24 * 60 * 60;
 
-/// Delayed unlock metadata. Stored snapshots require trusted ownership.
 #[derive(Serialize)]
 pub struct DelayedFileReceipt {
     binding: MagnetFileBinding,

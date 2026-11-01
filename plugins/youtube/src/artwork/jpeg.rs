@@ -2,8 +2,6 @@ use crate::Error;
 
 const MAX_DIMENSION: u16 = 1024;
 
-/// Checks the container structure the host requires: SOI, a supported start-of-frame
-/// header within the dimension bound, and a final EOI marker. The host decodes fully.
 pub(super) fn validate(bytes: &[u8]) -> Result<(), Error> {
     if bytes.len() < 4 || !bytes.starts_with(&[0xff, 0xd8]) || !bytes.ends_with(&[0xff, 0xd9]) {
         return Err(Error::InvalidMedia);
