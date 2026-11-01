@@ -23,7 +23,7 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 
 **Live on the local development server**
 
-- Migrations run through 0069. The server runs the matching, cover art and genre workers ([background workers](architecture.md#background-workers)).
+- Migrations run through 0076 (reported by the project owner after deploying 9b856358; the matching rules of migrations 0070 to 0076 are therefore live on this server and still need observation). The server runs the matching, cover art and genre workers ([background workers](architecture.md#background-workers)).
 - This is a local deployment. It is not a public release, and the VPS deployment is separate ([VPS](vps-deployment.md)).
 - On 2026-10-31 the local Spotify plugin container was rebuilt from `docker/plugin.Dockerfile` (image `hito-plugin-spotify:artwork-3bb07e3b`; the previous container is kept stopped as `hito-plugin-spotify-1-pre-artwork`). The listener accepted the artwork capability, and real Spotify album covers then appeared on the Albums page.
 - Older sections below still say "not deployed" or "migration 0046" for work that now runs locally. They are dated evidence from when they were written.

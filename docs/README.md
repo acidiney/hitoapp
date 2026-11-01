@@ -2,7 +2,7 @@
 
 This page lists every document in `docs/` once, by topic. For the repository layout, see the [root README](../README.md). Each document says whether it describes current behavior, tested evidence, planned work or an external dependency.
 
-Everything here describes a local development state. No document describes a public release. The local server runs migrations through 0069.
+Everything here describes a local development state. No document describes a public release. The local server runs migrations through 0076.
 
 ## Scope and status
 
