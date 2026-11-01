@@ -267,6 +267,36 @@ fn canonical_id(value: &str) -> Result<(), Error> {
     }
 }
 
+pub(super) fn credited_recording(bytes: &[u8], id: &str) -> Result<IsrcRecording, Error> {
+    let recording: Recording = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    if recording.id != id {
+        return Err(Error::InvalidLookup);
+    }
+    credited(recording)
+}
+
+fn credited(recording: Recording) -> Result<IsrcRecording, Error> {
+    canonical_id(&recording.id)?;
+    if recording.credit.len() > MAX_CREDIT_MEMBERS {
+        return Err(Error::InvalidLookup);
+    }
+    let mut artist_ids: Vec<String> = Vec::new();
+    for member in recording.credit {
+        canonical_id(&member.artist.id)?;
+        if !artist_ids.contains(&member.artist.id) {
+            artist_ids.push(member.artist.id);
+        }
+    }
+    Ok(IsrcRecording {
+        id: recording.id,
+        artist_ids,
+    })
+}
+
+pub(super) fn valid_recording(id: &str) -> bool {
+    canonical_id(id).is_ok()
+}
+
 pub(super) fn isrc_recordings(bytes: &[u8], isrc: &str) -> Result<Vec<IsrcRecording>, Error> {
     let lookup: IsrcLookup = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
     if lookup
@@ -283,20 +313,10 @@ pub(super) fn isrc_recordings(bytes: &[u8], isrc: &str) -> Result<Vec<IsrcRecord
         .into_iter()
         .map(|recording| {
             canonical_id(&recording.id)?;
-            if !seen.insert(recording.id.clone()) || recording.credit.len() > MAX_CREDIT_MEMBERS {
+            if !seen.insert(recording.id.clone()) {
                 return Err(Error::InvalidLookup);
             }
-            let mut artist_ids: Vec<String> = Vec::new();
-            for member in recording.credit {
-                canonical_id(&member.artist.id)?;
-                if !artist_ids.contains(&member.artist.id) {
-                    artist_ids.push(member.artist.id);
-                }
-            }
-            Ok(IsrcRecording {
-                id: recording.id,
-                artist_ids,
-            })
+            credited(recording)
         })
         .collect()
 }

@@ -240,3 +240,92 @@ async fn an_unlinked_url_is_empty_an_outage_is_typed_and_unsafe_urls_make_no_req
     assert_eq!(fixture.request_count(), 0);
     fixture.close().await;
 }
+
+async fn recording_artists(
+    reply: Reply,
+    id: &str,
+) -> (Result<Option<IsrcRecording>, Error>, Capture, Vec<String>) {
+    let fixture = Fixture::start(vec![reply]).await;
+    let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
+    let capture = Capture::default();
+    let result = client
+        .recording_artists(id)
+        .with_subscriber(capture.dispatch())
+        .await;
+    let requests = fixture.requests().iter().map(ToString::to_string).collect();
+    fixture.close().await;
+    (result, capture, requests)
+}
+
+fn single(id: &str, artists: &[&str]) -> Reply {
+    Reply::json(serde_json::to_vec(&recording(id, artists)).unwrap())
+}
+
+#[tokio::test]
+async fn a_recording_lookup_returns_its_distinct_credited_artists_without_logging_identifiers() {
+    let (result, capture, requests) =
+        recording_artists(single(RECORDING, &[ARTIST, FEATURED, ARTIST]), RECORDING).await;
+    assert_eq!(
+        result.unwrap(),
+        Some(IsrcRecording {
+            id: RECORDING.into(),
+            artist_ids: vec![ARTIST.into(), FEATURED.into()],
+        })
+    );
+    assert_eq!(
+        requests,
+        vec![format!(
+            "/ws/2/recording/{RECORDING}?fmt=json&inc=artist-credits"
+        )]
+    );
+    let logs = capture.text();
+    assert!(logs.contains("MusicBrainz recording lookup completed"));
+    for private in [RECORDING, ARTIST, PRIVATE_TITLE] {
+        assert!(!logs.contains(private), "logs must not carry {private}");
+    }
+}
+
+#[tokio::test]
+async fn an_unknown_recording_is_none_an_outage_is_typed_and_a_different_recording_is_invalid() {
+    let mut missing = Reply::json(br#"{"error":"Not Found"}"#.to_vec());
+    missing.status = StatusCode::NOT_FOUND;
+    assert_eq!(recording_artists(missing, RECORDING).await.0.unwrap(), None);
+    let mut outage = Reply::json(b"busy".to_vec());
+    outage.status = StatusCode::SERVICE_UNAVAILABLE;
+    let (result, _, requests) = recording_artists(outage, RECORDING).await;
+    assert_eq!(result.unwrap_err(), Error::Status(503));
+    assert_eq!(requests.len(), 1);
+    assert_eq!(
+        recording_artists(single(OTHER_RECORDING, &[ARTIST]), RECORDING)
+            .await
+            .0
+            .unwrap_err(),
+        Error::InvalidLookup
+    );
+    assert_eq!(
+        recording_artists(single(RECORDING, &["nope"]), RECORDING)
+            .await
+            .0
+            .unwrap_err(),
+        Error::InvalidLookup
+    );
+}
+
+#[tokio::test]
+async fn a_noncanonical_recording_identifier_makes_no_request() {
+    let fixture = Fixture::start(vec![]).await;
+    let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
+    for invalid in [
+        "0F700000-0000-4000-8000-0000000000A1",
+        "00000000-0000-0000-0000-000000000000",
+        "not-an-id",
+        "0f700000-0000-4000-8000-0000000000a1/x",
+    ] {
+        assert_eq!(
+            client.recording_artists(invalid).await.unwrap_err(),
+            Error::InvalidLookupRequest
+        );
+    }
+    assert_eq!(fixture.request_count(), 0);
+    fixture.close().await;
+}

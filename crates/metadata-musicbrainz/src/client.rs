@@ -225,6 +225,36 @@ impl MusicBrainzClient {
         result
     }
 
+    /// Looks up one recording by its MusicBrainz identifier and returns the distinct artists in
+    /// its credit. An unknown recording is `None`.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "recording_lookup", request_id = tracing::field::Empty))]
+    pub async fn recording_artists(&self, id: &str) -> Result<Option<IsrcRecording>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::valid_recording(id) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.recording_credits(id).await {
+                Ok(bytes) => identifiers::credited_recording(&bytes, id).map(Some),
+                Err(Error::Status(404)) => Ok(None),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz recording lookup completed"
+        );
+        result
+    }
+
     /// Asks which of up to six library recordings an artist has: each probe names a title and the
     /// range its length may fall in. The answer lists the artist's recordings that match any
     /// probe and says whether the page holds all of them; the caller compares titles and lengths.
