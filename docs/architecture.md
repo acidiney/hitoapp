@@ -135,8 +135,9 @@ Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every wor
 | --- | --- | --- |
 | Indexing | 1 | None. Reads granted music folders. |
 | Folder watching | 1 | None. |
+| Missing-recording retention | 1, on its own schedule | None. |
 | Artwork | 1 | Plugins that declare `artwork` (provider covers). |
-| Cover art | 1 | Cover Art Archive. |
+| Cover art | 1 | Cover Art Archive, MusicBrainz, Wikidata and Wikimedia Commons (artist photos), plugins that declare `artwork` (credited-artist photos). |
 | Artist matching | 1 | MusicBrainz (tags, ISRC, artist links, names, genres). |
 | Playlist follow | 4 | Plugins (playlist refresh). |
 | Downloads | 2, plus one reconcile loop | Plugins and managed storage. |
@@ -144,7 +145,28 @@ Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every wor
 | Podcast refresh | 2 | Feed hosts and enclosure hosts. |
 | Community reports | 1 | The community service, only when configured. |
 
-The diagram shows only the workers that call outside the host and the gate each call passes first. A gate is checked when work is claimed, so turning a choice off drops pending work without a request.
+The first diagram shows how a worker runs. `main.rs` calls `run` in `runtime.rs`, which calls `serve` and then `serve_owned`. That function starts every worker as a future joined with the HTTP listener and shares one stop signal. Every worker except the retention worker and folder watching runs inside `polling::run`. The retention worker keeps its own timer (first run after 120 seconds, then every six hours, or five seconds while more rows remain) and logs `retention_worker_started`. Folder watching is `LibraryStorage::watch_folders` and has its own loop.
+
+```mermaid
+flowchart LR
+  Main["main.rs: hito_server::run"] --> Run["runtime.rs: run, then serve"] --> Serve["runtime.rs: serve_owned"]
+  Serve --> Http["connections.rs: serve (HTTP listener)"]
+  Serve --> Poll["runtime/polling.rs: run (1 s tick, stop signal, started, polled, failed, stopped events)"]
+  Serve --> Ret["runtime/retention.rs: worker (own schedule)"]
+  Poll --> Idx["runtime/indexing.rs: worker"] --> IdxCore["LibraryStorage::run_next_job_until"]
+  Serve --> Watch["runtime/indexing.rs: folder_watching"] --> WatchCore["LibraryStorage::watch_folders"]
+  Ret --> RetCore["LibraryStorage::purge_expired_missing_recordings"]
+  Poll --> Art["runtime/artwork.rs: worker"] --> ArtCore["Catalog::run_next_artwork_job_until"]
+  Poll --> Cov["runtime/artwork.rs: cover_art_worker"] --> CovCore["Catalog::run_next_cover_art_lookup_until"]
+  Poll --> Mat["runtime/matching.rs: worker"] --> MatCore["ArtistCatalog::run_next_automatic_matching_until"]
+  Poll --> Fol["runtime/follows.rs: worker, 4 slots"] --> FolCore["Collection::run_next_follow_refresh_until"]
+  Poll --> Dl["runtime/downloads.rs: worker, 2 slots, and reconcile"] --> DlCore["Downloads::run_next_job_until and run_next_playlist_reconciliation_until"]
+  Poll --> Prep["runtime/source_preparation.rs: worker, 2 slots"] --> PrepCore["Catalog::run_next_source_preparation_until"]
+  Poll --> Pod["runtime/podcasts.rs: worker, 2 slots"] --> PodCore["Podcasts::run_next_refresh_until"]
+  Poll --> Com["runtime/community.rs: worker"] --> ComCore["Community::run_next_report_until"]
+```
+
+The second diagram shows only the workers that call outside the host and the gate each call passes first. A gate is checked when work is claimed, so turning a choice off drops pending work without a request.
 
 ```mermaid
 flowchart LR
@@ -164,6 +186,8 @@ flowchart LR
   end
   Matching --> Lookup --> MB["MusicBrainz: identifiers, ISRC codes, credit names"]
   CoverArt --> Artwork --> CAA["Cover Art Archive: MusicBrainz identifier only"]
+  Artwork --> Wiki["MusicBrainz, Wikidata, Wikimedia Commons: artist photos"]
+  CoverArt --> Grant
   ArtworkW --> Artwork
   ArtworkW --> Grant
   Prep --> Grant
@@ -178,6 +202,7 @@ What the gates mean:
 
 - **MusicBrainz.** The matching walk reads local file tags first and sends nothing for that pass. Later passes send ISRC codes, provider artist links and credit names, then MusicBrainz identifiers for genres. Every request goes through one limiter of one request per second. The choice defaults to on and sits in Settings, Privacy ([consent rules](artist-matching.md#automatic-matching-and-consent)).
 - **Cover Art Archive.** Only a MusicBrainz identifier leaves the host. Redirects may reach `archive.org` hosts only ([details](plugin-artwork.md#cover-art-archive)).
+- **Artist photos.** The cover art worker follows MusicBrainz, then Wikidata, then Wikimedia Commons, and sends only the artist's MusicBrainz identifier and the Wikidata and Commons names derived from it. For a credit that only a plugin knows, it asks the plugin instead ([details](plugin-artwork.md#artist-photos)). Every queueing path goes through one `enqueue` that checks the same artwork choice ([lookup flow](plugin-artwork.md#how-a-cover-lookup-runs)).
 - **Provider covers.** The artwork choice also decides whether reading an album cover queues a provider request. The plugin, not Hito, contacts the image host. The Spotify plugin accepts only the exact Spotify image hosts ([details](plugin-artwork.md#provider-covers-for-imported-albums)).
 - **Community.** Nothing is sent unless the account opted in and the host has the community origin and token ([community service](community-service.md)).
 - **Plugins.** Core relays only to installations the account approved, checks live authority again, and never logs titles, search terms or URLs.
@@ -456,6 +481,8 @@ flowchart LR
   Reader --> Folder[Regular neighboring cover file]
   Route --> Response[Private no-store image response]
 ```
+
+Covers and photos that come from outside the host use a separate queue. [How a cover lookup runs](plugin-artwork.md#how-a-cover-lookup-runs) has the diagram from the browser route to the artwork store.
 
 Artwork stays behind the core's filesystem authorization. The private reader modules own metadata read budgets, safe regular-file opens, and raster signatures. Reader permits remain held inside blocking work even if the HTTP future is canceled. Missing artwork uses a neutral UI fallback. There is no third-party image request or generated catalog content.
 
