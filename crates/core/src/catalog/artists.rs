@@ -12,6 +12,8 @@ pub struct Artist {
     pub release_count: i64,
     pub recording_count: i64,
     pub artwork_recording_id: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub provider_photo: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -21,7 +23,7 @@ pub struct ArtistDetail {
     pub recordings: Page<Recording>,
 }
 
-const SUMMARY: &str = "), associations AS (
+const SUMMARY_HEAD: &str = "), associations AS (
     SELECT c.user_id, c.id AS artist_id, appearance.release_id FROM selected c
     CROSS JOIN account_artist_releases appearance ON appearance.user_id = c.user_id AND appearance.artist_id = c.id
 ), counts AS (
@@ -33,7 +35,10 @@ const SUMMARY: &str = "), associations AS (
      WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1),
     (SELECT appearance.recording_id FROM provider_release_appearances appearance
      WHERE appearance.release_id = c.cover_release ORDER BY appearance.recording_id LIMIT 1),
-    (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id
+    (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id,
+    ";
+
+const SUMMARY_TAIL: &str = " AS provider_photo
     FROM counts c ORDER BY c.name COLLATE NOCASE, c.id";
 
 const ACCOUNT_ARTIST: CreditAlias = CreditAlias::new("c");
@@ -121,6 +126,8 @@ fn selected(actor: &Actor, browse: &Browse, id: Option<&str>) -> Result<ChosenRe
             .push(" OFFSET ")
             .push_bind(offset);
     }
-    query.push(SUMMARY);
+    query.push(SUMMARY_HEAD);
+    query.push(super::artwork::credited_artist_photo_exists("c"));
+    query.push(SUMMARY_TAIL);
     Ok(query)
 }

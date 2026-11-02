@@ -20,7 +20,22 @@ pub const RECORDING_COVER: &[u8] = super::covers::COVER_A;
 pub const RELEASE_COVER: &[u8] = super::covers::COVER_B;
 pub const PLAYLIST_COVER: &[u8] = super::covers::PLAYLIST_COVER;
 pub const PLAYLIST_ID: &str = "playlist/owned-artwork";
+pub const ARTIST_ID: &str = "owned-artist-0001";
+pub const ARTIST_PHOTO: &[u8] = super::covers::PLAYLIST_COVER;
 const SNAPSHOT: &str = "owned-artwork-snapshot";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ArtistKind {
+    NotCredited,
+    Served,
+    Refused,
+}
+
+#[derive(Clone)]
+struct Shared {
+    requests: Arc<Mutex<Vec<ArtworkRequest>>>,
+    artists: ArtistKind,
+}
 
 pub struct ArtworkServer {
     pub url: String,
@@ -31,14 +46,18 @@ pub struct ArtworkServer {
 
 impl ArtworkServer {
     pub async fn start() -> Self {
-        Self::configured(true).await
+        Self::configured(true, ArtistKind::NotCredited).await
     }
 
     pub async fn start_without_artwork() -> Self {
-        Self::configured(false).await
+        Self::configured(false, ArtistKind::NotCredited).await
     }
 
-    async fn configured(artwork_enabled: bool) -> Self {
+    pub async fn start_with_credited_artist(artists: ArtistKind) -> Self {
+        Self::configured(true, artists).await
+    }
+
+    async fn configured(artwork_enabled: bool, artists: ArtistKind) -> Self {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let artwork_enabled = Arc::new(AtomicBool::new(artwork_enabled));
         let manifest_artwork = artwork_enabled.clone();
@@ -50,7 +69,10 @@ impl ArtworkServer {
             .route("/v1/playlists/detail", post(playlist_detail))
             .route("/v1/playlists/items", post(playlist_items))
             .route("/v1/artwork", post(artwork))
-            .with_state(requests.clone());
+            .with_state(Shared {
+                requests: requests.clone(),
+                artists,
+            });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}/", listener.local_addr().unwrap());
         let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
@@ -123,16 +145,25 @@ async fn playlist_detail(Json(request): Json<PlaylistDetailRequest>) -> Json<Val
     }))
 }
 
-async fn playlist_items(Json(request): Json<PlaylistItemsRequest>) -> Json<Value> {
+async fn playlist_items(
+    State(shared): State<Shared>,
+    Json(request): Json<PlaylistItemsRequest>,
+) -> Json<Value> {
     request.validate().unwrap();
     assert_eq!(request.playlist_id, PLAYLIST_ID);
     assert_eq!(request.snapshot, SNAPSHOT);
     assert!(request.cursor.is_none());
-    let item = json!({"kind": "recording", "recording": {
+    let mut recording = json!({
         "id": RECORDING_ID, "title": "Observed recording", "artist": "Observed performer",
         "duration_ms": 123_000, "revision": "owned-recording-revision",
         "release": {"id": RELEASE_ID, "title": "Observed album"}
-    }});
+    });
+    if shared.artists != ArtistKind::NotCredited {
+        recording["artists"] = json!([{
+            "name": "Observed performer", "role": "main", "provider_artist_id": ARTIST_ID
+        }]);
+    }
+    let item = json!({"kind": "recording", "recording": recording});
     Json(json!({
         "playlist_id": PLAYLIST_ID, "snapshot": SNAPSHOT, "next_cursor": null,
         "items": [
@@ -142,12 +173,15 @@ async fn playlist_items(Json(request): Json<PlaylistItemsRequest>) -> Json<Value
     }))
 }
 
-async fn artwork(
-    State(requests): State<Arc<Mutex<Vec<ArtworkRequest>>>>,
-    Json(request): Json<ArtworkRequest>,
-) -> Response {
+async fn artwork(State(shared): State<Shared>, Json(request): Json<ArtworkRequest>) -> Response {
     request.validate().unwrap();
+    if request.entity == ArtworkEntity::Artist && shared.artists == ArtistKind::Refused {
+        shared.requests.lock().await.push(request);
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let requests = shared.requests;
     let bytes = match request.entity {
+        ArtworkEntity::Artist if request.provider_id == ARTIST_ID => ARTIST_PHOTO,
         ArtworkEntity::Recording if request.provider_id == RECORDING_ID => RECORDING_COVER,
         ArtworkEntity::Release if request.provider_id == RELEASE_ID => RELEASE_COVER,
         ArtworkEntity::Playlist if request.provider_id == PLAYLIST_ID => PLAYLIST_COVER,

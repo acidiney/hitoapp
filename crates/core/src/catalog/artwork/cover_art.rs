@@ -1,4 +1,4 @@
-use super::{Artwork, Catalog, assets};
+use super::{Artwork, Catalog, assets, credited_artist};
 use crate::{Actor, Error, Result, plugins::ProviderArtwork};
 use hito_metadata_musicbrainz::CoverKind;
 use sqlx::{FromRow, SqliteConnection};
@@ -16,6 +16,7 @@ pub enum CoverArtKind {
     Release,
     ReleaseGroup,
     Artist,
+    CreditedArtist,
 }
 
 impl CoverArtKind {
@@ -24,8 +25,13 @@ impl CoverArtKind {
             "release" => Some(Self::Release),
             "release-group" => Some(Self::ReleaseGroup),
             "artist" => Some(Self::Artist),
+            "credited-artist" => Some(Self::CreditedArtist),
             _ => None,
         }
+    }
+
+    fn is_artist_photo(self) -> bool {
+        matches!(self, Self::Artist | Self::CreditedArtist)
     }
 
     fn stored(self) -> &'static str {
@@ -33,6 +39,7 @@ impl CoverArtKind {
             Self::Release => "release",
             Self::ReleaseGroup => "release_group",
             Self::Artist => "artist",
+            Self::CreditedArtist => "credited_artist",
         }
     }
 
@@ -41,6 +48,7 @@ impl CoverArtKind {
             "release" => Ok(Self::Release),
             "release_group" => Ok(Self::ReleaseGroup),
             "artist" => Ok(Self::Artist),
+            "credited_artist" => Ok(Self::CreditedArtist),
             _ => Err(Error::Internal("Stored cover art kind is invalid".into())),
         }
     }
@@ -62,9 +70,16 @@ struct Lookup {
     attempts: i64,
 }
 
-fn canonical(mbid: &str) -> Result<()> {
-    match Uuid::parse_str(mbid) {
-        Ok(id) if id.hyphenated().to_string() == mbid => Ok(()),
+fn identifier(kind: CoverArtKind, id: &str) -> Result<()> {
+    if kind == CoverArtKind::CreditedArtist {
+        return if credited_artist::valid_identifier(id) {
+            Ok(())
+        } else {
+            Err(Error::Invalid("Use an artist identifier".into()))
+        };
+    }
+    match Uuid::parse_str(id) {
+        Ok(parsed) if parsed.hyphenated().to_string() == id => Ok(()),
         _ => Err(Error::Invalid("Use a MusicBrainz identifier".into())),
     }
 }
@@ -75,8 +90,15 @@ pub(crate) async fn enqueue(
     kind: CoverArtKind,
     mbid: &str,
 ) -> Result<()> {
-    canonical(mbid)?;
+    identifier(kind, mbid)?;
     if !super::availability::automatic_artwork_allowed(connection, account).await? {
+        return Ok(());
+    }
+    if kind == CoverArtKind::CreditedArtist
+        && credited_artist::target(connection, account, mbid)
+            .await?
+            .is_none()
+    {
         return Ok(());
     }
     let pending: i64 = sqlx::query_scalar(
@@ -88,9 +110,9 @@ pub(crate) async fn enqueue(
     if pending >= MAX_PENDING_PER_ACCOUNT {
         return Ok(());
     }
-    if kind == CoverArtKind::Artist {
+    if kind.is_artist_photo() {
         let pending_artists: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND kind = 'artist' AND state IN ('queued','running')",
+            "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND kind IN ('artist','credited_artist') AND state IN ('queued','running')",
         )
         .bind(account)
         .fetch_one(&mut *connection)
@@ -122,7 +144,7 @@ impl Catalog {
         kind: CoverArtKind,
         mbid: &str,
     ) -> Result<CoverArtLookup> {
-        canonical(mbid)?;
+        identifier(kind, mbid)?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row: Option<(String, Option<String>, bool)> = sqlx::query_as(
@@ -138,7 +160,7 @@ impl Catalog {
             None => CoverArtLookup::Unknown,
             Some((state, hash, aged)) => match (state.as_str(), hash) {
                 ("ready", Some(_))
-                    if kind == CoverArtKind::Artist
+                    if kind.is_artist_photo()
                         && !super::availability::automatic_artwork_allowed(&mut tx, actor.id())
                             .await? =>
                 {
@@ -154,7 +176,7 @@ impl Catalog {
                     .await?;
                     CoverArtLookup::Ready(assets::stored(asset)?)
                 }
-                ("missing" | "unavailable", _) if aged && kind == CoverArtKind::Artist => {
+                ("missing" | "unavailable", _) if aged && kind.is_artist_photo() => {
                     CoverArtLookup::Unknown
                 }
                 ("missing", _) => CoverArtLookup::Missing,
@@ -164,20 +186,26 @@ impl Catalog {
         };
         tx.commit().await?;
         actor.check_session(&self.store).await?;
-        if matches!(found, CoverArtLookup::Unknown) && kind == CoverArtKind::Artist {
-            return self.queue_artist_photo(actor, mbid).await;
+        if matches!(found, CoverArtLookup::Unknown) && kind.is_artist_photo() {
+            return self.queue_artist_photo(actor, kind, mbid).await;
         }
         Ok(found)
     }
 
-    async fn queue_artist_photo(&self, actor: &Actor, mbid: &str) -> Result<CoverArtLookup> {
+    async fn queue_artist_photo(
+        &self,
+        actor: &Actor,
+        kind: CoverArtKind,
+        mbid: &str,
+    ) -> Result<CoverArtLookup> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
-        enqueue(&mut tx, actor.id(), CoverArtKind::Artist, mbid).await?;
+        enqueue(&mut tx, actor.id(), kind, mbid).await?;
         let queued: Option<String> = sqlx::query_scalar(
-            "SELECT state FROM cover_art_lookups WHERE user_id = ? AND kind = 'artist' AND mbid = ?",
+            "SELECT state FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
         )
         .bind(actor.id())
+        .bind(kind.stored())
         .bind(mbid)
         .fetch_optional(&mut *tx)
         .await?;
@@ -279,14 +307,10 @@ impl Catalog {
                 tracing::info!(event = "cover_art_interrupted", "Cover art lookup interrupted");
                 return Ok(true);
             }
-            fetched = self.fetch_cover(kind, &lookup.mbid) => fetched,
+            fetched = self.fetch_cover(kind, &lookup) => fetched,
         };
         let outcome = match fetched {
-            Ok(Some(cover)) => {
-                let remote = ProviderArtwork {
-                    content_type: cover.content_type,
-                    bytes: cover.bytes,
-                };
+            Ok(Some(remote)) => {
                 match tokio::task::spawn_blocking(move || assets::decode(remote))
                     .await
                     .map_err(|_| Error::Internal("Cover art validation stopped".into()))?
@@ -333,16 +357,28 @@ impl Catalog {
     async fn fetch_cover(
         &self,
         kind: CoverArtKind,
-        mbid: &str,
-    ) -> std::result::Result<
-        Option<hito_metadata_musicbrainz::CoverArt>,
-        hito_metadata_musicbrainz::Error,
-    > {
-        match kind {
+        lookup: &Lookup,
+    ) -> std::result::Result<Option<ProviderArtwork>, String> {
+        let mbid = &lookup.mbid;
+        let cover = match kind {
             CoverArtKind::Release => self.cover_art.front(CoverKind::Release, mbid).await,
             CoverArtKind::ReleaseGroup => self.cover_art.front(CoverKind::ReleaseGroup, mbid).await,
             CoverArtKind::Artist => self.artist_image.photo(mbid).await,
-        }
+            CoverArtKind::CreditedArtist => {
+                return self
+                    .credited_artist_photo(&lookup.user_id, mbid)
+                    .await
+                    .map_err(|error| error.to_string());
+            }
+        };
+        cover
+            .map(|cover| {
+                cover.map(|cover| ProviderArtwork {
+                    content_type: cover.content_type,
+                    bytes: cover.bytes,
+                })
+            })
+            .map_err(|error| error.to_string())
     }
 
     async fn claim_cover_lookup(&self) -> Result<Option<Lookup>> {
