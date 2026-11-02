@@ -8,6 +8,8 @@ export function plural(count: number, one: string, many: string) {
 }
 
 export function candidateDetails(candidate: Candidate) {
+  if (candidate.origin === "chosen_artist")
+    return `Same artist as ${candidate.name} · you already chose this artist for another credit`;
   const parts = [
     candidate.disambiguation,
     candidate.kind,

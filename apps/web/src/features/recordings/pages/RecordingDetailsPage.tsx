@@ -6,6 +6,7 @@ import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import MetadataEditor from "../../metadata/components/MetadataEditor";
 import MetadataObservations from "../../metadata/components/MetadataObservations";
 import ArtistReview from "../../artists/components/ArtistReview";
+import { opensArtistSearch } from "../../artists/model/artistSearchLink";
 import RecordingCredits from "../../metadata/components/RecordingCredits";
 import SourceAvailability from "../../sources/components/SourceAvailability";
 import SourceAttachment from "../../sources/components/SourceAttachment";
@@ -97,6 +98,7 @@ export default function RecordingDetailsPage({
             ])}
             account={user.id}
             detail={detail}
+            openSearch={opensArtistSearch(window.location.search)}
           />
         </div>
         <aside className="rd-side" aria-label="Playback, download and lyrics">

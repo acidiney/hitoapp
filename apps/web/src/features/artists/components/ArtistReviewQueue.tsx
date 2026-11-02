@@ -1,3 +1,4 @@
+import { Link } from "@inertiajs/react";
 import { useId } from "react";
 import Button from "../../../shared/ui/Button";
 import { useArtistReviewQueue } from "../hooks/useArtistReviewQueue";
@@ -6,6 +7,7 @@ import {
   candidateLabel,
   plural,
 } from "../model/reviewCandidateText";
+import { artistSearchHref } from "../model/artistSearchLink";
 import ArtistDismissedReviews from "./ArtistDismissedReviews";
 
 export default function ArtistReviewQueue({
@@ -39,8 +41,9 @@ export default function ArtistReviewQueue({
               </h2>
             </summary>
             <p className="muted">
-              Hito could not tell these artists apart on its own. Confirming
-              applies the artist to the undecided tracks of that credit.
+              Hito could not decide these credits on its own. Confirming an
+              artist applies it to the tracks of that credit that have no artist
+              yet. Search finds an artist by name.
             </p>
             {error && (
               <p className="review-queue-error" role="alert">
@@ -62,6 +65,20 @@ export default function ArtistReviewQueue({
                         {plural(item.undecided_tracks, "track", "tracks")}
                       </small>
                     </div>
+                    {item.needs_search && (
+                      <div className="review-queue-nomatch">
+                        <span>No match found automatically</span>
+                        {item.search_recording_id && (
+                          <Link
+                            className="button secondary"
+                            href={artistSearchHref(item.search_recording_id)}
+                            aria-label={`Search for ${item.name}`}
+                          >
+                            Search
+                          </Link>
+                        )}
+                      </div>
+                    )}
                     <ul className="review-queue-candidates">
                       {item.candidates.map((candidate) => (
                         <li
@@ -86,13 +103,15 @@ export default function ArtistReviewQueue({
                         </li>
                       ))}
                     </ul>
-                    <Button
-                      disabled={pending !== null}
-                      aria-label={`None of these for ${item.name}`}
-                      onClick={() => void dismiss(item.artist_id, null)}
-                    >
-                      None of these
-                    </Button>
+                    {!item.needs_search && (
+                      <Button
+                        disabled={pending !== null}
+                        aria-label={`None of these for ${item.name}`}
+                        onClick={() => void dismiss(item.artist_id, null)}
+                      >
+                        None of these
+                      </Button>
+                    )}
                   </li>
                 );
               })}

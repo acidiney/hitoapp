@@ -35,9 +35,11 @@ const kinds = {
 export default function ArtistReview({
   account,
   detail,
+  openSearch = false,
 }: {
   account: string;
   detail: Schema<"RecordingMetadata">;
+  openSearch?: boolean;
 }) {
   const workflow = useArtistReview(account, detail);
   const reviewed =
@@ -66,7 +68,13 @@ export default function ArtistReview({
     changes.reload,
     () => void workflow.refreshAssociations(),
   );
-  const [panel, setPanel] = useState(false);
+  const [panel, setPanel] = useState(openSearch);
+  const requested = useRef(false);
+  useEffect(() => {
+    if (!openSearch || requested.current) return;
+    requested.current = true;
+    void workflow.open();
+  });
   const panelId = useId();
   const panelHeading = useRef<HTMLHeadingElement>(null);
   const panelOpen = panel && workflow.loaded;

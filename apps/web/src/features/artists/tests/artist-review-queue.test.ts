@@ -1,9 +1,13 @@
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const { reload } = vi.hoisted(() => ({ reload: vi.fn() }));
-vi.mock("@inertiajs/react", () => ({ router: { reload } }));
+vi.mock("@inertiajs/react", () => ({
+  router: { reload },
+  Link: ({ href, children, ...rest }: { href: string; children: ReactNode }) =>
+    createElement("a", { href, ...rest }, children),
+}));
 
 import ArtistReviewQueue from "../components/ArtistReviewQueue";
 
@@ -21,6 +25,7 @@ type Candidate = {
   country: string | null;
   corroborated_titles: number;
   in_library: boolean;
+  origin: "name_search" | "chosen_artist";
 };
 
 function candidate(over: Partial<Candidate> = {}): Candidate {
@@ -32,6 +37,7 @@ function candidate(over: Partial<Candidate> = {}): Candidate {
     country: "PT",
     corroborated_titles: 1,
     in_library: false,
+    origin: "name_search",
     ...over,
   };
 }
@@ -41,6 +47,8 @@ function item(id = "credit-1", over: Record<string, unknown> = {}) {
     artist_id: id,
     name: "Nova Quartet",
     undecided_tracks: 4,
+    needs_search: false,
+    search_recording_id: null,
     candidates: [
       candidate(),
       candidate({
@@ -53,6 +61,23 @@ function item(id = "credit-1", over: Record<string, unknown> = {}) {
     ],
     ...over,
   };
+}
+
+function edited() {
+  return item("credit-3", {
+    name: "nova quartet",
+    undecided_tracks: 1,
+    candidates: [
+      candidate({
+        kind: null,
+        disambiguation: null,
+        country: null,
+        corroborated_titles: 0,
+        in_library: true,
+        origin: "chosen_artist",
+      }),
+    ],
+  });
 }
 
 function page(items: unknown[]) {
@@ -398,5 +423,76 @@ test("credits past the first page of the queue are reachable with Show more", as
   await screen.findByText("Second Credit");
   expect(vi.mocked(fetch).mock.calls.map(([path]) => path)).toContain(
     `${QUEUE}&offset=1`,
+  );
+});
+
+test("a credit without candidates says no match was found and offers a Search link to the artist search", async () => {
+  serve(
+    [
+      () =>
+        page([
+          item("credit-2", {
+            name: "Solo Act",
+            undecided_tracks: 2,
+            needs_search: true,
+            search_recording_id: "rec-9",
+            candidates: [],
+          }),
+        ]),
+    ],
+    () => new Response(null),
+  );
+  show();
+  await open();
+  expect(screen.getByText("No match found automatically")).toBeTruthy();
+  const search = screen.getByRole("link", { name: "Search for Solo Act" });
+  expect(search.getAttribute("href")).toBe("/recordings/rec-9?review=artist");
+  expect(screen.getByText("2 tracks")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /None of these/ })).toBeNull();
+});
+
+test("a personally edited credit offers the artist the account already chose and confirms it in one click", async () => {
+  const posted = serve([() => page([edited()]), () => page([])], () =>
+    Response.json({
+      request_id: "r",
+      artist_id: "credit-3",
+      provider_artist_id: NOVA,
+      applied: 1,
+      kept: 0,
+      remaining: 0,
+    }),
+  );
+  show();
+  await open();
+  expect(screen.getByText(/Same artist as Nova Quartet/)).toBeTruthy();
+  expect(screen.queryByText("No match found automatically")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Nova Quartet, for nova quartet",
+    }),
+  );
+  await waitFor(() => expect(posted.length).toBe(1));
+  expect(posted[0].path).toBe(
+    "/api/v1/artist-matching/review-queue/credit-3/confirm",
+  );
+  expect(posted[0].body.provider_artist_id).toBe(NOVA);
+  await waitFor(() =>
+    expect(screen.queryByText(/Needs your confirmation/)).toBeNull(),
+  );
+});
+
+test("the same-artist offer can be declined with Not this artist", async () => {
+  const posted = serve([() => page([edited()]), () => page([])], () =>
+    Response.json({ artist_id: "credit-3", dismissed: 1 }),
+  );
+  show();
+  await open();
+  fireEvent.click(
+    screen.getByRole("button", { name: "None of these for nova quartet" }),
+  );
+  await waitFor(() => expect(posted.length).toBe(1));
+  expect(posted[0].path).toBe(
+    "/api/v1/artist-matching/review-queue/credit-3/dismiss",
   );
 });
