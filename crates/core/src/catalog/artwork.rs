@@ -8,6 +8,7 @@ mod cover_art;
 mod credited_artist;
 mod jobs;
 mod lease;
+mod lookups;
 mod playlist;
 mod reader;
 mod release;

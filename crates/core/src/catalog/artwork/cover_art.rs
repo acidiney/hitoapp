@@ -1,4 +1,7 @@
-use super::{Artwork, Catalog, assets, credited_artist};
+use super::{
+    Artwork, Catalog, assets, credited_artist,
+    lookups::{self, LookupState, RETRY_AFTER_SECONDS},
+};
 use crate::{Actor, Error, Result, plugins::ProviderArtwork};
 use hito_metadata_musicbrainz::CoverKind;
 use sqlx::{FromRow, SqliteConnection};
@@ -9,7 +12,6 @@ const MAX_PENDING_PER_ACCOUNT: i64 = 64;
 const MAX_PENDING_ARTISTS_PER_ACCOUNT: i64 = 32;
 const MAX_ATTEMPTS: i64 = 4;
 const LEASE_SECONDS: i64 = 60;
-const RETRY_AFTER_SECONDS: i64 = 86_400;
 const BUSY_RETRY_SECONDS: i64 = 5;
 
 pub(super) enum Fetch {
@@ -37,11 +39,11 @@ impl CoverArtKind {
         }
     }
 
-    fn is_artist_photo(self) -> bool {
+    pub(super) fn is_artist_photo(self) -> bool {
         matches!(self, Self::Artist | Self::CreditedArtist)
     }
 
-    fn stored(self) -> &'static str {
+    pub(super) fn stored(self) -> &'static str {
         match self {
             Self::Release => "release",
             Self::ReleaseGroup => "release_group",
@@ -155,53 +157,7 @@ impl Catalog {
         identifier(kind, mbid)?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let row: Option<(String, Option<String>, bool)> = sqlx::query_as(
-            "SELECT state,content_hash,updated_at < unixepoch() - ? FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
-        )
-        .bind(RETRY_AFTER_SECONDS)
-        .bind(actor.id())
-        .bind(kind.stored())
-        .bind(mbid)
-        .fetch_optional(&mut *tx)
-        .await?;
-        let still_credited = if kind == CoverArtKind::CreditedArtist
-            && row.as_ref().is_some_and(|(state, _, _)| state == "ready")
-        {
-            credited_artist::target(&mut tx, actor.id(), mbid)
-                .await?
-                .is_some()
-        } else {
-            true
-        };
-        let found = match row {
-            None => CoverArtLookup::Unknown,
-            Some((state, hash, aged)) => match (state.as_str(), hash) {
-                ("ready", Some(_)) if !still_credited => CoverArtLookup::Unknown,
-                ("ready", Some(_))
-                    if kind.is_artist_photo()
-                        && !super::availability::automatic_artwork_allowed(&mut tx, actor.id())
-                            .await? =>
-                {
-                    CoverArtLookup::Unknown
-                }
-                ("ready", Some(hash)) => {
-                    let asset: (String, Vec<u8>) = sqlx::query_as(
-                        "SELECT content_type,bytes FROM artwork_assets WHERE user_id = ? AND content_hash = ?",
-                    )
-                    .bind(actor.id())
-                    .bind(hash)
-                    .fetch_one(&mut *tx)
-                    .await?;
-                    CoverArtLookup::Ready(assets::stored(asset)?)
-                }
-                ("missing" | "unavailable", _) if aged && kind.is_artist_photo() => {
-                    CoverArtLookup::Unknown
-                }
-                ("missing", _) => CoverArtLookup::Missing,
-                ("unavailable", _) => CoverArtLookup::Unavailable,
-                _ => CoverArtLookup::Pending,
-            },
-        };
+        let found = lookups::lookup_status(&mut tx, actor.id(), kind, mbid).await?;
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         if matches!(found, CoverArtLookup::Unknown) && kind.is_artist_photo() {
@@ -219,17 +175,10 @@ impl Catalog {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         enqueue(&mut tx, actor.id(), kind, mbid).await?;
-        let queued: Option<String> = sqlx::query_scalar(
-            "SELECT state FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
-        )
-        .bind(actor.id())
-        .bind(kind.stored())
-        .bind(mbid)
-        .fetch_optional(&mut *tx)
-        .await?;
+        let queued = lookups::read(&mut tx, actor.id(), kind, mbid).await?;
         tx.commit().await?;
-        Ok(match queued.as_deref() {
-            Some("queued" | "running") => CoverArtLookup::Pending,
+        Ok(match queued {
+            Some(lookup) if lookup.state.is_pending() => CoverArtLookup::Pending,
             _ => CoverArtLookup::Unknown,
         })
     }
@@ -254,32 +203,16 @@ impl Catalog {
         let mut wanted = Vec::new();
         for (entity, mbid) in identifiers {
             let kind = CoverArtKind::from_stored(&entity)?;
-            let known: Option<(String, Option<String>, bool)> = sqlx::query_as(
-                "SELECT state,content_hash,updated_at < unixepoch() - ? FROM cover_art_lookups
-                 WHERE user_id = ? AND kind = ? AND mbid = ?",
-            )
-            .bind(RETRY_AFTER_SECONDS)
-            .bind(actor.id())
-            .bind(kind.stored())
-            .bind(&mbid)
-            .fetch_optional(&mut *tx)
-            .await?;
-            match known {
-                Some((_, Some(hash), _)) => {
-                    let asset: (String, Vec<u8>) = sqlx::query_as(
-                        "SELECT content_type,bytes FROM artwork_assets WHERE user_id = ? AND content_hash = ?",
-                    )
-                    .bind(actor.id())
-                    .bind(hash)
-                    .fetch_one(&mut *tx)
-                    .await?;
-                    found = Some(assets::stored(asset)?);
-                    break;
+            match lookups::read(&mut tx, actor.id(), kind, &mbid).await? {
+                Some(lookup) => {
+                    if let Some(hash) = lookup.hash {
+                        found = Some(assets::ready_asset(&mut tx, actor.id(), &hash).await?);
+                        break;
+                    }
+                    if lookup.state.is_answered_absent() && lookup.aged {
+                        wanted.push((kind, mbid));
+                    }
                 }
-                Some((state, None, true)) if state == "missing" || state == "unavailable" => {
-                    wanted.push((kind, mbid));
-                }
-                Some(_) => {}
                 None => wanted.push((kind, mbid)),
             }
         }
@@ -321,7 +254,7 @@ impl Catalog {
         let fetched = tokio::select! {
             biased;
             _ = shutdown => {
-                self.finish_cover_lookup(&lookup, "queued", None, 0, 0).await?;
+                self.finish_cover_lookup(&lookup, LookupState::Queued, None, 0, 0).await?;
                 tracing::info!(event = "cover_art_interrupted", "Cover art lookup interrupted");
                 return Ok(true);
             }
@@ -338,21 +271,27 @@ impl Catalog {
                         "ready"
                     }
                     Err(_) => {
-                        self.finish_cover_lookup(&lookup, "missing", None, lookup.attempts, 0)
-                            .await?;
+                        self.finish_cover_lookup(
+                            &lookup,
+                            LookupState::Missing,
+                            None,
+                            lookup.attempts,
+                            0,
+                        )
+                        .await?;
                         "invalid"
                     }
                 }
             }
             Ok(Fetch::Absent) => {
-                self.finish_cover_lookup(&lookup, "missing", None, 0, 0)
+                self.finish_cover_lookup(&lookup, LookupState::Missing, None, 0, 0)
                     .await?;
                 "absent"
             }
             Ok(Fetch::Deferred) => {
                 self.finish_cover_lookup(
                     &lookup,
-                    "queued",
+                    LookupState::Queued,
                     None,
                     lookup.attempts,
                     BUSY_RETRY_SECONDS,
@@ -363,11 +302,11 @@ impl Catalog {
             Err(error) => {
                 let attempts = lookup.attempts + 1;
                 if attempts >= MAX_ATTEMPTS {
-                    self.finish_cover_lookup(&lookup, "unavailable", None, attempts, 0)
+                    self.finish_cover_lookup(&lookup, LookupState::Unavailable, None, attempts, 0)
                         .await?;
                 } else {
                     let delay = 30i64 << attempts;
-                    self.finish_cover_lookup(&lookup, "queued", None, attempts, delay)
+                    self.finish_cover_lookup(&lookup, LookupState::Queued, None, attempts, delay)
                         .await?;
                 }
                 tracing::debug!(error = %error, "Cover art lookup failed");
@@ -442,7 +381,7 @@ impl Catalog {
     async fn finish_cover_lookup(
         &self,
         lookup: &Lookup,
-        state: &str,
+        state: LookupState,
         hash: Option<&str>,
         attempts: i64,
         delay: i64,
@@ -452,7 +391,7 @@ impl Catalog {
                 next_attempt_at = unixepoch() + ?,lease_until = NULL,updated_at = unixepoch()
              WHERE user_id = ? AND kind = ? AND mbid = ? AND state = 'running'",
         )
-        .bind(state)
+        .bind(state.stored())
         .bind(hash)
         .bind(attempts)
         .bind(delay)

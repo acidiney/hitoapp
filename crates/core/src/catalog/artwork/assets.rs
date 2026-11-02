@@ -128,18 +128,40 @@ impl Catalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         recording_access(&mut tx, actor, recording).await?;
-        let row: Option<(String, Vec<u8>)> = sqlx::query_as(
-            "SELECT asset.content_type,asset.bytes FROM recording_artwork retained
-             JOIN artwork_assets asset ON asset.user_id = retained.user_id AND asset.content_hash = retained.content_hash
+        let hash: Option<String> = sqlx::query_scalar(
+            "SELECT retained.content_hash FROM recording_artwork retained
              JOIN recordings r ON r.id = retained.recording_id
              JOIN libraries l ON l.id = r.library_id AND l.owner_id = retained.user_id
              WHERE retained.user_id = ? AND retained.recording_id = ?",
-        ).bind(actor.id()).bind(recording).fetch_optional(&mut *tx).await?;
+        )
+        .bind(actor.id())
+        .bind(recording)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let artwork = match hash {
+            Some(hash) => Some(ready_asset(&mut tx, actor.id(), &hash).await?),
+            None => None,
+        };
         tx.commit().await?;
         actor.check_session(&self.store).await?;
-        tracing::debug!(found = row.is_some(), "Retained recording artwork read");
-        row.map(stored).transpose()
+        tracing::debug!(found = artwork.is_some(), "Retained recording artwork read");
+        Ok(artwork)
     }
+}
+
+pub(super) async fn ready_asset(
+    connection: &mut SqliteConnection,
+    account: &str,
+    hash: &str,
+) -> Result<Artwork> {
+    let asset: (String, Vec<u8>) = sqlx::query_as(
+        "SELECT content_type,bytes FROM artwork_assets WHERE user_id = ? AND content_hash = ?",
+    )
+    .bind(account)
+    .bind(hash)
+    .fetch_one(connection)
+    .await?;
+    stored(asset)
 }
 
 pub(super) fn stored((content_type, bytes): (String, Vec<u8>)) -> Result<Artwork> {
