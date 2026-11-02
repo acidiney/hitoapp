@@ -23,6 +23,18 @@ Local development work, not a public release. Commits `176134c9` to `19c09287`. 
   - Isolated browser run at `19c09287`: 58 passed.
 - Two flaky tests were fixed. `featured::a_slow_budget_end_keeps_what_faster_providers_already_gave` had a real cause in production: connections created in the same second were listed in random order. It failed 5 of 30 runs under load before the fix and passed 30 of 30 after. The youtube shutdown test now waits on readiness signals and keeps a 30-second hang guard. It was never reproduced as failing, so that fix rests on a hypothesis.
 
+**Observation after the migration 0081 deployment (2026-11-02)**
+
+Read from a copy of the 05:26 backup of the local development server, taken just before the server restarted on migrations through 0081. The live database was not opened. The copy therefore shows the library as the deployment found it, not what the server did afterwards. The server logs at INFO and hold no matching or lookup events for the hours since.
+
+- Name matching: the 106-track "Ed Sheeran" credit has 106 matched tracks and 0 undecided (82 rule 2 name matches, 23 rule 3, 1 chosen by hand). Debug failure reasons were not recorded.
+- Review queue (rule 5): 7 credits hold stored candidates, 1 candidate each. 23 tracks were confirmed from candidates and there are 0 dismissals, so 0 credits are listed. 56 tracks of 24 other credits are undecided with no stored candidate.
+- "C4 Pedro" is still two account artists in two libraries. One track has a chosen identity; the other has a personal artist edit, which the walk skips.
+- Migration 0077: 0 recording groups and 0 splits in 592 recordings. There are no ISRC or MusicBrainz recording observations.
+- Migration 0078: 0 recordings with credited-artist observations and 0 collaboration credits. No Spotify import or follow refresh has run since the deployment.
+- Migration 0079: 1 follow, and it has an approved capabilities baseline. Its approved credential is empty because its installation holds no credential.
+- Cover lookups: 157 `release_group` rows (130 ready, 25 missing, 2 unavailable) and no `artist` or `credited_artist` rows, so no photo was queued, ready, missing or stuck in running. Photo queueing waits for a page read or a walk after the restart.
+
 ## 2026-10-29 to 2026-10-31 summary
 
 Local development work, not a public release. About 290 commits since `ea7c1365`.
