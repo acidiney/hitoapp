@@ -131,6 +131,12 @@ impl Reader {
         let path = path.to_owned();
         let span = tracing::Span::current();
         let operation = async move {
+            let drive = root
+                .read_slots
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|_| stopped())?;
             let permit = slots.acquire_owned().await.map_err(|_| stopped())?;
             let retirement = match retirement {
                 Some(scope) => Some(scope.acquire().await?),
@@ -138,6 +144,7 @@ impl Reader {
             };
             let (finished, result) = oneshot::channel();
             let _task = tokio::task::spawn_blocking(move || {
+                let _drive = drive;
                 let _permit = permit;
                 let _retirement = retirement;
                 let _entered = span.enter();

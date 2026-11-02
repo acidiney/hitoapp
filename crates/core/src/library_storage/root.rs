@@ -14,6 +14,7 @@ pub(crate) struct Root {
     pub directory: Arc<Dir>,
     pub(super) slots: Arc<Semaphore>,
     pub(super) walk_slots: Arc<Semaphore>,
+    pub(super) read_slots: Arc<Semaphore>,
 }
 
 impl Root {
@@ -24,6 +25,7 @@ impl Root {
             directory: Arc::new(directory),
             slots,
             walk_slots: Arc::new(Semaphore::new(1)),
+            read_slots: Arc::new(Semaphore::new(1)),
         }
     }
 
@@ -31,12 +33,14 @@ impl Root {
         path: &Path,
         slots: &Arc<Semaphore>,
         walk_slots: &Arc<Semaphore>,
+        read_slots: &Arc<Semaphore>,
         components: &[String],
     ) -> crate::Result<Self> {
         let path = path.to_owned();
         let components = components.to_owned();
         let root_slots = slots.clone();
         let walk_slots = walk_slots.clone();
+        let read_slots = read_slots.clone();
         super::blocking::run(slots.clone(), move |cancelled| {
             let path = path.canonicalize().map_err(|_| unavailable())?;
             super::blocking::check(cancelled)?;
@@ -62,6 +66,7 @@ impl Root {
                 directory: Arc::new(directory),
                 slots: root_slots,
                 walk_slots,
+                read_slots,
             })
         })
         .await

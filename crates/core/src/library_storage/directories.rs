@@ -26,6 +26,7 @@ pub(super) struct Grants {
 struct GrantSlots {
     operations: Arc<Semaphore>,
     walks: Arc<Semaphore>,
+    reads: Arc<Semaphore>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -135,6 +136,7 @@ impl Directories {
             &grant.root,
             &slots.operations,
             &slots.walks,
+            &slots.reads,
             &selection.components,
         )
         .await
@@ -223,6 +225,7 @@ impl GrantSlots {
         Self {
             operations: Arc::new(Semaphore::new(1)),
             walks: Arc::new(Semaphore::new(1)),
+            reads: Arc::new(Semaphore::new(1)),
         }
     }
 }

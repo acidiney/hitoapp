@@ -311,9 +311,15 @@ mod tests {
         std::fs::write(directory.path().join("a.wav"), b"x").unwrap();
         let slots = Arc::new(Semaphore::new(1));
         let walks = Arc::new(Semaphore::new(1));
-        let root = Root::open(directory.path(), &slots, &walks, &[])
-            .await
-            .unwrap();
+        let root = Root::open(
+            directory.path(),
+            &slots,
+            &walks,
+            &Arc::new(Semaphore::new(1)),
+            &[],
+        )
+        .await
+        .unwrap();
         let closed = Arc::new(Semaphore::new(1));
         closed.close();
         let settings = FolderWatchSettings {
@@ -343,9 +349,15 @@ mod tests {
         std::fs::write(directory.path().join("a.wav"), b"x").unwrap();
         let slots = Arc::new(Semaphore::new(1));
         let walks = Arc::new(Semaphore::new(1));
-        let root = Root::open(directory.path(), &slots, &walks, &[])
-            .await
-            .unwrap();
+        let root = Root::open(
+            directory.path(),
+            &slots,
+            &walks,
+            &Arc::new(Semaphore::new(1)),
+            &[],
+        )
+        .await
+        .unwrap();
         let (entered, wait_entered) = std::sync::mpsc::channel::<()>();
         let (release, wait_release) = std::sync::mpsc::channel::<()>();
         let wait_release = Mutex::new(wait_release);

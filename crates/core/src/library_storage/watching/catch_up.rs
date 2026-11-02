@@ -92,9 +92,15 @@ mod tests {
         }
         let slots = Arc::new(Semaphore::new(1));
         let walks = Arc::new(Semaphore::new(1));
-        let root = Root::open(directory.path(), &slots, &walks, &[])
-            .await
-            .unwrap();
+        let root = Root::open(
+            directory.path(),
+            &slots,
+            &walks,
+            &Arc::new(Semaphore::new(1)),
+            &[],
+        )
+        .await
+        .unwrap();
         let comparison = compare(&root, 0, HashMap::new(), 1);
         assert!(comparison.capped);
         assert!(comparison.changed);
