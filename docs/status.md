@@ -45,6 +45,11 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 - Tested evidence (Docker): see the totals the final report of this slice lists. RED logs: `red-cards-b.log` (card and discography DOM). The artist-photo core, HTTP and DOM cases were written with the implementation and have no separate RED log.
 - Not verified: live MusicBrainz, Wikidata and Commons, the built-in candidate photo in a browser (the end-to-end server cannot reach a MusicBrainz fake, so the browser case checks the personal-provider fallback), Safari and Firefox.
 
+**Photos for provider-credited artists, 2026-11-02 (source only: migration 0081 not applied to the running server, Spotify container not rebuilt)**
+
+- Artists that Hito knows only through a Spotify-imported playlist now get a photo. The plugin `artwork` capability has an `artist` request kind, the Spotify plugin serves it from the public artist embed page, and core queues one lookup per qualifying library credit through the existing cover lookup queue (migration 0081), behind **Fetch album artwork automatically** and the existing per-account caps. MusicBrainz and Wikidata stay first for a credit with a chosen MusicBrainz identity. Library credit cards and the credit page show the photo and fall back to the album cover. Details and evidence: [photos from a connected plugin](plugin-artwork.md#photos-from-a-connected-plugin), [Spotify artist photos](plugin-spotify.md#artist-photos), [migration 0081](database-maintenance.md#migration-0081-credited-artist-photos).
+- Unfinished: the chosen-artist cards and page (an identity group is not one credit) do not use the plugin photo; the live Spotify artist embed page was not observed; the running Spotify container must be rebuilt and the server migrated before anything shows; no browser check of the new cards was run.
+
 **Featured music on Discover, 2026-11-01 (source only: no migration, not deployed, plugin containers not rebuilt)**
 
 - Product direction: the app should find music by itself and always have something to play. Discover now has a "From your services" shelf that connected services fill, and every card plays with one click. Design reference: the prototype's "Em destaque", which the earlier Discover work listed as not built.
