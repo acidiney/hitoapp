@@ -65,6 +65,7 @@ pub(super) fn location(bytes: &[u8], request: &ArtworkRequest) -> Result<String,
     let bootstrap: Bootstrap = serde_json::from_str(script).map_err(|_| Error::InvalidResponse)?;
     let entity = bootstrap.props.page.state.data.entity;
     let kind = match request.entity {
+        ArtworkEntity::Artist => "artist",
         ArtworkEntity::Playlist => "playlist",
         ArtworkEntity::Recording => "track",
         ArtworkEntity::Release => "album",

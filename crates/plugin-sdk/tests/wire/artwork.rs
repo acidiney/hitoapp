@@ -8,6 +8,7 @@ use serde_json::json;
 fn artwork_requests_accept_only_typed_entity_ids() {
     assert_eq!(ARTWORK_PATH, "v1/artwork");
     for (wire, entity) in [
+        ("artist", ArtworkEntity::Artist),
         ("playlist", ArtworkEntity::Playlist),
         ("recording", ArtworkEntity::Recording),
         ("release", ArtworkEntity::Release),

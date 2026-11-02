@@ -139,6 +139,7 @@ async fn artwork_validation_binds_entities_and_uses_validated_image_bytes() {
         ("image query", ArtworkEntity::Recording, Variation::Query),
     ] {
         let kind = match entity {
+            ArtworkEntity::Artist => "artist",
             ArtworkEntity::Playlist => "playlist",
             ArtworkEntity::Recording => "track",
             ArtworkEntity::Release => "album",

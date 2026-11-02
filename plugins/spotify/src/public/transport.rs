@@ -47,6 +47,7 @@ impl Transport {
         id: &str,
     ) -> Result<Zeroizing<Vec<u8>>, Error> {
         let kind = match entity {
+            ArtworkEntity::Artist => "artist",
             ArtworkEntity::Playlist => "playlist",
             ArtworkEntity::Recording => "track",
             ArtworkEntity::Release => "album",
