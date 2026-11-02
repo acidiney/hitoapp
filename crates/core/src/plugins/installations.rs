@@ -26,7 +26,7 @@ impl Plugins {
         let mut tx = self.store.pool.begin().await?;
         let services = sqlx::query_as::<_, PluginService>("SELECT id,name,base_url,revision FROM plugin_services WHERE active = 1 ORDER BY name COLLATE NOCASE,id")
             .fetch_all(&mut *tx).await?;
-        let rows = sqlx::query("SELECT id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set FROM plugin_installations WHERE user_id = ? AND active = 1 ORDER BY checked_at DESC,id")
+        let rows = sqlx::query("SELECT id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set FROM plugin_installations WHERE user_id = ? AND active = 1 ORDER BY checked_at DESC,rowid DESC")
             .bind(actor.id()).fetch_all(&mut *tx).await?;
         let installations = rows
             .into_iter()

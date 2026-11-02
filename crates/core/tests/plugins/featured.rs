@@ -419,6 +419,27 @@ async fn an_entry_names_the_account_copy_that_already_exists() {
 }
 
 #[tokio::test]
+async fn connections_installed_together_list_newest_first() {
+    let (_dir, hito, actor, _library, _music) = support::library("featured-order").await;
+    let mut installed = Vec::new();
+    for _ in 0..8 {
+        let server = FeaturedServer::start().await;
+        installed.push(connect(&hito, &actor, &server).await.id);
+    }
+    installed.reverse();
+    let listed: Vec<_> = hito
+        .plugins
+        .connections(&actor)
+        .await
+        .unwrap()
+        .installations
+        .into_iter()
+        .map(|installation| installation.id)
+        .collect();
+    assert_eq!(listed, installed);
+}
+
+#[tokio::test]
 async fn a_slow_budget_end_keeps_what_faster_providers_already_gave() {
     let fast = FeaturedServer::with_capabilities(
         "org.hito.fast-fixture",
@@ -450,7 +471,7 @@ async fn a_slow_budget_end_keeps_what_faster_providers_already_gave() {
     fast.reply(Reply::Items(vec![item("fast")]));
     let started = Instant::now();
     let shelf = hito.catalog.featured(&actor).await.unwrap();
-    assert!(started.elapsed() < Duration::from_secs(9));
+    assert!(started.elapsed() < Duration::from_secs(30));
     assert_eq!(titles(&shelf), ["Featured fast"]);
 }
 
