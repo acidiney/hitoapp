@@ -127,6 +127,53 @@ impl Albums {
         connection.close().await.unwrap();
     }
 
+    async fn fill_pending_lookups(&self, count: usize) {
+        let mut connection =
+            sqlx::SqliteConnection::connect(&format!("sqlite://{}", self.database.display()))
+                .await
+                .unwrap();
+        for index in 0..count {
+            sqlx::query(
+                "INSERT INTO cover_art_lookups(user_id,kind,mbid,state)
+                 SELECT DISTINCT user_id,'release',?,'queued' FROM library_members",
+            )
+            .bind(format!("0f700000-0000-4000-8000-{index:012}"))
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        }
+        connection.close().await.unwrap();
+    }
+
+    async fn pending_count(&self) -> i64 {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=ro",
+            self.database.display()
+        ))
+        .await
+        .unwrap();
+        sqlx::query_scalar(
+            "SELECT count(*) FROM cover_art_lookups WHERE state IN ('queued','running')",
+        )
+        .fetch_one(&mut connection)
+        .await
+        .unwrap()
+    }
+
+    async fn walk(&self) {
+        let mut steps = 0;
+        while self
+            .hito
+            .artist_catalog
+            .run_next_automatic_matching_until(std::future::pending())
+            .await
+            .unwrap()
+        {
+            steps += 1;
+            assert!(steps < 20);
+        }
+    }
+
     async fn drive(&self) {
         let mut steps = 0;
         while self
@@ -358,4 +405,43 @@ async fn a_missing_cover_is_asked_again_after_the_retry_window_when_the_album_is
             .unwrap()
             .is_some()
     );
+}
+
+#[tokio::test]
+async fn the_matching_walk_queues_no_cover_while_artwork_is_off() {
+    let albums = Albums::prepare().await;
+    albums
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(
+            &albums.actor,
+            UpdateAutomaticLookups {
+                automatic_artist_lookup: None,
+                automatic_artwork: Some(false),
+                automatic_service_search: None,
+            },
+        )
+        .await
+        .unwrap();
+    albums.walk().await;
+    assert!(albums.state(RELEASE_MBID).await.is_none());
+    assert!(albums.state(OTHER_MBID).await.is_none());
+}
+
+#[tokio::test]
+async fn the_matching_walk_queues_nothing_beyond_the_pending_cap() {
+    let albums = Albums::prepare().await;
+    albums.fill_pending_lookups(64).await;
+    albums.walk().await;
+    assert!(albums.state(RELEASE_MBID).await.is_none());
+    assert!(albums.state(OTHER_MBID).await.is_none());
+    assert_eq!(albums.pending_count().await, 64);
+}
+
+#[tokio::test]
+async fn the_matching_walk_fills_only_the_room_left_under_the_pending_cap() {
+    let albums = Albums::prepare().await;
+    albums.fill_pending_lookups(63).await;
+    albums.walk().await;
+    assert_eq!(albums.pending_count().await, 64);
 }
