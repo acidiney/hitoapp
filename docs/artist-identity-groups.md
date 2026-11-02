@@ -49,6 +49,8 @@ The Artists index shows **Chosen artists** separately from **Library credits**. 
 
 Recording Details links a current choice to its group only after reading that group's authorized saved credit. Pending requests, failed reads, Reset and changed recording ownership remove the link. Group pages reuse the existing album and track components, retain original recording identifiers and unavailable markers, and start playback only through explicit controls. Existing artwork retrieval remains available. Browsing does not add provider catalog, discography, source preparation or download workflows.
 
+A group's card and page show the group's MusicBrainz photo, then the album cover. When the MusicBrainz photo is missing, or the group has no MusicBrainz identity, they show the photo of one member credit that a connected plugin can supply, if one qualifies. The group summary then carries `credited_photo_artist_id`, Hito's own account artist identifier of the member with the most recordings in the group (the smaller identifier wins a tie). It is read only for the groups of the page and only when automatic artwork is on and an active connection declares `artwork`. See [photos from a connected plugin](plugin-artwork.md#chosen-artists).
+
 The Inertia adapter adds typed group summaries to `ArtistIndexPage` and serves `ArtistIdentityGroupPage`. Full pages, HTML bootstrap and matching partial requests share access filtering and private, no-store responses. Partial requests evaluate group reads only when their requested props require them.
 
 ## HTTP and recording details
