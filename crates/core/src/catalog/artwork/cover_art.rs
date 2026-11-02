@@ -110,13 +110,7 @@ pub(crate) async fn enqueue(
     {
         return Ok(());
     }
-    let pending: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND state IN ('queued','running')",
-    )
-    .bind(account)
-    .fetch_one(&mut *connection)
-    .await?;
-    if pending >= MAX_PENDING_PER_ACCOUNT {
+    if pending_lookups(connection, account).await? >= MAX_PENDING_PER_ACCOUNT {
         return Ok(());
     }
     if kind.is_artist_photo() {
@@ -152,6 +146,13 @@ pub(crate) async fn queue_observed_release_covers(
     connection: &mut SqliteConnection,
     account: &str,
 ) -> Result<()> {
+    if !super::availability::automatic_artwork_allowed(connection, account).await? {
+        return Ok(());
+    }
+    let room = MAX_PENDING_PER_ACCOUNT - pending_lookups(connection, account).await?;
+    if room <= 0 {
+        return Ok(());
+    }
     let candidates: Vec<(String, String)> = sqlx::query_as(
         "SELECT DISTINCT o.entity,o.mbid
          FROM recording_musicbrainz_observations o
@@ -167,7 +168,7 @@ pub(crate) async fn queue_observed_release_covers(
          LIMIT ?2",
     )
     .bind(account)
-    .bind(OBSERVED_COVER_BATCH)
+    .bind(room.min(OBSERVED_COVER_BATCH))
     .fetch_all(&mut *connection)
     .await?;
     for (entity, mbid) in candidates {
@@ -471,4 +472,13 @@ impl Catalog {
         tx.commit().await?;
         Ok(())
     }
+}
+
+async fn pending_lookups(connection: &mut SqliteConnection, account: &str) -> Result<i64> {
+    Ok(sqlx::query_scalar(
+        "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND state IN ('queued','running')",
+    )
+    .bind(account)
+    .fetch_one(connection)
+    .await?)
 }
