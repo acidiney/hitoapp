@@ -1,5 +1,22 @@
 # Implementation status
 
+## 2026-11-02 architecture summary
+
+Local development work, not a public release. Commits `176134c9` to `19c09287`. Source changes only; nothing here was deployed.
+
+**What changed**
+
+- Every background worker in `apps/server` runs through `runtime/polling.rs`. Each worker has its own file under `runtime/`, and `runtime.rs` only composes them. See [background workers](architecture.md#background-workers) and [logging](logging.md).
+- Cover lookups: `lookups.rs` owns the read side and `LookupState`, `cover_art.rs` owns `enqueue` and the worker. The matching walk now queues covers through `enqueue`, so consent and the pending limits apply. See [how a cover lookup runs](plugin-artwork.md#how-a-cover-lookup-runs).
+- The recording, release and playlist artwork fetch reads share one `read_artwork_fetch`.
+- The web has one `coverArtApi.ts` for cover-art addresses and one `useArtworkRetry` hook ([design system](design-system.md)).
+- Test fixture setup uses `hang_guard` ([testing](testing.md#hang-guards)).
+- `HITO_METADATA_CONTACT` sets the contact in outgoing metadata requests, and the VPS compose file requires `HITO_PUBLIC_ORIGIN` ([operations](operations.md)).
+
+**Tested evidence**
+
+- The commits add characterization tests for artwork fetch reads, automatic cover queueing, worker event names and polling log fields. No full-suite pass count was recorded for this batch, so none is claimed here. The counts in the next section are the last recorded ones.
+
 ## 2026-10-29 to 2026-10-31 summary
 
 Local development work, not a public release. About 290 commits since `ea7c1365`.
