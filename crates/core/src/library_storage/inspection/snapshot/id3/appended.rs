@@ -1,7 +1,7 @@
 use super::{Control, MAX_TAG_BYTES, Report, attempt, read_at, write_at};
 use crate::{
     Result,
-    id3_frames::{syncsafe, tag_span},
+    id3_frames::{MAX_STACKED_TAGS, syncsafe, tag_span},
 };
 use std::fs::File;
 
@@ -21,13 +21,16 @@ pub(super) fn settle(
     control: &Control,
     report: &mut Report,
 ) -> Result<u64> {
+    if !mpeg_audio(file, report) {
+        return Ok(length);
+    }
     let (insert_at, stacked) = leading_tags(file, length, report);
     let Some(appended) =
         locate(file, length, report).filter(|found| found.start >= insert_at.max(1))
     else {
         return Ok(length);
     };
-    if stacked >= super::MAX_STACKED_TAGS || appended.span > MAX_TAG_BYTES {
+    if stacked >= MAX_STACKED_TAGS || appended.span > MAX_TAG_BYTES {
         report.appended_dropped += 1;
         return cut(file, length, &appended, control, report);
     }
@@ -35,16 +38,24 @@ pub(super) fn settle(
     insert(file, length, insert_at, &appended, control, report)
 }
 
+fn mpeg_audio(file: &mut File, report: &mut Report) -> bool {
+    let mut head = [0u8; 3];
+    if attempt(read_at(file, 0, &mut head), report) != Some(3) {
+        return false;
+    }
+    &head == b"ID3" || (head[0] == 0xff && head[1] & 0xe0 == 0xe0)
+}
+
 fn leading_tags(file: &mut File, length: u64, report: &mut Report) -> (u64, usize) {
     let mut offset = 0;
     let mut stacked = 0;
-    for _ in 0..super::MAX_STACKED_TAGS {
+    for _ in 0..MAX_STACKED_TAGS {
         let mut header = [0u8; 10];
         if attempt(read_at(file, offset, &mut header), report) != Some(10) {
             break;
         }
         match tag_span(&header) {
-            Some(span) if offset + span <= length => {
+            Some(span) if span <= MAX_TAG_BYTES && offset + span <= length => {
                 offset += span;
                 stacked += 1;
             }
@@ -61,7 +72,7 @@ fn locate(file: &mut File, length: u64, report: &mut Report) -> Option<Appended>
         if attempt(read_at(file, length - ID3V1_BYTES, &mut marker), report) == Some(3)
             && &marker == b"TAG"
         {
-            trailers = vec![ID3V1_BYTES];
+            trailers.insert(0, ID3V1_BYTES);
         }
     }
     trailers
@@ -105,9 +116,6 @@ fn cut(
 ) -> Result<u64> {
     let mut trailer = vec![0u8; appended.trailer as usize];
     let trailer_start = length - appended.trailer;
-    if trailer_start != appended.start + appended.span {
-        return Ok(length);
-    }
     control.check()?;
     if attempt(read_at(file, trailer_start, &mut trailer), report) != Some(trailer.len()) {
         return Ok(length);
@@ -128,9 +136,6 @@ fn insert(
     control: &Control,
     report: &mut Report,
 ) -> Result<u64> {
-    if appended.start + appended.span + appended.trailer != length {
-        return Ok(length);
-    }
     let mut tag = vec![0u8; appended.span as usize];
     control.check()?;
     if attempt(read_at(file, appended.start, &mut tag), report) != Some(tag.len()) {

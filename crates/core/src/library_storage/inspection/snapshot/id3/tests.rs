@@ -543,6 +543,12 @@ fn footer_tag(payload: usize) -> Vec<u8> {
     bytes
 }
 
+fn mpeg(length: usize) -> Vec<u8> {
+    let mut bytes = vec![9u8; length];
+    bytes[..2].copy_from_slice(&[0xff, 0xfb]);
+    bytes
+}
+
 fn contents(path: &Path) -> Vec<u8> {
     let mut bytes = Vec::new();
     File::open(path).unwrap().read_to_end(&mut bytes).unwrap();
@@ -553,7 +559,10 @@ fn contents(path: &Path) -> Vec<u8> {
 fn an_appended_tag_moves_to_the_front_and_keeps_an_id3v1_tail() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("media");
-    let audio: Vec<u8> = (0..200_000u32).map(|n| (n % 251) as u8).collect();
+    let audio: Vec<u8> = [0xff, 0xfb]
+        .into_iter()
+        .chain((0..200_000u32).map(|n| (n % 251) as u8))
+        .collect();
     let (tag, v1) = (footer_tag(40), [b"TAG".to_vec(), vec![7; 125]].concat());
     let mut file = write(&path, &[audio.clone(), tag.clone(), v1.clone()].concat());
     let report = neutralise(&mut file, &control()).unwrap();
@@ -566,7 +575,7 @@ fn an_appended_tag_is_placed_after_the_leading_tags() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("media");
     let (first, second) = (footer_tag(30), footer_tag(12));
-    let audio = vec![9u8; 5000];
+    let audio = mpeg(5000);
     let appended = footer_tag(20);
     let bytes = [
         first.clone(),
@@ -584,7 +593,7 @@ fn an_appended_tag_is_placed_after_the_leading_tags() {
 #[test]
 fn an_appended_tag_is_cut_out_when_it_is_too_large_or_the_stack_is_full() {
     let directory = tempfile::tempdir().unwrap();
-    let audio = vec![9u8; 5000];
+    let audio = mpeg(5000);
     let v1 = [b"TAG".to_vec(), vec![7; 125]].concat();
     let oversized = footer_tag(super::MAX_TAG_BYTES as usize);
     let path = directory.path().join("large");
@@ -609,9 +618,57 @@ fn a_footer_without_a_matching_header_changes_nothing() {
     let path = directory.path().join("media");
     let mut tag = footer_tag(40);
     tag[1] = b'X';
-    let bytes = [vec![5u8; 3000], tag].concat();
+    let bytes = [mpeg(3000), tag].concat();
     let mut file = write(&path, &bytes);
     let report = neutralise(&mut file, &control()).unwrap();
     assert_eq!(report.appended_moved + report.appended_dropped, 0);
     assert_eq!(contents(&path), bytes);
+}
+
+#[test]
+fn an_appended_tag_is_found_when_id3v1_marker_bytes_sit_inside_it() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("media");
+    let audio = mpeg(2000);
+    let mut tag = footer_tag(300);
+    let marker = tag.len() - 128;
+    tag[marker..marker + 3].copy_from_slice(b"TAG");
+    let mut file = write(&path, &[audio.clone(), tag.clone()].concat());
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_moved, 1);
+    assert_eq!(contents(&path), [tag, audio].concat());
+}
+
+#[test]
+fn an_oversized_leading_tag_does_not_move_the_insert_point() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("media");
+    let leading = footer_tag(super::MAX_TAG_BYTES as usize);
+    let audio = mpeg(2000);
+    let appended = footer_tag(20);
+    let bytes = [leading.clone(), audio.clone(), appended.clone()].concat();
+    let mut file = write(&path, &bytes);
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_moved, 1);
+    assert_eq!(contents(&path), [appended, leading, audio].concat());
+}
+
+#[test]
+fn appended_tags_are_never_moved_inside_other_containers() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut wav = b"RIFF\x00\x10\x00\x00WAVEfmt ".to_vec();
+    wav.resize(2000, 3);
+    let mut mp4 = vec![0, 0, 0, 0x14];
+    mp4.extend(b"ftypM4A \0\0\0\0M4A mp42");
+    mp4.resize(2000, 3);
+    let mut flac = b"fLaC".to_vec();
+    flac.resize(2000, 3);
+    for (name, container) in [("wav", wav), ("mp4", mp4), ("flac", flac)] {
+        let path = directory.path().join(name);
+        let bytes = [container, footer_tag(20)].concat();
+        let mut file = write(&path, &bytes);
+        let report = neutralise(&mut file, &control()).unwrap();
+        assert_eq!(report.appended_moved + report.appended_dropped, 0, "{name}");
+        assert_eq!(contents(&path), bytes, "{name}");
+    }
 }

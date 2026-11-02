@@ -3,6 +3,7 @@ use std::{borrow::Cow, io::Read};
 
 pub(crate) const MAX_FRAMES: usize = 8192;
 pub(crate) const FRAME_HEADER: usize = 10;
+pub(crate) const MAX_STACKED_TAGS: usize = 4;
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Version {

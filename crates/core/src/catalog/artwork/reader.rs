@@ -22,11 +22,14 @@ fn read_embedded(file: std::fs::File) -> Option<Artwork> {
     read_tagged(file).or_else(|| read_id3_pictures(id3_file?))
 }
 
-fn read_id3_pictures(file: std::fs::File) -> Option<Artwork> {
+fn read_id3_pictures(mut file: std::fs::File) -> Option<Artwork> {
     let limits = Limits {
         tag_bytes: MAX_METADATA_BYTES as u64,
         image_bytes: MAX_IMAGE_BYTES,
     };
+    if !id3_picture::holds_compressed_picture(&mut file, &limits) {
+        return None;
+    }
     let pictures = id3_picture::read(file, &limits);
     for front_cover in [true, false] {
         for picture in pictures

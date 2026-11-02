@@ -1,11 +1,13 @@
-use crate::id3_frames::{Frame, Tag, Version, deunsynchronise, inflate, syncsafe, tag_span};
+use crate::id3_frames::{
+    FRAME_HEADER, Frame, MAX_STACKED_TAGS, Tag, Version, deunsynchronise, inflate, syncsafe,
+    tag_span,
+};
 use std::{
     borrow::Cow,
     fs::File,
     io::{Read, Seek, SeekFrom},
 };
 
-const MAX_STACKED_TAGS: usize = 4;
 const MAX_PICTURE_OVERHEAD: usize = 64 * 1024;
 const FRONT_COVER: u8 = 3;
 
@@ -146,4 +148,59 @@ fn picture(data: &[u8]) -> Option<Picture> {
         front: kind == FRONT_COVER,
         bytes: rest[description_end..].to_vec(),
     })
+}
+
+pub(super) fn holds_compressed_picture(file: &mut File, limits: &Limits) -> bool {
+    let mut offset = 0;
+    let mut tag_budget = limits.tag_bytes;
+    for _ in 0..MAX_STACKED_TAGS {
+        let mut header = [0u8; 10];
+        if file.seek(SeekFrom::Start(offset)).is_err() || file.read_exact(&mut header).is_err() {
+            return false;
+        }
+        let Some(span) = tag_span(&header).filter(|span| *span <= tag_budget) else {
+            return false;
+        };
+        if header[5] & 0xc0 != 0 {
+            return true;
+        }
+        let version = header[3];
+        let footer = if version == 4 && header[5] & 0x10 != 0 {
+            10
+        } else {
+            0
+        };
+        let end = offset + span - footer;
+        let mut at = offset + 10;
+        while at + FRAME_HEADER as u64 <= end {
+            let mut frame = [0u8; 10];
+            if file.seek(SeekFrom::Start(at)).is_err() || file.read_exact(&mut frame).is_err() {
+                return false;
+            }
+            if !frame[..4]
+                .iter()
+                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            {
+                break;
+            }
+            let compressed_flag = if version == 3 { 0x80 } else { 0x08 };
+            if &frame[..4] == b"APIC" && frame[9] & compressed_flag != 0 {
+                return true;
+            }
+            let size = if version == 3 {
+                Some(u64::from(u32::from_be_bytes([
+                    frame[4], frame[5], frame[6], frame[7],
+                ])))
+            } else {
+                syncsafe(&frame[4..8]).map(u64::from)
+            };
+            let Some(size) = size else {
+                break;
+            };
+            at += FRAME_HEADER as u64 + size;
+        }
+        tag_budget -= span;
+        offset += span;
+    }
+    false
 }

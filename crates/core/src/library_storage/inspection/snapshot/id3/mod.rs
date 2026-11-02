@@ -10,12 +10,11 @@ mod rewrite;
 #[cfg(test)]
 mod tests;
 
-use crate::id3_frames::tag_span;
+use crate::id3_frames::{MAX_STACKED_TAGS, tag_span};
 pub(super) use rewrite::Report;
 
 const MAX_TAG_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_CHUNKS: usize = 4096;
-const MAX_STACKED_TAGS: usize = 4;
 
 #[derive(Clone, Copy)]
 enum Endian {
