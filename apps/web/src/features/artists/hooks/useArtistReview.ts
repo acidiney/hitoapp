@@ -6,6 +6,14 @@ import { log } from "../../../shared/log";
 import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 
+import {
+  requireConfirmation,
+  requireReviewContext,
+  requireSavedProfile,
+  savedProviders,
+  unavailable,
+  type ArtistProvider as Provider,
+} from "./artistReviewRules";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -22,12 +30,6 @@ type Owner = {
   generation: number;
   controller: AbortController | null;
   phase: Phase | null;
-};
-type Provider = {
-  key: string;
-  label: string;
-  value: Schema<"MetadataProvider">;
-  available: boolean;
 };
 type State = {
   owner: Owner;
@@ -61,27 +63,6 @@ function empty(owner: Owner, query: string): State {
     pending: null,
     error: "",
   };
-}
-
-function providerKey(provider: Schema<"MetadataProvider">) {
-  return provider.kind === "builtin_musicbrainz"
-    ? provider.kind
-    : provider.installation_id;
-}
-
-function unavailable(
-  status: "disabled" | "unsupported" | "unavailable" | "cancelled",
-) {
-  switch (status) {
-    case "disabled":
-      return "Metadata providers are disabled in your settings.";
-    case "unsupported":
-      return "This provider does not support this artist information request.";
-    case "unavailable":
-      return "Artist information is unavailable. Try again.";
-    case "cancelled":
-      return "The artist information request was cancelled.";
-  }
 }
 
 export function useArtistReview(
@@ -197,29 +178,6 @@ export function useArtistReview(
     }
   }
 
-  function requireContext(
-    context: Schema<"ArtistReviewContext">,
-    selected: Provider,
-  ) {
-    if (
-      context.account_id !== account ||
-      context.recording_id !== recording ||
-      providerKey(context.provider) !== selected.key
-    )
-      throw new Error(
-        "The artist review did not belong to this track and provider. Search again.",
-      );
-    if (
-      context.credited_name !== detail.artist.value ||
-      context.artist_operation_id !== (detail.artist.operation_id ?? null) ||
-      context.observation_id !== detail.selected_observation?.id ||
-      context.source_id !== (detail.selected_observation?.source_id ?? null)
-    )
-      throw new Error(
-        "The saved artist credit changed. Refresh this track before reviewing artist information.",
-      );
-  }
-
   async function open() {
     if (current.loaded || owner.phase) return;
     await run(
@@ -232,29 +190,7 @@ export function useArtistReview(
           artistReviewApi.associations(account, recording, signal),
         ]),
       ([settings, plugins, associations]) => {
-        const providers = settings.providers.map((value): Provider => {
-          if (value.kind === "builtin_musicbrainz")
-            return {
-              key: providerKey(value),
-              label: "MusicBrainz",
-              value,
-              available: true,
-            };
-          const installation = plugins.installations.find(
-            (item) =>
-              item.id === value.installation_id &&
-              item.manifest.capabilities.includes("catalog"),
-          );
-          const service = plugins.services.find(
-            (item) => item.id === installation?.service_id,
-          );
-          return {
-            key: providerKey(value),
-            label: service?.name ?? "Unavailable saved provider",
-            value,
-            available: !!installation && !!service,
-          };
-        });
+        const providers = savedProviders(settings, plugins);
         return {
           loaded: true,
           enabled: settings.enabled,
@@ -298,7 +234,7 @@ export function useArtistReview(
           { provider: provider.value },
           signal,
         );
-        requireContext(context, provider);
+        requireReviewContext(context, provider, account, detail);
         const result = await artistReviewApi.search(
           account,
           recording,
@@ -310,7 +246,7 @@ export function useArtistReview(
         );
         if (result.status !== "available")
           throw new Error(unavailable(result.status));
-        requireContext(result.context, provider);
+        requireReviewContext(result.context, provider, account, detail);
         return result;
       },
       (results) => ({ results }),
@@ -341,7 +277,7 @@ export function useArtistReview(
         );
         if (result.status !== "available")
           throw new Error(unavailable(result.status));
-        requireContext(result.context, provider);
+        requireReviewContext(result.context, provider, account, detail);
         if (result.profile.artist.id !== candidate.artist.id)
           throw new Error(
             "The provider returned another artist. Search again.",
@@ -370,14 +306,7 @@ export function useArtistReview(
           association.id,
           signal,
         );
-        if (
-          profile.status === "available" &&
-          (profile.association_id !== association.id ||
-            profile.profile.artist.id !== association.provider_artist_id)
-        )
-          throw new Error(
-            "The reviewed artist profile did not belong to this saved review.",
-          );
+        requireSavedProfile(profile, association);
         return profile;
       },
       (profile) => ({ profile }),
@@ -421,19 +350,7 @@ export function useArtistReview(
           },
           signal,
         );
-        if (
-          result.account_id !== account ||
-          result.recording_id !== recording ||
-          result.artist_id !== preview.context.artist_id ||
-          result.library_id !== preview.context.library_id ||
-          result.observation_id !== preview.context.observation_id ||
-          result.source_id !== preview.context.source_id ||
-          providerKey(result.provider) !== provider.key ||
-          result.provider_artist_id !== preview.profile.artist.id
-        )
-          throw new Error(
-            "The artist confirmation did not belong to this track and provider.",
-          );
+        requireConfirmation(result, account, recording, preview, provider);
         return result;
       },
       (association) => ({
