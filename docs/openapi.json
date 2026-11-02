@@ -18867,7 +18867,8 @@
           "provider_artist_id",
           "name",
           "corroborated_titles",
-          "in_library"
+          "in_library",
+          "origin"
         ],
         "properties": {
           "corroborated_titles": {
@@ -18897,6 +18898,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ArtistReviewOrigin"
           },
           "provider_artist_id": {
             "type": "string"
@@ -19079,6 +19083,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ArtistReviewOrigin": {
+        "type": "string",
+        "enum": [
+          "name_search",
+          "chosen_artist"
+        ]
       },
       "ArtistReviewQueuePage": {
         "$ref": "#/components/schemas/Page_ArtistReviewItem"
@@ -22912,6 +22923,7 @@
                 "artist_id",
                 "name",
                 "undecided_tracks",
+                "needs_search",
                 "candidates"
               ],
               "properties": {
@@ -22926,6 +22938,15 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "needs_search": {
+                  "type": "boolean"
+                },
+                "search_recording_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "undecided_tracks": {
                   "type": "integer",

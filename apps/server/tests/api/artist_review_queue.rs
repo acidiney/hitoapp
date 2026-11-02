@@ -5,6 +5,7 @@ use hito_core::test_support::{
     playlist_service as provider,
 };
 use serde_json::{Value, json};
+use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use uuid::Uuid;
 
 const NOVA: &str = "44444444-4444-4444-8444-444444444444";
@@ -154,6 +155,8 @@ async fn the_review_queue_lists_confirms_and_dismisses_through_the_api() {
     assert_eq!(first["disambiguation"], "Lisbon fado band");
     assert_eq!(first["country"], "PT");
     assert_eq!(first["kind"], "person");
+    assert_eq!(first["origin"], "name_search");
+    assert_eq!(item["needs_search"], false);
     assert_eq!(item["candidates"][1]["provider_artist_id"], NAMESAKE);
     assert_eq!(
         musicbrainz.requests().len(),
@@ -484,4 +487,54 @@ async fn another_account_cannot_restore_or_see_dismissals_through_the_api() {
     assert_eq!(none["total"], 0);
     let (_, own) = call(&app, "GET", &dismissed, Value::Null, token).await;
     assert_eq!(own["items"][0]["candidates"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn an_undecided_credit_without_candidates_is_listed_for_a_search() {
+    let (dir, app, session, _musicbrainz, _origin, _) = queued().await;
+    let token = Some(session.as_str());
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(dir.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query("DELETE FROM artist_name_candidates")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let (status, page) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["total"], 1);
+    let item = &page["items"][0];
+    assert_eq!(
+        (
+            &item["name"],
+            &item["undecided_tracks"],
+            &item["needs_search"]
+        ),
+        (&json!("Nova Quartet"), &json!(3), &json!(true))
+    );
+    assert_eq!(item["candidates"], json!([]));
+    let credit = item["artist_id"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            &format!("{QUEUE}/{credit}/confirm"),
+            json!({"request_id": Uuid::new_v4(), "provider_artist_id": NOVA}),
+            token
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let (_, dismissed) = call(
+        &app,
+        "GET",
+        &format!("{QUEUE}/dismissed"),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(dismissed["total"], 0);
 }

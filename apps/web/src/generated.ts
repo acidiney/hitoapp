@@ -3121,6 +3121,7 @@ export interface components {
             in_library: boolean;
             kind?: string | null;
             name: string;
+            origin: components["schemas"]["ArtistReviewOrigin"];
             provider_artist_id: string;
         };
         ArtistReviewConfirmation: {
@@ -3169,6 +3170,8 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        /** @enum {string} */
+        ArtistReviewOrigin: "name_search" | "chosen_artist";
         ArtistReviewQueuePage: components["schemas"]["Page_ArtistReviewItem"];
         ArtistReviewRestoration: {
             artist_id: string;
@@ -4078,6 +4081,8 @@ export interface components {
                 artist_id: string;
                 candidates: components["schemas"]["ArtistReviewCandidate"][];
                 name: string;
+                needs_search: boolean;
+                search_recording_id?: string | null;
                 /** Format: int64 */
                 undecided_tracks: number;
             }[];
