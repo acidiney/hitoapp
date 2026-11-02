@@ -222,6 +222,134 @@ async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
     );
 }
 
+const OPEN_CREDITS: usize = 20;
+const EDITED_CREDITS: usize = 10;
+const CHOSEN_RECORDINGS: usize = 200;
+const MIXED_BUDGET: u64 = 330_000;
+
+async fn seed_open_and_edited_credits(hito: &crate::Services, actor: &crate::Actor, library: &str) {
+    let pool = &hito.catalog.store.pool;
+    let mut connection = pool.acquire().await.unwrap();
+    sqlx::raw_sql("PRAGMA foreign_keys=OFF")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    let mut tx = sqlx::Connection::begin(&mut *connection).await.unwrap();
+    for credit in 0..OPEN_CREDITS + EDITED_CREDITS {
+        let edited = credit >= OPEN_CREDITS;
+        let artist = format!("open-{credit:03}");
+        sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES(?,?,?,?)")
+            .bind(actor.id())
+            .bind(&artist)
+            .bind(library)
+            .bind(format!("Open {credit:03}"))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        for track in 0..QUEUE_TRACKS {
+            let recording = format!("open-{credit:03}-{track:03}");
+            sqlx::query("INSERT INTO recordings(id,library_id,title,artist,metadata_observation_id) VALUES(?1,?2,?1,'Seed','observation')")
+                .bind(&recording)
+                .bind(library)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO account_recording_credits(user_id,recording_id,artist_id) VALUES(?,?,?)")
+                .bind(actor.id())
+                .bind(&recording)
+                .bind(&artist)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            if edited {
+                sqlx::query("INSERT INTO personal_recording_metadata(user_id,recording_id,title,artist,override_artist,artist_operation_id) VALUES(?1,?2,?2,'Edited','Edited','operation')")
+                    .bind(actor.id())
+                    .bind(&recording)
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+            } else {
+                sqlx::query("INSERT INTO artist_name_checks(user_id,recording_id,observation_id,rule) VALUES(?,?,'observation',?)")
+                    .bind(actor.id())
+                    .bind(&recording)
+                    .bind(super::name_discography::NAME_RULE)
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+            }
+        }
+    }
+    sqlx::query("INSERT INTO account_artist_identity_groups(id,user_id,provider_kind,provider_artist_id) VALUES('group',?,'builtin_musicbrainz','mbid')")
+        .bind(actor.id())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    for index in 0..CHOSEN_RECORDINGS {
+        let recording = format!(
+            "queue-{:03}-{:03}",
+            index / QUEUE_TRACKS,
+            index % QUEUE_TRACKS
+        );
+        sqlx::query("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,observation_id,selection_order) VALUES(?1,?2,1,'association','group',?3,'observation',1)")
+            .bind(actor.id())
+            .bind(&recording)
+            .bind(format!("credit-{:03}", index / QUEUE_TRACKS))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    tx.commit().await.unwrap();
+    drop(connection);
+}
+
+#[tokio::test]
+async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
+    let (_directory, hito, actor, library, _music) =
+        support::library("artist-queue-mixed-work").await;
+    seed_review_credits(&hito, &actor, &library).await;
+    seed_open_and_edited_credits(&hito, &actor, &library).await;
+    let pool = &hito.catalog.store.pool;
+    let meter = WorkMeter::install(pool).await;
+    let (page, work) = meter
+        .measure(hito.artist_catalog.artist_review_queue(
+            &actor,
+            crate::ArtistReviewQueueQuery {
+                offset: Some(0),
+                limit: Some(50),
+            },
+        ))
+        .await;
+    meter.remove(pool).await;
+    let page = page.unwrap();
+    eprintln!(
+        "Artist review queue mixed VM_steps credits={QUEUE_CREDITS}+{OPEN_CREDITS}+{EDITED_CREDITS} tracks={QUEUE_TRACKS} work={work}"
+    );
+    assert_eq!((page.total, page.items.len()), (75, 50));
+    let tail = hito
+        .artist_catalog
+        .artist_review_queue(
+            &actor,
+            crate::ArtistReviewQueueQuery {
+                offset: Some(50),
+                limit: Some(50),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(tail.total, 75);
+    assert_eq!(tail.items.len(), 25);
+    assert!(
+        tail.items
+            .iter()
+            .skip(5)
+            .all(|item| item.needs_search && item.search_recording_id.is_some())
+    );
+    assert!(
+        work < MIXED_BUDGET,
+        "The queue used {work} VM steps against {MIXED_BUDGET}"
+    );
+}
+
 #[tokio::test]
 async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
     let (_directory, hito, actor, library, _music) =

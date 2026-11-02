@@ -121,6 +121,18 @@ pub(super) async fn plan(
     policy_revision: i64,
     kind: EvidenceKind,
 ) -> Result<Planned> {
+    plan_for_credit(tx, actor, recording, artist, policy_revision, kind, None).await
+}
+
+pub(super) async fn plan_for_credit(
+    tx: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    artist: &str,
+    policy_revision: i64,
+    kind: EvidenceKind,
+    expected_credit: Option<&str>,
+) -> Result<Planned> {
     let choice: Option<(i64, bool)> = sqlx::query_as(&format!(
         "SELECT c.revision,{REPLACEABLE} FROM recording_artist_identity_choices c
          JOIN recordings r ON r.id=c.recording_id WHERE c.user_id=? AND c.recording_id=?"
@@ -148,6 +160,9 @@ pub(super) async fn plan(
         Err(Error::NotFound) => return Ok(Planned::Declined { remember: false }),
         Err(error) => return Err(error),
     };
+    if expected_credit.is_some_and(|expected| expected != credit.artist_id) {
+        return Ok(Planned::Declined { remember: false });
+    }
     let hidden: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM shared_artist_correction_subjects subject
             WHERE subject.retired_reason IS NULL AND subject.recording_id=? AND subject.observation_id=?

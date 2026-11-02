@@ -7,7 +7,7 @@ use hito_core::{
 use hito_core::{Actor, test_support::support};
 use uuid::Uuid;
 
-async fn second_account(library: &NameLibrary) -> Actor {
+pub(super) async fn second_account(library: &NameLibrary) -> Actor {
     let credentials = || Credentials {
         username: "outsider".into(),
         password: "owned review outsider password".into(),
@@ -27,7 +27,7 @@ async fn second_account(library: &NameLibrary) -> Actor {
         .unwrap()
 }
 
-async fn edit_artist(library: &NameLibrary, recording: &str, artist: &str) {
+pub(super) async fn edit_artist(library: &NameLibrary, recording: &str, artist: &str) {
     support::synchronize(
         &library.hito,
         &library.actor,
@@ -39,7 +39,7 @@ async fn edit_artist(library: &NameLibrary, recording: &str, artist: &str) {
     .await;
 }
 
-async fn chosen_and_edited(edited_name: &str) -> NameLibrary {
+pub(super) async fn chosen_and_edited(edited_name: &str) -> NameLibrary {
     let mut library = NameLibrary::nova().await;
     library
         .musicbrainz
@@ -62,7 +62,7 @@ async fn chosen_and_edited(edited_name: &str) -> NameLibrary {
     library
 }
 
-async fn edited_credit(library: &NameLibrary) -> String {
+pub(super) async fn edited_credit(library: &NameLibrary) -> String {
     let items = queue(library).await;
     assert_eq!(items.len(), 1, "{items:?}");
     items[0].artist_id.clone()
