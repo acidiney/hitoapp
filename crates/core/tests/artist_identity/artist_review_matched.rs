@@ -3,7 +3,7 @@ use super::artist_review_reach::{candidates, confirm_as, dismiss, queue, queue_o
 use super::artist_review_same_artist::second_account;
 use hito_core::{ArtistReviewOrigin, ArtistReviewQueueQuery, Error};
 
-async fn two_of_four() -> NameLibrary {
+pub(super) async fn two_of_four() -> NameLibrary {
     let library = NameLibrary::nova().await;
     library
         .musicbrainz
@@ -19,7 +19,7 @@ async fn two_of_four() -> NameLibrary {
     library
 }
 
-async fn unmatched_credit_id(library: &NameLibrary) -> String {
+pub(super) async fn unmatched_credit_id(library: &NameLibrary) -> String {
     let items = queue(library).await;
     assert_eq!(items.len(), 1, "{items:?}");
     items[0].artist_id.clone()
