@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::Catalog;
 use tokio::sync::watch;
 
-const PREPARATION: Worker = Worker {
+pub(super) const PREPARATION: Worker = Worker {
     started: Event {
         name: "source_preparation_worker_started",
         message: "Source preparation worker started",

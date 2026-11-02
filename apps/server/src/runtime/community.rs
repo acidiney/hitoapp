@@ -3,7 +3,7 @@ use hito_core::Community;
 use tokio::sync::watch;
 use uuid::Uuid;
 
-const REPORTS: Worker = Worker {
+pub(super) const REPORTS: Worker = Worker {
     started: Event {
         name: "community_worker_started",
         message: "Community worker started",

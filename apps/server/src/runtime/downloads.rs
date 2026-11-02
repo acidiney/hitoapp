@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::Downloads;
 use tokio::sync::watch;
 
-const TRANSFER: Worker = Worker {
+pub(super) const TRANSFER: Worker = Worker {
     started: Event {
         name: "download_worker_started",
         message: "Download worker started",
@@ -22,7 +22,7 @@ const TRANSFER: Worker = Worker {
     reporting: Reporting::Claimed,
 };
 
-const RECONCILIATION: Worker = Worker {
+pub(super) const RECONCILIATION: Worker = Worker {
     started: Event {
         name: "download_reconciliation_started",
         message: "Playlist download reconciliation started",

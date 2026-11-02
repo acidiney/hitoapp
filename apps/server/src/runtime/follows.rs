@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::Collection;
 use tokio::sync::watch;
 
-const FOLLOW: Worker = Worker {
+pub(super) const FOLLOW: Worker = Worker {
     started: Event {
         name: "follow_worker_started",
         message: "Playlist follow worker started",

@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::{LibraryStorage, WatchStatus};
 use tokio::sync::watch;
 
-const INDEXING: Worker = Worker {
+pub(super) const INDEXING: Worker = Worker {
     started: Event {
         name: "worker_started",
         message: "Indexing worker started",

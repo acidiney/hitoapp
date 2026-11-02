@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::ArtistCatalog;
 use tokio::sync::watch;
 
-const MATCHING: Worker = Worker {
+pub(super) const MATCHING: Worker = Worker {
     started: Event {
         name: "matching_worker_started",
         message: "Artist matching worker started",

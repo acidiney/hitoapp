@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::Podcasts;
 use tokio::sync::watch;
 
-const REFRESH: Worker = Worker {
+pub(super) const REFRESH: Worker = Worker {
     started: Event {
         name: "podcast_worker_started",
         message: "Podcast refresh worker started",

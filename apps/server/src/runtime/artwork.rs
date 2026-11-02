@@ -2,7 +2,7 @@ use super::polling::{self, Event, Reporting, Worker};
 use hito_core::Catalog;
 use tokio::sync::watch;
 
-const ARTWORK: Worker = Worker {
+pub(super) const ARTWORK: Worker = Worker {
     started: Event {
         name: "artwork_worker_started",
         message: "Artwork worker started",
@@ -22,7 +22,7 @@ const ARTWORK: Worker = Worker {
     reporting: Reporting::Claimed,
 };
 
-const COVER_ART: Worker = Worker {
+pub(super) const COVER_ART: Worker = Worker {
     started: Event {
         name: "cover_art_worker_started",
         message: "Cover art worker started",
