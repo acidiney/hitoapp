@@ -3,7 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { Link, usePage } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Artwork from "../../artwork/components/Artwork";
-import ArtistPhoto from "../components/ArtistPhoto";
+import ArtistGroupPhoto from "../components/ArtistGroupPhoto";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import { tintFor } from "../../../shared/ui/collectionTint";
@@ -48,17 +48,12 @@ export default function ArtistIdentityGroupPage({
       <CollectionHeader
         tint={tintFor(group.id)}
         cover={
-          <ArtistPhoto
-            artist={group.provider_artist_id}
-            identity={group.id}
-            name={group.name.value}
-            enabled={group.provider.kind === "builtin_musicbrainz"}
-          >
+          <ArtistGroupPhoto group={group}>
             <Artwork
               recording={group.name.recording_id}
               fallback={{ id: group.id, title: group.name.value }}
             />
-          </ArtistPhoto>
+          </ArtistGroupPhoto>
         }
         size="artist"
         crumbs={
