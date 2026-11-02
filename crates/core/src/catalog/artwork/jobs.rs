@@ -1,4 +1,4 @@
-use super::Catalog;
+use super::{Catalog, playlist, release};
 use crate::{Actor, Error, Result, identity::recording_access};
 use serde::Serialize;
 use sqlx::SqliteConnection;
@@ -32,6 +32,36 @@ impl TryFrom<String> for ArtworkFetchStatus {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum EntityKind {
+    Recording,
+    Release,
+    Playlist,
+}
+
+impl EntityKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Recording => "recording",
+            Self::Release => "release",
+            Self::Playlist => "playlist",
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub(super) struct FetchRow {
+    pub id: String,
+    pub entity_id: String,
+    #[sqlx(try_from = "String")]
+    pub status: ArtworkFetchStatus,
+    #[sqlx(try_from = "i64")]
+    pub attempts: u32,
+    pub error: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct ArtworkFetch {
     pub id: String,
@@ -41,6 +71,20 @@ pub struct ArtworkFetch {
     pub error: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+impl From<FetchRow> for ArtworkFetch {
+    fn from(row: FetchRow) -> Self {
+        Self {
+            id: row.id,
+            recording_id: row.entity_id,
+            status: row.status,
+            attempts: row.attempts,
+            error: row.error,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
 }
 
 impl Catalog {
@@ -69,7 +113,9 @@ impl Catalog {
                     "Artwork is already being retrieved by another session".into(),
                 ));
             }
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: ArtworkFetch = fetch_row(&mut tx, actor.id(), &id, EntityKind::Recording)
+                .await?
+                .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_pending", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
@@ -82,7 +128,9 @@ impl Catalog {
              LIMIT 1",
         ).bind(actor.id()).bind(recording).fetch_optional(&mut *tx).await?;
         if let Some(id) = previous {
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: ArtworkFetch = fetch_row(&mut tx, actor.id(), &id, EntityKind::Recording)
+                .await?
+                .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_retained", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
@@ -105,7 +153,9 @@ impl Catalog {
             .bind(provider.service_id).bind(provider.service_revision).bind(RESERVATION_BYTES)
             .execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
-        let fetch = read_on(&mut tx, actor.id(), &id).await?;
+        let fetch: ArtworkFetch = fetch_row(&mut tx, actor.id(), &id, EntityKind::Recording)
+            .await?
+            .into();
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         tracing::info!(job_id = %id, outcome = "queued", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
@@ -114,82 +164,84 @@ impl Catalog {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn artwork_fetch(&self, actor: &Actor, id: &str) -> Result<ArtworkFetch> {
-        let mut tx = self.store.pool.begin().await?;
-        actor.check_session_on(&mut tx).await?;
-        let mut fetch = read_on(&mut tx, actor.id(), id).await?;
-        recording_access(&mut tx, actor, &fetch.recording_id).await?;
-        (fetch.status, fetch.error) = observed_status(
-            &mut tx,
-            actor.id(),
-            id,
-            fetch.status,
-            fetch.attempts,
-            fetch.error,
-        )
-        .await?;
-        tx.commit().await?;
-        actor.check_session(&self.store).await?;
+        let fetch: ArtworkFetch = self
+            .read_artwork_fetch(actor, id, EntityKind::Recording)
+            .await?
+            .into();
         tracing::debug!(job_id = %fetch.id, status = ?fetch.status, "Artwork request read");
         Ok(fetch)
     }
+
+    pub(super) async fn read_artwork_fetch(
+        &self,
+        actor: &Actor,
+        id: &str,
+        kind: EntityKind,
+    ) -> Result<FetchRow> {
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
+        let mut row = fetch_row(&mut tx, actor.id(), id, kind).await?;
+        match kind {
+            EntityKind::Recording => recording_access(&mut tx, actor, &row.entity_id).await?,
+            EntityKind::Release => release::access_on(&mut tx, actor, &row.entity_id).await?,
+            EntityKind::Playlist => playlist::access_on(&mut tx, actor, &row.entity_id).await?,
+        }
+        observe_status(&mut tx, actor.id(), &mut row).await?;
+        tx.commit().await?;
+        actor.check_session(&self.store).await?;
+        Ok(row)
+    }
 }
 
-pub(super) async fn observed_status(
+async fn observe_status(
     connection: &mut SqliteConnection,
     account: &str,
-    id: &str,
-    status: ArtworkFetchStatus,
-    attempts: u32,
-    error: Option<String>,
-) -> Result<(ArtworkFetchStatus, Option<String>)> {
+    row: &mut FetchRow,
+) -> Result<()> {
     if !matches!(
-        &status,
+        &row.status,
         ArtworkFetchStatus::Queued | ArtworkFetchStatus::Running
     ) {
-        return Ok((status, error));
+        return Ok(());
     }
     let (current, lease_expired): (bool, bool) = sqlx::query_as(
         "SELECT EXISTS(SELECT 1 FROM current_artwork_fetch_authority authority WHERE authority.id = j.id),
             coalesce(j.lease_until <= unixepoch(),0)
          FROM artwork_fetches j WHERE j.id = ? AND j.user_id = ?",
-    ).bind(id).bind(account).fetch_one(connection).await?;
+    ).bind(&row.id).bind(account).fetch_one(connection).await?;
     if !current {
-        return Ok((
-            ArtworkFetchStatus::Cancelled,
-            Some("authority_changed".into()),
-        ));
-    }
-    if lease_expired {
-        return Ok(if attempts < 3 {
-            (ArtworkFetchStatus::Queued, None)
+        row.status = ArtworkFetchStatus::Cancelled;
+        row.error = Some("authority_changed".into());
+    } else if lease_expired {
+        if row.attempts < 3 {
+            row.status = ArtworkFetchStatus::Queued;
+            row.error = None;
         } else {
-            (
-                ArtworkFetchStatus::Failed,
-                Some("attempts_exhausted".into()),
-            )
-        });
+            row.status = ArtworkFetchStatus::Failed;
+            row.error = Some("attempts_exhausted".into());
+        }
     }
-    Ok((status, error))
+    Ok(())
 }
 
-async fn read_on(
+pub(super) async fn fetch_row(
     connection: &mut SqliteConnection,
     account: &str,
     id: &str,
-) -> Result<ArtworkFetch> {
-    let (id, recording_id, status, attempts, error, created_at, updated_at): (String, String, String, i64, Option<String>, i64, i64) =
-        sqlx::query_as("SELECT id,recording_id,status,attempts,error,created_at,updated_at FROM artwork_fetches WHERE id = ? AND user_id = ? AND entity_kind = 'recording'")
-            .bind(id).bind(account).fetch_optional(connection).await?.ok_or(Error::NotFound)?;
-    let status = ArtworkFetchStatus::try_from(status)?;
-    Ok(ArtworkFetch {
-        id,
-        recording_id,
-        status,
-        attempts: attempts as u32,
-        error,
-        created_at,
-        updated_at,
-    })
+    kind: EntityKind,
+) -> Result<FetchRow> {
+    sqlx::query_as(
+        "SELECT id,
+            CASE entity_kind WHEN 'recording' THEN recording_id WHEN 'release' THEN release_id ELSE playlist_id END AS entity_id,
+            status,attempts,error,created_at,updated_at
+         FROM artwork_fetches WHERE id = ? AND user_id = ? AND entity_kind = ?",
+    )
+    .bind(id)
+    .bind(account)
+    .bind(kind.as_str())
+    .fetch_optional(connection)
+    .await?
+    .ok_or(Error::NotFound)
 }
 
 pub(super) async fn capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {

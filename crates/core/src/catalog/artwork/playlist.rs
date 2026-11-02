@@ -1,21 +1,34 @@
 use super::{Artwork, ArtworkAvailability, Catalog, assets, jobs};
 use crate::{Actor, Error, Result};
+use jobs::EntityKind;
 use serde::Serialize;
 use sqlx::SqliteConnection;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Serialize, ToSchema, sqlx::FromRow)]
+#[derive(Serialize, ToSchema)]
 pub struct PlaylistArtworkFetch {
     pub id: String,
     pub playlist_id: String,
-    #[sqlx(try_from = "String")]
     pub status: jobs::ArtworkFetchStatus,
-    #[sqlx(try_from = "i64")]
     pub attempts: u32,
     pub error: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+impl From<jobs::FetchRow> for PlaylistArtworkFetch {
+    fn from(row: jobs::FetchRow) -> Self {
+        Self {
+            id: row.id,
+            playlist_id: row.entity_id,
+            status: row.status,
+            attempts: row.attempts,
+            error: row.error,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -79,7 +92,10 @@ impl Catalog {
                     "Artwork is already being retrieved by another session".into(),
                 ));
             }
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: PlaylistArtworkFetch =
+                jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Playlist)
+                    .await?
+                    .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_pending", elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request accepted");
@@ -94,7 +110,10 @@ impl Catalog {
              WHERE retained.user_id = ? AND retained.playlist_id = ? AND j.status = 'ready' LIMIT 1",
         ).bind(actor.id()).bind(playlist).fetch_optional(&mut *tx).await?;
         if let Some(id) = previous {
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: PlaylistArtworkFetch =
+                jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Playlist)
+                    .await?
+                    .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_retained", elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request accepted");
@@ -117,7 +136,10 @@ impl Catalog {
             .bind(provider.service_id).bind(provider.service_revision).bind(jobs::RESERVATION_BYTES)
             .bind(playlist).bind(provider.provider_playlist_id).bind(provider.provider).bind(provider.snapshot)
             .bind(provider.imported_at).execute(&mut *tx).await?;
-        let fetch = read_on(&mut tx, actor.id(), &id).await?;
+        let fetch: PlaylistArtworkFetch =
+            jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Playlist)
+                .await?
+                .into();
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         tracing::info!(job_id = %id, outcome = "queued", elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request accepted");
@@ -131,21 +153,10 @@ impl Catalog {
         id: &str,
     ) -> Result<PlaylistArtworkFetch> {
         let started = std::time::Instant::now();
-        let mut tx = self.store.pool.begin().await?;
-        actor.check_session_on(&mut tx).await?;
-        let mut fetch = read_on(&mut tx, actor.id(), id).await?;
-        access_on(&mut tx, actor, &fetch.playlist_id).await?;
-        (fetch.status, fetch.error) = jobs::observed_status(
-            &mut tx,
-            actor.id(),
-            id,
-            fetch.status,
-            fetch.attempts,
-            fetch.error,
-        )
-        .await?;
-        tx.commit().await?;
-        actor.check_session(&self.store).await?;
+        let fetch: PlaylistArtworkFetch = self
+            .read_artwork_fetch(actor, id, EntityKind::Playlist)
+            .await?
+            .into();
         tracing::debug!(job_id = %fetch.id, status = ?fetch.status,
             elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request read");
         Ok(fetch)
@@ -193,23 +204,11 @@ async fn approved_provider(
     ).bind(account).bind(playlist).fetch_optional(connection).await?)
 }
 
-async fn read_on(
+pub(super) async fn access_on(
     connection: &mut SqliteConnection,
-    account: &str,
-    id: &str,
-) -> Result<PlaylistArtworkFetch> {
-    sqlx::query_as(
-        "SELECT id,playlist_id,status,attempts,error,created_at,updated_at FROM artwork_fetches
-         WHERE id = ? AND user_id = ? AND entity_kind = 'playlist'",
-    )
-    .bind(id)
-    .bind(account)
-    .fetch_optional(connection)
-    .await?
-    .ok_or(Error::NotFound)
-}
-
-async fn access_on(connection: &mut SqliteConnection, actor: &Actor, playlist: &str) -> Result<()> {
+    actor: &Actor,
+    playlist: &str,
+) -> Result<()> {
     let allowed: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM playlists WHERE id = ? AND user_id = ? AND deleted = 0)",
     )

@@ -1,21 +1,34 @@
 use super::{Artwork, Catalog, assets, availability, jobs};
 use crate::{Actor, Error, Result};
+use jobs::EntityKind;
 use serde::Serialize;
 use sqlx::SqliteConnection;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Serialize, ToSchema, sqlx::FromRow)]
+#[derive(Serialize, ToSchema)]
 pub struct ReleaseArtworkFetch {
     pub id: String,
     pub release_id: String,
-    #[sqlx(try_from = "String")]
     pub status: jobs::ArtworkFetchStatus,
-    #[sqlx(try_from = "i64")]
     pub attempts: u32,
     pub error: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+impl From<jobs::FetchRow> for ReleaseArtworkFetch {
+    fn from(row: jobs::FetchRow) -> Self {
+        Self {
+            id: row.id,
+            release_id: row.entity_id,
+            status: row.status,
+            attempts: row.attempts,
+            error: row.error,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
 }
 
 impl Catalog {
@@ -44,7 +57,10 @@ impl Catalog {
                     "Artwork is already being retrieved by another session".into(),
                 ));
             }
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: ReleaseArtworkFetch =
+                jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Release)
+                    .await?
+                    .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_pending", elapsed_ms = started.elapsed().as_millis() as u64, "Album artwork request accepted");
@@ -61,7 +77,10 @@ impl Catalog {
         .fetch_optional(&mut *tx)
         .await?;
         if let Some(id) = previous {
-            let fetch = read_on(&mut tx, actor.id(), &id).await?;
+            let fetch: ReleaseArtworkFetch =
+                jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Release)
+                    .await?
+                    .into();
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_retained", elapsed_ms = started.elapsed().as_millis() as u64, "Album artwork request accepted");
@@ -88,7 +107,10 @@ impl Catalog {
         .bind(release).bind(provider_release)
         .execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
-        let fetch = read_on(&mut tx, actor.id(), &id).await?;
+        let fetch: ReleaseArtworkFetch =
+            jobs::fetch_row(&mut tx, actor.id(), &id, EntityKind::Release)
+                .await?
+                .into();
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         tracing::info!(job_id = %id, outcome = "queued", elapsed_ms = started.elapsed().as_millis() as u64, "Album artwork request accepted");
@@ -102,21 +124,10 @@ impl Catalog {
         id: &str,
     ) -> Result<ReleaseArtworkFetch> {
         let started = std::time::Instant::now();
-        let mut tx = self.store.pool.begin().await?;
-        actor.check_session_on(&mut tx).await?;
-        let mut fetch = read_on(&mut tx, actor.id(), id).await?;
-        access_on(&mut tx, actor, &fetch.release_id).await?;
-        (fetch.status, fetch.error) = jobs::observed_status(
-            &mut tx,
-            actor.id(),
-            id,
-            fetch.status,
-            fetch.attempts,
-            fetch.error,
-        )
-        .await?;
-        tx.commit().await?;
-        actor.check_session(&self.store).await?;
+        let fetch: ReleaseArtworkFetch = self
+            .read_artwork_fetch(actor, id, EntityKind::Release)
+            .await?
+            .into();
         tracing::debug!(job_id = %fetch.id, status = ?fetch.status,
             elapsed_ms = started.elapsed().as_millis() as u64, "Album artwork request read");
         Ok(fetch)
@@ -171,22 +182,6 @@ impl Catalog {
         tracing::debug!(found = row.is_some(), "Retained album artwork read");
         row.map(assets::stored).transpose()
     }
-}
-
-async fn read_on(
-    connection: &mut SqliteConnection,
-    account: &str,
-    id: &str,
-) -> Result<ReleaseArtworkFetch> {
-    sqlx::query_as(
-        "SELECT id,release_id,status,attempts,error,created_at,updated_at FROM artwork_fetches
-         WHERE id = ? AND user_id = ? AND entity_kind = 'release'",
-    )
-    .bind(id)
-    .bind(account)
-    .fetch_optional(connection)
-    .await?
-    .ok_or(Error::NotFound)
 }
 
 pub(super) async fn access_on(
