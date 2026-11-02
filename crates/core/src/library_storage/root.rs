@@ -25,7 +25,7 @@ impl Root {
             directory: Arc::new(directory),
             slots,
             walk_slots: Arc::new(Semaphore::new(1)),
-            read_slots: Arc::new(Semaphore::new(1)),
+            read_slots: Arc::new(Semaphore::new(2)),
         }
     }
 

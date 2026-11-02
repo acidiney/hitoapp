@@ -225,7 +225,7 @@ impl GrantSlots {
         Self {
             operations: Arc::new(Semaphore::new(1)),
             walks: Arc::new(Semaphore::new(1)),
-            reads: Arc::new(Semaphore::new(1)),
+            reads: Arc::new(Semaphore::new(2)),
         }
     }
 }

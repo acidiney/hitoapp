@@ -24,7 +24,7 @@ struct Drives {
     actor: Actor,
     faults: Faults,
     originals: BTreeMap<String, Vec<u8>>,
-    folders: [String; 2],
+    folders: [String; 3],
 }
 
 impl Drives {
@@ -118,6 +118,8 @@ async fn drives() -> Drives {
     let directory = tempfile::tempdir().unwrap();
     let faulty = directory.path().join("hito-faulty-drive");
     let healthy = directory.path().join("healthy");
+    let second = directory.path().join("hito-faulty-second");
+    std::fs::create_dir(&second).unwrap();
     std::fs::create_dir(&faulty).unwrap();
     std::fs::create_dir(&healthy).unwrap();
     let mut originals = BTreeMap::new();
@@ -125,6 +127,12 @@ async fn drives() -> Drives {
         originals.insert(
             title.to_string(),
             write_long_wav(&faulty.join(format!("{title}.wav")), offset as i16),
+        );
+    }
+    for (offset, title) in ["four", "five"].iter().enumerate() {
+        originals.insert(
+            title.to_string(),
+            write_long_wav(&second.join(format!("{title}.wav")), 20 + offset as i16),
         );
     }
     originals.insert(
@@ -139,6 +147,11 @@ async fn drives() -> Drives {
                 id: "faulty".into(),
                 name: "Faulty".into(),
                 root: faulty,
+            },
+            SharedDirectoryConfig {
+                id: "second".into(),
+                name: "Second".into(),
+                root: second,
             },
             SharedDirectoryConfig {
                 id: "healthy".into(),
@@ -172,7 +185,7 @@ async fn drives() -> Drives {
         .remove(0)
         .id;
     let mut folders = Vec::new();
-    for id in ["faulty", "healthy"] {
+    for id in ["faulty", "healthy", "second"] {
         let folder = services
             .storage
             .connect_folder(
@@ -421,6 +434,7 @@ async fn stalled_reads_during_a_scan_skip_the_files_and_do_not_block_healthy_fol
     ];
     drives.faults.set("stall-read");
     assert_eq!(drives.rescan(&drives.folders[0]).await, "complete");
+    assert!(open_handles_on_the_faulty_drive() >= 2);
     assert_eq!(drives.rescan(&drives.folders[1]).await, "complete");
     let during = drives.available().await;
     assert!(during["healthy"], "{during:?}");
@@ -435,4 +449,28 @@ async fn stalled_reads_during_a_scan_skip_the_files_and_do_not_block_healthy_fol
         assert_eq!(&drives.source(title).await, source);
         assert_eq!(drives.play(source).await.unwrap(), drives.originals[*title]);
     }
+}
+
+#[tokio::test]
+async fn stalled_reads_on_two_drives_do_not_block_a_healthy_folder() {
+    if shim::child_faults().is_none() {
+        shim::run_in_child("stalled_reads_on_two_drives_do_not_block_a_healthy_folder").await;
+        return;
+    }
+    let drives = drives().await;
+    drives.faults.set("stall-read");
+    assert_eq!(drives.rescan(&drives.folders[0]).await, "complete");
+    assert_eq!(drives.rescan(&drives.folders[2]).await, "complete");
+    assert!(open_handles_on_the_faulty_drive() >= 2);
+    assert_eq!(drives.rescan(&drives.folders[1]).await, "complete");
+    let during = drives.available().await;
+    assert!(during["healthy"], "{during:?}");
+    for title in ["one", "two", "three", "four", "five"] {
+        assert!(!during[title], "{during:?}");
+    }
+    drives.faults.clear("stall-read");
+    assert_eq!(drives.rescan(&drives.folders[0]).await, "complete");
+    assert_eq!(drives.rescan(&drives.folders[2]).await, "complete");
+    let after = drives.available().await;
+    assert!(after.values().all(|available| *available), "{after:?}");
 }

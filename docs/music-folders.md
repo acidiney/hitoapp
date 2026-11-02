@@ -73,7 +73,7 @@ Overlapping selections within a shared location are rejected. Setup rejects over
 
 Each scan attempt has its own token and the folder's current generation. Publication and reconciliation require both to remain valid. A recovered job cannot reuse an earlier attempt's observations. Incomplete enumeration preserves previously verified files. A failed root open withdraws only that folder's sources. Physically disconnected drives show unavailable folder status; their sources withdraw on a failed scan or revoked grant.
 
-Opening and browsing have deadlines. Per-grant limits isolate stalled locations. Walking has a five-second inactivity deadline that observes unsupported entries, rather than a deadline for the entire scan. Abandoned calls retain their permit until they finish, with one operation thread and one walk thread per grant. File verification during a scan has one read thread per grant, so a drive whose reads stall can hold only one of the two shared verification slots. Detached threads do not hold the async runtime open during shutdown. Operating-system calls cannot be forcibly cancelled in process.
+Opening and browsing have deadlines. Per-grant limits isolate stalled locations. Walking has a five-second inactivity deadline that observes unsupported entries, rather than a deadline for the entire scan. Abandoned calls retain their permit until they finish, with one operation thread and one walk thread per grant. File verification during a scan allows two read threads per grant. A stuck read holds only its grant's slot and a count of live threads, never a slot that other grants need, so any number of stalled drives leaves healthy drives verifying. Detached threads do not hold the async runtime open during shutdown. Operating-system calls cannot be forcibly cancelled in process.
 
 Pending legacy witnesses are checked before ordinary matching. Incomplete legacy discovery fails conservatively rather than guessing identity. Metadata follows a surviving verified source when its previous owner becomes unavailable.
 
@@ -143,7 +143,7 @@ Automated tests cover a new file, a removed file, a burst, a change during a run
 
 ### Local audio on stalled or disconnected drives
 
-Three test binaries cover playback, scanning and the HTTP stream with a preloaded libc shim that holds or fails `read` and `realpath` calls on a drive named `hito-faulty-*`. A control file switches each fault on and off, so the tests wait for signals and not for clocks. They run on Linux in Docker: `crates/core/tests/local_audio_faults.rs` and `apps/server/tests/local_audio_http_faults.rs`.
+Two test binaries cover playback, scanning and the HTTP stream with a preloaded libc shim that holds or fails `read` and `realpath` calls on a drive named `hito-faulty-*`. A control file switches each fault on and off, so the tests wait for signals and not for clocks. They run on Linux in Docker: `crates/core/tests/local_audio_faults.rs` and `apps/server/tests/local_audio_http_faults.rs`.
 
 | Situation | Result | Status |
 | --- | --- | --- |
@@ -154,7 +154,7 @@ Three test binaries cover playback, scanning and the HTTP stream with a preloade
 | The next request after the drive is unplugged | "Not found" (HTTP 404). When the drive returns and reads work, the same source plays in full. | Locked in |
 | Stalled reads while verifying files in a scan | The scan finishes, the unverifiable files are withdrawn until a later scan, and the next scan makes them available again with the same source IDs. | Fixed (see below) |
 
-Fixed defect: file verification used two global slots, and a thread stuck on a stalled read kept its slot. Two stuck reads on one drive made every other drive's files fail verification, which withdrew healthy music from the library. Each drive now allows one verification read at a time, so a stalled drive holds at most one slot and healthy drives continue.
+Fixed defect: file verification used two global slots, and a thread stuck on a stalled read kept its slot. Two stuck reads made every other drive's files fail verification, which withdrew healthy music from the library. The shared slots are now held only while a caller waits for a result, and a stuck thread holds only its own grant's read slots (two per grant). Tests hold two stalled files on one drive, and stalled files on two drives, while a healthy folder is rescanned. The healthy files stay available, and scan time on 60 files is unchanged (about 5.4 seconds first scan, 0.3 seconds rescan before and after). The deadline for a file includes waiting for its grant's slot, which is not a concern while a scan reads one file at a time against a 300-second deadline.
 
 Not covered: a stalled `open` of the file itself (as opposed to the shared folder), because the open uses raw system calls that the shim cannot intercept; a stalled `ffprobe` or `ffmpeg` read of the original file (the tools read a private copy, and their own deadlines are tested in `inspection_command_deadline.rs`); and real network or removable drives on macOS and Windows. A thread blocked in a system call cannot be cancelled, so its slot returns only when the drive answers or fails.
 

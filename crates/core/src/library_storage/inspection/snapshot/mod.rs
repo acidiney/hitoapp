@@ -33,9 +33,12 @@ pub(super) struct Prepared {
     pub media: Option<MediaSnapshot>,
 }
 
+const THREADS: usize = 256;
+
 #[derive(Clone)]
 pub(super) struct Reader {
     slots: Arc<Semaphore>,
+    threads: Arc<Semaphore>,
     retirement: Option<Scope>,
 }
 
@@ -71,6 +74,7 @@ impl Reader {
     pub(super) fn new() -> Self {
         Self {
             slots: Arc::new(Semaphore::new(2)),
+            threads: Arc::new(Semaphore::new(THREADS)),
             retirement: None,
         }
     }
@@ -78,12 +82,17 @@ impl Reader {
     pub(super) fn scoped(&self, retirement: Scope) -> Self {
         Self {
             slots: self.slots.clone(),
+            threads: self.threads.clone(),
             retirement: Some(retirement),
         }
     }
 
     pub(super) async fn settle(&self) -> Result<()> {
-        let _idle = self.slots.acquire_many(2).await.map_err(|_| stopped())?;
+        let _idle = self
+            .threads
+            .acquire_many(THREADS as u32)
+            .await
+            .map_err(|_| stopped())?;
         Ok(())
     }
 
@@ -126,6 +135,7 @@ impl Reader {
         };
         let _cancel = CancelOnDrop(control.cancelled.clone());
         let slots = self.slots.clone();
+        let threads = self.threads.clone();
         let retirement = self.retirement.clone();
         let root = root.clone();
         let path = path.to_owned();
@@ -137,7 +147,8 @@ impl Reader {
                 .acquire_owned()
                 .await
                 .map_err(|_| stopped())?;
-            let permit = slots.acquire_owned().await.map_err(|_| stopped())?;
+            let _active = slots.acquire_owned().await.map_err(|_| stopped())?;
+            let live = threads.acquire_owned().await.map_err(|_| stopped())?;
             let retirement = match retirement {
                 Some(scope) => Some(scope.acquire().await?),
                 None => None,
@@ -145,7 +156,7 @@ impl Reader {
             let (finished, result) = oneshot::channel();
             let _task = tokio::task::spawn_blocking(move || {
                 let _drive = drive;
-                let _permit = permit;
+                let _live = live;
                 let _retirement = retirement;
                 let _entered = span.enter();
                 let outcome = file::read(&root, &path, mode, &control);
