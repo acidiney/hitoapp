@@ -10,6 +10,13 @@ const MAX_PENDING_ARTISTS_PER_ACCOUNT: i64 = 32;
 const MAX_ATTEMPTS: i64 = 4;
 const LEASE_SECONDS: i64 = 60;
 const RETRY_AFTER_SECONDS: i64 = 86_400;
+const BUSY_RETRY_SECONDS: i64 = 5;
+
+pub(super) enum Fetch {
+    Found(ProviderArtwork),
+    Absent,
+    Deferred,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoverArtKind {
@@ -112,9 +119,10 @@ pub(crate) async fn enqueue(
     }
     if kind.is_artist_photo() {
         let pending_artists: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND kind IN ('artist','credited_artist') AND state IN ('queued','running')",
+            "SELECT count(*) FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND state IN ('queued','running')",
         )
         .bind(account)
+        .bind(kind.stored())
         .fetch_one(&mut *connection)
         .await?;
         if pending_artists >= MAX_PENDING_ARTISTS_PER_ACCOUNT {
@@ -156,9 +164,19 @@ impl Catalog {
         .bind(mbid)
         .fetch_optional(&mut *tx)
         .await?;
+        let still_credited = if kind == CoverArtKind::CreditedArtist
+            && row.as_ref().is_some_and(|(state, _, _)| state == "ready")
+        {
+            credited_artist::target(&mut tx, actor.id(), mbid)
+                .await?
+                .is_some()
+        } else {
+            true
+        };
         let found = match row {
             None => CoverArtLookup::Unknown,
             Some((state, hash, aged)) => match (state.as_str(), hash) {
+                ("ready", Some(_)) if !still_credited => CoverArtLookup::Unknown,
                 ("ready", Some(_))
                     if kind.is_artist_photo()
                         && !super::availability::automatic_artwork_allowed(&mut tx, actor.id())
@@ -310,7 +328,7 @@ impl Catalog {
             fetched = self.fetch_cover(kind, &lookup) => fetched,
         };
         let outcome = match fetched {
-            Ok(Some(remote)) => {
+            Ok(Fetch::Found(remote)) => {
                 match tokio::task::spawn_blocking(move || assets::decode(remote))
                     .await
                     .map_err(|_| Error::Internal("Cover art validation stopped".into()))?
@@ -326,10 +344,21 @@ impl Catalog {
                     }
                 }
             }
-            Ok(None) => {
+            Ok(Fetch::Absent) => {
                 self.finish_cover_lookup(&lookup, "missing", None, 0, 0)
                     .await?;
                 "absent"
+            }
+            Ok(Fetch::Deferred) => {
+                self.finish_cover_lookup(
+                    &lookup,
+                    "queued",
+                    None,
+                    lookup.attempts,
+                    BUSY_RETRY_SECONDS,
+                )
+                .await?;
+                "deferred"
             }
             Err(error) => {
                 let attempts = lookup.attempts + 1;
@@ -358,7 +387,7 @@ impl Catalog {
         &self,
         kind: CoverArtKind,
         lookup: &Lookup,
-    ) -> std::result::Result<Option<ProviderArtwork>, String> {
+    ) -> std::result::Result<Fetch, String> {
         let mbid = &lookup.mbid;
         let cover = match kind {
             CoverArtKind::Release => self.cover_art.front(CoverKind::Release, mbid).await,
@@ -373,9 +402,11 @@ impl Catalog {
         };
         cover
             .map(|cover| {
-                cover.map(|cover| ProviderArtwork {
-                    content_type: cover.content_type,
-                    bytes: cover.bytes,
+                cover.map_or(Fetch::Absent, |cover| {
+                    Fetch::Found(ProviderArtwork {
+                        content_type: cover.content_type,
+                        bytes: cover.bytes,
+                    })
                 })
             })
             .map_err(|error| error.to_string())

@@ -56,7 +56,8 @@ impl Catalog {
             .build_query_scalar()
             .fetch_one(&self.store.pool)
             .await?;
-        let mut query = selected(actor, &browse, None)?;
+        let photos = self.provider_photos_possible(actor).await?;
+        let mut query = selected(actor, &browse, None, photos)?;
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         tracing::debug!(total, offset, limit, "Artist page loaded");
         Ok(Page {
@@ -67,9 +68,15 @@ impl Catalog {
         })
     }
 
+    async fn provider_photos_possible(&self, actor: &Actor) -> Result<bool> {
+        let mut connection = self.store.pool.acquire().await?;
+        super::artwork::credited_artist_photos_possible(&mut connection, actor.id()).await
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), artist_id))]
     pub async fn artist(&self, actor: &Actor, id: &str, browse: Browse) -> Result<ArtistDetail> {
-        let mut query = selected(actor, &Browse::default(), Some(id))?;
+        let photos = self.provider_photos_possible(actor).await?;
+        let mut query = selected(actor, &Browse::default(), Some(id), photos)?;
         let artist: Artist = query
             .build_query_as()
             .fetch_optional(&self.store.pool)
@@ -110,7 +117,12 @@ impl Catalog {
     }
 }
 
-fn selected(actor: &Actor, browse: &Browse, id: Option<&str>) -> Result<ChosenRecordings> {
+fn selected(
+    actor: &Actor,
+    browse: &Browse,
+    id: Option<&str>,
+    photos: bool,
+) -> Result<ChosenRecordings> {
     let mut query = ChosenRecordings::new(actor);
     query.push(", selected AS (SELECT c.* FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;
@@ -127,7 +139,11 @@ fn selected(actor: &Actor, browse: &Browse, id: Option<&str>) -> Result<ChosenRe
             .push_bind(offset);
     }
     query.push(SUMMARY_HEAD);
-    query.push(super::artwork::credited_artist_photo_exists("c"));
+    if photos {
+        query.push(super::artwork::credited_artist_photo_exists("c"));
+    } else {
+        query.push("0");
+    }
     query.push(SUMMARY_TAIL);
     Ok(query)
 }

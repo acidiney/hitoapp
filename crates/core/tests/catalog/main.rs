@@ -19,6 +19,7 @@ mod collection_event_bytes;
 mod collection_event_upgrade;
 mod collection_saved_position;
 mod cover_art;
+mod credited_artist_photo_rules;
 mod credited_artist_photos;
 mod credited_artist_photos_upgrade;
 mod credited_artists_upgrade;

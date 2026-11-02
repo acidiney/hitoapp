@@ -12,7 +12,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Semaphore};
 
 pub const RECORDING_ID: &str = "recording/owned-artwork";
 pub const RELEASE_ID: &str = "release/verified-artwork";
@@ -29,18 +29,27 @@ pub enum ArtistKind {
     NotCredited,
     Served,
     Refused,
+    Unprocessable,
+}
+
+struct Hold {
+    held: AtomicBool,
+    entered: Semaphore,
+    release: Semaphore,
 }
 
 #[derive(Clone)]
 struct Shared {
     requests: Arc<Mutex<Vec<ArtworkRequest>>>,
     artists: ArtistKind,
+    hold: Arc<Hold>,
 }
 
 pub struct ArtworkServer {
     pub url: String,
     requests: Arc<Mutex<Vec<ArtworkRequest>>>,
     artwork_enabled: Arc<AtomicBool>,
+    hold: Arc<Hold>,
     task: tokio::task::JoinHandle<()>,
 }
 
@@ -61,6 +70,11 @@ impl ArtworkServer {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let artwork_enabled = Arc::new(AtomicBool::new(artwork_enabled));
         let manifest_artwork = artwork_enabled.clone();
+        let hold = Arc::new(Hold {
+            held: AtomicBool::new(false),
+            entered: Semaphore::new(0),
+            release: Semaphore::new(0),
+        });
         let app = Router::new()
             .route(
                 "/v1/manifest",
@@ -72,6 +86,7 @@ impl ArtworkServer {
             .with_state(Shared {
                 requests: requests.clone(),
                 artists,
+                hold: hold.clone(),
             });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}/", listener.local_addr().unwrap());
@@ -80,8 +95,22 @@ impl ArtworkServer {
             url,
             requests,
             artwork_enabled,
+            hold,
             task,
         }
+    }
+
+    pub fn hold_recording_requests(&self) {
+        self.hold.held.store(true, Ordering::SeqCst);
+    }
+
+    pub async fn recording_request_entered(&self) {
+        self.hold.entered.acquire().await.unwrap().forget();
+    }
+
+    pub fn release_recording_requests(&self) {
+        self.hold.held.store(false, Ordering::SeqCst);
+        self.hold.release.add_permits(8);
     }
 
     pub fn enable_artwork(&self) {
@@ -175,9 +204,23 @@ async fn playlist_items(
 
 async fn artwork(State(shared): State<Shared>, Json(request): Json<ArtworkRequest>) -> Response {
     request.validate().unwrap();
-    if request.entity == ArtworkEntity::Artist && shared.artists == ArtistKind::Refused {
+    if request.entity == ArtworkEntity::Artist
+        && matches!(
+            shared.artists,
+            ArtistKind::Refused | ArtistKind::Unprocessable
+        )
+    {
+        let status = if shared.artists == ArtistKind::Refused {
+            StatusCode::BAD_REQUEST
+        } else {
+            StatusCode::UNPROCESSABLE_ENTITY
+        };
         shared.requests.lock().await.push(request);
-        return StatusCode::BAD_REQUEST.into_response();
+        return status.into_response();
+    }
+    if request.entity == ArtworkEntity::Recording && shared.hold.held.load(Ordering::SeqCst) {
+        shared.hold.entered.add_permits(1);
+        shared.hold.release.acquire().await.unwrap().forget();
     }
     let requests = shared.requests;
     let bytes = match request.entity {
