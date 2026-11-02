@@ -1,5 +1,8 @@
 use super::{Control, MAX_TAG_BYTES, Report, attempt, read_at, write_at};
-use crate::Result;
+use crate::{
+    Result,
+    id3_frames::{syncsafe, tag_span},
+};
 use std::fs::File;
 
 const HEADER: u64 = 10;
@@ -40,7 +43,7 @@ fn leading_tags(file: &mut File, length: u64, report: &mut Report) -> (u64, usiz
         if attempt(read_at(file, offset, &mut header), report) != Some(10) {
             break;
         }
-        match super::rewrite::span(&header) {
+        match tag_span(&header) {
             Some(span) if offset + span <= length => {
                 offset += span;
                 stacked += 1;
@@ -75,7 +78,7 @@ fn footer_at(file: &mut File, length: u64, trailer: u64, report: &mut Report) ->
     if &footer[..3] != b"3DI" || footer[3] != 4 || footer[5] & 0x10 == 0 {
         return None;
     }
-    let size = u64::from(super::rewrite::syncsafe(&footer[6..10])?);
+    let size = u64::from(syncsafe(&footer[6..10])?);
     let span = size + 2 * HEADER;
     let start = (footer_start + HEADER).checked_sub(span)?;
     let mut header = [0u8; 10];

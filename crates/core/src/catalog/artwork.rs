@@ -6,6 +6,7 @@ mod availability;
 mod budget;
 mod cover_art;
 mod credited_artist;
+mod id3_picture;
 mod jobs;
 mod lease;
 mod lookups;

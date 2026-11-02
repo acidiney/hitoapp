@@ -90,7 +90,7 @@ Behavior before this change, measured with FFmpeg 5.1 in the Docker image:
 
 Current policy:
 
-- Only compressed `T***` text frames are inflated. Other compressed frames, including pictures, are dropped from the private copy. Frames that also carry grouping or encryption flags are dropped.
+- Only compressed `T***` text frames are inflated in the private copy. Other compressed frames, including pictures, are dropped from it (artwork has its own reader, see below). Frames that also carry grouping or encryption flags are dropped.
 - A frame is dropped, never fatal, when its declared size is zero or above 1 MiB, when the file's declared total passes 4 MiB (charged before inflating, across stacked tags and chunks), when a frame above 4 KiB expands more than 100 times, when the stream is invalid or its length differs from the declared size, or when the plain result does not fit in the original tag. v2.4 tag-level unsynchronisation applies to every frame and footers are skipped. A failed write to the private copy is counted and the copy is used unmodified. Reading stops at 16 MiB of tag, the snapshot deadline applies, and decompression never allocates beyond the declared and capped size.
 - Dropped frames leave the field to the filename or unknown-value fallback, so observation provenance still shows the field as not found in tags. Personal edits and pins are unchanged.
 - Per file, one debug event `id3_compressed_frames` records counts of inflated and dropped frames by reason. It contains no values or paths.
@@ -107,7 +107,19 @@ In the private copy, Hito now finds the footer and checks that a tag header (`ID
 - **Not found.** A footer whose size does not lead to a matching tag header is left alone. The copy keeps the unknown bytes and decoding fails as it does for any trailing junk, so the file is skipped. ID3v2.3 tags have no footer and cannot be found at the end of a file.
 - A debug event `id3_compressed_frames` also counts `appended_moved` and `appended_dropped`.
 
-Unchanged files keep their earlier observation until they change; there is no forced rescan. Embedded artwork still uses a separate reader that does not decompress ID3 frames.
+### Compressed pictures
+
+Embedded artwork is read on request from the original file, not from the private copy, and is not part of the inspection record. The reader first uses Lofty. Lofty is built without ID3 decompression, so it skips or fails on a compressed `APIC` frame. When Lofty finds no usable picture, Hito reads the leading ID3v2.3 and v2.4 tags (up to four stacked tags) itself and looks at every `APIC` frame, compressed or not.
+
+- A compressed picture is inflated only if its declared size is at most 8 MiB plus 64 KiB for the type and description, its compressed bytes fit the same cap, the total declared size of all pictures in the file is within the 16 MiB metadata budget, and the stream is valid and exactly the declared length. A stream that is larger or smaller than declared, a corrupt stream, a v2.4 frame without a data length, an encrypted frame, and a bad type, encoding or description are dropped. Inflation never allocates beyond the declared size, so a zip bomb costs at most the cap.
+- The result goes through the same check as any embedded picture: it must be PNG, JPEG, GIF or WebP by its first bytes and at most 8 MiB. A front cover is preferred over other types. If nothing valid remains, the folder cover images are tried as before.
+- A bad picture never hides the rest of the tag. Title, artist and album come from the inspection reader, which does not look at pictures.
+- Retained provider artwork still goes through the stricter 1,024-pixel decode in the catalog. Embedded pictures keep the existing, looser rule, which is unchanged.
+- This does not change stored inspection data, so the inspection version is unchanged.
+
+Tests scan MP3 files with compressed `APIC` frames in v2.3 and v2.4: a PNG, a JPEG with a front cover preferred over another type, a picture over the cap, a 600 MiB stream (a zip bomb) with a true and a false declared size, an impossible declared size, corrupt zlib data and compressed bytes that are not an image. Each dropped case also checks that the tag title is still read.
+
+Unchanged files keep their earlier observation until they change; there is no forced rescan.
 
 Tests for appended tags use an FFmpeg-made MP3 with the tag appended by the test, with and without the encoder-only leading tag: an appended-only file, leading plus appended, a bad compressed frame in an appended tag, a footer that points nowhere, a tag over 16 MiB, and an ID3v1 tag after the footer, plus byte-level unit tests of the move and the cut. Tests build tags byte by byte and scan them through the public capability. They cover compressed title, artist and album in v2.3 and v2.4, on MP3 and WAV, per-frame and whole-tag unsynchronisation, corrupt streams, oversize and highly expanding frames, false declared sizes, non-text compressed frames, privacy of logs and personal edits. A compatibility test writes the title, artist, album, album artist, disc and track with Lofty, FFmpeg or hand-built bytes and reads them back for these dialects: ID3v1, ID3v2.3, ID3v2.4, AAC with ID3, FLAC, Ogg Vorbis and Opus comments, M4A/MP4 atoms, WAV `LIST`/`INFO` and ID3 chunks, AIFF ID3 and WMA. ID3v1 and INFO carry no album artist or disc. FFmpeg ignores an ID3v1 tag when any ID3v2 tag exists, even an encoder-only one. A tag appended at the end of a file is read when it ends in an ID3v2.4 footer (see below). These are Linux Docker results with FFmpeg 5.1 and do not cover other FFmpeg versions.
 

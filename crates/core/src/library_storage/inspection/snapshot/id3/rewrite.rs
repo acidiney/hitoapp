@@ -1,12 +1,11 @@
-use super::{super::Control, inflate};
+use super::super::Control;
+use crate::id3_frames::{FRAME_HEADER, Frame, Tag, Version, deunsynchronise, inflate, syncsafe};
 use std::borrow::Cow;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 const MAX_TOTAL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_RATIO: usize = 100;
 const RATIO_FREE_BYTES: usize = 4096;
-const MAX_FRAMES: usize = 8192;
-const FRAME_HEADER: usize = 10;
 
 #[derive(Default)]
 pub(in crate::library_storage::inspection) struct Report {
@@ -28,34 +27,10 @@ impl Report {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum Version {
-    V23,
-    V24,
-}
-
-struct Frame<'a> {
-    id: [u8; 4],
-    flags: [u8; 2],
-    body: Cow<'a, [u8]>,
-}
-
 enum Ignored {
     OverLimit,
     Invalid,
     Unsupported,
-}
-
-pub(super) fn span(header: &[u8; 10]) -> Option<u64> {
-    if &header[..3] != b"ID3" || !matches!(header[3], 3 | 4) {
-        return None;
-    }
-    let footer = if header[3] == 4 && header[5] & 0x10 != 0 {
-        10
-    } else {
-        0
-    };
-    Some(u64::from(syncsafe(&header[6..10])?) + 10 + footer)
 }
 
 pub(super) fn normalise(
@@ -63,34 +38,12 @@ pub(super) fn normalise(
     report: &mut Report,
     control: &Control,
 ) -> crate::Result<Option<Vec<u8>>> {
-    let version = if tag[3] == 3 {
-        Version::V23
-    } else {
-        Version::V24
-    };
-    let flags = tag[5];
-    let footer = if version == Version::V24 && flags & 0x10 != 0 {
-        10
-    } else {
-        0
-    };
-    let Some(end) = tag.len().checked_sub(footer).filter(|end| *end >= 10) else {
+    let Some(parsed) = Tag::parse(tag) else {
         return Ok(None);
     };
-    let mut body = Cow::Borrowed(&tag[10..end]);
-    let tag_unsynchronised = flags & 0x80 != 0;
-    if tag_unsynchronised && version == Version::V23 {
-        body = Cow::Owned(deunsynchronise(&body));
-    }
-    if flags & 0x40 != 0 {
-        let Some(skip) = extended_header(version, &body) else {
-            return Ok(None);
-        };
-        body = Cow::Owned(body[skip..].to_vec());
-    }
-    let Some(frames) = frames(version, &body, tag_unsynchronised) else {
-        return Ok(None);
-    };
+    let (version, flags, footer) = (parsed.version, parsed.flags, parsed.footer);
+    let end = tag.len() - footer;
+    let frames = parsed.frames();
     if !report.recording_decided
         && let Some(identifier) = frames
             .iter()
@@ -138,52 +91,6 @@ pub(super) fn normalise(
     Ok(Some(replacement))
 }
 
-fn frames(version: Version, body: &[u8], tag_unsynchronised: bool) -> Option<Vec<Frame<'_>>> {
-    let mut frames = Vec::new();
-    let mut offset = 0;
-    while offset + FRAME_HEADER <= body.len() {
-        let header = &body[offset..offset + FRAME_HEADER];
-        let id = [header[0], header[1], header[2], header[3]];
-        if !id
-            .iter()
-            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
-        {
-            break;
-        }
-        let size = match version {
-            Version::V23 => Some(u32::from_be_bytes([
-                header[4], header[5], header[6], header[7],
-            ])),
-            Version::V24 => syncsafe(&header[4..8]),
-        };
-        let Some(size) = size.map(|size| size as usize) else {
-            break;
-        };
-        let start = offset + FRAME_HEADER;
-        let Some(end) = start.checked_add(size).filter(|end| *end <= body.len()) else {
-            break;
-        };
-        offset = end;
-        if size == 0 {
-            continue;
-        }
-        if frames.len() == MAX_FRAMES {
-            return None;
-        }
-        let mut frame = Frame {
-            id,
-            flags: [header[8], header[9]],
-            body: Cow::Borrowed(&body[start..end]),
-        };
-        if version == Version::V24 && tag_unsynchronised {
-            frame.body = Cow::Owned(deunsynchronise_frame(frame.flags[1], &frame.body));
-            frame.flags[1] &= !0x02;
-        }
-        frames.push(frame);
-    }
-    Some(frames)
-}
-
 const MUSICBRAINZ_OWNER: &[u8] = b"http://musicbrainz.org";
 const MAX_IDENTIFIER_BYTES: usize = 64;
 
@@ -208,16 +115,6 @@ fn musicbrainz_identifier(version: Version, frame: &Frame) -> Option<Option<Stri
             .then(|| String::from_utf8(identifier.to_vec()).ok())
             .flatten(),
     )
-}
-
-fn deunsynchronise_frame(flags: u8, body: &[u8]) -> Vec<u8> {
-    let prefix = usize::from(flags & 0x40 != 0)
-        + usize::from(flags & 0x04 != 0)
-        + if flags & 0x01 != 0 { 4 } else { 0 };
-    let (head, data) = body.split_at(prefix.min(body.len()));
-    let mut output = head.to_vec();
-    output.extend(deunsynchronise(data));
-    output
 }
 
 fn compressed(version: Version, frame: &Frame) -> bool {
@@ -270,39 +167,6 @@ fn push(output: &mut Vec<u8>, version: Version, id: [u8; 4], flags: [u8; 2], bod
     }
     output.extend_from_slice(&flags);
     output.extend_from_slice(body);
-}
-
-fn extended_header(version: Version, body: &[u8]) -> Option<usize> {
-    let size = body.get(..4)?;
-    match version {
-        Version::V23 => Some(u32::from_be_bytes([size[0], size[1], size[2], size[3]]) as usize + 4),
-        Version::V24 => Some(syncsafe(size)? as usize),
-    }
-    .filter(|length| *length <= body.len())
-}
-
-fn deunsynchronise(bytes: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        output.push(bytes[index]);
-        if bytes[index] == 0xff && bytes.get(index + 1) == Some(&0) {
-            index += 1;
-        }
-        index += 1;
-    }
-    output
-}
-
-pub(super) fn syncsafe(bytes: &[u8]) -> Option<u32> {
-    if bytes.iter().any(|byte| byte & 0x80 != 0) {
-        return None;
-    }
-    Some(
-        bytes
-            .iter()
-            .fold(0, |value, byte| (value << 7) | u32::from(*byte)),
-    )
 }
 
 fn to_syncsafe(value: u32) -> [u8; 4] {

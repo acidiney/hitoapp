@@ -1,4 +1,8 @@
-use super::{Artwork, budget::BudgetedFile};
+use super::{
+    Artwork,
+    budget::BudgetedFile,
+    id3_picture::{self, Limits},
+};
 use crate::library_storage::{OpenedMedia, Root};
 use lofty::{config::ParseOptions, file::TaggedFileExt, picture::PictureType, probe::Probe};
 use std::{
@@ -14,6 +18,33 @@ pub(super) fn read_artwork(audio: OpenedMedia) -> Option<Artwork> {
 }
 
 fn read_embedded(file: std::fs::File) -> Option<Artwork> {
+    let id3_file = file.try_clone().ok();
+    read_tagged(file).or_else(|| read_id3_pictures(id3_file?))
+}
+
+fn read_id3_pictures(file: std::fs::File) -> Option<Artwork> {
+    let limits = Limits {
+        tag_bytes: MAX_METADATA_BYTES as u64,
+        image_bytes: MAX_IMAGE_BYTES,
+    };
+    let pictures = id3_picture::read(file, &limits);
+    for front_cover in [true, false] {
+        for picture in pictures
+            .iter()
+            .filter(|picture| picture.front == front_cover)
+        {
+            if let Some(content_type) = raster_type(&picture.bytes) {
+                return Some(Artwork {
+                    content_type,
+                    bytes: picture.bytes.clone(),
+                });
+            }
+        }
+    }
+    None
+}
+
+fn read_tagged(file: std::fs::File) -> Option<Artwork> {
     let mut reader = BudgetedFile::new(file, MAX_METADATA_BYTES);
     let tagged = Probe::new(BufReader::new(&mut reader))
         .options(ParseOptions::new().read_properties(false))

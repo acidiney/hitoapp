@@ -6,6 +6,7 @@ mod community;
 mod context;
 mod downloads;
 mod error;
+mod id3_frames;
 mod identity;
 mod library_storage;
 mod maintenance;

@@ -1,6 +1,5 @@
 use super::Control;
 use crate::Result;
-use flate2::read::ZlibDecoder;
 use std::{
     fs::File,
     io::{self, Read, Seek, SeekFrom, Write},
@@ -11,6 +10,7 @@ mod rewrite;
 #[cfg(test)]
 mod tests;
 
+use crate::id3_frames::tag_span;
 pub(super) use rewrite::Report;
 
 const MAX_TAG_BYTES: u64 = 16 * 1024 * 1024;
@@ -149,7 +149,7 @@ fn tag_at(
         Some(10) => {}
         _ => return Ok(None),
     }
-    let Some(span) = rewrite::span(&header) else {
+    let Some(span) = tag_span(&header) else {
         return Ok(None);
     };
     if span > available || span > MAX_TAG_BYTES {
@@ -195,13 +195,4 @@ fn read_at(file: &mut File, offset: u64, buffer: &mut [u8]) -> io::Result<usize>
         }
     }
     Ok(filled)
-}
-
-fn inflate(compressed: &[u8], declared: usize) -> Option<Vec<u8>> {
-    let mut output = Vec::with_capacity(declared);
-    ZlibDecoder::new(compressed)
-        .take(declared as u64 + 1)
-        .read_to_end(&mut output)
-        .ok()?;
-    (output.len() == declared).then_some(output)
 }
