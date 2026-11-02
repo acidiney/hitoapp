@@ -74,3 +74,60 @@ async fn migration_0081_keeps_every_lookup_and_admits_credited_artist_photos() {
     }
     connection.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn migration_0081_keeps_ready_running_and_unavailable_lookups_whole() {
+    let directory = tempfile::tempdir().unwrap();
+    let options = SqliteConnectOptions::new()
+        .filename(directory.path().join("credited-photos-rows.db"))
+        .create_if_missing(true)
+        .foreign_keys(true);
+    let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+    schema::through(80).run(&mut connection).await.unwrap();
+    let hash = "ab".repeat(32);
+    sqlx::raw_sql(&format!(
+        "INSERT INTO users(id,username,password_hash,admin) VALUES('one','one','hash',1);
+         INSERT INTO artwork_assets(user_id,content_hash,content_type,width,height,bytes)
+            VALUES('one','{hash}','image/png',1,1,x'89504e47');
+         INSERT INTO cover_art_lookups(user_id,kind,mbid,state,content_hash,attempts,next_attempt_at,lease_until,updated_at)
+            VALUES('one','artist','0f800000-0000-4000-8000-0000000000a1','ready','{hash}',0,0,NULL,1000);
+         INSERT INTO cover_art_lookups(user_id,kind,mbid,state,attempts,next_attempt_at,lease_until,updated_at)
+            VALUES('one','release','0f800000-0000-4000-8000-0000000000a2','running',2,40,5000,2000);
+         INSERT INTO cover_art_lookups(user_id,kind,mbid,state,attempts,next_attempt_at,lease_until,updated_at)
+            VALUES('one','release_group','0f800000-0000-4000-8000-0000000000a3','unavailable',4,90,NULL,3000);"
+    ))
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    type Row = (String, String, Option<String>, i64, i64, Option<i64>, i64);
+    let read = "SELECT kind,state,content_hash,attempts,next_attempt_at,lease_until,updated_at FROM cover_art_lookups ORDER BY kind";
+    let before: Vec<Row> = sqlx::query_as(read)
+        .fetch_all(&mut connection)
+        .await
+        .unwrap();
+
+    schema::through(81).run(&mut connection).await.unwrap();
+
+    let after: Vec<Row> = sqlx::query_as(read)
+        .fetch_all(&mut connection)
+        .await
+        .unwrap();
+    assert_eq!(after, before);
+    assert_eq!(after.len(), 3);
+    let violations = sqlx::query("PRAGMA foreign_key_check")
+        .fetch_all(&mut connection)
+        .await
+        .unwrap();
+    assert!(violations.is_empty());
+    let indexes: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'cover_art_lookups' AND sql LIKE '%WHERE%' ORDER BY name",
+    )
+    .fetch_all(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(
+        indexes,
+        ["cover_art_lookups_asset", "cover_art_lookups_queue"]
+    );
+    connection.close().await.unwrap();
+}
