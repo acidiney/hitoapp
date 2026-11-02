@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import FallbackCover from "../../../shared/ui/FallbackCover";
+import { useArtworkRetry } from "../../../shared/hooks/useArtworkRetry";
+import { coverArtUrl } from "../api/coverArtApi";
 import { isMusicBrainzId } from "../model/musicbrainzId";
 
-const MAX_RETRIES = 3;
-const RETRY_MS = [2000, 5000, 12000];
+const RETRY_MS = [2000, 5000];
 
 function initials(name: string): string {
   const letters = name
@@ -34,26 +35,15 @@ export default function ArtistPhoto({
   onImageError?: () => void;
   children?: ReactNode;
 }) {
-  const [attempt, setAttempt] = useState(0);
-  const [waiting, setWaiting] = useState(false);
+  const src = coverArtUrl(kind, artist);
+  const retry = useArtworkRetry(RETRY_MS, src);
   const [loaded, setLoaded] = useState(false);
-  const exhausted =
-    attempt >= MAX_RETRIES ||
+  const unavailable =
+    retry.exhausted ||
     !enabled ||
     (kind === "artist" && !isMusicBrainzId(artist));
-  useEffect(() => {
-    if (!waiting) return;
-    const timer = setTimeout(
-      () => {
-        setAttempt((value) => value + 1);
-        setWaiting(false);
-      },
-      RETRY_MS[Math.min(attempt, RETRY_MS.length - 1)],
-    );
-    return () => clearTimeout(timer);
-  }, [waiting, attempt]);
-  if (exhausted && children) return <>{children}</>;
-  const showing = !exhausted && !waiting;
+  if (unavailable && children) return <>{children}</>;
+  const showing = !unavailable && !retry.waiting;
   return (
     <div
       className={`artwork ${showing ? "has-image" : ""}`}
@@ -65,15 +55,14 @@ export default function ArtistPhoto({
       )}
       {showing && (
         <img
-          key={attempt}
-          src={`/api/v1/cover-art/${kind}/${encodeURIComponent(artist)}`}
+          key={retry.attempt}
+          src={src}
           alt=""
           loading="lazy"
           onLoad={() => setLoaded(true)}
           onError={() => {
             onImageError?.();
-            if (attempt + 1 >= MAX_RETRIES) setAttempt(MAX_RETRIES);
-            else setWaiting(true);
+            retry.miss();
           }}
         />
       )}
