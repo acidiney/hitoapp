@@ -2,9 +2,10 @@
 #[allow(dead_code)]
 mod library;
 
-use hito_core::ArtistIdentityGroupQuery;
 use hito_core::test_support::collection_artwork::{ArtistKind, ArtworkServer};
+use hito_core::{Actor, ArtistIdentityGroupQuery, ImportProviderPlaylist, InstallPlugin};
 use library::{Credited, Group, MUSICBRAINZ_ARTIST, imported, imported_two_credits};
+use uuid::Uuid;
 
 async fn served() -> Credited {
     imported(ArtworkServer::start_with_credited_artist(ArtistKind::Served).await).await
@@ -157,4 +158,158 @@ async fn a_member_credit_that_a_present_musicbrainz_photo_already_covers_is_skip
     t.choose(Group::MusicBrainz, &r[2], &first, 4).await;
     musicbrainz_photo(&t, "ready").await;
     assert_eq!(t.group_photo(Group::Plugin).await, Some(second));
+}
+
+const STRANGER: &str = "(SELECT id FROM users WHERE username = 'stranger')";
+
+async fn stranger_with_colliding_plugin_credit(t: &Credited) -> (Actor, String) {
+    let stranger = t.another_account().await;
+    let installed = t
+        .hito
+        .plugins
+        .install(
+            &stranger,
+            InstallPlugin {
+                accept_manifest_digest: None,
+                service_id: t.text("SELECT id FROM plugin_services").await,
+                service_revision: t.scalar("SELECT revision FROM plugin_services").await,
+                bearer_token: None,
+            },
+        )
+        .await
+        .unwrap();
+    t.hito
+        .collection
+        .import_provider_playlist(
+            &stranger,
+            &installed.id,
+            ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installed.revision,
+                playlist_reference: "https://provider.invalid/owned-artwork".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let artist = t
+        .text(&format!(
+            "SELECT id FROM account_artists WHERE user_id = {STRANGER} LIMIT 1"
+        ))
+        .await;
+    let recording = t
+        .text(&format!(
+            "SELECT r.id FROM recordings r JOIN libraries l ON l.id = r.library_id WHERE l.owner_id = {STRANGER} LIMIT 1"
+        ))
+        .await;
+    t.run_unchecked(&[
+        format!("INSERT INTO account_artist_identity_groups(id,user_id,provider_kind,plugin_installation_id,provider_artist_id) VALUES('group-plugin-stranger',{STRANGER},'http_plugin','{installation}','plugin-artist')", installation = installed.id),
+        format!("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence) VALUES('association-stranger',{STRANGER},(SELECT library_id FROM recordings WHERE id='{recording}'),'{recording}','{artist}',(SELECT metadata_observation_id FROM recordings WHERE id='{recording}'),'recording_artist','http_plugin','{installation}','plugin-artist','user_confirmed')", installation = installed.id),
+        format!("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,observation_id,selection_order) VALUES({STRANGER},'{recording}',1,'association-stranger','group-plugin-stranger','{artist}',(SELECT metadata_observation_id FROM recordings WHERE id='{recording}'),1)"),
+    ])
+    .await;
+    (stranger, artist)
+}
+
+async fn photo_of(t: &Credited, actor: &Actor, group: &str) -> Option<String> {
+    let listed = t
+        .hito
+        .artist_catalog
+        .artist_identity_groups(actor, ArtistIdentityGroupQuery::default())
+        .await
+        .unwrap();
+    assert_eq!(listed.items.len(), 1);
+    assert_eq!(listed.items[0].id, group);
+    let detail = t
+        .hito
+        .artist_catalog
+        .artist_identity_group(actor, group, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(
+        detail.group.credited_photo_artist_id,
+        listed.items[0].credited_photo_artist_id
+    );
+    listed.items[0].credited_photo_artist_id.clone()
+}
+
+#[tokio::test]
+async fn two_accounts_with_colliding_plugin_credits_each_get_only_their_own_artist() {
+    let t = served().await;
+    choose_the_only_recording(&t, Group::Plugin).await;
+    let (stranger, stranger_artist) = stranger_with_colliding_plugin_credit(&t).await;
+    assert_ne!(t.artist, stranger_artist);
+    assert_eq!(
+        photo_of(&t, &t.actor, Group::Plugin.id()).await,
+        Some(t.artist.clone())
+    );
+    assert_eq!(
+        photo_of(&t, &stranger, "group-plugin-stranger").await,
+        Some(stranger_artist)
+    );
+    for (actor, foreign) in [
+        (&t.actor, "group-plugin-stranger"),
+        (&stranger, Group::Plugin.id()),
+    ] {
+        assert!(
+            t.hito
+                .artist_catalog
+                .artist_identity_group(actor, foreign, Default::default())
+                .await
+                .is_err()
+        );
+    }
+}
+
+async fn group_page(t: &Credited, offset: i64) -> (i64, Vec<hito_core::ArtistIdentityGroup>) {
+    let page = t
+        .hito
+        .artist_catalog
+        .artist_identity_groups(
+            &t.actor,
+            ArtistIdentityGroupQuery {
+                offset: Some(offset),
+                limit: Some(2),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    (page.total, page.items)
+}
+
+#[tokio::test]
+async fn each_group_of_a_page_gets_its_own_photo_and_the_next_page_gets_its_own() {
+    let t = five_recordings().await;
+    let first = t.credit("Observed performer").await;
+    let second = t.credit("Second performer").await;
+    let r = recordings(&t).await;
+    let expected = [
+        ("group-a", &first, &r[0]),
+        ("group-b", &second, &r[3]),
+        ("group-c", &first, &r[2]),
+    ];
+    for (order, (group, credit, recording)) in expected.iter().enumerate() {
+        t.choose(Group::Other(group), recording, credit, order as i64 + 1)
+            .await;
+    }
+    let (total, first_page) = group_page(&t, 0).await;
+    let (_, second_page) = group_page(&t, 2).await;
+    assert_eq!(total, 3);
+    assert_eq!((first_page.len(), second_page.len()), (2, 1));
+    let mut seen = Vec::new();
+    for item in first_page.iter().chain(&second_page) {
+        let (_, credit, _) = expected
+            .iter()
+            .find(|(group, _, _)| *group == item.id)
+            .unwrap();
+        assert_eq!(
+            item.credited_photo_artist_id.as_ref(),
+            Some(*credit),
+            "{}",
+            item.id
+        );
+        seen.push(item.id.clone());
+    }
+    seen.sort();
+    assert_eq!(seen, ["group-a", "group-b", "group-c"]);
 }

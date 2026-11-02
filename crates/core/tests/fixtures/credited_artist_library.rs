@@ -178,6 +178,11 @@ impl Credited {
                 "(SELECT id FROM plugin_installations)".to_owned(),
                 "plugin-artist",
             ),
+            Group::Other(name) => (
+                "http_plugin",
+                "(SELECT id FROM plugin_installations)".to_owned(),
+                name,
+            ),
         };
         let association = format!("association-{recording}-{artist}");
         self.run_unchecked(&[
@@ -279,6 +284,7 @@ impl Credited {
 pub enum Group {
     MusicBrainz,
     Plugin,
+    Other(&'static str),
 }
 
 impl Group {
@@ -286,6 +292,7 @@ impl Group {
         match self {
             Group::MusicBrainz => "group-musicbrainz",
             Group::Plugin => "group-plugin",
+            Group::Other(name) => name,
         }
     }
 }
