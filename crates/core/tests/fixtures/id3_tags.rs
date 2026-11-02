@@ -207,6 +207,18 @@ pub fn append_wav_id3_chunk(path: &Path, tag: &[u8]) {
 }
 
 pub fn write_mp3_with_tag(scratch: &Path, path: &Path, tag: &[u8]) {
+    write_mp3_around(scratch, path, tag, &[]);
+}
+
+pub fn write_mp3_around(scratch: &Path, path: &Path, leading: &[u8], trailing: &[u8]) {
+    write_mp3_parts(scratch, path, leading, trailing, false);
+}
+
+pub fn write_bare_mp3_around(scratch: &Path, path: &Path, leading: &[u8], trailing: &[u8]) {
+    write_mp3_parts(scratch, path, leading, trailing, true);
+}
+
+fn write_mp3_parts(scratch: &Path, path: &Path, leading: &[u8], trailing: &[u8], bare: bool) {
     let source = scratch.join("id3-source.wav");
     let plain = scratch.join("id3-plain.mp3");
     super::support::write_wav(&source, 0);
@@ -227,9 +239,28 @@ pub fn write_mp3_with_tag(scratch: &Path, path: &Path, tag: &[u8]) {
             .unwrap()
             .success()
     );
-    let mut bytes = tag.to_vec();
-    bytes.extend(std::fs::read(plain).unwrap());
+    let mut bytes = leading.to_vec();
+    let mut audio = std::fs::read(plain).unwrap();
+    if bare && audio.starts_with(b"ID3") {
+        let size = audio[6..10]
+            .iter()
+            .fold(0, |sum, byte| (sum << 7) | *byte as usize);
+        audio.drain(..10 + size);
+    }
+    bytes.extend(audio);
+    bytes.extend_from_slice(trailing);
     std::fs::write(path, bytes).unwrap();
+}
+
+pub fn id3v1(title: &str, artist: &str) -> Vec<u8> {
+    let mut bytes = b"TAG".to_vec();
+    for (text, width) in [(title, 30), (artist, 30), ("", 30), ("", 4), ("", 30)] {
+        let mut field = text.as_bytes().to_vec();
+        field.resize(width, 0);
+        bytes.extend(field);
+    }
+    bytes.push(255);
+    bytes
 }
 
 pub fn append_aiff_id3_chunk(path: &Path, tag: &[u8]) {

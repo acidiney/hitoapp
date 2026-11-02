@@ -6,6 +6,7 @@ use std::{
     io::{self, Read, Seek, SeekFrom, Write},
 };
 
+mod appended;
 mod rewrite;
 #[cfg(test)]
 mod tests;
@@ -41,6 +42,7 @@ fn scan(file: &mut File, control: &Control, report: &mut Report) -> Result<()> {
     let Some(length) = attempt(file.metadata().map(|m| m.len()), report) else {
         return Ok(());
     };
+    let length = appended::settle(file, length, control, report)?;
     let mut head = [0u8; 12];
     let Some(read) = attempt(read_at(file, 0, &mut head), report) else {
         return Ok(());

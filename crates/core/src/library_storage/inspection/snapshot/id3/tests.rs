@@ -532,3 +532,86 @@ fn every_tag_flag_value_and_frame_size_of_a_v23_tag_is_survived() {
         }
     }
 }
+
+fn footer_tag(payload: usize) -> Vec<u8> {
+    let size = syncsafe(payload);
+    let mut bytes = b"ID3\x04\0\x10".to_vec();
+    bytes.extend(size);
+    bytes.extend(vec![0; payload]);
+    bytes.extend(b"3DI\x04\0\x10");
+    bytes.extend(size);
+    bytes
+}
+
+fn contents(path: &Path) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    File::open(path).unwrap().read_to_end(&mut bytes).unwrap();
+    bytes
+}
+
+#[test]
+fn an_appended_tag_moves_to_the_front_and_keeps_an_id3v1_tail() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("media");
+    let audio: Vec<u8> = (0..200_000u32).map(|n| (n % 251) as u8).collect();
+    let (tag, v1) = (footer_tag(40), [b"TAG".to_vec(), vec![7; 125]].concat());
+    let mut file = write(&path, &[audio.clone(), tag.clone(), v1.clone()].concat());
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_moved, 1);
+    assert_eq!(contents(&path), [tag, audio, v1].concat());
+}
+
+#[test]
+fn an_appended_tag_is_placed_after_the_leading_tags() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("media");
+    let (first, second) = (footer_tag(30), footer_tag(12));
+    let audio = vec![9u8; 5000];
+    let appended = footer_tag(20);
+    let bytes = [
+        first.clone(),
+        second.clone(),
+        audio.clone(),
+        appended.clone(),
+    ]
+    .concat();
+    let mut file = write(&path, &bytes);
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_moved, 1);
+    assert_eq!(contents(&path), [first, second, appended, audio].concat());
+}
+
+#[test]
+fn an_appended_tag_is_cut_out_when_it_is_too_large_or_the_stack_is_full() {
+    let directory = tempfile::tempdir().unwrap();
+    let audio = vec![9u8; 5000];
+    let v1 = [b"TAG".to_vec(), vec![7; 125]].concat();
+    let oversized = footer_tag(super::MAX_TAG_BYTES as usize);
+    let path = directory.path().join("large");
+    let mut file = write(&path, &[audio.clone(), oversized, v1.clone()].concat());
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_dropped, 1);
+    assert_eq!(contents(&path), [audio.clone(), v1].concat());
+    let stack = footer_tag(8).repeat(super::MAX_STACKED_TAGS);
+    let path = directory.path().join("stacked");
+    let mut file = write(
+        &path,
+        &[stack.clone(), audio.clone(), footer_tag(20)].concat(),
+    );
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_dropped, 1);
+    assert_eq!(contents(&path), [stack, audio].concat());
+}
+
+#[test]
+fn a_footer_without_a_matching_header_changes_nothing() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("media");
+    let mut tag = footer_tag(40);
+    tag[1] = b'X';
+    let bytes = [vec![5u8; 3000], tag].concat();
+    let mut file = write(&path, &bytes);
+    let report = neutralise(&mut file, &control()).unwrap();
+    assert_eq!(report.appended_moved + report.appended_dropped, 0);
+    assert_eq!(contents(&path), bytes);
+}

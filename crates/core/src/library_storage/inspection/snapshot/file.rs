@@ -95,7 +95,12 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
     let tags = super::id3::neutralise(&mut output, control)?;
     drop(output);
     let artists = super::super::tagged_artists::read(&media_path);
-    if tags.decompressed > 0 || tags.ignored() > 0 || tags.io_failed > 0 {
+    if tags.decompressed > 0
+        || tags.ignored() > 0
+        || tags.io_failed > 0
+        || tags.appended_moved > 0
+        || tags.appended_dropped > 0
+    {
         tracing::debug!(
             event = "id3_compressed_frames",
             decompressed = tags.decompressed,
@@ -103,6 +108,8 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
             ignored_invalid = tags.ignored_invalid,
             ignored_unsupported = tags.ignored_unsupported,
             io_failed = tags.io_failed,
+            appended_moved = tags.appended_moved,
+            appended_dropped = tags.appended_dropped,
             "Compressed ID3 frames normalised in the private media copy"
         );
     }

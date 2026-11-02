@@ -15,6 +15,8 @@ pub(in crate::library_storage::inspection) struct Report {
     pub ignored_invalid: u32,
     pub ignored_unsupported: u32,
     pub io_failed: u32,
+    pub appended_moved: u32,
+    pub appended_dropped: u32,
     pub recording_id: Option<String>,
     pub(super) recording_decided: bool,
     pub(super) charged: usize,
@@ -292,7 +294,7 @@ fn deunsynchronise(bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-fn syncsafe(bytes: &[u8]) -> Option<u32> {
+pub(super) fn syncsafe(bytes: &[u8]) -> Option<u32> {
     if bytes.iter().any(|byte| byte & 0x80 != 0) {
         return None;
     }
