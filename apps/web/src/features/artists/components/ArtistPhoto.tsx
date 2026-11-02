@@ -15,13 +15,17 @@ function initials(name: string): string {
   return letters.toUpperCase() || "?";
 }
 
+export type ArtistPhotoKind = "artist" | "credited-artist";
+
 export default function ArtistPhoto({
+  kind = "artist",
   artist,
   identity,
   name,
   enabled = true,
   children,
 }: {
+  kind?: ArtistPhotoKind;
   artist: string;
   identity: string;
   name: string;
@@ -32,7 +36,9 @@ export default function ArtistPhoto({
   const [waiting, setWaiting] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const exhausted =
-    attempt >= MAX_RETRIES || !enabled || !isMusicBrainzId(artist);
+    attempt >= MAX_RETRIES ||
+    !enabled ||
+    (kind === "artist" && !isMusicBrainzId(artist));
   useEffect(() => {
     if (!waiting) return;
     const timer = setTimeout(
@@ -58,7 +64,7 @@ export default function ArtistPhoto({
       {showing && (
         <img
           key={attempt}
-          src={`/api/v1/cover-art/artist/${encodeURIComponent(artist)}`}
+          src={`/api/v1/cover-art/${kind}/${encodeURIComponent(artist)}`}
           alt=""
           loading="lazy"
           onLoad={() => setLoaded(true)}

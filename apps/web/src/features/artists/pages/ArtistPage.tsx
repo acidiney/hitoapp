@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
+import ArtistPhoto from "../components/ArtistPhoto";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import { tintFor } from "../../../shared/ui/collectionTint";
@@ -34,10 +35,18 @@ export default function ArtistPage({
       <CollectionHeader
         tint={tintFor(artist.id)}
         cover={
-          <Artwork
-            recording={artist.artwork_recording_id ?? undefined}
-            fallback={{ id: artist.id, title: artist.name }}
-          />
+          <ArtistPhoto
+            kind="credited-artist"
+            artist={artist.id}
+            identity={artist.id}
+            name={artist.name}
+            enabled={artist.provider_photo === true}
+          >
+            <Artwork
+              recording={artist.artwork_recording_id ?? undefined}
+              fallback={{ id: artist.id, title: artist.name }}
+            />
+          </ArtistPhoto>
         }
         size="artist"
         crumbs={

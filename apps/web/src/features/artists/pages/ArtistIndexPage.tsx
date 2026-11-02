@@ -99,10 +99,18 @@ export default function ArtistIndexPage({
                 key={artist.id}
                 href={`/artists/${encodeURIComponent(artist.id)}`}
               >
-                <Artwork
-                  recording={artist.artwork_recording_id ?? undefined}
-                  fallback={{ id: artist.id, title: artist.name }}
-                />
+                <ArtistPhoto
+                  kind="credited-artist"
+                  artist={artist.id}
+                  identity={artist.id}
+                  name={artist.name}
+                  enabled={artist.provider_photo === true}
+                >
+                  <Artwork
+                    recording={artist.artwork_recording_id ?? undefined}
+                    fallback={{ id: artist.id, title: artist.name }}
+                  />
+                </ArtistPhoto>
                 <h2>{artist.name}</h2>
                 <small>
                   {artist.recording_count > 0 || artist.release_count === 0 ? (
