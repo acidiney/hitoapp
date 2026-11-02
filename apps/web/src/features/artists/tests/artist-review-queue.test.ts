@@ -496,3 +496,31 @@ test("the same-artist offer can be declined with Not this artist", async () => {
     "/api/v1/artist-matching/review-queue/credit-3/dismiss",
   );
 });
+
+test("one artist offered both by the name search and as the chosen artist is shown once with both kinds of detail", async () => {
+  serve(
+    [
+      () =>
+        page([
+          item("credit-4", {
+            name: "nova quartet",
+            undecided_tracks: 2,
+            candidates: [
+              candidate({
+                origin: "chosen_artist",
+                in_library: true,
+                corroborated_titles: 2,
+              }),
+            ],
+          }),
+        ]),
+    ],
+    () => new Response(null),
+  );
+  show();
+  await open();
+  expect(screen.getAllByRole("button", { name: /^Confirm/ })).toHaveLength(1);
+  expect(screen.getByText(/Same artist as Nova Quartet/)).toBeTruthy();
+  expect(screen.getByText(/Lisbon fado band/)).toBeTruthy();
+  expect(screen.getByText(/2 titles match your library/)).toBeTruthy();
+});
