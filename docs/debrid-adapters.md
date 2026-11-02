@@ -60,7 +60,7 @@ All four curated services (Real-Debrid, All-Debrid, TorBox and Premiumize) now a
 
 Two behavior changes came with the shared function. All-Debrid and TorBox now reject a recording over 32,768 bytes. Premiumize and TorBox aggregates no longer count private source, label and binding bytes.
 
-Tested evidence: the SDK's own rule tests, and a Real-Debrid HTTP regression that uses SDK-valid attribution metadata at exactly 32,768 bytes and one byte above. It checks unchanged structured metadata, private headers, zero provider and media requests, joined cleanup and safe completion logs. This qualifies catalog admission, not a new packaged image or live-provider playback.
+Tested evidence: the SDK's own rule tests, and one public HTTP regression each for Real-Debrid, All-Debrid and TorBox that uses SDK-valid attribution metadata at exactly 32,768 bytes and one byte above. The exact-size recording is served unchanged; the one-byte-over catalog is rejected at configuration. Loosening the SDK limit by one byte makes the All-Debrid and TorBox cases fail. It checks unchanged structured metadata, private headers, zero provider and media requests, joined cleanup and safe completion logs. This qualifies catalog admission, not a new packaged image or live-provider playback.
 
 ## Real-Debrid MP3 relay
 
