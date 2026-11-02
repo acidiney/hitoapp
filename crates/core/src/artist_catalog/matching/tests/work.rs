@@ -295,7 +295,7 @@ async fn seed_open_and_edited_credits(hito: &crate::Services, actor: &crate::Act
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO artist_association_name_matches(association_id,evidence_kind,receipt_order) VALUES('association','name_discography',1)")
+    sqlx::query("INSERT INTO artist_association_name_matches(association_id,evidence_kind,receipt_order,rule) VALUES('association','name_discography',1,5)")
         .execute(&mut *tx)
         .await
         .unwrap();
@@ -452,43 +452,95 @@ async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
     );
 }
 
+const INTERMEDIATE_RESULTS: [&str; 6] = [
+    "base",
+    "flags",
+    "undecided",
+    "edited",
+    "chosen_names",
+    "verdicts",
+];
+
+fn plan_lines(rows: Vec<(i64, i64, i64, String)>) -> Vec<String> {
+    rows.into_iter().map(|row| row.3).collect()
+}
+
+fn assert_no_table_scan(plan: &[String]) {
+    for line in plan.iter().filter(|line| line.starts_with("SCAN")) {
+        let target = line.split_whitespace().nth(1).unwrap_or_default();
+        assert!(
+            INTERMEDIATE_RESULTS.contains(&target) || target.starts_with("(subquery"),
+            "{target} is scanned: {line}\n{}",
+            plan.join("\n")
+        );
+    }
+}
+
+fn assert_searched(plan: &[String], expected: &[&str]) {
+    for part in expected {
+        assert!(
+            plan.iter()
+                .any(|line| line.starts_with("SEARCH") && line.contains(part)),
+            "No line searches {part}\n{}",
+            plan.join("\n")
+        );
+    }
+}
+
+const MATCHED_SEARCHES: [&str; 7] = [
+    "credit USING COVERING INDEX account_recording_artists (user_id=? AND artist_id=?)",
+    "choice USING INDEX sqlite_autoindex_recording_artist_identity_choices_1 (user_id=? AND recording_id=?)",
+    "g USING INDEX sqlite_autoindex_account_artist_identity_groups_2 (user_id=? AND id=?)",
+    "m USING COVERING INDEX sqlite_autoindex_library_members_1",
+    "p USING INDEX sqlite_autoindex_personal_recording_metadata_1 (user_id=? AND recording_id=?)",
+    "assoc USING INDEX sqlite_autoindex_recording_artist_associations_1 (id=?)",
+    "d USING COVERING INDEX sqlite_autoindex_artist_review_dismissals_1",
+];
+
 #[tokio::test]
 async fn the_review_queue_plan_scans_only_its_own_intermediate_results() {
-    use super::review_queue::{Listing, queued};
+    use super::review_queue::{Listing, matched_counts, queued};
     let (_directory, hito, actor, library, _music) = support::library("artist-queue-explain").await;
     seed_review_credits(&hito, &actor, &library).await;
     seed_open_and_edited_credits(&hito, &actor, &library).await;
+    let pool = &hito.catalog.store.pool;
     for listing in [Listing::Offered, Listing::Dismissed] {
         let sql = format!(
             "EXPLAIN QUERY PLAN SELECT id,name,tracks,stored,chosen,matched,count(*) OVER () FROM ({}) ORDER BY (stored+chosen+matched)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3",
             queued(listing)
         );
-        let plan: Vec<String> = sqlx::query_as::<_, (i64, i64, i64, String)>(&sql)
-            .bind(actor.id())
-            .bind(50_i64)
-            .bind(0_i64)
-            .fetch_all(&hito.catalog.store.pool)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|row| row.3)
-            .collect();
-        let tables = [
-            "account_recording_credits",
-            "recording_artist_identity_choices",
-            "recordings",
-            "artist_name_checks",
-            "artist_name_candidates",
-            "personal_recording_metadata",
-            "account_artists",
-        ];
-        for line in plan.iter().filter(|line| line.starts_with("SCAN")) {
-            eprintln!("Review queue plan: {line}");
-            assert!(
-                tables.iter().all(|table| !line.contains(table)),
-                "A table is scanned: {line}\n{}",
-                plan.join("\n")
-            );
-        }
+        let plan = plan_lines(
+            sqlx::query_as(&sql)
+                .bind(actor.id())
+                .bind(50_i64)
+                .bind(0_i64)
+                .fetch_all(pool)
+                .await
+                .unwrap(),
+        );
+        assert_no_table_scan(&plan);
+        assert_searched(&plan, &MATCHED_SEARCHES);
     }
+    let page = format!(
+        "EXPLAIN QUERY PLAN {}",
+        matched_counts("AND credit.artist_id IN (SELECT value FROM json_each(?2))")
+    );
+    let plan = plan_lines(
+        sqlx::query_as(&page)
+            .bind(actor.id())
+            .bind("[\"credit-000\"]")
+            .fetch_all(pool)
+            .await
+            .unwrap(),
+    );
+    assert_searched(&plan, &MATCHED_SEARCHES[..6]);
+    assert!(
+        plan.iter()
+            .filter(|line| line.starts_with("SCAN"))
+            .all(|line| line.contains("json_each")
+                || line.contains("value")
+                || line.contains("(subquery")),
+        "{}",
+        plan.join("\n")
+    );
 }
