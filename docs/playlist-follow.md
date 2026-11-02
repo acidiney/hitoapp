@@ -114,6 +114,18 @@ The HTTP access case separately rejects another account, stale generations/revis
 
 Core regressions verify resumed approval without premature provenance changes, retirement and expiry of obsolete leases, reused provider tokens and snapshot/detail coherence. A complete 3,000-entry provider response below the input limit but above the serialized publication limit leaves the previous snapshot, catalog, personal changes, event feed and content revision intact. A corrected refresh then publishes exactly once.
 
+## Manual source choice and Follow
+
+A manual source choice belongs to the account's recording and pins one provider binding. A Follow refresh never writes it. The core test `playlist_follow_manual_source` uses a real temporary SQLite library, a followed playlist, a second connected provider attached to the same recording and the owned fake provider with its request holds. It records these results, all passing on the first run once the test setup was correct:
+
+- A refresh that keeps the entry leaves the choice, its revision and the selected source unchanged, and makes no provider search or source request. Play still reports the protected choice.
+- Reordering, removing and re-adding the provider track in later refreshes keeps the same recording, so the choice is kept at the same revision. Removal does not retire the recording's identity.
+- A choice made while a refresh is held at its item request is kept at its new revision after the refresh publishes the reordered list. A choice made after a refresh keeps the revision it received through a later refresh. Neither order loses an update.
+- Removing the chosen provider's connection, or revoking its sources capability, leaves the choice manual at the same revision. The chosen source is listed as selected and not selectable, no source is ready, and a Follow refresh or a resolution request does not select another source. Restoring the capability returns exactly the earlier choice and its ready source.
+- With every provider unreachable, resolution, a source refresh and a Follow refresh leave the choice unchanged. After the providers return, resolution still reports the protected choice.
+
+The tests do not cover the HTTP routes or the browser with a followed playlist, a reinstalled connection (which creates a new installation) or live providers.
+
 ## Local deployment
 
 A stopped whole-volume backup was restored into a new labeled volume before rehearsing migration 0027 to 0028. Restoration preserves complete file bytes, permissions, owners, timestamps and logical database contents. A fresh final backup precedes the normal upgrade. Both migration audits preserve all prior columns, rows and row IDs across 69 application and FTS tables, all sequence high-water values, prior migration rows, credential-key and host-identity files, and immutability triggers. All 28 source checksums, actual schema, six FTS integrity checks and physical shadow rows pass. The five new Follow tables are empty at the audit checkpoint.
