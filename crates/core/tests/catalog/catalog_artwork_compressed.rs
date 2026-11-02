@@ -35,12 +35,12 @@ struct Outcome {
 }
 
 async fn scanned(frames: Vec<Frame>, version: Version) -> Outcome {
+    scanned_tags(tag(version, false, &frames)).await
+}
+
+async fn scanned_tags(tags: Vec<u8>) -> Outcome {
     let (dir, hito, actor, library, music) = support::library("artwork-host").await;
-    write_mp3_with_tag(
-        dir.path(),
-        &music.join("private-file-name.mp3"),
-        &tag(version, false, &frames),
-    );
+    write_mp3_with_tag(dir.path(), &music.join("private-file-name.mp3"), &tags);
     support::scan(&hito, &actor, &library).await;
     let page = hito
         .catalog
@@ -152,4 +152,78 @@ async fn compressed_data_that_is_not_an_image_is_dropped() {
     ];
     let outcome = scanned(frames, Version::V24).await;
     assert_eq!(outcome.artwork, None);
+}
+
+fn filler(length: usize) -> Frame {
+    let mut payload = picture_payload(0, &[]);
+    payload.resize(length, 0);
+    Frame::zlib("APIC", payload)
+}
+
+const EIGHT_MIB: usize = 8 * 1024 * 1024;
+
+#[tokio::test]
+async fn pictures_whose_declared_sizes_pass_the_metadata_budget_are_dropped() {
+    let cover = || Frame::zlib("APIC", picture_payload(3, COVER_A));
+    let within = scanned(vec![title(), filler(EIGHT_MIB), cover()], Version::V24).await;
+    assert_eq!(within.artwork.as_deref(), Some(COVER_A));
+    let over = scanned(
+        vec![title(), filler(EIGHT_MIB), filler(EIGHT_MIB), cover()],
+        Version::V24,
+    )
+    .await;
+    assert_eq!(over.artwork, None);
+    assert_eq!(over.title, "Tagged title");
+    let first = tag(Version::V24, false, &[title(), filler(EIGHT_MIB)]);
+    let second = tag(Version::V24, false, &[filler(EIGHT_MIB)]);
+    let third = tag(Version::V24, false, &[cover()]);
+    let stacked = scanned_tags([first, second, third].concat()).await;
+    assert_eq!(stacked.artwork, None);
+}
+
+#[tokio::test]
+async fn real_bombs_with_small_or_near_cap_declared_sizes_are_dropped() {
+    let mut bomb = COVER_A.to_vec();
+    bomb.resize(64 * 1024 * 1024, 0);
+    let near_cap = (EIGHT_MIB + 60 * 1024) as u32;
+    for version in [Version::V23, Version::V24] {
+        for declared in [picture_payload(3, COVER_A).len() as u32, near_cap] {
+            let frame = Frame {
+                id: "APIC",
+                payload: picture_payload(3, &bomb),
+                storage: Storage::ZlibDeclaring(declared),
+                unsynchronised: false,
+            };
+            let outcome = scanned(vec![title(), frame], version).await;
+            assert_eq!(outcome.artwork, None, "{declared}");
+            assert_eq!(outcome.title, "Tagged title");
+        }
+    }
+}
+
+#[tokio::test]
+async fn an_honest_picture_just_under_the_inflate_cap_is_still_not_an_image_over_8_mib() {
+    let mut image = COVER_A.to_vec();
+    image.resize(EIGHT_MIB + 1024, 0);
+    let outcome = scanned(
+        vec![title(), Frame::zlib("APIC", picture_payload(3, &image))],
+        Version::V24,
+    )
+    .await;
+    assert_eq!(outcome.artwork, None);
+}
+
+#[tokio::test]
+async fn only_the_first_four_stacked_tags_are_searched_for_pictures() {
+    let plain = |text: &str| tag(Version::V24, false, &[Frame::text("TIT2", text)]);
+    let picture = tag(
+        Version::V24,
+        false,
+        &[Frame::zlib("APIC", picture_payload(3, COVER_A))],
+    );
+    let fourth = scanned_tags([plain("a"), plain("b"), plain("c"), picture.clone()].concat()).await;
+    assert_eq!(fourth.artwork.as_deref(), Some(COVER_A));
+    let fifth =
+        scanned_tags([plain("a"), plain("b"), plain("c"), plain("d"), picture].concat()).await;
+    assert_eq!(fifth.artwork, None);
 }
