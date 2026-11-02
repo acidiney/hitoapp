@@ -1,26 +1,9 @@
-use super::polling::{self, Event, Reporting, Worker};
+use super::polling::{self, Reporting, Worker, worker};
 use hito_core::{LibraryStorage, WatchStatus};
 use tokio::sync::watch;
 
-pub(super) const INDEXING: Worker = Worker {
-    started: Event {
-        name: "worker_started",
-        message: "Indexing worker started",
-    },
-    polled: Event {
-        name: "worker_polled",
-        message: "Indexing worker checked pending work",
-    },
-    failed: Event {
-        name: "worker_failed",
-        message: "Background worker failed",
-    },
-    stopped: Event {
-        name: "worker_stopped",
-        message: "Indexing worker stopped",
-    },
-    reporting: Reporting::Claimed,
-};
+pub(super) const INDEXING: Worker = worker!("worker", "Indexing worker", Reporting::Claimed)
+    .with_failed_message("Background worker failed");
 
 pub(super) async fn worker(storage: LibraryStorage, stopped: watch::Receiver<bool>) {
     polling::run(INDEXING, stopped, |stop| storage.run_next_job_until(stop)).await;

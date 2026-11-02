@@ -34,6 +34,44 @@ pub(super) struct Worker {
     pub reporting: Reporting,
 }
 
+macro_rules! worker {
+    ($prefix:literal, $label:literal, $reporting:expr $(,)?) => {
+        $crate::runtime::polling::Worker {
+            started: $crate::runtime::polling::Event {
+                name: concat!($prefix, "_started"),
+                message: concat!($label, " started"),
+            },
+            polled: $crate::runtime::polling::Event {
+                name: concat!($prefix, "_polled"),
+                message: concat!($label, " checked pending work"),
+            },
+            failed: $crate::runtime::polling::Event {
+                name: concat!($prefix, "_failed"),
+                message: concat!($label, " failed"),
+            },
+            stopped: $crate::runtime::polling::Event {
+                name: concat!($prefix, "_stopped"),
+                message: concat!($label, " stopped"),
+            },
+            reporting: $reporting,
+        }
+    };
+}
+
+pub(super) use worker;
+
+impl Worker {
+    pub(super) const fn with_polled_message(mut self, message: &'static str) -> Self {
+        self.polled.message = message;
+        self
+    }
+
+    pub(super) const fn with_failed_message(mut self, message: &'static str) -> Self {
+        self.failed.message = message;
+        self
+    }
+}
+
 pub(super) async fn run<Poll, Pending>(
     worker: Worker,
     mut stopped: watch::Receiver<bool>,
