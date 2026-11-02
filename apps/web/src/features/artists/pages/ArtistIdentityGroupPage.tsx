@@ -48,7 +48,7 @@ export default function ArtistIdentityGroupPage({
       <CollectionHeader
         tint={tintFor(group.id)}
         cover={
-          <ArtistGroupPhoto group={group}>
+          <ArtistGroupPhoto account={user.id} group={group}>
             <Artwork
               recording={group.name.recording_id}
               fallback={{ id: group.id, title: group.name.value }}

@@ -23,6 +23,7 @@ export default function ArtistPhoto({
   identity,
   name,
   enabled = true,
+  onImageError,
   children,
 }: {
   kind?: ArtistPhotoKind;
@@ -30,6 +31,7 @@ export default function ArtistPhoto({
   identity: string;
   name: string;
   enabled?: boolean;
+  onImageError?: () => void;
   children?: ReactNode;
 }) {
   const [attempt, setAttempt] = useState(0);
@@ -68,11 +70,11 @@ export default function ArtistPhoto({
           alt=""
           loading="lazy"
           onLoad={() => setLoaded(true)}
-          onError={() =>
-            attempt + 1 >= MAX_RETRIES
-              ? setAttempt(MAX_RETRIES)
-              : setWaiting(true)
-          }
+          onError={() => {
+            onImageError?.();
+            if (attempt + 1 >= MAX_RETRIES) setAttempt(MAX_RETRIES);
+            else setWaiting(true);
+          }}
         />
       )}
     </div>

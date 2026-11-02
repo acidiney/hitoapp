@@ -1,15 +1,21 @@
 import type { ReactNode } from "react";
 import type { Schema } from "../../../shared/schema";
 import ArtistPhoto from "./ArtistPhoto";
+import { useCreditedPhotoReread } from "../hooks/useCreditedPhotoReread";
 
 export default function ArtistGroupPhoto({
+  account,
   group,
   children,
 }: {
+  account: string;
   group: Schema<"ArtistIdentityGroup">;
   children?: ReactNode;
 }) {
-  const credited = group.credited_photo_artist_id;
+  const { credit: credited, onMusicBrainzFailure } = useCreditedPhotoReread(
+    account,
+    group,
+  );
   if (credited) {
     return (
       <ArtistPhoto
@@ -30,6 +36,7 @@ export default function ArtistGroupPhoto({
       identity={group.id}
       name={group.name.value}
       enabled={group.provider.kind === "builtin_musicbrainz"}
+      onImageError={onMusicBrainzFailure}
     >
       {children}
     </ArtistPhoto>

@@ -49,7 +49,7 @@ export default function ArtistIndexPage({
                 key={group.id}
                 href={`/artist-groups/${encodeURIComponent(group.id)}${suffix}`}
               >
-                <ArtistGroupPhoto group={group}>
+                <ArtistGroupPhoto account={user.id} group={group}>
                   <Artwork
                     recording={group.name.recording_id}
                     fallback={{ id: group.id, title: group.name.value }}
