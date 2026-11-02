@@ -101,7 +101,7 @@ impl Catalog {
         sources: &[String],
     ) -> Result<Option<Artwork>> {
         for source in sources {
-            let permit = self
+            let _permit = self
                 .artwork_slots
                 .clone()
                 .acquire_owned()
@@ -112,13 +112,16 @@ impl Catalog {
                 Err(crate::Error::NotFound) => continue,
                 Err(error) => return Err(error),
             };
-            let span = tracing::Span::current();
-            let artwork = tokio::task::spawn_blocking(move || {
-                let _permit = permit;
-                span.in_scope(|| read_artwork(audio))
-            })
-            .await
-            .map_err(|_| crate::Error::Internal("Artwork reader stopped".into()))?;
+            let artwork = match audio.read(read_artwork).await {
+                Ok(artwork) => artwork,
+                Err(_) => {
+                    tracing::debug!(
+                        event = "artwork_read_stopped",
+                        "Library artwork read skipped on a slow or unavailable drive"
+                    );
+                    continue;
+                }
+            };
             if artwork.is_some() {
                 tracing::debug!(event = "artwork_resolved", "Library artwork resolved");
                 return Ok(artwork);

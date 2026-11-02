@@ -122,6 +122,13 @@ async fn drives() -> Drives {
     std::fs::create_dir(&second).unwrap();
     std::fs::create_dir(&faulty).unwrap();
     std::fs::create_dir(&healthy).unwrap();
+    for folder in [&faulty, &healthy, &second] {
+        std::fs::write(
+            folder.join("cover.png"),
+            hito_core::test_support::covers::COVER_A,
+        )
+        .unwrap();
+    }
     let mut originals = BTreeMap::new();
     for (offset, title) in TRACKS.iter().enumerate() {
         originals.insert(
@@ -413,6 +420,76 @@ async fn a_read_that_stalls_after_playback_started_times_out_and_playback_resume
     .await;
     assert_eq!(drives.play(&source).await.unwrap(), drives.originals["one"]);
     assert_private(&logs);
+}
+
+#[tokio::test]
+async fn a_stalled_drive_bounds_artwork_reads_and_artwork_recovers_when_it_returns() {
+    if shim::child_faults().is_none() {
+        shim::run_in_child(
+            "a_stalled_drive_bounds_artwork_reads_and_artwork_recovers_when_it_returns",
+        )
+        .await;
+        return;
+    }
+    let drives = std::sync::Arc::new(drives().await);
+    let cover = hito_core::test_support::covers::COVER_A;
+    let stalled = drives.recording("one").await;
+    let neighbour = drives.recording("two").await;
+    let healthy = drives.recording("healthy").await;
+    drives.faults.set("stall-read");
+    let mut requests = tokio::task::JoinSet::new();
+    for recording in [
+        &stalled, &neighbour, &stalled, &neighbour, &stalled, &neighbour,
+    ] {
+        let drives = drives.clone();
+        let recording = recording.clone();
+        requests.spawn(async move {
+            drives
+                .services
+                .catalog
+                .artwork(&drives.actor, &recording)
+                .await
+        });
+    }
+    let artwork = hang_guard(
+        "healthy artwork",
+        drives.services.catalog.artwork(&drives.actor, &healthy),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(artwork.bytes, cover);
+    while let Some(result) = hang_guard("stalled artwork", requests.join_next()).await {
+        assert!(result.unwrap().unwrap().is_none());
+    }
+    assert_eq!(
+        hang_guard(
+            "healthy artwork again",
+            drives.services.catalog.artwork(&drives.actor, &healthy)
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .bytes,
+        cover
+    );
+    drives.faults.clear("stall-read");
+    hang_guard("recovery", async {
+        loop {
+            let found = drives
+                .services
+                .catalog
+                .artwork(&drives.actor, &stalled)
+                .await
+                .unwrap();
+            if let Some(found) = found {
+                assert_eq!(found.bytes, cover);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await;
 }
 
 #[tokio::test]

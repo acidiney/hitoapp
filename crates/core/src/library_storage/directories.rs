@@ -167,6 +167,20 @@ pub(crate) struct OpenedMedia {
     pub file: std::fs::File,
 }
 
+impl OpenedMedia {
+    pub(crate) async fn read<T: Send + 'static>(
+        self,
+        work: impl FnOnce(OpenedMedia) -> T + Send + 'static,
+    ) -> Result<T> {
+        let slots = self.root.read_slots.clone();
+        super::blocking::run(slots, move |cancelled| {
+            super::blocking::check(cancelled)?;
+            Ok(work(self))
+        })
+        .await
+    }
+}
+
 pub(super) fn validate(selection: &DirectoryRef) -> Result<()> {
     if selection.components.len() > 64
         || selection.components.iter().any(|part| {
