@@ -17,12 +17,15 @@ const candidate = (
   country,
   corroborated_titles: titles,
   in_library: false,
+  origin: "name_search",
 });
 
 const item = {
   artist_id: "credit-one",
   name: "Nova Quartet",
   undecided_tracks: 4,
+  needs_search: false,
+  search_recording_id: null,
   candidates: [
     candidate(NOVA, "Lisbon fado band", "PT", 1),
     candidate(OTHER, "Brazilian jazz trio", "BR", 0),
