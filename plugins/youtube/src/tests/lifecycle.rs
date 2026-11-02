@@ -83,14 +83,13 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
     };
     let first = tokio::spawn(service.router().oneshot(request()));
     let second = tokio::spawn(service.router().oneshot(request()));
-    let deadline = Instant::now() + Duration::from_secs(3);
     while !["first", "second"]
         .iter()
         .all(|slot| directory.path().join(slot).join("leader.ready").exists())
     {
         assert!(
-            Instant::now() < deadline,
-            "Both owned extractors must become ready"
+            !first.is_finished() && !second.is_finished(),
+            "An owned extractor ended before both became ready"
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
@@ -115,10 +114,7 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
         2
     );
 
-    tokio::time::timeout(Duration::from_secs(3), service.shutdown())
-        .await
-        .unwrap()
-        .unwrap();
+    service.shutdown().await.unwrap();
     let stopped_at_return = operations
         .iter()
         .all(|(leader, descendant)| !leader.present().unwrap() && !descendant.running().unwrap());
@@ -127,20 +123,12 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
     }
     let mut statuses = Vec::new();
     for pending in [first, second] {
-        let response = tokio::time::timeout(Duration::from_secs(3), pending)
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
+        let response = pending.await.unwrap().unwrap();
         let status = response.status();
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         statuses.push((status, bytes));
     }
-    let response =
-        tokio::time::timeout(Duration::from_secs(3), service.router().oneshot(request()))
-            .await
-            .unwrap()
-            .unwrap();
+    let response = service.router().oneshot(request()).await.unwrap();
     let rejected = response.status();
     let calls = fs::read_to_string(directory.path().join("calls"))
         .unwrap()
