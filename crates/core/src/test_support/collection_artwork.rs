@@ -21,6 +21,7 @@ pub const RELEASE_COVER: &[u8] = super::covers::COVER_B;
 pub const PLAYLIST_COVER: &[u8] = super::covers::PLAYLIST_COVER;
 pub const PLAYLIST_ID: &str = "playlist/owned-artwork";
 pub const ARTIST_ID: &str = "owned-artist-0001";
+pub const SECOND_ARTIST_ID: &str = "owned-artist-0002";
 pub const ARTIST_PHOTO: &[u8] = super::covers::PLAYLIST_COVER;
 const SNAPSHOT: &str = "owned-artwork-snapshot";
 
@@ -30,6 +31,7 @@ pub enum ArtistKind {
     Served,
     Refused,
     Unprocessable,
+    TwoCreditsOnFiveRecordings,
 }
 
 struct Hold {
@@ -166,11 +168,14 @@ async fn manifest(artwork_enabled: Arc<AtomicBool>) -> Json<Value> {
     }))
 }
 
-async fn playlist_detail(Json(request): Json<PlaylistDetailRequest>) -> Json<Value> {
+async fn playlist_detail(
+    State(shared): State<Shared>,
+    Json(request): Json<PlaylistDetailRequest>,
+) -> Json<Value> {
     request.validate().unwrap();
     Json(json!({
         "id": PLAYLIST_ID, "name": "Owned artwork selection", "snapshot": SNAPSHOT,
-        "total_count": 2, "attribution": {"label": "Owned collection artwork"}
+        "total_count": if shared.artists == ArtistKind::TwoCreditsOnFiveRecordings { 5 } else { 2 }, "attribution": {"label": "Owned collection artwork"}
     }))
 }
 
@@ -182,6 +187,26 @@ async fn playlist_items(
     assert_eq!(request.playlist_id, PLAYLIST_ID);
     assert_eq!(request.snapshot, SNAPSHOT);
     assert!(request.cursor.is_none());
+    if shared.artists == ArtistKind::TwoCreditsOnFiveRecordings {
+        let items: Vec<Value> = (0..5)
+            .map(|index| {
+                let (name, provider_artist) = if index < 3 {
+                    ("Observed performer", ARTIST_ID)
+                } else {
+                    ("Second performer", SECOND_ARTIST_ID)
+                };
+                json!({"occurrence_id": format!("occurrence-{index}"), "item": {"kind": "recording", "recording": {
+                    "id": format!("{RECORDING_ID}-{index}"), "title": format!("Observed recording {index}"),
+                    "artist": name, "duration_ms": 123_000, "revision": "owned-recording-revision",
+                    "release": {"id": RELEASE_ID, "title": "Observed album"},
+                    "artists": [{"name": name, "role": "main", "provider_artist_id": provider_artist}]
+                }}})
+            })
+            .collect();
+        return Json(json!({
+            "playlist_id": PLAYLIST_ID, "snapshot": SNAPSHOT, "next_cursor": null, "items": items
+        }));
+    }
     let mut recording = json!({
         "id": RECORDING_ID, "title": "Observed recording", "artist": "Observed performer",
         "duration_ms": 123_000, "revision": "owned-recording-revision",

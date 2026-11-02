@@ -23,6 +23,7 @@ mod credited_artist_photo_rules;
 mod credited_artist_photos;
 mod credited_artist_photos_upgrade;
 mod credited_artists_upgrade;
+mod credited_group_photos;
 mod device_scope;
 mod home_summary;
 mod pin_lock_authority;

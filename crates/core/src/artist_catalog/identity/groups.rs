@@ -3,7 +3,7 @@ use crate::artist_catalog::LINKED;
 use crate::{
     Actor, ArtistCatalog, Error, MetadataProvider, Page,
     catalog::{
-        recordings_on,
+        credited_artist_photo_exists, credited_artist_photos_possible, recordings_on,
         releases::releases_by_ids_on,
         search::{scoped_terms, search_terms},
     },
@@ -53,8 +53,37 @@ impl Summary {
             library_count: self.library_count,
             recording_count: self.recording_count,
             release_count: self.release_count,
+            credited_photo_artist_id: None,
         })
     }
+}
+
+async fn attach_credited_photos(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    groups: &mut [ArtistIdentityGroup],
+) -> Result<()> {
+    if groups.is_empty() || !credited_artist_photos_possible(connection, actor.id()).await? {
+        return Ok(());
+    }
+    let ids: Vec<String> = groups.iter().map(|group| group.id.clone()).collect();
+    let mut query = visible_in(actor, None, Groups::Many(&ids));
+    query.push(
+        ", credits AS (SELECT v.group_id, v.artist_id AS id, v.user_id, count(*) AS recordings
+            FROM visible v GROUP BY v.group_id, v.artist_id)
+        SELECT c.group_id, c.id FROM credits c WHERE ",
+    );
+    query.push(credited_artist_photo_exists("c"));
+    query.push(" ORDER BY c.group_id, c.recordings DESC, c.id");
+    let rows: Vec<(String, String)> = query.build_query_as().fetch_all(connection).await?;
+    let mut chosen: std::collections::HashMap<String, String> = Default::default();
+    for (group, credit) in rows {
+        chosen.entry(group).or_insert(credit);
+    }
+    for group in groups {
+        group.credited_photo_artist_id = chosen.remove(&group.id);
+    }
+    Ok(())
 }
 
 pub(in crate::artist_catalog) async fn group_summary(
@@ -110,10 +139,11 @@ impl ArtistCatalog {
             .push(" OFFSET ")
             .push_bind(offset);
         let rows: Vec<Summary> = selected.build_query_as().fetch_all(&mut *tx).await?;
-        let items = rows
+        let mut items = rows
             .into_iter()
             .map(Summary::project)
             .collect::<Result<Vec<_>>>()?;
+        attach_credited_photos(&mut tx, actor, &mut items).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         Ok(Page {
@@ -159,7 +189,8 @@ impl ArtistCatalog {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(Error::NotFound)?;
-        let group = row.project()?;
+        let mut group = row.project()?;
+        attach_credited_photos(&mut tx, actor, std::slice::from_mut(&mut group)).await?;
         let mut libraries = visible(actor, browse.library.as_deref(), Some(&group.id));
         libraries.push("SELECT v.library_id,count(*) AS recording_count,
             (SELECT count(DISTINCT a.release_id) FROM appearances a WHERE a.library_id=v.library_id) AS release_count

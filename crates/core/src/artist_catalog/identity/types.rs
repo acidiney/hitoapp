@@ -65,6 +65,8 @@ pub struct ArtistIdentityGroup {
     pub library_count: i64,
     pub recording_count: i64,
     pub release_count: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credited_photo_artist_id: Option<String>,
 }
 
 #[derive(Serialize, sqlx::FromRow, ToSchema)]

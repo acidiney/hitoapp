@@ -1,8 +1,8 @@
 use hito_core::test_support::collection_artwork::ArtworkServer;
 use hito_core::test_support::support;
 use hito_core::{
-    Actor, Browse, CoverArtKind, CoverArtLookup, Credentials, ImportProviderPlaylist, Services,
-    UpdateAutomaticLookups,
+    Actor, ArtistIdentityGroupQuery, Browse, CoverArtKind, CoverArtLookup, Credentials,
+    ImportProviderPlaylist, Services, UpdateAutomaticLookups,
 };
 use uuid::Uuid;
 
@@ -16,6 +16,18 @@ pub struct Credited {
 }
 
 pub async fn imported(provider: ArtworkServer) -> Credited {
+    let (t, total) = import(provider).await;
+    assert_eq!(total, 1);
+    t
+}
+
+pub async fn imported_two_credits(provider: ArtworkServer) -> Credited {
+    let (t, total) = import(provider).await;
+    assert_eq!(total, 2);
+    t
+}
+
+async fn import(provider: ArtworkServer) -> (Credited, i64) {
     let (directory, hito, actor, _library, _music) = support::library("credited-photos").await;
     let installed = provider.connect(&hito, &actor).await;
     hito.collection
@@ -35,15 +47,25 @@ pub async fn imported(provider: ArtworkServer) -> Credited {
         .artists(&actor, Browse::default())
         .await
         .unwrap();
-    assert_eq!(artists.total, 1);
-    Credited {
-        artist: artists.items[0].id.clone(),
-        database: directory.path().join("hito.db"),
-        hito,
-        actor,
-        provider,
-        _directory: directory,
-    }
+    let first = artists
+        .items
+        .iter()
+        .find(|artist| artist.name == "Observed performer")
+        .or(artists.items.first())
+        .map(|artist| artist.id.clone())
+        .unwrap_or_default();
+    let total = artists.total;
+    (
+        Credited {
+            artist: first,
+            database: directory.path().join("hito.db"),
+            hito,
+            actor,
+            provider,
+            _directory: directory,
+        },
+        total,
+    )
 }
 
 impl Credited {
@@ -119,6 +141,76 @@ impl Credited {
         .await;
     }
 
+    pub async fn text(&self, query: &str) -> String {
+        use sqlx::Connection;
+        let mut connection =
+            sqlx::SqliteConnection::connect(&format!("sqlite://{}", self.database.display()))
+                .await
+                .unwrap();
+        let value = sqlx::query_scalar(query)
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+        value
+    }
+
+    pub async fn credit(&self, name: &str) -> String {
+        self.text(&format!(
+            "SELECT id FROM account_artists WHERE name = '{name}'"
+        ))
+        .await
+    }
+
+    pub async fn recording(&self, title: &str) -> String {
+        self.text(&format!(
+            "SELECT id FROM recordings WHERE title = '{title}'"
+        ))
+        .await
+    }
+
+    pub async fn choose(&self, group: Group, recording: &str, artist: &str, order: i64) {
+        let account = "(SELECT id FROM users)";
+        let (kind, installation, identity) = match group {
+            Group::MusicBrainz => ("builtin_musicbrainz", "NULL".to_owned(), MUSICBRAINZ_ARTIST),
+            Group::Plugin => (
+                "http_plugin",
+                "(SELECT id FROM plugin_installations)".to_owned(),
+                "plugin-artist",
+            ),
+        };
+        let association = format!("association-{recording}-{artist}");
+        self.run_unchecked(&[
+            format!("INSERT OR IGNORE INTO account_artist_identity_groups(id,user_id,provider_kind,plugin_installation_id,provider_artist_id) VALUES('{group}',{account},'{kind}',{installation},'{identity}')", group = group.id()),
+            format!("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence) VALUES('{association}',{account},(SELECT library_id FROM recordings WHERE id='{recording}'),'{recording}','{artist}',(SELECT metadata_observation_id FROM recordings WHERE id='{recording}'),'recording_artist','{kind}',{installation},'{identity}','user_confirmed')"),
+            format!("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,observation_id,selection_order) VALUES({account},'{recording}',1,'{association}','{group}','{artist}',(SELECT metadata_observation_id FROM recordings WHERE id='{recording}'),{order})", group = group.id()),
+        ])
+        .await;
+    }
+
+    pub async fn group_photo(&self, group: Group) -> Option<String> {
+        let page = self
+            .hito
+            .artist_catalog
+            .artist_identity_groups(&self.actor, ArtistIdentityGroupQuery::default())
+            .await
+            .unwrap();
+        let listed = page
+            .items
+            .into_iter()
+            .find(|item| item.id == group.id())
+            .map(|item| item.credited_photo_artist_id)
+            .expect("the group must be listed");
+        let detail = self
+            .hito
+            .artist_catalog
+            .artist_identity_group(&self.actor, group.id(), Default::default())
+            .await
+            .unwrap();
+        assert_eq!(detail.group.credited_photo_artist_id, listed);
+        listed
+    }
+
     pub async fn scalar(&self, query: &str) -> i64 {
         use sqlx::Connection;
         let mut connection =
@@ -180,6 +272,21 @@ impl Credited {
             )
             .await
             .unwrap();
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Group {
+    MusicBrainz,
+    Plugin,
+}
+
+impl Group {
+    pub fn id(self) -> &'static str {
+        match self {
+            Group::MusicBrainz => "group-musicbrainz",
+            Group::Plugin => "group-plugin",
+        }
     }
 }
 

@@ -54,6 +54,7 @@ pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, CoverArtKind, CoverArtLookup,
     PlaylistArtworkFetch, ReleaseArtworkFetch,
 };
+pub(crate) use artwork::{credited_artist_photo_exists, credited_artist_photos_possible};
 pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_source_access,
 };

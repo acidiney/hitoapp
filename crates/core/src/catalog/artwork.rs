@@ -19,7 +19,7 @@ mod worker;
 pub use availability::ArtworkAvailability;
 pub(crate) use cover_art::enqueue as enqueue_cover_art;
 pub use cover_art::{CoverArtKind, CoverArtLookup};
-pub(super) use credited_artist::{
+pub(crate) use credited_artist::{
     exists_for as credited_artist_photo_exists, photos_possible as credited_artist_photos_possible,
 };
 pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
