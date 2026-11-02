@@ -2974,6 +2974,7 @@ export interface components {
             unchanged: number;
         };
         ArtistIdentityGroup: {
+            credited_photo_artist_id?: string | null;
             id: string;
             /** Format: int64 */
             library_count: number;
@@ -4023,6 +4024,7 @@ export interface components {
         };
         Page_ArtistIdentityGroup: {
             items: {
+                credited_photo_artist_id?: string | null;
                 id: string;
                 /** Format: int64 */
                 library_count: number;

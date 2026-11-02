@@ -18345,6 +18345,12 @@
           "release_count"
         ],
         "properties": {
+          "credited_photo_artist_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -22745,6 +22751,12 @@
                 "release_count"
               ],
               "properties": {
+                "credited_photo_artist_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "id": {
                   "type": "string"
                 },
