@@ -65,7 +65,10 @@ async fn migration_0081_keeps_every_lookup_and_admits_credited_artist_photos() {
         insert("playlist", ARTIST),
     ] {
         assert!(
-            sqlx::query(&refused).execute(&mut connection).await.is_err(),
+            sqlx::query(&refused)
+                .execute(&mut connection)
+                .await
+                .is_err(),
             "{refused}"
         );
     }

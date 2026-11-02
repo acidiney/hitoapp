@@ -33,7 +33,11 @@ async fn imported(provider: ArtworkServer) -> Credited {
         )
         .await
         .unwrap();
-    let artists = hito.catalog.artists(&actor, Browse::default()).await.unwrap();
+    let artists = hito
+        .catalog
+        .artists(&actor, Browse::default())
+        .await
+        .unwrap();
     assert_eq!(artists.total, 1);
     Credited {
         artist: artists.items[0].id.clone(),
@@ -84,9 +88,14 @@ impl Credited {
         let options = sqlx::sqlite::SqliteConnectOptions::new()
             .filename(&self.database)
             .foreign_keys(false);
-        let mut connection = sqlx::SqliteConnection::connect_with(&options).await.unwrap();
+        let mut connection = sqlx::SqliteConnection::connect_with(&options)
+            .await
+            .unwrap();
         for statement in statements {
-            sqlx::query(statement).execute(&mut connection).await.unwrap();
+            sqlx::query(statement)
+                .execute(&mut connection)
+                .await
+                .unwrap();
         }
         connection.close().await.unwrap();
     }
