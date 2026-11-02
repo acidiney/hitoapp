@@ -149,7 +149,7 @@ Evidence: four core cases through the public capability with owned fixtures (an 
 
 ## Packaged browsing acceptance
 
-The package from `1c59c48` passes an actual Chromium and WebKit workflow against a fresh isolated database and owned HTTP catalog. An earlier web bundle using the identical Rust binary first fails at the missing Browse discography control. The candidate explicitly searches namesakes, previews the second candidate, confirms that exact identity and opens its saved profile before browsing.
+The package from `db480d3` passes an actual Chromium and WebKit workflow against a fresh isolated database and owned HTTP catalog. An earlier web bundle using the identical Rust binary first fails at the missing Browse discography control. The candidate explicitly searches namesakes, previews the second candidate, confirms that exact identity and opens its saved profile before browsing.
 
 Two pages retain distinct same-title release groups, ordered credits, partial dates and unknown values. Requests use a null continuation first and then the protected Hito continuation, never the provider cursor. Reload makes no automatic discography request; another explicit Browse starts again. Sixteen exact provider calls cover negotiation, search, previews/profile and the three catalog reads. No release is adopted and no audio, source change or Download starts.
 

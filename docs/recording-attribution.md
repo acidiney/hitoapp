@@ -32,7 +32,7 @@ The first page regression failed on the missing credits section. Twenty-eight ne
 
 ## Packaged browser verification
 
-An isolated image built with the web assets from `5adbedc` and the server executable from `1b173a9` passes the complete recording-credit workflow in Chromium and WebKit. The old web package first fails on its missing credits section. The new package connects an owned HTTP provider through Settings, searches, saves a recording twice, checks its selected credits and two immutable history observations, pins an unavailable source and reloads. Creator order, duplicate names, escaped markup, protected backlinks and wrapping of maximum-length unbroken text pass in both engines.
+An isolated image built with the web assets from `733b57b` and the server executable from `f4afcf3` passes the complete recording-credit workflow in Chromium and WebKit. The old web package first fails on its missing credits section. The new package connects an owned HTTP provider through Settings, searches, saves a recording twice, checks its selected credits and two immutable history observations, pins an unavailable source and reloads. Creator order, duplicate names, escaped markup, protected backlinks and wrapping of maximum-length unbroken text pass in both engines.
 
 The workflow makes exactly eight provider requests and no audio, preparation, persistent download, community or foreign browser request. Existing local recording edits, duplicate playlist entries, likes, progress, events and original WAV bytes remain unchanged. Browser debug output passes bounded private-canary checks. These checks do not establish general backend-log privacy, live-provider compatibility or playback performance.
 

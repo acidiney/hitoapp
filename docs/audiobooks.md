@@ -73,7 +73,7 @@ Eight grouping cases verify eligible selection, exact lost-acknowledgement repla
 
 ### Packaged grouping acceptance
 
-The isolated package from `785ac22` passes three Chromium and three WebKit cases. A baseline with the same Rust binary and the earlier web bundle first fails because the grouping form is absent. The accepted workflow uses a fresh tmpfs database and owned WAV fixtures, sets private pins, likes and progress, then adds a playlist containing two occurrences of the same recording through the UI.
+The isolated package from `4af63ba` passes three Chromium and three WebKit cases. A baseline with the same Rust binary and the earlier web bundle first fails because the grouping form is absent. The accepted workflow uses a fresh tmpfs database and owned WAV fixtures, sets private pins, likes and progress, then adds a playlist containing two occurrences of the same recording through the UI.
 
 The gate forwards the first grouping request to the real server, verifies its accepted receipt, then loses that exact response before browser delivery. Manual retry sends identical bytes. There is one appended event, an authoritative detail read before navigation, and exact chapter identities after reload and revisiting the list. The backing playlist, existing private musical state, source records, original hashes and absence of downloads remain unchanged. Audio stays paused without a source; no provider, audio or persistent-download request occurs.
 
@@ -115,7 +115,7 @@ A book-wide Continue button additionally requires integrating the retained chapt
 
 ## Packaged bookmark acceptance
 
-The package from `283c7f3` passes the private bookmark workflow against fresh isolated SQLite in Chromium and WebKit. A baseline with the same Rust binary and a pre-bookmark web bundle first fails because bookmark controls are absent. The candidate preserves the existing originals, private title/artist edits, playlist entries, likes, recording progress, sources and absence of downloads.
+The package from `9c1abe0` passes the private bookmark workflow against fresh isolated SQLite in Chromium and WebKit. A baseline with the same Rust binary and a pre-bookmark web bundle first fails because bookmark controls are absent. The candidate preserves the existing originals, private title/artist edits, playlist entries, likes, recording progress, sources and absence of downloads.
 
 The workflow explicitly selects the second occurrence of one recording and saves a UTF-8 label at 35.5 seconds. It forwards the first create to the real server and loses that accepted acknowledgement before delivery. Manual retry sends identical bytes and appends no second create event. A held authoritative read must complete before the saved marker appears. Reload retains the exact chapter anchor. Removing that marker also waits for a held confirming read, appends one removal event and remains absent after another reload. Audio stays paused without a source; no provider, audio or persistent-download request occurs.
 
@@ -141,14 +141,14 @@ Two missing-control regressions first reproduce the absent features. Twenty-four
 
 This qualifies shared browser/native command coordination in source. Packaged browser media playback is qualified below. Audible output measurement, physical Safari, native platform output, large chapter rendering, book-wide Continue and durable chapter provenance remain unfinished. This playback integration does not yet write the retained chapter anchor described below or infer the current chapter from recording progress.
 
-A preliminary isolated Chromium run of the `5adbedc` web package observes chapter playback from zero, natural advancement, an exact 35,125 ms bookmark on the second duplicate, queue removal preserving that occurrence, the same audio element through two Inertia visits and UI pause. Its five progress writes match actual observed media, and private state, originals and download absence remain preserved. This is media-state evidence, not a measurement of audible output.
+A preliminary isolated Chromium run of the `733b57b` web package observes chapter playback from zero, natural advancement, an exact 35,125 ms bookmark on the second duplicate, queue removal preserving that occurrence, the same audio element through two Inertia visits and UI pause. Its five progress writes match actual observed media, and private state, originals and download absence remain preserved. This is media-state evidence, not a measurement of audible output.
 
 The run does not pass the strict transport gate. Native audio requests include aborted open-ended ranges followed by completed tail ranges; some aborted response bodies cannot be inspected. The cause and suitable fail-closed verification remain under investigation. These requests have not been classified as harmless or byte-verified. WebKit, platform output, latency, gapless behavior and deployment remain unqualified.
 
 
 ### Packaged chapter and bookmark playback acceptance
 
-The combined application package from `4a42d1c`, image `sha256:ecfaee71be260f83131d9a3d513165f7b52fbcc3925023754c610b461c38e0f8`, passes the complete owned-media workflow in Chromium and WebKit. Each engine uses a fresh private tmpfs database and read-only synthetic 90-second PCM16 WAV files. The workflow plays chapter zero, advances naturally to the next chapter, jumps to a 35,125 ms bookmark on the second occurrence of the first recording, removes the earlier queue occurrence, navigates twice without replacing or interrupting the actual player and pauses through the UI.
+The combined application package from `cd17832`, image `sha256:ecfaee71be260f83131d9a3d513165f7b52fbcc3925023754c610b461c38e0f8`, passes the complete owned-media workflow in Chromium and WebKit. Each engine uses a fresh private tmpfs database and read-only synthetic 90-second PCM16 WAV files. The workflow plays chapter zero, advances naturally to the next chapter, jumps to a 35,125 ms bookmark on the second occurrence of the first recording, removes the earlier queue occurrence, navigates twice without replacing or interrupting the actual player and pauses through the UI.
 
 The pause checkpoint waits for the trusted native pause, its matching submitted progress operation and that exact accepted acknowledgement before reading preservation state. Private titles/artists, likes, entries, bookmark identity, other-account state, original file hashes and download absence remain intact. Progress is correlated with actual media; no new book-wide cursor is inferred. This measures browser media state, not speaker output.
 

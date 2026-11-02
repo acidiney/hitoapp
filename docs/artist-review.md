@@ -62,7 +62,7 @@ Three public HTTP cases cover the workflow, account/origin/context boundaries an
 
 ## Packaged browser verification
 
-Image `sha256:79a1e5848641acbed2d3c6ba6cbdd1e173c888c08a5b27744b441053d0a484b1`, built from `a3f6ed8`, passes the complete workflow in fresh disposable Chromium and WebKit sessions. The browser offers an owned HTTP catalog by address, approves its personal connection, replaces the built-in metadata selection, searches two namesakes, previews the second opaque identifier and explicitly confirms it. Reload preserves the retained review. An unsaved track-title draft survives search, preview and confirmation.
+Image `sha256:79a1e5848641acbed2d3c6ba6cbdd1e173c888c08a5b27744b441053d0a484b1`, built from `e29cd41`, passes the complete workflow in fresh disposable Chromium and WebKit sessions. The browser offers an owned HTTP catalog by address, approves its personal connection, replaces the built-in metadata selection, searches two namesakes, previews the second opaque identifier and explicitly confirms it. Reload preserves the retained review. An unsaved track-title draft survives search, preview and confirmation.
 
 The workflow preserves original WAV hashes, duplicate playlist occurrences, personal metadata, likes, progress, source pins, metadata preferences and plugin connections. It verifies ten exact provider protocol requests and seven correlated frontend workflow completions. Audio remains paused without a source; no source writes, persistent downloads, foreign browser requests or private console values are observed. Separate private backend-log checks also pass. Both TypeScript configurations pass for these browser fixtures, and an independent review of the gate passes.
 

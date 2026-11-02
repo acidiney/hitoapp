@@ -84,7 +84,7 @@ This uses an owned DOM media fixture, not browser audio decoding or a running ra
 
 ## Packaged browser ranking
 
-The frozen application from `396de9d` now passes the complete ranking journey against the separately packaged community service in Chromium and WebKit. An independent repeat passes both engines. Each run creates its own private SQLite state, synthetic credentials and owned audio, shares only container loopback, publishes no ports, and removes all owned containers after joined shutdown. The normal server and its data are never mounted.
+The frozen application from `d7f0fd1` now passes the complete ranking journey against the separately packaged community service in Chromium and WebKit. An independent repeat passes both engines. Each run creates its own private SQLite state, synthetic credentials and owned audio, shares only container loopback, publishes no ports, and removes all owned containers after joined shutdown. The normal server and its data are never mounted.
 
 ```mermaid
 flowchart LR
@@ -208,7 +208,7 @@ The runtime instance span covers readiness, shutdown request, runtime state-clos
 
 ## Private development container
 
-[docker/community.Dockerfile](../docker/community.Dockerfile) and [scripts/community/compose.yaml](../scripts/community/compose.yaml) package the executable for an isolated local project. On 18 October 2026, the `linux/arm64` image built from community source `9c85538` passed health, effective configuration, private-volume provisioning, authenticated HTTP, persisted-receipt replay, log privacy and held-request shutdown checks. This configuration does not change the normal Hito deployment or complete a public-release gate.
+[docker/community.Dockerfile](../docker/community.Dockerfile) and [scripts/community/compose.yaml](../scripts/community/compose.yaml) package the executable for an isolated local project. On 18 October 2026, the `linux/arm64` image built from community source `69ba310` passed health, effective configuration, private-volume provisioning, authenticated HTTP, persisted-receipt replay, log privacy and held-request shutdown checks. This configuration does not change the normal Hito deployment or complete a public-release gate.
 
 Compose uses `network_mode: none`, with no published ports or application network. Only the container's IPv4 loopback is available, so external HTTP clients cannot reach the service; inspect it through `docker compose exec`. This follows Docker's [none-network behavior](https://docs.docker.com/engine/network/drivers/none/). The binary retains its default `127.0.0.1:8095` listener. A schema health check runs every five seconds without credentials or provider requests.
 
