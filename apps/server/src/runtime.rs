@@ -1,14 +1,16 @@
+mod artwork;
 mod community;
 mod downloads;
+mod follows;
+mod indexing;
+mod matching;
 mod podcasts;
+mod polling;
 mod retention;
 mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
-use std::{
-    future::Future,
-    time::{Duration, Instant},
-};
+use std::future::Future;
 use tracing::{Instrument, instrument::WithSubscriber};
 use tracing_subscriber::prelude::*;
 
@@ -94,12 +96,12 @@ async fn serve_owned(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
-    let indexing = indexing_worker(services.storage.clone(), stopped.clone());
-    let watching = folder_watching_worker(services.storage.clone(), stopped.clone());
+    let indexing = indexing::worker(services.storage.clone(), stopped.clone());
+    let watching = indexing::folder_watching(services.storage.clone(), stopped.clone());
     let retention = retention::worker(services.storage.clone(), stopped.clone());
-    let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
-    let covers = cover_art_worker(services.catalog.clone(), stopped.clone());
-    let matching = matching_worker(services.artist_catalog.clone(), stopped.clone());
+    let artwork = artwork::worker(services.catalog.clone(), stopped.clone());
+    let covers = artwork::cover_art_worker(services.catalog.clone(), stopped.clone());
+    let matching = matching::worker(services.artist_catalog.clone(), stopped.clone());
     let reports = community::worker(services.community, stopped.clone());
     let preparation_catalog = services.catalog;
     let preparation_stop = stopped.clone();
@@ -132,10 +134,10 @@ async fn serve_owned(
     let collection = services.collection;
     let follows = async move {
         tokio::join!(
-            follow_worker(collection.clone(), stopped.clone(), 0),
-            follow_worker(collection.clone(), stopped.clone(), 1),
-            follow_worker(collection.clone(), stopped.clone(), 2),
-            follow_worker(collection, stopped, 3),
+            follows::worker(collection.clone(), stopped.clone(), 0),
+            follows::worker(collection.clone(), stopped.clone(), 1),
+            follows::worker(collection.clone(), stopped.clone(), 2),
+            follows::worker(collection, stopped, 3),
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
@@ -161,230 +163,4 @@ async fn serve_owned(
     indexing_finished?;
     tracing::info!(event = "server_stopped", "Hito stopped");
     result
-}
-
-async fn indexing_worker(
-    indexer: hito_core::LibraryStorage,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-) {
-    tracing::info!(event = "worker_started", "Indexing worker started");
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    loop {
-        tokio::select! {
-            biased;
-            _ = stopped.changed() => break,
-            _ = interval.tick() => {}
-        }
-        if let Err(error) = indexer
-            .run_next_job_until(async {
-                let _ = stopped.changed().await;
-            })
-            .await
-        {
-            tracing::error!(
-                event = "worker_failed",
-                error_kind = error.code(),
-                "Background worker failed"
-            );
-        }
-        if *stopped.borrow() {
-            break;
-        }
-    }
-    tracing::info!(event = "worker_stopped", "Indexing worker stopped");
-}
-
-async fn folder_watching_worker(
-    storage: hito_core::LibraryStorage,
-    stopped: tokio::sync::watch::Receiver<bool>,
-) {
-    let (status, _) = tokio::sync::watch::channel(hito_core::WatchStatus::new());
-    storage.watch_folders(stopped, status).await;
-}
-
-async fn artwork_worker(
-    catalog: hito_core::Catalog,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-) {
-    tracing::info!(event = "artwork_worker_started", "Artwork worker started");
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        tokio::select! {
-            biased;
-            _ = stopped.changed() => break,
-            _ = interval.tick() => {}
-        }
-        let started = Instant::now();
-        let result = catalog
-            .run_next_artwork_job_until(async {
-                let _ = stopped.changed().await;
-            })
-            .await;
-        match result {
-            Ok(claimed) => tracing::debug!(
-                event = "artwork_worker_polled",
-                claimed,
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Artwork worker checked pending work"
-            ),
-            Err(error) => tracing::error!(
-                event = "artwork_worker_failed",
-                error_kind = error.code(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Artwork worker failed"
-            ),
-        }
-        if *stopped.borrow() {
-            break;
-        }
-    }
-    tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
-}
-
-async fn cover_art_worker(
-    catalog: hito_core::Catalog,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-) {
-    tracing::info!(
-        event = "cover_art_worker_started",
-        "Cover art worker started"
-    );
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        tokio::select! {
-            biased;
-            _ = stopped.changed() => break,
-            _ = interval.tick() => {}
-        }
-        let started = Instant::now();
-        let result = catalog
-            .run_next_cover_art_lookup_until(async {
-                let _ = stopped.changed().await;
-            })
-            .await;
-        match result {
-            Ok(claimed) => tracing::debug!(
-                event = "cover_art_worker_polled",
-                claimed,
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Cover art worker checked pending work"
-            ),
-            Err(error) => tracing::error!(
-                event = "cover_art_worker_failed",
-                error_kind = error.code(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Cover art worker failed"
-            ),
-        }
-        if *stopped.borrow() {
-            break;
-        }
-    }
-    tracing::info!(
-        event = "cover_art_worker_stopped",
-        "Cover art worker stopped"
-    );
-}
-
-async fn matching_worker(
-    artists: hito_core::ArtistCatalog,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-) {
-    tracing::info!(
-        event = "matching_worker_started",
-        "Artist matching worker started"
-    );
-    if let Err(error) = artists.queue_first_automatic_matching().await {
-        tracing::error!(
-            event = "first_automatic_matching_failed",
-            error_kind = error.code(),
-            "First automatic artist matching walks could not be queued"
-        );
-    }
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        tokio::select! {
-            biased;
-            _ = stopped.changed() => break,
-            _ = interval.tick() => {}
-        }
-        let started = Instant::now();
-        let result = artists
-            .run_next_automatic_matching_until(async {
-                let _ = stopped.changed().await;
-            })
-            .await;
-        match result {
-            Ok(claimed) => tracing::debug!(
-                event = "matching_worker_polled",
-                claimed,
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Artist matching worker checked pending work"
-            ),
-            Err(error) => tracing::error!(
-                event = "matching_worker_failed",
-                error_kind = error.code(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Artist matching worker failed"
-            ),
-        }
-        if *stopped.borrow() {
-            break;
-        }
-    }
-    tracing::info!(
-        event = "matching_worker_stopped",
-        "Artist matching worker stopped"
-    );
-}
-
-#[tracing::instrument(level = "info", skip_all, fields(worker_slot = worker_slot))]
-async fn follow_worker(
-    collection: hito_core::Collection,
-    mut stopped: tokio::sync::watch::Receiver<bool>,
-    worker_slot: u8,
-) {
-    tracing::info!(
-        event = "follow_worker_started",
-        "Playlist follow worker started"
-    );
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        tokio::select! {
-            biased;
-            _ = stopped.changed() => break,
-            _ = interval.tick() => {}
-        }
-        let started = Instant::now();
-        let result = collection
-            .run_next_follow_refresh_until(async {
-                let _ = stopped.changed().await;
-            })
-            .await;
-        match result {
-            Ok(claimed) => tracing::debug!(
-                event = "follow_worker_polled",
-                claimed,
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Playlist follow worker checked pending work"
-            ),
-            Err(error) => tracing::error!(
-                event = "follow_worker_failed",
-                error_kind = error.code(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Playlist follow worker failed"
-            ),
-        }
-        if *stopped.borrow() {
-            break;
-        }
-    }
-    tracing::info!(
-        event = "follow_worker_stopped",
-        "Playlist follow worker stopped"
-    );
 }

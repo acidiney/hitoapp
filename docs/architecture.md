@@ -129,7 +129,7 @@ Rules that follow from the diagram:
 
 ## Background workers
 
-Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every worker next to the HTTP listener and stops them through one shutdown signal. Each worker wakes once a second, claims at most one unit of work and runs it with a cancel future. Downloads and indexing finish joined cleanup after the workers stop. The desktop host calls the same `hito_server::serve`, so it runs the same workers.
+Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every worker next to the HTTP listener and stops them through one shutdown signal. Each worker wakes once a second, claims at most one unit of work and runs it with a cancel future. All of them share one polling loop in `apps/server/src/runtime/polling.rs`, which owns the interval, the stop check, the timing and the started, polled, failed and stopped log events. Each worker file under `apps/server/src/runtime/` only names its events and calls one core method. A stop signal ends the loop at once, also while a call is running, and the stopped event is logged once. Downloads and indexing finish joined cleanup after the workers stop. The desktop host calls the same `hito_server::serve`, so it runs the same workers.
 
 | Worker | Instances | External calls |
 | --- | --- | --- |
