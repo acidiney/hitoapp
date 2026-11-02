@@ -2,13 +2,13 @@ use super::{
     ArtistReviewCandidate, ArtistReviewConfirmation, ArtistReviewDismissal, ArtistReviewItem,
     ArtistReviewOrigin, ArtistReviewQueueQuery, ArtistReviewRestoration,
     ConfirmArtistReviewCandidate, DismissArtistReviewCandidates, RestoreArtistReviewCandidates,
-    apply::{EvidenceKind, Planned, REPLACEABLE, commit, plan_for_credit},
+    apply::{AUTOMATIC_CHOICE, EvidenceKind, Planned, REPLACEABLE, commit, plan_for_credit},
     name_discography::NAME_RULE,
     name_probe::{Assessment, Candidate, distinct_titles},
     suggestions::credit_name,
 };
 use crate::artist_catalog::{
-    MetadataProvider, REQUEST_BUDGET,
+    LINKED, MetadataProvider, REQUEST_BUDGET,
     identity::{groups::current_choices, receipts},
     policy,
 };
@@ -145,12 +145,16 @@ fn tracks_of(searched: bool, chosen: bool, credit_filter: &str) -> String {
     parts.join(" UNION ALL ")
 }
 
-fn chosen_artist_match() -> String {
+fn chosen_names() -> String {
     format!(
-        "SELECT 1 {} ?1 AND lower(trim(artist.name))=lower(trim(a.name))
-            AND EXISTS (SELECT 1 FROM account_artist_identity_groups g
-                WHERE g.user_id=choice.user_id AND g.id=choice.group_id AND g.provider_kind='builtin_musicbrainz'",
-        current_choices()
+        "SELECT lower(trim(artist.name)) AS name_key,g.provider_artist_id AS provider_artist_id
+         {} ?1 AND g.provider_kind='builtin_musicbrainz'
+         GROUP BY name_key,g.provider_artist_id",
+        current_choices().replace(
+            "JOIN account_artists artist",
+            "JOIN account_artist_identity_groups g ON g.user_id=choice.user_id AND g.id=choice.group_id
+        JOIN account_artists artist"
+        )
     )
 }
 
@@ -186,6 +190,89 @@ async fn chosen_offers(
             name,
         })
         .collect())
+}
+
+fn matched_counts(credit_filter: &str) -> String {
+    format!(
+        "SELECT credit.artist_id AS artist_id,g.provider_artist_id AS provider_artist_id,count(*) AS tracks
+         FROM account_recording_credits credit
+         JOIN recording_artist_identity_choices choice ON choice.user_id=credit.user_id
+            AND choice.recording_id=credit.recording_id AND choice.artist_id=credit.artist_id
+         JOIN account_artist_identity_groups g ON g.user_id=choice.user_id AND g.id=choice.group_id
+            AND g.provider_kind='builtin_musicbrainz'
+         JOIN recordings r ON r.id=credit.recording_id
+         JOIN library_members m ON m.library_id=r.library_id AND m.user_id=credit.user_id
+         LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=credit.user_id
+         WHERE credit.user_id=?1 {credit_filter} AND choice.retired=0 AND choice.association_id IS NOT NULL
+            AND choice.artist_operation_id IS NULL AND p.artist_operation_id IS NULL
+            AND r.metadata_observation_id=choice.observation_id AND {AUTOMATIC_CHOICE}
+            AND EXISTS (SELECT 1 FROM recording_artist_associations assoc WHERE assoc.id=choice.association_id AND {LINKED})
+         GROUP BY credit.artist_id,g.provider_artist_id"
+    )
+}
+
+struct MatchedOffer {
+    provider_artist_id: String,
+    tracks: i64,
+}
+
+async fn matched_offers(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    credit: &str,
+) -> Result<Vec<MatchedOffer>> {
+    let rows: Vec<(String, i64)> = sqlx::query_as(&format!(
+        "SELECT provider_artist_id,tracks FROM ({})
+         ORDER BY tracks DESC,provider_artist_id LIMIT ?3",
+        matched_counts("AND credit.artist_id=?2")
+    ))
+    .bind(actor.id())
+    .bind(credit)
+    .bind(MAX_CHOSEN_OFFERS)
+    .fetch_all(connection)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(provider_artist_id, tracks)| MatchedOffer {
+            provider_artist_id,
+            tracks,
+        })
+        .collect())
+}
+
+async fn offered_ids(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    credit: &str,
+) -> Result<Vec<String>> {
+    let mut ids: Vec<String> = chosen_offers(connection, actor, credit)
+        .await?
+        .into_iter()
+        .map(|offer| offer.provider_artist_id)
+        .collect();
+    for offer in matched_offers(connection, actor, credit).await? {
+        if !ids.contains(&offer.provider_artist_id) {
+            ids.push(offer.provider_artist_id);
+        }
+    }
+    Ok(ids)
+}
+
+async fn dismiss_one(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    credit: &str,
+    candidate: &str,
+) -> Result<u64> {
+    Ok(sqlx::query(
+        "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?,?,?)",
+    )
+    .bind(actor.id())
+    .bind(credit)
+    .bind(candidate)
+    .execute(connection)
+    .await?
+    .rows_affected())
 }
 
 async fn dismissed_ids(
@@ -226,7 +313,7 @@ const OFFERED: &str = "NOT EXISTS (SELECT 1 FROM artist_review_dismissals d
     WHERE d.user_id=c.user_id AND d.artist_id=c.artist_id AND d.provider_artist_id=c.provider_artist_id)";
 
 #[derive(Clone, Copy)]
-enum Listing {
+pub(super) enum Listing {
     Offered,
     Dismissed,
 }
@@ -240,7 +327,7 @@ impl Listing {
     }
 }
 
-fn queued(listing: Listing) -> String {
+pub(super) fn queued(listing: Listing) -> String {
     let filter = listing.filter();
     let stored = format!(
         "EXISTS (SELECT 1 FROM artist_name_candidates c
@@ -248,25 +335,38 @@ fn queued(listing: Listing) -> String {
     );
     let unlisted = match listing {
         Listing::Offered => {
-            "NOT EXISTS (SELECT 1 FROM artist_name_candidates c WHERE c.user_id=a.user_id AND c.artist_id=a.id)"
+            "NOT EXISTS (SELECT 1 FROM artist_name_candidates c WHERE c.user_id=a.user_id AND c.artist_id=a.id)
+             AND NOT EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id)"
         }
         Listing::Dismissed => "0",
     };
+    let matched_dismissal = "EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=?1
+        AND d.artist_id=x.artist_id AND d.provider_artist_id=x.provider_artist_id)";
+    let matched_filter = match listing {
+        Listing::Offered => format!("NOT {matched_dismissal}"),
+        Listing::Dismissed => matched_dismissal.to_owned(),
+    };
+    let matched = format!("EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id AND {matched_filter})");
     let dismissal = "EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=a.user_id
-        AND d.artist_id=a.id AND d.provider_artist_id=g.provider_artist_id)";
+        AND d.artist_id=a.id AND d.provider_artist_id=n.provider_artist_id)";
     let offer_dismissal = match listing {
         Listing::Offered => format!("NOT {dismissal}"),
         Listing::Dismissed => dismissal.to_owned(),
     };
-    let chosen = format!("EXISTS ({}  AND {offer_dismissal}))", chosen_artist_match());
+    let chosen = format!(
+        "EXISTS (SELECT 1 FROM chosen_names n WHERE n.name_key=lower(trim(a.name)) AND {offer_dismissal})"
+    );
     format!(
         "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
+              matched AS MATERIALIZED ({}),
+              chosen_names AS MATERIALIZED ({}),
               edited AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
               flags AS MATERIALIZED (
                 SELECT a.id AS id,a.name AS name,COALESCE(u.tracks,0) AS undecided_tracks,
                     COALESCE(e.tracks,0) AS edited_tracks,
                     CASE WHEN u.tracks>0 THEN {stored} ELSE 0 END AS stored,
                     CASE WHEN u.tracks>0 THEN {unlisted} ELSE 0 END AS unlisted,
+                    CASE WHEN u.tracks>0 THEN {matched} ELSE 0 END AS matched,
                     CASE WHEN e.tracks>0 THEN {chosen} ELSE 0 END AS chosen
                 FROM account_artists a
                 JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
@@ -274,11 +374,13 @@ fn queued(listing: Listing) -> String {
                 LEFT JOIN edited e ON e.artist_id=a.id
                 WHERE a.user_id=?1 AND (u.tracks>0 OR e.tracks>0))
          SELECT id,name,
-            CASE WHEN stored OR unlisted THEN undecided_tracks ELSE 0 END
+            CASE WHEN stored OR unlisted OR matched THEN undecided_tracks ELSE 0 END
                 + CASE WHEN chosen THEN edited_tracks ELSE 0 END AS tracks,
-            stored,chosen
-         FROM flags WHERE stored OR unlisted OR chosen",
+            stored,chosen,matched
+         FROM flags WHERE stored OR unlisted OR matched OR chosen",
         undecided(""),
+        matched_counts("AND credit.artist_id IN (SELECT artist_id FROM undecided)"),
+        chosen_names(),
         edited("")
     )
 }
@@ -349,9 +451,9 @@ impl ArtistCatalog {
         actor.check_session_on(&mut tx).await?;
         let base = queued(listing);
         let filter = listing.filter();
-        let rows: Vec<(String, String, i64, i64, i64, i64)> = sqlx::query_as(&format!(
-            "SELECT id,name,tracks,stored,chosen,count(*) OVER () FROM ({base})
-             ORDER BY (stored+chosen)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3"
+        let rows: Vec<(String, String, i64, i64, i64, i64, i64)> = sqlx::query_as(&format!(
+            "SELECT id,name,tracks,stored,chosen,matched,count(*) OVER () FROM ({base})
+             ORDER BY (stored+chosen+matched)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3"
         ))
         .bind(actor.id())
         .bind(limit)
@@ -359,7 +461,7 @@ impl ArtistCatalog {
         .fetch_all(&mut *tx)
         .await?;
         let total = match rows.first() {
-            Some(first) => first.5,
+            Some(first) => first.6,
             None if offset == 0 => 0,
             None => {
                 sqlx::query_scalar(&format!("SELECT count(*) FROM ({base})"))
@@ -370,7 +472,7 @@ impl ArtistCatalog {
         };
         let searching: Vec<&str> = rows
             .iter()
-            .filter(|row| row.3 == 0 && row.4 == 0)
+            .filter(|row| row.3 == 0 && row.4 == 0 && row.5 == 0)
             .map(|row| row.0.as_str())
             .collect();
         let search_ids: HashMap<String, String> = if searching.is_empty() {
@@ -390,8 +492,37 @@ impl ArtistCatalog {
             .into_iter()
             .collect()
         };
+        let matching: Vec<&str> = rows
+            .iter()
+            .filter(|row| row.5 > 0)
+            .map(|row| row.0.as_str())
+            .collect();
+        let mut matched_by_credit: HashMap<String, Vec<MatchedOffer>> = HashMap::new();
+        if !matching.is_empty() {
+            let counts: Vec<(String, String, i64)> = sqlx::query_as(&format!(
+                "SELECT artist_id,provider_artist_id,tracks FROM ({})
+                 ORDER BY artist_id,tracks DESC,provider_artist_id",
+                matched_counts("AND credit.artist_id IN (SELECT value FROM json_each(?2))")
+            ))
+            .bind(actor.id())
+            .bind(
+                serde_json::to_string(&matching)
+                    .map_err(|_| Error::Internal("Matched list".into()))?,
+            )
+            .fetch_all(&mut *tx)
+            .await?;
+            for (artist_id, provider_artist_id, tracks) in counts {
+                matched_by_credit
+                    .entry(artist_id)
+                    .or_default()
+                    .push(MatchedOffer {
+                        provider_artist_id,
+                        tracks,
+                    });
+            }
+        }
         let mut items = Vec::with_capacity(rows.len());
-        for (artist_id, name, undecided_tracks, stored, chosen, _) in rows {
+        for (artist_id, name, undecided_tracks, stored, chosen, matched, _) in rows {
             let mut candidates: Vec<ArtistReviewCandidate> = Vec::new();
             let found: Vec<ArtistReviewCandidate> = if stored > 0 {
                 sqlx::query_as(&format!(
@@ -410,8 +541,12 @@ impl ArtistCatalog {
             } else {
                 Vec::new()
             };
+            let dismissed = if chosen > 0 || matched > 0 {
+                dismissed_ids(&mut tx, actor, &artist_id).await?
+            } else {
+                HashSet::new()
+            };
             if chosen > 0 {
-                let dismissed = dismissed_ids(&mut tx, actor, &artist_id).await?;
                 for offer in chosen_offers(&mut tx, actor, &artist_id).await? {
                     let is_dismissed = dismissed.contains(&offer.provider_artist_id);
                     if is_dismissed != matches!(listing, Listing::Dismissed) {
@@ -429,6 +564,35 @@ impl ArtistCatalog {
                         corroborated_titles: same.map_or(0, |stored| stored.corroborated_titles),
                         in_library: true,
                         origin: ArtistReviewOrigin::ChosenArtist,
+                    });
+                }
+            }
+            if matched > 0 {
+                let offers = matched_by_credit.remove(&artist_id).unwrap_or_default();
+                for offer in offers.into_iter().take(MAX_CHOSEN_OFFERS as usize) {
+                    let is_dismissed = dismissed.contains(&offer.provider_artist_id);
+                    if is_dismissed != matches!(listing, Listing::Dismissed)
+                        || candidates
+                            .iter()
+                            .any(|known| known.provider_artist_id == offer.provider_artist_id)
+                    {
+                        continue;
+                    }
+                    let same = found
+                        .iter()
+                        .find(|stored| stored.provider_artist_id == offer.provider_artist_id);
+                    candidates.push(ArtistReviewCandidate {
+                        provider_artist_id: offer.provider_artist_id,
+                        name: same.map_or_else(
+                            || clipped(&name, MAX_TEXT_CHARS),
+                            |stored| stored.name.clone(),
+                        ),
+                        kind: same.and_then(|stored| stored.kind.clone()),
+                        disambiguation: same.and_then(|stored| stored.disambiguation.clone()),
+                        country: same.and_then(|stored| stored.country.clone()),
+                        corroborated_titles: offer.tracks,
+                        in_library: true,
+                        origin: ArtistReviewOrigin::MatchedOnOtherTracks,
                     });
                 }
             }
@@ -516,7 +680,7 @@ impl ArtistCatalog {
         if !policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz) {
             return Err(policy::changed());
         }
-        let searched: bool = sqlx::query_scalar(&format!(
+        let stored: bool = sqlx::query_scalar(&format!(
             "SELECT EXISTS(SELECT 1 FROM artist_name_candidates c
              WHERE c.user_id=? AND c.artist_id=? AND c.provider_artist_id=? AND {OFFERED})"
         ))
@@ -534,6 +698,23 @@ impl ArtistCatalog {
             .bind(artist)
             .fetch_one(&mut *tx)
             .await?;
+        let matched = !stored
+            && matched_offers(&mut tx, actor, artist)
+                .await?
+                .iter()
+                .any(|offer| offer.provider_artist_id == candidate)
+            && !dismissed_ids(&mut tx, actor, artist)
+                .await?
+                .contains(candidate)
+            && sqlx::query_scalar::<_, bool>(&format!(
+                "SELECT EXISTS({})",
+                undecided("AND rc.artist_id=?2")
+            ))
+            .bind(actor.id())
+            .bind(artist)
+            .fetch_one(&mut *tx)
+            .await?;
+        let searched = stored || matched;
         if !searched && !chosen {
             return Err(Error::NotFound);
         }
@@ -614,6 +795,9 @@ impl ArtistCatalog {
                     .bind(artist)
                     .execute(&mut *tx)
                     .await?;
+                    if matched {
+                        dismiss_one(&mut tx, actor, artist, candidate).await?;
+                    }
                 }
             }
             if chosen {
@@ -624,14 +808,7 @@ impl ArtistCatalog {
                         .fetch_one(&mut *tx)
                         .await?;
                 if left > 0 {
-                    sqlx::query(
-                        "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?,?,?)",
-                    )
-                    .bind(actor.id())
-                    .bind(artist)
-                    .bind(candidate)
-                    .execute(&mut *tx)
-                    .await?;
+                    dismiss_one(&mut tx, actor, artist, candidate).await?;
                 }
             }
         }
@@ -676,7 +853,7 @@ impl ArtistCatalog {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         credit_name(&mut tx, actor, artist).await?;
-        let offers = chosen_offers(&mut tx, actor, artist).await?;
+        let offers = offered_ids(&mut tx, actor, artist).await?;
         let dismissed = if let Some(candidate) = &request.provider_artist_id {
             let known: bool = sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM artist_name_candidates WHERE user_id=? AND artist_id=? AND provider_artist_id=?)",
@@ -686,22 +863,10 @@ impl ArtistCatalog {
             .bind(candidate)
             .fetch_one(&mut *tx)
             .await?;
-            if !known
-                && !offers
-                    .iter()
-                    .any(|offer| &offer.provider_artist_id == candidate)
-            {
+            if !known && !offers.contains(candidate) {
                 return Err(Error::NotFound);
             }
-            sqlx::query(
-                "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?,?,?)",
-            )
-            .bind(actor.id())
-            .bind(artist)
-            .bind(candidate)
-            .execute(&mut *tx)
-            .await?
-            .rows_affected()
+            dismiss_one(&mut tx, actor, artist, candidate).await?
         } else {
             let mut dismissed = sqlx::query(
                 "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id)
@@ -714,15 +879,7 @@ impl ArtistCatalog {
             .await?
             .rows_affected();
             for offer in &offers {
-                dismissed += sqlx::query(
-                    "INSERT OR IGNORE INTO artist_review_dismissals(user_id,artist_id,provider_artist_id) VALUES(?,?,?)",
-                )
-                .bind(actor.id())
-                .bind(artist)
-                .bind(&offer.provider_artist_id)
-                .execute(&mut *tx)
-                .await?
-                .rows_affected();
+                dismissed += dismiss_one(&mut tx, actor, artist, offer).await?;
             }
             dismissed
         };

@@ -48,6 +48,7 @@ mod artist_name_match_rule_upgrade;
 mod artist_provider_evidence_upgrade;
 mod artist_recording_id_matches_upgrade;
 mod artist_review_edges;
+mod artist_review_matched;
 mod artist_review_queue;
 mod artist_review_queue_upgrade;
 mod artist_review_reach;

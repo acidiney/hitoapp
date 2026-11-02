@@ -225,7 +225,8 @@ async fn the_review_queue_reads_a_large_library_in_one_pass_over_its_checks() {
 const OPEN_CREDITS: usize = 20;
 const EDITED_CREDITS: usize = 10;
 const CHOSEN_RECORDINGS: usize = 200;
-const MIXED_BUDGET: u64 = 330_000;
+const MATCHED_CREDITS: usize = 10;
+const MIXED_BUDGET: u64 = 400_000;
 
 async fn seed_open_and_edited_credits(hito: &crate::Services, actor: &crate::Actor, library: &str) {
     let pool = &hito.catalog.store.pool;
@@ -284,6 +285,64 @@ async fn seed_open_and_edited_credits(hito: &crate::Services, actor: &crate::Act
         .execute(&mut *tx)
         .await
         .unwrap();
+    sqlx::raw_sql("DROP TRIGGER recording_artist_association_scope")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,observation_id,role,provider_kind,provider_artist_id,evidence) VALUES('association',?,?,'matched-000-000','matched-000','observation','recording_artist','builtin_musicbrainz','mbid','user_confirmed')")
+        .bind(actor.id())
+        .bind(library)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO artist_association_name_matches(association_id,evidence_kind,receipt_order) VALUES('association','name_discography',1)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    for credit in 0..MATCHED_CREDITS {
+        let artist = format!("matched-{credit:03}");
+        sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES(?,?,?,?)")
+            .bind(actor.id())
+            .bind(&artist)
+            .bind(library)
+            .bind(format!("Matched {credit:03}"))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        for track in 0..QUEUE_TRACKS {
+            let recording = format!("matched-{credit:03}-{track:03}");
+            sqlx::query("INSERT INTO recordings(id,library_id,title,artist,metadata_observation_id) VALUES(?1,?2,?1,'Seed','observation')")
+                .bind(&recording)
+                .bind(library)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO account_recording_credits(user_id,recording_id,artist_id) VALUES(?,?,?)")
+                .bind(actor.id())
+                .bind(&recording)
+                .bind(&artist)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            if track % 2 == 0 {
+                sqlx::query("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,observation_id,selection_order) VALUES(?1,?2,1,'association','group',?3,'observation',1)")
+                    .bind(actor.id())
+                    .bind(&recording)
+                    .bind(&artist)
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+            } else {
+                sqlx::query("INSERT INTO artist_name_checks(user_id,recording_id,observation_id,rule) VALUES(?,?,'observation',?)")
+                    .bind(actor.id())
+                    .bind(&recording)
+                    .bind(super::name_discography::NAME_RULE)
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+            }
+        }
+    }
     for index in 0..CHOSEN_RECORDINGS {
         let recording = format!(
             "queue-{:03}-{:03}",
@@ -324,7 +383,7 @@ async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
     eprintln!(
         "Artist review queue mixed VM_steps credits={QUEUE_CREDITS}+{OPEN_CREDITS}+{EDITED_CREDITS} tracks={QUEUE_TRACKS} work={work}"
     );
-    assert_eq!((page.total, page.items.len()), (75, 50));
+    assert_eq!((page.total, page.items.len()), (85, 50));
     let tail = hito
         .artist_catalog
         .artist_review_queue(
@@ -336,12 +395,23 @@ async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
         )
         .await
         .unwrap();
-    assert_eq!(tail.total, 75);
-    assert_eq!(tail.items.len(), 25);
+    assert_eq!(tail.total, 85);
+    assert_eq!(tail.items.len(), 35);
+    assert_eq!(
+        tail.items
+            .iter()
+            .filter(|item| item
+                .candidates
+                .iter()
+                .any(|offer| offer.origin == crate::ArtistReviewOrigin::MatchedOnOtherTracks
+                    && offer.corroborated_titles == QUEUE_TRACKS as i64 / 2))
+            .count(),
+        MATCHED_CREDITS
+    );
     assert!(
         tail.items
             .iter()
-            .skip(5)
+            .skip(15)
             .all(|item| item.needs_search && item.search_recording_id.is_some())
     );
     assert!(
@@ -382,4 +452,46 @@ async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
         "The dismissed read used {work} VM steps for {} checked recordings against {QUEUE_BUDGET}",
         QUEUE_CREDITS * QUEUE_TRACKS
     );
+}
+
+#[tokio::test]
+async fn the_review_queue_plan_scans_only_its_own_intermediate_results() {
+    use super::review_queue::{Listing, queued};
+    let (_directory, hito, actor, library, _music) =
+        support::library("artist-queue-explain").await;
+    seed_review_credits(&hito, &actor, &library).await;
+    seed_open_and_edited_credits(&hito, &actor, &library).await;
+    for listing in [Listing::Offered, Listing::Dismissed] {
+        let sql = format!(
+            "EXPLAIN QUERY PLAN SELECT id,name,tracks,stored,chosen,matched,count(*) OVER () FROM ({}) ORDER BY (stored+chosen+matched)=0,tracks DESC,name,id LIMIT ?2 OFFSET ?3",
+            queued(listing)
+        );
+        let plan: Vec<String> = sqlx::query_as::<_, (i64, i64, i64, String)>(&sql)
+            .bind(actor.id())
+            .bind(50_i64)
+            .bind(0_i64)
+            .fetch_all(&hito.catalog.store.pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|row| row.3)
+            .collect();
+        let tables = [
+            "account_recording_credits",
+            "recording_artist_identity_choices",
+            "recordings",
+            "artist_name_checks",
+            "artist_name_candidates",
+            "personal_recording_metadata",
+            "account_artists",
+        ];
+        for line in plan.iter().filter(|line| line.starts_with("SCAN")) {
+            eprintln!("Review queue plan: {line}");
+            assert!(
+                tables.iter().all(|table| !line.contains(table)),
+                "A table is scanned: {line}\n{}",
+                plan.join("\n")
+            );
+        }
+    }
 }

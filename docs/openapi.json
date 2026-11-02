@@ -19088,7 +19088,8 @@
         "type": "string",
         "enum": [
           "name_search",
-          "chosen_artist"
+          "chosen_artist",
+          "matched_on_other_tracks"
         ]
       },
       "ArtistReviewQueuePage": {

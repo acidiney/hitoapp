@@ -208,28 +208,3 @@ async fn a_decided_credit_is_not_listed_for_search() {
     assert!(queue(&library).await.is_empty());
     library.origin.shutdown().await;
 }
-
-#[tokio::test]
-async fn the_tracks_a_matched_artist_did_not_cover_are_listed_for_search() {
-    let library = NameLibrary::nova().await;
-    library
-        .musicbrainz
-        .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
-    library.musicbrainz.recordings_of(
-        NOVA,
-        nova_discography(&[
-            ("Morning Light", Some(201_000)),
-            ("Second Wind", Some(187_500)),
-        ]),
-    );
-    library.run().await;
-    let items = queue(&library).await;
-    assert_eq!(items.len(), 1);
-    assert_eq!(
-        (items[0].undecided_tracks, items[0].needs_search),
-        (2, true),
-        "The two tracks outside the artist's list have no decision"
-    );
-    assert!(items[0].search_recording_id.is_some());
-    library.origin.shutdown().await;
-}

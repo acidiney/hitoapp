@@ -7,15 +7,31 @@ use crate::artist_catalog::{
 use crate::{Actor, Error, Result};
 use sqlx::{Connection, SqliteConnection};
 
-pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
-            SELECT association_id,receipt_order FROM artist_association_matches
+macro_rules! automatic_matches {
+    () => {
+        "SELECT association_id,receipt_order FROM artist_association_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_recording_id_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches
             UNION ALL SELECT association_id,receipt_order FROM artist_association_credit_matches
-            UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches) mt
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_coverage_matches"
+    };
+}
+
+pub(super) const REPLACEABLE: &str = concat!(
+    "(EXISTS (SELECT 1 FROM (",
+    automatic_matches!(),
+    ") mt
         WHERE mt.association_id=c.association_id AND mt.receipt_order=c.selection_order)
-    AND (c.retired=1 OR c.observation_id IS NOT r.metadata_observation_id))";
+    AND (c.retired=1 OR c.observation_id IS NOT r.metadata_observation_id))"
+);
+
+pub(super) const AUTOMATIC_CHOICE: &str = concat!(
+    "EXISTS (SELECT 1 FROM (",
+    automatic_matches!(),
+    ") mt
+        WHERE mt.association_id=choice.association_id AND mt.receipt_order=choice.selection_order)"
+);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum EvidenceKind {

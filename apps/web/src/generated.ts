@@ -3171,7 +3171,7 @@ export interface components {
             revision: number;
         };
         /** @enum {string} */
-        ArtistReviewOrigin: "name_search" | "chosen_artist";
+        ArtistReviewOrigin: "name_search" | "chosen_artist" | "matched_on_other_tracks";
         ArtistReviewQueuePage: components["schemas"]["Page_ArtistReviewItem"];
         ArtistReviewRestoration: {
             artist_id: string;

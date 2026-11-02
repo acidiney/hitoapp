@@ -12,24 +12,36 @@ const NOVA: &str = "44444444-4444-4444-8444-444444444444";
 const NAMESAKE: &str = "55555555-5555-4555-8555-555555555555";
 const QUEUE: &str = "/api/v1/artist-matching/review-queue";
 
-pub(super) async fn queued() -> (
+type Queued = (
     tempfile::TempDir,
     axum::Router,
     String,
     FakeMusicBrainz,
     provider::ProviderServer,
     Vec<String>,
-) {
-    let musicbrainz = FakeMusicBrainz::start().await;
-    musicbrainz.search(
-        "Nova Quartet",
-        Reply::Candidates(vec![
+);
+
+pub(super) async fn queued() -> Queued {
+    queued_with(
+        vec![
             (NOVA.into(), "Nova Quartet".into()),
             (NAMESAKE.into(), "Nova Quartet".into()),
-        ]),
-    );
+        ],
+        vec![],
+        (0, 3),
+    )
+    .await
+}
+
+async fn queued_with(
+    found: Vec<(String, String)>,
+    covered: Vec<(String, Option<u64>)>,
+    outcome: (i64, i64),
+) -> Queued {
+    let musicbrainz = FakeMusicBrainz::start().await;
+    musicbrainz.search("Nova Quartet", Reply::Candidates(found));
     musicbrainz.describe(NOVA, "Lisbon fado band", "PT");
-    musicbrainz.recordings_of(NOVA, Reply::Discography(vec![]));
+    musicbrainz.recordings_of(NOVA, Reply::Discography(covered));
     musicbrainz.recordings_of(NAMESAKE, Reply::Discography(vec![]));
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");
@@ -129,7 +141,7 @@ pub(super) async fn queued() -> (
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         (&names["matched"], &names["uncertain"]),
-        (&json!(0), &json!(3))
+        (&json!(outcome.0), &json!(outcome.1))
     );
     (dir, app, session, musicbrainz, origin, recordings)
 }
@@ -537,4 +549,51 @@ async fn an_undecided_credit_without_candidates_is_listed_for_a_search() {
     )
     .await;
     assert_eq!(dismissed["total"], 0);
+}
+
+#[tokio::test]
+async fn tracks_left_undecided_beside_matched_tracks_are_offered_the_matched_artist() {
+    let (_dir, app, session, _musicbrainz, _origin, _) = queued_with(
+        vec![(NOVA.into(), "Nova Quartet".into())],
+        vec![
+            ("First Song".into(), Some(100_000)),
+            ("Second Song".into(), Some(120_000)),
+        ],
+        (2, 1),
+    )
+    .await;
+    let token = Some(session.as_str());
+    let (status, page) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["total"], 1);
+    let item = &page["items"][0];
+    assert_eq!(
+        (
+            &item["undecided_tracks"],
+            &item["needs_search"],
+            &item["search_recording_id"]
+        ),
+        (&json!(1), &json!(false), &Value::Null)
+    );
+    let offer = &item["candidates"][0];
+    assert_eq!(offer["provider_artist_id"], NOVA);
+    assert_eq!(offer["origin"], "matched_on_other_tracks");
+    assert_eq!(offer["corroborated_titles"], 2);
+    assert_eq!(item["candidates"].as_array().unwrap().len(), 1);
+    let credit = item["artist_id"].as_str().unwrap();
+    let (status, receipt) = call(
+        &app,
+        "POST",
+        &format!("{QUEUE}/{credit}/confirm"),
+        json!({"request_id": Uuid::new_v4(), "provider_artist_id": NOVA}),
+        token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (&receipt["applied"], &receipt["remaining"]),
+        (&json!(1), &json!(0))
+    );
+    let (_, after) = call(&app, "GET", QUEUE, Value::Null, token).await;
+    assert_eq!(after["total"], 0);
 }

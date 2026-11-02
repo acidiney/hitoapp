@@ -94,6 +94,7 @@ pub enum ArtistReviewOrigin {
     #[default]
     NameSearch,
     ChosenArtist,
+    MatchedOnOtherTracks,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, sqlx::FromRow, ToSchema)]
