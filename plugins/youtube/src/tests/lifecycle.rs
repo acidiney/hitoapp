@@ -13,6 +13,8 @@ use std::{
 };
 use tower::ServiceExt;
 
+const HANG_GUARD: Duration = Duration::from_secs(30);
+
 #[tokio::test]
 async fn successful_search_terminates_owned_descendants_with_closed_standard_streams() {
     let directory = tempfile::tempdir().unwrap();
@@ -83,6 +85,7 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
     };
     let first = tokio::spawn(service.router().oneshot(request()));
     let second = tokio::spawn(service.router().oneshot(request()));
+    let hang_deadline = Instant::now() + HANG_GUARD;
     while !["first", "second"]
         .iter()
         .all(|slot| directory.path().join(slot).join("leader.ready").exists())
@@ -90,6 +93,10 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
         assert!(
             !first.is_finished() && !second.is_finished(),
             "An owned extractor ended before both became ready"
+        );
+        assert!(
+            Instant::now() < hang_deadline,
+            "Both owned extractors must become ready"
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
@@ -114,7 +121,10 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
         2
     );
 
-    service.shutdown().await.unwrap();
+    tokio::time::timeout(HANG_GUARD, service.shutdown())
+        .await
+        .unwrap()
+        .unwrap();
     let stopped_at_return = operations
         .iter()
         .all(|(leader, descendant)| !leader.present().unwrap() && !descendant.running().unwrap());
@@ -123,12 +133,19 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
     }
     let mut statuses = Vec::new();
     for pending in [first, second] {
-        let response = pending.await.unwrap().unwrap();
+        let response = tokio::time::timeout(HANG_GUARD, pending)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         let status = response.status();
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         statuses.push((status, bytes));
     }
-    let response = service.router().oneshot(request()).await.unwrap();
+    let response = tokio::time::timeout(HANG_GUARD, service.router().oneshot(request()))
+        .await
+        .unwrap()
+        .unwrap();
     let rejected = response.status();
     let calls = fs::read_to_string(directory.path().join("calls"))
         .unwrap()
