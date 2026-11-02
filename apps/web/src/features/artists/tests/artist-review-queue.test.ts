@@ -25,7 +25,7 @@ type Candidate = {
   country: string | null;
   corroborated_titles: number;
   in_library: boolean;
-  origin: "name_search" | "chosen_artist";
+  origin: "name_search" | "chosen_artist" | "matched_on_other_tracks";
 };
 
 function candidate(over: Partial<Candidate> = {}): Candidate {
@@ -523,4 +523,33 @@ test("one artist offered both by the name search and as the chosen artist is sho
   expect(screen.getByText(/Same artist as Nova Quartet/)).toBeTruthy();
   expect(screen.getByText(/Lisbon fado band/)).toBeTruthy();
   expect(screen.getByText(/2 titles match your library/)).toBeTruthy();
+});
+
+test("an artist matched on the credit's other tracks says how many tracks matched and confirms in one click", async () => {
+  serve(
+    [
+      () =>
+        page([
+          item("credit-5", {
+            name: "nova quartet",
+            undecided_tracks: 2,
+            candidates: [
+              candidate({
+                origin: "matched_on_other_tracks",
+                in_library: true,
+                corroborated_titles: 2,
+              }),
+            ],
+          }),
+        ]),
+    ],
+    () => new Response(null),
+  );
+  show();
+  await open();
+  expect(
+    screen.getByText(/Matched on 2 other tracks of this credit/),
+  ).toBeTruthy();
+  expect(screen.queryByText(/titles match your library/)).toBeNull();
+  expect(screen.getAllByRole("button", { name: /^Confirm/ })).toHaveLength(1);
 });

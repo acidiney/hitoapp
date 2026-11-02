@@ -346,7 +346,8 @@ pub(super) fn queued(listing: Listing) -> String {
         Listing::Offered => format!("NOT {matched_dismissal}"),
         Listing::Dismissed => matched_dismissal.to_owned(),
     };
-    let matched = format!("EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id AND {matched_filter})");
+    let matched =
+        format!("EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id AND {matched_filter})");
     let dismissal = "EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=a.user_id
         AND d.artist_id=a.id AND d.provider_artist_id=n.provider_artist_id)";
     let offer_dismissal = match listing {

@@ -400,11 +400,9 @@ async fn the_review_queue_with_open_and_edited_credits_stays_in_budget() {
     assert_eq!(
         tail.items
             .iter()
-            .filter(|item| item
-                .candidates
-                .iter()
-                .any(|offer| offer.origin == crate::ArtistReviewOrigin::MatchedOnOtherTracks
-                    && offer.corroborated_titles == QUEUE_TRACKS as i64 / 2))
+            .filter(|item| item.candidates.iter().any(|offer| offer.origin
+                == crate::ArtistReviewOrigin::MatchedOnOtherTracks
+                && offer.corroborated_titles == QUEUE_TRACKS as i64 / 2))
             .count(),
         MATCHED_CREDITS
     );
@@ -457,8 +455,7 @@ async fn the_dismissed_read_of_a_large_library_stays_in_budget() {
 #[tokio::test]
 async fn the_review_queue_plan_scans_only_its_own_intermediate_results() {
     use super::review_queue::{Listing, queued};
-    let (_directory, hito, actor, library, _music) =
-        support::library("artist-queue-explain").await;
+    let (_directory, hito, actor, library, _music) = support::library("artist-queue-explain").await;
     seed_review_credits(&hito, &actor, &library).await;
     seed_open_and_edited_credits(&hito, &actor, &library).await;
     for listing in [Listing::Offered, Listing::Dismissed] {

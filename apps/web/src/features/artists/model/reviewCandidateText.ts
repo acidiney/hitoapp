@@ -13,7 +13,11 @@ export function candidateDetails(candidate: Candidate) {
     candidate.kind,
     candidate.country ? regionName(candidate.country) : null,
   ];
-  if (candidate.corroborated_titles > 0)
+  if (candidate.origin === "matched_on_other_tracks")
+    parts.push(
+      `Matched on ${plural(candidate.corroborated_titles, "other track", "other tracks")} of this credit`,
+    );
+  else if (candidate.corroborated_titles > 0)
     parts.push(
       `${plural(candidate.corroborated_titles, "title", "titles")} match your library`,
     );

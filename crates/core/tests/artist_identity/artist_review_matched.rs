@@ -60,7 +60,10 @@ async fn confirming_the_offer_makes_all_four_tracks_one_artist_with_confirmed_pr
     for recording in &library.recordings {
         groups.push(library.group_of(recording).await.expect("matched"));
     }
-    assert!(groups.windows(2).all(|pair| pair[0] == pair[1]), "{groups:?}");
+    assert!(
+        groups.windows(2).all(|pair| pair[0] == pair[1]),
+        "{groups:?}"
+    );
     assert_eq!(
         library
             .scalar("SELECT count(*) FROM artist_association_candidate_confirmations")
@@ -99,10 +102,9 @@ async fn dismissing_the_offer_hides_it_for_good_and_it_cannot_be_confirmed() {
 #[tokio::test]
 async fn tracks_matched_by_the_owners_confirmation_are_not_evidence() {
     let mut library = NameLibrary::nova().await;
-    library.musicbrainz.search(
-        CREDIT,
-        candidates(&[(NOVA, CREDIT), (NAMESAKE, CREDIT)]),
-    );
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT), (NAMESAKE, CREDIT)]));
     library
         .musicbrainz
         .recordings_of(NOVA, nova_discography(&[("Morning Light", Some(201_000))]));
@@ -183,7 +185,10 @@ async fn a_stored_candidate_with_the_same_identifier_is_merged_into_one_row() {
     assert_eq!(offers.len(), 2, "{offers:?}");
     assert_eq!(offers[0].provider_artist_id, NOVA);
     assert_eq!(offers[0].origin, ArtistReviewOrigin::MatchedOnOtherTracks);
-    assert_eq!(offers[0].disambiguation.as_deref(), Some("Lisbon fado band"));
+    assert_eq!(
+        offers[0].disambiguation.as_deref(),
+        Some("Lisbon fado band")
+    );
     assert_eq!(offers[0].corroborated_titles, 2);
     assert_eq!(offers[1].provider_artist_id, NAMESAKE);
     assert_eq!(offers[1].origin, ArtistReviewOrigin::NameSearch);
