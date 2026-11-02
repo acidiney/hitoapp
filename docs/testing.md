@@ -122,6 +122,14 @@ Examples of root-cause fixes already in the suite:
 - TorBox bootstrap tests that no longer probe ports, because a concurrent fork or sibling process can hold a listener. They pick ports and listeners deterministically.
 - Servers that drain stdout and stderr while waiting for a signal.
 
+## Hang guards
+
+Fixture setup is not the behavior under test, so it must not carry a tight deadline. A short timeout around opening a library, starting a fake provider or compiling a helper turns CPU contention into a false failure.
+
+- **Wrap setup with `hang_guard`.** `hito_core::test_support::hang_guard::hang_guard(label, future)` awaits the future and panics with the label if it takes longer than 60 seconds. The ceiling exists only so a stuck setup fails instead of hanging the run. It is not a speed requirement.
+- **Keep behavior deadlines.** A lease, cancellation or budget deadline is the thing being proved, so it stays a plain `tokio::time::timeout` with its own short limit. The same goes for the standalone budget tests listed under [Test binaries](#test-binaries).
+- **When unsure, leave it.** A guard that wraps both setup and behavior is left alone until the two are separated.
+
 ## Load-sensitive tests
 
 Some tests assert a wall-clock deadline. These are the standalone budget tests listed under [Test binaries](#test-binaries) and the indexing, shutdown and cancellation groups in `hito-core`. A full run on a busy Docker VM can starve them and fail with a deadline error that has nothing to do with the code.

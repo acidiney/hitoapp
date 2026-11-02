@@ -1,5 +1,6 @@
 #![cfg(unix)]
 
+use hito_core::test_support::hang_guard::hang_guard;
 use serde_json::Value;
 use std::{process::Stdio, time::Duration};
 use tokio::{
@@ -36,7 +37,7 @@ async fn assert_signal_shutdown(signal: &str) {
         collected
     });
     let mut logs = Vec::new();
-    timeout(Duration::from_secs(10), async {
+    hang_guard("the server must become ready", async {
         while let Some(line) = lines.next_line().await.unwrap() {
             let record: Value = serde_json::from_str(&line).unwrap();
             logs.push(line);
@@ -46,8 +47,7 @@ async fn assert_signal_shutdown(signal: &str) {
         }
         panic!("Server exited before becoming ready");
     })
-    .await
-    .expect("Server did not become ready in time");
+    .await;
     let remaining = tokio::spawn(async move {
         let mut collected = Vec::new();
         while let Some(line) = lines.next_line().await.unwrap() {

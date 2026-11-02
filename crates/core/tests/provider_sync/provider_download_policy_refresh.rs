@@ -1,6 +1,7 @@
 use hito_core::test_support::content_service as fixture;
 #[path = "../fixtures/provider_download_policy_refresh.rs"]
 mod policy_fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -12,9 +13,7 @@ use uuid::Uuid;
 #[tokio::test]
 async fn an_approved_playback_only_manifest_withdraws_queued_work_without_restarting_old_receipts()
 {
-    let mut library = tokio::time::timeout(Duration::from_secs(10), Library::start())
-        .await
-        .expect("the owned policy fixture must start within its deadline");
+    let mut library = hang_guard("the owned policy fixture must start", Library::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(20),
         AssertUnwindSafe(queued_case(&mut library)).catch_unwind(),
@@ -30,9 +29,7 @@ async fn an_approved_playback_only_manifest_withdraws_queued_work_without_restar
 
 #[tokio::test]
 async fn a_ready_explicit_copy_survives_approved_playback_only_policy_and_a_stopped_provider() {
-    let mut library = tokio::time::timeout(Duration::from_secs(10), Library::start())
-        .await
-        .expect("the owned policy fixture must start within its deadline");
+    let mut library = hang_guard("the owned policy fixture must start", Library::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(20),
         AssertUnwindSafe(ready_case(&mut library)).catch_unwind(),
@@ -49,9 +46,7 @@ async fn a_ready_explicit_copy_survives_approved_playback_only_policy_and_a_stop
 #[tokio::test]
 async fn an_approved_playback_only_manifest_retires_a_partial_download_before_its_body_is_released()
 {
-    let library = tokio::time::timeout(Duration::from_secs(10), Library::start())
-        .await
-        .expect("the owned policy fixture must start within its deadline");
+    let library = hang_guard("the owned policy fixture must start", Library::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(20),
         AssertUnwindSafe(active_case(&library)).catch_unwind(),

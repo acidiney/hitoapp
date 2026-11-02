@@ -1,6 +1,7 @@
 use hito_core::test_support::content_service as fixture;
 #[path = "../fixtures/plugin_installation.rs"]
 mod installation;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -19,9 +20,7 @@ async fn logout_during_a_held_accepted_installation_prevents_publication() {
 }
 
 async fn logout_case(accept: bool) {
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(15),
         AssertUnwindSafe(async {
@@ -100,9 +99,7 @@ async fn withdrawal_and_reoffer_during_a_held_accepted_installation_do_not_publi
 }
 
 async fn withdrawal_case(accept: bool) {
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(15),
         AssertUnwindSafe(async {
@@ -208,9 +205,7 @@ async fn withdrawal_case(accept: bool) {
 
 #[tokio::test]
 async fn an_accepted_installation_wins_while_an_older_preview_is_held() {
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(15),
         AssertUnwindSafe(async {

@@ -1,6 +1,7 @@
 use hito_core::test_support::content_service as fixture;
 #[path = "../fixtures/plugin_installation.rs"]
 mod installation;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -19,9 +20,7 @@ async fn a_held_accepted_installation_rechecks_account_capacity_before_publicati
 }
 
 async fn capacity_case(accept: bool) {
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let mut providers = Vec::new();
     let outcome = tokio::time::timeout(
         Duration::from_secs(30),

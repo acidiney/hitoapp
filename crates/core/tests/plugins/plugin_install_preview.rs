@@ -1,4 +1,5 @@
 use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -29,9 +30,7 @@ async fn an_undeclared_manifest_can_be_previewed_without_losing_legacy_installat
 
 async fn workflow(persistence: Option<&str>) {
     let (directory, hito, actor, _library) =
-        tokio::time::timeout(Duration::from_secs(10), support::catalog())
-            .await
-            .expect("the owned catalog must open within its deadline");
+        hang_guard("the owned catalog must open", support::catalog()).await;
     let original_path = directory.path().join("music/Alpha.wav");
     let original = std::fs::read(&original_path).unwrap();
     let server = fixture::ProviderServer::start().await;

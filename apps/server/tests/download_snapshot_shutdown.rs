@@ -1,5 +1,6 @@
 #![cfg(target_os = "linux")]
 
+use hito_core::test_support::hang_guard::hang_guard;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
 use hito_core::test_support::content_service as provider;
@@ -58,13 +59,9 @@ async fn isolated(test: &str, hold: Duration, reopen: bool) {
         .kill_on_drop(true)
         .spawn()
         .unwrap();
-    let compiled = tokio::time::timeout(Duration::from_secs(10), compiler.wait()).await;
-    if compiled.is_err() {
-        let _ = compiler.kill().await;
-        let _ = compiler.wait().await;
-    }
+    let compiled = hang_guard("the interposer compile", compiler.wait()).await;
     assert!(
-        compiled.is_ok_and(|result| result.is_ok_and(|status| status.success())),
+        compiled.is_ok_and(|status| status.success()),
         "the owned regular-file read interposer must compile"
     );
     let mut process = tokio::process::Command::new(std::env::current_exe().unwrap())

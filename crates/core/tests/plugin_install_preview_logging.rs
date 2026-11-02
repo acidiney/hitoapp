@@ -1,4 +1,5 @@
 use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -41,9 +42,7 @@ impl Write for CapturedLogs {
 #[tokio::test]
 async fn an_unknown_service_preview_logs_a_correlated_safe_outcome_without_private_input() {
     let (directory, hito, actor, _library) =
-        tokio::time::timeout(Duration::from_secs(10), support::catalog())
-            .await
-            .expect("the owned catalog must open within its deadline");
+        hang_guard("the owned catalog must open", support::catalog()).await;
     let original_path = directory.path().join("music/Alpha.wav");
     let original = std::fs::read(&original_path).unwrap();
     let server = fixture::ProviderServer::start().await;

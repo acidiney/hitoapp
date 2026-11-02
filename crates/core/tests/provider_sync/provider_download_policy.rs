@@ -1,4 +1,5 @@
 use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, StatusCode};
@@ -19,12 +20,11 @@ const QUERY: &str = "private-policy-query";
 
 #[tokio::test]
 async fn a_playback_only_provider_can_stream_but_cannot_create_a_persistent_download() {
-    let (_directory, hito, actor, _library, music) = tokio::time::timeout(
-        Duration::from_secs(10),
+    let (_directory, hito, actor, _library, music) = hang_guard(
+        "the temporary library must open",
         support::library("provider-download-policy"),
     )
-    .await
-    .expect("the temporary library must open within its deadline");
+    .await;
     let original_path = music.join("original.wav");
     let original = support::write_wav(&original_path, 421);
     let server = fixture::ProviderServer::start().await;

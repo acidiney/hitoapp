@@ -1,4 +1,5 @@
 use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -12,12 +13,11 @@ const NAME: &str = "private-install-review-provider-sentinel";
 
 #[tokio::test]
 async fn a_declared_policy_cannot_install_or_save_a_credential_without_reviewed_acceptance() {
-    let (_directory, hito, actor, library, music) = tokio::time::timeout(
-        Duration::from_secs(10),
+    let (_directory, hito, actor, library, music) = hang_guard(
+        "the temporary library must open",
         support::library("plugin-install-review"),
     )
-    .await
-    .expect("the temporary library must open within its deadline");
+    .await;
     let original_path = music.join("owned-original.wav");
     let original = support::write_wav(&original_path, 613);
     let server = fixture::ProviderServer::start().await;

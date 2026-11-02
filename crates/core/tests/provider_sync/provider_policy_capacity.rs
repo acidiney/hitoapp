@@ -1,4 +1,5 @@
 use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, StatusCode};
@@ -14,12 +15,11 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn playback_only_policy_remains_terminal_when_the_accounts_download_capacity_is_full() {
-    let (_directory, hito, actor, _library, music) = tokio::time::timeout(
-        Duration::from_secs(10),
+    let (_directory, hito, actor, _library, music) = hang_guard(
+        "the temporary library must open",
         support::library("provider-policy-capacity"),
     )
-    .await
-    .expect("the temporary library must open within its deadline");
+    .await;
     let original_path = music.join("original.wav");
     let original = support::write_wav(&original_path, 425);
     let permitted = fixture::ProviderServer::start().await;

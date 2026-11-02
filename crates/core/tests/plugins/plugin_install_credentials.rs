@@ -1,6 +1,7 @@
 use hito_core::test_support::content_service as fixture;
 #[path = "../fixtures/plugin_installation.rs"]
 mod installation;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -15,9 +16,7 @@ const CHANGED_TOKEN: &str = "private-preview-rejected-credential";
 #[tokio::test]
 async fn acceptance_uses_the_current_credential_for_the_exact_manifest_and_retains_only_that_credential()
  {
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(20),
         AssertUnwindSafe(async {

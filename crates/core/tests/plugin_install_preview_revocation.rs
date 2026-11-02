@@ -3,6 +3,7 @@ mod barrier;
 use hito_core::test_support::content_service as fixture;
 #[path = "fixtures/plugin_installation.rs"]
 mod installation;
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
@@ -19,9 +20,7 @@ async fn a_preview_rechecks_live_session_after_its_final_snapshot_is_released() 
     );
     tracing::subscriber::set_global_default(tracing_subscriber::registry().with(row.clone()))
         .unwrap();
-    let owned = tokio::time::timeout(Duration::from_secs(10), InstallationFixture::start())
-        .await
-        .expect("the owned fixture must start within its deadline");
+    let owned = hang_guard("the owned fixture must start", InstallationFixture::start()).await;
     let outcome = tokio::time::timeout(
         Duration::from_secs(15),
         AssertUnwindSafe(async {

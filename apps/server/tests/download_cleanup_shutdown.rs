@@ -1,5 +1,6 @@
 #![cfg(target_os = "linux")]
 
+use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::provider_audio as audio_fixture;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
@@ -51,13 +52,9 @@ async fn a_download_host_waits_for_removal_directory_sync_before_shutdown() {
         .kill_on_drop(true)
         .spawn()
         .unwrap();
-    let compiled = tokio::time::timeout(Duration::from_secs(10), compiler.wait()).await;
-    if compiled.is_err() {
-        let _ = compiler.kill().await;
-        let _ = compiler.wait().await;
-    }
+    let compiled = hang_guard("the interposer compile", compiler.wait()).await;
     assert!(
-        compiled.is_ok_and(|result| result.is_ok_and(|status| status.success())),
+        compiled.is_ok_and(|status| status.success()),
         "the owned directory-sync interposer must compile"
     );
     let mut process = tokio::process::Command::new(std::env::current_exe().unwrap())
