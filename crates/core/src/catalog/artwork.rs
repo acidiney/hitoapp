@@ -18,8 +18,8 @@ mod target;
 mod work;
 mod worker;
 pub use availability::ArtworkAvailability;
-pub(crate) use cover_art::enqueue as enqueue_cover_art;
 pub use cover_art::{CoverArtKind, CoverArtLookup};
+pub(crate) use cover_art::{enqueue as enqueue_cover_art, queue_observed_release_covers};
 pub(crate) use credited_artist::{
     exists_for as credited_artist_photo_exists, photos_possible as credited_artist_photos_possible,
 };

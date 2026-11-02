@@ -385,25 +385,7 @@ impl ArtistCatalog {
                     .bind(job.matched + matched)
                     .execute(&mut *tx)
                     .await?;
-                sqlx::query(
-                    "INSERT OR IGNORE INTO cover_art_lookups(user_id,kind,mbid,state)
-                     SELECT DISTINCT ?1,o.entity,o.mbid,'queued'
-                     FROM recording_musicbrainz_observations o
-                     JOIN recordings r ON r.id = o.recording_id AND r.metadata_observation_id = o.observation_id
-                     JOIN releases a ON a.id = o.release_id
-                     JOIN library_members m ON m.library_id = a.library_id AND m.user_id = ?1
-                     WHERE o.entity IN ('release','release_group')
-                        AND NOT EXISTS (SELECT 1 FROM release_artwork ra WHERE ra.user_id = ?1 AND ra.release_id = a.id)
-                        AND NOT EXISTS (SELECT 1 FROM source_metadata sm JOIN sources s ON s.id = sm.source_id
-                            WHERE sm.release_id = a.id AND s.provider = 'local')
-                        AND NOT EXISTS (SELECT 1 FROM cover_art_lookups c
-                            WHERE c.user_id = ?1 AND c.kind = o.entity AND c.mbid = o.mbid)
-                        AND COALESCE((SELECT artwork FROM account_metadata_automation WHERE user_id = ?1),1) = 1
-                     LIMIT 32",
-                )
-                .bind(&job.user_id)
-                .execute(&mut *tx)
-                .await?;
+                crate::catalog::queue_observed_release_covers(&mut tx, &job.user_id).await?;
                 let unavailable = job.unavailable || unavailable;
                 let attempts = job.attempts + i64::from(unavailable);
                 if unavailable && attempts >= MAX_ATTEMPTS {

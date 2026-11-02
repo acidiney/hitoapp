@@ -49,12 +49,12 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artists::{Artist, ArtistDetail};
-pub(crate) use artwork::enqueue_cover_art;
 pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, CoverArtKind, CoverArtLookup,
     PlaylistArtworkFetch, ReleaseArtworkFetch,
 };
 pub(crate) use artwork::{credited_artist_photo_exists, credited_artist_photos_possible};
+pub(crate) use artwork::{enqueue_cover_art, queue_observed_release_covers};
 pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_source_access,
 };

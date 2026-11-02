@@ -52,7 +52,7 @@ impl CoverArtKind {
         }
     }
 
-    fn from_stored(value: &str) -> Result<Self> {
+    pub(super) fn from_stored(value: &str) -> Result<Self> {
         match value {
             "release" => Ok(Self::Release),
             "release_group" => Ok(Self::ReleaseGroup),
@@ -143,6 +143,46 @@ pub(crate) async fn enqueue(
     .bind(RETRY_AFTER_SECONDS)
     .execute(connection)
     .await?;
+    Ok(())
+}
+
+const OBSERVED_COVER_BATCH: i64 = 32;
+
+pub(crate) async fn queue_observed_release_covers(
+    connection: &mut SqliteConnection,
+    account: &str,
+) -> Result<()> {
+    let candidates: Vec<(String, String)> = sqlx::query_as(
+        "SELECT DISTINCT o.entity,o.mbid
+         FROM recording_musicbrainz_observations o
+         JOIN recordings r ON r.id = o.recording_id AND r.metadata_observation_id = o.observation_id
+         JOIN releases a ON a.id = o.release_id
+         JOIN library_members m ON m.library_id = a.library_id AND m.user_id = ?1
+         WHERE o.entity IN ('release','release_group')
+            AND NOT EXISTS (SELECT 1 FROM release_artwork ra WHERE ra.user_id = ?1 AND ra.release_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM source_metadata sm JOIN sources s ON s.id = sm.source_id
+                WHERE sm.release_id = a.id AND s.provider = 'local')
+            AND NOT EXISTS (SELECT 1 FROM cover_art_lookups c
+                WHERE c.user_id = ?1 AND c.kind = o.entity AND c.mbid = o.mbid)
+         LIMIT ?2",
+    )
+    .bind(account)
+    .bind(OBSERVED_COVER_BATCH)
+    .fetch_all(&mut *connection)
+    .await?;
+    for (entity, mbid) in candidates {
+        match enqueue(
+            connection,
+            account,
+            CoverArtKind::from_stored(&entity)?,
+            &mbid,
+        )
+        .await
+        {
+            Ok(()) | Err(Error::Invalid(_)) => {}
+            Err(error) => return Err(error),
+        }
+    }
     Ok(())
 }
 
