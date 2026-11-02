@@ -6,6 +6,8 @@ Hito logs application operations locally. Logs are operational evidence, not com
 
 HTTP requests carry a generated request ID returned in `X-Request-Id`. Structured events describe the matched route, HTTP method, result status, and elapsed time. Core spans record identity operations, catalog reads, synchronization acceptance/replay/conflict, scan leases and progress, and worker outcomes. Startup and shutdown are lifecycle events.
 
+Background workers share one event schema. `apps/server/src/runtime/polling.rs` runs every polling worker and emits `<prefix>_started`, `<prefix>_polled`, `<prefix>_failed` and `<prefix>_stopped`, for example `cover_art_worker_started`. Each worker file only names its prefix. Polled events are debug and carry `claimed` and `elapsed_ms`. Failed events are errors with a static `error_kind`. Started and stopped events are info, and stopped is logged once. The tracing target for all of them is `hito_server::runtime::polling`, so `RUST_LOG=hito_server::runtime::polling=debug` shows worker polls. The retention worker keeps its own timer and its own `retention_worker_*` events. Tests pin the event names and fields.
+
 Use info for lifecycle and state transitions, debug for detailed operations, and trace for high-frequency events. Configure backend levels through `RUST_LOG`. Set `HITO_LOG_FORMAT=json` for JSON output. Compose enables JSON and retains three 10 MB log files per normal server container.
 
 ```sh

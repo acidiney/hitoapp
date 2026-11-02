@@ -2,7 +2,7 @@
 
 This page lists every document in `docs/` once, by topic. For the repository layout, see the [root README](../README.md). Each document says whether it describes current behavior, tested evidence, planned work or an external dependency.
 
-Everything here describes a local development state. No document describes a public release. The local server runs migrations through 0076.
+Everything here describes a local development state. No document describes a public release. The local server ran migrations through 0076 when last reported. The source has migrations through 0081.
 
 ## Scope and status
 
@@ -12,7 +12,7 @@ Everything here describes a local development state. No document describes a pub
 
 ## Architecture and design
 
-- [Architecture](architecture.md): crate graph, runtime topology, background workers and their external calls, core composition, plugin protocol, source resolution, account deletion, data ownership.
+- [Architecture](architecture.md): crate graph, runtime topology, background workers (with the polling loop diagram) and their external calls, core composition, plugin protocol, source resolution, account deletion, data ownership.
 - [Architecture decisions](architecture-decisions.md): short records of the decisions behind capability services.
 - [Design proposals (RFCs)](rfcs/README.md): the index of four proposals and their status.
   - [RFC 0001, provider source lifecycle](rfcs/0001-provider-source-lifecycle.md): proposed.
@@ -45,7 +45,7 @@ Everything here describes a local development state. No document describes a pub
 - [Artist identity groups](artist-identity-groups.md): chosen artists, group pages and bulk choice.
 - [Artist discography](artist-discography.md): release groups, editions, types and library availability.
 - [Similar artists](artist-similarity.md): the optional section and the ListenBrainz plugin evaluation.
-- [Database maintenance](database-maintenance.md): the migration-only command, backups and per-migration notes up to 0069.
+- [Database maintenance](database-maintenance.md): the migration-only command, backups and per-migration notes up to 0070. Later migrations are described in the feature documents, for example [plugin artwork](plugin-artwork.md) for 0080 and 0081.
 
 ## Playback and sources
 
@@ -69,7 +69,7 @@ Everything here describes a local development state. No document describes a pub
 ## Plugins and providers
 
 - [Plugin connections and protocol](plugins.md): protocol, review flow, credentials, curated catalog admission.
-- [Catalog extension contracts](plugin-catalog.md), [timed lyrics and backing tracks](plugin-timed-content.md) and [provider artwork](plugin-artwork.md): optional plugin capabilities, plus Cover Art Archive covers.
+- [Catalog extension contracts](plugin-catalog.md), [timed lyrics and backing tracks](plugin-timed-content.md) and [provider artwork](plugin-artwork.md): optional plugin capabilities, plus the cover lookup flow, Cover Art Archive covers and artist photos.
 - [Folder plugin](plugin-folder.md), [Spotify plugin](plugin-spotify.md), [YouTube plugin](plugin-youtube.md) and [Jamendo plugin](plugin-jamendo.md).
 - [Debrid adapters](debrid-adapters.md): Real-Debrid, All-Debrid, TorBox and Premiumize.
 
