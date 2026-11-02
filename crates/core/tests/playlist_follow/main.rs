@@ -11,6 +11,7 @@ mod playlist_follow_expiry;
 mod playlist_follow_history;
 mod playlist_follow_history_budget;
 mod playlist_follow_identity;
+mod playlist_follow_manual_source;
 mod playlist_follow_publication_rollback;
 mod playlist_follow_recovery;
 mod playlist_follow_resume_provenance;
