@@ -2778,6 +2778,7 @@ export interface components {
             id: string;
             library_id: string;
             name: string;
+            provider_photo?: boolean;
             /** Format: int64 */
             recording_count: number;
             /** Format: int64 */
@@ -4007,6 +4008,7 @@ export interface components {
                 id: string;
                 library_id: string;
                 name: string;
+                provider_photo?: boolean;
                 /** Format: int64 */
                 recording_count: number;
                 /** Format: int64 */
@@ -8737,7 +8739,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description release, release-group or artist */
+                /** @description release, release-group, artist or credited-artist */
                 kind: string;
                 mbid: string;
             };
@@ -8745,7 +8747,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Front cover from the Cover Art Archive, or an artist photo from Wikimedia Commons, for this MusicBrainz identifier */
+            /** @description Front cover from the Cover Art Archive, an artist photo from Wikimedia Commons for a MusicBrainz identifier, or the photo a connected plugin offers for one library credit */
             200: {
                 headers: {
                     /** @description private, no-store */

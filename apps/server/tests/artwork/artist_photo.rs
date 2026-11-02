@@ -131,3 +131,40 @@ async fn asking_for_many_unknown_artists_queues_only_a_bounded_number() {
     }
     assert_eq!((accepted, refused), (32, 8));
 }
+
+#[tokio::test]
+async fn a_credited_artist_photo_route_refuses_strangers_and_queues_nothing_for_unknown_credits() {
+    let directory = tempfile::tempdir().unwrap();
+    let music = directory.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    let hito = hito_core::open(hito_core::CoreConfig::new(
+        directory.path().join("hito.db"),
+        music,
+        hito_core::HostDeviceId::new("credited-photo-host").unwrap(),
+    ))
+    .await
+    .unwrap();
+    let app = hito_server::router(hito.clone());
+    let token = admin(&app).await;
+    let unknown = format!("/api/v1/cover-art/credited-artist/{}", "ab".repeat(16));
+
+    assert_eq!(read(&app, None, &unknown).await.0, StatusCode::UNAUTHORIZED);
+    let (status, _, _) = read(
+        &app,
+        Some(&token),
+        "/api/v1/cover-art/credited-artist/not%20an%20id",
+    )
+    .await;
+    assert!(status.is_client_error());
+    assert_eq!(
+        read(&app, Some(&token), &unknown).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert!(
+        !hito
+            .catalog
+            .run_next_cover_art_lookup_until(std::future::pending::<()>())
+            .await
+            .unwrap()
+    );
+}

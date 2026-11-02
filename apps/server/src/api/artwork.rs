@@ -107,9 +107,9 @@ pub(super) fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<R
 }
 
 #[utoipa::path(get, path = "/api/v1/cover-art/{kind}/{mbid}", operation_id = "cover_art",
-    params(("kind" = String, Path, description = "release, release-group or artist"), ("mbid" = String, Path)),
+    params(("kind" = String, Path, description = "release, release-group, artist or credited-artist"), ("mbid" = String, Path)),
     security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, description = "Front cover from the Cover Art Archive, or an artist photo from Wikimedia Commons, for this MusicBrainz identifier",
+    (status = 200, description = "Front cover from the Cover Art Archive, an artist photo from Wikimedia Commons for a MusicBrainz identifier, or the photo a connected plugin offers for one library credit",
         content(("image/png"), ("image/jpeg")),
         headers(("Cache-Control" = String, description = "private, no-store"))),
     (status = 202, description = "The image is queued or being retrieved; ask again shortly", body = ErrorResponse),

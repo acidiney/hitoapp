@@ -4475,7 +4475,7 @@
           {
             "name": "kind",
             "in": "path",
-            "description": "release, release-group or artist",
+            "description": "release, release-group, artist or credited-artist",
             "required": true,
             "schema": {
               "type": "string"
@@ -4492,7 +4492,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Front cover from the Cover Art Archive, or an artist photo from Wikimedia Commons, for this MusicBrainz identifier",
+            "description": "Front cover from the Cover Art Archive, an artist photo from Wikimedia Commons for a MusicBrainz identifier, or the photo a connected plugin offers for one library credit",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -17523,6 +17523,9 @@
           "name": {
             "type": "string"
           },
+          "provider_photo": {
+            "type": "boolean"
+          },
           "recording_count": {
             "type": "integer",
             "format": "int64"
@@ -22690,6 +22693,9 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "provider_photo": {
+                  "type": "boolean"
                 },
                 "recording_count": {
                   "type": "integer",
