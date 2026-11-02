@@ -2,7 +2,7 @@
 
 ## 2026-11-02 architecture summary
 
-Local development work, not a public release. Commits `176134c9` to `19c09287`. Source changes only; nothing here was deployed.
+Local development work, not a public release. Commits `176134c9` to `19c09287`. Each slice was deployed to the local development server after its checks passed; the server now runs `19c09287`.
 
 **What changed**
 
@@ -15,7 +15,13 @@ Local development work, not a public release. Commits `176134c9` to `19c09287`. 
 
 **Tested evidence**
 
-- The commits add characterization tests for artwork fetch reads, automatic cover queueing, worker event names and polling log fields. No full-suite pass count was recorded for this batch, so none is claimed here. The counts in the next section are the last recorded ones.
+- The commits add characterization tests for artwork fetch reads, automatic cover queueing, worker event names and polling log fields.
+- Last recorded runs, all in Docker:
+  - Full core and server Rust batch at `19c09287`: 1,254 passed and 0 failed, across 70 results, with 4 test threads.
+  - Formatting and strict all-target Clippy: clean.
+  - Full web suite at `349be43d`: 1,348 passed across 304 files. Web lint: 0 errors and 71 warnings, which is the existing limit.
+  - Isolated browser run at `19c09287`: 58 passed.
+- Two flaky tests were fixed. `featured::a_slow_budget_end_keeps_what_faster_providers_already_gave` had a real cause in production: connections created in the same second were listed in random order. It failed 5 of 30 runs under load before the fix and passed 30 of 30 after. The youtube shutdown test now waits on readiness signals and keeps a 30-second hang guard. It was never reproduced as failing, so that fix rests on a hypothesis.
 
 ## 2026-10-29 to 2026-10-31 summary
 
@@ -40,10 +46,11 @@ Local development work, not a public release. About 290 commits since `ea7c1365`
 
 **Live on the local development server**
 
-- Migrations run through 0076 (reported by the project owner after deploying 9b856358; the matching rules of migrations 0070 to 0076 are therefore live on this server and still need observation). The server runs the matching, cover art and genre workers ([background workers](architecture.md#background-workers)).
+- On 2026-11-02 the server ran `19c09287`, and its database reported migration 0081 as the latest applied, so migrations 0077 to 0081 are live. Each deploy was preceded by a whole-volume backup in `hito-backups/`. The server runs the matching, cover art and genre workers ([background workers](architecture.md#background-workers)).
+- On 2026-11-02 the local Spotify plugin container was rebuilt as `hito-plugin-spotify:artist-photos-20a526a8`, with the same declared capabilities (`artwork`, `playlists`). The previous container is kept stopped as `hito-plugin-spotify-1-pre-photos`. The followed playlist stayed active and approved, with no pause.
 - This is a local deployment. It is not a public release, and the VPS deployment is separate ([VPS](vps-deployment.md)).
 - On 2026-10-31 the local Spotify plugin container was rebuilt from `docker/plugin.Dockerfile` (image `hito-plugin-spotify:artwork-3bb07e3b`; the previous container is kept stopped as `hito-plugin-spotify-1-pre-artwork`). The listener accepted the artwork capability, and real Spotify album covers then appeared on the Albums page.
-- Older sections below still say "not deployed" or "migration 0046" for work that now runs locally. They are dated evidence from when they were written.
+- Older sections below still say "source only", "not deployed" or "migration 0046" for work that now runs locally, including the 2026-11-01 and 2026-11-02 entries for migrations 0077 to 0081. They are dated evidence from when they were written.
 
 **Followed playlists resume by themselves after a connection revision change, 2026-11-01 (source only: migration 0079 not applied to the running server, nothing redeployed)**
 

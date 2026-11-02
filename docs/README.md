@@ -2,7 +2,7 @@
 
 This page lists every document in `docs/` once, by topic. For the repository layout, see the [root README](../README.md). Each document says whether it describes current behavior, tested evidence, planned work or an external dependency.
 
-Everything here describes a local development state. No document describes a public release. The local server ran migrations through 0076 when last reported. The source has migrations through 0081.
+Everything here describes a local development state. No document describes a public release. The local development server ran migrations through 0081 on 2026-11-02.
 
 ## Scope and status
 
