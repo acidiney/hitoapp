@@ -34,3 +34,10 @@ export async function enterAdmin(page: Page) {
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
 }
+
+export async function openSharedAdminSession(page: Page) {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Your library", exact: true }),
+  ).toBeVisible();
+}

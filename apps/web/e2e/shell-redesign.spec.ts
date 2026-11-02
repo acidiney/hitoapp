@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { enterAdmin } from "./fixtures/admin-session";
-
-test.use({ storageState: { cookies: [], origins: [] } });
+import { openSharedAdminSession } from "./fixtures/admin-session";
 
 test("the shell serves bundled fonts, offers four destinations and focuses search with the keyboard", async ({
   page,
 }) => {
-  await enterAdmin(page);
+  await openSharedAdminSession(page);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await expect(navigation.getByRole("link")).toHaveText([
     /^Home$/,
@@ -81,7 +79,7 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
 test("a phone shows a four-tab bar with the mini player above it", async ({
   page,
 }) => {
-  await enterAdmin(page);
+  await openSharedAdminSession(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
   await page.screenshot({ path: "/workspace/test-results/home-mobile.png" });

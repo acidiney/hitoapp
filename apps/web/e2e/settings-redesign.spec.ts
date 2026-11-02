@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { enterAdmin } from "./fixtures/admin-session";
-
-test.use({ storageState: { cookies: [], origins: [] } });
+import { openSharedAdminSession } from "./fixtures/admin-session";
 
 test("settings deep links, legacy aliases and the grouped navigation work for an administrator", async ({
   page,
 }) => {
-  await enterAdmin(page);
+  await openSharedAdminSession(page);
   await page.goto("/settings?section=metadata");
   const nav = page.getByRole("navigation", { name: "Settings sections" });
   await expect(
