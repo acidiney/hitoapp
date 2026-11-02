@@ -1,15 +1,14 @@
 import { useState } from "react";
 import FallbackCover from "../../../shared/ui/FallbackCover";
+import { coverArtUrl } from "../api/coverArtApi";
 import { isMusicBrainzId } from "../model/musicbrainzId";
 
 function coverSources(group: string, edition: string | null) {
   return [
     ...(edition !== null && isMusicBrainzId(edition)
-      ? [`/api/v1/cover-art/release/${edition}`]
+      ? [coverArtUrl("release", edition)]
       : []),
-    ...(isMusicBrainzId(group)
-      ? [`/api/v1/cover-art/release-group/${group}`]
-      : []),
+    ...(isMusicBrainzId(group) ? [coverArtUrl("release-group", group)] : []),
   ];
 }
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Schema } from "../../../shared/schema";
-import { HttpError, request } from "../../../shared/http";
+import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { artistIdentityApi } from "../api/artistIdentityApi";
+import { probeArtistPhoto } from "../api/coverArtApi";
 
 export function useCreditedPhotoReread(
   account: string,
@@ -26,15 +27,7 @@ export function useCreditedPhotoReread(
     if (!signal || busy.current || done.current) return;
     busy.current = true;
     try {
-      await request(
-        `/cover-art/artist/${encodeURIComponent(group.provider_artist_id)}`,
-        {
-          action: "artist_group.photo_probe",
-          account,
-          signal,
-          errorBody: false,
-        },
-      );
+      await probeArtistPhoto(account, group.provider_artist_id, signal);
     } catch (error) {
       if (
         signal.aborted ||
