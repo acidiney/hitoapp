@@ -16,7 +16,7 @@ The independent final frontend repeat passes 472 cases across 148 files, both Ty
 
 Core fixtures also exercise the shared worker with 100,000 retained targets and one shared blob under inherited, absent and fresh SQLite statistics. Read, enqueue and worker work stay below their existing 10,000, 250,000 and 500,000 VM-step budgets. A deterministic pinned-reader case proves that fixture snapshots include committed WAL history; it preserves rows, row IDs, retained bytes, foreign keys and the intended statistics. These are query-work and fixture-consistency checks, not playback latency or public backup acceptance.
 
-Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The local development server ran migration 0046 when this was written and now runs through 0069 ([status](status.md#2026-10-29-to-2026-10-31-summary)).
+Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The local development server ran migration 0046 when this was written and ran through 0076 when last reported ([status](status.md#2026-10-29-to-2026-10-31-summary)); migrations 0077 to 0081 are in source only.
 
 ```mermaid
 sequenceDiagram
@@ -101,11 +101,47 @@ The Spotify plugin supplies the cover through its existing release artwork reque
 
 The choice **Fetch album artwork automatically** also governs this: when it is off, reading a cover queues nothing and `GET /api/v1/releases/{id}/artwork/availability` answers `can_fetch: false`, so the browser does not start a retrieval. An explicit `POST /api/v1/releases/{id}/artwork/fetch` still works. Covered by core (owned fake artwork provider) and HTTP cases. The server code runs on the local development server, but the Spotify container uses an older image until it is rebuilt (see [Spotify plugin](plugin-spotify.md#local-setup)) and the listener must approve the artwork capability.
 
+## How a cover lookup runs
+
+Current behavior in source. Covers from the Cover Art Archive and artist photos share one queue, the `cover_art_lookups` table. Reading and queueing are separate code. `crates/core/src/catalog/artwork/lookups.rs` owns the read side and the typed `LookupState` (queued, running, ready, missing, unavailable). `crates/core/src/catalog/artwork/cover_art.rs` owns `enqueue` and the worker. A read never contacts an outside service.
+
+```mermaid
+flowchart TD
+  Img["Browser: coverArtApi.ts builds the URL, useArtworkRetry retries"] --> CoverRoute["api/artwork.rs: cover_art, GET /api/v1/cover-art/{kind}/{mbid}"]
+  Img --> RelRoute["api/artwork.rs: release_artwork, GET /api/v1/releases/{id}/artwork"]
+  CoverRoute --> CoverRead["cover_art.rs: Catalog::cover_art"]
+  RelRoute --> LibRead["artwork.rs: Catalog::release_artwork, cover_art.rs: library_cover_art"]
+  CoverRead --> Lookups["lookups.rs: read, lookup_status, LookupState"]
+  LibRead --> Lookups
+  Lookups --> Store[("assets.rs: ready_asset, the artwork store")]
+  CoverRead -->|"artist kinds, no row yet"| QueuePhoto["cover_art.rs: queue_artist_photo"]
+  LibRead -->|"no row or aged missing"| Enqueue
+  QueuePhoto --> Enqueue
+  Disco["artist_catalog/discography.rs: queue_covers"] --> Enqueue
+  Walk["artist_catalog/automation.rs, cover_art.rs: queue_observed_release_covers"] --> Enqueue
+  Enqueue["cover_art.rs: enqueue"] --> Consent{"availability.rs: automatic_artwork_allowed"}
+  Consent --> Caps{"64 pending per account, 32 for artist, 32 for credited-artist"}
+  Caps --> Table[("cover_art_lookups, migrations 0080 and 0081")]
+  Table --> Worker["runtime/artwork.rs: cover_art_worker, via runtime/polling.rs"]
+  Worker --> Run["cover_art.rs: run_next_cover_art_lookup_until, fetch_cover"]
+  Run --> CAA["metadata-musicbrainz cover_art.rs: CoverArtClient.front, Cover Art Archive"]
+  Run --> Photo["metadata-musicbrainz artist_image.rs: ArtistImageClient.photo, MusicBrainz, Wikidata, Commons"]
+  Run --> Credit["credited_artist.rs: credited_artist_photo, plugin artwork request, Spotify"]
+  CAA --> Decode["assets.rs: decode, then publish_cover"]
+  Photo --> Decode
+  Credit --> Decode
+  Decode --> Store
+```
+
+Every queueing path goes through `enqueue`, including the automatic matching walk. `enqueue` does four things in order. It checks the identifier. It returns without queueing when **Fetch album artwork automatically** is off. For a credited artist it checks that the account owns a qualifying credit. Then it applies the 64 pending limit, and the separate 32 limit for MusicBrainz artist photos and for credited-artist photos. The matching walk (`queue_observed_release_covers`) reads at most the free room, up to 32 identifiers per walk, and skips its query when the choice is off or the queue is full.
+
+The three explicit fetch status reads (recording, release, playlist) share one `read_artwork_fetch` in `crates/core/src/catalog/artwork/jobs.rs`. It checks the session, loads the row for that entity kind, checks access for that kind, observes the status and rechecks the session. The kinds differ only in the access check.
+
 ## Cover Art Archive
 
 Albums and discography cards can show a front cover without any plugin. When a release or release group has a MusicBrainz identifier, Hito reads `front-500` from coverartarchive.org. Only the identifier is sent (no title, artist, path or account). This is a built-in client in `hito-metadata-musicbrainz`, not a plugin capability: it follows redirects only to https `archive.org` hosts (at most three), accepts only JPEG or PNG up to 2 MiB, and makes at most one request per second. The image then goes through the same validation as provider artwork (format, dimensions, decode) and is stored in the account's artwork store.
 
-Where identifiers come from: the current MusicBrainz release or release-group tags of a library album (see [tag identifiers](artist-matching.md#release-and-recording-identifiers-from-tags)) and the release groups of a built-in MusicBrainz discography page. Requests are queued in `cover_art_lookups` when an album without artwork is read, after an automatic matching walk for albums with no local files, and when a discography page is read, at most 64 pending per account. Every one of these paths, including the matching walk, goes through the same queueing step: it checks the identifier, honors **Fetch album artwork automatically**, and applies the 64 pending limit (and the 32 limit for artist photos). Earlier builds let the matching walk add up to 32 lookups at a time without the pending limit; that gap is closed. A worker runs the queued lookups one at a time.
+Where identifiers come from: the current MusicBrainz release or release-group tags of a library album (see [tag identifiers](artist-matching.md#release-and-recording-identifiers-from-tags)) and the release groups of a built-in MusicBrainz discography page. Requests are queued in `cover_art_lookups` when an album without artwork is read, after an automatic matching walk for albums with no local files, and when a discography page is read, at most 64 pending per account. Every one of these paths, including the matching walk, goes through the same queueing step: it checks the identifier, honors **Fetch album artwork automatically**, and applies the 64 pending limit (and the 32 limit for artist photos). Earlier builds let the matching walk add up to 32 lookups at a time without the pending limit; that gap is closed, and the walk now sizes its query to the free room. A worker runs the queued lookups one at a time.
 
 Honest states per identifier: `queued`/`running` (pending), `ready`, `missing` (the archive has no cover, or sent an invalid image), `unavailable` (four failed attempts with growing delay). Missing and unavailable answers are asked again only after a day, and only when something asks again. `GET /api/v1/cover-art/{kind}/{mbid}` (kind `release` or `release-group`) never contacts the archive: it returns the image (200), 202 while pending, 404 when missing or never asked, or 502 when unavailable. `GET /api/v1/releases/{id}/artwork` falls back to this cover after embedded and provider artwork.
 
@@ -113,7 +149,7 @@ Honest states per identifier: `queued`/`running` (pending), `ready`, `missing` (
 
 MusicBrainz has no artist images, but its URL relations link an artist to Wikidata, and Wikidata may name a Commons file in property P18. `ArtistImageClient` (in `hito-metadata-musicbrainz`) follows exactly that chain on the server: the artist's Wikidata entity from the paced MusicBrainz client, then `https://www.wikidata.org/wiki/Special:EntityData/<Q>.json` (4 MiB limit, the preferred non-deprecated P18 claim), then `https://commons.wikimedia.org/wiki/Special:FilePath/<file>?width=320`. The file name is checked (at most 240 bytes, no control characters, `/`, `\`, `#` or `?`) and sent as one encoded path segment. Redirects (at most three) may reach only `wikidata.org`, `www.wikidata.org`, `commons.wikimedia.org` and `upload.wikimedia.org` over https without a port or credentials. The image must be a JPEG or PNG of at most 2 MiB whose content type and magic bytes agree, then passes the same decode and 1,024-pixel validation as every cover. Requests start at least half a second apart. Only the MusicBrainz and Wikidata identifiers leave the host; no name, title, path or account.
 
-Photos share the cover lookup queue (`cover_art_lookups`, kind `artist`, migration 0080 rebuilds the table so its kind check admits it), the 64-pending limit, the retry states and the account's artwork store. `GET /api/v1/cover-art/artist/{mbid}` queues a lookup the first time it is asked (202), then answers 200 with the stored image, 404 when there is none or **Fetch album artwork automatically** is off, or 502. The browser retries a failed image twice, 2 s and 5 s later. A `missing` or `unavailable` photo is asked again only when the route is read more than a day after its last attempt, the same aging as covers. At most 32 artist lookups per account may be queued or running at once (covers share a 64 lookup limit); further identifiers answer 404 until some finish, so a stray request for unknown identifiers cannot flood the queue. A stored photo is served only while the choice is on. With the choice off nothing is queued and no request leaves the host. The Spotify artist page relation is not used for these MusicBrainz photos; credits known only through a plugin use the separate path in [photos from a connected plugin](#photos-from-a-connected-plugin).
+Photos share the cover lookup queue (`cover_art_lookups`, kind `artist`, migration 0080 rebuilds the table so its kind check admits it), the 64-pending limit, the retry states and the account's artwork store. `GET /api/v1/cover-art/artist/{mbid}` queues a lookup the first time it is asked (202), then answers 200 with the stored image, 404 when there is none or **Fetch album artwork automatically** is off, or 502. The browser builds the address in `apps/web/src/features/artists/api/coverArtApi.ts` and retries a failed image twice, 2 s and 5 s later, through the shared `useArtworkRetry` hook. A `missing` or `unavailable` photo is asked again only when the route is read more than a day after its last attempt, the same aging as covers. At most 32 artist lookups per account may be queued or running at once (covers share a 64 lookup limit); further identifiers answer 404 until some finish, so a stray request for unknown identifiers cannot flood the queue. A stored photo is served only while the choice is on. With the choice off nothing is queued and no request leaves the host. The Spotify artist page relation is not used for these MusicBrainz photos; credits known only through a plugin use the separate path in [photos from a connected plugin](#photos-from-a-connected-plugin).
 
 Covered by owned loopback fakes of MusicBrainz, Wikidata and Commons (five core cases including a refused redirect, an HTML answer, a wrong signature, an unavailable service and an oversized body; an upgrade case for migration 0080; one HTTP case) and never against the live services.
 
