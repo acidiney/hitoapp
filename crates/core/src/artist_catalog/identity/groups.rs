@@ -365,12 +365,17 @@ fn bounds(offset: Option<i64>, limit: Option<i64>) -> (i64, i64) {
 }
 
 pub(in crate::artist_catalog) fn current_choices() -> String {
+    current_choices_joined("")
+}
+
+pub(in crate::artist_catalog) fn current_choices_joined(extra_join: &str) -> String {
     format!(
         "FROM recording_artist_identity_choices choice
         JOIN recordings r ON r.id=choice.recording_id
         JOIN library_members access ON access.library_id=r.library_id AND access.user_id=choice.user_id
         JOIN account_recording_credits credit ON credit.recording_id=r.id AND credit.user_id=choice.user_id AND credit.artist_id=choice.artist_id
         JOIN account_artists artist ON artist.user_id=credit.user_id AND artist.id=credit.artist_id AND artist.library_id=r.library_id
+        {extra_join}
         LEFT JOIN personal_recording_metadata personal ON personal.recording_id=r.id AND personal.user_id=choice.user_id
         WHERE choice.retired=0 AND choice.association_id IS NOT NULL
             AND r.metadata_observation_id=choice.observation_id AND personal.artist_operation_id IS choice.artist_operation_id

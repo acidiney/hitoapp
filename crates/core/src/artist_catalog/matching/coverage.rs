@@ -5,7 +5,7 @@ use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
 
 const MIN_TITLES: usize = 5;
 const MIN_TENTHS: usize = 7;
-const MIN_COUNTING_RULE: i64 = 3;
+pub(super) const MIN_COUNTING_RULE: i64 = 3;
 
 const MAX_CHECKED: i64 = 1000;
 

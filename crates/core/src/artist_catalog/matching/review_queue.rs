@@ -3,13 +3,17 @@ use super::{
     ArtistReviewOrigin, ArtistReviewQueueQuery, ArtistReviewRestoration,
     ConfirmArtistReviewCandidate, DismissArtistReviewCandidates, RestoreArtistReviewCandidates,
     apply::{AUTOMATIC_CHOICE, EvidenceKind, Planned, REPLACEABLE, commit, plan_for_credit},
+    coverage::MIN_COUNTING_RULE,
     name_discography::NAME_RULE,
     name_probe::{Assessment, Candidate, distinct_titles},
     suggestions::credit_name,
 };
 use crate::artist_catalog::{
     LINKED, MetadataProvider, REQUEST_BUDGET,
-    identity::{groups::current_choices, receipts},
+    identity::{
+        groups::{current_choices, current_choices_joined},
+        receipts,
+    },
     policy,
 };
 use crate::{Actor, ArtistCatalog, Error, Page, Result};
@@ -150,10 +154,8 @@ fn chosen_names() -> String {
         "SELECT lower(trim(artist.name)) AS name_key,g.provider_artist_id AS provider_artist_id
          {} ?1 AND g.provider_kind='builtin_musicbrainz'
          GROUP BY name_key,g.provider_artist_id",
-        current_choices().replace(
-            "JOIN account_artists artist",
-            "JOIN account_artist_identity_groups g ON g.user_id=choice.user_id AND g.id=choice.group_id
-        JOIN account_artists artist"
+        current_choices_joined(
+            "JOIN account_artist_identity_groups g ON g.user_id=choice.user_id AND g.id=choice.group_id"
         )
     )
 }
@@ -192,10 +194,9 @@ async fn chosen_offers(
         .collect())
 }
 
-fn matched_counts(credit_filter: &str) -> String {
+fn matched_basis(credit_filter: &str) -> String {
     format!(
-        "SELECT credit.artist_id AS artist_id,g.provider_artist_id AS provider_artist_id,count(*) AS tracks
-         FROM account_recording_credits credit
+        "FROM account_recording_credits credit
          JOIN recording_artist_identity_choices choice ON choice.user_id=credit.user_id
             AND choice.recording_id=credit.recording_id AND choice.artist_id=credit.artist_id
          JOIN account_artist_identity_groups g ON g.user_id=choice.user_id AND g.id=choice.group_id
@@ -206,8 +207,27 @@ fn matched_counts(credit_filter: &str) -> String {
          WHERE credit.user_id=?1 {credit_filter} AND choice.retired=0 AND choice.association_id IS NOT NULL
             AND choice.artist_operation_id IS NULL AND p.artist_operation_id IS NULL
             AND r.metadata_observation_id=choice.observation_id AND {AUTOMATIC_CHOICE}
-            AND EXISTS (SELECT 1 FROM recording_artist_associations assoc WHERE assoc.id=choice.association_id AND {LINKED})
-         GROUP BY credit.artist_id,g.provider_artist_id"
+            AND NOT EXISTS (SELECT 1 FROM artist_association_name_matches weak
+                WHERE weak.association_id=choice.association_id AND weak.rule<{MIN_COUNTING_RULE})
+            AND EXISTS (SELECT 1 FROM recording_artist_associations assoc WHERE assoc.id=choice.association_id AND {LINKED})"
+    )
+}
+
+pub(super) fn matched_counts(credit_filter: &str) -> String {
+    format!(
+        "SELECT credit.artist_id AS artist_id,g.provider_artist_id AS provider_artist_id,count(*) AS tracks
+         {} GROUP BY credit.artist_id,g.provider_artist_id",
+        matched_basis(credit_filter)
+    )
+}
+
+fn matched_state() -> String {
+    format!(
+        "(SELECT COALESCE(1+min(dismissed)+2*max(dismissed),0) FROM (
+            SELECT EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=?1
+                AND d.artist_id=credit.artist_id AND d.provider_artist_id=g.provider_artist_id) AS dismissed
+            {}))",
+        matched_basis("AND credit.artist_id=base.id")
     )
 }
 
@@ -333,21 +353,11 @@ pub(super) fn queued(listing: Listing) -> String {
         "EXISTS (SELECT 1 FROM artist_name_candidates c
             WHERE c.user_id=a.user_id AND c.artist_id=a.id AND {filter})"
     );
-    let unlisted = match listing {
-        Listing::Offered => {
-            "NOT EXISTS (SELECT 1 FROM artist_name_candidates c WHERE c.user_id=a.user_id AND c.artist_id=a.id)
-             AND NOT EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id)"
-        }
-        Listing::Dismissed => "0",
+    let state = matched_state();
+    let (unlisted, matched) = match listing {
+        Listing::Offered => ("has_stored=0 AND state=0", "state IN (1,3)"),
+        Listing::Dismissed => ("0", "state IN (3,4)"),
     };
-    let matched_dismissal = "EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=?1
-        AND d.artist_id=x.artist_id AND d.provider_artist_id=x.provider_artist_id)";
-    let matched_filter = match listing {
-        Listing::Offered => format!("NOT {matched_dismissal}"),
-        Listing::Dismissed => matched_dismissal.to_owned(),
-    };
-    let matched =
-        format!("EXISTS (SELECT 1 FROM matched x WHERE x.artist_id=a.id AND {matched_filter})");
     let dismissal = "EXISTS (SELECT 1 FROM artist_review_dismissals d WHERE d.user_id=a.user_id
         AND d.artist_id=a.id AND d.provider_artist_id=n.provider_artist_id)";
     let offer_dismissal = match listing {
@@ -359,28 +369,34 @@ pub(super) fn queued(listing: Listing) -> String {
     );
     format!(
         "WITH undecided AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
-              matched AS MATERIALIZED ({}),
               chosen_names AS MATERIALIZED ({}),
               edited AS (SELECT artist_id,count(*) AS tracks FROM ({}) GROUP BY artist_id),
-              flags AS MATERIALIZED (
+              base AS MATERIALIZED (
                 SELECT a.id AS id,a.name AS name,COALESCE(u.tracks,0) AS undecided_tracks,
                     COALESCE(e.tracks,0) AS edited_tracks,
                     CASE WHEN u.tracks>0 THEN {stored} ELSE 0 END AS stored,
-                    CASE WHEN u.tracks>0 THEN {unlisted} ELSE 0 END AS unlisted,
-                    CASE WHEN u.tracks>0 THEN {matched} ELSE 0 END AS matched,
+                    CASE WHEN u.tracks>0 THEN EXISTS (SELECT 1 FROM artist_name_candidates c
+                        WHERE c.user_id=a.user_id AND c.artist_id=a.id) ELSE 0 END AS has_stored,
                     CASE WHEN e.tracks>0 THEN {chosen} ELSE 0 END AS chosen
                 FROM account_artists a
                 JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
                 LEFT JOIN undecided u ON u.artist_id=a.id
                 LEFT JOIN edited e ON e.artist_id=a.id
-                WHERE a.user_id=?1 AND (u.tracks>0 OR e.tracks>0))
+                WHERE a.user_id=?1 AND (u.tracks>0 OR e.tracks>0)),
+              flags AS MATERIALIZED (
+                SELECT id,name,undecided_tracks,edited_tracks,stored,has_stored,chosen,
+                    CASE WHEN undecided_tracks>0 AND stored=0 THEN {state} ELSE 0 END AS state
+                FROM base),
+              verdicts AS (
+                SELECT id,name,undecided_tracks,edited_tracks,stored,chosen,
+                    {unlisted} AND undecided_tracks>0 AS unlisted,{matched} AS matched
+                FROM flags)
          SELECT id,name,
             CASE WHEN stored OR unlisted OR matched THEN undecided_tracks ELSE 0 END
                 + CASE WHEN chosen THEN edited_tracks ELSE 0 END AS tracks,
             stored,chosen,matched
-         FROM flags WHERE stored OR unlisted OR matched OR chosen",
+         FROM verdicts WHERE stored OR unlisted OR matched OR chosen",
         undecided(""),
-        matched_counts("AND credit.artist_id IN (SELECT artist_id FROM undecided)"),
         chosen_names(),
         edited("")
     )
@@ -495,7 +511,7 @@ impl ArtistCatalog {
         };
         let matching: Vec<&str> = rows
             .iter()
-            .filter(|row| row.5 > 0)
+            .filter(|row| row.3 > 0 || row.5 > 0)
             .map(|row| row.0.as_str())
             .collect();
         let mut matched_by_credit: HashMap<String, Vec<MatchedOffer>> = HashMap::new();
@@ -542,7 +558,7 @@ impl ArtistCatalog {
             } else {
                 Vec::new()
             };
-            let dismissed = if chosen > 0 || matched > 0 {
+            let dismissed = if chosen > 0 || matched > 0 || stored > 0 {
                 dismissed_ids(&mut tx, actor, &artist_id).await?
             } else {
                 HashSet::new()
@@ -568,7 +584,7 @@ impl ArtistCatalog {
                     });
                 }
             }
-            if matched > 0 {
+            if stored > 0 || matched > 0 {
                 let offers = matched_by_credit.remove(&artist_id).unwrap_or_default();
                 for offer in offers.into_iter().take(MAX_CHOSEN_OFFERS as usize) {
                     let is_dismissed = dismissed.contains(&offer.provider_artist_id);
