@@ -2,6 +2,7 @@
 
 mod artist_photos;
 mod artist_photos_upgrade;
+mod artwork_fetch_kinds;
 mod catalog_artists;
 mod catalog_artwork;
 mod catalog_genres;
