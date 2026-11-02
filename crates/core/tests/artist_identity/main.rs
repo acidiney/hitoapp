@@ -49,4 +49,6 @@ mod artist_provider_evidence_upgrade;
 mod artist_recording_id_matches_upgrade;
 mod artist_review_queue;
 mod artist_review_queue_upgrade;
+mod artist_review_reach;
+mod artist_review_same_artist;
 mod artist_tag_credits;

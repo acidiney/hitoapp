@@ -4,7 +4,7 @@ mod library;
 
 use hito_core::test_support::musicbrainz::Reply;
 use hito_core::{
-    Actor, ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem,
+    Actor, ArtistAssociationEvidence, ArtistReviewCandidate, ArtistReviewItem, ArtistReviewOrigin,
     ArtistReviewQueueQuery, ConfirmArtistReviewCandidate, Credentials,
     DismissArtistReviewCandidates, Error, ResetRecordingArtistIdentity,
     RestoreArtistReviewCandidates,
@@ -91,6 +91,7 @@ async fn namesakes_the_walk_could_not_tell_apart_are_queued_with_what_it_stored(
         country: Some(country.into()),
         corroborated_titles: titles,
         in_library: false,
+        origin: ArtistReviewOrigin::NameSearch,
     };
     assert_eq!(
         item.candidates,
@@ -111,7 +112,7 @@ async fn namesakes_the_walk_could_not_tell_apart_are_queued_with_what_it_stored(
 }
 
 #[tokio::test]
-async fn a_matched_credit_and_a_credit_without_namesakes_are_not_queued() {
+async fn a_matched_credit_is_not_queued_and_a_credit_without_namesakes_is_listed_for_search() {
     let matched = NameLibrary::nova().await;
     matched
         .musicbrainz
@@ -121,6 +122,8 @@ async fn a_matched_credit_and_a_credit_without_namesakes_are_not_queued() {
         nova_discography(&[
             ("Morning Light", Some(201_000)),
             ("Second Wind", Some(187_500)),
+            ("Harbor Lights", Some(243_000)),
+            ("Quiet Rooms", Some(150_000)),
         ]),
     );
     matched.run().await;
@@ -131,9 +134,11 @@ async fn a_matched_credit_and_a_credit_without_namesakes_are_not_queued() {
         .musicbrainz
         .search(CREDIT, candidates(&[(TRIBUTE, "Nova Quartet Tribute")]));
     unknown.run().await;
+    let unmatched = queue(&unknown).await;
+    assert_eq!(unmatched.len(), 1);
     assert!(
-        queue(&unknown).await.is_empty(),
-        "With no exact-name artist there is nobody to confirm"
+        unmatched[0].candidates.is_empty() && unmatched[0].needs_search,
+        "With no exact-name artist the credit is listed for a search"
     );
     assert!(
         queue(&NameLibrary::nova().await).await.is_empty(),

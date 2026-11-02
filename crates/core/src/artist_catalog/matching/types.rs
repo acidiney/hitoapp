@@ -88,6 +88,14 @@ pub struct ArtistReviewQueueQuery {
     pub limit: Option<i64>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtistReviewOrigin {
+    #[default]
+    NameSearch,
+    ChosenArtist,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, sqlx::FromRow, ToSchema)]
 pub struct ArtistReviewCandidate {
     pub provider_artist_id: String,
@@ -97,6 +105,8 @@ pub struct ArtistReviewCandidate {
     pub country: Option<String>,
     pub corroborated_titles: i64,
     pub in_library: bool,
+    #[sqlx(skip)]
+    pub origin: ArtistReviewOrigin,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -104,6 +114,8 @@ pub struct ArtistReviewItem {
     pub artist_id: String,
     pub name: String,
     pub undecided_tracks: i64,
+    pub needs_search: bool,
+    pub search_recording_id: Option<String>,
     pub candidates: Vec<ArtistReviewCandidate>,
 }
 

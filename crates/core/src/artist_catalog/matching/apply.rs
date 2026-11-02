@@ -138,7 +138,12 @@ pub(super) async fn plan(
         return Ok(Planned::Declined { remember: false });
     };
     let credit = match Credit::capture(tx, actor, recording).await {
-        Ok(credit) if credit.credit_operation.is_none() => credit,
+        Ok(credit)
+            if credit.credit_operation.is_none()
+                || kind == EvidenceKind::UserConfirmedCandidate =>
+        {
+            credit
+        }
         Ok(_) => return Ok(Planned::Declined { remember: true }),
         Err(Error::NotFound) => return Ok(Planned::Declined { remember: false }),
         Err(error) => return Err(error),
