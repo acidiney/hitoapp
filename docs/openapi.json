@@ -21204,7 +21204,8 @@
         "type": "string",
         "enum": [
           "operation_rejected",
-          "locked"
+          "locked",
+          "wrong_password"
         ]
       },
       "ErrorResponse": {

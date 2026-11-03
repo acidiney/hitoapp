@@ -3653,7 +3653,7 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;

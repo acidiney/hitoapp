@@ -49,22 +49,9 @@ impl Identity {
         actor.require_unlocked()?;
         actor.require_session()?;
         credentials::validate_password(&request.new_password)?;
-        self.password_attempts.reserve(actor.id())?;
-        let current_hash: String =
-            sqlx::query_scalar("SELECT password_hash FROM users WHERE id = ?")
-                .bind(actor.id())
-                .fetch_optional(&self.store.pool)
-                .await?
-                .ok_or(Error::Unauthorized)?;
-        let correct = request.current_password.len() <= 1024
-            && credentials::verify(request.current_password, current_hash.clone()).await?;
-        if !correct {
-            tracing::warn!(
-                event = "password_change_rejected",
-                "Password change refused"
-            );
-            return Err(Error::Unauthorized);
-        }
+        let current_hash = self
+            .verify_current_password(actor, request.current_password)
+            .await?;
         let new_hash = credentials::hash(request.new_password).await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
@@ -77,7 +64,9 @@ impl Identity {
                 .await?
                 .rows_affected();
         if updated == 0 {
-            return Err(Error::Unauthorized);
+            return Err(Error::Conflict(
+                "Your password was just changed elsewhere. Sign in again.".into(),
+            ));
         }
         let revoked = sqlx::query("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?")
             .bind(actor.id())
@@ -93,5 +82,29 @@ impl Identity {
             "Password changed"
         );
         Ok(SessionsRevoked { revoked })
+    }
+
+    pub(super) async fn confirm_password(&self, actor: &Actor, password: String) -> Result<()> {
+        self.verify_current_password(actor, password).await?;
+        self.password_attempts.clear(actor.id());
+        Ok(())
+    }
+
+    async fn verify_current_password(&self, actor: &Actor, password: String) -> Result<String> {
+        self.password_attempts.reserve(actor.id())?;
+        let hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE id = ?")
+            .bind(actor.id())
+            .fetch_optional(&self.store.pool)
+            .await?
+            .ok_or(Error::Unauthorized)?;
+        if password.len() <= 1024 && credentials::verify(password, hash.clone()).await? {
+            Ok(hash)
+        } else {
+            tracing::warn!(
+                event = "password_confirmation_rejected",
+                "Password confirmation refused"
+            );
+            Err(Error::WrongPassword)
+        }
     }
 }

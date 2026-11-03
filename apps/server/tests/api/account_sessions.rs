@@ -110,24 +110,31 @@ async fn a_short_new_password_is_unprocessable() {
 }
 
 #[tokio::test]
-async fn a_wrong_current_password_answers_like_a_failed_sign_in_and_is_limited() {
+async fn a_wrong_current_password_is_unprocessable_with_a_stable_code_and_is_limited() {
     let (_dir, app) = app().await;
     let token = admin(&app).await;
-    let failed_login = call(
-        &app,
-        "POST",
-        "/api/v1/login",
-        json!({"username": "admin", "password": "wrong password here"}),
-        None,
-    )
-    .await;
     let (status, body) = change(&app, &token, "wrong password here", NEXT).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
-    assert_eq!(body, failed_login.1);
-    for _ in 1..5 {
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["code"], "wrong_password");
+    assert_eq!(me(&app, &token).await, StatusCode::OK);
+    for _ in 1..3 {
         assert_eq!(
             change(&app, &token, "wrong password here", NEXT).await.0,
-            StatusCode::UNAUTHORIZED
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    for _ in 0..2 {
+        assert_eq!(
+            call(
+                &app,
+                "PUT",
+                "/api/v1/account/pin",
+                json!({"password": "wrong password here", "pin": "1234", "idle_minutes": 0}),
+                Some(&token),
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
         );
     }
     let response = app

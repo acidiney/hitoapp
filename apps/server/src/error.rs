@@ -18,6 +18,7 @@ pub struct ErrorResponse {
 pub enum ErrorCode {
     OperationRejected,
     Locked,
+    WrongPassword,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -33,7 +34,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         use hito_core::Error;
         let status = match &self.0 {
-            Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Error::Invalid(_) | Error::WrongPassword => StatusCode::UNPROCESSABLE_ENTITY,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::Forbidden => StatusCode::FORBIDDEN,
             Error::Locked => StatusCode::LOCKED,
@@ -49,6 +50,7 @@ impl IntoResponse for ApiError {
         let code = match &self.0 {
             Error::OperationRejected(_) => Some(ErrorCode::OperationRejected),
             Error::Locked => Some(ErrorCode::Locked),
+            Error::WrongPassword => Some(ErrorCode::WrongPassword),
             _ => None,
         };
         let error = if let Error::Upstream(message) = &self.0 {

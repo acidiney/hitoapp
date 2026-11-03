@@ -95,19 +95,6 @@ impl Identity {
         tracing::info!(event = "pin_removed", "Account PIN removed");
         self.status(actor.id(), &actor.session_hash).await
     }
-
-    async fn confirm_password(&self, actor: &Actor, password: String) -> Result<()> {
-        let hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE id = ?")
-            .bind(actor.id())
-            .fetch_optional(&self.store.pool)
-            .await?
-            .ok_or(Error::Unauthorized)?;
-        if password.len() <= 1024 && credentials::verify(password, hash).await? {
-            Ok(())
-        } else {
-            Err(Error::Invalid("That password is not correct".into()))
-        }
-    }
 }
 
 fn validate_pin(pin: &str) -> Result<()> {

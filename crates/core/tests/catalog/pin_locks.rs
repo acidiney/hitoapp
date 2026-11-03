@@ -147,7 +147,10 @@ async fn pin_changes_need_the_account_password_and_a_short_numeric_pin() {
                 },
             )
             .await;
-        assert!(matches!(rejected, Err(Error::Invalid(_))), "{pin}");
+        assert!(
+            matches!(rejected, Err(Error::Invalid(_) | Error::WrongPassword)),
+            "{pin}"
+        );
     }
     assert!(!identity.lock_status(&actor).await.unwrap().pin_enabled);
     assert!(matches!(
@@ -177,7 +180,7 @@ async fn pin_changes_need_the_account_password_and_a_short_numeric_pin() {
                 }
             )
             .await,
-        Err(Error::Invalid(_))
+        Err(Error::WrongPassword)
     ));
     assert!(identity.lock_status(&actor).await.unwrap().pin_enabled);
     identity

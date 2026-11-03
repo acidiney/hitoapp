@@ -455,12 +455,12 @@ async fn pin_routes_are_throttled_per_address() {
         );
     }
     assert!(
-        statuses[..10]
+        statuses[..5]
             .iter()
             .all(|s| *s == StatusCode::UNPROCESSABLE_ENTITY)
     );
     assert!(
-        statuses[10..]
+        statuses[5..]
             .iter()
             .all(|s| *s == StatusCode::TOO_MANY_REQUESTS)
     );
