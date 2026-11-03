@@ -132,7 +132,8 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
                 .unwrap()
                 .to_owned()
         };
-        secrets.borrow_mut().push(next_login().await);
+        let token = next_login().await;
+        secrets.borrow_mut().push(token);
         let (_, list) = send(&app, "GET", "/api/v1/account/sessions", Some(&first), Value::Null).await;
         let other = list
             .as_array()
@@ -146,7 +147,8 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
         secrets.borrow_mut().push(other.clone());
         let revoked = send(&app, "DELETE", &format!("/api/v1/account/sessions/{other}"), Some(&first), Value::Null).await;
         assert_eq!(revoked.0, StatusCode::NO_CONTENT);
-        secrets.borrow_mut().push(next_login().await);
+        let token = next_login().await;
+        secrets.borrow_mut().push(token);
         let others = send(&app, "DELETE", "/api/v1/account/sessions", Some(&first), Value::Null).await;
         assert_eq!(others.1, json!({"revoked": 1}));
         let (_, relist) = send(&app, "GET", "/api/v1/account/sessions", Some(&first), Value::Null).await;
