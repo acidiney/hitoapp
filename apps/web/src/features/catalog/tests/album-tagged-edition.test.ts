@@ -154,3 +154,19 @@ test("an owner's choice or an earlier decision never asks for the tagged edition
     vi.unstubAllGlobals();
   }
 });
+
+test("leaving the page while the lookup is pending aborts its request", async () => {
+  let signal: AbortSignal | null | undefined;
+  const fetch = serve((init) => {
+    signal = init?.signal;
+    return new Promise<Response>(() => {});
+  });
+  const view = render(page(unset));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show complete track list" }),
+  );
+  await waitFor(() => expect(paths(fetch)).toContain(tagged));
+  expect(signal?.aborted).toBe(false);
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+});

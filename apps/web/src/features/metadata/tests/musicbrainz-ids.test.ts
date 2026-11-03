@@ -38,6 +38,17 @@ test("held identifiers are small links to musicbrainz.org that open safely", () 
   );
 });
 
+test("an identifier is escaped inside the link", () => {
+  render(
+    createElement(MusicBrainzIds, {
+      ids: [{ label: "Release", kind: "release", id: "a/b?c#d" }],
+    }),
+  );
+  expect(screen.getByRole("link").getAttribute("href")).toBe(
+    "https://musicbrainz.org/release/a%2Fb%3Fc%23d",
+  );
+});
+
 test("identifiers Hito does not hold are not shown and nothing renders when none is held", () => {
   const { container } = render(
     createElement(MusicBrainzIds, {

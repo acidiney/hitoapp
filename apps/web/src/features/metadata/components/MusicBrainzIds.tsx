@@ -14,7 +14,7 @@ export default function MusicBrainzIds({ ids }: { ids: MusicBrainzId[] }) {
             <dt>{item.label}</dt>
             <dd>
               <a
-                href={`https://musicbrainz.org/${item.kind}/${item.id}`}
+                href={`https://musicbrainz.org/${item.kind}/${encodeURIComponent(item.id!)}`}
                 target="_blank"
                 rel="noreferrer noopener"
               >
