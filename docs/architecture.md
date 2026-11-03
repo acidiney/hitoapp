@@ -341,7 +341,7 @@ flowchart TB
 
 What each capability owns:
 
-- `Identity`: accounts, sessions, account deletion and the opaque authenticated actor.
+- `Identity`: accounts, sessions, password change, the account's own session list, account deletion and the opaque authenticated actor ([account security](account-security.md)).
 - `Catalog`: authorized reads, provider search and adoption, source resolution, artwork (embedded, provider and Cover Art Archive covers), and genre reads. It owns the Cover Art Archive client.
 - `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits, and runs the automatic artist matching walk (tags, ISRC, provider artist links, name and discography corroboration, then MusicBrainz genres, then the local recording grouping step).
 - `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.

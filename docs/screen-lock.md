@@ -27,6 +27,7 @@ The lock belongs to one session of one account. Other sessions of the same accou
 - A wrong PIN returns `422` with the attempts left. The fifth wrong PIN deletes the session (`401`). Attempts are counted before the PIN is checked, so parallel guesses cannot exceed five.
 - Without a PIN, locking is unavailable (`422`).
 - Signing out is always allowed.
+- Changing the password and listing or revoking sessions ([account security](account-security.md)) need an unlocked session and are refused with `423` while locked. A password change ends this account's other sessions together with their locks.
 - The PIN routes (`PUT /account/pin`, `POST /account/pin/remove`, `POST /account/unlock`) share a per-address limit of 10 requests a minute and the same limited Argon2 slots as sign-in, with their own counter so wrong PINs cannot use up sign-in attempts. The password is confirmed before a new PIN is hashed.
 - Unlock values that are not 4 to 8 ASCII digits count as a wrong attempt without being hashed.
 - Setting, changing or removing the PIN resets the wrong-PIN count of the account's other sessions, and removing it unlocks them. This follows from needing the account password and is accepted.

@@ -701,3 +701,13 @@ Source only, 2026-11-01. Not deployed.
 - Failing first: `red-flaky-log.log` (three events, two ERROR), `red-flaky-capacity.log` (a 409 for the third connection) and `red-flaky-wait.log` (no wait for an abandoned stream).
 - Tested evidence (Docker): two new server cases (`provider_audio_logging`, `provider_audio_capacity`); formatting and strict `clippy -D warnings` for core and server clean; the grouped core and server batch passed 1,186 cases across 70 results (3 ignored, none failed) with `RUST_TEST_THREADS=4`; web lint passed at the 71-warning cap; three consecutive full isolated browser runs each passed 56 specs with 74 skipped. A first batch with a fixed limit of four failed two existing core cases that require the limit of two, which is why the limit stayed at two.
 - Not verified: `chunk` in the audio stream still logs mid-stream upstream read failures at ERROR through `err(Debug)`; this change covers the open path only. The `hito-arch_rust-target` volume was 5.7 GB before this work and 5.97 GB after; nothing was pruned.
+
+## Password change and open sessions
+
+Source only, 2026-11-03. Runs on the local development server only after a rebuild; not deployed.
+
+- Added `POST /account/password`, `GET` / `DELETE /account/sessions` and `DELETE /account/sessions/{id}`, and the Change password and Open sessions cards in Settings, Profile. See [account security](account-security.md). No migration was needed, so 0082 was not added.
+- Failing first: `red-core.log` (the identity API did not exist), `red-http.log` (nine of ten HTTP cases failed) and `red-web.log` (the components did not exist).
+- Tested evidence: see the final report of the slice for the exact counts. The wrong-password limit is held in memory, so a server restart resets it.
+- Not built: a client description and last-seen time for sessions (the session table stores neither), and an administrator resetting another account's password.
+
