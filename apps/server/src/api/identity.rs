@@ -12,7 +12,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hito_core::{
-    AuthSession, Credentials, DeleteAccount, LockStatus, RemovePin, Services, SetPin, Unlock, User,
+    AuthSession, ChangePassword, Credentials, DeleteAccount, LockStatus, RemovePin, Services,
+    SessionInfo, SessionsRevoked, SetPin, Unlock, User,
 };
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -160,6 +161,65 @@ pub async fn remove_pin(
     JsonBody(request): JsonBody<RemovePin>,
 ) -> ApiResult<Json<LockStatus>> {
     Ok(Json(services.identity.remove_pin(&actor, request).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/account/password", request_body = ChangePassword,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = SessionsRevoked), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse), (status = 429, body = ErrorResponse),
+))]
+pub async fn change_password(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<ChangePassword>,
+) -> ApiResult<Json<SessionsRevoked>> {
+    Ok(Json(
+        services.identity.change_password(&actor, request).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/v1/account/sessions", security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = [SessionInfo]), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 423, body = ErrorResponse),
+))]
+pub async fn sessions(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<Json<Vec<SessionInfo>>> {
+    Ok(Json(services.identity.sessions(&actor).await?))
+}
+
+#[utoipa::path(delete, path = "/api/v1/account/sessions", security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = SessionsRevoked), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 423, body = ErrorResponse),
+))]
+pub async fn revoke_other_sessions(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<Json<SessionsRevoked>> {
+    Ok(Json(services.identity.revoke_other_sessions(&actor).await?))
+}
+
+#[utoipa::path(delete, path = "/api/v1/account/sessions/{id}", params(("id" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 204), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 423, body = ErrorResponse),
+))]
+pub async fn revoke_session(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Extension(config): Extension<Config>,
+    Path(id): Path<String>,
+) -> ApiResult<Response> {
+    if services.identity.revoke_session(&actor, &id).await? {
+        return Ok((
+            StatusCode::NO_CONTENT,
+            [("set-cookie", security::cookie(&config, "", 0))],
+        )
+            .into_response());
+    }
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 #[utoipa::path(get, path = "/api/v1/users", security(("session" = []), ("bearer" = [])), responses(

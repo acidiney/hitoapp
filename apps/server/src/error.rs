@@ -38,6 +38,7 @@ impl IntoResponse for ApiError {
             Error::Forbidden => StatusCode::FORBIDDEN,
             Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
             Error::Conflict(_) | Error::ProviderBusy(_) | Error::OperationRejected(_) => {
                 StatusCode::CONFLICT
             }
@@ -75,7 +76,11 @@ impl IntoResponse for ApiError {
             );
             self.0.to_string()
         };
-        (status, Json(ErrorResponse { error, code })).into_response()
+        let retry_after = match &self.0 {
+            Error::RateLimited(seconds) => Some([("retry-after", seconds.to_string())]),
+            _ => None,
+        };
+        (status, retry_after, Json(ErrorResponse { error, code })).into_response()
     }
 }
 

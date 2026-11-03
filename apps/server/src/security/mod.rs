@@ -23,6 +23,7 @@ pub struct Security {
     config: Config,
     attempts: Arc<AuthLimiter>,
     pin_attempts: Arc<AuthLimiter>,
+    password_attempts: Arc<AuthLimiter>,
     auth_slots: Arc<tokio::sync::Semaphore>,
 }
 
@@ -32,6 +33,7 @@ impl Security {
             config,
             attempts: Arc::default(),
             pin_attempts: Arc::default(),
+            password_attempts: Arc::default(),
             auth_slots: Arc::new(tokio::sync::Semaphore::new(4)),
         }
     }
@@ -69,6 +71,8 @@ pub async fn browser_security(
             .contains(&path)
         {
             Some(&security.pin_attempts)
+        } else if request.method() == "POST" && path == "/api/v1/account/password" {
+            Some(&security.password_attempts)
         } else {
             None
         };
