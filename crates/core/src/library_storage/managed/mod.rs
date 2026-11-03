@@ -93,11 +93,19 @@ impl ManagedFiles {
             None
         };
         tracing::debug!(event = "download_storage_opened", enabled = root.is_some());
-        Ok(Self {
+        let files = Self {
             root,
             inspector,
             writers: Writers::default(),
-        })
+        };
+        if let Err(error) = files.sweep_staging().await {
+            tracing::warn!(
+                event = "download_staging_sweep_failed",
+                error_code = error.code(),
+                "Leftover download staging files could not be removed"
+            );
+        }
+        Ok(files)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(file_id = %attempt.file_id, attempt_id = %attempt.attempt_id))]
