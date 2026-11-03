@@ -163,3 +163,50 @@ async fn a_body_that_ends_early_is_never_published_and_a_complete_retry_succeeds
     assert_eq!(names.len(), 1, "{names:?}");
     assert!(names[0].ends_with(".media"));
 }
+
+#[tokio::test]
+async fn a_shutdown_requeue_and_a_provider_retry_are_not_reported_as_missing_disk_space() {
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let gate = fixture.server.hold_broken_tail(64).await;
+    request(&fixture).await;
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let downloads = fixture.hito.downloads.clone();
+    let worker = tokio::spawn(async move {
+        downloads
+            .run_next_job_until(async {
+                let _ = stopped.await;
+            })
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(10), gate.entered())
+        .await
+        .unwrap();
+    stop.send(()).unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(20), worker)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap()
+    );
+    let requeued = fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap();
+    assert!(matches!(requeued.status, DownloadState::Queued));
+    assert_eq!(requeued.error, None);
+    gate.open();
+
+    assert!(run(&fixture).await);
+    let retrying = fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap();
+    assert!(matches!(retrying.status, DownloadState::Queued));
+    assert_eq!(retrying.error.as_deref(), Some("provider_unavailable"));
+}

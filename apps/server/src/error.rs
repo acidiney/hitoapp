@@ -89,3 +89,18 @@ pub fn response(status: StatusCode, message: &str) -> Response {
     )
         .into_response()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn a_full_disk_is_507_with_a_generic_body_and_no_paths() {
+        let response = ApiError(hito_core::Error::InsufficientStorage).into_response();
+        assert_eq!(response.status(), StatusCode::INSUFFICIENT_STORAGE);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        assert_eq!(body, r#"{"error":"Hito could not complete this request"}"#);
+    }
+}
