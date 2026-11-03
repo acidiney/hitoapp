@@ -1,4 +1,4 @@
-use super::{Actor, AuthSession, Credentials, Identity, User, credentials};
+use super::{Actor, AuthSession, Credentials, Identity, SESSION_SECONDS, User, credentials};
 use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -30,25 +30,42 @@ impl Identity {
         let Some((id, username, admin, hash)) = row else {
             return Err(Error::Unauthorized);
         };
+        let hash_snapshot = hash.clone();
         if !credentials::verify(credentials.password, hash).await? {
             return Err(Error::Unauthorized);
         }
-        self.create_session(User {
-            id,
-            username,
-            admin,
-        })
+        self.create_session(
+            User {
+                id,
+                username,
+                admin,
+            },
+            Some(&hash_snapshot),
+        )
         .await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub(super) async fn create_session(&self, user: User) -> Result<AuthSession> {
+    pub(super) async fn create_session(
+        &self,
+        user: User,
+        verified_hash: Option<&str>,
+    ) -> Result<AuthSession> {
         let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
-        sqlx::query("INSERT INTO sessions VALUES (?, ?, unixepoch() + 2592000)")
-            .bind(token_hash(&token))
-            .bind(&user.id)
-            .execute(&self.store.pool)
-            .await?;
+        let inserted = sqlx::query(
+            "INSERT INTO sessions SELECT ?1, ?2, unixepoch() + ?3
+             WHERE ?4 IS NULL OR EXISTS(SELECT 1 FROM users WHERE id = ?2 AND password_hash = ?4)",
+        )
+        .bind(token_hash(&token))
+        .bind(&user.id)
+        .bind(SESSION_SECONDS)
+        .bind(verified_hash)
+        .execute(&self.store.pool)
+        .await?
+        .rows_affected();
+        if inserted == 0 {
+            return Err(Error::Unauthorized);
+        }
         tracing::info!(account_id = %user.id, "Session created");
         Ok(AuthSession { token, user })
     }

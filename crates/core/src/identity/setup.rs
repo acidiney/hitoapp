@@ -47,6 +47,6 @@ impl Identity {
             .await?;
         tx.commit().await?;
         tracing::info!(account_id = %user.id, "Administrator account created");
-        self.create_session(user).await
+        self.create_session(user, None).await
     }
 }
