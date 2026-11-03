@@ -108,7 +108,7 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
             json!({"current_password":"wrong-password-sentinel","new_password":"next-password-sentinel"}),
         )
         .await;
-        assert_eq!(wrong.0, StatusCode::UNAUTHORIZED);
+        assert_eq!(wrong.0, StatusCode::UNPROCESSABLE_ENTITY);
         let changed = send(
             &app,
             "POST",
@@ -118,18 +118,67 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
         )
         .await;
         assert_eq!(changed.0, StatusCode::OK);
+        let next_login = || async {
+            send(
+                &app,
+                "POST",
+                "/api/v1/login",
+                None,
+                json!({"username":"admin","password":"next-password-sentinel"}),
+            )
+            .await
+            .1["token"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
+        secrets.borrow_mut().push(next_login().await);
         let (_, list) = send(&app, "GET", "/api/v1/account/sessions", Some(&first), Value::Null).await;
-        let id = list[0]["id"].as_str().unwrap().to_owned();
-        secrets.borrow_mut().push(id.clone());
-        send(&app, "DELETE", &format!("/api/v1/account/sessions/{id}"), Some(&first), Value::Null).await;
+        let other = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|session| session["current"] == false)
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        secrets.borrow_mut().push(other.clone());
+        let revoked = send(&app, "DELETE", &format!("/api/v1/account/sessions/{other}"), Some(&first), Value::Null).await;
+        assert_eq!(revoked.0, StatusCode::NO_CONTENT);
+        secrets.borrow_mut().push(next_login().await);
+        let others = send(&app, "DELETE", "/api/v1/account/sessions", Some(&first), Value::Null).await;
+        assert_eq!(others.1, json!({"revoked": 1}));
+        let (_, relist) = send(&app, "GET", "/api/v1/account/sessions", Some(&first), Value::Null).await;
+        secrets.borrow_mut().push(relist[0]["id"].as_str().unwrap().to_owned());
+        for _ in 0..5 {
+            send(
+                &app,
+                "POST",
+                "/api/v1/account/password",
+                Some(&first),
+                json!({"current_password":"wrong-password-sentinel","new_password":"last-password-sentinel"}),
+            )
+            .await;
+        }
+        let limited = send(
+            &app,
+            "POST",
+            "/api/v1/account/password",
+            Some(&first),
+            json!({"current_password":"next-password-sentinel","new_password":"last-password-sentinel"}),
+        )
+        .await;
+        assert_eq!(limited.0, StatusCode::TOO_MANY_REQUESTS);
     }
     .with_subscriber(subscriber)
     .await;
     let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
     for event in [
-        "password_change_rejected",
+        "password_confirmation_rejected",
         "password_changed",
         "session_revoked",
+        "other_sessions_revoked",
     ] {
         assert!(text.contains(event), "{event}");
     }
@@ -138,11 +187,12 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
         "first-password-sentinel",
         "wrong-password-sentinel",
         "next-password-sentinel",
+        "last-password-sentinel",
         "$argon2",
     ] {
         assert!(!text.contains(sentinel), "{sentinel}");
     }
-    for secret in &secrets[..2] {
+    for secret in &secrets {
         assert!(!text.contains(secret.as_str()));
     }
 }

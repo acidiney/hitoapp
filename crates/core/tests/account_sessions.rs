@@ -1,6 +1,8 @@
 use hito_core::{
-    AuthSession, ChangePassword, CoreConfig, Credentials, Error, HostDeviceId, Services, open,
+    AuthSession, ChangePassword, CoreConfig, Credentials, Error, HostDeviceId, RemovePin, Services,
+    SetPin, open,
 };
+use sqlx::Connection;
 
 const PASSWORD: &str = "the first long password";
 const NEXT: &str = "the second long password";
@@ -20,7 +22,7 @@ fn change(current: &str, new: &str) -> ChangePassword {
 }
 
 struct World {
-    _directory: tempfile::TempDir,
+    directory: tempfile::TempDir,
     hito: Services,
     first: AuthSession,
     second: AuthSession,
@@ -63,7 +65,7 @@ async fn world() -> World {
         .await
         .unwrap();
     World {
-        _directory: directory,
+        directory,
         hito,
         first,
         second,
@@ -99,7 +101,7 @@ async fn a_wrong_current_password_is_rejected_generically_and_changes_nothing() 
         .identity
         .change_password(&actor, change("not the password", NEXT))
         .await;
-    assert!(matches!(outcome, Err(Error::Unauthorized)));
+    assert!(matches!(outcome, Err(Error::WrongPassword)));
     assert!(world.alive(&world.second).await);
     world
         .hito
@@ -127,7 +129,7 @@ async fn wrong_current_passwords_are_counted_and_block_further_guesses() {
             .identity
             .change_password(&actor, change("not the password", NEXT))
             .await;
-        assert!(matches!(outcome, Err(Error::Unauthorized)));
+        assert!(matches!(outcome, Err(Error::WrongPassword)));
     }
     let blocked = world
         .hito
@@ -173,7 +175,7 @@ async fn a_successful_change_resets_the_count() {
             .identity
             .change_password(&actor, change("not the password", PASSWORD))
             .await;
-        assert!(matches!(outcome, Err(Error::Unauthorized)));
+        assert!(matches!(outcome, Err(Error::WrongPassword)));
     }
 }
 
@@ -349,4 +351,177 @@ async fn a_locked_session_cannot_change_the_password_or_end_sessions() {
         Err(Error::Locked)
     ));
     assert!(world.alive(&world.second).await);
+}
+
+fn pin(password: &str) -> SetPin {
+    SetPin {
+        password: password.into(),
+        pin: Some("1234".into()),
+        idle_minutes: 0,
+    }
+}
+
+#[tokio::test]
+async fn pin_routes_and_password_changes_share_one_wrong_password_budget() {
+    let world = world().await;
+    let actor = world.actor(&world.first).await;
+    for _ in 0..3 {
+        let outcome = world
+            .hito
+            .identity
+            .set_pin(&actor, pin("not the password"))
+            .await;
+        assert!(matches!(outcome, Err(Error::WrongPassword)));
+    }
+    for _ in 0..2 {
+        let outcome = world
+            .hito
+            .identity
+            .change_password(&actor, change("not the password", NEXT))
+            .await;
+        assert!(matches!(outcome, Err(Error::WrongPassword)));
+    }
+    assert!(matches!(
+        world.hito.identity.set_pin(&actor, pin(PASSWORD)).await,
+        Err(Error::RateLimited(_))
+    ));
+    assert!(matches!(
+        world
+            .hito
+            .identity
+            .remove_pin(
+                &actor,
+                RemovePin {
+                    password: PASSWORD.into()
+                }
+            )
+            .await,
+        Err(Error::RateLimited(_))
+    ));
+    assert!(matches!(
+        world
+            .hito
+            .identity
+            .change_password(&actor, change(PASSWORD, NEXT))
+            .await,
+        Err(Error::RateLimited(_))
+    ));
+}
+
+#[tokio::test]
+async fn a_correct_pin_password_clears_the_shared_budget() {
+    let world = world().await;
+    let actor = world.actor(&world.first).await;
+    for _ in 0..4 {
+        let _ = world
+            .hito
+            .identity
+            .set_pin(&actor, pin("not the password"))
+            .await;
+    }
+    world
+        .hito
+        .identity
+        .set_pin(&actor, pin(PASSWORD))
+        .await
+        .unwrap();
+    for _ in 0..4 {
+        let outcome = world
+            .hito
+            .identity
+            .change_password(&actor, change("not the password", NEXT))
+            .await;
+        assert!(matches!(outcome, Err(Error::WrongPassword)));
+    }
+}
+
+#[tokio::test]
+async fn a_login_in_flight_cannot_outlive_a_password_change() {
+    let world = world().await;
+    let actor = world.actor(&world.first).await;
+    for _ in 0..3 {
+        let mut logins = Vec::new();
+        for _ in 0..6 {
+            let hito = world.hito.clone();
+            logins.push(tokio::spawn(async move {
+                hito.identity.login(credentials("owner", PASSWORD)).await
+            }));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        let (current, next) = if world
+            .hito
+            .identity
+            .login(credentials("owner", PASSWORD))
+            .await
+            .is_ok()
+        {
+            (PASSWORD, NEXT)
+        } else {
+            (NEXT, PASSWORD)
+        };
+        world
+            .hito
+            .identity
+            .change_password(&actor, change(current, next))
+            .await
+            .unwrap();
+        for login in logins {
+            let _ = login.await.unwrap();
+        }
+        let survivors = world.hito.identity.sessions(&actor).await.unwrap();
+        assert_eq!(survivors.len(), 1, "only the changing session survives");
+    }
+}
+
+#[tokio::test]
+async fn two_racing_changes_leave_one_winner() {
+    let world = world().await;
+    let actor = world.actor(&world.first).await;
+    let (one, two) = tokio::join!(
+        world
+            .hito
+            .identity
+            .change_password(&actor, change(PASSWORD, NEXT)),
+        world
+            .hito
+            .identity
+            .change_password(&actor, change(PASSWORD, "yet another long password")),
+    );
+    let wins = [&one, &two].iter().filter(|result| result.is_ok()).count();
+    assert_eq!(wins, 1);
+    for loser in [one, two].into_iter().filter(|result| result.is_err()) {
+        assert!(matches!(
+            loser,
+            Err(Error::Conflict(_) | Error::WrongPassword)
+        ));
+    }
+}
+
+#[tokio::test]
+async fn the_current_session_is_listed_even_beyond_the_list_limit() {
+    let world = world().await;
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(world.directory.path().join("hito.db"))
+            .foreign_keys(true),
+    )
+    .await
+    .unwrap();
+    let owner: String = sqlx::query_scalar("SELECT id FROM users WHERE username = 'owner'")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    sqlx::query(
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 250)
+         INSERT INTO sessions(token_hash, user_id, expires_at)
+         SELECT 'filler-' || i, ?, 4102444800 + i FROM n",
+    )
+    .bind(owner)
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    let actor = world.actor(&world.first).await;
+    let sessions = world.hito.identity.sessions(&actor).await.unwrap();
+    assert_eq!(sessions.len(), 200);
+    assert_eq!(sessions.iter().filter(|session| session.current).count(), 1);
 }
