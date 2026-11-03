@@ -2,17 +2,56 @@
 
 Hito is an open-source audio library built around reliable playback. The monorepo currently runs a Rust server and a shared React browser interface in Docker. The [first public release plan](docs/release-plan.md) includes desktop clients, provider services, downloads, and a community service. Those remain active implementation work; this is a development build.
 
-## Choose your music folders
+## Try Hito
 
-Install Docker Engine or Docker Desktop with Compose, then open the development setup launcher:
+### What you need
 
-- macOS: open **Hito Setup.command**.
-- Windows: run **Hito Setup.ps1** in PowerShell.
-- Linux: run `./hito-setup`. The native chooser uses Zenity or KDialog.
+- Docker running, with Compose: [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [OrbStack](https://orbstack.dev/) on macOS, Docker Desktop on Windows, Docker Engine on Linux.
+- Git, to clone this repository.
+- About 10 GB of free disk space. The first build takes 5 to 15 minutes, depending on the machine.
+- A folder with some music files. Hito only reads it; it never changes or moves your files.
+- Port 8080 free on your machine. Hito listens on `http://localhost:8080`, and only on your computer.
 
-Choose folders in the file explorer. Setup builds Hito in Docker and creates read-only mounts automatically. In Hito, create the first administrator account, open **Settings → Library**, and select **Add music folder**. Choose a shared location or one of its subfolders. Each connected folder scans automatically and has its own status, rescan, and removal controls.
+### Start it
 
-Setup retains recognized existing data volumes, project names, ports, and the legacy music mount, and archives a stopped data volume before restarting. It rejects ambiguous installations and unsupported custom mounts. These are development launchers; signed packaging and live native-dialog verification on all three systems remain release work. See [music folder setup](docs/music-folders.md).
+1. Clone the repository and open its folder.
+2. Run the setup launcher for your system:
+   - **macOS:** double-click **Hito Setup.command** in Finder. If macOS says it cannot be opened, right-click it and choose **Open**, or run `./"Hito Setup.command"` in Terminal.
+   - **Windows:** right-click **Hito Setup.ps1** and choose **Run with PowerShell**.
+   - **Linux:** run `./hito-setup`. The folder picker needs Zenity or KDialog.
+3. Pick one or more music folders when the folder picker opens.
+4. Wait while setup builds Hito in Docker. A Terminal window shows the progress.
+5. Your browser opens `http://localhost:8080`. Create the first account. That account is the administrator.
+6. In **Library**, select **Add music folder** (it is also under **Settings → Music & providers**). The folder you picked in step 3 is listed; open it and select **Use this folder**. Hito scans it, and your music appears in **Library**. Press play on any track.
+
+To add more folders later, run the launcher again. It keeps your existing folders and library.
+
+### If setup fails
+
+- The launcher prints the reason the step failed. Fix it and run the launcher again. Your music and library data are kept.
+- **Docker is not running:** start Docker Desktop or OrbStack, wait until it is ready, and try again.
+- **Port 8080 is in use:** stop whatever uses it, then run the launcher again.
+- Setup keeps its files in `~/Library/Application Support/Hito` on macOS, `~/.config/hito` on Linux and `%LOCALAPPDATA%\Hito` on Windows. `setup.log` lists the steps, and a failed step leaves its full output in `<step>.out` next to it.
+
+### Optional services
+
+Hito works with only your own files. You can also run optional services next to it, for example to import public Spotify playlists. Start one from the repository folder:
+
+```sh
+docker compose -p hito -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins up -d plugin-spotify
+```
+
+Then, in Hito, open **Settings → Plugins**, offer `http://plugin-spotify:8092/` and connect it. The other services and their addresses are listed in [plugins](docs/plugins.md). Each one is optional.
+
+### Stop it
+
+```sh
+docker stop hito-server-1
+```
+
+`docker start hito-server-1` starts it again. Your library lives in the Docker volume `hito_hito-data`; removing the container does not remove it.
+
+These are development launchers, not signed installers. See [music folder setup](docs/music-folders.md) for how folders are shared and kept read-only.
 
 ## Advanced Docker setup
 
@@ -78,12 +117,12 @@ crates/
   debrid/      Provider clients: real-debrid, all-debrid, torbox, premiumize
 plugins/       Plugin services: folder, spotify, youtube, jamendo, real-debrid, all-debrid, torbox, premiumize
 docker/        Dockerfiles for the server, community service and plugin images (one shared plugin recipe)
-deploy/        VPS deployment files
+deploy/        Plugin Compose overlays (deploy/compose) and VPS deployment files
 scripts/       Verification, setup, packaging and audio fixture tools
 docs/          Architecture, API contracts, operations, release scope and evidence
 ```
 
-The root also holds `compose.yaml` and one `compose.<plugin>.yaml` overlay per plugin service, plus `Makefile`, `Hito Setup.command`, `Hito Setup.ps1` and `hito-setup`. Package names keep the `hito-` prefix, for example `hito-core` lives in `crates/core`.
+The root also holds `compose.yaml`, `Makefile`, `Hito Setup.command`, `Hito Setup.ps1` and `hito-setup`. Package names keep the `hito-` prefix, for example `hito-core` lives in `crates/core`.
 
 Start with the [documentation index](docs/README.md). Other entry points are the [TODO checklist](TODO.md), [architecture](docs/architecture.md), [operations](docs/operations.md), [API](docs/api.md) and [implementation status](docs/status.md).
 
