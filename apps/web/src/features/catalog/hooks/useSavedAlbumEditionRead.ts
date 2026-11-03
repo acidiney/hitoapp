@@ -30,9 +30,10 @@ export function useSavedAlbumEditionRead(
   account: string,
   release: string,
   stale: () => void,
-  read: (signal: AbortSignal) => Promise<Schema<"AlbumEditionTrackListAvailability">> = (
-    signal,
-  ) => albumEditionChoiceApi.tracks(account, release, signal),
+  read: (
+    signal: AbortSignal,
+  ) => Promise<Schema<"AlbumEditionTrackListAvailability">> = (signal) =>
+    albumEditionChoiceApi.tracks(account, release, signal),
 ) {
   const scope = useRequestScope(`${account}/${release}`);
   const owner = useMemo(() => ({}), [scope]);

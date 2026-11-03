@@ -103,7 +103,7 @@ test("an album with a tagged release id opens on that exact edition without brow
   const region = await screen.findByRole("region", {
     name: "Album edition track list",
   });
-  expect(within(region).getByText("Catalog only song")).toBeTruthy();
+  expect(await within(region).findByText("Catalog only song")).toBeTruthy();
   expect(paths(fetch)).toEqual([tagged, comparison]);
   expect(fetch.mock.calls[0][1]!.method).toBe("POST");
   expect(JSON.parse(fetch.mock.calls[1][1]!.body as string)).toEqual({

@@ -107,7 +107,9 @@ export default function AlbumCompleteTrackList({
             canChange
             stale={() => setView("browse")}
             change={() => setView("browse")}
-            read={(signal) => albumEditionApi.tracks(account, release, tagged, signal)}
+            read={(signal) =>
+              albumEditionApi.tracks(account, release, tagged, signal)
+            }
           />
         </>
       )}
@@ -163,7 +165,9 @@ function SavedEdition({
   canChange: boolean;
   stale: () => void;
   change: () => void;
-  read?: (signal: AbortSignal) => Promise<Schema<"AlbumEditionTrackListAvailability">>;
+  read?: (
+    signal: AbortSignal,
+  ) => Promise<Schema<"AlbumEditionTrackListAvailability">>;
 }) {
   const read = useSavedAlbumEditionRead(account, release, stale, reader);
   return (
