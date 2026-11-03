@@ -278,6 +278,22 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         ),
     };
     tracing::info!("Core services ready");
+    let downloads = Downloads {
+        store: store.clone(),
+        plugins: plugins.clone(),
+        remote: podcast_remote.clone(),
+        host: config.host_device.clone(),
+        files: managed.clone(),
+        active: Default::default(),
+        playlist_turn: Default::default(),
+    };
+    if let Err(error) = downloads.sweep_staging().await {
+        tracing::warn!(
+            event = "download_staging_sweep_failed",
+            error_code = error.code(),
+            "Leftover download staging files could not be removed"
+        );
+    }
     Ok(Services {
         identity: Identity {
             store: store.clone(),
@@ -298,15 +314,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             metadata_refresh_admission: Default::default(),
         },
         storage,
-        downloads: Downloads {
-            store: store.clone(),
-            plugins: plugins.clone(),
-            remote: podcast_remote,
-            host: config.host_device.clone(),
-            files: managed.clone(),
-            active: Default::default(),
-            playlist_turn: Default::default(),
-        },
+        downloads,
         plugins,
         store,
     })

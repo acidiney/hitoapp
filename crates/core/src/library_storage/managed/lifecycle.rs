@@ -1,4 +1,4 @@
-use super::{ManagedFiles, blocking, sync_directory, unavailable};
+use super::{ManagedFiles, blocking, name, sync_directory, unavailable};
 use crate::{Error, Result};
 use std::{
     collections::HashMap,
@@ -52,21 +52,36 @@ impl ManagedFiles {
 }
 
 impl ManagedFiles {
-    pub(super) async fn sweep_staging(&self) -> Result<()> {
+    pub(crate) async fn staging_files(&self) -> Result<Vec<(Uuid, Uuid)>> {
         let Some(root) = self.root.clone() else {
-            return Ok(());
+            return Ok(Vec::new());
         };
-        let started = Instant::now();
         let slots = root.slots.clone();
-        let removed = blocking::run(slots, move |_| {
-            let mut removed = 0_u64;
+        blocking::run(slots, move |_| {
+            let mut found = Vec::new();
             for entry in root.directory.entries().map_err(|_| unavailable())? {
                 let entry = entry.map_err(|_| unavailable())?;
-                let is_staging = entry.file_name().to_str().is_some_and(is_staging_name);
-                if !is_staging || !entry.file_type().map_err(|_| unavailable())?.is_file() {
+                let Some(name) = entry.file_name().to_str().and_then(staging_identity) else {
                     continue;
+                };
+                if entry.file_type().map_err(|_| unavailable())?.is_file() {
+                    found.push(name);
                 }
-                match root.directory.remove_file(entry.file_name()) {
+            }
+            Ok(found)
+        })
+        .await
+    }
+
+    pub(crate) async fn remove_staging(&self, files: Vec<(Uuid, Uuid)>) -> Result<u64> {
+        let Some(root) = self.root.clone() else {
+            return Ok(0);
+        };
+        let slots = root.slots.clone();
+        blocking::run(slots, move |_| {
+            let mut removed = 0_u64;
+            for (file, attempt) in files {
+                match root.directory.remove_file(name(file, attempt, "part")) {
                     Ok(()) => removed += 1,
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(_) => return Err(unavailable()),
@@ -77,27 +92,20 @@ impl ManagedFiles {
             }
             Ok(removed)
         })
-        .await?;
-        tracing::info!(
-            event = "download_staging_swept",
-            removed,
-            elapsed_ms = started.elapsed().as_millis() as u64,
-            "Leftover download staging files removed"
-        );
-        Ok(())
+        .await
     }
 }
 
-fn is_staging_name(name: &str) -> bool {
-    let Some((file, attempt)) = name
+fn staging_identity(name: &str) -> Option<(Uuid, Uuid)> {
+    let (file, attempt) = name
         .strip_suffix(".part")
-        .and_then(|stem| stem.split_once('.'))
-    else {
-        return false;
+        .and_then(|stem| stem.split_once('.'))?;
+    let canonical = |part: &str| {
+        Uuid::parse_str(part)
+            .ok()
+            .filter(|id| id.to_string() == part)
     };
-    [file, attempt]
-        .iter()
-        .all(|part| Uuid::parse_str(part).is_ok_and(|id| id.to_string() == *part))
+    Some((canonical(file)?, canonical(attempt)?))
 }
 
 impl Writers {

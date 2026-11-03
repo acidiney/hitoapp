@@ -1,9 +1,47 @@
 use super::{Downloads, lease::stored_uuid};
 use crate::Result;
 use sqlx::QueryBuilder;
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 
 impl Downloads {
+    pub(crate) async fn sweep_staging(&self) -> Result<()> {
+        let started = Instant::now();
+        let found = self.files.staging_files().await?;
+        let live: HashSet<String> = sqlx::query_scalar(
+            "SELECT lease_token FROM download_jobs WHERE status='running' AND lease_until>unixepoch()",
+        )
+        .fetch_all(&self.store.pool)
+        .await?
+        .into_iter()
+        .collect();
+        let found_count = found.len();
+        let stale: Vec<_> = found
+            .into_iter()
+            .filter(|(_, attempt)| !live.contains(&attempt.to_string()))
+            .collect();
+        let kept_live = found_count - stale.len();
+        let removed = self.files.remove_staging(stale).await?;
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        if removed > 0 {
+            tracing::info!(
+                event = "download_staging_swept",
+                removed,
+                kept_live,
+                elapsed_ms,
+                "Leftover download staging files removed"
+            );
+        } else {
+            tracing::debug!(
+                event = "download_staging_swept",
+                removed,
+                kept_live,
+                elapsed_ms,
+                "No leftover download staging files"
+            );
+        }
+        Ok(())
+    }
+
     pub(super) async fn reclaim_pending(&self) -> Result<bool> {
         let erased = match self.reclaim_erased().await {
             Ok(erased) => erased,
