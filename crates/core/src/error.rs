@@ -10,6 +10,8 @@ pub enum Error {
     NotFound,
     #[error("Enter your PIN to unlock this session")]
     Locked,
+    #[error("Too many attempts. Try again later.")]
+    RateLimited(u64),
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
@@ -46,6 +48,7 @@ impl Error {
             Self::Forbidden => "forbidden",
             Self::NotFound => "not_found",
             Self::Locked => "locked",
+            Self::RateLimited(_) => "rate_limited",
             Self::Conflict(_) => "conflict",
             Self::ProviderBusy(_) => "provider_busy",
             Self::OperationRejected(_) => "operation_rejected",

@@ -17,12 +17,18 @@ pub(super) fn validate(credentials: &Credentials) -> Result<String> {
                 .into(),
         ));
     }
-    if !(12..=1024).contains(&credentials.password.len()) {
-        return Err(Error::Invalid(
-            "Use a password between 12 and 1024 bytes".into(),
-        ));
-    }
+    validate_password(&credentials.password)?;
     Ok(username.into())
+}
+
+pub(super) fn validate_password(password: &str) -> Result<()> {
+    if (12..=1024).contains(&password.len()) {
+        Ok(())
+    } else {
+        Err(Error::Invalid(
+            "Use a password between 12 and 1024 bytes".into(),
+        ))
+    }
 }
 
 #[tracing::instrument(level = "debug", skip_all, err(Debug))]

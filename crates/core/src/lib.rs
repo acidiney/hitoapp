@@ -97,8 +97,8 @@ pub use downloads::{
 pub use error::{Error, Result};
 pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
-    AccountDeletion, Actor, AuthSession, Credentials, DeleteAccount, Identity, Library, LockStatus,
-    RemovePin, SetPin, Unlock, User,
+    AccountDeletion, Actor, AuthSession, ChangePassword, Credentials, DeleteAccount, Identity,
+    Library, LockStatus, RemovePin, SessionInfo, SessionsRevoked, SetPin, Unlock, User,
 };
 pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]
@@ -298,6 +298,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     Ok(Services {
         identity: Identity {
             store: store.clone(),
+            password_attempts: Default::default(),
         },
         community,
         podcasts: Podcasts {

@@ -59,6 +59,14 @@ impl Actor {
         &self.session_hash
     }
 
+    pub(crate) fn require_session(&self) -> Result<()> {
+        if self.unattended {
+            Err(Error::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn require_admin(&self) -> Result<()> {
         if self.user.admin {
             Ok(())
@@ -128,4 +136,23 @@ pub struct AccountDeletion {
     pub sessions_revoked: u64,
     pub rows_removed: u64,
     pub files_queued: u64,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChangePassword {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, ToSchema)]
+pub struct SessionInfo {
+    pub id: String,
+    pub created_at: i64,
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+pub struct SessionsRevoked {
+    pub revoked: u64,
 }
