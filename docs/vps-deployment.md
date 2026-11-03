@@ -1,10 +1,25 @@
 # VPS deployment
 
-The development deployment runs source revision `9279340057d102a56c398b20b457efdfcbb4bb40`, installed on 2026-10-20. It is available for testing. YouTube audio does not work from the VPS (see [YouTube extraction on the VPS](#youtube-extraction-on-the-vps)); search and metadata do. This installation does not satisfy the public release gates.
+The development deployment runs source revision `a07e20c15a5b50ba7d9a372140f0fb9b51f4cf25`, upgraded on 2026-11-03 from the 2026-10-20 installation (`c1d218a` in the rewritten history). The database moved from migration 0054 to 0081. It is available for testing. YouTube audio does not work from the VPS (see [YouTube extraction on the VPS](#youtube-extraction-on-the-vps)); search and metadata do. This installation does not satisfy the public release gates.
+
+## Upgrade on 2026-11-03
+
+- Four Linux amd64 images were built locally from `a07e20c1` with `deploy/vps/compose.build.yaml`, exported as one archive and transferred. The SHA-256 matched on both ends, and the loaded image IDs, platforms and revision labels matched the local build.
+- The server and folder services were stopped, and both volumes were archived to `/srv/hito/backups/20261103T092705Z-*` (data 16 MB, folder state 3 KB; both pass `gzip -t`). The previous `.env` and `compose.yaml` are kept beside the new ones with the suffix `.before-20261103T092705Z`, and the previous images remain loaded.
+- The new runtime `compose.yaml` takes `HITO_PUBLIC_ORIGIN` from `.env` (the existing value was carried over), leaves `HITO_METADATA_CONTACT` empty, polls the music folder every 300 seconds and starts YouTube with `--metadata-only`.
+- All four services became healthy on the first start, the server logged no errors, `/health` answered 200 through Caddy, and the administrator signed in.
+- Playback is unchanged. Imported Spotify tracks have no audio source on the VPS: the existing YouTube connection still holds the `sources` capability, so opening audio through it now answers 502 and the player skips. Each listener must use Settings, Plugins, Check connection and Accept changes to approve the metadata-only declaration. The folder service, which supplies the test signals, was not connected for this account.
+
+| Service | Image ID on 2026-11-03 |
+| --- | --- |
+| Server | `sha256:14557f4462ea31029a2bfb38b81ed61d44e07d3cce330ed3244f982283c24de1` |
+| Folder | `sha256:19d5f29ee46630bac7a8b6ec4c9e994e38e881da48640cefb65e17a0170c6d2f` |
+| Spotify | `sha256:03fe2ee0ffb2101e51b7593a450b07f3d10b8e84f0c5ba0ccfa37095c26d3aa1` |
+| YouTube | `sha256:1ecb1a3a34f3eea6b5ed6787b8d95202fe83295e3808538f322af6c8f26d73b4` |
 
 ## Installed services
 
-Four Linux amd64 images were built locally through Docker Compose, transferred with a verified SHA-256 checksum and verified natively on the VPS. They run with a read-only root filesystem, user `10001:10001`, dropped capabilities, `no-new-privileges`, resource limits and rotated logs.
+The original 2026-10-20 installation is described below. Four Linux amd64 images were built locally through Docker Compose, transferred with a verified SHA-256 checksum and verified natively on the VPS. They run with a read-only root filesystem, user `10001:10001`, dropped capabilities, `no-new-privileges`, resource limits and rotated logs.
 
 | Service | Immutable image ID |
 | --- | --- |
