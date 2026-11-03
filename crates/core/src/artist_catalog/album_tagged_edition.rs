@@ -85,24 +85,21 @@ impl ArtistCatalog {
         let Some(anchor) = self.album_anchor(actor, &album, true).await? else {
             return nothing("no_artist");
         };
-        let (release_group_id, edition_id) = match tagged.release_group_id {
-            Some(group) => (group, tagged_release_id),
-            None => {
-                let Ok(_admission) = self.admit_matching(actor) else {
-                    return nothing("busy");
-                };
-                match tokio::time::timeout(
-                    LOOKUP_DEADLINE,
-                    self.builtin.release_group_of(&tagged_release_id),
-                )
-                .await
-                {
-                    Ok(Ok(Some(link))) => (link.release_group_id, link.release_id),
-                    Ok(Ok(None))
-                    | Ok(Err(MusicBrainzError::InvalidLookup))
-                    | Ok(Err(MusicBrainzError::InvalidLookupRequest)) => return nothing("unknown"),
-                    Ok(Err(_)) | Err(_) => return nothing("unavailable"),
-                }
+        let (release_group_id, edition_id) = {
+            let Ok(_admission) = self.admit_matching(actor) else {
+                return nothing("busy");
+            };
+            match tokio::time::timeout(
+                LOOKUP_DEADLINE,
+                self.builtin.release_group_of(&tagged_release_id),
+            )
+            .await
+            {
+                Ok(Ok(Some(link))) => (link.release_group_id, link.release_id),
+                Ok(Ok(None))
+                | Ok(Err(MusicBrainzError::InvalidLookup))
+                | Ok(Err(MusicBrainzError::InvalidLookupRequest)) => return nothing("unknown"),
+                Ok(Err(_)) | Err(_) => return nothing("unavailable"),
             }
         };
         let mut connection = self.store.pool.acquire().await?;

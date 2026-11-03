@@ -49,6 +49,7 @@ chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 hito-core = { path = ".", features = ["test-support"] }
+tokio = { workspace = true, features = ["test-util"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

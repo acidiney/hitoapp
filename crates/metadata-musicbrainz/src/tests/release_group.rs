@@ -97,3 +97,11 @@ async fn unknown_merged_broken_and_unreachable_releases_are_told_apart() {
     assert_eq!(fixture.request_count(), 0);
     fixture.close().await;
 }
+
+#[tokio::test]
+async fn an_oversized_release_answer_is_rejected() {
+    let big = vec![b' '; 65_537];
+    let (result, _, requests) = lookup(Reply::json(big), RELEASE).await;
+    assert_eq!(result.unwrap_err(), Error::ResponseTooLarge);
+    assert_eq!(requests.len(), 1);
+}

@@ -141,14 +141,12 @@ flowchart TD
   Tags -->|no| Browser[Discography browser]
   Tags -->|yes| Consent{Automatic artist lookup on, MusicBrainz selected, reviewed MusicBrainz artist?}
   Consent -->|no| Browser
-  Consent -->|yes| Group{Release group tagged by all tracks?}
-  Group -->|yes| Open[Read that edition]
-  Group -->|no| Ask[GET /ws/2/release/id?inc=release-groups, one request]
-  Ask -->|found| Open
-  Ask -->|unknown, outage, timeout| Browser
+  Consent -->|yes| Ask[GET /ws/2/release/id?inc=release-groups, one request]
+  Ask -->|found| Open[Read that edition]
+  Ask -->|unknown, outage, timeout, busy| Browser
 ```
 
-`POST /api/v1/albums/{id}/tagged-edition` answers `found` with the anchor recording, its reviewed MusicBrainz association, the release group and the edition (the tagged release id, or the surviving release when MusicBrainz reports a merge), or `none`. The web app then reads the edition with the existing `edition-track-list` route. Every reason for not finding an edition answers `none` and falls back to today's behavior: tracks that disagree or lack the tag, an owner choice (a forgotten choice counts, because the owner decided), consent off, no readable MusicBrainz artist for the album, an id that MusicBrainz does not know, an outage and a timeout. The lookup makes no request when the release group is already tagged, otherwise exactly one request, under the 15-second budget, the 13-second lookup deadline, the 10-second HTTP timeout, the one-request-per-second MusicBrainz pace and the shared admission limit, without retries. It is never made when the page loads or when files are scanned, only after the click. An owner's choice is never overwritten. Logs carry the outcome and timing only, never the identifiers.
+`POST /api/v1/albums/{id}/tagged-edition` answers `found` with the anchor recording, its reviewed MusicBrainz association, the release group and the edition (the tagged release id, or the surviving release when MusicBrainz reports a merge), or `none`. The web app then reads the edition with the existing `edition-track-list` route. Every reason for not finding an edition answers `none` and falls back to today's behavior: tracks that disagree or lack the tag, an owner choice (a forgotten choice counts, because the owner decided), consent off, no readable MusicBrainz artist for the album, an id that MusicBrainz does not know, an outage, a timeout, and a lookup that is already running for the account (`busy`, no second request). The lookup always makes exactly one request, even when the files also tag a release group, because MusicBrainz is the authority on which group holds the release and a stale tag would otherwise open the wrong list, under the 15-second budget, the 13-second lookup deadline, the 10-second HTTP timeout, the one-request-per-second MusicBrainz pace and the shared admission limit, without retries. It is never made when the page loads or when files are scanned, only after the click. An owner's choice is never overwritten. Logs carry the outcome and timing only, never the identifiers.
 
 ### MusicBrainz identifiers on details pages
 

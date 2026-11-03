@@ -131,4 +131,19 @@ async fn a_tagged_album_reports_its_edition_and_the_details_pages_show_the_tagge
     )
     .await;
     assert_eq!(details["musicbrainz_recording_id"], RECORDING);
+
+    let bob = json!({"username": "bob", "password": "tagged bob password"});
+    let (status, _) = call(&app, "POST", "/api/v1/users", bob.clone(), token).await;
+    assert!(status.is_success(), "{status}");
+    let (_, session) = call(&app, "POST", "/api/v1/login", bob, None).await;
+    let bob_token = session["token"].as_str().unwrap().to_owned();
+    let requests = musicbrainz.requests().len();
+    let (status, _) = call(&app, "POST", &path, Value::Null, Some(&bob_token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(musicbrainz.requests().len(), requests);
+    let (status, again) = call(&app, "POST", &path, Value::Null, token).await;
+    assert_eq!(
+        (status, again["status"].as_str()),
+        (StatusCode::OK, Some("found"))
+    );
 }

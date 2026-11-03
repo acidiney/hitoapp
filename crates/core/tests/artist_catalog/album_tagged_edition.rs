@@ -3,8 +3,8 @@ use hito_core::test_support::{
     support,
 };
 use hito_core::{
-    Actor, Browse, ChooseAlbumEdition, ClearAlbumEdition, MatchArtistsFromProviderEvidence,
-    Services, TaggedAlbumEdition, UpdateAutomaticLookups,
+    Actor, Browse, ChooseAlbumEdition, ClearAlbumEdition, Credentials,
+    MatchArtistsFromProviderEvidence, Services, TaggedAlbumEdition, UpdateAutomaticLookups,
 };
 use lofty::{
     prelude::{Accessor, ItemKey, TagExt},
@@ -219,12 +219,87 @@ async fn a_tagged_album_opens_on_its_exact_edition_after_one_release_request() {
 }
 
 #[tokio::test]
-async fn a_tagged_release_group_needs_no_request() {
+async fn a_tagged_release_group_is_checked_against_musicbrainz_and_never_trusted() {
     let world = World::prepare(same(RELEASE, Some(TAGGED_GROUP)), true).await;
+    world
+        .fake
+        .release(RELEASE, Reply::ReleaseGroup(RELEASE.into(), GROUP.into()));
     let edition = found(world.lookup().await);
     assert_eq!(edition.edition_id, RELEASE);
-    assert_eq!(edition.release_group_id, TAGGED_GROUP);
+    assert_eq!(edition.release_group_id, GROUP);
+    assert_eq!(world.release_requests().len(), 1);
+    world.fake.release(RELEASE, Reply::NotFound);
+    assert_eq!(world.lookup().await, TaggedAlbumEdition::None);
+}
+
+#[tokio::test]
+async fn another_account_cannot_use_an_album_it_cannot_open() {
+    let world = World::prepare(same(RELEASE, None), true).await;
+    world
+        .fake
+        .release(RELEASE, Reply::ReleaseGroup(RELEASE.into(), GROUP.into()));
+    let credentials = || Credentials {
+        username: "bob".into(),
+        password: "tagged bob password".into(),
+    };
+    world
+        .hito
+        .identity
+        .create_user(&world.actor, credentials())
+        .await
+        .unwrap();
+    let session = world.hito.identity.login(credentials()).await.unwrap();
+    let bob = world
+        .hito
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
+    assert!(matches!(
+        world
+            .hito
+            .artist_catalog
+            .tagged_album_edition_until(&bob, &world.release_id, std::future::pending())
+            .await,
+        Err(hito_core::Error::NotFound)
+    ));
     assert!(world.release_requests().is_empty());
+    found(world.lookup().await);
+    assert_eq!(world.release_requests().len(), 1);
+}
+
+#[tokio::test]
+async fn a_busy_lookup_slot_falls_back_without_a_second_request() {
+    let world = World::prepare(same(RELEASE, None), true).await;
+    world
+        .fake
+        .release(RELEASE, Reply::ReleaseGroup(RELEASE.into(), GROUP.into()));
+    world.fake.delay_replies(Duration::from_secs(1));
+    let (first, second) = tokio::join!(world.lookup(), world.lookup());
+    let results = [first, second];
+    assert_eq!(
+        results
+            .iter()
+            .filter(|result| matches!(result, TaggedAlbumEdition::Found { .. }))
+            .count(),
+        1
+    );
+    assert!(results.contains(&TaggedAlbumEdition::None));
+    assert_eq!(world.release_requests().len(), 1);
+}
+
+#[tokio::test]
+async fn a_lookup_that_never_answers_gives_up_within_the_request_budget() {
+    let world = World::prepare(same(RELEASE, None), true).await;
+    world
+        .fake
+        .release(RELEASE, Reply::ReleaseGroup(RELEASE.into(), GROUP.into()));
+    world.fake.delay_replies(Duration::from_secs(600));
+    tokio::time::pause();
+    let started = tokio::time::Instant::now();
+    assert_eq!(world.lookup().await, TaggedAlbumEdition::None);
+    let elapsed = started.elapsed();
+    assert!(elapsed <= Duration::from_secs(16), "{elapsed:?}");
 }
 
 #[tokio::test]
