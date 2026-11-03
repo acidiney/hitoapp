@@ -1,6 +1,6 @@
 use super::{
     ManagedFileLocation, ManagedFiles, PendingManagedFile, Root, VerifiedManagedFile, blocking,
-    name, private_file, unavailable,
+    name, private_file, storage_failure, unavailable,
 };
 use crate::{Error, Result};
 #[cfg(unix)]
@@ -19,7 +19,7 @@ impl ManagedFiles {
             let mut file = file.lock().map_err(|_| unavailable())?;
             file.flush()
                 .and_then(|()| file.sync_all())
-                .map_err(|_| unavailable())
+                .map_err(|error| storage_failure(&error))
         })
         .await?;
         if pending.length == 0 {
@@ -78,7 +78,7 @@ impl ManagedFiles {
                 .root
                 .directory
                 .hard_link(&staging, &verified.root.directory, &final_name)
-                .map_err(|_| unavailable())?;
+                .map_err(|error| storage_failure(&error))?;
             verified
                 .root
                 .directory
@@ -111,7 +111,7 @@ pub(super) fn sync_directory(root: &Root) -> Result<()> {
                     os_error = error.raw_os_error(),
                     "Download directory sync failed"
                 );
-                unavailable()
+                storage_failure(&error)
             })?;
     }
     #[cfg(not(unix))]

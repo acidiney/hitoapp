@@ -330,6 +330,10 @@ impl HeldAudioTail {
     pub fn released(&self) -> bool {
         *self.release.borrow()
     }
+
+    pub fn release(&self) {
+        self.release.send_replace(true);
+    }
 }
 
 struct HeldAudioBody {

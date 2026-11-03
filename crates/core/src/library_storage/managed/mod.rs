@@ -124,7 +124,7 @@ impl ManagedFiles {
             let file = owned_root
                 .directory
                 .open_with(name(file_id, attempt_id, "part"), &options)
-                .map_err(|_| unavailable())?
+                .map_err(|error| storage_failure(&error))?
                 .into_std();
             private_file(&file, None)?;
             Ok(file)
@@ -193,7 +193,7 @@ impl PendingManagedFile {
             file.lock()
                 .map_err(|_| unavailable())?
                 .write_all(&bytes)
-                .map_err(|_| unavailable())
+                .map_err(|error| storage_failure(&error))
         })
         .await?;
         self.length = length;
@@ -247,4 +247,14 @@ fn private_metadata(metadata: &std::fs::Metadata, length: Option<u64>) -> bool {
 
 fn unavailable() -> Error {
     Error::Internal("Private download storage is unavailable".into())
+}
+
+fn storage_failure(error: &std::io::Error) -> Error {
+    #[cfg(unix)]
+    if matches!(error.raw_os_error(), Some(libc::ENOSPC | libc::EDQUOT)) {
+        return Error::InsufficientStorage;
+    }
+    #[cfg(not(unix))]
+    let _ = error;
+    unavailable()
 }

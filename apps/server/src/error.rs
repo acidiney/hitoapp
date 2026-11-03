@@ -42,6 +42,7 @@ impl IntoResponse for ApiError {
                 StatusCode::CONFLICT
             }
             Error::Upstream(_) => StatusCode::BAD_GATEWAY,
+            Error::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let code = match &self.0 {

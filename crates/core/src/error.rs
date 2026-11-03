@@ -18,6 +18,8 @@ pub enum Error {
     OperationRejected(String),
     #[error("{0}")]
     Upstream(&'static str),
+    #[error("There is not enough disk space to save this audio")]
+    InsufficientStorage,
     #[error("Database operation failed")]
     Database(#[from] sqlx::Error),
     #[error("Database migration failed")]
@@ -40,6 +42,7 @@ impl Error {
             Self::ProviderBusy(_) => "provider_busy",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) => "upstream",
+            Self::InsufficientStorage => "insufficient_storage",
             Self::Database(_) => "database",
             Self::Migration(_) => "migration",
             Self::Internal(_) => "internal",

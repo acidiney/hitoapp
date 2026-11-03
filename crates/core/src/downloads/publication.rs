@@ -2,6 +2,8 @@ use super::{Downloads, lease::Lease};
 use crate::{Result, library_storage::ManagedFileLocation};
 use uuid::Uuid;
 
+const STORAGE_RETRY_SECONDS: i64 = 120;
+
 impl Downloads {
     pub(super) async fn mark_verifying(&self, lease: &Lease) -> Result<()> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -62,10 +64,14 @@ impl Downloads {
         } else {
             false
         };
+        let storage_full =
+            current && !stopped && matches!(&error, Some(crate::Error::InsufficientStorage));
         let (state, job, reason, refund, delay) = if !current {
             ("failed", "cancelled", Some("authority_changed"), false, 0)
         } else if stopped {
             ("queued", "queued", None, true, 0)
+        } else if storage_full {
+            ("queued", "queued", None, true, STORAGE_RETRY_SECONDS)
         } else if lease.attempts < 3 && matches!(&error, Some(crate::Error::Upstream(_))) {
             (
                 "queued",
@@ -83,8 +89,8 @@ impl Downloads {
         if owned {
             sqlx::query("UPDATE download_jobs SET status=?,attempts=max(attempts-?,0),next_attempt_at=unixepoch()+?,lease_token=NULL,lease_until=NULL,updated_at=unixepoch() WHERE id=? AND lease_token=?")
                 .bind(job).bind(i64::from(refund)).bind(delay).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            sqlx::query("UPDATE download_intents SET state=?,file_id=NULL,error=?,updated_at=unixepoch() WHERE id=? AND generation=? AND state!='removed'")
-                .bind(state).bind(reason).bind(&lease.intent_id).bind(lease.generation).execute(&mut *tx).await?;
+            sqlx::query("UPDATE download_intents SET state=?,file_id=NULL,error=?,storage_wait=?,updated_at=unixepoch() WHERE id=? AND generation=? AND state!='removed'")
+                .bind(state).bind(reason).bind(i64::from(storage_full)).bind(&lease.intent_id).bind(lease.generation).execute(&mut *tx).await?;
         }
         sqlx::query("UPDATE download_files SET state='deleting',cleanup_after=0 WHERE id=? AND attempt_id=? AND state!='ready'")
             .bind(&lease.file_id).bind(&lease.lease_token).execute(&mut *tx).await?;
