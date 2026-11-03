@@ -122,6 +122,7 @@ test("a late history response cannot appear after switching accounts", async () 
     resolve({
       recording_id: "recording",
       credited_artists: [],
+      musicbrainz_recording_id: null,
       title: {
         value: "Alice",
         inherited: "Source",
@@ -262,6 +263,7 @@ test("history requests cannot leak between recording and album targets with the 
     resolve({
       recording_id: "same",
       credited_artists: [],
+      musicbrainz_recording_id: null,
       title: {
         value: "Title",
         inherited: "Title",
@@ -298,6 +300,7 @@ test("an unknown album artist can be personalized and reset without changing rec
       personal: null,
       operation_id: null,
     },
+    musicbrainz: { release_id: null, release_group_id: null },
     observations: { items: [], next_before: null },
   };
   const requiredRecording: Pick<

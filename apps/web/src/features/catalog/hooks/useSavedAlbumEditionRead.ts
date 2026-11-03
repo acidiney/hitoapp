@@ -30,6 +30,9 @@ export function useSavedAlbumEditionRead(
   account: string,
   release: string,
   stale: () => void,
+  read: (signal: AbortSignal) => Promise<Schema<"AlbumEditionTrackListAvailability">> = (
+    signal,
+  ) => albumEditionChoiceApi.tracks(account, release, signal),
 ) {
   const scope = useRequestScope(`${account}/${release}`);
   const owner = useMemo(() => ({}), [scope]);
@@ -56,11 +59,7 @@ export function useSavedAlbumEditionRead(
     let count = 0;
     setSnapshot({ owner, comparison: null, pending: true, error: "" });
     try {
-      const result = await albumEditionChoiceApi.tracks(
-        account,
-        release,
-        controller.signal,
-      );
+      const result = await read(controller.signal);
       if (!request.active()) return;
       if (result.status === "needs_choice") {
         outcome = "needs_choice";

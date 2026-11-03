@@ -6,6 +6,8 @@ import { useReviewedArtistProfile } from "../../artists/hooks/useReviewedArtistP
 
 import { useAlbumEditionChoice } from "../hooks/useAlbumEditionChoice";
 import { useSavedAlbumEditionRead } from "../hooks/useSavedAlbumEditionRead";
+import { useTaggedAlbumEdition } from "../hooks/useTaggedAlbumEdition";
+import { albumEditionApi } from "../../artists/api/albumEditionApi";
 import Button from "../../../shared/ui/Button";
 
 type Props = {
@@ -14,7 +16,7 @@ type Props = {
   anchor: Schema<"AlbumCatalogAnchor"> | null;
   saved: Schema<"AlbumEditionChoice">;
 };
-type View = "closed" | "saved" | "browse";
+type View = "closed" | "saved" | "looking" | "tagged" | "browse";
 
 export default function AlbumCompleteTrackList({
   account,
@@ -24,6 +26,10 @@ export default function AlbumCompleteTrackList({
 }: Props) {
   const edition = useAlbumEditionChoice(account, release, saved);
   const [view, setView] = useState<View>("closed");
+  const [tagged, setTagged] = useState<Schema<"SavedAlbumEdition"> | null>(
+    null,
+  );
+  const lookup = useTaggedAlbumEdition(account, release);
   const state = edition.choice.state;
   const ready = state.status === "ready" ? state.edition : null;
   const linked = state.status !== "unset";
@@ -36,9 +42,19 @@ export default function AlbumCompleteTrackList({
         }
       : null);
 
-  function open() {
-    setView(ready ? "saved" : "closed");
-    if (!ready && browseAnchor) setView("browse");
+  async function open() {
+    if (ready) return setView("saved");
+    if (!browseAnchor) return;
+    if (state.status === "unset" && edition.choice.revision === 0) {
+      setView("looking");
+      const found = await lookup.find();
+      if (found === "stopped") return;
+      if (found !== "none") {
+        setTagged(found);
+        return setView("tagged");
+      }
+    }
+    setView("browse");
   }
 
   function stale() {
@@ -72,9 +88,28 @@ export default function AlbumCompleteTrackList({
         </>
       )}
       {view === "closed" && (browseAnchor || ready) && (
-        <Button type="button" onClick={open}>
+        <Button type="button" onClick={() => void open()}>
           Show complete track list
         </Button>
+      )}
+      {view === "looking" && (
+        <p role="status">Looking for the edition named in your file tags…</p>
+      )}
+      {view === "tagged" && tagged && (
+        <>
+          <p>This is the edition named by the release id in your file tags.</p>
+          <SavedEdition
+            key={`${tagged.release_group_id}/${tagged.edition_id}`}
+            account={account}
+            release={release}
+            pending={false}
+            recording={tagged.recording_id}
+            canChange
+            stale={() => setView("browse")}
+            change={() => setView("browse")}
+            read={(signal) => albumEditionApi.tracks(account, release, tagged, signal)}
+          />
+        </>
       )}
       {view === "saved" && ready && (
         <SavedEdition
@@ -119,6 +154,7 @@ function SavedEdition({
   canChange,
   stale,
   change,
+  read: reader,
 }: {
   account: string;
   release: string;
@@ -127,8 +163,9 @@ function SavedEdition({
   canChange: boolean;
   stale: () => void;
   change: () => void;
+  read?: (signal: AbortSignal) => Promise<Schema<"AlbumEditionTrackListAvailability">>;
 }) {
-  const read = useSavedAlbumEditionRead(account, release, stale);
+  const read = useSavedAlbumEditionRead(account, release, stale, reader);
   return (
     <>
       <h2>Complete track list</h2>

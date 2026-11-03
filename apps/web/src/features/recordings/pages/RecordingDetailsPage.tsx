@@ -4,6 +4,7 @@ import { Link, router } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import MetadataEditor from "../../metadata/components/MetadataEditor";
+import MusicBrainzIds from "../../metadata/components/MusicBrainzIds";
 import MetadataObservations from "../../metadata/components/MetadataObservations";
 import ArtistReview from "../../artists/components/ArtistReview";
 import { opensArtistSearch } from "../../artists/model/artistSearchLink";
@@ -82,6 +83,15 @@ export default function RecordingDetailsPage({
               <RecordingCredits attribution={source.attribution} />
             </section>
           )}
+          <MusicBrainzIds
+            ids={[
+              {
+                label: "Recording",
+                kind: "recording",
+                id: detail.musicbrainz_recording_id,
+              },
+            ]}
+          />
           <MetadataEditor
             key={`editor/${user.id}/${target.id}`}
             account={user.id}

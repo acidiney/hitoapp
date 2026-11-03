@@ -4,6 +4,7 @@ import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import MetadataEditor from "../../metadata/components/MetadataEditor";
+import MusicBrainzIds from "../../metadata/components/MusicBrainzIds";
 import MetadataObservations from "../../metadata/components/MetadataObservations";
 
 export default function AlbumDetailsPage({
@@ -28,6 +29,20 @@ export default function AlbumDetailsPage({
         </div>
       </section>
       <ArtworkStatus release={target.id} />
+      <MusicBrainzIds
+        ids={[
+          {
+            label: "Release",
+            kind: "release",
+            id: detail.musicbrainz.release_id,
+          },
+          {
+            label: "Release group",
+            kind: "release-group",
+            id: detail.musicbrainz.release_group_id,
+          },
+        ]}
+      />
       <MetadataEditor
         key={`${user.id}/${target.id}`}
         account={user.id}

@@ -60,6 +60,23 @@ export const albumEditionChoiceApi = {
     return response.json();
   },
 
+  async tagged(
+    account: string,
+    release: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"TaggedAlbumEdition">> {
+    const response = await request(`${album(release)}/tagged-edition`, {
+      action: "album_edition.tagged",
+      method: "POST",
+      account,
+      signal,
+    });
+    const value = (await response.json()) as Schema<"TaggedAlbumEdition">;
+    if (value.status !== "found" && value.status !== "none")
+      throw new Error("Hito returned an invalid edition response. Try again.");
+    return value;
+  },
+
   async tracks(
     account: string,
     release: string,

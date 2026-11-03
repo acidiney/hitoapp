@@ -105,3 +105,31 @@
     grid-template-columns: 80px minmax(0, 1fr);
   }
 }
+.musicbrainz-ids {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.musicbrainz-ids h2 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.musicbrainz-ids dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.musicbrainz-ids dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.musicbrainz-ids dt {
+  color: var(--muted);
+  min-width: 96px;
+}
+.musicbrainz-ids dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

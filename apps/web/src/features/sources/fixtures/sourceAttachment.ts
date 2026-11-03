@@ -65,6 +65,7 @@ export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
     },
     selected_observation: primary,
     credited_artists: [],
+    musicbrainz_recording_id: null,
     observations: { items: [primary], next_before: null },
   },
 };
