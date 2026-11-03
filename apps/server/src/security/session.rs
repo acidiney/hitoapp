@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use hito_core::{AuthSession, Error};
+use hito_core::{AuthSession, Error, SESSION_SECONDS};
 
 pub fn token(headers: &HeaderMap) -> ApiResult<&str> {
     if let Some(value) = headers.get(header::AUTHORIZATION) {
@@ -33,7 +33,7 @@ pub fn token(headers: &HeaderMap) -> ApiResult<&str> {
 }
 
 pub fn session_response(config: &Config, session: AuthSession, status: StatusCode) -> Response {
-    let cookie = cookie(config, &session.token, 2592000);
+    let cookie = cookie(config, &session.token, SESSION_SECONDS as u32);
     (status, [(header::SET_COOKIE, cookie)], Json(session)).into_response()
 }
 

@@ -1,8 +1,7 @@
-use super::{Actor, Identity, SessionInfo, SessionsRevoked};
+use super::{Actor, Identity, SESSION_SECONDS, SessionInfo, SessionsRevoked};
 use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 
-const SESSION_SECONDS: i64 = 2_592_000;
 const MAX_LISTED: i64 = 200;
 
 impl Identity {
@@ -14,9 +13,10 @@ impl Identity {
         let rows: Vec<(String, i64)> = sqlx::query_as(
             "SELECT token_hash, expires_at FROM sessions
              WHERE user_id = ? AND expires_at > unixepoch()
-             ORDER BY expires_at DESC, token_hash LIMIT ?",
+             ORDER BY token_hash = ? DESC, expires_at DESC, token_hash LIMIT ?",
         )
         .bind(actor.id())
+        .bind(actor.session_binding())
         .bind(MAX_LISTED)
         .fetch_all(&self.store.pool)
         .await?;

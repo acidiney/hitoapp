@@ -12,6 +12,8 @@ mod setup;
 mod types;
 
 use crate::store::Store;
+
+pub const SESSION_SECONDS: i64 = 2_592_000;
 pub(crate) use access::{library_access, personal_library, recording_access, shared_library};
 pub use types::{
     AccountDeletion, Actor, AuthSession, ChangePassword, Credentials, DeleteAccount, Library,
