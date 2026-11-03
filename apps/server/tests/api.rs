@@ -111,6 +111,8 @@ mod artwork;
 mod album_editions;
 #[path = "api/album_library_level.rs"]
 mod album_library_level;
+#[path = "api/album_tagged_edition.rs"]
+mod album_tagged_edition;
 #[path = "api/artist_association_changes.rs"]
 mod artist_association_changes;
 #[path = "api/artist_discography.rs"]

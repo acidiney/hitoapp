@@ -10,7 +10,7 @@ use axum::{
 use hito_core::{
     AlbumEditionChoiceReceipt, AlbumEditionTrackListAvailability, AlbumLibraryLevel,
     AlbumTrackAudio, ChooseAlbumEdition, ClearAlbumEdition, FindAlbumTrackAudio,
-    ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, Services,
+    ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, Services, TaggedAlbumEdition,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -44,6 +44,38 @@ pub async fn track_list(
             .map_or_else(|error| error.code(), |read| read.outcome()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Album edition track list HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/albums/{id}/tagged-edition", operation_id = "tagged_album_edition",
+    params(("id" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = TaggedAlbumEdition, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_tagged_album_edition", request_id = %Uuid::new_v4()))]
+pub async fn tagged_edition(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Json<TaggedAlbumEdition>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .tagged_album_edition_until(&actor, &id, std::future::pending())
+        .await;
+    tracing::debug!(
+        outcome = result.as_ref().map_or_else(
+            |error| error.code(),
+            |found| match found {
+                TaggedAlbumEdition::Found { .. } => "found",
+                TaggedAlbumEdition::None => "none",
+            }
+        ),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Tagged album edition HTTP request completed"
     );
     Ok(Json(result?))
 }

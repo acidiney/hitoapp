@@ -1221,6 +1221,84 @@
         ]
       }
     },
+    "/api/v1/albums/{id}/tagged-edition": {
+      "post": {
+        "operationId": "tagged_album_edition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaggedAlbumEdition"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artist-corrections": {
       "get": {
         "operationId": "shared_artist_corrections",
@@ -26036,6 +26114,7 @@
           "artist",
           "selected_observation",
           "credited_artists",
+          "musicbrainz_recording_id",
           "observations"
         ],
         "properties": {
@@ -26047,6 +26126,12 @@
             "items": {
               "$ref": "#/components/schemas/CreditedArtistView"
             }
+          },
+          "musicbrainz_recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationPage"
@@ -26457,11 +26542,15 @@
           "release_id",
           "title",
           "artist",
+          "musicbrainz",
           "observations"
         ],
         "properties": {
           "artist": {
             "$ref": "#/components/schemas/OptionalTextMetadata"
+          },
+          "musicbrainz": {
+            "$ref": "#/components/schemas/ReleaseMusicBrainzIds"
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationPage"
@@ -26471,6 +26560,27 @@
           },
           "title": {
             "$ref": "#/components/schemas/TextMetadata"
+          }
+        }
+      },
+      "ReleaseMusicBrainzIds": {
+        "type": "object",
+        "required": [
+          "release_id",
+          "release_group_id"
+        ],
+        "properties": {
+          "release_group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -27618,6 +27728,42 @@
                 "type": "string",
                 "enum": [
                   "audio_stream"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "TaggedAlbumEdition": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "edition",
+              "status"
+            ],
+            "properties": {
+              "edition": {
+                "$ref": "#/components/schemas/SavedAlbumEdition"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "found"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "none"
                 ]
               }
             }

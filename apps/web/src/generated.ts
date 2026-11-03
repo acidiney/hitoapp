@@ -196,6 +196,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/albums/{id}/tagged-edition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["tagged_album_edition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artist-corrections": {
         parameters: {
             query?: never;
@@ -4857,6 +4873,7 @@ export interface components {
         RecordingMetadata: {
             artist: components["schemas"]["TextMetadata"];
             credited_artists: components["schemas"]["CreditedArtistView"][];
+            musicbrainz_recording_id: string | null;
             observations: components["schemas"]["ObservationPage"];
             recording_id: string;
             selected_observation: components["schemas"]["MetadataObservation"] | null;
@@ -4959,9 +4976,14 @@ export interface components {
         };
         ReleaseMetadata: {
             artist: components["schemas"]["OptionalTextMetadata"];
+            musicbrainz: components["schemas"]["ReleaseMusicBrainzIds"];
             observations: components["schemas"]["ObservationPage"];
             release_id: string;
             title: components["schemas"]["TextMetadata"];
+        };
+        ReleaseMusicBrainzIds: {
+            release_group_id: string | null;
+            release_id: string | null;
         };
         ReleasePage: components["schemas"]["Page_Release"];
         ReleaseTrack: components["schemas"]["Recording"] & {
@@ -5258,6 +5280,14 @@ export interface components {
             index: number;
             /** @enum {string} */
             kind: "audio_stream";
+        };
+        TaggedAlbumEdition: {
+            edition: components["schemas"]["SavedAlbumEdition"];
+            /** @enum {string} */
+            status: "found";
+        } | {
+            /** @enum {string} */
+            status: "none";
         };
         TextMetadata: {
             inherited: string;
@@ -6301,6 +6331,61 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    tagged_album_edition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaggedAlbumEdition"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
