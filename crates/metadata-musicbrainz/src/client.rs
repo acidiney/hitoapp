@@ -1,7 +1,7 @@
 use crate::{
-    ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, RecordingProbe, discography,
-    edition, edition_listing, identifiers, projection, search, transport::Transport,
-    user_agent::user_agent,
+    ArtistRecordings, Error, GenreEntity, IsrcRecording, NameSearch, RecordingProbe,
+    ReleaseGroupLink, discography, edition, edition_listing, identifiers, projection, search,
+    transport::Transport, user_agent::user_agent,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -248,6 +248,34 @@ impl MusicBrainzClient {
             },
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz recording lookup completed"
+        );
+        result
+    }
+
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "release_group_lookup", request_id = tracing::field::Empty))]
+    pub async fn release_group_of(&self, id: &str) -> Result<Option<ReleaseGroupLink>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::valid_release(id) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.release_group(id).await {
+                Ok(bytes) => identifiers::release_group_link(&bytes).map(Some),
+                Err(Error::Status(404)) => Ok(None),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz release lookup completed"
         );
         result
     }

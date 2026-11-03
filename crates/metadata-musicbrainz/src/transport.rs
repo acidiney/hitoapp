@@ -194,6 +194,17 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
+    pub(super) async fn release_group(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("release/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint
+            .query_pairs_mut()
+            .extend_pairs([("fmt", "json"), ("inc", "release-groups")]);
+        self.json(endpoint, MAX_PROFILE_BODY_BYTES).await
+    }
+
     pub(super) async fn genres(&self, entity: &str, id: &str) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint

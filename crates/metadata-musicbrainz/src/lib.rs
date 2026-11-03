@@ -17,6 +17,7 @@ pub use cover_art::{CoverArt, CoverArtClient, CoverKind};
 pub use error::Error;
 pub use identifiers::{
     ArtistRecording, ArtistRecordings, GenreEntity, IsrcRecording, MAX_PROBES, RecordingProbe,
+    ReleaseGroupLink,
 };
 pub use search::{NAME_SEARCH_LIMIT, NameCandidate, NameSearch};
 

@@ -43,6 +43,12 @@ impl ArtistRecordings {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReleaseGroupLink {
+    pub release_id: String,
+    pub release_group_id: String,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GenreEntity {
     Artist,
@@ -72,6 +78,18 @@ struct NamedGenre {
     name: String,
     #[serde(default)]
     count: u32,
+}
+
+#[derive(Deserialize)]
+struct ReleaseLookup {
+    id: String,
+    #[serde(rename = "release-group")]
+    group: Option<NamedId>,
+}
+
+#[derive(Deserialize)]
+struct NamedId {
+    id: String,
 }
 
 #[derive(Deserialize)]
@@ -277,6 +295,21 @@ fn credited(recording: Recording) -> Result<IsrcRecording, Error> {
         id: recording.id,
         artist_ids,
     })
+}
+
+pub(super) fn release_group_link(bytes: &[u8]) -> Result<ReleaseGroupLink, Error> {
+    let lookup: ReleaseLookup = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    let group = lookup.group.ok_or(Error::InvalidLookup)?;
+    canonical_id(&lookup.id)?;
+    canonical_id(&group.id)?;
+    Ok(ReleaseGroupLink {
+        release_id: lookup.id,
+        release_group_id: group.id,
+    })
+}
+
+pub(super) fn valid_release(id: &str) -> bool {
+    canonical_id(id).is_ok()
 }
 
 pub(super) fn valid_recording(id: &str) -> bool {
