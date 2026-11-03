@@ -17,6 +17,8 @@ pub struct RecordingMetadata {
     #[schema(required = true)]
     pub selected_observation: Option<MetadataObservation>,
     pub credited_artists: Vec<CreditedArtistView>,
+    #[schema(required = true)]
+    pub musicbrainz_recording_id: Option<String>,
     pub observations: ObservationPage,
 }
 
@@ -35,6 +37,7 @@ pub struct ReleaseMetadata {
     pub release_id: String,
     pub title: TextMetadata,
     pub artist: OptionalTextMetadata,
+    pub musicbrainz: super::ReleaseMusicBrainzIds,
     pub observations: ObservationPage,
 }
 

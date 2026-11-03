@@ -8,12 +8,15 @@ mod recording_credits;
 mod recording_fields;
 mod release_fields;
 mod release_read;
+mod tagged_ids;
 mod types;
 
 pub(crate) use recording_fields::{
     APPEARANCE_ARTIST, APPEARANCE_TITLE, RECORDING_ARTIST, RECORDING_TITLE, TextField,
     join_recording_fields, set_recording_field,
 };
+pub use tagged_ids::ReleaseMusicBrainzIds;
+pub(crate) use tagged_ids::tagged_release;
 pub use types::*;
 
 pub(crate) use credited_artists::{

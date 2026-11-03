@@ -25,6 +25,7 @@ pub enum Reply {
     ReleaseGroupTitles(Vec<String>),
     Genres(Vec<(String, u32)>),
     WikidataLink(Option<String>),
+    ReleaseGroup(String, String),
     NotFound,
     Unavailable,
 }
@@ -77,6 +78,14 @@ impl FakeMusicBrainz {
             .unwrap()
             .replies
             .insert(format!("recording-artists/{mbid}"), reply);
+    }
+
+    pub fn release(&self, mbid: &str, reply: Reply) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("release-group-of/{mbid}"), reply);
     }
 
     pub fn url(&self, resource: &str, reply: Reply) {
@@ -295,6 +304,13 @@ fn key(uri: &Uri) -> Option<String> {
             .is_some_and(|query| query.contains("inc=artist-credits"))
     {
         return Some(format!("recording-artists/{id}"));
+    }
+    if let Some(id) = path.strip_prefix("release/")
+        && uri
+            .query()
+            .is_some_and(|query| query.contains("inc=release-groups"))
+    {
+        return Some(format!("release-group-of/{id}"));
     }
     if let Some(id) = path.strip_prefix("artist/")
         && uri
@@ -528,6 +544,10 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
                 json!({"id": id, "genres": listed, "tags": [{"name": "not a genre", "count": 3}]}),
             )
         }
+        (_, Some(Reply::ReleaseGroup(release, group))) => (
+            StatusCode::OK,
+            json!({"id": release, "title": "Owned release", "release-group": {"id": group, "title": "Owned group"}}),
+        ),
         (Some(key), Some(Reply::WikidataLink(entity))) => {
             let id = key.rsplit('/').next().unwrap_or_default();
             let mut relations = vec![json!({"type": "official homepage", "target-type": "url",

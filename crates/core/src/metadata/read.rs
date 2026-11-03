@@ -32,6 +32,15 @@ impl Catalog {
             operation_id: row.try_get("artist_operation_id")?,
         };
         let selected: Option<String> = row.try_get("metadata_observation_id")?;
+        let musicbrainz_recording_id = match &selected {
+            Some(observation) => sqlx::query_scalar(
+                "SELECT mbid FROM recording_musicbrainz_observations WHERE observation_id = ? AND entity = 'recording'",
+            )
+            .bind(observation)
+            .fetch_optional(&mut *tx)
+            .await?,
+            None => None,
+        };
         let selected_observation = if let Some(id) = selected {
             sqlx::query("SELECT * FROM metadata_observations WHERE id = ? AND recording_id = ?")
                 .bind(id)
@@ -57,6 +66,7 @@ impl Catalog {
             artist,
             selected_observation,
             credited_artists,
+            musicbrainz_recording_id,
             observations,
         })
     }

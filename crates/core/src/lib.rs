@@ -53,7 +53,7 @@ pub use artist_catalog::{
     SavedAlbumEdition, SharedArtistCorrection, SharedArtistCorrectionQuery,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
     SharedCorrectionRef, SimilarArtistView, SimilarArtistsAvailability, SplitArtistIdentityGroup,
-    SplitDestination, UndoArtistIdentityChange, UndoRecordingArtistChange,
+    SplitDestination, TaggedAlbumEdition, UndoArtistIdentityChange, UndoRecordingArtistChange,
     UndoSharedArtistCorrection, UnlinkRecordingArtist, UpdateAutomaticLookups,
     UpdateMetadataSettings,
 };
@@ -112,7 +112,8 @@ pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
     CreditedArtistView, InspectedTags, MetadataHistoryQuery, MetadataObservation,
     MusicBrainzArtistRole, MusicBrainzArtistTag, ObservationOrigin, ObservationPage, ObservedTag,
-    OptionalTextMetadata, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
+    OptionalTextMetadata, RecordingMetadata, ReleaseMetadata, ReleaseMusicBrainzIds, TagLocation,
+    TextMetadata,
 };
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio, PlaybackAccess,

@@ -30,6 +30,7 @@ impl Catalog {
             personal: row.try_get("override_artist")?,
             operation_id: row.try_get("artist_operation_id")?,
         };
+        let musicbrainz = super::tagged_release(&mut tx, actor, &release_id).await?;
         let observations =
             history::page(&mut tx, history::Target::Release(&release_id), page).await?;
         tx.commit().await?;
@@ -38,6 +39,7 @@ impl Catalog {
             release_id,
             title,
             artist,
+            musicbrainz,
             observations,
         })
     }

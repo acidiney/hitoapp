@@ -330,15 +330,16 @@ impl ArtistCatalog {
         let mut detail = self.catalog.release(actor, id, browse).await?;
         if detail.tracks.offset == 0 {
             detail.saved_edition = Some(self.saved_album_edition(actor, id).await?);
-            detail.catalog_anchor = self.album_anchor(actor, &detail.release).await?;
+            detail.catalog_anchor = self.album_anchor(actor, &detail.release, false).await?;
         }
         Ok(detail)
     }
 
-    async fn album_anchor(
+    pub(super) async fn album_anchor(
         &self,
         actor: &Actor,
         release: &Release,
+        builtin_only: bool,
     ) -> Result<Option<AlbumCatalogAnchor>> {
         let mut candidates = selected(actor, &Browse::default(), Some(&release.id))?;
         candidates
@@ -357,13 +358,15 @@ impl ArtistCatalog {
             .build_query_as()
             .fetch_all(&self.store.pool)
             .await?;
-        self.first_readable_anchor(actor, candidates).await
+        self.first_readable_anchor(actor, candidates, builtin_only)
+            .await
     }
 
     async fn first_readable_anchor(
         &self,
         actor: &Actor,
         candidates: Vec<AlbumCatalogAnchor>,
+        builtin_only: bool,
     ) -> Result<Option<AlbumCatalogAnchor>> {
         if candidates.is_empty() {
             return Ok(None);
@@ -380,8 +383,9 @@ impl ArtistCatalog {
                 &candidate.association_id,
             )
             .await?
-            .is_some()
-            {
+            .is_some_and(|found| {
+                !builtin_only || found.provider == MetadataProvider::BuiltinMusicBrainz
+            }) {
                 return Ok(Some(candidate));
             }
         }

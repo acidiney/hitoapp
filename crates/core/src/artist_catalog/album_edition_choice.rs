@@ -312,7 +312,7 @@ fn next(revision: i64) -> Result<i64> {
         .ok_or_else(|| Error::Conflict("Album edition revision is exhausted".into()))
 }
 
-async fn stored(
+pub(super) async fn stored(
     connection: &mut SqliteConnection,
     actor: &Actor,
     release: &str,

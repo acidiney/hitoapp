@@ -2,6 +2,7 @@ mod album_audio;
 mod album_edition_choice;
 mod album_editions;
 mod album_library_level;
+mod album_tagged_edition;
 mod association_changes;
 mod associations;
 mod authority;
@@ -44,6 +45,7 @@ pub use album_editions::{
     ReadAlbumEditionTrackList,
 };
 pub use album_library_level::{AlbumLibraryLevel, LibraryLevel, ReadAlbumLibraryLevel};
+pub use album_tagged_edition::TaggedAlbumEdition;
 pub use association_changes::{
     ArtistAssociationChangeReceipt, ArtistAssociationChanges, ArtistAssociationRetirement,
     ArtistAssociationUndo, ArtistCorrectionRetirement, UndoRecordingArtistChange,
