@@ -39,6 +39,10 @@ vi.mock("../../community/components/CommunityRankingSettings", async () => {
   const { createElement: h } = await import("react");
   return { default: () => h("p", null, "Ranking stub") };
 });
+vi.mock("../../session/components/AccountSecurity", async () => {
+  const { createElement: h } = await import("react");
+  return { default: () => h("p", null, "Account security stub") };
+});
 vi.mock("../../session/components/ScreenLockSettings", async () => {
   const { createElement: h } = await import("react");
   return { default: () => h("p", null, "Screen lock stub") };

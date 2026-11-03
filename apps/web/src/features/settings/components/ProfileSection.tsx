@@ -6,6 +6,7 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useLockSession } from "../../session/hooks/useLockSession";
+import AccountSecurity from "../../session/components/AccountSecurity";
 import { useSignOut } from "../../session/hooks/useSignOut";
 
 export default function ProfileSection({
@@ -61,6 +62,7 @@ export default function ProfileSection({
           }
         />
       </SettingsCard>
+      <AccountSecurity key={`security:${user.id}`} account={user.id} />
     </>
   );
 }

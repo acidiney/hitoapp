@@ -221,6 +221,7 @@
 .provider-add label,
 .plugin-form label,
 .pin-form label,
+.password-form label,
 .dialog-form label,
 .field-label {
   display: grid;
@@ -254,6 +255,7 @@
   font-family: var(--font-mono);
   font-size: 12px;
 }
+.password-form fieldset,
 .pin-form fieldset {
   display: grid;
   gap: 10px;
@@ -262,10 +264,12 @@
   padding: 12px 0;
   border: 0;
 }
+.password-form input,
 .pin-form input {
   width: 100%;
   min-height: 44px;
 }
+.password-form fieldset > div,
 .pin-form fieldset > div {
   display: flex;
   flex-wrap: wrap;
