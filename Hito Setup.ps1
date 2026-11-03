@@ -14,8 +14,15 @@ function Write-SetupEvent([string] $event) {
 }
 function Invoke-Docker([string] $step, [string[]] $arguments) {
     Write-SetupEvent "$step.started"
-    & docker @arguments *> $null
-    if ($LASTEXITCODE -ne 0) { Write-SetupEvent "$step.failed"; throw "Hito could not finish the $step step. Check Docker and try again." }
+    $output = Join-Path $installation "$step.out"
+    & docker @arguments *> $output
+    if ($LASTEXITCODE -ne 0) {
+        Write-SetupEvent "$step.failed"
+        $reason = Select-String -LiteralPath $output -Pattern '"event":"installation.failed","message":"(.*)"}' | Select-Object -Last 1
+        if ($reason) { throw "Hito could not finish the $step step: $($reason.Matches[0].Groups[1].Value)" }
+        throw "Hito could not finish the $step step. The full output is in $output"
+    }
+    Remove-Item -LiteralPath $output -Force
     Write-SetupEvent "$step.completed"
 }
 try {
@@ -75,7 +82,7 @@ try {
 } catch {
     Write-SetupEvent 'failed'
     if ($stopped -and $container) { & docker start $container *> $null }
-    [Windows.Forms.MessageBox]::Show('Hito setup failed. Check Docker and try again. Your original music and library data are preserved.', 'Hito Setup') | Out-Null
+    [Windows.Forms.MessageBox]::Show("Hito setup failed. $($_.Exception.Message) Your original music and library data are preserved.", 'Hito Setup') | Out-Null
     exit 1
 } finally {
     $lockHandle.Dispose()

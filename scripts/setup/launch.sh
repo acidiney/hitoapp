@@ -32,11 +32,20 @@ run() {
   hito_step=$1
   shift
   printf '{"event":"installation.%s.started"}\n' "$hito_step" >> "$hito_installation/setup.log"
-  if "$@" >/dev/null 2>&1; then
+  hito_output="$hito_installation/$hito_step.out"
+  if "$@" > "$hito_output" 2>&1; then
     printf '{"event":"installation.%s.completed"}\n' "$hito_step" >> "$hito_installation/setup.log"
+    rm -f "$hito_output"
   else
     printf '{"event":"installation.%s.failed"}\n' "$hito_step" >> "$hito_installation/setup.log"
-    printf 'Hito could not finish the %s step. Check Docker and try again.\n' "$hito_step"
+    hito_reason=$(sed -n 's/.*"event":"installation.failed","message":"\(.*\)"}.*/\1/p' "$hito_output" | tail -n 1)
+    if [ -n "$hito_reason" ]; then
+      printf 'Hito could not finish the %s step: %s\n' "$hito_step" "$hito_reason"
+    else
+      printf 'Hito could not finish the %s step. The last lines it printed:\n' "$hito_step"
+      tail -n 15 "$hito_output"
+      printf 'The full output is in %s\n' "$hito_output"
+    fi
     exit 1
   fi
 }
