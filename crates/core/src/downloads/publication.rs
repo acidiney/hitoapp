@@ -89,8 +89,8 @@ impl Downloads {
         if owned {
             sqlx::query("UPDATE download_jobs SET status=?,attempts=max(attempts-?,0),next_attempt_at=unixepoch()+?,lease_token=NULL,lease_until=NULL,updated_at=unixepoch() WHERE id=? AND lease_token=?")
                 .bind(job).bind(i64::from(refund)).bind(delay).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            sqlx::query("UPDATE download_intents SET state=?,file_id=NULL,error=?,storage_wait=?,updated_at=unixepoch() WHERE id=? AND generation=? AND state!='removed'")
-                .bind(state).bind(reason).bind(i64::from(storage_full)).bind(&lease.intent_id).bind(lease.generation).execute(&mut *tx).await?;
+            sqlx::query("UPDATE download_intents SET state=?,file_id=NULL,error=?,updated_at=unixepoch() WHERE id=? AND generation=? AND state!='removed'")
+                .bind(state).bind(reason).bind(&lease.intent_id).bind(lease.generation).execute(&mut *tx).await?;
         }
         sqlx::query("UPDATE download_files SET state='deleting',cleanup_after=0 WHERE id=? AND attempt_id=? AND state!='ready'")
             .bind(&lease.file_id).bind(&lease.lease_token).execute(&mut *tx).await?;

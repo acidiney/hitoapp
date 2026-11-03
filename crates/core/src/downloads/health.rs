@@ -47,7 +47,8 @@ impl Downloads {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT root.id AS retention_id,i.id,i.state,i.generation AS intent_generation,i.access_grant_id,i.bytes_received,i.total_bytes,
-            CASE WHEN i.state='queued' AND i.storage_wait=1 THEN 'insufficient_storage' ELSE i.error END AS error,
+            CASE WHEN i.state='queued' AND EXISTS(SELECT 1 FROM download_jobs waiting WHERE waiting.intent_id=i.id
+                AND waiting.status='queued' AND waiting.attempts=0 AND waiting.next_attempt_at>unixepoch()) THEN 'insufficient_storage' ELSE i.error END AS error,
             f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
             COALESCE(choice.revision,0) AS choice_revision,
             (choice.binding_id IS NULL OR (EXISTS(SELECT 1 FROM source_choice_bindings permitted

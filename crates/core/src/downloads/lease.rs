@@ -57,7 +57,7 @@ impl Downloads {
         sqlx::query("INSERT INTO download_files(id,account_id,host_device,recording_id,state,attempt_id)
             SELECT ?,i.account_id,i.host_device,i.recording_id,'staging',? FROM download_intents i JOIN download_jobs j ON j.intent_id=i.id WHERE j.id=?")
             .bind(&file).bind(&token).bind(&id).execute(&mut *tx).await?;
-        sqlx::query("UPDATE download_intents SET state='running',file_id=?,bytes_received=0,total_bytes=NULL,error=NULL,storage_wait=0,updated_at=unixepoch()
+        sqlx::query("UPDATE download_intents SET state='running',file_id=?,bytes_received=0,total_bytes=NULL,error=NULL,updated_at=unixepoch()
             WHERE id=(SELECT intent_id FROM download_jobs WHERE id=?)")
             .bind(&file).bind(&id).execute(&mut *tx).await?;
         let mut lease: Lease = sqlx::query_as("SELECT j.id,j.account_id,j.intent_id,j.generation,j.attempts,j.lease_token,
