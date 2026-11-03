@@ -106,7 +106,7 @@ test("a short or mismatched new password is refused before anything is sent", ()
 
 test("a wrong current password shows one plain message and keeps the typed new password", async () => {
   vi.mocked(accountApi.changePassword).mockRejectedValue(
-    new HttpError(401, "Sign in to continue"),
+    new HttpError(422, "That password is not correct", "wrong_password"),
   );
   open();
   fill("not the password", "a new long password");
@@ -128,6 +128,24 @@ test("too many attempts show the server message", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Change password" }));
   expect((await screen.findByRole("alert")).textContent).toContain(
     "Too many attempts",
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    "revoke it under Open sessions below",
+  );
+});
+
+test("a change that lost a race shows the server message", async () => {
+  vi.mocked(accountApi.changePassword).mockRejectedValue(
+    new HttpError(
+      409,
+      "Your password was just changed elsewhere. Sign in again.",
+    ),
+  );
+  open();
+  fill("old password here", "a new long password");
+  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    "Your password was just changed elsewhere. Sign in again.",
   );
 });
 

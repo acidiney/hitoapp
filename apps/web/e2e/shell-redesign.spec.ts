@@ -98,7 +98,9 @@ test("a phone shows a four-tab bar with the mini player above it", async ({
   expect(Math.round(player!.y + player!.height)).toBeLessThanOrEqual(
     Math.round(bar!.y) + 1,
   );
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeHidden();
   await expect(
     page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();

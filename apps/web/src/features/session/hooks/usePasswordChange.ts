@@ -7,9 +7,11 @@ import { accountApi } from "../api/accountApi";
 const minimumLength = 12;
 
 function failure(error: unknown) {
-  return error instanceof HttpError && error.status === 401
-    ? "The current password is not correct."
-    : errorMessage(error);
+  if (error instanceof HttpError && error.code === "wrong_password")
+    return "The current password is not correct.";
+  if (error instanceof HttpError && error.status === 429)
+    return `${error.message} If you do not recognise a session, revoke it under Open sessions below.`;
+  return errorMessage(error);
 }
 
 export function usePasswordChange(account: string, onChanged: () => void) {

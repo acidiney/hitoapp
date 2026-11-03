@@ -52,7 +52,9 @@ test("settings deep links, legacy aliases and the grouped navigation work for an
   await expect(
     page.getByRole("heading", { name: "Profile", level: 2 }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "All settings" }).click();
   await expect(nav).toBeVisible();
