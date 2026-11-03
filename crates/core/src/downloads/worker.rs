@@ -54,18 +54,13 @@ impl Downloads {
         let started = Instant::now();
         let result = self.receive(&lease, &mut stopped).await;
         lease.retire(&self.store).await?;
-        let outcome = match result {
-            Ok(Some(location)) => match self.publish_ready(&lease, &location).await {
-                Ok(()) => "ready",
-                Err(error) => {
-                    let stopping = *stopped.borrow();
-                    self.finish_failed(&lease, Some(error), stopping).await?
-                }
-            },
-            Ok(None) => self.finish_failed(&lease, None, true).await?,
+        let outcome = match self.settle(&lease, result, &stopped).await {
+            Ok(outcome) => outcome,
             Err(error) => {
-                let stopping = *stopped.borrow();
-                self.finish_failed(&lease, Some(error), stopping).await?
+                if error.is_storage_full() {
+                    self.active.block_on_storage(&lease.lease_token)?;
+                }
+                return Err(error);
             }
         };
         if outcome != "ready"
@@ -76,6 +71,28 @@ impl Downloads {
         tracing::info!(job_id = %lease.id, intent_id = %lease.intent_id, account_id = %lease.account_id,
             attempt = lease.attempts, outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Download transfer finished");
         Ok(true)
+    }
+
+    async fn settle(
+        &self,
+        lease: &Lease,
+        result: Result<Option<ManagedFileLocation>>,
+        stopped: &watch::Receiver<bool>,
+    ) -> Result<&'static str> {
+        match result {
+            Ok(Some(location)) => match self.publish_ready(lease, &location).await {
+                Ok(()) => Ok("ready"),
+                Err(error) => {
+                    let stopping = *stopped.borrow();
+                    self.finish_failed(lease, Some(error), stopping).await
+                }
+            },
+            Ok(None) => self.finish_failed(lease, None, true).await,
+            Err(error) => {
+                let stopping = *stopped.borrow();
+                self.finish_failed(lease, Some(error), stopping).await
+            }
+        }
     }
 
     async fn receive(

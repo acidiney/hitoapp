@@ -31,6 +31,14 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
+    pub(crate) fn is_storage_full(&self) -> bool {
+        match self {
+            Self::InsufficientStorage => true,
+            Self::Database(sqlx::Error::Database(error)) => error.code().as_deref() == Some("13"),
+            _ => false,
+        }
+    }
+
     pub fn code(&self) -> &'static str {
         match self {
             Self::Invalid(_) => "invalid",

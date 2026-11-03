@@ -69,7 +69,33 @@ async fn make_due(fixture: &AudioLibrary) {
         SqliteConnection::connect_with(&SqliteConnectOptions::new().filename(database))
             .await
             .unwrap();
-    sqlx::query("UPDATE download_jobs SET next_attempt_at=0")
+    sqlx::query(
+        "UPDATE download_jobs SET next_attempt_at=next_attempt_at-300,updated_at=updated_at-300",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+}
+
+async fn job_row(fixture: &AudioLibrary) -> (i64, i64) {
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(fixture.directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query_as("SELECT attempts,next_attempt_at-unixepoch() FROM download_jobs")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap()
+}
+
+async fn expire_lease(fixture: &AudioLibrary) {
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(fixture.directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE download_jobs SET lease_until=0 WHERE status='running'")
         .execute(&mut connection)
         .await
         .unwrap();
@@ -217,9 +243,17 @@ async fn a_full_disk_mid_download_queues_a_storage_state_and_publishes_nothing()
     assert_eq!(sources[0].id, fixture.source.id);
     assert!(!run(&fixture).await);
     assert_eq!(fixture.server.requests("v1/audio").await.len(), 1);
+    let (attempts, wait) = job_row(&fixture).await;
+    assert_eq!(attempts, 0);
+    assert!((100..=120).contains(&wait), "wait was {wait} seconds");
 
     faults.clear("full-disk");
     make_due(&fixture).await;
+    assert_eq!(
+        status(&fixture, &recording).await.error.as_deref(),
+        Some(STORAGE_FULL),
+        "the storage reason must stay until the next attempt starts"
+    );
     assert!(run(&fixture).await);
     let source = download_source(&fixture, &recording).await;
     assert_eq!(play(&fixture, &source).await, fixture.original);
@@ -312,4 +346,107 @@ async fn a_published_download_still_plays_while_the_disk_is_full() {
     ));
     assert_eq!(extension_count(&fixture, ".media"), 1);
     assert_eq!(extension_count(&fixture, ".part"), 0);
+}
+
+async fn a_failing_step_recovers(flag: &str) {
+    let faults = faults();
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let recording = fixture.source.recording_id.clone();
+    faults.set(flag);
+    request(&fixture, &recording).await;
+    assert!(run(&fixture).await);
+    let waiting = status(&fixture, &recording).await;
+    assert!(
+        matches!(waiting.status, DownloadState::Queued),
+        "{flag}: {:?} {:?}",
+        waiting.status,
+        waiting.error
+    );
+    assert_eq!(waiting.error.as_deref(), Some(STORAGE_FULL));
+    assert!(waiting.source_id.is_none());
+    assert_eq!(
+        fixture
+            .hito
+            .catalog
+            .sources(&fixture.actor, &recording)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(extension_count(&fixture, ".part"), 0);
+
+    faults.clear(flag);
+    make_due(&fixture).await;
+    assert!(run(&fixture).await);
+    let source = download_source(&fixture, &recording).await;
+    assert_eq!(play(&fixture, &source).await, fixture.original);
+    assert_eq!(extension_count(&fixture, ".media"), 1);
+    assert_eq!(extension_count(&fixture, ".part"), 0);
+}
+
+#[tokio::test]
+async fn no_space_to_sync_the_directory_waits_and_recovers() {
+    if shim::child_faults().is_none() {
+        shim::run_in_child("no_space_to_sync_the_directory_waits_and_recovers").await;
+        return;
+    }
+    a_failing_step_recovers("full-sync-dir").await;
+}
+
+#[tokio::test]
+async fn a_full_disk_shared_with_the_database_keeps_the_attempt_and_waits() {
+    if shim::child_faults().is_none() {
+        shim::run_in_child("a_full_disk_shared_with_the_database_keeps_the_attempt_and_waits")
+            .await;
+        return;
+    }
+    let faults = faults();
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let tail = fixture.server.hold_audio_tail(64);
+    let recording = fixture.source.recording_id.clone();
+    request(&fixture, &recording).await;
+    let downloads = fixture.hito.downloads.clone();
+    let worker = tokio::spawn(async move { downloads.run_next_job_until(pending()).await });
+    tokio::time::timeout(Duration::from_secs(10), tail.entered())
+        .await
+        .unwrap();
+    staged_prefix(&fixture, 64).await;
+    faults.set("full-disk");
+    faults.set("full-db");
+    tail.release();
+    let _ = tokio::time::timeout(Duration::from_secs(40), worker)
+        .await
+        .unwrap();
+    faults.clear("full-disk");
+    faults.clear("full-db");
+    assert_eq!(
+        job_row(&fixture).await.0,
+        1,
+        "the failed attempt must not have been settled while the database was full"
+    );
+
+    expire_lease(&fixture).await;
+    let _ = run(&fixture).await;
+    let waiting = status(&fixture, &recording).await;
+    assert!(
+        matches!(waiting.status, DownloadState::Queued),
+        "{:?} {:?}",
+        waiting.status,
+        waiting.error
+    );
+    assert_eq!(waiting.error.as_deref(), Some(STORAGE_FULL));
+    let (attempts, wait) = job_row(&fixture).await;
+    assert_eq!(attempts, 0, "a storage cause must not use up an attempt");
+    assert!((100..=120).contains(&wait), "wait was {wait} seconds");
+    let _ = run(&fixture).await;
+    assert_eq!(fixture.server.requests("v1/audio").await.len(), 1);
+    assert_eq!(extension_count(&fixture, ".part"), 0);
+
+    make_due(&fixture).await;
+    assert!(run(&fixture).await);
+    let source = download_source(&fixture, &recording).await;
+    assert_eq!(play(&fixture, &source).await, fixture.original);
 }

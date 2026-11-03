@@ -2,7 +2,7 @@ use super::{Downloads, lease::Lease};
 use crate::{Result, library_storage::ManagedFileLocation};
 use uuid::Uuid;
 
-const STORAGE_RETRY_SECONDS: i64 = 120;
+pub(super) const STORAGE_RETRY_SECONDS: i64 = 120;
 
 impl Downloads {
     pub(super) async fn mark_verifying(&self, lease: &Lease) -> Result<()> {
@@ -65,7 +65,7 @@ impl Downloads {
             false
         };
         let storage_full =
-            current && !stopped && matches!(&error, Some(crate::Error::InsufficientStorage));
+            current && !stopped && error.as_ref().is_some_and(crate::Error::is_storage_full);
         let (state, job, reason, refund, delay) = if !current {
             ("failed", "cancelled", Some("authority_changed"), false, 0)
         } else if stopped {

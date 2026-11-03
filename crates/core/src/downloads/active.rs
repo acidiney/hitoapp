@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Clone, Default)]
-pub(crate) struct ActiveJobs(Arc<Mutex<HashSet<String>>>);
+pub(crate) struct ActiveJobs(Arc<Mutex<HashSet<String>>>, Arc<Mutex<HashSet<String>>>);
 
 pub(super) struct ActiveJob {
     jobs: ActiveJobs,
@@ -15,6 +15,15 @@ pub(super) struct ActiveJob {
 impl ActiveJobs {
     pub(super) fn contains(&self, token: &str) -> Result<bool> {
         Ok(self.0.lock().map_err(|_| stopped())?.contains(token))
+    }
+
+    pub(super) fn block_on_storage(&self, token: &str) -> Result<()> {
+        self.1.lock().map_err(|_| stopped())?.insert(token.into());
+        Ok(())
+    }
+
+    pub(super) fn take_storage_block(&self, token: &str) -> Result<bool> {
+        Ok(self.1.lock().map_err(|_| stopped())?.remove(token))
     }
 
     pub(super) fn enter(&self, token: &str) -> Result<ActiveJob> {

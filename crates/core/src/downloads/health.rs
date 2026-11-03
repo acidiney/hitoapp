@@ -48,7 +48,7 @@ impl Downloads {
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT root.id AS retention_id,i.id,i.state,i.generation AS intent_generation,i.access_grant_id,i.bytes_received,i.total_bytes,
             CASE WHEN i.state='queued' AND EXISTS(SELECT 1 FROM download_jobs waiting WHERE waiting.intent_id=i.id
-                AND waiting.status='queued' AND waiting.attempts=0 AND waiting.next_attempt_at>unixepoch()) THEN 'insufficient_storage' ELSE i.error END AS error,
+                AND waiting.status='queued' AND waiting.attempts=0 AND waiting.next_attempt_at-waiting.updated_at=?) THEN 'insufficient_storage' ELSE i.error END AS error,
             f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
             COALESCE(choice.revision,0) AS choice_revision,
             (choice.binding_id IS NULL OR (EXISTS(SELECT 1 FROM source_choice_bindings permitted
@@ -64,7 +64,7 @@ impl Downloads {
                 AND f.recording_id=i.recording_id AND f.state='ready'
             LEFT JOIN recording_source_choices choice ON choice.user_id=i.account_id AND choice.recording_id=i.recording_id
             WHERE i.account_id=? AND i.recording_id=? AND i.host_device=? AND i.state!='removed'")
-            .bind(actor.id()).bind(recording).bind(self.host.as_str()).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+            .bind(super::publication::STORAGE_RETRY_SECONDS).bind(actor.id()).bind(recording).bind(self.host.as_str()).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let status = match row.try_get::<&str, _>("state")? {
             "queued" => DownloadState::Queued,
             "running" => DownloadState::Running,

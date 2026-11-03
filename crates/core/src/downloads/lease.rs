@@ -92,11 +92,21 @@ impl Downloads {
             if self.active.contains(&token)? || managed {
                 continue;
             }
+            let storage = self.active.take_storage_block(&token)?;
             if let Some(file) = file {
                 self.files
                     .revoke(stored_uuid(&file)?, stored_uuid(&token)?)?;
                 sqlx::query("UPDATE download_files SET state='deleting',cleanup_after=0 WHERE id=? AND state='staging'")
                     .bind(file).execute(&mut *connection).await?;
+            }
+            if storage {
+                sqlx::query("UPDATE download_intents SET state='queued',file_id=NULL,error=NULL,updated_at=unixepoch() WHERE id=? AND state IN ('running','verifying')")
+                    .bind(&intent).execute(&mut *connection).await?;
+                sqlx::query("UPDATE download_jobs SET status=CASE WHEN (SELECT state FROM download_intents WHERE id=?)='removed' THEN 'cancelled' ELSE 'queued' END,
+                    attempts=max(attempts-1,0),next_attempt_at=unixepoch()+?,lease_token=NULL,lease_until=NULL,updated_at=unixepoch() WHERE id=? AND lease_token=?")
+                    .bind(&intent).bind(super::publication::STORAGE_RETRY_SECONDS).bind(&job).bind(&token).execute(&mut *connection).await?;
+                tracing::debug!(job_id = %job, outcome = "recovered_storage_wait", "Expired download lease recovered after a storage failure");
+                continue;
             }
             sqlx::query("UPDATE download_intents SET state=CASE WHEN (SELECT attempts FROM download_jobs WHERE id=?)>=3 THEN 'failed' ELSE 'queued' END,
                 file_id=NULL,error='lease_expired',updated_at=unixepoch() WHERE id=? AND state IN ('running','verifying')")

@@ -7,10 +7,12 @@ const SOURCE: &str = r#"
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
@@ -22,14 +24,31 @@ static int flagged(const char *name) {
     return access(flag, F_OK) == 0;
 }
 
-static int on_full_disk(int fd) {
-    char link[64], path[PATH_MAX];
-    if (!flagged("full-disk")) return 0;
+static int path_of(int fd, char *path) {
+    char link[64];
     snprintf(link, sizeof link, "/proc/self/fd/%d", fd);
-    ssize_t size = readlink(link, path, sizeof path - 1);
+    ssize_t size = readlink(link, path, PATH_MAX - 1);
     if (size <= 0) return 0;
     path[size] = 0;
-    return strstr(path, ".downloads/") != 0;
+    return 1;
+}
+
+static int on_full_disk(int fd) {
+    char path[PATH_MAX];
+    int disk = flagged("full-disk");
+    int database = flagged("full-db");
+    if (!disk && !database) return 0;
+    if (!path_of(fd, path)) return 0;
+    if (disk && strstr(path, ".downloads/")) return 1;
+    return database && strstr(path, "hito.db") != 0;
+}
+
+static int in_downloads_directory(int fd) {
+    char path[PATH_MAX];
+    size_t size;
+    if (!path_of(fd, path)) return 0;
+    size = strlen(path);
+    return size >= 10 && strcmp(path + size - 10, ".downloads") == 0;
 }
 
 ssize_t write(int fd, const void *buffer, size_t count) {
@@ -75,7 +94,7 @@ ssize_t pwrite64(int fd, const void *buffer, size_t count, off_t offset) {
 int fsync(int fd) {
     static int (*original)(int);
     if (!original) original = dlsym(RTLD_NEXT, "fsync");
-    if (on_full_disk(fd)) {
+    if (on_full_disk(fd) || (flagged("full-sync-dir") && in_downloads_directory(fd))) {
         errno = ENOSPC;
         return -1;
     }
