@@ -129,6 +129,31 @@ Limits. The album must have at most 1,000 tracks to be compared. The server cann
 
 The chosen-artist [discography](artist-discography.md#comparing-a-linked-album-with-its-edition) can ask how much of the remembered edition an album holds: `POST /api/v1/albums/{id}/edition/library-level` reuses this read and answers In library, Partly in library or Linked with "n of m tracks". It runs only when the user asks and fetches nothing without a remembered edition.
 
+### Edition named by the file tags
+
+Current behavior in source, covered by tests with owned fakes; not a public release and not checked against live MusicBrainz. When every track of a library album carries the same MusicBrainz release id in its file tags (`MUSICBRAINZ_ALBUMID`, kept since inspection version 5) and the owner has never chosen an edition for that album, **Show complete track list** opens straight on that edition instead of the discography browser. The list says it comes from the file tags, and **Change edition** opens the browser as before. Nothing is remembered: the tagged edition is worked out again on each click, and **Forget edition** does not appear because no choice exists.
+
+```mermaid
+flowchart TD
+  Click[Show complete track list] --> Choice{Owner ever chose or forgot an edition?}
+  Choice -->|yes| Own[Today's behavior: remembered edition or browser]
+  Choice -->|no| Tags{All tracks tag one release id?}
+  Tags -->|no| Browser[Discography browser]
+  Tags -->|yes| Consent{Automatic artist lookup on, MusicBrainz selected, reviewed MusicBrainz artist?}
+  Consent -->|no| Browser
+  Consent -->|yes| Group{Release group tagged by all tracks?}
+  Group -->|yes| Open[Read that edition]
+  Group -->|no| Ask[GET /ws/2/release/id?inc=release-groups, one request]
+  Ask -->|found| Open
+  Ask -->|unknown, outage, timeout| Browser
+```
+
+`POST /api/v1/albums/{id}/tagged-edition` answers `found` with the anchor recording, its reviewed MusicBrainz association, the release group and the edition (the tagged release id, or the surviving release when MusicBrainz reports a merge), or `none`. The web app then reads the edition with the existing `edition-track-list` route. Every reason for not finding an edition answers `none` and falls back to today's behavior: tracks that disagree or lack the tag, an owner choice (a forgotten choice counts, because the owner decided), consent off, no readable MusicBrainz artist for the album, an id that MusicBrainz does not know, an outage and a timeout. The lookup makes no request when the release group is already tagged, otherwise exactly one request, under the 15-second budget, the 13-second lookup deadline, the 10-second HTTP timeout, the one-request-per-second MusicBrainz pace and the shared admission limit, without retries. It is never made when the page loads or when files are scanned, only after the click. An owner's choice is never overwritten. Logs carry the outcome and timing only, never the identifiers.
+
+### MusicBrainz identifiers on details pages
+
+Album details show the release id, and the release group id when it is tagged, only when every track of the album states the same value. Track details show the recording id of the selected observation. Each is small text linking to musicbrainz.org (opened in a new tab without a referrer). Only ids that Hito already holds from file tags are shown; the pages make no MusicBrainz request, and a value that is missing, malformed or in conflict is not shown. These are public catalog identifiers read from the owner's own files; they are visible to the same accounts that can open the album or track page, and they are not logged. Provider-entity links are not part of this change.
+
 ## Playing a catalog album from a discography card
 
 Current behavior in source, covered by tests with owned fakes; not a public release. A release card in a chosen artist's discography that no library album is linked to offers **Play album** and **Open album**. Nothing is requested until one of them is pressed. Opening replaces the card with the same album header as a library album (cover, title, credit, track count and length, **Play**, **Shuffle**) and the library's track table (number that turns into a play icon on hover, title, time). The first edition the provider lists is read automatically. A compact **Edition** selector appears only when the provider lists two or more editions or more pages of them. The page no longer shows an Editions section, a duplicate title or a "has not been checked" note, and a catalog-only card says "Not in your library" instead of "Catalog only". Pregap and data tracks are not listed.
