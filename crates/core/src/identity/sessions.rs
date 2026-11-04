@@ -1,15 +1,78 @@
 use super::{Actor, AuthSession, Credentials, Identity, SESSION_SECONDS, User, credentials};
 use crate::{Error, Result};
 use sha2::{Digest, Sha256};
+use tracing::Instrument;
 use uuid::Uuid;
 
 const SEEN_INTERVAL_SECONDS: i64 = 300;
-const SEEN_WRITE_BUDGET: std::time::Duration = std::time::Duration::from_millis(250);
+const SEEN_WRITE_BUDGET: std::time::Duration = std::time::Duration::from_millis(500);
+const SEEN_LOCK_WAIT_MILLIS: i64 = 100;
+const SEEN_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(2);
 const MAX_CLIENT_BYTES: usize = 64;
+
+#[derive(Clone, Default)]
+pub(crate) struct SeenAttempts {
+    sessions:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, std::time::Instant>>>,
+}
+
+impl SeenAttempts {
+    fn reserve(&self, session_hash: &str) -> bool {
+        let now = std::time::Instant::now();
+        let mut sessions = self
+            .sessions
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        sessions.retain(|_, since| now.duration_since(*since) < SEEN_RETRY_AFTER);
+        sessions.insert(session_hash.to_owned(), now).is_none()
+    }
+}
+
+async fn write_seen(pool: &sqlx::SqlitePool, session_hash: &str) -> Result<()> {
+    let mut connection = pool.acquire().await?;
+    let patience: i64 = sqlx::query_scalar("PRAGMA busy_timeout")
+        .fetch_one(&mut *connection)
+        .await?;
+    sqlx::query(&format!("PRAGMA busy_timeout = {SEEN_LOCK_WAIT_MILLIS}"))
+        .execute(&mut *connection)
+        .await?;
+    let written = sqlx::query(
+        "UPDATE sessions SET last_seen_at = unixepoch()
+         WHERE token_hash = ? AND unixepoch() - last_seen_at >= ?",
+    )
+    .bind(session_hash)
+    .bind(SEEN_INTERVAL_SECONDS)
+    .execute(&mut *connection)
+    .await;
+    if sqlx::query(&format!("PRAGMA busy_timeout = {patience}"))
+        .execute(&mut *connection)
+        .await
+        .is_err()
+    {
+        connection.close_on_drop();
+    }
+    written?;
+    Ok(())
+}
+
+fn is_hidden(character: char) -> bool {
+    character.is_control()
+        || matches!(
+            character,
+            '\u{00ad}'
+                | '\u{061c}'
+                | '\u{180e}'
+                | '\u{200b}'..='\u{200f}'
+                | '\u{2028}'..='\u{202e}'
+                | '\u{2060}'..='\u{206f}'
+                | '\u{feff}'
+                | '\u{fff9}'..='\u{fffb}'
+        )
+}
 
 fn clean_client(client: Option<&str>) -> Option<String> {
     let mut cleaned = String::new();
-    for character in client?.trim().chars().filter(|c| !c.is_control()) {
+    for character in client?.trim().chars().filter(|c| !is_hidden(*c)) {
         if cleaned.len() + character.len_utf8() > MAX_CLIENT_BYTES {
             break;
         }
@@ -116,7 +179,7 @@ impl Identity {
             admin,
         };
         if quiet_seconds >= SEEN_INTERVAL_SECONDS {
-            self.record_seen(&session_hash).await;
+            self.record_seen(&session_hash);
         }
         let locked = self.session_locked(&user.id, &session_hash).await?;
         Ok(Actor {
@@ -128,27 +191,29 @@ impl Identity {
         })
     }
 
-    async fn record_seen(&self, session_hash: &str) {
-        let write = sqlx::query(
-            "UPDATE sessions SET last_seen_at = unixepoch()
-             WHERE token_hash = ? AND unixepoch() - last_seen_at >= ?",
-        )
-        .bind(session_hash)
-        .bind(SEEN_INTERVAL_SECONDS)
-        .execute(&self.store.pool);
-        match tokio::time::timeout(SEEN_WRITE_BUDGET, write).await {
-            Ok(Ok(_)) => {}
-            Ok(Err(_)) => tracing::debug!(
-                event = "session_seen_failed",
-                error_kind = "storage",
-                "Session last-seen time was not recorded"
-            ),
-            Err(_) => tracing::debug!(
-                event = "session_seen_failed",
-                error_kind = "timeout",
-                "Session last-seen time was not recorded"
-            ),
+    fn record_seen(&self, session_hash: &str) {
+        if !self.seen_attempts.reserve(session_hash) {
+            return;
         }
+        let pool = self.store.pool.clone();
+        let session_hash = session_hash.to_owned();
+        tokio::spawn(
+            async move {
+                let outcome =
+                    tokio::time::timeout(SEEN_WRITE_BUDGET, write_seen(&pool, &session_hash)).await;
+                let error_kind = match outcome {
+                    Ok(Ok(())) => return,
+                    Ok(Err(_)) => "storage",
+                    Err(_) => "timeout",
+                };
+                tracing::debug!(
+                    event = "session_seen_failed",
+                    error_kind,
+                    "Session last-seen time was not recorded"
+                );
+            }
+            .in_current_span(),
+        );
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
@@ -268,4 +333,31 @@ impl Actor {
 
 fn token_hash(token: &str) -> String {
     format!("{:x}", Sha256::digest(token.as_bytes()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_write_attempt_is_pending_per_session_inside_the_retry_window() {
+        let attempts = SeenAttempts::default();
+        assert!(attempts.reserve("a"));
+        for _ in 0..50 {
+            assert!(!attempts.reserve("a"));
+        }
+        assert!(attempts.reserve("b"));
+    }
+
+    #[test]
+    fn hidden_and_format_characters_are_removed_from_labels() {
+        assert_eq!(
+            clean_client(Some(
+                "Fire\u{202e}fox\u{200b} on\u{2028}mac\u{feff}\u{2066}"
+            ))
+            .as_deref(),
+            Some("Firefox onmac")
+        );
+        assert_eq!(clean_client(Some("\u{202e}\u{200b}")), None);
+    }
 }

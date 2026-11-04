@@ -300,6 +300,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         identity: Identity {
             store: store.clone(),
             password_attempts: Default::default(),
+            seen_attempts: Default::default(),
         },
         community,
         podcasts: Podcasts {

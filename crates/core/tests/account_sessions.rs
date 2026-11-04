@@ -558,6 +558,17 @@ async fn age(connection: &mut sqlx::SqliteConnection, session: &AuthSession, sec
         .unwrap();
 }
 
+async fn settled(connection: &mut sqlx::SqliteConnection, session: &AuthSession) -> i64 {
+    for _ in 0..60 {
+        let seen = last_seen(connection, session).await;
+        if now(connection).await - seen <= 2 {
+            return seen;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    last_seen(connection, session).await
+}
+
 async fn now(connection: &mut sqlx::SqliteConnection) -> i64 {
     sqlx::query_scalar("SELECT unixepoch()")
         .fetch_one(connection)
@@ -665,7 +676,7 @@ async fn last_seen_advances_after_five_minutes_and_not_before() {
     age(&mut connection, &world.second, 301).await;
     let stale = last_seen(&mut connection, &world.second).await;
     world.actor(&world.second).await;
-    let seen = last_seen(&mut connection, &world.second).await;
+    let seen = settled(&mut connection, &world.second).await;
     assert!(seen > stale);
     assert!(now(&mut connection).await - seen <= 2);
 
@@ -687,6 +698,7 @@ async fn last_seen_is_written_only_for_the_authenticating_session() {
         last_seen(&mut connection, &world.other).await,
     ];
     world.actor(&world.second).await;
+    settled(&mut connection, &world.second).await;
     assert_eq!(
         others,
         [
@@ -713,7 +725,7 @@ async fn locked_sessions_and_failed_authentication_are_handled_for_last_seen() {
     age(&mut connection, &world.first, 4000).await;
     let locked = world.actor(&world.first).await;
     assert!(locked.is_locked());
-    assert!(now(&mut connection).await - last_seen(&mut connection, &world.first).await <= 2);
+    assert!(now(&mut connection).await - settled(&mut connection, &world.first).await <= 2);
 
     sqlx::query("UPDATE sessions SET expires_at = unixepoch() - 1 WHERE token_hash = ?")
         .bind(hash_of(&world.third.token))
@@ -754,4 +766,67 @@ async fn authentication_succeeds_when_the_last_seen_write_fails() {
     .await
     .unwrap();
     assert!(world.alive(&world.second).await);
+}
+
+#[tokio::test]
+async fn a_held_write_lock_never_delays_authentication_and_the_write_lands_later() {
+    let world = world().await;
+    let mut connection = database(&world).await;
+    age(&mut connection, &world.second, 4000).await;
+    let stale = last_seen(&mut connection, &world.second).await;
+    sqlx::raw_sql("BEGIN IMMEDIATE")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    for _ in 0..8 {
+        let started = std::time::Instant::now();
+        assert!(world.alive(&world.second).await);
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(150),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    sqlx::raw_sql("ROLLBACK")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    assert_eq!(last_seen(&mut connection, &world.second).await, stale);
+
+    tokio::time::sleep(std::time::Duration::from_millis(2200)).await;
+    assert!(world.alive(&world.second).await);
+    let mut seen = stale;
+    for _ in 0..40 {
+        seen = last_seen(&mut connection, &world.second).await;
+        if seen > stale {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(seen > stale);
+}
+
+#[tokio::test]
+async fn many_stale_sessions_under_a_held_lock_do_not_exhaust_the_pool() {
+    let world = world().await;
+    let mut connection = database(&world).await;
+    for session in [&world.first, &world.second, &world.third] {
+        age(&mut connection, session, 4000).await;
+    }
+    sqlx::raw_sql("BEGIN IMMEDIATE")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    for _ in 0..30 {
+        for session in [&world.first, &world.second, &world.third] {
+            assert!(world.alive(session).await);
+        }
+    }
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    sqlx::raw_sql("ROLLBACK")
+        .execute(&mut connection)
+        .await
+        .unwrap();
 }

@@ -24,4 +24,5 @@ pub use types::{
 pub struct Identity {
     pub(crate) store: Store,
     pub(crate) password_attempts: password::PasswordAttempts,
+    pub(crate) seen_attempts: sessions::SeenAttempts,
 }
