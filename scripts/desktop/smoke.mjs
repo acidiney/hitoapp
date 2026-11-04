@@ -155,11 +155,28 @@ try {
       ),
     "the standalone library",
   );
-  await click('nav[aria-label="Main navigation"] a[href="/settings"]');
+  assert.match(
+    await execute("return navigator.userAgent"),
+    /^Mozilla\/5\.0 .* HitoDesktop\/\d+\.\d+\.\d+/,
+  );
+  assert.deepEqual(
+    await execute(`
+    return (async () => {
+      const account = await fetch('/api/v1/me').then(r => r.json());
+      const sessions = await fetch('/api/v1/account/sessions', {
+        headers: { 'x-hito-request': '1', 'x-hito-account': account.id }
+      }).then(r => r.json());
+      return sessions.map(session => session.client);
+    })();
+  `),
+    ["Hito desktop"],
+  );
+  console.log("desktop user agent and session label verified");
+  await click('a[href="/settings"]');
   await wait(
     () =>
       execute(
-        'return !!document.querySelector(".music-folders-heading button")',
+        'return [...document.querySelectorAll("button")].some(b => b.textContent.includes("Add music folder"))',
       ),
     "music folder settings",
   );
@@ -180,7 +197,7 @@ try {
   await wait(
     () =>
       execute(
-        'return document.querySelector(".music-folder-row")?.textContent.includes("1 file read")',
+        'return document.body.textContent.includes("1 file read")',
       ),
     "the local scan",
   );
