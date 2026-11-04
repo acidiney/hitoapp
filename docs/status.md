@@ -706,8 +706,15 @@ Source only, 2026-11-01. Not deployed.
 
 Source only, 2026-11-03. Runs on the local development server only after a rebuild; not deployed.
 
-- Added `POST /account/password`, `GET` / `DELETE /account/sessions` and `DELETE /account/sessions/{id}`, and the Change password and Open sessions cards in Settings, Profile. See [account security](account-security.md). No migration was needed, so 0082 was not added.
+- Added `POST /account/password`, `GET` / `DELETE /account/sessions` and `DELETE /account/sessions/{id}`, and the Change password and Open sessions cards in Settings, Profile. See [account security](account-security.md). No migration was needed for this first slice; the client label and last-seen time came later in migration 0082.
 - Failing first: `red-core.log` (the identity API did not exist), `red-http.log` (nine of ten HTTP cases failed) and `red-web.log` (the components did not exist).
 - Tested evidence: see the final report of the slice for the exact counts. The wrong-password limit is held in memory, so a server restart resets it.
-- Not built: a client description and last-seen time for sessions (the session table stores neither), and an administrator resetting another account's password.
+- Not built then: a client description and last-seen time for sessions (built later, see the next section), and an administrator resetting another account's password.
 
+## Session client label and last seen
+
+Source only, 2026-11-04. Runs on the local development server only after a rebuild; not deployed.
+
+- Migration 0082 adds `created_at`, `last_seen_at` and `client` to `sessions`. Sign-in and setup store a coarse label (browser family and system family, at most 64 bytes) derived from the User-Agent in the HTTP adapter. Authentication writes `last_seen_at` at most once every 5 minutes per session, from the idle time it already reads. Settings, Profile shows "Firefox on macOS · Last active 5 minutes ago". See [account security](account-security.md#client-label-and-last-seen) and [migration 0082](database-maintenance.md#migration-0082-session-client-and-last-seen).
+- Tested evidence: see the final report of the slice for the exact counts.
+- Not built: the desktop shell does not yet send the `HitoDesktop/` token, so its sessions are not labelled "Hito desktop". No browser test covers the row text.

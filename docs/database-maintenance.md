@@ -171,3 +171,11 @@ Migration 0081 rebuilds `cover_art_lookups` a second time, with the same columns
 For an operator: take the whole-volume backup first. Restoring it is the only way back. It is safe with live queued rows, since queued, running, ready, missing and unavailable lookups are copied with their values. It was applied to the local development server and is part of the 2026-11-02 deployment. See [artist photos](plugin-artwork.md#artist-photos).
 
 Evidence: `crates/core/tests/catalog/credited_artist_photos_upgrade.rs` has two cases. One checks that lookups are kept, that a credited artist lookup is refused before and accepted after, and that an empty identifier, a 65-character identifier and unknown kinds are refused. The other checks that ready, running and unavailable lookups are kept whole and that a foreign key check finds no violations.
+
+## Migration 0082, session client and last seen
+
+Migration 0082 adds three columns to `sessions`: `created_at` and `last_seen_at` (integer, not null, default 0) and `client` (nullable text, a check keeps it between 1 and 64 bytes). It then sets `created_at` and `last_seen_at` of every existing row to `expires_at` minus 2592000 seconds (the 30 day session lifetime), and leaves `client` null. No table or index is added or removed, and existing sessions keep authenticating. It is a small in-place rewrite of the `sessions` rows.
+
+For an operator: take the whole-volume backup first. Restoring it is the only way back. It is safe with live sessions, as long as the writers are stopped as the migration command requires. After it, the first request of each session older than 5 minutes writes `last_seen_at` once. It is not part of a public release.
+
+Evidence: `crates/core/tests/session_client_upgrade.rs` checks the backfilled values for two sessions with different expiry times, that the only schema change is the `sessions` table, that a foreign key check finds no violation, that a migrated session still authenticates and is listed with a null label, and that the label check refuses an empty or 65-byte value.

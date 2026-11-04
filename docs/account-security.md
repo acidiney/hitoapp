@@ -24,7 +24,7 @@ A short new password is refused before the current password is checked, so it ne
 
 ## Open sessions
 
-- `GET /api/v1/account/sessions` lists the account's own unexpired sessions (at most 200, the current one always included), newest first: `{"id", "created_at", "current"}`. `created_at` is Unix seconds. The list shows nothing of other accounts.
+- `GET /api/v1/account/sessions` lists the account's own unexpired sessions (at most 200, the current one always included), newest first: `{"id", "created_at", "last_seen_at", "client", "current"}`. `created_at` and `last_seen_at` are Unix seconds. `client` is a coarse label such as "Firefox on macOS", or null for a session that was created before the label existed. The list shows nothing of other accounts.
 - `DELETE /api/v1/account/sessions/{id}` revokes one session (`204`). An id that is unknown or belongs to another account answers `404`. Revoking the current session ends it like sign out and clears the cookie.
 - `DELETE /api/v1/account/sessions` ends every other session and keeps the current one. The response is `{"revoked": n}`.
 
@@ -32,18 +32,21 @@ A short new password is refused before the current password is checked, so it ne
 
 The id is the first 128 bits of SHA-256 over a fixed label and the stored token hash. The stored token hash is itself a SHA-256 of the cookie or bearer value. The id cannot be turned back into either one and is never equal to them, and the cookie or token is never returned. It is stable for the life of the session, so no migration and no new column are needed. Revoking looks the id up among the caller's own sessions only.
 
-### Not recorded
+### Client label and last seen
 
-The session table stores neither a client description nor a last-seen time, so the list shows only when each session was created (expiry minus the fixed 30 day lifetime, one constant shared by sign-in, this list and the cookie). Recording them would need a migration and a write on requests; it is listed in the [TODO](../TODO.md).
+Migration 0082 adds `created_at`, `last_seen_at` and `client` to `sessions`. Existing rows get `created_at` and `last_seen_at` equal to the old expiry minus the 30 day lifetime and a null label. See [database maintenance](database-maintenance.md#migration-0082-session-client-and-last-seen).
+
+- Label: sign-in and first-run setup derive it from the `User-Agent` header in the HTTP adapter (`apps/server/src/security/client_label.rs`, a pure function with unit tests) and pass only the label to core. It is a browser family plus an operating system family: Edge, Opera, Samsung Internet, Firefox, Chrome or Safari, on iPhone, iPad, Android, ChromeOS, Windows, macOS or Linux. A client that matches nothing is "Unknown browser"; one that sends the `HitoDesktop/` token is "Hito desktop". The raw header is never stored, logged or returned, and no IP address is stored. Core also strips control characters and cuts the label to 64 bytes, and the column has a check for the same bound. The desktop shell does not send the `HitoDesktop/` token yet, so it currently shows as a browser or as unknown.
+- Last seen: every request that authenticates a session (cookie or bearer, locked or not) reads the idle time in the query it already runs. Only when that is 300 seconds or more does it run `UPDATE sessions SET last_seen_at = now WHERE token_hash = ? AND now - last_seen_at >= 300`. That condition makes parallel requests write at most once. So the extra cost is one subtraction per request and one single-row write per session every 5 minutes, with no in-memory state to lose on restart or to share between processes. The write waits at most 250 ms; if it fails or times out, the request still succeeds and a debug event `session_seen_failed` with a static `error_kind` is logged. A rejected or expired session never writes. Only the authenticating session is updated, never another session or account.
 
 ## Web
 
-Settings, Profile has a Change password card and an Open sessions card. A wrong current password (`wrong_password`) shows "The current password is not correct." and keeps what was typed for the new password; `429` adds that unknown sessions can be revoked under Open sessions; other failures, including `409`, show the server message. After a change the list is read again. Each other session has Revoke; Sign out other sessions is disabled when there are none. Both hooks cancel their requests when the page or account changes.
+Settings, Profile has a Change password card and an Open sessions card. A wrong current password (`wrong_password`) shows "The current password is not correct." and keeps what was typed for the new password; `429` adds that unknown sessions can be revoked under Open sessions; other failures, including `409`, show the server message. After a change the list is read again. Each row reads like "Firefox on macOS · Last active 5 minutes ago", with the sign-in time below it and "This session" marking the current one. Each other session has Revoke; Sign out other sessions is disabled when there are none. Both hooks cancel their requests when the page or account changes.
 
 ## Logging
 
-Events: `password_confirmation_rejected`, `password_changed` (with the number of sessions ended), `session_revoked`, `other_sessions_revoked`, plus the usual request events. No password, hash, token or session id is logged. A server test captures TRACE output and rejects password, hash and token sentinels.
+Events: `password_confirmation_rejected`, `password_changed` (with the number of sessions ended), `session_revoked`, `other_sessions_revoked`, plus the usual request events and the debug event `session_seen_failed` when the last-seen write fails. No password, User-Agent, IP address, hash, token or session id is logged. A server test captures TRACE output and rejects password, hash and token sentinels.
 
 ## Evidence
 
-Core cases (`crates/core/tests/account_sessions.rs`), HTTP cases (`apps/server/tests/api/account_sessions.rs`), a logging case (`apps/server/tests/account_session_logging.rs`) and web cases (`apps/web/src/features/session/tests/account-security.test.ts`). No browser test covers the cards yet.
+Core cases (`crates/core/tests/account_sessions.rs`), the 0082 upgrade (`crates/core/tests/session_client_upgrade.rs`), parser cases (`apps/server/src/security/client_label.rs`), HTTP cases (`apps/server/tests/api/account_sessions.rs`), a logging case (`apps/server/tests/account_session_logging.rs`) and web cases (`apps/web/src/features/session/tests/account-security.test.ts`). No browser test covers the cards yet.
