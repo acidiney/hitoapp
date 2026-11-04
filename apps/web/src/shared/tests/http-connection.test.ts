@@ -23,7 +23,7 @@ test("a network failure becomes a plain message and marks the server unreachable
   expect(error).toBeInstanceOf(TypeError);
   const message = errorMessage(error);
   expect(message).toBe(
-    "Hito cannot be reached right now. It will keep trying.",
+    "Hito cannot be reached right now. Try again in a moment.",
   );
   expect(message).not.toMatch(/fetch|private-search|secret/i);
   expect(getConnection()).toMatchObject({
@@ -61,7 +61,7 @@ test("a request that never answers times out as an outage", async () => {
   await vi.advanceTimersByTimeAsync(1000);
   const error = await outcome;
   expect(errorMessage(error)).toBe(
-    "Hito is taking too long to answer. It will keep trying.",
+    "Hito is taking too long to answer. Try again in a moment.",
   );
   expect(getConnection()).toMatchObject({
     reachable: false,
@@ -98,7 +98,7 @@ test.each([502, 504])(
     expect(error).toBeInstanceOf(HttpError);
     expect((error as HttpError).status).toBe(status);
     expect(errorMessage(error)).toBe(
-      "Hito is not responding right now. It will keep trying.",
+      "Hito is not responding right now. Try again in a moment.",
     );
     expect(getConnection()).toMatchObject({
       reachable: false,
@@ -115,7 +115,7 @@ test("a bare 503 is an outage but a 503 or 502 from Hito itself is not", async (
       .mockResolvedValue(new Response("Service Unavailable", { status: 503 })),
   );
   expect(errorMessage(await fail())).toBe(
-    "Hito is not responding right now. It will keep trying.",
+    "Hito is not responding right now. Try again in a moment.",
   );
   expect(getConnection().reachable).toBe(false);
   for (const status of [502, 503, 504]) {
@@ -168,4 +168,101 @@ test("a failure whose body the caller skips is not classified as an outage", asy
     errorBody: false,
   }).catch(() => {});
   expect(getConnection().reachable).toBe(true);
+});
+
+test.each([
+  "plugins.install",
+  "plugins.preview",
+  "source_preparation.create",
+  "recordings.remove_missing",
+])(
+  "%s may take longer than an ordinary request before it counts as an outage",
+  async (action) => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: unknown, init: RequestInit) =>
+          new Promise((_, reject) =>
+            init.signal?.addEventListener("abort", () =>
+              reject(new DOMException("x", "AbortError")),
+            ),
+          ),
+      ),
+    );
+    const outcome = request("/slow", { action, method: "POST" }).catch(
+      (error: unknown) => error,
+    );
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(getConnection().reachable).toBe(true);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(errorMessage(await outcome)).toMatch(/taking too long/);
+    vi.useRealTimers();
+  },
+);
+
+test("without AbortSignal.any the timeout still applies and the caller can still cancel", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("AbortSignal", class extends AbortSignal {});
+  Object.defineProperty(AbortSignal, "any", { value: undefined });
+  const seen: AbortSignal[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      (_url: unknown, init: RequestInit) =>
+        new Promise((_, reject) => {
+          seen.push(init.signal as AbortSignal);
+          init.signal?.addEventListener("abort", () =>
+            reject(new DOMException("x", "AbortError")),
+          );
+        }),
+    ),
+  );
+  const caller = new AbortController();
+  const timed = request("/a", {
+    action: "catalog.read",
+    signal: caller.signal,
+    timeoutMs: 1000,
+  }).catch((error: unknown) => error);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(errorMessage(await timed)).toMatch(/taking too long/);
+  expect(getConnection()).toMatchObject({ reason: "timeout" });
+  resetConnection();
+  const cancelled = new AbortController();
+  const pending = request("/b", {
+    action: "catalog.read",
+    signal: cancelled.signal,
+  }).catch((error: unknown) => error);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(seen[1]?.aborted).toBe(false);
+  cancelled.abort();
+  expect(seen[1]?.aborted).toBe(true);
+  await pending;
+  expect(getConnection().reachable).toBe(true);
+  vi.useRealTimers();
+});
+
+test("aborting the caller's signal aborts the in-flight attempt", async () => {
+  const caller = new AbortController();
+  let attempt: AbortSignal | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url: unknown, init: RequestInit) => {
+      attempt = init.signal as AbortSignal;
+      return new Promise((_, reject) =>
+        init.signal?.addEventListener("abort", () =>
+          reject(new DOMException("x", "AbortError")),
+        ),
+      );
+    }),
+  );
+  const pending = request("/x", {
+    action: "catalog.read",
+    signal: caller.signal,
+  }).catch((error: unknown) => error);
+  await Promise.resolve();
+  expect(attempt?.aborted).toBe(false);
+  caller.abort();
+  expect(attempt?.aborted).toBe(true);
+  await pending;
 });

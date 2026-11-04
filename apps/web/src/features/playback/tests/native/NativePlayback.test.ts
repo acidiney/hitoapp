@@ -190,9 +190,13 @@ test("native views page a large queue and isolate position frames from queue and
           lease: "private-lease",
           state,
         });
-      if (url.endsWith("/events"))
+      if (url.endsWith("/events")) {
+        let cancelled = false;
         return new Response(
           new ReadableStream({
+            cancel() {
+              cancelled = true;
+            },
             start(controller) {
               streams.set(
                 url.includes("/position/") ? "position" : "state",
@@ -201,9 +205,7 @@ test("native views page a large queue and isolate position frames from queue and
               options.signal?.addEventListener(
                 "abort",
                 () => {
-                  try {
-                    controller.close();
-                  } catch {}
+                  if (!cancelled) controller.close();
                 },
                 { once: true },
               );
@@ -211,6 +213,7 @@ test("native views page a large queue and isolate position frames from queue and
           }),
           { headers: { "content-type": "text/event-stream" } },
         );
+      }
       if (url.endsWith("/queue")) {
         const query = JSON.parse(String(options.body));
         queries.push(query);

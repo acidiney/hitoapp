@@ -98,9 +98,13 @@ export function nativeService() {
         service.commands.push(command);
         return service.command(command);
       }
-      if (url.endsWith("/events"))
+      if (url.endsWith("/events")) {
+        let cancelled = false;
         return new Response(
           new ReadableStream({
+            cancel() {
+              cancelled = true;
+            },
             start(controller) {
               const kind = url.includes("/position/") ? "position" : "state";
               streams.set(kind, controller);
@@ -122,9 +126,7 @@ export function nativeService() {
                 () => {
                   if (streams.get(kind) === controller) {
                     streams.delete(kind);
-                    try {
-                      controller.close();
-                    } catch {}
+                    if (!cancelled) controller.close();
                   }
                 },
                 { once: true },
@@ -133,6 +135,7 @@ export function nativeService() {
           }),
           { headers: { "content-type": "text/event-stream" } },
         );
+      }
       if (url.endsWith("/queue")) {
         const query = JSON.parse(String(options.body));
         return service.queue(query);

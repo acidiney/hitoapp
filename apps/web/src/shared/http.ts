@@ -6,7 +6,16 @@ import {
 } from "./connection";
 import { log } from "./log";
 
+import { combineSignals } from "./requestSignal";
+
 const defaultTimeoutMs = 90_000;
+const longTimeoutMs = 600_000;
+const longActions = new Set([
+  "plugins.install",
+  "plugins.preview",
+  "source_preparation.create",
+  "recordings.remove_missing",
+]);
 
 type RequestOptions = {
   action: string;
@@ -44,17 +53,18 @@ export async function request(path: string, options: RequestOptions) {
   let response: Response;
   const limit = new AbortController();
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    limit.abort();
-  }, options.timeoutMs ?? defaultTimeoutMs);
+  const timer = setTimeout(
+    () => {
+      timedOut = true;
+      limit.abort();
+    },
+    options.timeoutMs ??
+      (longActions.has(options.action) ? longTimeoutMs : defaultTimeoutMs),
+  );
   const stopTimer = () => clearTimeout(timer);
   options.signal?.addEventListener("abort", stopTimer, { once: true });
-  const signal = options.signal
-    ? typeof AbortSignal.any === "function"
-      ? AbortSignal.any([options.signal, limit.signal])
-      : options.signal
-    : limit.signal;
+  const joined = combineSignals(options.signal, limit.signal);
+  const signal = joined.signal;
   try {
     response = await fetch(`/api/v1${path}`, {
       method: options.method ?? "GET",
@@ -87,6 +97,7 @@ export async function request(path: string, options: RequestOptions) {
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", stopTimer);
+    joined.release();
   }
   const result = {
     ...fields,

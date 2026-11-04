@@ -379,7 +379,7 @@ test.each([503, 409, "lost response"] as const)(
     await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(1));
     expect(screen.getByRole("alert").textContent).toContain(
       status === "lost response"
-        ? "Hito cannot be reached right now. It will keep trying."
+        ? "Hito cannot be reached right now. Try again in a moment."
         : "Service declaration changed. Review it again.",
     );
     expect(

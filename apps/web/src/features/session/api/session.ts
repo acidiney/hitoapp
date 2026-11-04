@@ -1,6 +1,7 @@
 import { createUuid } from "../../../shared/uuid";
 import { router } from "@inertiajs/react";
 import { HttpError, lockedEvent, requestJson } from "../../../shared/http";
+import { clearOutage } from "../../../shared/connection";
 import { log } from "../../../shared/log";
 
 const revisionKey = "hito-session-revision";
@@ -25,6 +26,7 @@ function account(props: { [key: string]: unknown }) {
 }
 
 export function notifySessionChanged() {
+  clearOutage();
   const value = createUuid();
   try {
     localStorage.setItem(revisionKey, value);
@@ -44,6 +46,7 @@ export function installSessionBoundary(
   function invalidate(reason: string) {
     if (invalidated) return;
     invalidated = true;
+    clearOutage();
     cleanup();
     log.info("session.invalidated", { reason });
     router.cancelAll();

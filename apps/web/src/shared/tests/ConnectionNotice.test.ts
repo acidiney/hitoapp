@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import ConnectionNotice from "../ui/ConnectionNotice";
 import {
+  markChangeLost,
   reportReachable,
   reportUnreachable,
   resetConnection,
@@ -53,4 +54,19 @@ test("Try now probes the server straight away", async () => {
   });
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("status")).toBeNull();
+});
+
+test("a lost change is told plainly, outlives the outage and can be dismissed", () => {
+  render(createElement(ConnectionNotice));
+  act(() => {
+    reportUnreachable("network");
+    markChangeLost();
+  });
+  const alert = screen.getByRole("alert");
+  expect(alert.textContent).toContain("Your last change was not saved");
+  act(() => reportReachable());
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByRole("alert")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss message" }));
+  expect(screen.queryByRole("alert")).toBeNull();
 });

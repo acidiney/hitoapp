@@ -3,6 +3,7 @@ import { createInertiaApp, router } from "@inertiajs/react";
 import ConnectionErrorPage from "./ConnectionErrorPage";
 import { resolvePage } from "./pages";
 import { installConnectionRecovery } from "./connectionRecovery";
+import { markPageLoaded } from "./reloadGuard";
 import { installSessionBoundary } from "../features/session/api/session";
 import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
 import "../style.css";
@@ -20,7 +21,10 @@ void createInertiaApp({
       root.unmount(),
     );
     try {
-      if (await session.ready) root.render(<App {...props} />);
+      if (await session.ready) {
+        markPageLoaded();
+        root.render(<App {...props} />);
+      }
     } catch {
       root.render(<ConnectionErrorPage />);
     }

@@ -11,9 +11,9 @@ const probeDelaysMs = [2_000, 4_000, 8_000, 15_000];
 const probeTimeoutMs = 5_000;
 
 const messages: Record<OutageReason, string> = {
-  network: "Hito cannot be reached right now. It will keep trying.",
-  timeout: "Hito is taking too long to answer. It will keep trying.",
-  gateway: "Hito is not responding right now. It will keep trying.",
+  network: "Hito cannot be reached right now. Try again in a moment.",
+  timeout: "Hito is taking too long to answer. Try again in a moment.",
+  gateway: "Hito is not responding right now. Try again in a moment.",
 };
 
 export class ConnectionError extends TypeError {
@@ -30,6 +30,7 @@ let state: ConnectionState = reachableState;
 let lostAt = 0;
 let probes = 0;
 let probing = false;
+let lostChange = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
 
@@ -113,12 +114,35 @@ export function watchServer(onRestored: () => void) {
   return () => window.removeEventListener(connectionRestoredEvent, onRestored);
 }
 
-export function resetConnection() {
+export function getLostChange() {
+  return lostChange;
+}
+
+export function markChangeLost() {
+  if (lostChange) return;
+  lostChange = true;
+  log.warn("connection.change_lost", { reason: "not_saved" });
+  for (const listener of [...listeners]) listener();
+}
+
+export function dismissLostChange() {
+  if (!lostChange) return;
+  lostChange = false;
+  for (const listener of [...listeners]) listener();
+}
+
+export function clearOutage() {
   clearTimeout(timer);
   timer = undefined;
   probing = false;
   probes = 0;
+  lostChange = false;
   state = reachableState;
+  for (const listener of [...listeners]) listener();
+}
+
+export function resetConnection() {
+  clearOutage();
   listeners.clear();
 }
 
