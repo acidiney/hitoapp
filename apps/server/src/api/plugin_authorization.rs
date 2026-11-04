@@ -1,4 +1,7 @@
-use super::plugins::PluginRevision;
+use super::{
+    callback_page::{CallbackPage, Tone},
+    plugins::PluginRevision,
+};
 use crate::{
     Config,
     auth::{Account, OptionalAccount},
@@ -106,7 +109,7 @@ pub async fn callback(
             } else {
                 ""
             };
-            let mut response = page(StatusCode::OK, RELOAD_PAGE.to_owned());
+            let mut response = CallbackPage::retry().into_response();
             response.headers_mut().insert(
                 "set-cookie",
                 format!("hito_callback_retry=1; Path=/api/v1/plugin-authorization/callback; Max-Age=30; HttpOnly; SameSite=Lax{secure}")
@@ -115,11 +118,13 @@ pub async fn callback(
             );
             return response;
         }
-        return outcome_page(
+        return CallbackPage::outcome(
             StatusCode::UNAUTHORIZED,
+            Tone::Locked,
             "Sign in to Hito",
             "Sign in to Hito in this browser, then start the provider connection again from Settings.",
-        );
+        )
+        .into_response();
     };
     let mut response = authenticated_callback(&services, &actor, query.as_deref()).await;
     if retried {
@@ -143,11 +148,13 @@ async fn authenticated_callback(
     };
     if let Err(error) = actor.require_unlocked() {
         return match error {
-            hito_core::Error::Locked => outcome_page(
+            hito_core::Error::Locked => CallbackPage::outcome(
                 StatusCode::LOCKED,
+                Tone::Locked,
                 "Hito is locked",
                 "Unlock Hito, then start the provider connection again from Settings. Your attempt was not used.",
-            ),
+            )
+            .into_response(),
             error => crate::error::ApiError(error).into_response(),
         };
     }
@@ -157,82 +164,68 @@ async fn authenticated_callback(
         .await
     {
         Ok(outcome) => outcome_response(outcome),
-        Err(hito_core::Error::ProviderBusy(_)) => outcome_page(
+        Err(hito_core::Error::ProviderBusy(_)) => CallbackPage::outcome(
             StatusCode::SERVICE_UNAVAILABLE,
+            Tone::Notice,
             "Hito is busy",
             "Provider connections are busy. Your attempt was not used. Return to Settings and try again in a moment.",
-        ),
+        )
+        .into_response(),
         Err(error) => crate::error::ApiError(error).into_response(),
     }
 }
 
-const RELOAD_PAGE: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"1\"><title>Hito</title></head><body><p>Finishing your provider connection...</p></body></html>";
-
 fn outcome_response(outcome: PluginAuthorizationOutcome) -> Response {
     use PluginAuthorizationOutcome as Outcome;
-    let (status, title, message) = match outcome {
+    let (status, tone, title, message) = match outcome {
         Outcome::Connected => (
             StatusCode::OK,
+            Tone::Success,
             "Provider authorized",
             "The provider approved Hito. You can close this tab and return to Hito.",
         ),
         Outcome::Denied => (
             StatusCode::OK,
+            Tone::Notice,
             "Connection declined",
             "The provider did not grant access. Nothing was connected. You can start again from Settings.",
         ),
         Outcome::ProviderError => (
             StatusCode::BAD_REQUEST,
+            Tone::Failure,
             "The provider reported a problem",
             "The provider could not complete the connection. Start again from Settings.",
         ),
         Outcome::ExchangeFailed => (
             StatusCode::BAD_GATEWAY,
+            Tone::Failure,
             "Hito could not finish the connection",
             "The provider did not accept the approval. Start again from Settings.",
         ),
         Outcome::Expired => (
             StatusCode::BAD_REQUEST,
+            Tone::Notice,
             "This connection attempt expired",
             "Start again from Settings.",
         ),
         Outcome::Changed => (
             StatusCode::CONFLICT,
+            Tone::Notice,
             "The connection changed",
             "This plugin or your sign-in changed while you were approving. Reload Settings and start again.",
         ),
         Outcome::Used => (
             StatusCode::CONFLICT,
+            Tone::Notice,
             "This connection attempt was already used",
             "Start again from Settings if you still need to connect.",
         ),
         Outcome::Invalid => (
             StatusCode::BAD_REQUEST,
+            Tone::Failure,
             "This connection link is not valid",
             "Open Settings in the browser where you started the connection, then try again.",
         ),
     };
-    outcome_page(status, title, message)
-}
-
-fn outcome_page(status: StatusCode, title: &str, message: &str) -> Response {
-    page(
-        status,
-        format!(
-            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Hito</title></head><body><main><h1>{title}</h1><p>{message}</p><p><a href=\"/\">Return to Hito</a></p></main></body></html>"
-        ),
-    )
-}
-
-fn page(status: StatusCode, body: String) -> Response {
-    (
-        status,
-        [
-            ("content-type", "text/html; charset=utf-8"),
-            ("cache-control", "no-store"),
-            ("referrer-policy", "no-referrer"),
-        ],
-        body,
-    )
-        .into_response()
+    CallbackPage::outcome(status, tone, title, message).into_response()
 }

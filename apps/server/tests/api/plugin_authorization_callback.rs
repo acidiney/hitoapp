@@ -340,6 +340,16 @@ fn assert_safe(page: &Page, attempt: &Attempt) {
             .unwrap()
             .starts_with("text/html")
     );
+    let policy = page.headers["content-security-policy"].to_str().unwrap();
+    assert!(policy.contains("script-src 'self';") && !policy.contains("unsafe-eval"));
+    assert!(policy.contains("default-src 'self'") && policy.contains("form-action 'self'"));
+    for external in ["<script", "src=", "http://", "https://", "@import", "url("] {
+        assert!(
+            !page.body.contains(external),
+            "The callback page must be static and load nothing"
+        );
+    }
+    assert!(page.body.contains("data-tone="));
     for secret in [
         CODE,
         ACCESS,

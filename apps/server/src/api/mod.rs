@@ -13,6 +13,7 @@ pub mod artist_similarity;
 pub mod artwork;
 pub mod audiobooks;
 pub mod browsing;
+pub mod callback_page;
 pub mod catalog;
 pub mod collection;
 pub mod collection_artwork;
