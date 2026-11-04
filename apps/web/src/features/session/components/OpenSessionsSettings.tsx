@@ -1,16 +1,8 @@
-import type { Schema } from "../../../shared/schema";
-
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useOpenSessions } from "../hooks/useOpenSessions";
-
-function signedIn(session: Schema<"SessionInfo">) {
-  return new Date(session.created_at * 1000).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
+import { sessionActivity, sessionClient, signedIn } from "../sessionText";
 
 export default function OpenSessionsSettings({
   account,
@@ -46,14 +38,15 @@ export default function OpenSessionsSettings({
       {list.sessions?.map((session) => (
         <SettingRow
           key={session.id}
-          title={session.current ? "This session" : "Another session"}
+          title={sessionActivity(session)}
           hint={`Signed in ${signedIn(session)}`}
+          status={session.current ? "This session" : undefined}
           action={
             session.current ? undefined : (
               <Button
                 variant="destructive"
                 disabled={list.busy}
-                aria-label={`Revoke session signed in ${signedIn(session)}`}
+                aria-label={`Revoke session ${sessionClient(session)} signed in ${signedIn(session)}`}
                 onClick={() => void list.revoke(session.id)}
               >
                 Revoke

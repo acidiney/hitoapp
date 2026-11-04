@@ -23,19 +23,26 @@ vi.mock("../api/accountApi", () => ({
   },
 }));
 
+const seconds = Math.floor(Date.now() / 1000);
 const here: Schema<"SessionInfo"> = {
   id: "a".repeat(32),
   created_at: 1_790_000_000,
+  last_seen_at: seconds - 20,
+  client: "Firefox on macOS",
   current: true,
 };
 const phone: Schema<"SessionInfo"> = {
   id: "b".repeat(32),
   created_at: 1_789_000_000,
+  last_seen_at: seconds - 300,
+  client: "Safari on iPhone",
   current: false,
 };
 const laptop: Schema<"SessionInfo"> = {
   id: "c".repeat(32),
   created_at: 1_788_000_000,
+  last_seen_at: seconds - 3 * 86_400,
+  client: null,
   current: false,
 };
 
@@ -152,7 +159,17 @@ test("a change that lost a race shows the server message", async () => {
 test("the list marks this session and offers Revoke only for the others", async () => {
   open();
   await screen.findByText("This session");
-  expect(screen.getAllByText("Another session")).toHaveLength(2);
+  expect(screen.getAllByText(/Last active/)).toHaveLength(3);
+  expect(
+    screen.getByText("Firefox on macOS · Last active just now"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Safari on iPhone · Last active 5 minutes ago"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Unknown browser · Last active 3 days ago"),
+  ).toBeTruthy();
+  expect(screen.getAllByText("This session")).toHaveLength(1);
   expect(
     screen.getAllByRole("button", { name: /^Revoke session/ }),
   ).toHaveLength(2);
@@ -191,7 +208,10 @@ test("Sign out other sessions keeps only this one", async () => {
     screen.getByRole("button", { name: "Sign out other sessions" }),
   );
   await waitFor(() => expect(accountApi.revokeOthers).toHaveBeenCalled());
-  await waitFor(() => expect(screen.queryByText("Another session")).toBeNull());
+  await waitFor(() =>
+    expect(screen.queryByText(/Safari on iPhone/)).toBeNull(),
+  );
+  expect(screen.queryByText(/Unknown browser/)).toBeNull();
   expect(
     (
       screen.getByRole("button", {

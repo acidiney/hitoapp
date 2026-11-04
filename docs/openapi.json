@@ -27142,9 +27142,16 @@
         "required": [
           "id",
           "created_at",
+          "last_seen_at",
           "current"
         ],
         "properties": {
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "created_at": {
             "type": "integer",
             "format": "int64"
@@ -27154,6 +27161,10 @@
           },
           "id": {
             "type": "string"
+          },
+          "last_seen_at": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

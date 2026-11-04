@@ -5103,10 +5103,13 @@ export interface components {
             provider_artist_id: string;
         };
         SessionInfo: {
+            client?: string | null;
             /** Format: int64 */
             created_at: number;
             current: boolean;
             id: string;
+            /** Format: int64 */
+            last_seen_at: number;
         };
         SessionsRevoked: {
             /** Format: int64 */
