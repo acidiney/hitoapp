@@ -412,6 +412,9 @@ impl Snapshot {
                 expected
                     .extend(["approved_capabilities", "approved_credential"].map(str::to_owned));
             }
+            if table.name == "sessions" {
+                expected.extend(["created_at", "last_seen_at", "client"].map(str::to_owned));
+            }
             if table.name == "artwork_fetches" {
                 let target_columns = [
                     "entity_kind",
@@ -579,6 +582,15 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
                 ddl.replacen(
                     "error TEXT\n)",
                     "error TEXT\n, approved_capabilities TEXT, approved_credential TEXT)",
+                    1,
+                )
+            });
+        }
+        if declared.0 == "table" && declared.1 == "sessions" {
+            declared.3 = declared.3.map(|ddl| {
+                ddl.replacen(
+                    "expires_at INTEGER NOT NULL\n)",
+                    "expires_at INTEGER NOT NULL\n, created_at INTEGER NOT NULL DEFAULT 0, last_seen_at INTEGER NOT NULL DEFAULT 0, client TEXT CHECK (client IS NULL OR length(CAST(client AS BLOB)) BETWEEN 1 AND 64))",
                     1,
                 )
             });
