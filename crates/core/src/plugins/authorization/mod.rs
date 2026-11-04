@@ -1,8 +1,11 @@
+mod callback;
+mod exchange;
 mod types;
 
 use super::Plugins;
 use crate::{Actor, Error, Result};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+pub(crate) use exchange::TokenClient;
 use hito_plugin_sdk::{Authorization, Manifest};
 use rand::{RngCore, rngs::OsRng};
 use serde::Serialize;
@@ -10,8 +13,8 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::time::Instant;
 pub use types::{
-    PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationState,
-    PluginAuthorizationStatus,
+    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
+    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
 };
 use url::Url;
 use uuid::Uuid;
@@ -44,6 +47,7 @@ impl Plugins {
             client_id,
             authorization_endpoint,
             scopes,
+            ..
         } = manifest.authorization.ok_or_else(|| {
             Error::Invalid("This plugin does not offer account authorization".into())
         })?;
@@ -94,7 +98,7 @@ impl Plugins {
         let removed = sqlx::query("DELETE FROM plugin_authorization_attempts WHERE id IN (
             SELECT id FROM plugin_authorization_attempts WHERE expires_at <= unixepoch() ORDER BY expires_at,id LIMIT 64)")
             .execute(&mut *tx).await?.rows_affected();
-        let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM plugin_authorization_attempts WHERE user_id = ? AND expires_at > unixepoch()")
+        let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM plugin_authorization_attempts WHERE user_id = ? AND expires_at > unixepoch() AND status IN ('pending','exchanging')")
             .bind(actor.id()).fetch_one(&mut *tx).await?;
         if pending >= 8 {
             return Err(Error::Conflict("Your account has eight pending provider connections. Finish one or wait ten minutes before trying again.".into()));
@@ -129,22 +133,29 @@ impl Plugins {
     ) -> Result<PluginAuthorizationStatus> {
         let started = Instant::now();
         actor.check_session(&self.store).await?;
-        let (id, expires_at): (String, i64) = sqlx::query_as("SELECT a.id,a.expires_at FROM plugin_authorization_attempts a
+        let (id, expires_at, state): (String, i64, String) = sqlx::query_as("SELECT a.id,a.expires_at,a.status FROM plugin_authorization_attempts a
             JOIN sessions session ON session.token_hash = a.session_hash AND session.user_id = a.user_id AND session.expires_at > unixepoch()
-            JOIN plugin_installations p ON p.id = a.installation_id AND p.user_id = a.user_id AND p.service_id = a.service_id AND p.active = 1 AND p.revision = a.installation_revision
-            JOIN plugin_services s ON s.id = a.service_id AND s.active = 1 AND s.revision = a.service_revision
-            WHERE a.id = ? AND a.installation_id = ? AND a.user_id = ? AND a.session_hash = ? AND a.expires_at > unixepoch()")
+            LEFT JOIN plugin_installations p ON p.id = a.installation_id AND p.user_id = a.user_id AND p.service_id = a.service_id AND p.active = 1 AND p.revision = a.installation_revision
+            LEFT JOIN plugin_services s ON s.id = a.service_id AND s.active = 1 AND s.revision = a.service_revision
+            WHERE a.id = ? AND a.installation_id = ? AND a.user_id = ? AND a.session_hash = ? AND a.expires_at > unixepoch()
+              AND (a.status IN ('completed','failed') OR (p.id IS NOT NULL AND s.id IS NOT NULL))")
             .bind(attempt_id).bind(id).bind(actor.id()).bind(actor.session_binding())
             .fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
+        let status = match state.as_str() {
+            "pending" => PluginAuthorizationState::Pending,
+            "exchanging" => PluginAuthorizationState::Exchanging,
+            "completed" => PluginAuthorizationState::Completed,
+            _ => PluginAuthorizationState::Failed,
+        };
         tracing::debug!(
             attempt_id = id,
             elapsed_ms = started.elapsed().as_millis() as u64,
-            outcome = "pending",
+            outcome = state,
             "Provider authorization inspected"
         );
         Ok(PluginAuthorizationStatus {
             id,
-            status: PluginAuthorizationState::Pending,
+            status,
             expires_at,
         })
     }

@@ -36,7 +36,7 @@ impl Vault {
         fingerprints.extend(last);
         let pending: Vec<Vec<u8>> = sqlx::query_scalar(
             "SELECT DISTINCT substr(pending_secret,1,33) FROM plugin_authorization_attempts INDEXED BY expired_plugin_authorization_attempts
-            WHERE expires_at > unixepoch() LIMIT 2",
+            WHERE expires_at > unixepoch() AND status IN ('pending','exchanging') LIMIT 2",
         )
         .fetch_all(&store.pool)
         .await?;
@@ -114,6 +114,20 @@ impl Vault {
             "hito.plugin.authorization.pending.v1|{account}|{installation}|{service}|{attempt}"
         );
         self.seal_payload(&aad, secrets)
+    }
+
+    pub(super) fn reveal_pending_authorization(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        attempt: &str,
+        envelope: &[u8],
+    ) -> Result<Zeroizing<String>> {
+        let aad = format!(
+            "hito.plugin.authorization.pending.v1|{account}|{installation}|{service}|{attempt}"
+        );
+        self.reveal_payload(&aad, envelope)
     }
 
     fn seal_payload(&self, aad: &str, plaintext: &[u8]) -> Result<Vec<u8>> {

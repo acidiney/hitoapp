@@ -122,10 +122,10 @@ pub use playback_access::{
 };
 pub use plugins::{
     Connections, InstallPlugin, OfferPluginService, PluginAuthorization,
-    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
-    PluginCredential, PluginDeclarationCheck, PluginInstallation, PluginInstallationPreview,
-    PluginRefresh, PluginService, PluginSettings, Plugins, PreviewPluginInstallation,
-    RefreshPlugin,
+    PluginAuthorizationCallback, PluginAuthorizationOutcome, PluginAuthorizationRedirect,
+    PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginDeclarationCheck,
+    PluginInstallation, PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
+    Plugins, PreviewPluginInstallation, RefreshPlugin,
 };
 pub use podcasts::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,

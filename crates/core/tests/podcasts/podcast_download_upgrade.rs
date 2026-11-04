@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_82().await;
+        let mut reference = collection_artwork_schema::reference_83().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED {
@@ -564,6 +564,12 @@ impl RetainedState {
         let sessions = ("table".to_owned(), "sessions".to_owned());
         self.schema
             .insert(sessions.clone(), declared.get(&sessions).unwrap().clone());
+        let attempts = (
+            "table".to_owned(),
+            "plugin_authorization_attempts".to_owned(),
+        );
+        self.schema
+            .insert(attempts.clone(), declared.get(&attempts).unwrap().clone());
         for name in collection_artwork_schema::NEW_TABLES
             .iter()
             .copied()

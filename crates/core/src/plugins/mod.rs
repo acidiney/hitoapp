@@ -18,8 +18,8 @@ use crate::secrets as vault;
 
 use crate::{Result, store::Store};
 pub use authorization::{
-    PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationState,
-    PluginAuthorizationStatus,
+    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
+    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
 };
 pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
@@ -41,6 +41,7 @@ pub struct Plugins {
     remote: transport::ControlClient,
     media: media::MediaClient,
     vault: vault::Vault,
+    token: authorization::TokenClient,
 }
 
 impl Plugins {
@@ -50,6 +51,7 @@ impl Plugins {
             vault,
             remote: transport::ControlClient::new()?,
             media: media::MediaClient::new()?,
+            token: authorization::TokenClient::new()?,
         })
     }
 }
