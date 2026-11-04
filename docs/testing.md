@@ -140,6 +140,8 @@ Some tests assert a wall-clock deadline. These are the standalone budget tests l
 
 Known flaky test: `indexing_snapshot` in `crates/core/tests/indexing/`. It waits up to five seconds for a cancelled file reader to stop and for an inspection marker file, so it can miss the deadline under load. The root cause is not fixed. If it fails in a full run, run that one binary again with `RUST_TEST_THREADS=4`. A failure that repeats on a quiet machine is a regression. Do not raise the timeout.
 
+Under investigation: two `artist_review_matched` cases in the `artist_identity` binary. These are `confirming_the_offer_makes_all_four_tracks_one_artist_with_confirmed_provenance` and `dismissing_the_offer_hides_it_for_good_and_it_cannot_be_confirmed`. They failed once, on 2026-11-04. The full binary took 458 seconds that time instead of the usual 190, right after an OrbStack restart. Both panicked on the `request(...).unwrap()` in `crates/core/tests/fixtures/artist_name_library.rs`. They passed 3 of 3 times alone and 218 of 218 in the next full binary run. The batch script keeps only summary lines, so the error value was lost. If either fails again, rerun the binary with its full output and record the error before changing anything.
+
 The web setup in `apps/web/src/test/setup.ts` resets timers, mocks, stubbed globals, local storage and session storage before and after every test. Vitest runs at most four workers (a worker cap of 4). Do not rely on state left by another test.
 
 Docker Desktop has one known quirk that looks like flakiness. Two `hito-core` tag tests need a 64 KiB pipe, which the `rust` service gets through `SYS_RESOURCE`. See [Docker Desktop quirks](development.md#docker-desktop-quirks).
