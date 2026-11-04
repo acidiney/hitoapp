@@ -91,24 +91,31 @@ async fn set_seen(connection: &mut sqlx::SqliteConnection, session: &AuthSession
 #[tokio::test]
 async fn the_newest_last_seen_across_open_sessions_wins() {
     let world = world().await;
+    world.add_account("guest").await;
+    let first = world
+        .hito
+        .identity
+        .login(credentials("guest"))
+        .await
+        .unwrap();
     let second = world
         .hito
         .identity
-        .login(credentials("owner"))
+        .login(credentials("guest"))
         .await
         .unwrap();
     let third = world
         .hito
         .identity
-        .login(credentials("owner"))
+        .login(credentials("guest"))
         .await
         .unwrap();
     let mut connection = world.database().await;
     let now = database_now(&mut connection).await;
-    set_seen(&mut connection, &world.owner, now - 5000).await;
+    set_seen(&mut connection, &first, now - 5000).await;
     set_seen(&mut connection, &second, now - 900).await;
     set_seen(&mut connection, &third, now - 7000).await;
-    assert_eq!(world.last_active("owner").await, Some(now - 900));
+    assert_eq!(world.last_active("guest").await, Some(now - 900));
 }
 
 #[tokio::test]

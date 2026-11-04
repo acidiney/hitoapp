@@ -217,26 +217,37 @@ async fn the_administrator_list_carries_only_the_newest_last_active_time() {
         Some(&admin),
     )
     .await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/login",
+        json!({"username":"quiet","password":"a quiet long password"}),
+        None,
+    )
+    .await;
     let mut connection = sqlx::SqliteConnection::connect_with(
         &sqlx::sqlite::SqliteConnectOptions::new().filename(dir.path().join("hito.db")),
     )
     .await
     .unwrap();
-    sqlx::query("UPDATE sessions SET last_seen_at = unixepoch() - 1200")
-        .execute(&mut connection)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE sessions SET last_seen_at = unixepoch() - 1200
+         WHERE user_id = (SELECT id FROM users WHERE username = 'quiet')",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
     let (state, users) = call(&app, "GET", "/api/v1/users", Value::Null, Some(&admin)).await;
     assert_eq!(state, StatusCode::OK);
-    let owner = users
+    let quiet = users
         .as_array()
         .unwrap()
         .iter()
-        .find(|user| user["username"] == "admin")
+        .find(|user| user["username"] == "quiet")
         .unwrap();
-    let seen = owner["last_active_at"].as_i64().unwrap();
+    let seen = quiet["last_active_at"].as_i64().unwrap();
     assert!((1190..=1260).contains(&(now_seconds() - seen)));
-    let mut keys: Vec<&str> = owner
+    let mut keys: Vec<&str> = quiet
         .as_object()
         .unwrap()
         .keys()
@@ -244,13 +255,13 @@ async fn the_administrator_list_carries_only_the_newest_last_active_time() {
         .collect();
     keys.sort();
     assert_eq!(keys, ["admin", "id", "last_active_at", "username"]);
-    let quiet = users
+    let admin_row = users
         .as_array()
         .unwrap()
         .iter()
-        .find(|user| user["username"] == "quiet")
+        .find(|user| user["username"] == "admin")
         .unwrap();
-    assert!(quiet["last_active_at"].is_null());
+    assert!(admin_row["last_active_at"].as_i64().unwrap() >= now_seconds() - 60);
 }
 
 #[tokio::test]
