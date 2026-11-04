@@ -216,7 +216,7 @@ try {
   assert.equal(initial.native, true);
   assert.equal(initial.state.playing, true);
   const position = await uiPosition();
-  await click('nav[aria-label="Main navigation"] a[href="/albums"]');
+  await click('nav[aria-label="Library sections"] a[href="/albums"]');
   await wait(
     () =>
       execute('return document.querySelector("h1")?.textContent === "Albums"'),
@@ -374,7 +374,7 @@ try {
     ),
     true,
   );
-  await click('nav[aria-label="Main navigation"] a[href="/history"]');
+  await click('nav[aria-label="Library sections"] a[href="/history"]');
   await wait(
     () => exists('button[aria-label="Play Fixture 440 Hz"]'),
     "the saved History row",
