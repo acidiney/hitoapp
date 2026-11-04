@@ -23,9 +23,10 @@ const SYSTEMS: &[(&[&str], &str)] = &[
 ];
 
 pub fn label(headers: &HeaderMap) -> String {
-    headers
-        .get(header::USER_AGENT)
-        .map_or_else(|| UNKNOWN.to_owned(), |value| describe(&String::from_utf8_lossy(value.as_bytes())))
+    headers.get(header::USER_AGENT).map_or_else(
+        || UNKNOWN.to_owned(),
+        |value| describe(&String::from_utf8_lossy(value.as_bytes())),
+    )
 }
 
 fn family(agent: &str, table: &[(&[&str], &'static str)]) -> Option<&'static str> {
@@ -106,7 +107,10 @@ mod tests {
     #[test]
     fn unknown_clients_keep_whatever_part_is_known() {
         assert_eq!(describe("curl/8.4.0"), "Unknown browser");
-        assert_eq!(describe("Mozilla/5.0 (Windows NT 10.0)"), "Unknown browser on Windows");
+        assert_eq!(
+            describe("Mozilla/5.0 (Windows NT 10.0)"),
+            "Unknown browser on Windows"
+        );
         assert_eq!(describe("Firefox/120.0"), "Firefox");
     }
 
@@ -114,14 +118,18 @@ mod tests {
     fn empty_missing_garbage_and_oversized_input_are_unknown() {
         assert_eq!(describe(""), "Unknown browser");
         assert_eq!(describe("   "), "Unknown browser");
-        assert_eq!(describe("\u{0}\u{1}\u{ff}\u{fffd}{}[]<script>"), "Unknown browser");
+        assert_eq!(
+            describe("\u{0}\u{1}\u{ff}\u{fffd}{}[]<script>"),
+            "Unknown browser"
+        );
         assert_eq!(label(&HeaderMap::new()), "Unknown browser");
         let oversized = format!("{FIREFOX_MAC} {}", "x".repeat(100_000));
         assert_eq!(describe(&oversized), "Unknown browser");
         let mut headers = HeaderMap::new();
         headers.insert(
             header::USER_AGENT,
-            header::HeaderValue::from_bytes(b"Mozilla/5.0 (X11; Linux x86_64) Firefox/133.0 \xe9").unwrap(),
+            header::HeaderValue::from_bytes(b"Mozilla/5.0 (X11; Linux x86_64) Firefox/133.0 \xe9")
+                .unwrap(),
         );
         assert_eq!(label(&headers), "Firefox on Linux");
     }

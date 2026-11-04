@@ -22,13 +22,15 @@ impl Identity {
         .await?;
         Ok(rows
             .into_iter()
-            .map(|(token_hash, created_at, last_seen_at, client)| SessionInfo {
-                id: session_id(&token_hash),
-                created_at,
-                last_seen_at,
-                client,
-                current: token_hash == actor.session_binding(),
-            })
+            .map(
+                |(token_hash, created_at, last_seen_at, client)| SessionInfo {
+                    id: session_id(&token_hash),
+                    created_at,
+                    last_seen_at,
+                    client,
+                    current: token_hash == actor.session_binding(),
+                },
+            )
             .collect())
     }
 

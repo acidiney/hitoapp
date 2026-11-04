@@ -88,11 +88,13 @@ async fn migrated_sessions_still_authenticate_and_the_client_column_is_bounded()
         use sha2::{Digest, Sha256};
         format!("{:x}", Sha256::digest(token.as_bytes()))
     };
-    sqlx::query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,'legacy-user',4102444800)")
-        .bind(&hash)
-        .execute(&mut connection)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,'legacy-user',4102444800)",
+    )
+    .bind(&hash)
+    .execute(&mut connection)
+    .await
+    .unwrap();
     connection.close().await.unwrap();
 
     let hito = hito_core::open(hito_core::CoreConfig::new(

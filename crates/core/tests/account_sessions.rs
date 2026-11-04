@@ -722,8 +722,22 @@ async fn locked_sessions_and_failed_authentication_are_handled_for_last_seen() {
         .unwrap();
     age(&mut connection, &world.third, 4000).await;
     let expired = last_seen(&mut connection, &world.third).await;
-    assert!(world.hito.identity.authenticate(&world.third.token).await.is_err());
-    assert!(world.hito.identity.authenticate(&"f".repeat(64)).await.is_err());
+    assert!(
+        world
+            .hito
+            .identity
+            .authenticate(&world.third.token)
+            .await
+            .is_err()
+    );
+    assert!(
+        world
+            .hito
+            .identity
+            .authenticate(&"f".repeat(64))
+            .await
+            .is_err()
+    );
     assert_eq!(last_seen(&mut connection, &world.third).await, expired);
 }
 
