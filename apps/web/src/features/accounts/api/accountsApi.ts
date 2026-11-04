@@ -6,8 +6,11 @@ import { log } from "../../../shared/log";
 const part = encodeURIComponent;
 
 export const accountsApi = {
-  async list(account: string, signal?: AbortSignal): Promise<Schema<"User">[]> {
-    return requestJson<Schema<"User">[]>("/users", {
+  async list(
+    account: string,
+    signal?: AbortSignal,
+  ): Promise<Schema<"AccountSummary">[]> {
+    return requestJson<Schema<"AccountSummary">[]>("/users", {
       action: "accounts.list",
       account,
       signal,

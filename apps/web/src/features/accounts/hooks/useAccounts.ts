@@ -11,7 +11,7 @@ export function useAccounts(account: string) {
   const scope = useRequestScope(account);
   const [listing, setListing] = useState<{
     scope: typeof scope;
-    users: Schema<"User">[];
+    users: Schema<"AccountSummary">[];
   }>({ scope, users: [] });
   const [pendingScope, setPendingScope] = useState<typeof scope | null>(null);
   useEffect(() => {
@@ -51,7 +51,10 @@ export function useAccounts(account: string) {
       if (!request.active()) return null;
       setListing((current) => ({
         scope,
-        users: [...(current.scope === scope ? current.users : []), user],
+        users: [
+          ...(current.scope === scope ? current.users : []),
+          { ...user, last_active_at: null },
+        ],
       }));
       notice(`Created account ${user.username}. Grant library access below.`);
       return null;

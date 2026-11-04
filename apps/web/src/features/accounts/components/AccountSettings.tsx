@@ -4,6 +4,7 @@ import type { Schema } from "../../../shared/schema";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
+import { accountHint } from "../model/accountText";
 import { useAccounts } from "../hooks/useAccounts";
 import AccountDialog from "./AccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
@@ -44,7 +45,7 @@ export default function AccountSettings({
         <SettingRow
           key={user.id}
           title={user.username}
-          hint={user.admin ? "Administrator" : "Member"}
+          hint={accountHint(user)}
           wide
           action={
             <>
