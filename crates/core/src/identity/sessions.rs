@@ -5,7 +5,7 @@ use tracing::Instrument;
 use uuid::Uuid;
 
 const SEEN_INTERVAL_SECONDS: i64 = 300;
-const SEEN_WRITE_BUDGET: std::time::Duration = std::time::Duration::from_millis(500);
+const SEEN_CONNECTION_WAIT: std::time::Duration = std::time::Duration::from_millis(500);
 const SEEN_LOCK_WAIT_MILLIS: i64 = 100;
 const SEEN_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(2);
 const MAX_CLIENT_BYTES: usize = 64;
@@ -28,14 +28,22 @@ impl SeenAttempts {
     }
 }
 
-async fn write_seen(pool: &sqlx::SqlitePool, session_hash: &str) -> Result<()> {
-    let mut connection = pool.acquire().await?;
+async fn write_seen(
+    pool: &sqlx::SqlitePool,
+    session_hash: &str,
+) -> std::result::Result<(), &'static str> {
+    let mut connection = tokio::time::timeout(SEEN_CONNECTION_WAIT, pool.acquire())
+        .await
+        .map_err(|_| "timeout")?
+        .map_err(|_| "storage")?;
     let patience: i64 = sqlx::query_scalar("PRAGMA busy_timeout")
         .fetch_one(&mut *connection)
-        .await?;
+        .await
+        .map_err(|_| "storage")?;
     sqlx::query(&format!("PRAGMA busy_timeout = {SEEN_LOCK_WAIT_MILLIS}"))
         .execute(&mut *connection)
-        .await?;
+        .await
+        .map_err(|_| "storage")?;
     let written = sqlx::query(
         "UPDATE sessions SET last_seen_at = unixepoch()
          WHERE token_hash = ? AND unixepoch() - last_seen_at >= ?",
@@ -51,8 +59,7 @@ async fn write_seen(pool: &sqlx::SqlitePool, session_hash: &str) -> Result<()> {
     {
         connection.close_on_drop();
     }
-    written?;
-    Ok(())
+    written.map(|_| ()).map_err(|_| "storage")
 }
 
 fn is_hidden(character: char) -> bool {
@@ -199,12 +206,8 @@ impl Identity {
         let session_hash = session_hash.to_owned();
         tokio::spawn(
             async move {
-                let outcome =
-                    tokio::time::timeout(SEEN_WRITE_BUDGET, write_seen(&pool, &session_hash)).await;
-                let error_kind = match outcome {
-                    Ok(Ok(())) => return,
-                    Ok(Err(_)) => "storage",
-                    Err(_) => "timeout",
+                let Err(error_kind) = write_seen(&pool, &session_hash).await else {
+                    return;
                 };
                 tracing::debug!(
                     event = "session_seen_failed",
