@@ -152,7 +152,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Complete queue reordering and playback across catalog pages; verify very large queues against the performance gates.
   - [x] Add reorder (drag, Move up/down), whole-result Play for library, likes, search and albums, and a windowed queue list in the browser and native players. Unit timings at 10,000 and 100,000 entries and a Chromium workflow pass. See [queue](docs/queue.md).
   - [ ] Measure queue scrolling and 500 page requests on real browsers and devices.
-- [ ] Verify that desktop works without a server and web explains unavailable connections.
+- [x] Verify that desktop works without a server and web explains unavailable connections. The desktop WebView smoke now runs with networking disabled (setup, scan, playback, restart, and an unreachable plugin service failing cleanly). The web client shows a plain "Cannot reach Hito" banner for refused connections, timeouts and proxy 502/503/504 pages, keeps the page and typed text, and reconnects by itself. Linux WebView and Chromium only; the outage is simulated in the browser. See [desktop without a server](docs/desktop.md#without-a-server-or-a-network) and [unreachable servers](docs/operations.md#when-the-server-cannot-be-reached).
 
 ## Synchronization and downloads
 

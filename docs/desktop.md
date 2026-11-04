@@ -68,6 +68,14 @@ Tauri's setup creates the command channel and passes the sink to `LocalHost::sta
 
 Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
 
+## Without a server or a network
+
+The desktop app needs no Hito server and no internet connection for its own library. Setup, the owner account, choosing and scanning the Music folder, local playback, History and restart all run against the private loopback backend and the local SQLite file. Nothing in that path talks to a remote Hito server, and the desktop client has no setting for one yet. Synchronization with a server is planned, not built.
+
+Online-only features are the plugin services and providers: installing them, searching their catalogs, resolving their audio and downloading. Without a network they fail with an error message for that action and leave the rest of the app alone. They never block opening the app or playing local files. The "Cannot reach Hito" banner described in [operations](operations.md#when-the-server-cannot-be-reached) appears only if the private local backend itself stops answering.
+
+Tested evidence. The Tauri check runs its WebView smoke in a container started with `network_mode: none` (`scripts/desktop/no-network.compose.yaml`). The smoke asserts that the only network interface is loopback and that a request to a public address fails. It then does everything the normal smoke does: set up the owner, scan the Music folder, play with actual output, navigate, reload, restart and shut down. Before playback it offers a plugin service at an unreachable address and previews it. In the recorded run the offer was accepted and the preview failed in 14 ms with a 502 and a plain error message. The check also requires that the plugin list, the Discover page and the local library keep working and that the banner never appears. Limits: Linux WebView only; macOS and Windows device checks remain open. Provider search and playback were tested only as "unreachable service", not against each real provider offline.
+
 ## Development verification
 
 Run both checks from the repository root:
