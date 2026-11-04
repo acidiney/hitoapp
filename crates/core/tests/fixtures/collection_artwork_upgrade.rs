@@ -186,6 +186,15 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if expected.0 == "table" && expected.1 == "plugin_authorization_attempts" {
+            expected.3 = expected.3.map(|ddl| {
+                ddl.replacen(
+                    "expires_at <= created_at + 600)\n)",
+                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')))",
+                    1,
+                )
+            });
+        }
         if expected.0 == "table" && expected.1 == "sessions" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(
