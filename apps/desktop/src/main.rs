@@ -5,7 +5,7 @@ mod exit;
 use exit::{Decision, Lifecycle};
 use hito_desktop::{
     Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, SystemMedia, WindowHandle,
-    music_folder,
+    music_folder, user_agent,
 };
 use hito_playback::{MediaIntegration, media_commands};
 use std::sync::Mutex;
@@ -73,6 +73,7 @@ fn main() {
             let origin = entry.origin();
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(entry))
                 .title("Hito")
+                .user_agent(&user_agent())
                 .inner_size(1440.0, 1000.0)
                 .min_inner_size(390.0, 600.0)
                 .data_directory(data.join("webview"))

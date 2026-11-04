@@ -8,6 +8,7 @@ mod native_picker;
 mod os_controls;
 mod storage;
 mod system_media;
+mod user_agent;
 
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
@@ -17,6 +18,7 @@ pub use native_picker::NativePicker;
 pub use os_controls::{OsControls, WindowHandle};
 use std::path::PathBuf;
 pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};
+pub use user_agent::user_agent;
 
 pub struct Paths {
     pub data: PathBuf,
