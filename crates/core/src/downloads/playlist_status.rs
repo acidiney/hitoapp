@@ -51,8 +51,12 @@ impl Downloads {
             WHERE root.account_id=? AND root.host_device=? AND root.playlist_id=? AND root.kind='playlist' AND root.state='active'")
             .bind(actor.id()).bind(self.host.as_str()).bind(playlist).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let (after, limit) = page.selection(&retention, revision)?;
-        let mut query = QueryBuilder::new("SELECT e.id AS entry_id,e.recording_id,access.id AS access_grant_id,m.seen_revision,
-            i.state,i.error,f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
+        let mut query = QueryBuilder::new(
+            "SELECT e.id AS entry_id,e.recording_id,access.id AS access_grant_id,m.seen_revision,
+            i.state,i.error,CASE WHEN ",
+        );
+        query.push(super::publication::waiting_for_storage_sql());
+        query.push(" THEN 1 ELSE 0 END AS waiting_for_storage,f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
             EXISTS(SELECT 1 FROM download_playlist_retry_waiting pending
                 JOIN download_playlist_retry_work command ON command.retention_id=pending.retention_id
                     AND command.host_device=pending.host_device AND command.command_generation=pending.command_generation
@@ -140,6 +144,9 @@ fn entry(row: &SqliteRow, revision: i64) -> Result<PlaylistDownloadEntry> {
         match row.try_get::<Option<&str>, _>("state")? {
             Some("ready") if row.try_get::<Option<String>, _>("source_id")?.is_some() => {
                 (State::Ready, None)
+            }
+            Some("queued") if row.try_get::<bool, _>("waiting_for_storage")? => {
+                (State::Queued, Some("insufficient_storage".into()))
             }
             Some("queued") => (State::Queued, None),
             Some("running") => (State::Running, None),

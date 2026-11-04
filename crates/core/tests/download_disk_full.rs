@@ -5,11 +5,12 @@ mod shim;
 
 use hito_core::test_support::metadata_tag_logs::CapturedLogs;
 use hito_core::test_support::provider_audio as audio_fixture;
+use hito_core::test_support::support;
 
 use audio_fixture::AudioLibrary;
 use hito_core::{
-    AdoptProviderRecording, AudioRequest, DownloadRequest, DownloadState, DownloadStatus,
-    OpenedAudio,
+    Action, AdoptProviderRecording, AudioRequest, DownloadRequest, DownloadState, DownloadStatus,
+    OpenedAudio, PlaylistDownloadEntryState,
 };
 use shim::Faults;
 use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
@@ -449,4 +450,81 @@ async fn a_full_disk_shared_with_the_database_keeps_the_attempt_and_waits() {
     assert!(run(&fixture).await);
     let source = download_source(&fixture, &recording).await;
     assert_eq!(play(&fixture, &source).await, fixture.original);
+}
+
+#[tokio::test]
+async fn a_playlist_entry_waiting_for_disk_space_reports_the_storage_reason() {
+    if shim::child_faults().is_none() {
+        shim::run_in_child("a_playlist_entry_waiting_for_disk_space_reports_the_storage_reason")
+            .await;
+        return;
+    }
+    let faults = faults();
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let recording = Uuid::parse_str(&fixture.source.recording_id).unwrap();
+    let playlist_id = Uuid::new_v4();
+    let playlist = playlist_id.to_string();
+    support::synchronize(
+        &fixture.hito,
+        &fixture.actor,
+        vec![
+            Action::PlaylistCreate {
+                playlist_id,
+                name: "Owned storage playlist".into(),
+            },
+            Action::EntryInsert {
+                playlist_id,
+                entry_id: Uuid::new_v4(),
+                recording_id: recording,
+                position: 0,
+            },
+        ],
+    )
+    .await;
+    faults.set("full-disk");
+    let downloads = &fixture.hito.downloads;
+    downloads
+        .create_playlist(
+            &fixture.actor,
+            &playlist,
+            DownloadRequest {
+                request_id: Uuid::new_v4(),
+            },
+        )
+        .await
+        .unwrap();
+    let mut attempted = false;
+    for _ in 0..5 {
+        downloads
+            .run_next_playlist_reconciliation_until(pending())
+            .await
+            .unwrap();
+        if run(&fixture).await {
+            attempted = true;
+            break;
+        }
+    }
+    assert!(attempted, "the playlist download never started a transfer");
+    let waiting = downloads
+        .playlist_status(&fixture.actor, &playlist, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(waiting.entries.items.len(), 1);
+    let entry = &waiting.entries.items[0];
+    assert_eq!(entry.status, PlaylistDownloadEntryState::Queued);
+    assert_eq!(entry.error.as_deref(), Some(STORAGE_FULL));
+
+    faults.clear("full-disk");
+    make_due(&fixture).await;
+    assert!(run(&fixture).await);
+    let saved = downloads
+        .playlist_status(&fixture.actor, &playlist, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(
+        saved.entries.items[0].status,
+        PlaylistDownloadEntryState::Ready
+    );
+    assert!(saved.entries.items[0].error.is_none());
 }

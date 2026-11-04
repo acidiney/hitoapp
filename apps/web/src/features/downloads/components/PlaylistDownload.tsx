@@ -54,6 +54,10 @@ function summary(download: PlaylistDownloadState["download"]) {
     entries,
     ready: count("ready"),
     waiting: count("waiting_for_source"),
+    lowStorage: entries.filter(
+      (entry) =>
+        entry.status === "queued" && entry.error === "insufficient_storage",
+    ).length,
     failed: count("failed"),
     unavailable: count("unavailable"),
     partial: download?.entries.next_cursor != null,
@@ -97,7 +101,7 @@ export function PlaylistDownloadStrip({ local }: { local: boolean }) {
     retryFailed,
     check,
   } = useDownloadState();
-  const { entries, ready, waiting, failed, unavailable, partial } =
+  const { entries, ready, waiting, lowStorage, failed, unavailable, partial } =
     summary(download);
   const visible = download || checking || requested || error || statusError;
   if (!visible) return null;
@@ -155,6 +159,13 @@ export function PlaylistDownloadStrip({ local }: { local: boolean }) {
           <p className="status-strip-note">
             {waiting} {waiting === 1 ? "entry" : "entries"} waiting for a
             source.
+          </p>
+        )}
+        {lowStorage > 0 && (
+          <p className="status-strip-note">
+            {lowStorage} {lowStorage === 1 ? "entry is" : "entries are"} waiting
+            for disk space on this {local ? "device" : "server"}. Hito will try
+            again.
           </p>
         )}
         {failed > 0 && (

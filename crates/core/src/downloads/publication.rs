@@ -4,6 +4,14 @@ use uuid::Uuid;
 
 pub(super) const STORAGE_RETRY_SECONDS: i64 = 120;
 
+pub(super) fn waiting_for_storage_sql() -> String {
+    format!(
+        "(i.state='queued' AND EXISTS(SELECT 1 FROM download_jobs waiting WHERE waiting.intent_id=i.id
+            AND waiting.status='queued' AND waiting.attempts=0
+            AND waiting.next_attempt_at-waiting.updated_at={STORAGE_RETRY_SECONDS}))"
+    )
+}
+
 impl Downloads {
     pub(super) async fn mark_verifying(&self, lease: &Lease) -> Result<()> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;

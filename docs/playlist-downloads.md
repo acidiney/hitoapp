@@ -34,7 +34,7 @@ Removing a root withdraws only that retention. Other current roots keep their co
 | `GET /api/v1/playlists/{id}/download` | Owned retention status, membership revisions and a bounded entry page; `404` when absent |
 | `DELETE /api/v1/downloads/{retention_id}` | `204` after accepting removal of that root |
 
-OpenAPI and TypeScript come from the actual Rust routes and wire types. Status defaults to 32 entries and accepts at most 100. Its cursor belongs to one retention and membership revision; changed membership requires restarting pagination. Entry states distinguish pending reconciliation, waiting for a source, queued/running/verifying work, ready copies, failed transfers and unavailable recordings.
+OpenAPI and TypeScript come from the actual Rust routes and wire types. Status defaults to 32 entries and accepts at most 100. Its cursor belongs to one retention and membership revision; changed membership requires restarting pagination. Entry states distinguish pending reconciliation, waiting for a source, queued (with the `insufficient_storage` reason while waiting for disk space)/running/verifying work, ready copies, failed transfers and unavailable recordings.
 
 An immutable receipt binds a request UUID to its original command. Replaying it returns that receipt, including after removal, without starting another transfer. Legacy recording receipts retain their original identities. New recording receipts use the existing `intent_id` wire field for the user retention identity; clients must treat it as the removable root rather than an internal transfer ID.
 
