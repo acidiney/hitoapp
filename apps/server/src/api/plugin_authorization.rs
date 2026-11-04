@@ -153,7 +153,7 @@ async fn authenticated_callback(
     }
     match services
         .plugins
-        .complete_authorization(&actor, callback)
+        .complete_authorization(actor, callback)
         .await
     {
         Ok(outcome) => outcome_response(outcome),
