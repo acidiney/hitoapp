@@ -54,6 +54,3 @@ strip = true
 
 [profile.test.package.libsqlite3-sys]
 opt-level = 2
-
-[profile.test.package.hito-audio]
-opt-level = 2
