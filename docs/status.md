@@ -717,4 +717,5 @@ Source only, 2026-11-04. Runs on the local development server only after a rebui
 
 - Migration 0082 adds `created_at`, `last_seen_at` and `client` to `sessions`. Sign-in and setup store a coarse label (browser family and system family, at most 64 bytes) derived from the User-Agent in the HTTP adapter. Authentication writes `last_seen_at` at most once every 5 minutes per session, from the idle time it already reads. Settings, Profile shows "Firefox on macOS · Last active 5 minutes ago". See [account security](account-security.md#client-label-and-last-seen) and [migration 0082](database-maintenance.md#migration-0082-session-client-and-last-seen).
 - Tested evidence: see the final report of the slice for the exact counts.
+- Accounts list: Settings, Accounts shows each account's last active time (newest unexpired session, administrators only) or "No open sessions". Source only; see [account security](account-security.md#last-active-in-the-administrator-account-list).
 - Not built: the desktop shell does not yet send the `HitoDesktop/` token, so its sessions are not labelled "Hito desktop". No browser test covers the row text.
