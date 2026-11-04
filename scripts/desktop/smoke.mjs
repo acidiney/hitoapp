@@ -8,6 +8,7 @@ import {
   copyFile,
   access,
 } from "node:fs/promises";
+import { readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { monitorAudio } from "./audio-monitor.mjs";
@@ -113,6 +114,66 @@ async function close(origin) {
   );
   await endSession();
 }
+const connectionNoticeShown = () =>
+  execute('return document.querySelector(".connection-notice") !== null');
+async function verifyWithoutNetwork() {
+  assert.deepEqual(readdirSync("/sys/class/net"), ["lo"]);
+  await assert.rejects(
+    fetch("http://1.1.1.1/", { signal: AbortSignal.timeout(3000) }),
+  );
+  assert.equal(await connectionNoticeShown(), false);
+  const outcome = await execute(`
+    return (async () => {
+      const account = await fetch('/api/v1/me').then(r => r.json());
+      const headers = {
+        'content-type': 'application/json',
+        'x-hito-request': '1',
+        'x-hito-account': account.id
+      };
+      const started = performance.now();
+      const offered = await fetch('/api/v1/plugins/services', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'Unreachable service', base_url: 'http://127.0.0.1:9' })
+      });
+      let previewed = null;
+      if (offered.status === 201) {
+        const service = await offered.json();
+        const response = await fetch('/api/v1/plugins/preview', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ service_id: service.id, service_revision: service.revision })
+        });
+        previewed = { status: response.status, error: typeof (await response.json()).error };
+      }
+      const plugins = await fetch('/api/v1/plugins').then(r => r.status);
+      return {
+        offered: offered.status,
+        previewed,
+        plugins,
+        elapsed: performance.now() - started
+      };
+    })();
+  `);
+  assert.ok(outcome.elapsed < 20000, "provider failure must not hang");
+  assert.equal(outcome.plugins, 200);
+  if (outcome.previewed) {
+    assert.ok(outcome.previewed.status >= 400);
+    assert.equal(outcome.previewed.error, "string");
+  } else assert.ok(outcome.offered >= 400 && outcome.offered < 500);
+  console.log("providers unavailable without a network", outcome);
+  await click('nav[aria-label="Main navigation"] a[href="/discover"]');
+  await wait(
+    () => execute('return document.querySelector("h1") !== null'),
+    "Discover without providers",
+  );
+  assert.equal(await connectionNoticeShown(), false);
+  await click('nav[aria-label="Main navigation"] a[href="/library"]');
+  await wait(
+    () => exists('button[aria-label="Play Fixture 440 Hz"]'),
+    "the local library after the provider checks",
+  );
+}
 try {
   await wait(async () => {
     try {
@@ -207,6 +268,7 @@ try {
     "the indexed local track",
   );
   await noBrowserAudio();
+  if (process.env.HITO_TEST_NO_NETWORK === "1") await verifyWithoutNetwork();
   await click('button[aria-label="Play Fixture 440 Hz"]');
   await wait(
     async () => (await uiPosition()) > 0.2 && audible(),

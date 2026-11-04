@@ -1,0 +1,5 @@
+services:
+  desktop:
+    network_mode: none
+    environment:
+      HITO_TEST_NO_NETWORK: "1"

@@ -12,7 +12,7 @@ docker compose --profile desktop run --rm desktop cargo test --locked -p hito-de
 sh scripts/run-audio-test.sh hito-desktop native_http
 sh scripts/run-audio-test.sh hito-desktop native_lifecycle
 docker compose --profile desktop run --rm desktop cargo build --locked -p hito-desktop --features gui
-docker compose --profile desktop run --rm desktop sh -c '
+docker compose -f compose.yaml -f scripts/desktop/no-network.compose.yaml --profile desktop run --rm desktop sh -c '
   mkdir -p /workspace/test-results/desktop
   chmod 700 /workspace/test-results/desktop
   chown 10001:10001 /workspace/test-results/desktop
