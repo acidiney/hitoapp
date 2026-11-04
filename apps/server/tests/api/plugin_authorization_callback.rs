@@ -1023,3 +1023,20 @@ async fn the_cross_site_retry_is_bounded_by_a_marker_and_pages_refuse_referrers(
     assert!(!again.body.contains("http-equiv"));
     assert_safe(&again, &attempt);
 }
+
+#[tokio::test]
+async fn a_session_that_arrives_with_the_retry_marker_clears_it_so_later_callbacks_can_retry() {
+    let flow = Flow::start().await;
+    let attempt = flow.begin().await;
+    let cookie = format!("hito_session={}; hito_callback_retry=1", flow.owner);
+    let query = format!("error=access_denied&state={}", attempt.state);
+    let page = flow
+        .callback_with(None, &query, &[("cookie", cookie.as_str())])
+        .await;
+    assert_eq!(page.status, StatusCode::OK);
+    let cleared = page.headers["set-cookie"].to_str().unwrap();
+    assert!(cleared.starts_with("hito_callback_retry=;") && cleared.contains("Max-Age=0"));
+    assert!(cleared.contains("Path=/api/v1/plugin-authorization/callback"));
+    let plain = flow.callback(Some(&flow.owner), "state=missing").await;
+    assert!(plain.headers.get("set-cookie").is_none());
+}

@@ -85,16 +85,16 @@ pub async fn callback(
     RawQuery(query): RawQuery,
     headers: HeaderMap,
 ) -> Response {
+    let retried = headers
+        .get_all("cookie")
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(';'))
+        .any(|value| value.trim() == "hito_callback_retry=1");
     let Some(actor) = actor else {
         let cross_site = headers
             .get("sec-fetch-site")
             .is_some_and(|value| value == "cross-site" || value == "same-site");
-        let retried = headers
-            .get_all("cookie")
-            .iter()
-            .filter_map(|value| value.to_str().ok())
-            .flat_map(|value| value.split(';'))
-            .any(|value| value.trim() == "hito_callback_retry=1");
         tracing::info!(
             event = "authorization_callback_unauthenticated",
             same_origin_retry_offered = cross_site && !retried,
@@ -121,7 +121,24 @@ pub async fn callback(
             "Sign in to Hito in this browser, then start the provider connection again from Settings.",
         );
     };
-    let Some(callback) = PluginAuthorizationCallback::parse(query.as_deref()) else {
+    let mut response = authenticated_callback(&services, &actor, query.as_deref()).await;
+    if retried {
+        response.headers_mut().insert(
+            "set-cookie",
+            "hito_callback_retry=; Path=/api/v1/plugin-authorization/callback; Max-Age=0; HttpOnly; SameSite=Lax"
+                .parse()
+                .expect("static cookie"),
+        );
+    }
+    response
+}
+
+async fn authenticated_callback(
+    services: &Services,
+    actor: &hito_core::Actor,
+    query: Option<&str>,
+) -> Response {
+    let Some(callback) = PluginAuthorizationCallback::parse(query) else {
         return outcome_response(PluginAuthorizationOutcome::Invalid);
     };
     if let Err(error) = actor.require_unlocked() {
