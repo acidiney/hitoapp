@@ -300,7 +300,7 @@ The complete recording-credit workflow also passes through the reviewed connecti
 
 ### Optional authorization declaration
 
-The SDK accepts an `oauth2_pkce` declaration. The local server can begin and inspect a pending authorization attempt, as described below. This groundwork does not complete an account connection. A declaration alone does not obtain or store an access token.
+The SDK accepts an `oauth2_pkce` declaration. The local server can begin, inspect and complete (code exchange) an authorization attempt, as described below. It does not yet store a token or complete an account connection. A declaration alone does not obtain or store an access token.
 
 ```json
 {
@@ -328,7 +328,7 @@ Manifests without authorization continue to omit the field when serialized, pres
 
 The development branch adds `POST /api/v1/plugins/{id}/authorization` with the expected installation `revision`. It returns an attempt ID, authorization URL and expiry. Core uses the accepted manifest to generate fresh state and an S256 PKCE challenge. State and verifier are encrypted in the private vault, bound to the account, installation, service and attempt. The browser receives state only as part of the authorization URL; it never receives the verifier.
 
-The callback address is fixed to `/api/v1/plugin-authorization/callback` beneath `HITO_PUBLIC_ORIGIN`. The configured origin must use HTTPS or a literal loopback IP over HTTP, with no credentials, path prefix, query or fragment. Neither request bodies nor incoming host headers choose the callback. The callback handler itself is not implemented yet.
+The callback address is fixed to `/api/v1/plugin-authorization/callback` beneath `HITO_PUBLIC_ORIGIN`. The configured origin must use HTTPS or a literal loopback IP over HTTP, with no credentials, path prefix, query or fragment. Neither request bodies nor incoming host headers choose the callback.
 
 ```mermaid
 flowchart LR
@@ -343,9 +343,23 @@ flowchart LR
   Safe --> Session
 ```
 
-Attempts last ten minutes, with at most eight live attempts per account. `GET /api/v1/plugins/{id}/authorization/{attempt}` returns only the attempt ID, `pending` status and expiry. It requires the original live session and matching active installation/service revisions. Another session of the same account cannot inspect the attempt. Restart preserves a valid attempt; expiry, logout or changed authority makes it unavailable. Both routes return `Cache-Control: no-store`.
+Attempts last ten minutes, with at most eight live attempts per account. An attempt is `pending`, `exchanging`, `completed` or `failed` (migration 0083). Only `pending` and `exchanging` attempts count toward the limit, so a failed or finished attempt frees its slot at once. `GET /api/v1/plugins/{id}/authorization/{attempt}` returns only the attempt ID, that status and the expiry. It requires the original live session. Pending attempts also need matching active installation/service revisions; a closed attempt stays readable until it expires. Another session of the same account cannot inspect the attempt. Restart preserves a valid attempt; expiry, logout or changed authority makes it unavailable. All authorization routes return `Cache-Control: no-store`.
 
-Callback validation, one-time code exchange, access/refresh-token handling, the connection UI and the desktop browser launcher remain unfinished. The normal local server includes the migration 0025 attempt table and begin/status routes. Public Spotify playlist import uses its separate anonymous path and needs none of this authorization work.
+#### Callback and code exchange
+
+`GET /api/v1/plugin-authorization/callback` is the fixed redirect target. It is not a JSON route: it renders a short static HTML page and never reflects `state`, `code`, `error` or any other query value. Pages carry `Cache-Control: no-store`.
+
+1. The request must carry the original live session (cookie or bearer). A missing session gives a 401 page. Because the session cookie is `SameSite=Strict`, a browser arriving from the provider sends no cookie. When `Sec-Fetch-Site` says `cross-site` or `same-site`, the handler returns a page with a zero-delay meta refresh to itself, which the browser sends as a same-origin navigation with the cookie. Hito checks this with request-level tests only; it has not been observed in a real browser against a real provider.
+2. Core finds the attempt by the SHA-256 of `state`, restricted to the same account and session, decrypts the stored state and compares it in constant time. Another session, another account, an unknown or altered state, a duplicate or over-long parameter, and a missing `code` all give the same "not valid" page and consume nothing.
+3. A used attempt gives "already used". An expired one gives "expired". Changed installation or service revisions, or a changed manifest, close the attempt and give "changed".
+4. A provider `error` parameter closes the attempt as `failed` (page "declined" for `access_denied`, otherwise a provider-problem page). No exchange happens and the error text is not shown.
+5. Otherwise one `BEGIN IMMEDIATE` transaction moves the attempt from `pending` to `exchanging` and erases the stored state and verifier. A replayed or concurrent callback sees `exchanging` or a closed state and is refused, so exactly one exchange runs.
+6. Hito POSTs `grant_type=authorization_code`, `code`, `redirect_uri`, `client_id` and `code_verifier` to the manifest `token_endpoint` itself. The plugin service never sees the code, verifier or tokens. The client refuses redirects, ignores proxies, allows 2 seconds to connect and 10 seconds overall, caps the response at 16 KiB, requires an uncompressed JSON body with a bearer `access_token`, admits four exchanges at once, and runs to completion even if the browser disconnects.
+7. The attempt becomes `completed` only if the session and revisions are still current; otherwise it is `failed` and the page says "changed". Any exchange failure (unreachable, non-success status, redirect, oversized or invalid response) gives `failed` and a "could not finish" page.
+
+A failed attempt is final: the code is single use, so the person starts a new attempt from Settings. Failed attempts hold no slot and no secret. A crash during an exchange leaves the attempt `exchanging` until it expires after at most ten minutes.
+
+Boundary of this slice: the token response is validated and then discarded. Nothing is persisted beyond the `completed` or `failed` status, so a `completed` attempt does not yet mean a usable connection. Encrypted access/refresh-token storage, refresh rotation, expiry handling, revocation, the connection UI and the desktop browser launcher remain unfinished. The token endpoint is reached over HTTPS (or a loopback IP for fixtures) as declared; Hito does not additionally block private addresses that a DNS name might resolve to.
 
 ### Public Spotify playlist import
 
