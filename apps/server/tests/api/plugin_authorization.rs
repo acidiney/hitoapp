@@ -324,6 +324,7 @@ async fn install_authorized_plugin(app: &Router, token: &str) -> (ProviderServer
                     "kind": "oauth2_pkce",
                     "client_id": "owned-test-client",
                     "authorization_endpoint": "https://accounts.spotify.com/authorize",
+                    "token_endpoint": "https://accounts.spotify.com/api/token",
                     "scopes": ["playlist-read-private"]
                 }
             }),

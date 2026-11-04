@@ -19,6 +19,7 @@ fn manifest_retains_optional_pkce_authorization_without_changing_legacy_wire_for
         "kind": "oauth2_pkce",
         "client_id": "owned-test-client",
         "authorization_endpoint": "https://accounts.spotify.com/authorize",
+        "token_endpoint": "https://accounts.spotify.com/api/token",
         "scopes": ["playlist-read-private"]
     });
     let manifest: Manifest = serde_json::from_value(authorized.clone())
@@ -63,6 +64,42 @@ fn manifest_authorization_accepts_secure_endpoints_and_rejects_unsafe_endpoints_
         assert_eq!(
             manifest.validate().unwrap_err(),
             "OAuth authorization endpoints must use HTTPS or a loopback IP over HTTP without credentials, query, or fragment"
+        );
+    }
+}
+
+#[test]
+fn manifest_authorization_applies_endpoint_rules_to_the_token_endpoint() {
+    for endpoint in [
+        "https://accounts.spotify.com/api/token",
+        "http://127.0.0.1:49152/token",
+        "http://[::1]:49152/token",
+    ] {
+        let mut value = authorized_manifest();
+        value["authorization"]["token_endpoint"] = endpoint.into();
+        let manifest: Manifest = serde_json::from_value(value).unwrap();
+        manifest.validate().unwrap();
+    }
+
+    for endpoint in [
+        "http://accounts.spotify.com/api/token",
+        "http://localhost:49152/token",
+        "http://192.0.2.1/token",
+        "ftp://127.0.0.1/token",
+        "https://owned-user:owned-secret@example.com/token",
+        "https://accounts.spotify.com/api/token?owned-query=private",
+        "https://accounts.spotify.com/api/token#owned-fragment",
+        "https://accounts.spotify.com/api/token path",
+        "/token",
+        "",
+        &format!("https://accounts.spotify.com/{}", "a".repeat(2048)),
+    ] {
+        let mut value = authorized_manifest();
+        value["authorization"]["token_endpoint"] = endpoint.into();
+        let manifest: Manifest = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            manifest.validate().unwrap_err(),
+            "OAuth token endpoints must use HTTPS or a loopback IP over HTTP without credentials, query, or fragment"
         );
     }
 }
@@ -148,13 +185,17 @@ fn manifest_authorization_rejects_unknown_incomplete_and_malformed_declarations(
     unknown_kind["authorization"]["kind"] = "client_credentials".into();
     assert!(serde_json::from_value::<Manifest>(unknown_kind).is_err());
 
-    for field in ["client_secret", "token_endpoint"] {
-        let mut value = authorized_manifest();
-        value["authorization"][field] = "owned-rejected-value".into();
-        assert!(serde_json::from_value::<Manifest>(value).is_err());
-    }
+    let mut value = authorized_manifest();
+    value["authorization"]["client_secret"] = "owned-rejected-value".into();
+    assert!(serde_json::from_value::<Manifest>(value).is_err());
 
-    for field in ["kind", "client_id", "authorization_endpoint", "scopes"] {
+    for field in [
+        "kind",
+        "client_id",
+        "authorization_endpoint",
+        "token_endpoint",
+        "scopes",
+    ] {
         let mut value = authorized_manifest();
         value["authorization"]
             .as_object_mut()
@@ -178,6 +219,7 @@ fn manifest_authorization_rejects_unknown_incomplete_and_malformed_declarations(
         ("kind", serde_json::json!(42)),
         ("client_id", serde_json::json!(42)),
         ("authorization_endpoint", serde_json::json!([])),
+        ("token_endpoint", serde_json::json!([])),
         ("scopes", serde_json::json!("playlist-read-private")),
     ] {
         let mut value = authorized_manifest();
@@ -196,6 +238,7 @@ fn authorized_manifest() -> serde_json::Value {
             "kind": "oauth2_pkce",
             "client_id": "owned-test-client",
             "authorization_endpoint": "https://accounts.spotify.com/authorize",
+            "token_endpoint": "https://accounts.spotify.com/api/token",
             "scopes": ["playlist-read-private"]
         }
     })

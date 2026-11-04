@@ -117,6 +117,7 @@ async fn authorization_logs_outcomes_without_session_pkce_or_private_configurati
             "kind": "oauth2_pkce",
             "client_id": "private-oauth-client-sentinel",
             "authorization_endpoint": "https://accounts.spotify.com/authorize",
+            "token_endpoint": "https://accounts.spotify.com/api/token",
             "scopes": ["playlist-read-private"]
         });
         server.reply(manifest).await;

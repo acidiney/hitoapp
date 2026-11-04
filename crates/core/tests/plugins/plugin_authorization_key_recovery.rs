@@ -23,6 +23,7 @@ async fn live_consent_secrets_protect_a_missing_key_until_the_attempt_expires() 
                     "kind": "oauth2_pkce",
                     "client_id": "owned-test-client",
                     "authorization_endpoint": "https://accounts.spotify.com/authorize",
+                    "token_endpoint": "https://accounts.spotify.com/api/token",
                     "scopes": ["playlist-read-private"]
                 }
             }),

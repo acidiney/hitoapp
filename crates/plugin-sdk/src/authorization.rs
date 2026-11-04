@@ -9,6 +9,7 @@ pub enum Authorization {
     Oauth2Pkce {
         client_id: String,
         authorization_endpoint: String,
+        token_endpoint: String,
         scopes: BTreeSet<String>,
     },
 }
@@ -18,6 +19,7 @@ impl Authorization {
         let Self::Oauth2Pkce {
             client_id,
             authorization_endpoint,
+            token_endpoint,
             scopes,
         } = self;
         if client_id.is_empty()
@@ -26,7 +28,14 @@ impl Authorization {
         {
             return Err("OAuth client IDs must contain 1 to 256 visible ASCII bytes");
         }
-        validate_endpoint(authorization_endpoint)?;
+        validate_endpoint(
+            authorization_endpoint,
+            "OAuth authorization endpoints must use HTTPS or a loopback IP over HTTP without credentials, query, or fragment",
+        )?;
+        validate_endpoint(
+            token_endpoint,
+            "OAuth token endpoints must use HTTPS or a loopback IP over HTTP without credentials, query, or fragment",
+        )?;
         if scopes.len() > 32
             || scopes.iter().any(|scope| {
                 scope.is_empty()
@@ -42,16 +51,15 @@ impl Authorization {
     }
 }
 
-fn validate_endpoint(endpoint: &str) -> Result<(), &'static str> {
-    const INVALID: &str = "OAuth authorization endpoints must use HTTPS or a loopback IP over HTTP without credentials, query, or fragment";
+fn validate_endpoint(endpoint: &str, invalid: &'static str) -> Result<(), &'static str> {
     if endpoint.len() > 2048
         || endpoint
             .chars()
             .any(|value| value.is_control() || value.is_whitespace())
     {
-        return Err(INVALID);
+        return Err(invalid);
     }
-    let endpoint = Url::parse(endpoint).map_err(|_| INVALID)?;
+    let endpoint = Url::parse(endpoint).map_err(|_| invalid)?;
     let allowed_scheme = endpoint.scheme() == "https"
         || (endpoint.scheme() == "http"
             && match endpoint.host() {
@@ -66,7 +74,7 @@ fn validate_endpoint(endpoint: &str) -> Result<(), &'static str> {
         || endpoint.query().is_some()
         || endpoint.fragment().is_some()
     {
-        return Err(INVALID);
+        return Err(invalid);
     }
     Ok(())
 }

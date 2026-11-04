@@ -312,14 +312,15 @@ The SDK accepts an `oauth2_pkce` declaration. The local server can begin and ins
     "kind": "oauth2_pkce",
     "client_id": "public-application-client-id",
     "authorization_endpoint": "https://accounts.spotify.com/authorize",
+    "token_endpoint": "https://accounts.spotify.com/api/token",
     "scopes": ["playlist-read-private"]
   }
 }
 ```
 
-All declaration fields are public. The client ID contains 1–256 visible ASCII bytes. The authorization endpoint is at most 2,048 bytes, uses HTTPS, and has a host. Literal IPv4 or IPv6 loopback addresses may use HTTP for local protocol fixtures. Endpoints cannot contain credentials, a query, a fragment, whitespace, or control characters.
+All declaration fields are public. The client ID contains 1–256 visible ASCII bytes. The authorization and token endpoints are each at most 2,048 bytes, use HTTPS, and have a host. Literal IPv4 or IPv6 loopback addresses may use HTTP for local protocol fixtures. Endpoints cannot contain credentials, a query, a fragment, whitespace, or control characters.
 
-Scopes contain at most 32 distinct tokens. Each token contains 1–128 visible ASCII bytes except double quotes and backslashes; spaces are invalid. An empty scope set is valid for providers that need no scopes. The SDK sorts scopes during serialization. Unknown authorization kinds or fields are rejected, including `client_secret` and `token_endpoint`.
+Scopes contain at most 32 distinct tokens. Each token contains 1–128 visible ASCII bytes except double quotes and backslashes; spaces are invalid. An empty scope set is valid for providers that need no scopes. The SDK sorts scopes during serialization. Unknown authorization kinds or fields are rejected, including `client_secret`. Hito is a public client: it exchanges the code with the declared token endpoint itself, and the plugin service never sees the code, verifier or tokens.
 
 Manifests without authorization continue to omit the field when serialized, preserving their existing wire representation and reviewed digest. Adding, removing, or changing an authorization declaration changes that digest and requires review. Scope ordering alone does not.
 
