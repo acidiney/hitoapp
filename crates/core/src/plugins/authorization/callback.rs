@@ -13,8 +13,8 @@ use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
 struct PendingSecrets {
-    state: String,
-    verifier: String,
+    state: Zeroizing<String>,
+    verifier: Zeroizing<String>,
 }
 
 struct Consumed {
@@ -44,8 +44,8 @@ impl Plugins {
         callback: PluginAuthorizationCallback,
     ) -> Result<PluginAuthorizationOutcome> {
         let started = Instant::now();
-        let permit = if callback.code.is_some() && callback.error.is_none() {
-            Some(self.token.admit()?)
+        let admission = if callback.code.is_some() && callback.error.is_none() {
+            Some(self.token.admit(actor.id())?)
         } else {
             None
         };
@@ -60,12 +60,12 @@ impl Plugins {
             }
             Claim::Exchange(consumed) => {
                 let plugins = self.clone();
-                let permit = permit.ok_or_else(|| {
+                let admission = admission.ok_or_else(|| {
                     Error::Internal("Provider authorization exchange was not admitted".into())
                 })?;
                 tokio::spawn(
                     async move {
-                        let _permit = permit;
+                        let _admission = admission;
                         plugins.exchange_and_finish(*consumed, started).await
                     }
                     .in_current_span()
@@ -171,7 +171,7 @@ impl Plugins {
             client_id,
             token_endpoint,
             code: code.clone(),
-            verifier: Zeroizing::new(secrets.verifier.clone()),
+            verifier: secrets.verifier.clone(),
         })))
     }
 
@@ -199,7 +199,7 @@ impl Plugins {
             Ok(_) => {
                 let completed = sqlx::query("UPDATE plugin_authorization_attempts
                     SET status = 'completed', pending_secret = zeroblob(74)
-                    WHERE id = ?1 AND status = 'exchanging' AND user_id = ?2
+                    WHERE id = ?1 AND status = 'exchanging' AND user_id = ?2 AND expires_at > unixepoch()
                       AND EXISTS(SELECT 1 FROM sessions WHERE token_hash = session_hash AND expires_at > unixepoch())
                       AND EXISTS(SELECT 1 FROM plugin_installations WHERE id = ?3 AND user_id = ?2 AND service_id = ?4 AND active = 1 AND revision = ?5)
                       AND EXISTS(SELECT 1 FROM plugin_services WHERE id = ?4 AND active = 1 AND revision = ?6)")

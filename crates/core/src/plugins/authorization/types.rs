@@ -55,7 +55,7 @@ impl PluginAuthorizationOutcome {
 }
 
 pub struct PluginAuthorizationCallback {
-    pub(super) state: String,
+    pub(super) state: Zeroizing<String>,
     pub(super) code: Option<Zeroizing<String>>,
     pub(super) error: Option<String>,
 }
@@ -63,7 +63,7 @@ pub struct PluginAuthorizationCallback {
 impl PluginAuthorizationCallback {
     pub fn parse(query: Option<&str>) -> Option<Self> {
         let query = query?;
-        if query.len() > 4096 {
+        if query.len() > 8192 {
             return None;
         }
         let (mut state, mut code, mut error) = (None, None, None);
@@ -84,13 +84,13 @@ impl PluginAuthorizationCallback {
                 && value.bytes().all(|b| b.is_ascii_graphic())
         };
         let state = state.filter(|value| visible(value, 128))?;
-        if code.as_ref().is_some_and(|value| !visible(value, 2048))
+        if code.as_ref().is_some_and(|value| !visible(value, 4096))
             || error.as_ref().is_some_and(|value| !visible(value, 128))
         {
             return None;
         }
         Some(Self {
-            state: state.to_string(),
+            state,
             code,
             error: error.map(|value| value.to_string()),
         })
