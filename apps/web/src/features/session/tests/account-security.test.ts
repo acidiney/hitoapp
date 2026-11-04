@@ -268,3 +268,21 @@ test("the session list never prints a secret and the card names its purpose", as
   const card = screen.getByRole("region", { name: "Open sessions" });
   expect(within(card).getAllByText(/Signed in/).length).toBe(3);
 });
+
+test("a hostile client label is shown as plain text", async () => {
+  const hostile = '<img src=x onerror="alert(1)"><b>bold</b>‮evil​';
+  vi.mocked(accountApi.sessions).mockResolvedValue([
+    here,
+    { ...phone, client: hostile },
+  ]);
+  const view = open();
+  const row = await screen.findByText(
+    (text) => text.includes("<img src=x") && text.includes("Last active"),
+  );
+  expect(row.textContent).toContain(hostile);
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(view.container.querySelector("b")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: /^Revoke session <img/ }),
+  ).toBeTruthy();
+});
