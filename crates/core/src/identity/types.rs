@@ -149,6 +149,8 @@ pub struct ChangePassword {
 pub struct SessionInfo {
     pub id: String,
     pub created_at: i64,
+    pub last_seen_at: i64,
+    pub client: Option<String>,
     pub current: bool,
 }
 

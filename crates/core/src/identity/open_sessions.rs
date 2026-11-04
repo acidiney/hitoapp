@@ -1,4 +1,4 @@
-use super::{Actor, Identity, SESSION_SECONDS, SessionInfo, SessionsRevoked};
+use super::{Actor, Identity, SessionInfo, SessionsRevoked};
 use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 
@@ -10,10 +10,10 @@ impl Identity {
         actor.require_unlocked()?;
         actor.require_session()?;
         actor.check_session(&self.store).await?;
-        let rows: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT token_hash, expires_at FROM sessions
+        let rows: Vec<(String, i64, i64, Option<String>)> = sqlx::query_as(
+            "SELECT token_hash, created_at, last_seen_at, client FROM sessions
              WHERE user_id = ? AND expires_at > unixepoch()
-             ORDER BY token_hash = ? DESC, expires_at DESC, token_hash LIMIT ?",
+             ORDER BY token_hash = ? DESC, created_at DESC, token_hash LIMIT ?",
         )
         .bind(actor.id())
         .bind(actor.session_binding())
@@ -22,9 +22,11 @@ impl Identity {
         .await?;
         Ok(rows
             .into_iter()
-            .map(|(token_hash, expires_at)| SessionInfo {
+            .map(|(token_hash, created_at, last_seen_at, client)| SessionInfo {
                 id: session_id(&token_hash),
-                created_at: expires_at - SESSION_SECONDS,
+                created_at,
+                last_seen_at,
+                client,
                 current: token_hash == actor.session_binding(),
             })
             .collect())

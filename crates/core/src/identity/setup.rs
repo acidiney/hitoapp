@@ -11,8 +11,16 @@ impl Identity {
             == 0)
     }
 
-    #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn setup(&self, credentials: Credentials) -> Result<AuthSession> {
+        self.setup_with_client(credentials, None).await
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn setup_with_client(
+        &self,
+        credentials: Credentials,
+        client: Option<&str>,
+    ) -> Result<AuthSession> {
         let username = credentials::validate(&credentials)?;
         let password_hash = credentials::hash(credentials.password).await?;
         let user = User {
@@ -47,6 +55,6 @@ impl Identity {
             .await?;
         tx.commit().await?;
         tracing::info!(account_id = %user.id, "Administrator account created");
-        self.create_session(user, None).await
+        self.create_session(user, None, client).await
     }
 }

@@ -3,6 +3,22 @@ use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+const SEEN_INTERVAL_SECONDS: i64 = 300;
+const SEEN_WRITE_BUDGET: std::time::Duration = std::time::Duration::from_millis(250);
+const MAX_CLIENT_BYTES: usize = 64;
+
+fn clean_client(client: Option<&str>) -> Option<String> {
+    let mut cleaned = String::new();
+    for character in client?.trim().chars().filter(|c| !c.is_control()) {
+        if cleaned.len() + character.len_utf8() > MAX_CLIENT_BYTES {
+            break;
+        }
+        cleaned.push(character);
+    }
+    let cleaned = cleaned.trim();
+    (!cleaned.is_empty()).then(|| cleaned.to_owned())
+}
+
 impl Identity {
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn check_session(&self, actor: &Actor) -> Result<()> {
@@ -16,8 +32,16 @@ impl Identity {
         )))
     }
 
-    #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn login(&self, credentials: Credentials) -> Result<AuthSession> {
+        self.login_with_client(credentials, None).await
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn login_with_client(
+        &self,
+        credentials: Credentials,
+        client: Option<&str>,
+    ) -> Result<AuthSession> {
         if credentials.password.len() > 1024 || credentials.username.len() > 64 {
             return Err(Error::Unauthorized);
         }
@@ -41,6 +65,7 @@ impl Identity {
                 admin,
             },
             Some(&hash_snapshot),
+            client,
         )
         .await
     }
@@ -50,16 +75,19 @@ impl Identity {
         &self,
         user: User,
         verified_hash: Option<&str>,
+        client: Option<&str>,
     ) -> Result<AuthSession> {
         let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let inserted = sqlx::query(
-            "INSERT INTO sessions SELECT ?1, ?2, unixepoch() + ?3
+            "INSERT INTO sessions(token_hash, user_id, expires_at, created_at, last_seen_at, client)
+             SELECT ?1, ?2, unixepoch() + ?3, unixepoch(), unixepoch(), ?5
              WHERE ?4 IS NULL OR EXISTS(SELECT 1 FROM users WHERE id = ?2 AND password_hash = ?4)",
         )
         .bind(token_hash(&token))
         .bind(&user.id)
         .bind(SESSION_SECONDS)
         .bind(verified_hash)
+        .bind(clean_client(client))
         .execute(&self.store.pool)
         .await?
         .rows_affected();
@@ -73,8 +101,8 @@ impl Identity {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn authenticate(&self, token: &str) -> Result<Actor> {
         let session_hash = token_hash(token);
-        let user: User = sqlx::query_as(
-            "SELECT u.id, u.username, u.admin
+        let (id, username, admin, quiet_seconds): (String, String, bool, i64) = sqlx::query_as(
+            "SELECT u.id, u.username, u.admin, unixepoch() - s.last_seen_at
              FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.token_hash = ? AND s.expires_at > unixepoch()",
         )
@@ -82,6 +110,14 @@ impl Identity {
         .fetch_optional(&self.store.pool)
         .await?
         .ok_or(Error::Unauthorized)?;
+        let user = User {
+            id,
+            username,
+            admin,
+        };
+        if quiet_seconds >= SEEN_INTERVAL_SECONDS {
+            self.record_seen(&session_hash).await;
+        }
         let locked = self.session_locked(&user.id, &session_hash).await?;
         Ok(Actor {
             user,
@@ -90,6 +126,29 @@ impl Identity {
             background: false,
             unattended: false,
         })
+    }
+
+    async fn record_seen(&self, session_hash: &str) {
+        let write = sqlx::query(
+            "UPDATE sessions SET last_seen_at = unixepoch()
+             WHERE token_hash = ? AND unixepoch() - last_seen_at >= ?",
+        )
+        .bind(session_hash)
+        .bind(SEEN_INTERVAL_SECONDS)
+        .execute(&self.store.pool);
+        match tokio::time::timeout(SEEN_WRITE_BUDGET, write).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(_)) => tracing::debug!(
+                event = "session_seen_failed",
+                error_kind = "storage",
+                "Session last-seen time was not recorded"
+            ),
+            Err(_) => tracing::debug!(
+                event = "session_seen_failed",
+                error_kind = "timeout",
+                "Session last-seen time was not recorded"
+            ),
+        }
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
