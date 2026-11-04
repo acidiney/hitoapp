@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -133,6 +134,7 @@ test("an unconfirmed removal retries its captured root while an independently re
   const original = writes()[0];
   expect(original[0]).toBe(removePath);
   expect(original[1]?.signal?.aborted).toBe(false);
+  resetConnection();
   const beforeRetry = fetch.mock.calls.length;
   await act(async () => {
     window.dispatchEvent(new Event("focus"));

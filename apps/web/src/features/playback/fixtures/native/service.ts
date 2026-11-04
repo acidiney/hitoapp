@@ -121,8 +121,10 @@ export function nativeService() {
                 "abort",
                 () => {
                   if (streams.get(kind) === controller) {
-                    controller.close();
                     streams.delete(kind);
+                    try {
+                      controller.close();
+                    } catch {}
                   }
                 },
                 { once: true },

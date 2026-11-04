@@ -200,7 +200,11 @@ test("native views page a large queue and isolate position frames from queue and
               );
               options.signal?.addEventListener(
                 "abort",
-                () => controller.close(),
+                () => {
+                  try {
+                    controller.close();
+                  } catch {}
+                },
                 { once: true },
               );
             },

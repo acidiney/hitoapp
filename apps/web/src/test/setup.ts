@@ -1,5 +1,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
+import { resetConnection } from "../shared/connection";
 
 HTMLDialogElement.prototype.showModal = function () {
   this.setAttribute("open", "");
@@ -10,6 +11,7 @@ HTMLDialogElement.prototype.close = function () {
 
 function reset() {
   cleanup();
+  resetConnection();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();

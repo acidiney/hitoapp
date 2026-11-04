@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -127,6 +128,7 @@ test("A retained episode Like succeeds without reloading inactive podcast detail
   expect(
     screen.getByRole("button", { name: "Retry unsubscribe request" }),
   ).toBeTruthy();
+  resetConnection();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(5_000);
   });

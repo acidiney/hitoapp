@@ -41,7 +41,9 @@ test("a prepared Resume retries the same device, operation and action after a lo
   const first = new AbortController();
   const retry = new AbortController();
 
-  await expect(submitChange(account, batch, first.signal)).rejects.toBe(lost);
+  await expect(
+    submitChange(account, batch, first.signal),
+  ).rejects.toBeInstanceOf(TypeError);
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(JSON.stringify(batch)).toBe(prepared);
   await expect(submitChange(account, batch, retry.signal)).resolves.toEqual(
@@ -61,8 +63,12 @@ test("a prepared Resume retries the same device, operation and action after a lo
       body: prepared,
     });
   }
-  expect(fetch.mock.calls[0][1]?.signal).toBe(first.signal);
-  expect(fetch.mock.calls[1][1]?.signal).toBe(retry.signal);
+  expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
+  first.abort();
+  expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  expect(fetch.mock.calls[1][1]?.signal?.aborted).toBe(false);
+  retry.abort();
+  expect(fetch.mock.calls[1][1]?.signal?.aborted).toBe(true);
   expect(JSON.stringify(batch)).toBe(prepared);
   expect(localStorage.getItem("hito-device")).toBe(batch.device_id);
 });

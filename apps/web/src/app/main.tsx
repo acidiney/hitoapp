@@ -1,12 +1,14 @@
 import { createRoot } from "react-dom/client";
-import { createInertiaApp } from "@inertiajs/react";
+import { createInertiaApp, router } from "@inertiajs/react";
 import ConnectionErrorPage from "./ConnectionErrorPage";
 import { resolvePage } from "./pages";
+import { installConnectionRecovery } from "./connectionRecovery";
 import { installSessionBoundary } from "../features/session/api/session";
 import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
 import "../style.css";
 
 installHistoryPolicy();
+installConnectionRecovery(router);
 void createInertiaApp({
   resolve: (name, page) => {
     prepareHistoryPage(page);

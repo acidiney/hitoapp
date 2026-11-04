@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -249,6 +250,7 @@ test.each(["account", "recording"] as const)(
       true,
     );
     expect(poll[1]?.signal?.aborted).toBe(true);
+    resetConnection();
     expect(vi.getTimerCount()).toBe(0);
     await act(async () => {
       currentRead.resolve(

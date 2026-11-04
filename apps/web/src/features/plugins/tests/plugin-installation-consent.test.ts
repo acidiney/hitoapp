@@ -366,8 +366,7 @@ test.each([503, 409, "lost response"] as const)(
     const review = await reviewConnection(installationToken);
     http.state.respond = ({ path, method }) => {
       if (path !== "/api/v1/plugins" || method !== "POST") return;
-      if (status === "lost response")
-        throw new Error("Service declaration changed. Review it again.");
+      if (status === "lost response") throw new TypeError("connection lost");
       return Response.json(
         {
           error: "Service declaration changed. Review it again.",
@@ -379,7 +378,9 @@ test.each([503, 409, "lost response"] as const)(
     fireEvent.click(review.getByRole("button", { name: "Accept and connect" }));
     await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(1));
     expect(screen.getByRole("alert").textContent).toContain(
-      "Service declaration changed. Review it again.",
+      status === "lost response"
+        ? "Hito cannot be reached right now. It will keep trying."
+        : "Service declaration changed. Review it again.",
     );
     expect(
       screen.queryByRole("heading", { name: "Review connection" }),

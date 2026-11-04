@@ -9,6 +9,7 @@ import LibrarySearch from "./LibrarySearch";
 import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
 import LibrarySections from "./LibrarySections";
 import Sidebar from "./Sidebar";
+import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
 import PlayerDock from "../features/playback/components/PlayerDock";
@@ -62,6 +63,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                 />
               )}
               <LibrarySections path={url.pathname} />
+              <ConnectionNotice />
               <NoticeBanner />
               <main id="main" tabIndex={-1}>
                 {children}

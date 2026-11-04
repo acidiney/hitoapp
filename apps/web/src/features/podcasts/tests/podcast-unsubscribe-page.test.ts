@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -135,6 +136,7 @@ test("Podcast unsubscribe recovers its exact receipt after status omits the subs
     fireEvent.click(screen.getByRole("button", { name: "Unsubscribe" }));
   });
   expect(screen.getByRole("alert")).toBeTruthy();
+  resetConnection();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch.mock.calls[0][1]).toMatchObject({
     method: "POST",

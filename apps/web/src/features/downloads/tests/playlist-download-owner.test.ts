@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -196,6 +197,7 @@ test("a held removal cannot cross accounts and an unmounted status read cannot r
   const beforeUnmount = fetch.mock.calls.length;
   view.unmount();
   expect(focused[1]?.signal?.aborted).toBe(true);
+  resetConnection();
   expect(vi.getTimerCount()).toBe(0);
   expect(document.querySelectorAll("audio")).toHaveLength(0);
   const privateFailure = "private late playlist download status failure";

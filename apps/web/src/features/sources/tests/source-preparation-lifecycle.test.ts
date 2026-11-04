@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import type { Schema } from "../../../shared/schema";
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -302,7 +303,8 @@ test("a future check hint delays polling and transport errors use bounded backof
   vi.setSystemTime(1_700_000_000_000);
   let failing = false;
   const times: number[] = [];
-  const fetch = vi.fn(async () => {
+  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === "/health") return Response.json({ ready: true });
     times.push(Date.now());
     if (failing) throw new TypeError("private unavailable service diagnostic");
     return Response.json(status({ next_check_at: 1_700_000_120 }));
@@ -331,6 +333,7 @@ test("a future check hint delays polling and transport errors use bounded backof
     "Hito could not check preparation. Try again.",
   );
   unmount();
+  resetConnection();
   expect(vi.getTimerCount()).toBe(0);
 });
 

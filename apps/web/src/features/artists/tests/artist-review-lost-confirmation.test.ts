@@ -102,7 +102,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
       within(preview).getByRole("button", { name: "Use this artist" }),
     );
     expect((await screen.findByRole("alert")).textContent).toBe(
-      "The confirmation response was lost.",
+      "Hito cannot be reached right now. It will keep trying.",
     );
     await act(async () => {
       await Promise.resolve();

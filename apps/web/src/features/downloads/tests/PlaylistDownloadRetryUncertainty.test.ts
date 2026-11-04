@@ -1,3 +1,4 @@
+import { resetConnection } from "../../../shared/connection";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -160,6 +161,7 @@ test("a lost failed-download retry acknowledgement recovers only its exact new r
   expect((retryFailed as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole("button", { name: "Remove download" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+  resetConnection();
   const beforeRecovery = fetch.mock.calls.length;
   await act(async () => {
     fireEvent.click(retryFailed);

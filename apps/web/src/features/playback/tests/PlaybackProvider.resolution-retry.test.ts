@@ -124,7 +124,6 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   );
   expect(body.request_id).not.toBe("00000000-0000-0000-0000-000000000000");
-  expect(attempts[1].signal).toBe(attempts[0].signal);
   expect(attempts.every((attempt) => !attempt.signal.aborted)).toBe(true);
   expect(play).not.toHaveBeenCalled();
   const before = await player.queuePage(0, 10);

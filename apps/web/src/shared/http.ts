@@ -1,4 +1,12 @@
+import {
+  ConnectionError,
+  gatewayMessage,
+  reportReachable,
+  reportUnreachable,
+} from "./connection";
 import { log } from "./log";
+
+const defaultTimeoutMs = 90_000;
 
 type RequestOptions = {
   action: string;
@@ -8,6 +16,7 @@ type RequestOptions = {
   signal?: AbortSignal;
   cache?: RequestCache;
   errorBody?: boolean;
+  timeoutMs?: number;
 };
 
 export const lockedEvent = "hito-session-locked";
@@ -33,11 +42,24 @@ export async function request(path: string, options: RequestOptions) {
   };
   log.debug("http.request", fields);
   let response: Response;
+  const limit = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    limit.abort();
+  }, options.timeoutMs ?? defaultTimeoutMs);
+  const stopTimer = () => clearTimeout(timer);
+  options.signal?.addEventListener("abort", stopTimer, { once: true });
+  const signal = options.signal
+    ? typeof AbortSignal.any === "function"
+      ? AbortSignal.any([options.signal, limit.signal])
+      : options.signal
+    : limit.signal;
   try {
     response = await fetch(`/api/v1${path}`, {
       method: options.method ?? "GET",
       credentials: "same-origin",
-      signal: options.signal,
+      signal,
       cache: options.cache,
       headers: {
         "content-type": "application/json",
@@ -48,14 +70,23 @@ export async function request(path: string, options: RequestOptions) {
         options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch (error) {
+    const cancelled = options.signal?.aborted === true;
+    const reason = cancelled ? "cancelled" : timedOut ? "timeout" : "network";
     const details = {
       ...fields,
-      reason: options.signal?.aborted ? "cancelled" : "network",
+      reason,
       duration_ms: Math.round(performance.now() - started),
     };
-    if (options.signal?.aborted) log.debug("http.cancelled", details);
-    else log.warn("http.failed", details);
-    throw error;
+    if (cancelled) {
+      log.debug("http.cancelled", details);
+      throw error;
+    }
+    log.warn("http.failed", details);
+    reportUnreachable(timedOut ? "timeout" : "network");
+    throw new ConnectionError(timedOut ? "timeout" : "network");
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", stopTimer);
   }
   const result = {
     ...fields,
@@ -64,6 +95,7 @@ export async function request(path: string, options: RequestOptions) {
     duration_ms: Math.round(performance.now() - started),
   };
   if (response.ok) {
+    reportReachable();
     const accepted =
       options.action === "job.status" ||
       options.action === "downloads.status" ||
@@ -97,13 +129,13 @@ export async function request(path: string, options: RequestOptions) {
   let data: unknown = null;
   if (options.errorBody === false) void response.body?.cancel().catch(() => {});
   else data = await response.json().catch(() => null);
-  const message =
+  const detail =
     data !== null &&
     typeof data === "object" &&
     "error" in data &&
     typeof data.error === "string"
       ? data.error
-      : `Hito returned ${response.status}. Try again.`;
+      : undefined;
   const code =
     data !== null &&
     typeof data === "object" &&
@@ -111,6 +143,15 @@ export async function request(path: string, options: RequestOptions) {
     typeof data.code === "string"
       ? data.code
       : undefined;
+  const gateway =
+    [502, 503, 504].includes(response.status) &&
+    options.errorBody !== false &&
+    detail === undefined;
+  if (gateway) reportUnreachable("gateway");
+  else reportReachable();
+  const message = gateway
+    ? gatewayMessage
+    : (detail ?? `Hito returned ${response.status}. Try again.`);
   const wait = Number(response.headers.get("retry-after"));
   throw new HttpError(
     response.status,

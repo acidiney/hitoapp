@@ -72,7 +72,9 @@ test("HTTP LAN sessions, playback and prepared mutations keep secure UUIDs witho
     .mockRejectedValueOnce(lost)
     .mockResolvedValueOnce(Response.json(receipt));
 
-  await expect(submitChange("account", batch)).rejects.toBe(lost);
+  await expect(submitChange("account", batch)).rejects.toBeInstanceOf(
+    TypeError,
+  );
   await expect(submitChange("account", batch)).resolves.toEqual(receipt);
   expect(JSON.stringify(batch)).toBe(prepared);
   for (const [path, options] of fetch.mock.calls.slice(1)) {
