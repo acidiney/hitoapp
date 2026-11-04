@@ -77,9 +77,9 @@ fn quadruple_rate_sources_change_speed_with_preserved_pitch_and_duration() {
 
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
-fn a_device_offering_only_48_khz_plays_quadruple_rate_sources_at_unit_and_half_speed() {
+fn a_device_offering_only_48_khz_plays_quadruple_rate_sources_at_unit_half_and_double_speed() {
     for rate in RATES {
-        for (speed, seconds) in [(1., 2), (0.5, 1)] {
+        for (speed, seconds) in [(1., 2), (0.5, 1), (2., 4)] {
             let capture = Capture::open();
             let mut player =
                 Player::open_with_output_rates(tone_clip(rate, 2, seconds), &[48_000]).unwrap();
