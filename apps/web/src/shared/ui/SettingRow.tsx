@@ -6,6 +6,7 @@ export default function SettingRow({
   status,
   action,
   wide = false,
+  compact = false,
   children,
 }: {
   title: ReactNode;
@@ -13,16 +14,21 @@ export default function SettingRow({
   status?: ReactNode;
   action?: ReactNode;
   wide?: boolean;
+  compact?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="setting-line" data-wide={wide || undefined}>
+    <div
+      className="setting-line"
+      data-wide={wide || undefined}
+      data-compact={compact || undefined}
+    >
       <div className="setting-line-main">
         <div className="setting-line-copy">
           <div className="setting-line-title">{title}</div>
           {hint && <div className="setting-line-hint">{hint}</div>}
         </div>
-        <div className="setting-line-status">{status}</div>
+        {!compact && <div className="setting-line-status">{status}</div>}
         <div className="setting-line-action">{action}</div>
       </div>
       {children}

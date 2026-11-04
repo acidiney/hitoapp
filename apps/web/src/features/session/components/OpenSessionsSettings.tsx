@@ -2,7 +2,7 @@ import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useOpenSessions } from "../hooks/useOpenSessions";
-import { sessionActivity, sessionClient, signedIn } from "../sessionText";
+import { sessionClient, sessionDetail, signedIn } from "../sessionText";
 
 export default function OpenSessionsSettings({
   account,
@@ -38,11 +38,13 @@ export default function OpenSessionsSettings({
       {list.sessions?.map((session) => (
         <SettingRow
           key={session.id}
-          title={sessionActivity(session)}
-          hint={`Signed in ${signedIn(session)}`}
-          status={session.current ? "This session" : undefined}
+          compact
+          title={sessionClient(session)}
+          hint={sessionDetail(session)}
           action={
-            session.current ? undefined : (
+            session.current ? (
+              <span className="badge">This session</span>
+            ) : (
               <Button
                 variant="destructive"
                 disabled={list.busy}

@@ -160,15 +160,16 @@ test("the list marks this session and offers Revoke only for the others", async 
   open();
   await screen.findByText("This session");
   expect(screen.getAllByText(/Last active/)).toHaveLength(3);
+  expect(screen.getByText("Firefox on macOS")).toBeTruthy();
+  expect(screen.getByText("Safari on iPhone")).toBeTruthy();
+  expect(screen.getByText("Unknown browser")).toBeTruthy();
+  expect(screen.getByText(/^Last active just now · Signed in /)).toBeTruthy();
   expect(
-    screen.getByText("Firefox on macOS · Last active just now"),
+    screen.getByText(/^Last active 5 minutes ago · Signed in /),
   ).toBeTruthy();
-  expect(
-    screen.getByText("Safari on iPhone · Last active 5 minutes ago"),
-  ).toBeTruthy();
-  expect(
-    screen.getByText("Unknown browser · Last active 3 days ago"),
-  ).toBeTruthy();
+  expect(screen.getByText(/^Last active 3 days ago · Signed in /)).toBeTruthy();
+  const current = screen.getByText("This session");
+  expect(current.closest(".setting-line-action")).toBeTruthy();
   expect(screen.getAllByText("This session")).toHaveLength(1);
   expect(
     screen.getAllByRole("button", { name: /^Revoke session/ }),
@@ -276,10 +277,8 @@ test("a hostile client label is shown as plain text", async () => {
     { ...phone, client: hostile },
   ]);
   const view = open();
-  const row = await screen.findByText(
-    (text) => text.includes("<img src=x") && text.includes("Last active"),
-  );
-  expect(row.textContent).toContain(hostile);
+  const row = await screen.findByText((text) => text.includes("<img src=x"));
+  expect(row.textContent).toBe(hostile);
   expect(view.container.querySelector("img")).toBeNull();
   expect(view.container.querySelector("b")).toBeNull();
   expect(

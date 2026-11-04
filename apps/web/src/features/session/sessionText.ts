@@ -5,16 +5,16 @@ export function sessionClient(session: Schema<"SessionInfo">) {
   return session.client ?? "Unknown browser";
 }
 
-export function sessionActivity(
-  session: Schema<"SessionInfo">,
-  now: number = Date.now(),
-) {
-  return `${sessionClient(session)} · Last active ${relativeTime(session.last_seen_at, now)}`;
-}
-
 export function signedIn(session: Schema<"SessionInfo">) {
   return new Date(session.created_at * 1000).toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+export function sessionDetail(
+  session: Schema<"SessionInfo">,
+  now: number = Date.now(),
+) {
+  return `Last active ${relativeTime(session.last_seen_at, now)} · Signed in ${signedIn(session)}`;
 }

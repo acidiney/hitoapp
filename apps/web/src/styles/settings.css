@@ -132,6 +132,9 @@
 .setting-line[data-wide] .setting-line-main {
   grid-template-columns: minmax(0, 1fr) 160px 300px;
 }
+.setting-line[data-compact] .setting-line-main {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
 .setting-line-copy {
   display: grid;
   min-width: 0;
@@ -341,10 +344,17 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
+  .setting-line[data-compact] .setting-line-main {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
   .setting-line-action,
   .setting-line-action:has(> .button + .button) {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+  .setting-line[data-compact] .setting-line-action {
+    justify-content: flex-end;
   }
   .setting-line-status:empty,
   .setting-line-action:empty {
