@@ -188,7 +188,8 @@ async fn the_session_list_has_opaque_ids_and_never_the_secret() {
     for session in sessions {
         assert!(session["id"].as_str().unwrap().len() >= 32);
         assert!(session["created_at"].as_i64().unwrap() > 0);
-        assert_eq!(session.as_object().unwrap().len(), 3);
+        assert_eq!(session.as_object().unwrap().len(), 5);
+        assert!(session["last_seen_at"].as_i64().unwrap() >= session["created_at"].as_i64().unwrap());
     }
 }
 
@@ -416,4 +417,105 @@ async fn a_locked_session_is_refused_with_423() {
         .0,
         StatusCode::LOCKED
     );
+}
+
+async fn send_as(
+    app: &Router,
+    method: &str,
+    path: &str,
+    body: Value,
+    token: Option<&str>,
+    agent: Option<&str>,
+) -> (StatusCode, Value, String) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("content-type", "application/json")
+        .header("x-hito-request", "1")
+        .header("x-forwarded-for", "203.0.113.77");
+    if let Some(agent) = agent {
+        request = request.header("user-agent", agent);
+    }
+    if let Some(token) = token {
+        request = request.header("authorization", format!("Bearer {token}"));
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = format!("{:?}", response.headers());
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, value, format!("{headers}{text}"))
+}
+
+#[tokio::test]
+async fn the_list_names_each_client_coarsely_and_never_echoes_the_agent_or_address() {
+    let (_dir, app) = app().await;
+    admin(&app).await;
+    let firefox = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0 raw-agent-sentinel";
+    let iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1 raw-agent-sentinel";
+    let credentials = json!({"username": "admin", "password": PASSWORD});
+    let mut everything = String::new();
+    let mut tokens = Vec::new();
+    for agent in [Some(firefox), Some(iphone), None] {
+        let (status, body, raw) =
+            send_as(&app, "POST", "/api/v1/login", credentials.clone(), None, agent).await;
+        assert_eq!(status, StatusCode::OK);
+        everything.push_str(&raw);
+        tokens.push(body["token"].as_str().unwrap().to_owned());
+    }
+    let (status, list, raw) = send_as(
+        &app,
+        "GET",
+        "/api/v1/account/sessions",
+        Value::Null,
+        Some(&tokens[0]),
+        Some(firefox),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    everything.push_str(&raw);
+    let sessions = list.as_array().unwrap();
+    let mut clients: Vec<&str> = sessions
+        .iter()
+        .map(|session| session["client"].as_str().unwrap())
+        .collect();
+    clients.sort_unstable();
+    assert_eq!(
+        clients,
+        vec![
+            "Firefox on macOS",
+            "Safari on iPhone",
+            "Unknown browser",
+            "Unknown browser"
+        ]
+    );
+    let current = sessions.iter().find(|session| session["current"] == true).unwrap();
+    assert_eq!(current["client"], "Firefox on macOS");
+    assert!(current["last_seen_at"].as_i64().unwrap() >= current["created_at"].as_i64().unwrap());
+    assert!(!everything.contains("raw-agent-sentinel"));
+    assert!(!everything.contains("203.0.113.77"));
+}
+
+#[tokio::test]
+async fn setup_records_the_client_of_the_first_session() {
+    let (_dir, app) = app().await;
+    let agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    let (status, body, _) = send_as(
+        &app,
+        "POST",
+        "/api/v1/setup",
+        json!({"username": "admin", "password": PASSWORD}),
+        None,
+        Some(agent),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let token = body["token"].as_str().unwrap();
+    let (_, list, _) = send_as(&app, "GET", "/api/v1/account/sessions", Value::Null, Some(token), None).await;
+    assert_eq!(list[0]["client"], "Chrome on Windows");
 }

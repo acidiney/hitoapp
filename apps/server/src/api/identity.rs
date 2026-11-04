@@ -40,9 +40,14 @@ pub async fn setup_status(State(services): State<Services>) -> ApiResult<Json<Se
 pub async fn setup(
     State(services): State<Services>,
     Extension(config): Extension<Config>,
+    headers: HeaderMap,
     JsonBody(credentials): JsonBody<Credentials>,
 ) -> ApiResult<Response> {
-    let session = services.identity.setup(credentials).await?;
+    let client = security::client_label(&headers);
+    let session = services
+        .identity
+        .setup_with_client(credentials, Some(&client))
+        .await?;
     tracing::info!(event = "setup_completed", "Initial account created");
     Ok(security::session_response(
         &config,
@@ -58,9 +63,14 @@ pub async fn setup(
 pub async fn login(
     State(services): State<Services>,
     Extension(config): Extension<Config>,
+    headers: HeaderMap,
     JsonBody(credentials): JsonBody<Credentials>,
 ) -> ApiResult<Response> {
-    let session = services.identity.login(credentials).await?;
+    let client = security::client_label(&headers);
+    let session = services
+        .identity
+        .login_with_client(credentials, Some(&client))
+        .await?;
     tracing::info!(event = "login_completed", "Session created");
     Ok(security::session_response(&config, session, StatusCode::OK))
 }

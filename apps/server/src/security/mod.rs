@@ -1,8 +1,10 @@
 mod body;
+mod client_label;
 mod origin;
 mod rate_limit;
 mod session;
 
+pub use client_label::label as client_label;
 pub use session::{cookie, session_response, token};
 
 use crate::{Config, error};

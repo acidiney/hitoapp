@@ -38,7 +38,9 @@ async fn send(
         .method(method)
         .uri(path)
         .header("content-type", "application/json")
-        .header("x-hito-request", "1");
+        .header("x-hito-request", "1")
+        .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0 agent-sentinel-9")
+        .header("x-forwarded-for", "203.0.113.77");
     if let Some(token) = token {
         request = request.header("authorization", format!("Bearer {token}"));
     }
@@ -191,6 +193,9 @@ async fn password_and_session_workflows_log_outcomes_without_secrets() {
         "next-password-sentinel",
         "last-password-sentinel",
         "$argon2",
+        "agent-sentinel-9",
+        "203.0.113.77",
+        "Gecko/20100101",
     ] {
         assert!(!text.contains(sentinel), "{sentinel}");
     }
