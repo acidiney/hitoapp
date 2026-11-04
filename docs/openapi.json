@@ -16345,7 +16345,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/User"
+                    "$ref": "#/components/schemas/AccountSummary"
                   }
                 }
               }
@@ -16620,6 +16620,32 @@
   },
   "components": {
     "schemas": {
+      "AccountSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "admin"
+        ],
+        "properties": {
+          "admin": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_active_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "Action": {
         "oneOf": [
           {

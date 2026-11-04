@@ -2536,6 +2536,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountSummary: {
+            admin: boolean;
+            id: string;
+            /** Format: int64 */
+            last_active_at?: number | null;
+            username: string;
+        };
         Action: {
             /** @enum {string} */
             kind: "release_title_set";
@@ -17974,7 +17981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"][];
+                    "application/json": components["schemas"]["AccountSummary"][];
                 };
             };
             401: {
