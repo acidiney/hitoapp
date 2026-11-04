@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 const TAPS_PER_FACTOR: usize = 32;
 const KAISER_BETA: f64 = 9.;
+const PREFILTER_HALF: usize = 32;
 
 pub(crate) struct Decimator {
     factor: usize,
@@ -15,7 +16,19 @@ pub(crate) struct Decimator {
 
 impl Decimator {
     pub fn new(factor: usize, channels: usize) -> Self {
-        let half = TAPS_PER_FACTOR * factor;
+        Self::with_half(factor, channels, TAPS_PER_FACTOR * factor)
+    }
+
+    pub fn prefilter(factor: usize, channels: usize) -> Self {
+        Self::with_half(factor, channels, PREFILTER_HALF)
+    }
+
+    #[cfg(test)]
+    pub fn taps(&self) -> usize {
+        2 * self.half + 1
+    }
+
+    fn with_half(factor: usize, channels: usize, half: usize) -> Self {
         let mut decimator = Self {
             factor,
             channels,
@@ -155,6 +168,11 @@ impl Resampler {
         };
         resampler.reset();
         resampler
+    }
+
+    #[cfg(test)]
+    pub fn taps(&self) -> usize {
+        2 * self.half
     }
 
     pub fn reset(&mut self) {

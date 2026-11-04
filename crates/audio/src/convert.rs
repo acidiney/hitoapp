@@ -1,11 +1,13 @@
 use crate::{
     AudioFormat, Decoded, Decoder, Result,
+    capability::decimation_for,
     resample::{Decimator, Resampler},
 };
 use std::time::Duration;
 use symphonia::core::audio::{Channels, Position};
 
 const CENTER: f32 = std::f32::consts::FRAC_1_SQRT_2;
+const PREFILTERED_DECIMATION: u32 = 4;
 
 pub struct Converter {
     decoder: Decoder,
@@ -34,12 +36,24 @@ struct Stage {
 enum Rate {
     Decimate(Decimator),
     Resample(Resampler),
+    Staged {
+        prefilter: Decimator,
+        decimated: Vec<f32>,
+        resampler: Resampler,
+    },
 }
 
 impl Rate {
     fn new(source: u32, output: u32, channels: usize) -> Option<Self> {
+        let decimated_rate = source / PREFILTERED_DECIMATION;
         if source == output {
             None
+        } else if decimation_for(source) == PREFILTERED_DECIMATION && decimated_rate > output {
+            Some(Self::Staged {
+                prefilter: Decimator::prefilter(PREFILTERED_DECIMATION as usize, channels),
+                decimated: Vec::new(),
+                resampler: Resampler::new(decimated_rate, output, channels),
+            })
         } else if source > output && source.is_multiple_of(output) {
             Some(Self::Decimate(Decimator::new(
                 (source / output) as usize,
@@ -54,6 +68,15 @@ impl Rate {
         match self {
             Self::Decimate(stage) => stage.push(input, output),
             Self::Resample(stage) => stage.push(input, output),
+            Self::Staged {
+                prefilter,
+                decimated,
+                resampler,
+            } => {
+                decimated.clear();
+                prefilter.push(input, decimated);
+                resampler.push(decimated, output);
+            }
         }
     }
 
@@ -61,6 +84,16 @@ impl Rate {
         match self {
             Self::Decimate(stage) => stage.finish(output),
             Self::Resample(stage) => stage.finish(output),
+            Self::Staged {
+                prefilter,
+                decimated,
+                resampler,
+            } => {
+                decimated.clear();
+                prefilter.finish(decimated);
+                resampler.push(decimated, output);
+                resampler.finish(output);
+            }
         }
     }
 
@@ -68,6 +101,32 @@ impl Rate {
         match self {
             Self::Decimate(stage) => stage.reset(),
             Self::Resample(stage) => stage.reset(),
+            Self::Staged {
+                prefilter,
+                decimated,
+                resampler,
+            } => {
+                prefilter.reset();
+                resampler.reset();
+                decimated.clear();
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn taps_per_output_frame(&self, source: u32, output: u32) -> f64 {
+        match self {
+            Self::Decimate(stage) => stage.taps() as f64,
+            Self::Resample(stage) => stage.taps() as f64,
+            Self::Staged {
+                prefilter,
+                resampler,
+                ..
+            } => {
+                let decimated_per_output =
+                    f64::from(source / PREFILTERED_DECIMATION) / f64::from(output);
+                prefilter.taps() as f64 * decimated_per_output + resampler.taps() as f64
+            }
         }
     }
 }
@@ -396,6 +455,56 @@ mod tests {
     use super::*;
 
     const C: f32 = CENTER;
+
+    fn single_stage_taps(source: u32, output: u32) -> f64 {
+        let rate = if source.is_multiple_of(output) {
+            Rate::Decimate(Decimator::new((source / output) as usize, 2))
+        } else {
+            Rate::Resample(Resampler::new(source, output, 2))
+        };
+        rate.taps_per_output_frame(source, output)
+    }
+
+    #[test]
+    fn quadruple_rate_sources_cost_far_fewer_taps_per_output_frame_through_two_stages() {
+        for (source, output, before, after) in [
+            (768_000, 48_000, 1_025., 516.),
+            (705_600, 48_000, 942., 238.875 + 236.),
+            (705_600, 44_100, 1_025., 260. + 256.),
+        ] {
+            let staged = Rate::new(source, output, 2).unwrap();
+            assert!(matches!(staged, Rate::Staged { .. }), "{source}->{output}");
+            let cost = staged.taps_per_output_frame(source, output);
+            assert_eq!(
+                single_stage_taps(source, output),
+                before,
+                "{source}->{output}"
+            );
+            assert!((cost - after).abs() < 0.01, "{source}->{output}: {cost}");
+            assert!(cost < before * 0.6, "{source}->{output}: {cost}");
+        }
+    }
+
+    #[test]
+    fn only_quadruple_rate_sources_below_the_decimated_rate_are_staged() {
+        for (source, output, staged) in [
+            (768_000, 192_000, false),
+            (705_600, 176_400, false),
+            (768_000, 176_400, true),
+            (768_000, 96_000, true),
+            (384_000, 48_000, false),
+            (352_800, 44_100, false),
+            (192_000, 48_000, false),
+            (176_400, 48_000, false),
+        ] {
+            let rate = Rate::new(source, output, 2).unwrap();
+            assert_eq!(
+                matches!(rate, Rate::Staged { .. }),
+                staged,
+                "{source}->{output}"
+            );
+        }
+    }
 
     fn stage(rate: u32, channels: u16, duration: Option<Duration>, layout: &Channels) -> Stage {
         let source = AudioFormat {

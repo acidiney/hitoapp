@@ -53,6 +53,10 @@ impl AudioFormat {
     }
 
     pub(crate) fn decimation(&self) -> u32 {
-        self.sample_rate.div_ceil(MAX_OUTPUT_RATE).max(1)
+        decimation_for(self.sample_rate)
     }
+}
+
+pub(crate) fn decimation_for(sample_rate: u32) -> u32 {
+    sample_rate.div_ceil(MAX_OUTPUT_RATE).max(1)
 }

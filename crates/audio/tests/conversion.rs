@@ -530,3 +530,63 @@ fn surround_and_a_device_rate_conversion_compose() {
     let left = channel(&output, 2, 0);
     assert!((amplitude(&left[2_000..42_000], 44_100, 1_000.) - 0.5).abs() < 0.005);
 }
+
+const STAGED_PAIRS: [(u32, u32); 4] = [
+    (705_600, 48_000),
+    (768_000, 48_000),
+    (705_600, 44_100),
+    (768_000, 96_000),
+];
+
+fn folded(hertz: f64, rate: u32) -> f64 {
+    let rate = f64::from(rate);
+    (hertz - (hertz / rate).round() * rate).abs()
+}
+
+#[test]
+fn quadruple_rate_sources_converted_to_a_lower_device_rate_keep_frames_level_and_passband() {
+    for (source, target) in STAGED_PAIRS {
+        for hertz in [1_000., 10_000., 18_000.] {
+            let mut converted = device_converter(source, 1, source / 2, (target, 1), |frame, _| {
+                tone(source, hertz, 16_384., frame)
+            });
+            let output = drain(&mut converted);
+            assert_eq!(output.frames, target as usize / 2, "{source}->{target}");
+            let body = &output.samples[2_000..output.frames - 2_000];
+            let level = amplitude(body, target, hertz);
+            assert!(
+                (level - 0.5).abs() < 0.005,
+                "{source}->{target} {hertz} Hz level {level}"
+            );
+            assert!(
+                amplitude(body, target, hertz + 1_000.) < 0.002,
+                "{source}->{target} {hertz} Hz"
+            );
+        }
+    }
+}
+
+#[test]
+fn quadruple_rate_sources_converted_to_a_lower_device_rate_reject_out_of_band_tones() {
+    for (source, target) in STAGED_PAIRS {
+        for hertz in [30_000., 60_000., 100_000., 150_000., 200_000., 300_000.] {
+            if hertz < f64::from(target) * 0.5 * 1.05 {
+                continue;
+            }
+            let mut converted = device_converter(source, 1, source / 2, (target, 1), |frame, _| {
+                tone(source, hertz, 16_384., frame)
+            });
+            let output = drain(&mut converted);
+            let body = &output.samples[2_000..output.frames - 2_000];
+            let level = amplitude(body, target, folded(hertz, target));
+            assert!(
+                level < 0.0005,
+                "{source}->{target}: {hertz} Hz folded to {level}"
+            );
+            assert!(
+                body.iter().all(|sample| sample.abs() < 0.001),
+                "{source}->{target}: {hertz} Hz leaked"
+            );
+        }
+    }
+}
