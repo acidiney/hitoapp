@@ -11,6 +11,7 @@ export default defineConfig({
     "**/collection-artwork.spec.ts",
     "**/community-ranking.spec.ts",
     "**/recording-lyric-provider-choice.spec.ts",
+    "**/plugin-authorization-callback.spec.ts",
   ],
   workers: 1,
   retries: 0,

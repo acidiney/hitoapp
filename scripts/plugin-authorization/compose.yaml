@@ -1,0 +1,8 @@
+services:
+  e2e-server:
+    environment:
+      HITO_PUBLIC_ORIGIN: http://127.0.0.1:8080
+  browser:
+    environment:
+      HITO_TEST_URL: http://127.0.0.1:8080
+      HITO_PLUGIN_AUTHORIZATION_E2E: "1"
