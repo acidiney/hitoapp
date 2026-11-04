@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import ConnectionErrorPage from "../ConnectionErrorPage";
 import {
@@ -110,5 +110,25 @@ test("the start-up error page reloads by itself when the server comes back", asy
   await act(async () => {
     await vi.advanceTimersByTimeAsync(4_000);
   });
+  expect(reload).toHaveBeenCalledTimes(1);
+});
+
+test("the start-up error page does not reload in a loop when the server answers but the session still fails", async () => {
+  const reload = vi.fn();
+  vi.stubGlobal("location", { ...window.location, reload });
+  sessionStorage.setItem("hito-connection-reload", String(Date.now()));
+  render(createElement(ConnectionErrorPage));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2_000);
+  });
+  expect(reload).not.toHaveBeenCalled();
+});
+
+test("Try now on the start-up error page reloads at once", () => {
+  const reload = vi.fn();
+  vi.stubGlobal("location", { ...window.location, reload });
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("x")));
+  render(createElement(ConnectionErrorPage));
+  fireEvent.click(screen.getByRole("button", { name: "Try now" }));
   expect(reload).toHaveBeenCalledTimes(1);
 });

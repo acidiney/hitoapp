@@ -554,13 +554,13 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await connectionTab.goto("/playlists");
   await expect(
     connectionTab.getByRole("heading", {
-      name: "Unable to check your session",
+      name: "Cannot reach Hito",
     }),
   ).toBeVisible();
   await expect(connectionTab.locator(".playlist-list")).toHaveCount(0);
   await connectionTab.unroute("**/api/v1/me");
   await connectionTab
-    .getByRole("button", { name: "Reload", exact: true })
+    .getByRole("button", { name: "Try now", exact: true })
     .click();
   await expect(
     connectionTab.locator(".playlist-list").getByText("Docker favorites"),
