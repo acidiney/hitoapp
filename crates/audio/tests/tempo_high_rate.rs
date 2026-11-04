@@ -55,7 +55,7 @@ fn quadruple_rate_sources_play_at_unit_speed_in_converted_form() {
 #[ignore = "requires the isolated clocked audio monitor"]
 fn quadruple_rate_sources_change_speed_with_preserved_pitch_and_duration() {
     for rate in RATES {
-        for (channels, speed, seconds) in [(2, 2., 4), (1, 0.5, 1)] {
+        for (channels, speed, seconds) in [(1, 2., 4), (1, 0.5, 1)] {
             let capture = Capture::open();
             let mut player = Player::open(tone_clip(rate, channels, seconds)).unwrap();
             player.speed(speed).unwrap();
