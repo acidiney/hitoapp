@@ -186,6 +186,15 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if expected.0 == "table" && expected.1 == "sessions" {
+            expected.3 = expected.3.map(|ddl| {
+                ddl.replacen(
+                    "expires_at INTEGER NOT NULL\n)",
+                    "expires_at INTEGER NOT NULL\n, created_at INTEGER NOT NULL DEFAULT 0, last_seen_at INTEGER NOT NULL DEFAULT 0, client TEXT CHECK (client IS NULL OR length(CAST(client AS BLOB)) BETWEEN 1 AND 64))",
+                    1,
+                )
+            });
+        }
         if expected.1 == "recording_artwork" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(
