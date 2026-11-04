@@ -108,7 +108,9 @@ pub async fn browser_security(
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     headers.insert("x-content-type-options", "nosniff".parse().unwrap());
-    headers.insert("referrer-policy", "same-origin".parse().unwrap());
+    headers
+        .entry(header::REFERRER_POLICY)
+        .or_insert("same-origin".parse().unwrap());
     headers.insert("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'".parse().unwrap());
     headers
         .entry(header::CACHE_CONTROL)

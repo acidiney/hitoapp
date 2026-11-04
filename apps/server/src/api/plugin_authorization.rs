@@ -81,6 +81,7 @@ fn invalid_origin() -> hito_core::Error {
 pub async fn callback(
     State(services): State<Services>,
     OptionalAccount(actor): OptionalAccount,
+    Extension(config): Extension<Config>,
     RawQuery(query): RawQuery,
     headers: HeaderMap,
 ) -> Response {
@@ -88,26 +89,50 @@ pub async fn callback(
         let cross_site = headers
             .get("sec-fetch-site")
             .is_some_and(|value| value == "cross-site" || value == "same-site");
+        let retried = headers
+            .get_all("cookie")
+            .iter()
+            .filter_map(|value| value.to_str().ok())
+            .flat_map(|value| value.split(';'))
+            .any(|value| value.trim() == "hito_callback_retry=1");
         tracing::info!(
             event = "authorization_callback_unauthenticated",
-            same_origin_retry_offered = cross_site,
+            same_origin_retry_offered = cross_site && !retried,
             "Provider authorization callback arrived without a session"
         );
-        return if cross_site {
-            page(StatusCode::OK, RELOAD_PAGE.to_owned())
-        } else {
-            outcome_page(
-                StatusCode::UNAUTHORIZED,
-                "Sign in to Hito",
-                "Sign in to Hito in this browser, then start the provider connection again from Settings.",
-            )
-        };
+        if cross_site && !retried {
+            let secure = if config.origin.starts_with("https://") {
+                "; Secure"
+            } else {
+                ""
+            };
+            let mut response = page(StatusCode::OK, RELOAD_PAGE.to_owned());
+            response.headers_mut().insert(
+                "set-cookie",
+                format!("hito_callback_retry=1; Path=/api/v1/plugin-authorization/callback; Max-Age=30; HttpOnly; SameSite=Lax{secure}")
+                    .parse()
+                    .expect("static cookie"),
+            );
+            return response;
+        }
+        return outcome_page(
+            StatusCode::UNAUTHORIZED,
+            "Sign in to Hito",
+            "Sign in to Hito in this browser, then start the provider connection again from Settings.",
+        );
     };
     let Some(callback) = PluginAuthorizationCallback::parse(query.as_deref()) else {
         return outcome_response(PluginAuthorizationOutcome::Invalid);
     };
     if let Err(error) = actor.require_unlocked() {
-        return crate::error::ApiError(error).into_response();
+        return match error {
+            hito_core::Error::Locked => outcome_page(
+                StatusCode::LOCKED,
+                "Hito is locked",
+                "Unlock Hito, then start the provider connection again from Settings. Your attempt was not used.",
+            ),
+            error => crate::error::ApiError(error).into_response(),
+        };
     }
     match services
         .plugins
@@ -124,7 +149,7 @@ pub async fn callback(
     }
 }
 
-const RELOAD_PAGE: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"0\"><title>Hito</title></head><body><p>Finishing your provider connection...</p></body></html>";
+const RELOAD_PAGE: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"1\"><title>Hito</title></head><body><p>Finishing your provider connection...</p></body></html>";
 
 fn outcome_response(outcome: PluginAuthorizationOutcome) -> Response {
     use PluginAuthorizationOutcome as Outcome;
@@ -188,6 +213,7 @@ fn page(status: StatusCode, body: String) -> Response {
         [
             ("content-type", "text/html; charset=utf-8"),
             ("cache-control", "no-store"),
+            ("referrer-policy", "no-referrer"),
         ],
         body,
     )

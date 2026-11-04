@@ -32,6 +32,8 @@ enum Reply {
     Oversized,
     NotJson,
     NoAccessToken,
+    GrantStringExpiry,
+    GrantUpperIdentity,
 }
 
 struct TokenState {
@@ -99,6 +101,16 @@ async fn token(State(state): State<Arc<TokenState>>, body: String) -> Response {
         Reply::Redirect => (StatusCode::TEMPORARY_REDIRECT, [("location", "/elsewhere")]).into_response(),
         Reply::Oversized => (json_type, format!("{{\"access_token\":\"{}\"}}", "a".repeat(40000))).into_response(),
         Reply::NotJson => ([("content-type", "text/plain")], ACCESS).into_response(),
+        Reply::GrantStringExpiry => (
+            json_type,
+            json!({"access_token": ACCESS, "token_type": "bearer", "expires_in": "3600"}).to_string(),
+        )
+            .into_response(),
+        Reply::GrantUpperIdentity => (
+            [("content-type", "application/json"), ("content-encoding", "Identity")],
+            json!({"access_token": ACCESS, "token_type": "Bearer"}).to_string(),
+        )
+            .into_response(),
         Reply::NoAccessToken => (json_type, json!({"token_type": "Bearer"}).to_string()).into_response(),
     }
 }
@@ -114,6 +126,7 @@ struct Flow {
     directory: tempfile::TempDir,
     owner: String,
     installation: Value,
+    service: Value,
     token: TokenServer,
     _provider: ProviderServer,
 }
@@ -126,6 +139,10 @@ struct Page {
 
 impl Flow {
     async fn start() -> Self {
+        Self::start_with(None).await
+    }
+
+    async fn start_with(endpoint: Option<&str>) -> Self {
         let directory = tempfile::tempdir().unwrap();
         let services = services(directory.path(), &directory.path().join("music")).await;
         let app = hito_server::router_with_config(
@@ -150,7 +167,7 @@ impl Flow {
                         "kind": "oauth2_pkce",
                         "client_id": "owned-test-client",
                         "authorization_endpoint": "https://accounts.spotify.com/authorize",
-                        "token_endpoint": format!("{}/token", token.url),
+                        "token_endpoint": endpoint.map_or_else(|| format!("{}/token", token.url), str::to_owned),
                         "scopes": ["playlist-read-private"]
                     }
                 }),
@@ -179,6 +196,7 @@ impl Flow {
             directory,
             owner,
             installation,
+            service,
             token,
             _provider: provider,
         }
@@ -192,11 +210,18 @@ impl Flow {
     }
 
     async fn begin_as(&self, session: &str) -> Attempt {
+        self.begin_for(session, &self.installation).await
+    }
+
+    async fn begin_for(&self, session: &str, installation: &Value) -> Attempt {
         let (status, attempt) = call(
             &self.app,
             "POST",
-            &self.begin_path(),
-            json!({"revision": self.installation["revision"]}),
+            &format!(
+                "/api/v1/plugins/{}/authorization",
+                installation["id"].as_str().unwrap()
+            ),
+            json!({"revision": installation["revision"]}),
             Some(session),
         )
         .await;
@@ -308,6 +333,7 @@ impl Flow {
 
 fn assert_safe(page: &Page, attempt: &Attempt) {
     assert_eq!(page.headers["cache-control"], "no-store");
+    assert_eq!(page.headers["referrer-policy"], "no-referrer");
     assert!(
         page.headers["content-type"]
             .to_str()
@@ -486,7 +512,7 @@ async fn concurrent_duplicate_callbacks_perform_exactly_one_exchange() {
     );
     let mut statuses = [first.status, second.status];
     statuses.sort();
-    assert_eq!(statuses, [StatusCode::OK, StatusCode::CONFLICT]);
+    assert_eq!(statuses, [StatusCode::OK, StatusCode::SERVICE_UNAVAILABLE]);
     assert_eq!(flow.token.requests().len(), 1);
     assert_eq!(flow.state_of(&flow.owner, &attempt).await, "completed");
 }
@@ -506,7 +532,7 @@ async fn a_second_callback_during_the_exchange_is_refused_and_the_status_shows_e
     let (page, (state, duplicate)) = tokio::join!(running, observer);
     assert_eq!(page.status, StatusCode::OK);
     assert_eq!(state, "exchanging");
-    assert_eq!(duplicate, StatusCode::CONFLICT);
+    assert_eq!(duplicate, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(flow.token.requests().len(), 1);
 }
 
@@ -771,4 +797,229 @@ async fn closed_attempts_keep_no_secret_and_do_not_block_key_recovery_after_rest
     let reopened = services(directory.path(), &directory.path().join("music")).await;
     drop(reopened);
     assert_eq!(std::fs::metadata(&key).unwrap().len(), 32);
+}
+
+#[tokio::test]
+async fn one_account_cannot_hold_two_exchange_slots_or_starve_another_account() {
+    let flow = Flow::start().await;
+    flow.token.delay(Duration::from_millis(700));
+    let first = flow.begin().await;
+    let second = flow.begin().await;
+    let (status, _) = call(
+        &flow.app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "bob", "password": "bob fairness test password"}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let bob = flow.login("bob", "bob fairness test password").await;
+    let (status, bob_installation) = call(
+        &flow.app,
+        "POST",
+        "/api/v1/plugins",
+        json!({"service_id": flow.service["id"], "service_revision": flow.service["revision"]}),
+        Some(&bob),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let bobs = flow.begin_for(&bob, &bob_installation).await;
+    let stalled = flow.code_callback(&flow.owner, &first);
+    let competing = async {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let busy = flow.code_callback(&flow.owner, &second).await;
+        let other = flow
+            .callback(Some(&bob), &format!("code={CODE}&state={}", bobs.state))
+            .await;
+        (busy, other)
+    };
+    let (stalled, (busy, other)) = tokio::join!(stalled, competing);
+    assert_eq!(stalled.status, StatusCode::OK);
+    assert_eq!(busy.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(busy.body.contains("busy"));
+    assert_safe(&busy, &second);
+    assert_eq!(other.status, StatusCode::OK);
+    assert_eq!(flow.state_of(&flow.owner, &second).await, "pending");
+    assert_eq!(flow.token.requests().len(), 2);
+    flow.token.delay(Duration::ZERO);
+    assert_eq!(
+        flow.code_callback(&flow.owner, &second).await.status,
+        StatusCode::OK
+    );
+}
+
+#[tokio::test]
+async fn token_endpoints_resolving_or_pointing_to_private_addresses_are_never_contacted() {
+    hito_testkit::logs::anchor_callsite_interest();
+    let logs = Capture::default();
+    let captured = logs.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .with_max_level(tracing::Level::TRACE)
+        .with_writer(move || captured.clone())
+        .finish();
+    async {
+        for endpoint in [
+            "https://10.0.0.5:8443/token",
+            "https://192.168.1.10/token",
+            "https://172.16.0.1/token",
+            "https://169.254.169.254/token",
+            "https://100.64.0.1/token",
+            "https://0.0.0.0/token",
+            "https://224.0.0.1/token",
+            "https://[fd00::1]/token",
+            "https://[fe80::1]/token",
+            "https://[::]/token",
+            "https://[ff02::1]/token",
+            "https://[::ffff:10.0.0.1]/token",
+            "https://localhost/token",
+        ] {
+            let flow = Flow::start_with(Some(endpoint)).await;
+            let attempt = flow.begin().await;
+            let before = logs.0.lock().unwrap().len();
+            let page = flow.code_callback(&flow.owner, &attempt).await;
+            assert_eq!(page.status, StatusCode::BAD_GATEWAY, "{endpoint}");
+            assert_safe(&page, &attempt);
+            assert_eq!(
+                flow.state_of(&flow.owner, &attempt).await,
+                "failed",
+                "{endpoint}"
+            );
+            assert!(flow.token.requests().is_empty());
+            let output = String::from_utf8(logs.0.lock().unwrap()[before..].to_vec()).unwrap();
+            assert!(
+                output.contains("\"reason\":\"blocked_address\""),
+                "{endpoint}: {output}"
+            );
+        }
+    }
+    .with_subscriber(subscriber)
+    .await;
+}
+
+#[tokio::test]
+async fn expiry_during_the_exchange_closes_the_attempt_instead_of_completing_it() {
+    let flow = Flow::start().await;
+    flow.token.delay(Duration::from_millis(600));
+    let attempt = flow.begin().await;
+    let aging = async {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        flow.sql("UPDATE plugin_authorization_attempts SET created_at = unixepoch() - 601, expires_at = unixepoch() - 1").await;
+    };
+    let (page, ()) = tokio::join!(flow.code_callback(&flow.owner, &attempt), aging);
+    assert_eq!(page.status, StatusCode::CONFLICT);
+    assert_safe(&page, &attempt);
+    let mut connection = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(flow.directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    let state: String =
+        sqlx::query_scalar("SELECT status FROM plugin_authorization_attempts WHERE id = ?")
+            .bind(&attempt.id)
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+    assert_eq!(state, "failed");
+}
+
+#[tokio::test]
+async fn numeric_string_lifetimes_and_mixed_case_identity_encoding_are_accepted() {
+    for reply in [Reply::GrantStringExpiry, Reply::GrantUpperIdentity] {
+        let flow = Flow::start().await;
+        flow.token.reply(reply);
+        let attempt = flow.begin().await;
+        assert_eq!(
+            flow.code_callback(&flow.owner, &attempt).await.status,
+            StatusCode::OK
+        );
+    }
+}
+
+#[tokio::test]
+async fn codes_up_to_4096_bytes_are_exchanged_and_longer_codes_are_refused_unconsumed() {
+    let flow = Flow::start().await;
+    let attempt = flow.begin().await;
+    let long = "c".repeat(4097);
+    let page = flow
+        .callback(
+            Some(&flow.owner),
+            &format!("code={long}&state={}", attempt.state),
+        )
+        .await;
+    assert_eq!(page.status, StatusCode::BAD_REQUEST);
+    assert!(flow.token.requests().is_empty());
+    let exact = "c".repeat(4096);
+    let page = flow
+        .callback(
+            Some(&flow.owner),
+            &format!("code={exact}&state={}", attempt.state),
+        )
+        .await;
+    assert_eq!(page.status, StatusCode::OK);
+    assert_eq!(flow.token.requests()[0]["code"], exact);
+}
+
+#[tokio::test]
+async fn a_locked_session_gets_an_html_page_and_leaves_the_attempt_unused() {
+    let flow = Flow::start().await;
+    let attempt = flow.begin().await;
+    let (status, _) = call(
+        &flow.app,
+        "PUT",
+        "/api/v1/account/pin",
+        json!({"password": "administrator test password", "pin": "2468", "idle_minutes": 5}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert!(status.is_success());
+    let (status, _) = call(
+        &flow.app,
+        "POST",
+        "/api/v1/account/lock",
+        Value::Null,
+        Some(&flow.owner),
+    )
+    .await;
+    assert!(status.is_success());
+    let page = flow.code_callback(&flow.owner, &attempt).await;
+    assert_eq!(page.status, StatusCode::LOCKED);
+    assert!(page.body.starts_with("<!doctype html>"));
+    assert!(page.body.contains("locked"));
+    assert_safe(&page, &attempt);
+    assert!(flow.token.requests().is_empty());
+}
+
+#[tokio::test]
+async fn the_cross_site_retry_is_bounded_by_a_marker_and_pages_refuse_referrers() {
+    let flow = Flow::start().await;
+    let attempt = flow.begin().await;
+    let query = format!("code={CODE}&state={}", attempt.state);
+    let first = flow
+        .callback_with(None, &query, &[("sec-fetch-site", "cross-site")])
+        .await;
+    assert!(first.body.contains("http-equiv=\"refresh\" content=\"1\""));
+    let marker = first.headers["set-cookie"].to_str().unwrap().to_owned();
+    assert!(marker.starts_with("hito_callback_retry=1;"));
+    assert!(
+        marker.contains("Max-Age=30")
+            && marker.contains("HttpOnly")
+            && marker.contains("SameSite=Lax")
+    );
+    assert!(marker.contains("Path=/api/v1/plugin-authorization/callback"));
+    assert_safe(&first, &attempt);
+    let again = flow
+        .callback_with(
+            None,
+            &query,
+            &[
+                ("sec-fetch-site", "cross-site"),
+                ("cookie", "hito_callback_retry=1"),
+            ],
+        )
+        .await;
+    assert_eq!(again.status, StatusCode::UNAUTHORIZED);
+    assert!(!again.body.contains("http-equiv"));
+    assert_safe(&again, &attempt);
 }
