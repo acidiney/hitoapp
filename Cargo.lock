@@ -2530,6 +2530,7 @@ name = "hito-server"
 version = "0.1.0-dev"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "futures-util",
  "hito-core",
  "hito-playback",

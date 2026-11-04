@@ -8239,6 +8239,77 @@
         ]
       }
     },
+    "/api/v1/plugin-authorization/callback": {
+      "get": {
+        "operationId": "plugin_authorization_callback",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {}
+            }
+          },
+          "400": {
+            "content": {
+              "text/html": {}
+            }
+          },
+          "401": {
+            "content": {
+              "text/html": {}
+            }
+          },
+          "409": {
+            "content": {
+              "text/html": {}
+            }
+          },
+          "502": {
+            "content": {
+              "text/html": {}
+            }
+          },
+          "503": {
+            "content": {
+              "text/html": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins": {
       "get": {
         "operationId": "plugin_settings",
@@ -19934,6 +20005,7 @@
             "required": [
               "client_id",
               "authorization_endpoint",
+              "token_endpoint",
               "scopes",
               "kind"
             ],
@@ -19956,6 +20028,9 @@
                   "type": "string"
                 },
                 "uniqueItems": true
+              },
+              "token_endpoint": {
+                "type": "string"
               }
             }
           }
@@ -25184,7 +25259,10 @@
       "PluginAuthorizationState": {
         "type": "string",
         "enum": [
-          "pending"
+          "pending",
+          "exchanging",
+          "completed",
+          "failed"
         ]
       },
       "PluginAuthorizationStatus": {

@@ -1,17 +1,19 @@
 use super::plugins::PluginRevision;
 use crate::{
     Config,
-    auth::Account,
+    auth::{Account, OptionalAccount},
     error::{ApiResult, ErrorResponse},
     extract::JsonBody,
 };
 use axum::{
     Extension, Json,
-    extract::{Path, State},
-    http::{StatusCode, Uri},
+    extract::{Path, RawQuery, State},
+    http::{HeaderMap, StatusCode, Uri},
+    response::{IntoResponse, Response},
 };
 use hito_core::{
-    PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationStatus, Services,
+    PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
+    PluginAuthorizationRedirect, PluginAuthorizationStatus, Services,
 };
 
 #[utoipa::path(post, path = "/api/v1/plugins/{id}/authorization", operation_id = "begin_plugin_authorization", params(("id" = String, Path)), request_body = PluginRevision, security(("session" = []), ("bearer" = [])), responses(
@@ -71,4 +73,123 @@ pub async fn status(
 
 fn invalid_origin() -> hito_core::Error {
     hito_core::Error::Invalid("Configure HITO_PUBLIC_ORIGIN as an HTTPS origin or a loopback IP over HTTP before connecting this provider".into())
+}
+
+#[utoipa::path(get, path = "/api/v1/plugin-authorization/callback", operation_id = "plugin_authorization_callback", params(("state" = Option<String>, Query), ("code" = Option<String>, Query), ("error" = Option<String>, Query)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, content_type = "text/html"), (status = 400, content_type = "text/html"), (status = 401, content_type = "text/html"), (status = 409, content_type = "text/html"), (status = 502, content_type = "text/html"), (status = 503, content_type = "text/html"),
+))]
+pub async fn callback(
+    State(services): State<Services>,
+    OptionalAccount(actor): OptionalAccount,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+) -> Response {
+    let Some(actor) = actor else {
+        let cross_site = headers
+            .get("sec-fetch-site")
+            .is_some_and(|value| value == "cross-site" || value == "same-site");
+        tracing::info!(
+            event = "authorization_callback_unauthenticated",
+            same_origin_retry_offered = cross_site,
+            "Provider authorization callback arrived without a session"
+        );
+        return if cross_site {
+            page(StatusCode::OK, RELOAD_PAGE.to_owned())
+        } else {
+            outcome_page(
+                StatusCode::UNAUTHORIZED,
+                "Sign in to Hito",
+                "Sign in to Hito in this browser, then start the provider connection again from Settings.",
+            )
+        };
+    };
+    let Some(callback) = PluginAuthorizationCallback::parse(query.as_deref()) else {
+        return outcome_response(PluginAuthorizationOutcome::Invalid);
+    };
+    if let Err(error) = actor.require_unlocked() {
+        return crate::error::ApiError(error).into_response();
+    }
+    match services
+        .plugins
+        .complete_authorization(&actor, callback)
+        .await
+    {
+        Ok(outcome) => outcome_response(outcome),
+        Err(hito_core::Error::ProviderBusy(_)) => outcome_page(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Hito is busy",
+            "Provider connections are busy. Your attempt was not used. Return to Settings and try again in a moment.",
+        ),
+        Err(error) => crate::error::ApiError(error).into_response(),
+    }
+}
+
+const RELOAD_PAGE: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"0\"><title>Hito</title></head><body><p>Finishing your provider connection...</p></body></html>";
+
+fn outcome_response(outcome: PluginAuthorizationOutcome) -> Response {
+    use PluginAuthorizationOutcome as Outcome;
+    let (status, title, message) = match outcome {
+        Outcome::Connected => (
+            StatusCode::OK,
+            "Provider authorized",
+            "The provider approved Hito. You can close this tab and return to Hito.",
+        ),
+        Outcome::Denied => (
+            StatusCode::OK,
+            "Connection declined",
+            "The provider did not grant access. Nothing was connected. You can start again from Settings.",
+        ),
+        Outcome::ProviderError => (
+            StatusCode::BAD_REQUEST,
+            "The provider reported a problem",
+            "The provider could not complete the connection. Start again from Settings.",
+        ),
+        Outcome::ExchangeFailed => (
+            StatusCode::BAD_GATEWAY,
+            "Hito could not finish the connection",
+            "The provider did not accept the approval. Start again from Settings.",
+        ),
+        Outcome::Expired => (
+            StatusCode::BAD_REQUEST,
+            "This connection attempt expired",
+            "Start again from Settings.",
+        ),
+        Outcome::Changed => (
+            StatusCode::CONFLICT,
+            "The connection changed",
+            "This plugin or your sign-in changed while you were approving. Reload Settings and start again.",
+        ),
+        Outcome::Used => (
+            StatusCode::CONFLICT,
+            "This connection attempt was already used",
+            "Start again from Settings if you still need to connect.",
+        ),
+        Outcome::Invalid => (
+            StatusCode::BAD_REQUEST,
+            "This connection link is not valid",
+            "Open Settings in the browser where you started the connection, then try again.",
+        ),
+    };
+    outcome_page(status, title, message)
+}
+
+fn outcome_page(status: StatusCode, title: &str, message: &str) -> Response {
+    page(
+        status,
+        format!(
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Hito</title></head><body><main><h1>{title}</h1><p>{message}</p><p><a href=\"/\">Return to Hito</a></p></main></body></html>"
+        ),
+    )
+}
+
+fn page(status: StatusCode, body: String) -> Response {
+    (
+        status,
+        [
+            ("content-type", "text/html; charset=utf-8"),
+            ("cache-control", "no-store"),
+        ],
+        body,
+    )
+        .into_response()
 }

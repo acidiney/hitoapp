@@ -194,6 +194,8 @@ mod metadata_preferences_access;
 mod metadata_preferences_fixture;
 #[path = "api/plugin_authorization.rs"]
 mod plugin_authorization;
+#[path = "api/plugin_authorization_callback.rs"]
+mod plugin_authorization_callback;
 #[path = "api/plugins.rs"]
 mod plugins;
 #[path = "api/storage.rs"]
