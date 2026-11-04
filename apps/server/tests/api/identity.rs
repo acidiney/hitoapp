@@ -1,9 +1,10 @@
-use super::support::{admin, app, call};
+use super::support::{admin, app, call, services};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
 use serde_json::{Value, json};
+use sqlx::Connection;
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -200,4 +201,94 @@ async fn administrator_deletes_an_account_and_its_sessions_end() {
     );
     let (_, users) = call(&app, "GET", "/api/v1/users", Value::Null, Some(&admin)).await;
     assert_eq!(users.as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn the_administrator_list_carries_only_the_newest_last_active_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let hito = services(dir.path(), &dir.path().join("music")).await;
+    let app = hito_server::router(hito);
+    let admin = admin(&app).await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username":"quiet","password":"a quiet long password"}),
+        Some(&admin),
+    )
+    .await;
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &sqlx::sqlite::SqliteConnectOptions::new().filename(dir.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE sessions SET last_seen_at = unixepoch() - 1200")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let (state, users) = call(&app, "GET", "/api/v1/users", Value::Null, Some(&admin)).await;
+    assert_eq!(state, StatusCode::OK);
+    let owner = users
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|user| user["username"] == "admin")
+        .unwrap();
+    let seen = owner["last_active_at"].as_i64().unwrap();
+    assert!((1190..=1260).contains(&(now_seconds() - seen)));
+    let mut keys: Vec<&str> = owner
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["admin", "id", "last_active_at", "username"]);
+    let quiet = users
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|user| user["username"] == "quiet")
+        .unwrap();
+    assert!(quiet["last_active_at"].is_null());
+}
+
+#[tokio::test]
+async fn members_are_refused_the_list_and_other_views_stay_without_the_field() {
+    let (_dir, app) = app().await;
+    let admin = admin(&app).await;
+    let (_, created) = call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username":"member","password":"a member long password"}),
+        Some(&admin),
+    )
+    .await;
+    assert!(created.get("last_active_at").is_none());
+    let (_, login) = call(
+        &app,
+        "POST",
+        "/api/v1/login",
+        json!({"username":"member","password":"a member long password"}),
+        None,
+    )
+    .await;
+    let member = login["token"].as_str().unwrap();
+    assert_eq!(
+        call(&app, "GET", "/api/v1/users", Value::Null, Some(member))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let (_, me) = call(&app, "GET", "/api/v1/me", Value::Null, Some(member)).await;
+    assert!(me.get("last_active_at").is_none());
+    assert!(login["user"].get("last_active_at").is_none());
+}
+
+fn now_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
 }

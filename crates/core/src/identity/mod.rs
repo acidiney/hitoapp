@@ -16,8 +16,9 @@ use crate::store::Store;
 pub const SESSION_SECONDS: i64 = 2_592_000;
 pub(crate) use access::{library_access, personal_library, recording_access, shared_library};
 pub use types::{
-    AccountDeletion, Actor, AuthSession, ChangePassword, Credentials, DeleteAccount, Library,
-    LockStatus, RemovePin, SessionInfo, SessionsRevoked, SetPin, Unlock, User,
+    AccountDeletion, AccountSummary, Actor, AuthSession, ChangePassword, Credentials,
+    DeleteAccount, Library, LockStatus, RemovePin, SessionInfo, SessionsRevoked, SetPin, Unlock,
+    User,
 };
 
 #[derive(Clone)]

@@ -9,6 +9,14 @@ pub struct User {
     pub admin: bool,
 }
 
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, ToSchema)]
+pub struct AccountSummary {
+    pub id: String,
+    pub username: String,
+    pub admin: bool,
+    pub last_active_at: Option<i64>,
+}
+
 #[derive(Clone)]
 pub struct Actor {
     pub(super) user: User,

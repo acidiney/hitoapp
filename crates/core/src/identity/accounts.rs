@@ -1,4 +1,4 @@
-use super::{Actor, Credentials, Identity, User, credentials};
+use super::{AccountSummary, Actor, Credentials, Identity, User, credentials};
 use crate::{Error, Result};
 use uuid::Uuid;
 
@@ -32,12 +32,15 @@ impl Identity {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub async fn users(&self, actor: &Actor) -> Result<Vec<User>> {
+    pub async fn users(&self, actor: &Actor) -> Result<Vec<AccountSummary>> {
         actor.require_admin()?;
-        Ok(
-            sqlx::query_as("SELECT id, username, admin FROM users ORDER BY username LIMIT 1000")
-                .fetch_all(&self.store.pool)
-                .await?,
+        Ok(sqlx::query_as(
+            "SELECT u.id, u.username, u.admin,
+                    (SELECT MAX(s.last_seen_at) FROM sessions s
+                     WHERE s.user_id = u.id AND s.expires_at > unixepoch()) AS last_active_at
+             FROM users u ORDER BY u.username LIMIT 1000",
         )
+        .fetch_all(&self.store.pool)
+        .await?)
     }
 }

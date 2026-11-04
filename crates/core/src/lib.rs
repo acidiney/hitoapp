@@ -97,9 +97,9 @@ pub use downloads::{
 pub use error::{Error, Result};
 pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
-    AccountDeletion, Actor, AuthSession, ChangePassword, Credentials, DeleteAccount, Identity,
-    Library, LockStatus, RemovePin, SESSION_SECONDS, SessionInfo, SessionsRevoked, SetPin, Unlock,
-    User,
+    AccountDeletion, AccountSummary, Actor, AuthSession, ChangePassword, Credentials,
+    DeleteAccount, Identity, Library, LockStatus, RemovePin, SESSION_SECONDS, SessionInfo,
+    SessionsRevoked, SetPin, Unlock, User,
 };
 pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]

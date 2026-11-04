@@ -12,8 +12,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hito_core::{
-    AuthSession, ChangePassword, Credentials, DeleteAccount, LockStatus, RemovePin, Services,
-    SessionInfo, SessionsRevoked, SetPin, Unlock, User,
+    AccountSummary, AuthSession, ChangePassword, Credentials, DeleteAccount, LockStatus, RemovePin,
+    Services, SessionInfo, SessionsRevoked, SetPin, Unlock, User,
 };
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -233,12 +233,12 @@ pub async fn revoke_session(
 }
 
 #[utoipa::path(get, path = "/api/v1/users", security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = [User]), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 200, body = [AccountSummary]), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
 ))]
 pub async fn users(
     State(services): State<Services>,
     Account(actor): Account,
-) -> ApiResult<Json<Vec<User>>> {
+) -> ApiResult<Json<Vec<AccountSummary>>> {
     Ok(Json(services.identity.users(&actor).await?))
 }
 
