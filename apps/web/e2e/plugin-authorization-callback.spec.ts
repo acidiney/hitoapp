@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { expect, request, test } from "@playwright/test";
+import { expect, type Page, request, test } from "@playwright/test";
 import { adminCredentials } from "./fixtures/admin-session";
 
 test.skip(
@@ -12,6 +12,27 @@ test.skip(
 const evidence =
   process.env.HITO_PLUGIN_AUTHORIZATION_EVIDENCE ?? "test-results/oauth";
 const CODE = "owned-browser-code";
+const stage = process.env.HITO_PLUGIN_AUTHORIZATION_STAGE ?? "";
+const variants = [
+  { theme: "light", viewport: "desktop", size: { width: 1280, height: 800 } },
+  { theme: "dark", viewport: "desktop", size: { width: 1280, height: 800 } },
+  { theme: "light", viewport: "phone", size: { width: 375, height: 812 } },
+  { theme: "dark", viewport: "phone", size: { width: 375, height: 812 } },
+] as const;
+
+async function capture(page: Page, browserName: string, outcome: string) {
+  await page.screenshot({ path: `${evidence}/${browserName}-${outcome}.png` });
+  if (!stage) return;
+  for (const { theme, viewport, size } of variants) {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.setViewportSize(size);
+    await page.screenshot({
+      path: `${evidence}/${browserName}-${outcome}-${theme}-${viewport}-${stage}.png`,
+    });
+  }
+  await page.emulateMedia({ colorScheme: null });
+  await page.setViewportSize({ width: 1280, height: 720 });
+}
 
 type Listener = { port: number; close: () => Promise<void> };
 
@@ -159,7 +180,7 @@ test("a provider redirect from another site reaches the callback with the sessio
   expect(token.requests).toHaveLength(1);
   expect(token.requests[0]).toContain(`code=${CODE}`);
   expect(token.requests[0]).toContain("code_verifier=");
-  await page.screenshot({ path: `${evidence}/${browserName}-connected.png` });
+  await capture(page, browserName, "connected");
   const completed = await api.get(
     `/api/v1/plugins/${installation.id}/authorization/${connected.id}`,
     { headers: auth },
@@ -171,11 +192,11 @@ test("a provider redirect from another site reaches the callback with the sessio
     page.getByRole("heading", { name: "This connection attempt was already used" }),
   ).toBeVisible();
   expect(token.requests).toHaveLength(1);
-  await page.screenshot({ path: `${evidence}/${browserName}-already-used.png` });
+  await capture(page, browserName, "already-used");
 
   await arrive(`error=access_denied&state=${declined.state}`);
   await expect(page.getByRole("heading", { name: "Connection declined" })).toBeVisible();
-  await page.screenshot({ path: `${evidence}/${browserName}-declined.png` });
+  await capture(page, browserName, "declined");
   expect(await status(declined.id)).toBe(200);
 
   const wait = expiring.expiresAt * 1000 - Date.now() + 3000;
@@ -184,7 +205,7 @@ test("a provider redirect from another site reaches the callback with the sessio
   await expect(
     page.getByRole("heading", { name: "This connection attempt expired" }),
   ).toBeVisible();
-  await page.screenshot({ path: `${evidence}/${browserName}-expired.png` });
+  await capture(page, browserName, "expired");
   expect(token.requests).toHaveLength(1);
 
   const signedOut = await browser.newContext();
@@ -194,7 +215,7 @@ test("a provider redirect from another site reaches the callback with the sessio
   );
   await bare.locator("#go").click();
   await expect(bare.getByRole("heading", { name: "Sign in to Hito" })).toBeVisible();
-  await bare.screenshot({ path: `${evidence}/${browserName}-signed-out.png` });
+  await capture(bare, browserName, "signed-out");
 
   await signedOut.close();
   await context.close();
