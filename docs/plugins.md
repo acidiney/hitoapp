@@ -386,7 +386,44 @@ Current behavior (web UI, source and tested in development): the row of an insta
 
 Tested evidence: nineteen component/hook cases with fake timers (each status, begin/poll/complete with the backoff schedule, exchanging, failed, expired, 404, transient errors, focus and visibility wake-ups, blocked tab fallback, failed begin, Stop waiting, disconnect confirm and cancel, retry of a failed status check, unmount and account switch cancelling the request). The gated browser test `apps/web/e2e/plugin-connection-ui.spec.ts` (run with `npm run e2e:plugin-authorization` and the loopback-origin override in `scripts/plugin-authorization/compose.yaml`) passes in Chromium and WebKit (as projects that wait for the callback test, because every new attempt deletes expired ones for all accounts) against a loopback fake provider that serves the authorization page and token endpoint: Connect opens a new page with a PKCE S256 challenge, the exact fixed callback and the declared scopes; Deny leaves "did not finish" and Not connected; Approve shows "Provider authorized" and the Settings row turns Connected; a reload stays Connected; a second account sees Not connected, connects and disconnects without touching the first account's connection; the first account is still Connected afterwards. The tokens never appear in the page. The "sign in again" state is produced by stubbing the status response in the browser test, because nothing in the fake provider can make a stored connection fail a refresh yet.
 
-Not done: the approved desktop browser launcher (the native app cannot open the provider page yet), a real provider's consent screen, and any feature that consumes the token.
+#### Desktop browser launcher
+
+Current behavior (source and Linux Docker evidence only). The desktop WebView must not show a provider's page: it denies new windows and navigation away from the private local origin. In the desktop app Settings does not call `window.open`. After `POST /api/v1/plugins/{id}/authorization` returns, it calls `POST /api/v1/plugins/{id}/authorization/{attempt}/launch` with the exact `authorization_url` it was given. The Settings page knows it is in the desktop app from the same `native_playback` page property that selects native playback.
+
+```mermaid
+sequenceDiagram
+  participant UI as Settings (WebView)
+  participant API as Local backend route
+  participant Core as Core plugins service
+  participant Host as Desktop SystemBrowser
+  participant OS as System browser
+  UI->>API: begin authorization
+  API-->>UI: attempt id and authorization_url
+  UI->>API: launch(attempt id, authorization_url)
+  API->>Core: authorization_launch
+  Core-->>API: validated URL, or refusal
+  API->>Host: open(validated URL)
+  Host->>OS: one URL to the platform opener
+```
+
+The route is a host capability, like the folder chooser. A host without a browser launcher (every ordinary server) answers 404 and the browser path is unchanged. The desktop grants no Tauri IPC permission for this: the opener crate is called from Rust, the opener plugin is not registered and no capability exists, so the WebView cannot ask the operating system to open anything. This differs from a "Tauri command" on purpose.
+
+Core, not the host or the page, decides what may be opened. `authorization_launch` requires a live, pending attempt that belongs to the calling account and session, whose installation and service revisions still match. The submitted URL is accepted only if all of these hold:
+
+- it parses, is at most 4096 bytes and has no control or whitespace characters;
+- its scheme is `https`, or `http` with a literal loopback IP (never `localhost`), and it has no user name, password or fragment;
+- scheme, host, port and path equal the manifest's `authorization_endpoint`;
+- it carries exactly one `state` whose SHA-256 equals the attempt's stored hash, and exactly one `redirect_uri` equal to the attempt's stored callback.
+
+Anything else is a 422, an unknown or foreign attempt is a 404, and nothing is opened. The desktop `SystemBrowser` repeats the scheme and credential checks before calling the platform opener (`xdg-open` or `gio` on Linux, `open` on macOS, `ShellExecute` on Windows), so a bug in the route cannot hand it `file:` or a custom scheme. An opener failure is a 502 with a fixed message and leaves the attempt usable. The desktop shows that message and Connect again; there is no fallback link, because the WebView would refuse to open it. Logs record the attempt ID and the outcome, never the URL, state or endpoint.
+
+Tested evidence. Three core cases cover the accept/reject table (https and both loopback literals accepted; other host, port, path, scheme, `localhost`, private and unspecified IPs, user info, fragment, another attempt's state or callback, duplicate state, oversize and control characters refused). Five server cases use a recording launcher through the real router: the exact URL is delivered once; seven forged or foreign URLs, an unknown attempt and an invalid token deliver nothing; another session of the same account gets 404; a host without a launcher gets 404; a launcher failure is a 502 without the endpoint in the body and the attempt stays pending. Three desktop cases cover the opener guard and failure. Two web cases cover the desktop branch (no `window.open`, exact arguments, no fallback link, failure message and no polling) and the browser case asserts the launcher is never called. The Linux WebView smoke (`scripts/desktop/smoke.mjs`) puts a stub `xdg-open` first on `PATH`, installs a loopback plugin service that declares authorization, clicks the real Connect button and requires: one opener call with one argument; that argument's origin and path equal the declared endpoint and its `redirect_uri` equals the local callback; the WebView stays on Settings and the provider endpoint receives no request from the app; three forged URLs and a replayed URL from another attempt give 422 with no further opener call; and invoking `plugin:opener|open_url` from the page fails.
+
+Callback gap (not solved). The desktop's private backend cannot complete a sign-in that starts in the system browser. Its `redirect_uri` is `http://127.0.0.1:<random port>/api/v1/plugin-authorization/callback`, because the desktop sets its public origin to its own loopback listener (`HITO_PUBLIC_ORIGIN` is not read there). The system browser can reach that address while the app runs, but the local backend answers every request that lacks the process-only `hito_desktop` cookie with 403, and only the WebView holds that cookie. The smoke records this: a callback request without the cookie answers 403. The port also changes on every launch, so a provider that requires a pre-registered redirect address cannot accept it. Making this work needs a separate decision, for example a fixed, registered callback that the desktop can receive without exposing the private backend, or completing the exchange on a Hito server the desktop is signed in to. Nothing was added for it. Until then the launcher opens the provider page, but a desktop sign-in cannot finish, and the flow ends at the provider or by waiting out the ten-minute attempt.
+
+macOS and Windows openers are untested. Only the Linux stub (`xdg-open` on `PATH`) has run; no real browser opened, and no real provider consent screen was shown.
+
+Not done: the callback path for the desktop (above), a real provider's consent screen, macOS and Windows opener checks, and any feature that consumes the token.
 
 ### Public Spotify playlist import
 

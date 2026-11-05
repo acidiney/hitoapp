@@ -68,6 +68,12 @@ Tauri's setup creates the command channel and passes the sink to `LocalHost::sta
 
 Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
 
+## Provider sign-in pages
+
+Settings > Plugins hands a provider's sign-in page to the system browser instead of opening it in the WebView. The local backend exposes a launch route only in the desktop host; core accepts only the exact URL of the caller's live attempt, and `SystemBrowser` passes it to the platform opener. The WebView gets no Tauri permission for this and the opener plugin is not registered. The rules and tests are in [the launcher](plugins.md#desktop-browser-launcher).
+
+The desktop's public origin is its own loopback listener on a random port, and the listener rejects requests without the WebView-only cookie, so the provider's callback cannot complete there yet. The launcher opens the page; the sign-in does not finish. Only a Linux stub opener has been exercised.
+
 ## Without a server or a network
 
 The desktop app needs no Hito server and no internet connection for its own library. Setup, the owner account, choosing and scanning the Music folder, local playback, History and restart all run against the private loopback backend and the local SQLite file. Nothing in that path talks to a remote Hito server, and the desktop client has no setting for one yet. Synchronization with a server is planned, not built.
