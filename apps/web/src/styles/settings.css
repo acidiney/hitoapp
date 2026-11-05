@@ -117,7 +117,7 @@
 }
 @media (min-width: 768px) {
   .setting-line[data-wide] .setting-line-main:has(.setting-line-identity) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   .setting-line-main:has(.setting-line-identity) .setting-line-status {
     display: none;
