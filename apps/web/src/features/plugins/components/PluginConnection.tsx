@@ -10,8 +10,11 @@ import {
 import type { PluginActions } from "../hooks/usePlugins";
 import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
-import SettingRow from "../../../shared/ui/SettingRow";
-import { newCapabilities, serviceSummary } from "../model/pluginSummary";
+import {
+  capabilityChips,
+  newCapabilities,
+  serviceSummary,
+} from "../model/pluginSummary";
 import PluginAuthorization from "./PluginAuthorization";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
@@ -100,48 +103,50 @@ export default function PluginConnection({
     event.preventDefault();
     void check();
   }
+  const chips = capabilityChips(plugin.manifest.capabilities);
   return (
     <li className="plugin-connection">
-      <SettingRow
-        title={<h4>{plugin.manifest.name}</h4>}
-        hint={serviceSummary(
-          plugin.manifest.name,
-          plugin.manifest.capabilities,
+      <div className="plugin-card-head">
+        <h4>{plugin.manifest.name}</h4>
+        {plugin.manifest.authorization && !plugin.credential_set ? null : (
+          <HealthDot
+            tone={plugin.credential_set ? "success" : "action"}
+            label={plugin.credential_set ? "Token saved" : "No token saved"}
+          />
         )}
-        status={
-          plugin.manifest.authorization && !plugin.credential_set ? null : (
-            <HealthDot
-              tone={plugin.credential_set ? "success" : "action"}
-              label={plugin.credential_set ? "Token saved" : "No token saved"}
-            />
-          )
-        }
-        wide
-        action={
-          <>
-            <Button
-              disabled={actions.pending}
-              ref={checkButton}
-              onClick={() => void check()}
-            >
-              Check connection
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={actions.pending}
-              ref={removeButton}
-              onClick={() => setConfirm(true)}
-            >
-              Remove
-            </Button>
-          </>
-        }
-      />
+      </div>
+      <p className="plugin-card-summary">
+        {serviceSummary(plugin.manifest.name, plugin.manifest.capabilities)}
+      </p>
+      {chips.length > 0 && (
+        <ul className="plugin-chips" aria-label="Capabilities">
+          {chips.map((chip) => (
+            <li key={chip}>{chip}</li>
+          ))}
+        </ul>
+      )}
       <PluginAuthorization
         account={account}
         plugin={plugin}
         desktop={desktop}
       />
+      <div className="plugin-card-actions">
+        <Button
+          disabled={actions.pending}
+          ref={checkButton}
+          onClick={() => void check()}
+        >
+          Check connection
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={actions.pending}
+          ref={removeButton}
+          onClick={() => setConfirm(true)}
+        >
+          Remove
+        </Button>
+      </div>
       {waiting && !review && (
         <div
           className="section-warning plugin-news"

@@ -63,7 +63,7 @@ function PluginPanel({
                 Hito. You can still clear tokens and remove connections.
               </SectionWarning>
             )}
-            <ul className="plain-list">
+            <ul className="plugin-grid">
               {data.installations.map((plugin) => (
                 <PluginConnection
                   key={plugin.id}

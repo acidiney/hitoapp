@@ -1,6 +1,10 @@
 import type { Schema } from "../../../shared/schema";
 import { expect, test } from "vitest";
-import { newCapabilities, serviceSummary } from "../model/pluginSummary";
+import {
+  capabilityChips,
+  newCapabilities,
+  serviceSummary,
+} from "../model/pluginSummary";
 
 type Capability = Schema<"Manifest">["capabilities"][number];
 const caps = (...values: Capability[]) => values;
@@ -56,4 +60,37 @@ test("featured music is named in the summary and in the changes to accept", () =
       caps("playlists", "featured", "artwork"),
     ),
   ).toEqual(["album covers", "featured music on Discover"]);
+});
+
+test("capability chips use plain labels in a fixed order", () => {
+  expect(capabilityChips(caps("sources", "search", "metadata"))).toEqual([
+    "Search",
+    "Playback",
+    "Track details",
+  ]);
+  expect(
+    capabilityChips(
+      caps(
+        "dashboard",
+        "featured",
+        "backing_tracks",
+        "source_preparation",
+        "artwork",
+        "lyrics",
+        "catalog",
+        "playlists",
+      ),
+    ),
+  ).toEqual([
+    "Playlists",
+    "Browse",
+    "Lyrics",
+    "Covers",
+    "Faster playback",
+    "Backing tracks",
+    "Featured",
+    "Dashboard",
+  ]);
+  expect(capabilityChips(caps())).toEqual([]);
+  expect(capabilityChips(caps("search", "search"))).toEqual(["Search"]);
 });

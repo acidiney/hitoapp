@@ -412,3 +412,63 @@ test("a failed automatic check stays quiet", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByText("offline")).toBeNull();
 });
+
+test("each connection is a card with capability chips beside its name and status", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [
+      plugin,
+      {
+        ...plugin,
+        id: "second",
+        credential_set: false,
+        manifest: {
+          ...plugin.manifest,
+          id: "org.hito.second",
+          name: "Second provider",
+          capabilities: ["lyrics"],
+        },
+      },
+    ],
+  });
+  vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
+  render(settingsPage("bob", false));
+  const first = (
+    await screen.findByRole("heading", { name: "Fixture provider" })
+  ).closest("li") as HTMLElement;
+  const second = screen
+    .getByRole("heading", { name: "Second provider" })
+    .closest("li") as HTMLElement;
+  expect(first.closest("ul")?.className).toContain("plugin-grid");
+  const chips = within(first).getByRole("list", { name: "Capabilities" });
+  expect(
+    within(chips)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent),
+  ).toEqual(["Search", "Playback"]);
+  expect(
+    within(
+      within(second).getByRole("list", { name: "Capabilities" }),
+    ).getAllByRole("listitem"),
+  ).toHaveLength(1);
+  expect(within(first).getByText("Token saved")).toBeTruthy();
+  expect(within(second).getByText("No token saved")).toBeTruthy();
+  expect(
+    within(first).getByRole("button", { name: "Check connection" }),
+  ).toBeTruthy();
+  expect(within(first).getByRole("button", { name: "Remove" })).toBeTruthy();
+  expect(within(first).getByText("Details")).toBeTruthy();
+});
+
+test("a connection that declares nothing shows no chip list", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [
+      { ...plugin, manifest: { ...plugin.manifest, capabilities: [] } },
+    ],
+  });
+  vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
+  render(settingsPage("bob", false));
+  await screen.findByRole("heading", { name: "Fixture provider" });
+  expect(screen.queryByRole("list", { name: "Capabilities" })).toBeNull();
+});

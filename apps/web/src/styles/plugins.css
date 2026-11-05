@@ -27,11 +27,76 @@
 .plugin-form p {
   margin: 0;
 }
-.plugin-connection {
-  border-bottom: 1px solid var(--line);
+.plugin-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 12px 0;
 }
-.plugin-connection:last-child {
-  border-bottom: 0;
+.plugin-connection {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.plugin-connection:has(.plugin-details[open], .plugin-review) {
+  grid-column: 1 / -1;
+}
+.plugin-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.plugin-card-head h4 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.plugin-card-head .health {
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.plugin-card-summary {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.plugin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.plugin-chips li {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--subtle);
+  font-size: 12px;
+  font-weight: 600;
+}
+.plugin-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.plugin-card-actions .button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
 }
 .plugin-actions {
   display: flex;
@@ -111,8 +176,17 @@
   }
 }
 .plugin-authorization {
-  border-top: 1px solid var(--line);
-  margin-top: 4px;
+  border-top: 1px solid var(--line-soft);
+  margin-top: 14px;
+}
+.plugin-authorization .setting-line-main,
+.plugin-authorization .setting-line[data-wide] .setting-line-main {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+.plugin-authorization .setting-line-action {
+  justify-content: flex-start;
 }
 .plugin-authorization h5 {
   margin: 0;
@@ -125,4 +199,12 @@
   margin-top: -4px;
   font-size: 13px;
   color: var(--muted);
+}
+@media (max-width: 767px) {
+  .plugin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plugin-card-actions .button {
+    min-height: 44px;
+  }
 }

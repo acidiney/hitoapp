@@ -15,6 +15,19 @@ const NEW_LABELS: Record<Capability, string> = {
   backing_tracks: "backing tracks",
   featured: "featured music on Discover",
 };
+const CHIP_LABELS: Record<Capability, string> = {
+  search: "Search",
+  catalog: "Browse",
+  metadata: "Track details",
+  sources: "Playback",
+  source_preparation: "Faster playback",
+  playlists: "Playlists",
+  artwork: "Covers",
+  dashboard: "Dashboard",
+  lyrics: "Lyrics",
+  backing_tracks: "Backing tracks",
+  featured: "Featured",
+};
 const NEW_ORDER: Capability[] = [
   "search",
   "sources",
@@ -74,6 +87,12 @@ export function newCapabilities(
   return NEW_ORDER.filter(
     (value) => proposed.includes(value) && !accepted.includes(value),
   ).map((value) => NEW_LABELS[value]);
+}
+
+export function capabilityChips(capabilities: Capability[]): string[] {
+  return NEW_ORDER.filter((value) => capabilities.includes(value)).map(
+    (value) => CHIP_LABELS[value],
+  );
 }
 
 export function grantedAccess(scopes: string[]): string {
