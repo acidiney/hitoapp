@@ -414,6 +414,7 @@ impl Snapshot {
             }
             if table.name == "plugin_authorization_attempts" {
                 expected.push("status".to_owned());
+                expected.push("delivery".to_owned());
             }
             if table.name == "users" {
                 expected.push("display_name".to_owned());
@@ -596,7 +597,7 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
             declared.3 = declared.3.map(|ddl| {
                 ddl.replacen(
                     "expires_at <= created_at + 600)\n)",
-                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')))",
+                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')), delivery TEXT NOT NULL DEFAULT 'session' CHECK (delivery IN ('session','loopback')))",
                     1,
                 )
             });

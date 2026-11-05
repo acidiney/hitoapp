@@ -49,6 +49,8 @@ pub mod name_match_schema;
 pub mod name_rule_schema;
 #[path = "pin_lock_schema.rs"]
 pub mod pin_schema;
+#[path = "plugin_authorization_delivery_schema.rs"]
+pub mod plugin_authorization_delivery_schema;
 #[path = "plugin_authorization_status_schema.rs"]
 pub mod plugin_authorization_status_schema;
 #[path = "plugin_connections_schema.rs"]
@@ -476,6 +478,10 @@ pub async fn reference_87() -> SqliteConnection {
     account_avatar_schema::reference(reference_86().await).await
 }
 
+pub async fn reference_88() -> SqliteConnection {
+    plugin_authorization_delivery_schema::reference(reference_87().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -518,6 +524,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         85 => reference_85().await,
         86 => reference_86().await,
         87 => reference_87().await,
+        88 => reference_88().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

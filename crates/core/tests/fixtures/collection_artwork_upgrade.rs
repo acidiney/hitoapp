@@ -190,7 +190,7 @@ pub async fn assert_schema_preserved(
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(
                     "expires_at <= created_at + 600)\n)",
-                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')))",
+                    "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')), delivery TEXT NOT NULL DEFAULT 'session' CHECK (delivery IN ('session','loopback')))",
                     1,
                 )
             });

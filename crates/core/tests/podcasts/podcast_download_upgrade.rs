@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_87().await;
+        let mut reference = collection_artwork_schema::reference_88().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED {
