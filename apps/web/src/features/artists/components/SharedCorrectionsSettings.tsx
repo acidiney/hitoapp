@@ -4,6 +4,7 @@ import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useSharedCorrections } from "../hooks/useSharedCorrections";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function SharedCorrectionsSettings({
   account,
@@ -14,11 +15,7 @@ export default function SharedCorrectionsSettings({
   const { page } = corrections;
   const busy = corrections.pending !== null || corrections.retrying;
   return (
-    <SettingsCard
-      title="Shared artist corrections"
-      description="Corrections an administrator applied for every account. Withdrawing one restores the reviews it hid; accounts that reviewed the recording again keep their own choice."
-      busy={busy}
-    >
+    <SettingsCard setting={setting("shared-corrections")} busy={busy}>
       {corrections.failed && (
         <SectionWarning
           tone="error"

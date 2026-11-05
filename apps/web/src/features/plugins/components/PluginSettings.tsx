@@ -7,6 +7,7 @@ import { usePlugins } from "../hooks/usePlugins";
 import ConnectPlugin from "./ConnectPlugin";
 import PluginConnection from "./PluginConnection";
 import PluginServices from "./PluginServices";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function PluginSettings(props: {
   account: string;
@@ -36,9 +37,8 @@ function PluginPanel({
   return (
     <>
       <SettingsCard
-        title="Your plugins"
+        setting={setting("your-plugins")}
         headingRef={heading}
-        description="Connect to services offered by your administrator. Each account keeps its own connections and credentials. Search connected music services in Discover."
         busy={pending}
         action={
           <Link className="button" href="/discover">

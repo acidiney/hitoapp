@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
+import Avatar from "../../../shared/ui/Avatar";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -8,6 +9,7 @@ import { accountHint } from "../model/accountText";
 import { useAccounts } from "../hooks/useAccounts";
 import AccountDialog from "./AccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function AccountSettings({
   account,
@@ -28,8 +30,7 @@ export default function AccountSettings({
   }, [creating]);
   return (
     <SettingsCard
-      title="Accounts and access"
-      description="People who can sign in to this server."
+      setting={setting("accounts-access")}
       action={
         <Button
           ref={opener}
@@ -45,6 +46,7 @@ export default function AccountSettings({
         <SettingRow
           key={user.id}
           title={user.username}
+          leading={<Avatar id={user.id} name={user.username} />}
           hint={accountHint(user)}
           wide
           action={

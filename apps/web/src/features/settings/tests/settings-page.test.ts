@@ -222,3 +222,92 @@ test("sections without unsaved changes never prompt", () => {
   fireEvent.click(screen.getByRole("link", { name: "Plugins" }));
   expect(confirm).not.toHaveBeenCalled();
 });
+
+const searchBox = () =>
+  screen.getByRole("combobox", { name: "Search settings" });
+const typeQuery = (text: string) =>
+  fireEvent.change(searchBox(), { target: { value: text } });
+
+test("the navigation starts with a search field and no results", () => {
+  open("/settings?section=music");
+  const nav = screen.getByRole("navigation", { name: "Settings sections" });
+  expect(
+    within(nav).getByRole("combobox", { name: "Search settings" }),
+  ).toBeTruthy();
+  expect(searchBox().getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByRole("listbox")).toBeNull();
+});
+
+test("typing lists matching sections and settings and hides the section links", () => {
+  open("/settings?section=music");
+  typeQuery("password");
+  expect(searchBox().getAttribute("aria-expanded")).toBe("true");
+  const options = within(screen.getByRole("listbox")).getAllByRole("option");
+  expect(options[0].textContent).toContain("Change password");
+  expect(options[0].textContent).toContain("Profile");
+  expect(
+    within(
+      screen.getByRole("navigation", { name: "Settings sections" }),
+    ).queryByRole("link", { name: "Playback" }),
+  ).toBeNull();
+});
+
+test("choosing a result opens its section at the setting", () => {
+  open("/settings?section=music");
+  typeQuery("password");
+  fireEvent.click(screen.getAllByRole("option")[0]);
+  expect(router.visit).toHaveBeenCalledWith(
+    "/settings?section=profile#setting-change-password",
+    expect.objectContaining({ preserveState: true }),
+  );
+  expect((searchBox() as HTMLInputElement).value).toBe("");
+});
+
+test("arrow keys move through results and Enter chooses the active one", () => {
+  open("/settings?section=music");
+  typeQuery("plugin");
+  const options = screen.getAllByRole("option");
+  expect(searchBox().getAttribute("aria-activedescendant")).toBe(options[0].id);
+  fireEvent.keyDown(searchBox(), { key: "ArrowDown" });
+  expect(searchBox().getAttribute("aria-activedescendant")).toBe(options[1].id);
+  expect(options[1].getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(searchBox(), { key: "Enter" });
+  expect(router.visit).toHaveBeenCalledTimes(1);
+});
+
+test("Escape clears the query and brings the section links back", () => {
+  open("/settings?section=music");
+  typeQuery("plugin");
+  fireEvent.keyDown(searchBox(), { key: "Escape" });
+  expect((searchBox() as HTMLInputElement).value).toBe("");
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(screen.getByRole("link", { name: "Playback" })).toBeTruthy();
+});
+
+test("a query with no match says so", () => {
+  open("/settings?section=music");
+  typeQuery("zebra");
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(screen.getByRole("status").textContent).toContain("No settings match");
+});
+
+test("slash focuses the search from the page", () => {
+  open("/settings?section=music");
+  fireEvent.keyDown(document.body, { key: "/" });
+  expect(document.activeElement).toBe(searchBox());
+});
+
+test("a setting link scrolls to the card, focuses it and highlights it briefly", async () => {
+  const scroll = vi.fn();
+  Element.prototype.scrollIntoView = scroll;
+  open("/settings?section=profile#setting-account");
+  const card = await vi.waitFor(() => {
+    const found = document.getElementById("setting-account");
+    if (!found?.hasAttribute("data-highlight")) throw new Error("not yet");
+    return found;
+  });
+  expect(scroll).toHaveBeenCalled();
+  expect(document.activeElement).toBe(
+    within(card).getByRole("heading", { name: "Account" }),
+  );
+});

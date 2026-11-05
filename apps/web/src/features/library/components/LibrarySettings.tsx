@@ -7,6 +7,7 @@ import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import MusicFolders from "./MusicFolders";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function LibrarySettings({
   user,
@@ -44,10 +45,7 @@ export default function LibrarySettings({
       </>
     );
   return (
-    <SettingsCard
-      title="Connected libraries"
-      description="Libraries this account can listen to. Your originals stay exactly where they are."
-    >
+    <SettingsCard setting={setting("libraries")}>
       {libraries.map((item) => (
         <SettingRow
           key={item.id}

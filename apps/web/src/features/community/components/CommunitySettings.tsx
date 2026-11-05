@@ -7,6 +7,7 @@ import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
 import { useCommunityPreferences } from "../hooks/useCommunityPreferences";
 import { useCommunityCredentialReset } from "../hooks/useCommunityCredentialReset";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function CommunitySettings({ account }: { account: string }) {
   const preferences = useCommunityPreferences(account);
@@ -18,11 +19,7 @@ export default function CommunitySettings({ account }: { account: string }) {
     void preferences.save();
   }
   return (
-    <SettingsCard
-      title="Community"
-      description="Your playlists, likes and listening history belong to your account. Choose separately what Hito may share. Changes take effect after saving. Reporting requires a configured community connection, and playback continues when the community service is unavailable."
-      busy={busy}
-    >
+    <SettingsCard setting={setting("community")} busy={busy}>
       {!preferences.loaded && preferences.pending === "load" && (
         <p role="status">Loading community preferences…</p>
       )}

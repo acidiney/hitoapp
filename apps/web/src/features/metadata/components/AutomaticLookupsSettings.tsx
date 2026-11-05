@@ -4,6 +4,7 @@ import {
   useAutomaticLookups,
   type AutomaticLookup,
 } from "../hooks/useAutomaticLookups";
+import { setting } from "../../settings/model/settingsCatalog";
 
 const SWITCHES: { key: AutomaticLookup; label: string; hint: string }[] = [
   {
@@ -31,7 +32,7 @@ export default function AutomaticLookupsSettings({
   const { loaded, choices, saving, error, change } =
     useAutomaticLookups(account);
   return (
-    <SettingsCard title="Automatic lookups" busy={saving}>
+    <SettingsCard setting={setting("automatic-lookups")} busy={saving}>
       {SWITCHES.map(({ key, label, hint }) => (
         <Switch
           key={key}

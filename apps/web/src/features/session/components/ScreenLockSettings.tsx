@@ -6,6 +6,7 @@ import Button from "../../../shared/ui/Button";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { usePinSettings } from "../hooks/usePinSettings";
+import { setting } from "../../settings/model/settingsCatalog";
 
 const idleChoices = [
   { value: "0", label: "Never" },
@@ -26,11 +27,7 @@ export default function ScreenLockSettings({
   const enabled = settings.status.pin_enabled;
   useReportUnsaved(settings.pin !== "" || settings.password !== "");
   return (
-    <SettingsCard
-      title="Screen lock"
-      description="A 4 to 8 digit PIN locks this session while you step away. It never replaces your password: five wrong PINs sign you out, and changing or removing it needs your password."
-      busy={settings.busy}
-    >
+    <SettingsCard setting={setting("screen-lock")} busy={settings.busy}>
       <form className="pin-form" onSubmit={settings.save}>
         <fieldset disabled={settings.busy}>
           <label htmlFor={`${id}-pin`}>PIN</label>

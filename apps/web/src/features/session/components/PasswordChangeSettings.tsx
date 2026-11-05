@@ -4,6 +4,7 @@ import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { usePasswordChange } from "../hooks/usePasswordChange";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function PasswordChangeSettings({
   account,
@@ -16,11 +17,7 @@ export default function PasswordChangeSettings({
   const id = useId();
   useReportUnsaved(form.dirty);
   return (
-    <SettingsCard
-      title="Change password"
-      description="Changing your password signs out every other session. This device stays signed in."
-      busy={form.busy}
-    >
+    <SettingsCard setting={setting("change-password")} busy={form.busy}>
       <form
         className="password-form"
         onSubmit={(event) => void form.submit(event)}

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 export default function SettingRow({
   title,
   hint,
+  leading,
   status,
   action,
   wide = false,
@@ -11,12 +12,19 @@ export default function SettingRow({
 }: {
   title: ReactNode;
   hint?: ReactNode;
+  leading?: ReactNode;
   status?: ReactNode;
   action?: ReactNode;
   wide?: boolean;
   compact?: boolean;
   children?: ReactNode;
 }) {
+  const copy = (
+    <div className="setting-line-copy">
+      <div className="setting-line-title">{title}</div>
+      {hint && <div className="setting-line-hint">{hint}</div>}
+    </div>
+  );
   return (
     <div
       className="setting-line"
@@ -24,10 +32,14 @@ export default function SettingRow({
       data-compact={compact || undefined}
     >
       <div className="setting-line-main">
-        <div className="setting-line-copy">
-          <div className="setting-line-title">{title}</div>
-          {hint && <div className="setting-line-hint">{hint}</div>}
-        </div>
+        {leading ? (
+          <div className="setting-line-identity">
+            {leading}
+            {copy}
+          </div>
+        ) : (
+          copy
+        )}
         {!compact && <div className="setting-line-status">{status}</div>}
         <div className="setting-line-action">{action}</div>
       </div>

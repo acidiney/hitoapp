@@ -5,6 +5,7 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 
 import type { PluginActions } from "../hooks/usePlugins";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function PluginServices({
   services,
@@ -31,10 +32,7 @@ export default function PluginServices({
     }
   }
   return (
-    <SettingsCard
-      title="Services for this server"
-      description="Offer trusted plugin services for accounts to connect. Hito will contact these addresses from the server and get their names automatically."
-    >
+    <SettingsCard setting={setting("plugin-services")}>
       <form className="plugin-form" onSubmit={offer}>
         <label>
           Service address

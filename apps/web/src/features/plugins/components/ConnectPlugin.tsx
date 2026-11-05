@@ -6,6 +6,7 @@ import Button from "../../../shared/ui/Button";
 import Listbox from "../../../shared/ui/Listbox";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import PluginInstallationReview from "./PluginInstallationReview";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function ConnectPlugin({
   services,
@@ -21,11 +22,7 @@ export default function ConnectPlugin({
   const pending = actions.pending || workflow.pending;
   if (!service) return null;
   return (
-    <SettingsCard
-      title="Connect a service"
-      description="Pick a service your administrator offers, review what it declares, then connect your account."
-      busy={pending}
-    >
+    <SettingsCard setting={setting("connect-service")} busy={pending}>
       <form
         className="plugin-form"
         onSubmit={(event) => {

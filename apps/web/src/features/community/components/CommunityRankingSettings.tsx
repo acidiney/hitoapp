@@ -5,6 +5,7 @@ import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
 import { useCommunityRankingPreferences } from "../hooks/useCommunityRankingPreferences";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function CommunityRankingSettings({
   account,
@@ -19,11 +20,7 @@ export default function CommunityRankingSettings({
     void preference.save();
   }
   return (
-    <SettingsCard
-      title="Community source rankings"
-      description="Use community results to choose among suitable available music sources. Your saved sources and personal source choices keep priority. This requires a configured community service; receiving rankings does not enable playback reporting."
-      busy={busy}
-    >
+    <SettingsCard setting={setting("community-rankings")} busy={busy}>
       {!preference.loaded && busy && (
         <p role="status">Loading source ranking preference…</p>
       )}

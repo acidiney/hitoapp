@@ -5,10 +5,11 @@ import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { sectionHref } from "../model/sections";
+import { setting } from "../model/settingsCatalog";
 
 export function PlaybackSection({ native }: { native: boolean }) {
   return (
-    <SettingsCard title="Playback engine">
+    <SettingsCard setting={setting("playback-engine")}>
       <SettingRow
         title="Playback"
         hint={
@@ -38,7 +39,7 @@ export function PlaybackSection({ native }: { native: boolean }) {
 
 export function DownloadsSection({ admin }: { admin: boolean }) {
   return (
-    <SettingsCard title="Downloads and storage">
+    <SettingsCard setting={setting("downloads-storage")}>
       <SettingRow
         title="Downloads"
         hint="Start a download from a playlist or a track."
@@ -69,7 +70,7 @@ export function DownloadsSection({ admin }: { admin: boolean }) {
 
 export function UpdatesSection() {
   return (
-    <SettingsCard title="Update checks">
+    <SettingsCard setting={setting("update-checks")}>
       <SettingRow
         title="Update checks"
         hint="Hito does not check for updates yet. Install a newer build on the server to update."
@@ -81,7 +82,7 @@ export function UpdatesSection() {
 
 export function AboutSection({ user, libraries }: Schema<"SettingsPageProps">) {
   return (
-    <SettingsCard title="About Hito">
+    <SettingsCard setting={setting("about-hito")}>
       <SettingRow title="Hito" hint="A self-hosted music library and player." />
       <SettingRow title="Signed in as" hint={user.username} />
       <SettingRow

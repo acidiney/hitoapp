@@ -11,6 +11,7 @@ import { useMusicFolders } from "../hooks/useMusicFolders";
 import FolderPicker from "./FolderPicker";
 import FolderRow from "./FolderRow";
 import MissingRecordings from "./MissingRecordings";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function MusicFolders({
   account,
@@ -38,7 +39,7 @@ export default function MusicFolders({
   }, [picking]);
   return (
     <SettingsCard
-      title="Music folders"
+      setting={setting("music-folders")}
       description={`${library.name} · Read-only access`}
       action={
         <div className="card-actions">

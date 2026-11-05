@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { LogOut, Lock } from "lucide-react";
 
+import Avatar from "../../../shared/ui/Avatar";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -8,6 +9,7 @@ import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useLockSession } from "../../session/hooks/useLockSession";
 import AccountSecurity from "../../session/components/AccountSecurity";
 import { useSignOut } from "../../session/hooks/useSignOut";
+import { setting } from "../model/settingsCatalog";
 
 export default function ProfileSection({
   user,
@@ -18,11 +20,9 @@ export default function ProfileSection({
   const locking = useLockSession(user.id, () => player.clear());
   return (
     <>
-      <SettingsCard title="Account">
+      <SettingsCard setting={setting("account")}>
         <div className="profile-identity">
-          <span className="avatar large" aria-hidden="true">
-            {user.username[0]?.toUpperCase()}
-          </span>
+          <Avatar id={user.id} name={user.username} large />
           <span className="setting-line-copy">
             <span className="setting-line-title">{user.username}</span>
             <span className="setting-line-hint">
@@ -31,7 +31,7 @@ export default function ProfileSection({
           </span>
         </div>
       </SettingsCard>
-      <SettingsCard title="Session">
+      <SettingsCard setting={setting("session")}>
         {lock.pin_enabled && (
           <SettingRow
             title="Lock this session"

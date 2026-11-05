@@ -6,6 +6,7 @@ import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
 import { useMetadataPreferences } from "../hooks/useMetadataPreferences";
 import MetadataProviderList from "./MetadataProviderList";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function MetadataPreferences({ account }: { account: string }) {
   return <PreferencesForm key={account} {...useMetadataPreferences(account)} />;
@@ -21,8 +22,7 @@ function PreferencesForm(
   }
   return (
     <SettingsCard
-      title="Metadata providers"
-      description="Control providers for artist profiles. File tags and your personal edits are kept."
+      setting={setting("metadata-providers")}
       busy={preferences.pending}
     >
       {!preferences.loaded && preferences.pending && (

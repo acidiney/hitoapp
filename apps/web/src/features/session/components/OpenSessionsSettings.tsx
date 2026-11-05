@@ -3,6 +3,7 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useOpenSessions } from "../hooks/useOpenSessions";
 import { sessionClient, sessionDetail, signedIn } from "../sessionText";
+import { setting } from "../../settings/model/settingsCatalog";
 
 export default function OpenSessionsSettings({
   account,
@@ -15,8 +16,7 @@ export default function OpenSessionsSettings({
   const others = list.sessions?.some((session) => !session.current) ?? false;
   return (
     <SettingsCard
-      title="Open sessions"
-      description="Every browser or device signed in to your account. Revoke one you do not recognise."
+      setting={setting("open-sessions")}
       busy={list.busy}
       action={
         <Button

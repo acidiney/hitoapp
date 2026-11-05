@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useRef, type MouseEvent } from "react";
-import { Link, usePage } from "@inertiajs/react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Link, router, usePage } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
 
 import PageHeading from "../../../shared/ui/PageHeading";
@@ -8,6 +8,11 @@ import {
   UnsavedContext,
   createUnsavedRegistry,
 } from "../../../shared/unsavedChanges";
+import {
+  useRevealSetting,
+  type RevealRequest,
+} from "../hooks/useRevealSetting";
+import type { SearchHit } from "../model/settingsSearch";
 import SettingsNav from "../components/SettingsNav";
 import SettingsSectionBody from "../components/SettingsSectionBody";
 import {
@@ -19,7 +24,10 @@ import {
 
 export default function SettingsPage(props: Schema<"SettingsPageProps">) {
   const { url } = usePage();
-  const { section, chosen, requested } = readLocation(url, props.user.admin);
+  const { section, chosen, requested, anchor } = readLocation(
+    url,
+    props.user.admin,
+  );
   const meta = sectionMeta(section);
   const sectionHeading = useRef<HTMLHeadingElement>(null);
   const pageHeading = useRef<HTMLHeadingElement>(null);
@@ -39,16 +47,40 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
         sectionHref(section),
       );
   }, [requested, section]);
+  const [request, setRequest] = useState<RevealRequest | null>(() =>
+    anchor ? { anchor, serial: 0 } : null,
+  );
+  useEffect(() => {
+    if (anchor)
+      setRequest((before) =>
+        before?.anchor === anchor
+          ? before
+          : { anchor, serial: (before?.serial ?? 0) + 1 },
+      );
+  }, [anchor]);
+  useRevealSetting(request);
+  function leaveConfirmed(): boolean {
+    return (
+      !unsaved.hasUnsaved() ||
+      window.confirm("Leave without saving your changes?")
+    );
+  }
   function guard(event: MouseEvent) {
     const link = (event.target as Element).closest("a");
-    if (
-      link &&
-      unsaved.hasUnsaved() &&
-      !window.confirm("Leave without saving your changes?")
-    ) {
+    if (link && !leaveConfirmed()) {
       event.preventDefault();
       event.stopPropagation();
     }
+  }
+  function choose(hit: SearchHit) {
+    if (!leaveConfirmed()) return;
+    const target = hit.href.split("#")[1] ?? null;
+    if (target)
+      setRequest((before) => ({
+        anchor: target,
+        serial: (before?.serial ?? 0) + 1,
+      }));
+    router.visit(hit.href, { preserveState: true, preserveScroll: true });
   }
   return (
     <UnsavedContext.Provider value={unsaved}>
@@ -61,6 +93,8 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
         <SettingsNav
           groups={visibleGroups(props.user.admin)}
           current={section}
+          admin={props.user.admin}
+          onChoose={choose}
         />
         <div className="settings-content">
           <Link className="settings-back" href="/settings">
