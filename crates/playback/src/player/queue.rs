@@ -47,6 +47,14 @@ impl Queue {
             .copied()
     }
 
+    pub fn upcoming(&self) -> Option<PlayerEntryRef> {
+        let id = self.traversal.upcoming(&self.entries, self.current)?;
+        self.positions
+            .get(&id)
+            .and_then(|index| self.entries.get(*index))
+            .cloned()
+    }
+
     pub fn played(&mut self) {
         self.traversal.reset_failures();
         if let Some(entry) = self.current_entry()

@@ -1,6 +1,8 @@
 #[cfg(feature = "device")]
 mod controls;
 #[cfg(feature = "device")]
+mod lookahead;
+#[cfg(feature = "device")]
 pub(super) mod native;
 #[cfg(feature = "device")]
 mod sources;
@@ -17,6 +19,13 @@ pub(super) struct Target {
     pub volume: u16,
     pub speed: u16,
     pub permitted: bool,
+    pub next: Option<NextTarget>,
+}
+#[cfg(feature = "device")]
+#[derive(Clone, Copy)]
+pub(super) struct NextTarget {
+    pub key: Key,
+    pub recording: Uuid,
 }
 
 use super::{PlayerError, PlayerPhase, ownership::State};

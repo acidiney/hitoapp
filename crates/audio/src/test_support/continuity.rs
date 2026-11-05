@@ -1,5 +1,5 @@
 pub fn counter(frame: u64) -> i16 {
-    (frame % 4000) as i16 * 8 + 8
+    (frame % 4001) as i16 * 8 + 8
 }
 
 pub fn level(sample: f32) -> i32 {

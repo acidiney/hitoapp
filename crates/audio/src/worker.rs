@@ -58,12 +58,15 @@ pub(crate) fn run(
     let mut finished = false;
     let mut started = false;
     let mut pending = None;
-    let mut pending_speed = None;
+    let mut deferred = Deferred::default();
     let mut resets = 0;
     let mut last_reset = Duration::ZERO;
     'decode: loop {
-        if let Some(speed) = pending_speed.take() {
+        if let Some(speed) = deferred.speed.take() {
             decoder.speed(speed);
+        }
+        for control in std::mem::take(&mut deferred.joins) {
+            offer(control, &mut decoder, target, format, finished);
         }
         if state.stopped.load(Ordering::Acquire) {
             return Ok(());
@@ -107,30 +110,8 @@ pub(crate) fn run(
                         result?;
                     }
                 }
-                Control::Next {
-                    decoder: next,
-                    reply,
-                } => {
-                    let result = if finished {
-                        Err(Error::Interrupted)
-                    } else {
-                        join(next, target, format, &mut decoder)
-                    };
-                    tracing::debug!(
-                        event = "audio_next_input_prepared",
-                        accepted = result.is_ok(),
-                        "Next audio input offered to the running stream"
-                    );
-                    let _ = reply.send(result);
-                }
-                Control::CancelNext { reply } => {
-                    let cancelled = decoder.clear_next();
-                    tracing::debug!(
-                        event = "audio_next_input_cancelled",
-                        cancelled,
-                        "Next audio input withdrawn"
-                    );
-                    let _ = reply.send(cancelled);
+                control @ (Control::Next { .. } | Control::CancelNext { .. }) => {
+                    offer(control, &mut decoder, target, format, finished);
                 }
                 Control::Speed { value, reply } => {
                     decoder.speed(value);
@@ -216,7 +197,7 @@ pub(crate) fn run(
                     &commands,
                     &state,
                     xruns,
-                    &mut pending_speed,
+                    &mut deferred,
                 )? {
                     pending = Some(control);
                     continue 'decode;
@@ -234,7 +215,7 @@ pub(crate) fn run(
                 &commands,
                 &state,
                 xruns,
-                &mut pending_speed,
+                &mut deferred,
             )? {
                 pending = Some(control);
                 continue;
@@ -268,7 +249,7 @@ fn send(
     commands: &Receiver<Control>,
     state: &State,
     xruns: u64,
-    pending_speed: &mut Option<f32>,
+    deferred: &mut Deferred,
 ) -> Result<Option<Control>> {
     loop {
         if state.stopped.load(Ordering::Acquire) {
@@ -280,7 +261,7 @@ fn send(
         if let Some(control) = commands
             .try_recv()
             .ok()
-            .and_then(|control| defer_speed(control, pending_speed))
+            .and_then(|control| defer(control, deferred))
         {
             return Ok(Some(control));
         }
@@ -294,21 +275,68 @@ fn send(
         if let Some(control) = commands
             .recv_timeout(Duration::from_millis(2))
             .ok()
-            .and_then(|control| defer_speed(control, pending_speed))
+            .and_then(|control| defer(control, deferred))
         {
             return Ok(Some(control));
         }
     }
 }
 
-fn defer_speed(control: Control, pending: &mut Option<f32>) -> Option<Control> {
+#[derive(Default)]
+struct Deferred {
+    speed: Option<f32>,
+    joins: Vec<Control>,
+}
+
+fn defer(control: Control, deferred: &mut Deferred) -> Option<Control> {
     match control {
         Control::Speed { value, reply } => {
-            *pending = Some(value);
+            deferred.speed = Some(value);
             let _ = reply.send(Ok(()));
             None
         }
         Control::Wake => None,
+        control @ (Control::Next { .. } | Control::CancelNext { .. }) => {
+            deferred.joins.push(control);
+            None
+        }
         control => Some(control),
+    }
+}
+
+fn offer(
+    control: Control,
+    decoder: &mut Tempo,
+    target: Target,
+    format: AudioFormat,
+    finished: bool,
+) {
+    match control {
+        Control::Next {
+            decoder: next,
+            reply,
+        } => {
+            let result = if finished {
+                Err(Error::Interrupted)
+            } else {
+                join(next, target, format, decoder)
+            };
+            tracing::debug!(
+                event = "audio_next_input_prepared",
+                accepted = result.is_ok(),
+                "Next audio input offered to the running stream"
+            );
+            let _ = reply.send(result);
+        }
+        Control::CancelNext { reply } => {
+            let cancelled = decoder.clear_next();
+            tracing::debug!(
+                event = "audio_next_input_cancelled",
+                cancelled,
+                "Next audio input withdrawn"
+            );
+            let _ = reply.send(cancelled);
+        }
+        _ => (),
     }
 }

@@ -357,3 +357,25 @@ fn lossy_streams_join_without_silence_only_when_their_delay_is_declared() {
     assert!(untagged > 500);
     assert!(aac > 100);
 }
+
+#[test]
+#[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
+fn offering_and_withdrawing_inputs_mid_playback_never_drops_samples() {
+    let capture = Capture::open();
+    let mut player = Player::open(wave(RATE, 0, 4 * RATE / 2, counter)).unwrap();
+    player.resume().unwrap();
+    for round in 0..12 {
+        let target = Duration::from_millis(60 * (round + 1));
+        wait(|| player.snapshot().position >= target);
+        player.prepare_next(wave(RATE, 7, 4_800, counter)).unwrap();
+        if round % 2 == 0 {
+            assert!(player.cancel_next().unwrap());
+        }
+    }
+    assert!(player.cancel_next().unwrap());
+    wait(|| player.snapshot().ended);
+    let captured = finish(&capture, player);
+    let audit = audit(&captured, counter, 4 * RATE as usize / 2);
+    assert_eq!(audit.mismatches, 0);
+    assert_eq!(audit.longest_silence, 0);
+}

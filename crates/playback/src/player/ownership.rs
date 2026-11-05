@@ -457,6 +457,18 @@ impl State {
             volume: owned.volume,
             speed: owned.speed,
             permitted: owned.authority_available,
+            next: owned
+                .queue
+                .upcoming()
+                .map(|entry| super::effects::NextTarget {
+                    key: super::effects::Key {
+                        scope: owned.scope,
+                        selection: snapshot.selection + 1,
+                        entry: entry.id,
+                        start: None,
+                    },
+                    recording: entry.recording_id,
+                }),
         })
     }
 }

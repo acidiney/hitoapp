@@ -26,12 +26,19 @@ pub(super) struct Sources {
     reading: Option<Pending<Read>>,
     refreshing: Option<Refresh>,
     refreshed: bool,
+    refresh_allowed: bool,
     needs_refresh: bool,
     exhausted: bool,
     error: PlayerError,
 }
 impl Sources {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
+        Self::with_refresh(catalog, playback, true)
+    }
+    pub fn cached(catalog: Catalog, playback: PlaybackAccess) -> Self {
+        Self::with_refresh(catalog, playback, false)
+    }
+    fn with_refresh(catalog: Catalog, playback: PlaybackAccess, refresh_allowed: bool) -> Self {
         Self {
             catalog,
             playback,
@@ -41,7 +48,8 @@ impl Sources {
             current: None,
             reading: None,
             refreshing: None,
-            refreshed: false,
+            refreshed: !refresh_allowed,
+            refresh_allowed,
             needs_refresh: false,
             exhausted: false,
             error: PlayerError::Playback,
@@ -58,7 +66,7 @@ impl Sources {
         self.candidates = None;
         self.current = None;
         self.reading = None;
-        self.refreshed = false;
+        self.refreshed = !self.refresh_allowed;
         self.needs_refresh = false;
         self.exhausted = false;
         self.error = PlayerError::Playback;

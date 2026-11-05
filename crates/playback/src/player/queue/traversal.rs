@@ -157,6 +157,20 @@ impl Traversal {
             Advance::Requested => self.reset_failures(),
             Advance::Completed => {}
         }
+        self.following(entries, index)
+    }
+
+    pub fn upcoming(&self, entries: &[PlayerEntryRef], current: Option<usize>) -> Option<Uuid> {
+        let index = current?;
+        let current = entries.get(index)?.id;
+        if self.repeat == PlayerRepeat::One {
+            return Some(current);
+        }
+        self.following(entries, index)
+    }
+
+    fn following(&self, entries: &[PlayerEntryRef], index: usize) -> Option<Uuid> {
+        let current = entries.get(index)?.id;
         let index = if self.order.is_some() {
             *self.positions.get(&current)?
         } else {

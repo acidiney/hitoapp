@@ -26,6 +26,16 @@ pub(super) struct Controls {
     pending: Option<Pending<crate::Result<Applied>>>,
 }
 impl Controls {
+    pub fn configured(&self) -> bool {
+        self.configured
+    }
+    pub fn adopt(&mut self) {
+        self.restoration = None;
+        self.restored = None;
+        self.applied_seek = None;
+        self.resume_at = Duration::ZERO;
+        self.duration = None;
+    }
     pub fn busy(&self) -> bool {
         self.pending.is_some()
     }

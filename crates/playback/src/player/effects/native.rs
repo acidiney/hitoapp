@@ -1,7 +1,12 @@
-use super::{Target, Update, controls::Controls, sources::Sources};
+use super::{
+    Key, Target, Update,
+    controls::Controls,
+    lookahead::{Event, Lookahead, WINDOW},
+    sources::Sources,
+};
 use crate::{PlayerError, PlayerPhase, Session, Status};
 use hito_core::{Catalog, PlaybackAccess};
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
@@ -14,10 +19,18 @@ pub(crate) struct Native {
     closing: Option<Pending<()>>,
     failed: bool,
     update: Option<Update>,
+    lookahead: Lookahead,
+    track: u64,
+    crossed: Option<Key>,
+    tail: Option<(Duration, Option<Duration>)>,
 }
 impl Native {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
         Self {
+            lookahead: Lookahead::new(catalog.clone(), playback.clone()),
+            track: 0,
+            crossed: None,
+            tail: None,
             sources: Sources::new(catalog, playback),
             target: None,
             session: None,
@@ -29,10 +42,20 @@ impl Native {
         }
     }
     pub fn sync(&mut self, target: Option<Target>) {
-        if self.target.as_ref().map(|target| target.key) != target.as_ref().map(|target| target.key)
-        {
+        let key = target.as_ref().map(|target| target.key);
+        let crossed = self.crossed.take();
+        if self.target.as_ref().map(|target| target.key) != key {
+            if self.session.is_some() && key.is_some() && crossed == key {
+                self.adopt();
+            } else {
+                self.retire();
+                self.sources.reset(key);
+                self.failed = false;
+                self.controls = Controls::default();
+            }
+        } else if crossed.is_some() {
             self.retire();
-            self.sources.reset(target.as_ref().map(|target| target.key));
+            self.sources.reset(key);
             self.failed = false;
             self.controls = Controls::default();
         }
@@ -125,6 +148,74 @@ impl Native {
         {
             self.controls.sync(session, target);
         }
+        self.sync_lookahead();
+    }
+    fn sync_lookahead(&mut self) {
+        let (Some(target), Some(session)) = (&self.target, &self.session) else {
+            return;
+        };
+        let wanted = target.next.filter(|_| {
+            let snapshot = session.snapshot();
+            let remaining = snapshot
+                .format
+                .and_then(|format| format.duration)
+                .map(|duration| duration.saturating_sub(snapshot.position));
+            let window = if self.lookahead.started() {
+                WINDOW * 2
+            } else {
+                WINDOW
+            };
+            target.output
+                && target.permitted
+                && !self.failed
+                && self.closing.is_none()
+                && self.crossed.is_none()
+                && snapshot.status == Status::Ready
+                && snapshot.track == self.track
+                && !snapshot.ended
+                && self.controls.configured()
+                && remaining.is_some_and(|remaining| remaining <= window)
+        });
+        let session = session.clone();
+        let actor = target.actor.clone();
+        self.lookahead.sync(wanted, &session, &actor);
+    }
+    fn adopt(&mut self) {
+        std::mem::swap(&mut self.sources, &mut self.lookahead.sources);
+        self.lookahead.reset();
+        self.controls.adopt();
+        self.failed = false;
+        tracing::debug!(
+            event = "player_lookahead_adopted",
+            "The running stream continued into the prepared entry"
+        );
+    }
+    fn crossing(&mut self) -> Option<Update> {
+        let snapshot = self.session.as_ref()?.snapshot();
+        if snapshot.track <= self.track {
+            if snapshot.track == self.track {
+                self.tail = Some((
+                    snapshot.position,
+                    snapshot.format.and_then(|format| format.duration),
+                ));
+            }
+            return None;
+        }
+        self.track = snapshot.track;
+        self.crossed = self.lookahead.key().filter(|_| self.lookahead.prepared());
+        let (position, duration) = self.tail.take()?;
+        let mut update = self.snapshot();
+        update.ended = true;
+        update.playing = true;
+        update.position = duration.unwrap_or(position);
+        update.duration_ms =
+            duration.map(|duration| duration.as_millis().min(u64::MAX as u128) as u64);
+        tracing::debug!(
+            event = "player_boundary_crossed",
+            adopted = self.crossed.is_some(),
+            "Playback crossed into the next entry"
+        );
+        Some(update)
     }
     pub async fn next(&mut self) -> Update {
         if let Some(update) = self.update.take() {
@@ -148,10 +239,15 @@ impl Native {
                 },
                 result = self.controls.next() => {
                     if let Err(error) = result { return self.recover(Some(error)); }
+                    if let Some(update) = self.crossing() { return update; }
                     return self.snapshot();
+                },
+                event = self.lookahead.next(self.session.as_ref()), if self.lookahead.active() => {
+                    if event == Event::Broken { return self.recover(None); }
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
                     if changed.is_err() { return self.recover(None); }
+                    if let Some(update) = self.crossing() { return update; }
                     let update = self.snapshot();
                     if update.phase == PlayerPhase::Failed { return self.recover(None); }
                     return update;
@@ -184,6 +280,10 @@ impl Native {
         if let Some(session) = &self.session {
             session.stop();
         }
+        self.lookahead.reset();
+        self.track = 0;
+        self.crossed = None;
+        self.tail = None;
         self.controls.retire(snapshot);
         self.observed = None;
         if let Some(session) = self.session.take() {
