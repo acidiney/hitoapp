@@ -88,16 +88,11 @@ export default function PluginAuthorization({
       <SettingRow
         title={<h5>Account sign-in</h5>}
         hint={
-          attempt ? (
-            <>
-              Finish signing in on the {provider} page. This page updates by
-              itself.
-            </>
-          ) : access ? (
-            `Access: ${access}`
-          ) : (
-            `Sign in with ${provider} so Hito can use your account there.`
-          )
+          attempt
+            ? `Finish signing in on the ${provider} page. This page updates by itself.`
+            : connection?.status === "connected"
+              ? `Hito can use your account on ${provider}.`
+              : `Sign in with ${provider} so Hito can use your account there.`
         }
         status={
           <span role="status" aria-label="Sign-in status">
@@ -112,6 +107,9 @@ export default function PluginAuthorization({
           />
         }
       />
+      {access && (
+        <p className="plugin-authorization-access">Access: {access}</p>
+      )}
       {attempt && !attempt.opened && (
         <p className="plugin-authorization-link">
           Your browser did not open a new tab.{" "}

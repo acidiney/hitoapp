@@ -107,10 +107,12 @@ export default function PluginConnection({
           plugin.manifest.capabilities,
         )}
         status={
-          <HealthDot
-            tone={plugin.credential_set ? "success" : "action"}
-            label={plugin.credential_set ? "Token saved" : "No token saved"}
-          />
+          plugin.manifest.authorization && !plugin.credential_set ? null : (
+            <HealthDot
+              tone={plugin.credential_set ? "success" : "action"}
+              label={plugin.credential_set ? "Token saved" : "No token saved"}
+            />
+          )
         }
         wide
         action={

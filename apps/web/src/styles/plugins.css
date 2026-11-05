@@ -125,3 +125,8 @@
 .plugin-authorization > p {
   margin: 0 0 14px;
 }
+.plugin-authorization > .plugin-authorization-access {
+  margin-top: -4px;
+  font-size: 13px;
+  color: var(--muted);
+}
