@@ -256,7 +256,14 @@ async fn the_administrator_list_carries_only_the_newest_last_active_time() {
     keys.sort();
     assert_eq!(
         keys,
-        ["admin", "display_name", "id", "last_active_at", "username"]
+        [
+            "admin",
+            "avatar_version",
+            "display_name",
+            "id",
+            "last_active_at",
+            "username"
+        ]
     );
     let admin_row = users
         .as_array()
