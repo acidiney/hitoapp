@@ -43,6 +43,11 @@ try {
     } while ($another -eq [Windows.Forms.DialogResult]::Yes)
     if ($selected.Count -eq 0) { exit 0 }
     [IO.File]::WriteAllText((Join-Path $installation 'selection.json'), (ConvertTo-Json -InputObject @($selected.ToArray()) -Compress), $encoding)
+    $savedState = Join-Path $installation 'installation.json'
+    $addonsDefault = 'Button2'
+    if ((Test-Path -LiteralPath $savedState) -and (Select-String -LiteralPath $savedState -SimpleMatch '"addons": true' -Quiet)) { $addonsDefault = 'Button1' }
+    $addonsAnswer = [Windows.Forms.MessageBox]::Show('Also start the Spotify and YouTube addons? They add playlist import and search. Hito works without them.', 'Hito Setup', 'YesNo', 'Question', $addonsDefault)
+    $addons = if ($addonsAnswer -eq [Windows.Forms.DialogResult]::Yes) { 'yes' } else { 'no' }
     $savedPlan = Join-Path $installation 'plan.txt'
     if (Test-Path -LiteralPath $savedPlan) {
         $savedProject = (Get-Content -LiteralPath $savedPlan)[0]
@@ -58,12 +63,13 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'The existing server could not be inspected.' }
     } else { $probe = 'null' }
     [IO.File]::WriteAllText((Join-Path $installation 'probe.json'), $probe, $encoding)
-    Invoke-Docker 'configuration' @('run', '--rm', '-v', "${repository}:/workspace:ro", '-v', "${installation}:/setup", 'node:22-bookworm-slim', 'node', '/workspace/scripts/setup/prepare.mjs', '--installation', '/setup', '--host-installation', $installation, '--repository', $repository)
+    Invoke-Docker 'configuration' @('run', '--rm', '-v', "${repository}:/workspace:ro", '-v', "${installation}:/setup", 'node:22-bookworm-slim', 'node', '/workspace/scripts/setup/prepare.mjs', '--installation', '/setup', '--host-installation', $installation, '--repository', $repository, '--addons', $addons)
     $plan = Get-Content -LiteralPath (Join-Path $installation 'plan.txt')
-    $project = $plan[0]; $volume = $plan[1]; $port = $plan[2]
+    $project = $plan[0]; $volume = $plan[1]; $port = $plan[2]; $addonsPlan = $plan[3]
     $compose = Join-Path $installation 'compose.json'
     Write-Host 'Building Hito in Docker. The first build can take several minutes…'
-    Invoke-Docker 'build' @('compose', '-p', $project, '-f', $compose, 'build', 'server')
+    $services = if ($addonsPlan -eq 'on') { @('server', 'plugin-spotify', 'plugin-youtube') } else { @('server') }
+    Invoke-Docker 'build' (@('compose', '-p', $project, '-f', $compose, '--profile', 'plugins', 'build') + $services)
     & docker volume inspect $volume *> $null
     if ($LASTEXITCODE -eq 0) {
         $backups = Join-Path $installation 'backups'
@@ -75,7 +81,7 @@ try {
         $archive = 'hito-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N') + '.tar.gz'
         Invoke-Docker 'backup' @('run', '--rm', '--user', '0', '--mount', "type=volume,source=$volume,target=/data,readonly", '-v', "${backups}:/backup", '--entrypoint', 'sh', $image, '-c', 'umask 077; exec tar -C /data -czf "/backup/$1" .', 'sh', $archive)
     }
-    Invoke-Docker 'start' @('compose', '-p', $project, '-f', $compose, 'up', '-d', 'server')
+    Invoke-Docker 'start' (@('compose', '-p', $project, '-f', $compose, '--profile', 'plugins', 'up', '-d') + $services)
     $stopped = $false
     Start-Process "http://localhost:$port/settings"
     Write-Host 'Hito is starting. Add the shared folders in Settings > Library.'

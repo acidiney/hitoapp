@@ -151,3 +151,95 @@ test("Windows host folder names serialize as data without a shell", async () => 
   );
   assert.ok(!result.stdout.includes("listener"));
 });
+
+async function prepared(installation, extra = []) {
+  await writeFile(
+    path.join(installation, "selection.json"),
+    JSON.stringify(["/Users/listener/Music"]),
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "/workspace/scripts/setup/prepare.mjs",
+      "--installation",
+      installation,
+      "--host-installation",
+      "/Users/listener/Hito",
+      "--repository",
+      "/Users/listener/hito",
+      ...extra,
+    ],
+    { encoding: "utf8" },
+  );
+  const read = async (name) =>
+    readFile(path.join(installation, name), "utf8");
+  return {
+    result,
+    compose: result.status === 0 ? JSON.parse(await read("compose.json")) : null,
+    plan: result.status === 0 ? (await read("plan.txt")).trim().split("\n") : null,
+    state:
+      result.status === 0 ? JSON.parse(await read("installation.json")) : null,
+  };
+}
+
+test("addons are off by default and add nothing to the generated Compose file", async () => {
+  const installation = await mkdtemp(path.join(tmpdir(), "hito-addons-off-"));
+  const { result, compose, plan, state } = await prepared(installation);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(compose.include, undefined);
+  assert.equal(
+    compose.services.server.environment.HITO_PLUGIN_SERVICES,
+    undefined,
+  );
+  assert.equal(plan[3], "off");
+  assert.equal(state.addons, false);
+});
+
+test("opting in includes the Spotify and YouTube overlays and offers their addresses", async () => {
+  const installation = await mkdtemp(path.join(tmpdir(), "hito-addons-on-"));
+  const { result, compose, plan, state } = await prepared(installation, [
+    "--addons",
+    "yes",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(compose.include, [
+    {
+      path: ["/Users/listener/hito/deploy/compose/spotify.yaml"],
+      project_directory: "/Users/listener/hito",
+    },
+    {
+      path: ["/Users/listener/hito/deploy/compose/youtube.yaml"],
+      project_directory: "/Users/listener/hito",
+    },
+  ]);
+  const overlay = await readFile(
+    "/workspace/deploy/compose/addons.yaml",
+    "utf8",
+  );
+  const offered = overlay.match(/HITO_PLUGIN_SERVICES: (\S+)/)[1];
+  assert.equal(
+    compose.services.server.environment.HITO_PLUGIN_SERVICES,
+    offered,
+  );
+  assert.equal(plan[3], "on");
+  assert.equal(state.addons, true);
+  assert.ok(!result.stdout.includes("/Users/"));
+});
+
+test("a later run keeps the saved addon choice unless it is changed explicitly", async () => {
+  const installation = await mkdtemp(path.join(tmpdir(), "hito-addons-keep-"));
+  await prepared(installation, ["--addons", "yes"]);
+  const kept = await prepared(installation);
+  assert.equal(kept.plan[3], "on");
+  assert.ok(kept.compose.include);
+  const off = await prepared(installation, ["--addons", "no"]);
+  assert.equal(off.plan[3], "off");
+  assert.equal(off.compose.include, undefined);
+  assert.equal((await prepared(installation)).plan[3], "off");
+});
+
+test("an unknown addon choice is refused", async () => {
+  const installation = await mkdtemp(path.join(tmpdir(), "hito-addons-bad-"));
+  const { result } = await prepared(installation, ["--addons", "maybe"]);
+  assert.notEqual(result.status, 0);
+});

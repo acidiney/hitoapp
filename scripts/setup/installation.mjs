@@ -2,6 +2,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SetupError } from "./errors.mjs";
 
+export const ADDON_SERVICES =
+  "spotify=http://plugin-spotify:8092/,youtube=http://plugin-youtube:8093/";
 const identifier = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
 const pathsFor = (value) =>
   /^(?:[a-zA-Z]:[\\/]|\\\\)/.test(value) ? path.win32 : path.posix;
@@ -26,7 +28,7 @@ function contains(parent, child) {
   );
 }
 
-export function installation(saved, probe, selected) {
+export function installation(saved, probe, selected, addons) {
   let state = saved;
   if (!state) {
     state = {
@@ -35,6 +37,7 @@ export function installation(saved, probe, selected) {
       data_volume: "hito_hito-data",
       existing_volume: false,
       port: 8080,
+      addons: false,
       directories: [],
     };
     if (probe) {
@@ -87,6 +90,10 @@ export function installation(saved, probe, selected) {
       }
     }
   }
+  if (addons !== undefined) state.addons = addons === "yes";
+  if (state.addons !== undefined && typeof state.addons !== "boolean")
+    throw new SetupError("The saved installation configuration is invalid.");
+  state.addons = state.addons === true;
   if (
     state.version !== 1 ||
     typeof state.project !== "string" ||
@@ -181,8 +188,18 @@ export function deployment(state, repository, hostInstallation) {
     read_only: true,
     bind: { create_host_path: false },
   });
+  const overlay = (name) => {
+    const root = hostPath(repository);
+    return {
+      path: [literal(pathsFor(root).join(root, "deploy", "compose", name))],
+      project_directory: literal(root),
+    };
+  };
   return {
     name: state.project,
+    ...(state.addons
+      ? { include: [overlay("spotify.yaml"), overlay("youtube.yaml")] }
+      : {}),
     services: {
       server: {
         image: `hito-local/server:${state.project}`,
@@ -207,6 +224,7 @@ export function deployment(state, repository, hostInstallation) {
           HITO_PUBLIC_ORIGIN: `http://localhost:${state.port}`,
           HITO_LOG_FORMAT: "json",
           RUST_LOG: "info",
+          ...(state.addons ? { HITO_PLUGIN_SERVICES: ADDON_SERVICES } : {}),
         },
         restart: "unless-stopped",
         logging: {

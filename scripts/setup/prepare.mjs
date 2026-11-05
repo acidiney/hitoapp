@@ -44,15 +44,21 @@ try {
   const options = {};
   for (let index = 0; index < args.length; index += 2) {
     if (
-      !["--installation", "--host-installation", "--repository"].includes(
-        args[index],
-      ) ||
+      ![
+        "--installation",
+        "--host-installation",
+        "--repository",
+        "--addons",
+      ].includes(args[index]) ||
       !args[index + 1] ||
       options[args[index]]
     )
       throw new SetupError("Invalid installation setup options.");
     options[args[index]] = args[index + 1];
   }
+  const addons = options["--addons"];
+  if (addons !== undefined && !["yes", "no"].includes(addons))
+    throw new SetupError("Invalid installation setup options.");
   const directory = options["--installation"];
   if (!directory || !options["--host-installation"] || !options["--repository"])
     throw new SetupError("Installation setup options are incomplete.");
@@ -61,7 +67,7 @@ try {
     json(path.join(directory, "probe.json"), true),
     json(path.join(directory, "selection.json")),
   ]);
-  const state = installation(saved, probe, selected);
+  const state = installation(saved, probe, selected, addons);
   const compose = deployment(
     state,
     options["--repository"],
@@ -86,7 +92,7 @@ try {
   await save(
     directory,
     "plan.txt",
-    `${state.project}\n${state.data_volume}\n${state.port}\n`,
+    `${state.project}\n${state.data_volume}\n${state.port}\n${state.addons ? "on" : "off"}\n`,
   );
   console.log(
     JSON.stringify({

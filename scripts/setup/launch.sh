@@ -84,6 +84,25 @@ JXA
     ;;
 esac
 
+hito_addons_default='Not now'
+if grep -q '"addons": true' "$hito_installation/installation.json" 2>/dev/null; then hito_addons_default='Start addons'; fi
+hito_addons_prompt='Also start the Spotify and YouTube addons? They add playlist import and search. Hito works without them.'
+case $(uname -s) in
+  Darwin)
+    hito_addons_choice=$(osascript -e "button returned of (display dialog \"$hito_addons_prompt\" with title \"Hito Setup\" buttons {\"Not now\", \"Start addons\"} default button \"$hito_addons_default\")" 2>/dev/null || printf 'Not now')
+    ;;
+  Linux)
+    hito_addons_choice='Not now'
+    if command -v zenity >/dev/null 2>&1; then
+      if [ "$hito_addons_default" = 'Start addons' ]; then hito_addons_yes=--default-cancel; else hito_addons_yes=; fi
+            if zenity --question --title='Hito Setup' --text="$hito_addons_prompt" --ok-label='Start addons' --cancel-label='Not now' $hito_addons_yes 2>/dev/null; then hito_addons_choice='Start addons'; fi
+    elif command -v kdialog >/dev/null 2>&1; then
+      if kdialog --title 'Hito Setup' --yes-label 'Start addons' --no-label 'Not now' --yesno "$hito_addons_prompt" 2>/dev/null; then hito_addons_choice='Start addons'; fi
+    fi
+    ;;
+esac
+if [ "$hito_addons_choice" = 'Start addons' ]; then hito_addons_option=yes; else hito_addons_option=no; fi
+
 if [ -f "$hito_installation/plan.txt" ]; then
   read -r hito_saved_project < "$hito_installation/plan.txt"
   hito_container=$(docker ps -a --filter 'label=com.docker.compose.service=server' --filter "label=com.docker.compose.project=$hito_saved_project" --format '{{.ID}}')
@@ -98,14 +117,20 @@ else
   printf 'null\n' > "$hito_installation/probe.json"
 fi
 printf '%s\n' 'Preparing read-only music folders…'
-run configuration docker run --rm --user "$(id -u):$(id -g)" -v "$hito_repository:/workspace:ro" -v "$hito_installation:/setup" node:22-bookworm-slim node /workspace/scripts/setup/prepare.mjs --installation /setup --host-installation "$hito_installation" --repository "$hito_repository"
+run configuration docker run --rm --user "$(id -u):$(id -g)" -v "$hito_repository:/workspace:ro" -v "$hito_installation:/setup" node:22-bookworm-slim node /workspace/scripts/setup/prepare.mjs --installation /setup --host-installation "$hito_installation" --repository "$hito_repository" --addons "$hito_addons_option"
 {
   read -r hito_project
   read -r hito_volume
   read -r hito_port
+  read -r hito_addons
 } < "$hito_installation/plan.txt"
+if [ "$hito_addons" = on ]; then
+  hito_services='server plugin-spotify plugin-youtube'
+else
+  hito_services=server
+fi
 printf '%s\n' 'Building Hito in Docker. The first build can take several minutes…'
-run build docker compose -p "$hito_project" -f "$hito_installation/compose.json" build server
+run build docker compose -p "$hito_project" -f "$hito_installation/compose.json" --profile plugins build $hito_services
 if docker volume inspect "$hito_volume" >/dev/null 2>&1; then
   mkdir -p "$hito_installation/backups"
   run stop docker compose -p "$hito_project" -f "$hito_installation/compose.json" stop server
@@ -119,7 +144,7 @@ if docker volume inspect "$hito_volume" >/dev/null 2>&1; then
   fi
   printf '{"event":"installation.backup.completed"}\n' >> "$hito_installation/setup.log"
 fi
-run start docker compose -p "$hito_project" -f "$hito_installation/compose.json" up -d server
+run start docker compose -p "$hito_project" -f "$hito_installation/compose.json" --profile plugins up -d $hito_services
 hito_stopped=0
 printf '%s\n' 'Hito is starting. Add the shared folders in Settings → Library.'
 case $(uname -s) in
