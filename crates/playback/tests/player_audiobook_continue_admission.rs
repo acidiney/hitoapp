@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn deletion_and_exact_chapter_publication_share_one_authority_order() {
+    admission_gate::consult_every_dispatcher_for_callsites();
     let f = audiobook::Library::start().await;
     let [a, b] = f.recordings;
     let anchor: AudiobookChapterAnchor = serde_json::from_value(f.anchors[2].clone()).unwrap();
@@ -183,6 +184,7 @@ async fn deletion_and_exact_chapter_publication_share_one_authority_order() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cancellation_settles_held_admission_without_blocking_new_commands_or_losing_accepted_receipts()
  {
+    admission_gate::consult_every_dispatcher_for_callsites();
     let f = audiobook::Library::start().await;
     let [a, b] = f.recordings;
     let target: AudiobookChapterAnchor = serde_json::from_value(f.anchors[2].clone()).unwrap();
