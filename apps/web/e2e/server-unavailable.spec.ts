@@ -76,10 +76,12 @@ test("Try now reconnects without waiting for the next automatic attempt", async 
   page,
 }) => {
   const state = await simulate(page);
+  await page.clock.install();
   await page.goto("/library");
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
+  await page.clock.pauseAt(new Date(Date.now() + 3_600_000));
   state.mode = "closed";
   await openLibrarySection(page, "Albums");
   const notice = page.getByRole("status").filter({ hasText: "Cannot reach" });
