@@ -94,14 +94,16 @@ test("a saved artist review browses paged catalog groups without adopting albums
     const saved = await screen.findByRole("button", {
       name: "View saved artist review 1",
     });
-    expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
-      [
-        "/api/v1/metadata/settings",
-        "/api/v1/plugins",
-        associations,
-        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
-        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-association-changes`,
-      ].sort(),
+    await waitFor(() =>
+      expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
+        [
+          "/api/v1/metadata/settings",
+          "/api/v1/plugins",
+          associations,
+          `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
+          `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-association-changes`,
+        ].sort(),
+      ),
     );
     expect(posts()).toHaveLength(0);
     fireEvent.click(saved);

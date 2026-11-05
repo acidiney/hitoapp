@@ -1,5 +1,11 @@
 import { createElement } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
@@ -93,14 +99,16 @@ test("artist information is searched and previewed before its exact selected ide
     firstCatalog.service.name,
     secondCatalog.service.name,
   ]);
-  expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
-    [
-      "/api/v1/metadata/settings",
-      "/api/v1/plugins",
-      associations,
-      `${base}/artist-identity`,
-      `${base}/artist-association-changes`,
-    ].sort(),
+  await waitFor(() =>
+    expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
+      [
+        "/api/v1/metadata/settings",
+        "/api/v1/plugins",
+        associations,
+        `${base}/artist-identity`,
+        `${base}/artist-association-changes`,
+      ].sort(),
+    ),
   );
   fireEvent.change(provider, {
     target: { value: secondCatalog.installation.id },
