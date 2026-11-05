@@ -182,6 +182,8 @@ mod artist_review_tcp;
 mod artist_similarity;
 #[path = "api/artist_track_audio.rs"]
 mod artist_track_audio;
+#[path = "api/authorization_flow.rs"]
+mod authorization_flow;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
 #[path = "api/metadata.rs"]
@@ -196,6 +198,8 @@ mod metadata_preferences_fixture;
 mod plugin_authorization;
 #[path = "api/plugin_authorization_callback.rs"]
 mod plugin_authorization_callback;
+#[path = "api/plugin_connection.rs"]
+mod plugin_connection;
 #[path = "api/plugins.rs"]
 mod plugins;
 #[path = "api/storage.rs"]
