@@ -1,4 +1,3 @@
-import { isApplePlatform } from "../../../app/searchShortcut";
 import { settingEntries, type SettingEntry } from "./settingsCatalog";
 import { sectionHref, visibleGroups, type SectionId } from "./sections";
 
@@ -96,16 +95,12 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-export function isSettingsSearchShortcut(
-  event: KeyboardEvent,
-  apple: boolean = isApplePlatform(),
-): boolean {
+export function isSettingsSearchShortcut(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing || event.altKey) return false;
-  const key = event.key.toLowerCase();
-  if (key === "/")
-    return !event.ctrlKey && !event.metaKey && !isEditable(event.target);
-  if (key !== "f" || event.shiftKey) return false;
-  return apple
-    ? event.metaKey && !event.ctrlKey
-    : event.ctrlKey && !event.metaKey;
+  return (
+    event.key === "/" &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !isEditable(event.target)
+  );
 }

@@ -97,26 +97,23 @@ function press(init: KeyboardEventInit): KeyboardEvent {
 
 test("slash focuses the search unless a field is being typed in", () => {
   const input = document.createElement("input");
-  expect(isSettingsSearchShortcut(press({ key: "/" }), true)).toBe(true);
+  expect(isSettingsSearchShortcut(press({ key: "/" }))).toBe(true);
   const typed = press({ key: "/" });
   Object.defineProperty(typed, "target", { value: input });
-  expect(isSettingsSearchShortcut(typed, true)).toBe(false);
-  expect(
-    isSettingsSearchShortcut(press({ key: "/", ctrlKey: true }), true),
-  ).toBe(false);
+  expect(isSettingsSearchShortcut(typed)).toBe(false);
+  expect(isSettingsSearchShortcut(press({ key: "/", ctrlKey: true }))).toBe(
+    false,
+  );
 });
 
-test("the primary key with F focuses the search and the global K shortcut stays free", () => {
-  expect(
-    isSettingsSearchShortcut(press({ key: "f", metaKey: true }), true),
-  ).toBe(true);
-  expect(
-    isSettingsSearchShortcut(press({ key: "f", ctrlKey: true }), false),
-  ).toBe(true);
-  expect(
-    isSettingsSearchShortcut(press({ key: "f", ctrlKey: true }), true),
-  ).toBe(false);
-  expect(
-    isSettingsSearchShortcut(press({ key: "k", metaKey: true }), true),
-  ).toBe(false);
+test("the browser find shortcut and the global K shortcut are left to their owners", () => {
+  expect(isSettingsSearchShortcut(press({ key: "f", metaKey: true }))).toBe(
+    false,
+  );
+  expect(isSettingsSearchShortcut(press({ key: "f", ctrlKey: true }))).toBe(
+    false,
+  );
+  expect(isSettingsSearchShortcut(press({ key: "k", metaKey: true }))).toBe(
+    false,
+  );
 });
