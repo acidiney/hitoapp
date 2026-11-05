@@ -2,7 +2,22 @@ use crate::{
     Action, Actor, CoreConfig, Credentials, HostDeviceId, Operation, Services, SyncBatch, open,
 };
 use std::path::{Path, PathBuf};
+use tokio::sync::OnceCell;
 use uuid::Uuid;
+
+static MIGRATED_DATABASE: OnceCell<Vec<u8>> = OnceCell::const_new();
+
+async fn migrated_database() -> &'static [u8] {
+    MIGRATED_DATABASE
+        .get_or_init(|| async {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("hito.db");
+            let store = crate::store::Store::open(&path).await.unwrap();
+            store.pool.close().await;
+            std::fs::read(&path).unwrap()
+        })
+        .await
+}
 
 pub async fn library(host: &str) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
     library_with_musicbrainz(host, None).await
@@ -40,6 +55,7 @@ pub async fn library_with_artist_images(
     config.musicbrainz_loopback_endpoint = musicbrainz;
     config.cover_art_loopback_endpoint = cover_art;
     config.artist_image_loopback_endpoint = artist_images;
+    std::fs::write(dir.path().join("hito.db"), migrated_database().await).unwrap();
     let hito = open(config).await.unwrap();
     let session = hito
         .identity
