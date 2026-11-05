@@ -88,6 +88,12 @@ impl Plugins {
             WHERE id = ? AND user_id = ? AND active = 1 AND revision = ? RETURNING id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set")
             .bind(encoded).bind(credential).bind(id).bind(actor.id()).bind(current).fetch_one(&mut *tx).await?;
         let installation = installation(row)?;
+        super::authorization::retain_declared(
+            &mut tx,
+            id,
+            installation.manifest.authorization.as_ref(),
+        )
+        .await?;
         tx.commit().await?;
         tracing::info!(
             installation_id = id,

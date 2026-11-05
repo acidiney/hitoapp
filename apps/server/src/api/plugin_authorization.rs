@@ -16,7 +16,7 @@ use axum::{
 };
 use hito_core::{
     PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
-    PluginAuthorizationRedirect, PluginAuthorizationStatus, Services,
+    PluginAuthorizationRedirect, PluginAuthorizationStatus, PluginConnectionStatus, Services,
 };
 
 #[utoipa::path(post, path = "/api/v1/plugins/{id}/authorization", operation_id = "begin_plugin_authorization", params(("id" = String, Path)), request_body = PluginRevision, security(("session" = []), ("bearer" = [])), responses(
@@ -72,6 +72,33 @@ pub async fn status(
         .authorization_status(&actor, &id, &attempt)
         .await?;
     Ok(([("cache-control", "no-store")], Json(status)))
+}
+
+#[utoipa::path(get, path = "/api/v1/plugins/{id}/connection", operation_id = "plugin_connection_status", params(("id" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = PluginConnectionStatus), (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse),
+))]
+pub async fn connection(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<(
+    [(&'static str, &'static str); 1],
+    Json<PluginConnectionStatus>,
+)> {
+    let status = services.plugins.connection_status(&actor, &id).await?;
+    Ok(([("cache-control", "no-store")], Json(status)))
+}
+
+#[utoipa::path(delete, path = "/api/v1/plugins/{id}/connection", operation_id = "disconnect_plugin", params(("id" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 204), (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse),
+))]
+pub async fn disconnect(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<(StatusCode, [(&'static str, &'static str); 1])> {
+    services.plugins.disconnect(&actor, &id).await?;
+    Ok((StatusCode::NO_CONTENT, [("cache-control", "no-store")]))
 }
 
 fn invalid_origin() -> hito_core::Error {

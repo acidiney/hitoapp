@@ -122,6 +122,7 @@ impl ArtistCatalog {
             Err(
                 Error::Conflict(_)
                 | Error::ProviderBusy(_)
+                | Error::AuthorizationRequired(_)
                 | Error::OperationRejected(_)
                 | Error::Upstream(_)
                 | Error::NotFound,

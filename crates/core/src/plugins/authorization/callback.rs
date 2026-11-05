@@ -1,3 +1,4 @@
+use super::connection::{NewConnection, declaration_digest, scope_list, store};
 use super::exchange::Redemption;
 use super::{PluginAuthorizationCallback, PluginAuthorizationOutcome};
 use crate::plugins::Plugins;
@@ -29,6 +30,8 @@ struct Consumed {
     token_endpoint: String,
     code: Zeroizing<String>,
     verifier: Zeroizing<String>,
+    digest: [u8; 32],
+    requested_scopes: String,
 }
 
 enum Claim {
@@ -148,16 +151,18 @@ impl Plugins {
             .try_get::<Option<String>, _>("manifest")?
             .and_then(|text| serde_json::from_str(&text).ok())
             .filter(|manifest: &Manifest| manifest.validate().is_ok());
-        let Some(Authorization::Oauth2Pkce {
-            client_id,
-            token_endpoint,
-            ..
-        }) = manifest.and_then(|manifest| manifest.authorization)
-        else {
+        let Some(authorization) = manifest.and_then(|manifest| manifest.authorization) else {
             close(&mut tx, &attempt_id, "pending", "failed").await?;
             tx.commit().await?;
             return Ok(Claim::Done(PluginAuthorizationOutcome::Changed));
         };
+        let Authorization::Oauth2Pkce {
+            client_id,
+            token_endpoint,
+            scopes,
+            ..
+        } = &authorization;
+        let digest = declaration_digest(&authorization)?;
         close(&mut tx, &attempt_id, "pending", "exchanging").await?;
         tx.commit().await?;
         Ok(Claim::Exchange(Box::new(Consumed {
@@ -168,10 +173,12 @@ impl Plugins {
             attempt_id,
             installation_id,
             service_id,
-            client_id,
-            token_endpoint,
+            client_id: client_id.clone(),
+            token_endpoint: token_endpoint.clone(),
             code: code.clone(),
             verifier: secrets.verifier.clone(),
+            digest,
+            requested_scopes: scopes.iter().cloned().collect::<Vec<_>>().join(" "),
         })))
     }
 
@@ -190,13 +197,20 @@ impl Plugins {
                 verifier: &consumed.verifier,
             })
             .await;
+        let sealed = match &exchanged {
+            Ok(grant) => Some(self.seal_tokens(
+                &consumed.account_id,
+                &consumed.installation_id,
+                &consumed.service_id,
+                &consumed.digest,
+                &grant.access_token,
+                grant.refresh_token.as_ref().map(|token| token.as_str()),
+            )),
+            Err(_) => None,
+        };
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let outcome = match &exchanged {
-            Err(_) => {
-                close(&mut tx, &consumed.attempt_id, "exchanging", "failed").await?;
-                PluginAuthorizationOutcome::ExchangeFailed
-            }
-            Ok(_) => {
+        let outcome = match (&exchanged, sealed) {
+            (Ok(grant), Some(Ok(sealed))) => {
                 let completed = sqlx::query("UPDATE plugin_authorization_attempts
                     SET status = 'completed', pending_secret = zeroblob(74)
                     WHERE id = ?1 AND status = 'exchanging' AND user_id = ?2 AND expires_at > unixepoch()
@@ -207,19 +221,39 @@ impl Plugins {
                     .bind(&consumed.service_id).bind(consumed.installation_revision).bind(consumed.service_revision)
                     .execute(&mut *tx).await?.rows_affected();
                 if completed == 1 {
+                    let scopes = scope_list(grant.scope.as_deref())
+                        .unwrap_or_else(|| consumed.requested_scopes.clone());
+                    store(
+                        &mut tx,
+                        &NewConnection {
+                            account: &consumed.account_id,
+                            installation: &consumed.installation_id,
+                            service: &consumed.service_id,
+                            digest: &consumed.digest,
+                            sealed: &sealed,
+                            scopes: &scopes,
+                            expires_in: grant.expires_in,
+                        },
+                    )
+                    .await?;
                     PluginAuthorizationOutcome::Connected
                 } else {
                     close(&mut tx, &consumed.attempt_id, "exchanging", "failed").await?;
                     PluginAuthorizationOutcome::Changed
                 }
             }
+            _ => {
+                close(&mut tx, &consumed.attempt_id, "exchanging", "failed").await?;
+                PluginAuthorizationOutcome::ExchangeFailed
+            }
         };
         tx.commit().await?;
         match exchanged {
             Ok(grant) => tracing::info!(
                 attempt_id = consumed.attempt_id,
+                installation_id = consumed.installation_id,
                 outcome = outcome.as_str(),
-                refresh_token_offered = grant.has_refresh_token,
+                refresh_token_offered = grant.refresh_token.is_some(),
                 expires_in_seconds = grant.expires_in,
                 elapsed_ms = started.elapsed().as_millis() as u64,
                 "Provider authorization code exchanged"

@@ -19,6 +19,8 @@ pub enum Error {
     #[error("{0}")]
     ProviderBusy(&'static str),
     #[error("{0}")]
+    AuthorizationRequired(&'static str),
+    #[error("{0}")]
     OperationRejected(String),
     #[error("{0}")]
     Upstream(&'static str),
@@ -54,6 +56,7 @@ impl Error {
             Self::RateLimited(_) => "rate_limited",
             Self::Conflict(_) => "conflict",
             Self::ProviderBusy(_) => "provider_busy",
+            Self::AuthorizationRequired(_) => "authorization_required",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) => "upstream",
             Self::InsufficientStorage => "insufficient_storage",

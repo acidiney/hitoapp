@@ -66,6 +66,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugins::clear_credential))
         .routes(routes!(plugin_authorization::begin))
         .routes(routes!(plugin_authorization::status))
+        .routes(routes!(
+            plugin_authorization::connection,
+            plugin_authorization::disconnect
+        ))
         .routes(routes!(plugin_authorization::callback))
         .routes(routes!(providers::search))
         .routes(routes!(providers::adopt))

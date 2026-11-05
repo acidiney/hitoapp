@@ -29,6 +29,10 @@ impl Plugins {
             .bind(id).bind(revision).execute(&mut *tx).await?;
         sqlx::query("UPDATE plugin_installations SET active = 0, credential = NULL, revision = revision + 1 WHERE service_id = ? AND active = 1")
             .bind(id).execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM plugin_connections WHERE service_id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         tracing::info!(service_id = id, "Plugin service withdrawn");
         Ok(())

@@ -20,6 +20,7 @@ use crate::{Result, store::Store};
 pub use authorization::{
     PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
     PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginConnectionState, PluginConnectionStatus, ProviderAccess,
 };
 pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
@@ -42,6 +43,7 @@ pub struct Plugins {
     media: media::MediaClient,
     vault: vault::Vault,
     token: authorization::TokenClient,
+    connection_locks: std::sync::Arc<authorization::ConnectionLocks>,
 }
 
 impl Plugins {
@@ -52,6 +54,7 @@ impl Plugins {
             remote: transport::ControlClient::new()?,
             media: media::MediaClient::new()?,
             token: authorization::TokenClient::new()?,
+            connection_locks: std::sync::Arc::default(),
         })
     }
 }

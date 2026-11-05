@@ -1,10 +1,14 @@
+mod access;
 mod callback;
+mod connection;
 mod exchange;
 mod types;
 
 use super::Plugins;
 use crate::{Actor, Error, Result};
+pub(crate) use access::ConnectionLocks;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+pub(super) use connection::retain_declared;
 pub(crate) use exchange::TokenClient;
 use hito_plugin_sdk::{Authorization, Manifest};
 use rand::{RngCore, rngs::OsRng};
@@ -15,6 +19,7 @@ use std::time::Instant;
 pub use types::{
     PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
     PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginConnectionState, PluginConnectionStatus, ProviderAccess,
 };
 use url::Url;
 use uuid::Uuid;

@@ -38,6 +38,8 @@ pub(super) enum ExchangeFailure {
     Unreachable,
     Blocked,
     Rejected,
+    InvalidGrant,
+    Unavailable,
     Invalid,
 }
 
@@ -47,14 +49,24 @@ impl ExchangeFailure {
             Self::Unreachable => "unreachable",
             Self::Blocked => "blocked_address",
             Self::Rejected => "rejected",
+            Self::InvalidGrant => "invalid_grant",
+            Self::Unavailable => "provider_unavailable",
             Self::Invalid => "invalid_response",
         }
     }
 }
 
-pub(super) struct GrantSummary {
+pub(super) struct Grant {
+    pub(super) access_token: Zeroizing<String>,
+    pub(super) refresh_token: Option<Zeroizing<String>>,
     pub(super) expires_in: Option<u64>,
-    pub(super) has_refresh_token: bool,
+    pub(super) scope: Option<String>,
+}
+
+pub(super) struct Refresh<'a> {
+    pub(super) endpoint: &'a str,
+    pub(super) client_id: &'a str,
+    pub(super) refresh_token: &'a str,
 }
 
 pub(super) struct Redemption<'a> {
@@ -73,6 +85,13 @@ struct TokenResponse {
     refresh_token: Option<Zeroizing<String>>,
     #[serde(default, deserialize_with = "seconds")]
     expires_in: Option<u64>,
+    #[serde(default)]
+    scope: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ErrorResponse {
+    error: String,
 }
 
 fn seconds<'de, D: serde::Deserializer<'de>>(
@@ -233,10 +252,7 @@ impl TokenClient {
     pub(super) async fn redeem(
         &self,
         redemption: Redemption<'_>,
-    ) -> std::result::Result<GrantSummary, ExchangeFailure> {
-        if !literal_allowed(redemption.endpoint) {
-            return Err(ExchangeFailure::Blocked);
-        }
+    ) -> std::result::Result<Grant, ExchangeFailure> {
         let body = Zeroizing::new(
             url::form_urlencoded::Serializer::new(String::new())
                 .append_pair("grant_type", "authorization_code")
@@ -246,9 +262,34 @@ impl TokenClient {
                 .append_pair("code_verifier", redemption.verifier)
                 .finish(),
         );
+        self.post(redemption.endpoint, body).await
+    }
+
+    pub(super) async fn renew(
+        &self,
+        refresh: Refresh<'_>,
+    ) -> std::result::Result<Grant, ExchangeFailure> {
+        let body = Zeroizing::new(
+            url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("grant_type", "refresh_token")
+                .append_pair("refresh_token", refresh.refresh_token)
+                .append_pair("client_id", refresh.client_id)
+                .finish(),
+        );
+        self.post(refresh.endpoint, body).await
+    }
+
+    async fn post(
+        &self,
+        endpoint: &str,
+        body: Zeroizing<String>,
+    ) -> std::result::Result<Grant, ExchangeFailure> {
+        if !literal_allowed(endpoint) {
+            return Err(ExchangeFailure::Blocked);
+        }
         let mut response = self
             .client
-            .post(redemption.endpoint)
+            .post(endpoint)
             .header("accept", "application/json")
             .header("accept-encoding", "identity")
             .header("content-type", "application/x-www-form-urlencoded")
@@ -264,8 +305,8 @@ impl TokenClient {
             })?;
         let status = response.status();
         tracing::debug!(status = status.as_u16(), "Provider token response received");
-        if !status.is_success() {
-            return Err(ExchangeFailure::Rejected);
+        if status.is_server_error() || status.as_u16() == 429 {
+            return Err(ExchangeFailure::Unavailable);
         }
         let json = response
             .headers()
@@ -277,6 +318,9 @@ impl TokenClient {
             .headers()
             .get("content-encoding")
             .is_none_or(|value| value.as_bytes().eq_ignore_ascii_case(b"identity"));
+        if !status.is_success() && !(json && plain) {
+            return Err(ExchangeFailure::Rejected);
+        }
         if !json
             || !plain
             || response
@@ -296,6 +340,12 @@ impl TokenClient {
             }
             body.extend_from_slice(&chunk);
         }
+        if !status.is_success() {
+            return Err(match serde_json::from_slice::<ErrorResponse>(&body) {
+                Ok(failure) if failure.error == "invalid_grant" => ExchangeFailure::InvalidGrant,
+                _ => ExchangeFailure::Rejected,
+            });
+        }
         let grant: TokenResponse =
             serde_json::from_slice(&body).map_err(|_| ExchangeFailure::Invalid)?;
         let graphic = |value: &str| {
@@ -310,9 +360,11 @@ impl TokenClient {
         {
             return Err(ExchangeFailure::Invalid);
         }
-        Ok(GrantSummary {
+        Ok(Grant {
+            access_token: grant.access_token,
+            refresh_token: grant.refresh_token,
             expires_in: grant.expires_in,
-            has_refresh_token: grant.refresh_token.is_some(),
+            scope: grant.scope,
         })
     }
 }
@@ -404,6 +456,21 @@ mod tests {
                 .is_err(),
             "the resolver must refuse before any connection is made"
         );
+    }
+
+    #[tokio::test]
+    async fn renewing_uses_the_same_address_guard() {
+        let lookup: Lookup =
+            Arc::new(|_| Box::pin(async { Ok(vec!["10.1.2.3".parse::<IpAddr>().unwrap()]) }));
+        let client = TokenClient::with_lookup(lookup).unwrap();
+        let result = client
+            .renew(Refresh {
+                endpoint: "https://rebinding.example.test/token",
+                client_id: "owned-client",
+                refresh_token: "owned-refresh",
+            })
+            .await;
+        assert_eq!(result.err(), Some(ExchangeFailure::Blocked));
     }
 
     #[tokio::test]

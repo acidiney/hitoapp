@@ -20,6 +20,10 @@ impl Plugins {
         }
         sqlx::query("UPDATE plugin_installations SET active = 0, credential = NULL, revision = revision + 1 WHERE id = ? AND user_id = ? AND active = 1 AND revision = ?")
             .bind(id).bind(actor.id()).bind(revision).execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM plugin_connections WHERE installation_id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         tracing::info!(installation_id = id, "Personal plugin removed");
         Ok(())

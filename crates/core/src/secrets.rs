@@ -41,6 +41,13 @@ impl Vault {
         .fetch_all(&store.pool)
         .await?;
         fingerprints.extend(pending);
+        let connections: Vec<Vec<u8>> = sqlx::query_scalar(
+            "SELECT DISTINCT substr(tokens,1,33) FROM plugin_connections INDEXED BY plugin_connection_fingerprints
+            WHERE tokens IS NOT NULL LIMIT 2",
+        )
+        .fetch_all(&store.pool)
+        .await?;
+        fingerprints.extend(connections);
         let community: Option<Vec<u8>> = sqlx::query_scalar(
             "SELECT substr(credential,1,33) FROM community_reporters
              INDEXED BY community_credential_fingerprints ORDER BY substr(credential,1,33) ASC LIMIT 1",
@@ -130,6 +137,40 @@ impl Vault {
         self.reveal_payload(&aad, envelope)
     }
 
+    pub(super) fn seal_connection(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        declaration: &str,
+        payload: &[u8],
+    ) -> Result<Vec<u8>> {
+        if payload.is_empty() || payload.len() > 8400 {
+            return Err(Error::Internal(
+                "Provider tokens exceed their storage limit".into(),
+            ));
+        }
+        self.seal_payload(
+            &connection_context(account, installation, service, declaration),
+            payload,
+        )
+    }
+
+    pub(super) fn reveal_connection(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        declaration: &str,
+        envelope: &[u8],
+    ) -> Result<Zeroizing<Vec<u8>>> {
+        self.open_payload(
+            &connection_context(account, installation, service, declaration),
+            envelope,
+            8800,
+        )
+    }
+
     fn seal_payload(&self, aad: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
         let key = self.0.as_ref().as_ref().ok_or_else(unavailable)?;
         let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -185,14 +226,27 @@ impl Vault {
     }
 
     fn reveal_payload(&self, aad: &str, envelope: &[u8]) -> Result<Zeroizing<String>> {
+        let plaintext = self.open_payload(aad, envelope, 4169)?;
+        let token =
+            Zeroizing::new(String::from_utf8(plaintext.to_vec()).map_err(|_| unavailable())?);
+        validate(&token)?;
+        Ok(token)
+    }
+
+    fn open_payload(
+        &self,
+        aad: &str,
+        envelope: &[u8],
+        maximum: usize,
+    ) -> Result<Zeroizing<Vec<u8>>> {
         let key = self.0.as_ref().as_ref().ok_or_else(unavailable)?;
-        if !(73..=4169).contains(&envelope.len())
+        if !(73..=maximum).contains(&envelope.len())
             || envelope[0] != 1
             || envelope[1..33] != key.fingerprint
         {
             return Err(unavailable());
         }
-        let plaintext = Zeroizing::new(
+        Ok(Zeroizing::new(
             key.cipher
                 .decrypt(
                     XNonce::from_slice(&envelope[33..57]),
@@ -202,11 +256,7 @@ impl Vault {
                     },
                 )
                 .map_err(|_| unavailable())?,
-        );
-        let token =
-            Zeroizing::new(String::from_utf8(plaintext.to_vec()).map_err(|_| unavailable())?);
-        validate(&token)?;
-        Ok(token)
+        ))
     }
 }
 
@@ -222,6 +272,15 @@ pub(super) fn validate(token: &str) -> Result<()> {
 
 fn context(account: &str, installation: &str, service: &str) -> String {
     format!("hito.plugin.credential.v1|{account}|{installation}|{service}")
+}
+
+fn connection_context(
+    account: &str,
+    installation: &str,
+    service: &str,
+    declaration: &str,
+) -> String {
+    format!("hito.plugin.connection.v1|{account}|{installation}|{service}|{declaration}")
 }
 
 fn community_context(account: &str, service: &str, reporter: &str) -> String {

@@ -40,9 +40,10 @@ impl IntoResponse for ApiError {
             Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
-            Error::Conflict(_) | Error::ProviderBusy(_) | Error::OperationRejected(_) => {
-                StatusCode::CONFLICT
-            }
+            Error::Conflict(_)
+            | Error::ProviderBusy(_)
+            | Error::AuthorizationRequired(_)
+            | Error::OperationRejected(_) => StatusCode::CONFLICT,
             Error::Upstream(_) => StatusCode::BAD_GATEWAY,
             Error::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
