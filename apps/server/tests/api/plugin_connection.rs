@@ -3,7 +3,10 @@ use super::support::call;
 use axum::http::StatusCode;
 use hito_core::{Error, PluginConnectionState, ProviderAccess};
 use serde_json::{Value, json};
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::instrument::WithSubscriber;
 
 fn token(access: &ProviderAccess) -> String {
@@ -597,7 +600,8 @@ async fn connections_survive_a_restart_and_a_lost_key_protects_them_until_they_a
 }
 
 #[tokio::test]
-async fn connection_workflows_log_outcomes_and_timings_but_never_tokens_codes_ids_or_endpoints() {
+async fn connection_workflows_log_outcomes_and_timings_but_never_tokens_codes_the_client_id_or_provider_endpoints()
+ {
     hito_testkit::logs::anchor_callsite_interest();
     let logs = Capture::default();
     let captured = logs.clone();
@@ -676,4 +680,285 @@ async fn connection_workflows_log_outcomes_and_timings_but_never_tokens_codes_id
     }
     .with_subscriber(subscriber)
     .await;
+}
+
+fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
+async fn expiry(flow: &Flow) -> Option<i64> {
+    flow.connection(&flow.owner).await.1["expires_at"].as_i64()
+}
+
+async fn database(flow: &Flow) -> sqlx::SqliteConnection {
+    use sqlx::{Connection, sqlite::SqliteConnectOptions};
+    sqlx::SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(flow.directory.path().join("hito.db")),
+    )
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn a_caller_dropped_mid_refresh_does_not_lose_the_rotated_refresh_token() {
+    let flow = Flow::start().await;
+    flow.connect().await;
+    force_expiry(&flow, -5).await;
+    flow.token.delay(Duration::from_millis(300));
+    let cancelled = tokio::time::timeout(Duration::from_millis(100), flow.access()).await;
+    assert!(cancelled.is_err());
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    flow.token.delay(Duration::ZERO);
+    assert_eq!(flow.token.refresh_requests().len(), 1);
+    assert_eq!(
+        token(&flow.access().await.unwrap()),
+        "owned-refreshed-access-1"
+    );
+    assert_eq!(flow.token.refresh_requests().len(), 1);
+    force_expiry(&flow, -5).await;
+    flow.access().await.unwrap();
+    assert_eq!(
+        flow.token.refresh_requests()[1]["refresh_token"],
+        "owned-rotated-refresh-1"
+    );
+}
+
+#[tokio::test]
+async fn a_missing_lifetime_gets_a_bounded_default_and_a_zero_lifetime_the_minimum() {
+    let flow = Flow::start().await;
+    flow.token.reply(Reply::GrantNoExpiry);
+    flow.connect().await;
+    let expires = expiry(&flow).await.unwrap();
+    assert!(
+        (now() + 3500..=now() + 3700).contains(&expires),
+        "{expires}"
+    );
+
+    flow.token.reply(Reply::GrantZeroExpiry);
+    flow.connect().await;
+    let expires = expiry(&flow).await.unwrap();
+    assert!((now() + 100..=now() + 140).contains(&expires), "{expires}");
+    assert_eq!(token(&flow.access().await.unwrap()), ACCESS);
+    assert!(
+        flow.token.refresh_requests().is_empty(),
+        "a zero lifetime must not cause churn"
+    );
+
+    force_expiry(&flow, -5).await;
+    flow.token.refresh_reply(RefreshReply::NoExpiry);
+    flow.access().await.unwrap();
+    let expires = expiry(&flow).await.unwrap();
+    assert!(
+        (now() + 3500..=now() + 3700).contains(&expires),
+        "{expires}"
+    );
+
+    force_expiry(&flow, -5).await;
+    flow.token.refresh_reply(RefreshReply::ZeroExpiry);
+    flow.access().await.unwrap();
+    let expires = expiry(&flow).await.unwrap();
+    assert!((now() + 100..=now() + 140).contains(&expires), "{expires}");
+    flow.access().await.unwrap();
+    assert_eq!(flow.token.refresh_requests().len(), 2);
+
+    flow.token.reply(Reply::GrantUpperIdentity);
+    flow.connect().await;
+    assert_eq!(expiry(&flow).await, None);
+}
+
+#[tokio::test]
+async fn client_rejections_and_error_bodies_are_terminal() {
+    for reply in [
+        RefreshReply::InvalidClient,
+        RefreshReply::Unauthorized,
+        RefreshReply::ErrorOk,
+    ] {
+        let flow = Flow::start().await;
+        flow.connect().await;
+        force_expiry(&flow, -5).await;
+        flow.token.refresh_reply(reply);
+        assert!(matches!(
+            flow.access().await,
+            Err(Error::AuthorizationRequired(_))
+        ));
+        assert_eq!(
+            connection_rows(&flow).await,
+            vec![("needs_reauthorization".to_owned(), false)]
+        );
+    }
+}
+
+#[tokio::test]
+async fn repeated_unclassified_rejections_end_in_reauthorization_but_a_success_resets_them() {
+    let flow = Flow::start().await;
+    flow.connect().await;
+    force_expiry(&flow, -5).await;
+    flow.token.refresh_reply(RefreshReply::PlainBadRequest);
+    for _ in 0..2 {
+        assert!(matches!(flow.access().await, Err(Error::Upstream(_))));
+    }
+    flow.token.refresh_reply(RefreshReply::Rotate);
+    flow.access().await.unwrap();
+    force_expiry(&flow, -5).await;
+    flow.token.refresh_reply(RefreshReply::PlainBadRequest);
+    for _ in 0..2 {
+        assert!(matches!(flow.access().await, Err(Error::Upstream(_))));
+    }
+    assert_eq!(
+        connection_rows(&flow).await,
+        vec![("connected".to_owned(), true)]
+    );
+    assert!(matches!(
+        flow.access().await,
+        Err(Error::AuthorizationRequired(_))
+    ));
+    assert_eq!(
+        connection_rows(&flow).await,
+        vec![("needs_reauthorization".to_owned(), false)]
+    );
+}
+
+#[tokio::test]
+async fn a_day_of_unclassified_rejections_ends_in_reauthorization() {
+    let flow = Flow::start().await;
+    flow.connect().await;
+    force_expiry(&flow, -5).await;
+    flow.token.refresh_reply(RefreshReply::PlainBadRequest);
+    assert!(matches!(flow.access().await, Err(Error::Upstream(_))));
+    flow.sql("UPDATE plugin_connections SET refresh_failing_since = unixepoch() - 90000")
+        .await;
+    assert!(matches!(
+        flow.access().await,
+        Err(Error::AuthorizationRequired(_))
+    ));
+}
+
+#[tokio::test]
+async fn a_stale_refresh_never_overwrites_or_invalidates_a_newer_consent() {
+    for reply in [RefreshReply::Rotate, RefreshReply::InvalidGrant] {
+        let flow = Arc::new(Flow::start().await);
+        flow.connect().await;
+        force_expiry(&flow, -5).await;
+        flow.token.refresh_reply(reply);
+        flow.token.delay(Duration::from_millis(400));
+        let refreshing = {
+            let flow = flow.clone();
+            tokio::spawn(async move { flow.access().await })
+        };
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        flow.token.delay(Duration::ZERO);
+        flow.token.reply(Reply::GrantAs("second"));
+        flow.connect().await;
+        let served = refreshing.await.unwrap().unwrap();
+        assert_eq!(token(&served), "second-access");
+        assert_eq!(flow.connection(&flow.owner).await.1["status"], "connected");
+        assert_eq!(token(&flow.access().await.unwrap()), "second-access");
+    }
+}
+
+#[tokio::test]
+async fn two_installations_of_one_account_refresh_concurrently_and_stay_isolated() {
+    let flow = Flow::start().await;
+    flow.connect().await;
+    let (_second_provider, second) = flow.second_installation().await;
+    flow.token.reply(Reply::GrantAs("two"));
+    flow.connect_installation(&flow.owner, &second).await;
+    assert_eq!(
+        token(&flow.access_for(&second).await.unwrap()),
+        "two-access"
+    );
+    assert_eq!(token(&flow.access().await.unwrap()), ACCESS);
+
+    force_expiry(&flow, -5).await;
+    flow.token.delay(Duration::from_millis(300));
+    let started = Instant::now();
+    let (first, other) = tokio::join!(flow.access(), flow.access_for(&second));
+    assert!(first.is_ok() && other.is_ok());
+    assert!(
+        started.elapsed() < Duration::from_millis(550),
+        "refreshes must overlap"
+    );
+    assert_eq!(flow.token.refresh_requests().len(), 2);
+    flow.token.delay(Duration::ZERO);
+
+    assert_eq!(flow.disconnect(&flow.owner).await, StatusCode::NO_CONTENT);
+    assert!(matches!(
+        flow.access().await,
+        Err(Error::AuthorizationRequired(_))
+    ));
+    assert!(flow.access_for(&second).await.is_ok());
+    assert_eq!(connection_rows(&flow).await.len(), 1);
+}
+
+#[tokio::test]
+async fn tokens_moved_to_another_installation_cannot_be_read_and_force_reauthorization() {
+    use sqlx::Connection;
+    let flow = Flow::start().await;
+    flow.connect().await;
+    let (_second_provider, second) = flow.second_installation().await;
+    flow.token.reply(Reply::GrantAs("two"));
+    flow.connect_installation(&flow.owner, &second).await;
+    let mut connection = database(&flow).await;
+    let rows: Vec<(String, Vec<u8>)> = sqlx::query_as(
+        "SELECT installation_id,tokens FROM plugin_connections ORDER BY installation_id",
+    )
+    .fetch_all(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 2);
+    for (index, (id, _)) in rows.iter().enumerate() {
+        sqlx::query("UPDATE plugin_connections SET tokens = ? WHERE installation_id = ?")
+            .bind(&rows[1 - index].1)
+            .bind(id)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
+    connection.close().await.unwrap();
+    assert!(matches!(
+        flow.access().await,
+        Err(Error::AuthorizationRequired(_))
+    ));
+    assert!(matches!(
+        flow.access_for(&second).await,
+        Err(Error::AuthorizationRequired(_))
+    ));
+    assert_eq!(
+        connection_rows(&flow).await,
+        vec![("needs_reauthorization".to_owned(), false); 2]
+    );
+}
+
+#[tokio::test]
+async fn deleting_an_account_with_a_live_connection_removes_it() {
+    let flow = Flow::start().await;
+    let (status, bob) = call(
+        &flow.app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "bob", "password": "bob connection test password"}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let session = flow.login("bob", "bob connection test password").await;
+    let installation = flow.install_as(&session).await;
+    flow.connect_installation(&session, &installation).await;
+    assert_eq!(
+        connection_rows(&flow).await,
+        vec![("connected".to_owned(), true)]
+    );
+    let (status, _) = call(
+        &flow.app,
+        "DELETE",
+        &format!("/api/v1/users/{}", bob["id"].as_str().unwrap()),
+        json!({"username": "bob"}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(connection_rows(&flow).await.is_empty());
 }

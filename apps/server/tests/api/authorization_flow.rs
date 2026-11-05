@@ -33,6 +33,8 @@ pub(super) enum Reply {
     GrantStringExpiry,
     GrantUpperIdentity,
     GrantAs(&'static str),
+    GrantNoExpiry,
+    GrantZeroExpiry,
 }
 
 #[derive(Clone, Copy)]
@@ -43,6 +45,12 @@ pub(super) enum RefreshReply {
     Unavailable,
     TooManyRequests,
     Malformed,
+    InvalidClient,
+    Unauthorized,
+    ErrorOk,
+    PlainBadRequest,
+    NoExpiry,
+    ZeroExpiry,
 }
 
 pub(super) struct TokenState {
@@ -173,6 +181,36 @@ async fn token(State(state): State<Arc<TokenState>>, body: String) -> Response {
             RefreshReply::TooManyRequests => {
                 (StatusCode::TOO_MANY_REQUESTS, "owned-provider-error-sentinel").into_response()
             }
+            RefreshReply::InvalidClient => (
+                StatusCode::BAD_REQUEST,
+                json_type,
+                json!({"error": "invalid_client"}).to_string(),
+            )
+                .into_response(),
+            RefreshReply::Unauthorized => {
+                (StatusCode::UNAUTHORIZED, "owned-provider-error-sentinel").into_response()
+            }
+            RefreshReply::ErrorOk => (
+                json_type,
+                json!({"error": "unauthorized_client"}).to_string(),
+            )
+                .into_response(),
+            RefreshReply::PlainBadRequest => (
+                StatusCode::BAD_REQUEST,
+                [("content-type", "text/plain")],
+                "owned-provider-error-sentinel",
+            )
+                .into_response(),
+            RefreshReply::NoExpiry => (
+                json_type,
+                json!({"access_token": format!("owned-refreshed-access-{number}"), "token_type": "Bearer", "refresh_token": format!("owned-rotated-refresh-{number}")}).to_string(),
+            )
+                .into_response(),
+            RefreshReply::ZeroExpiry => (
+                json_type,
+                json!({"access_token": format!("owned-refreshed-access-{number}"), "token_type": "Bearer", "expires_in": 0, "refresh_token": format!("owned-rotated-refresh-{number}")}).to_string(),
+            )
+                .into_response(),
             RefreshReply::Malformed => ([("content-type", "text/plain")], "owned-provider-error-sentinel").into_response(),
         };
     }
@@ -205,6 +243,16 @@ async fn token(State(state): State<Arc<TokenState>>, body: String) -> Response {
         Reply::GrantAs(name) => (
             json_type,
             json!({"access_token": format!("{name}-access"), "token_type": "Bearer", "expires_in": lifetime, "refresh_token": format!("{name}-refresh"), "scope": "playlist-read-private"}).to_string(),
+        )
+            .into_response(),
+        Reply::GrantNoExpiry => (
+            json_type,
+            json!({"access_token": ACCESS, "token_type": "Bearer", "refresh_token": REFRESH}).to_string(),
+        )
+            .into_response(),
+        Reply::GrantZeroExpiry => (
+            json_type,
+            json!({"access_token": ACCESS, "token_type": "Bearer", "expires_in": 0, "refresh_token": REFRESH}).to_string(),
         )
             .into_response(),
         Reply::NoAccessToken => (json_type, json!({"token_type": "Bearer"}).to_string()).into_response(),
@@ -339,6 +387,77 @@ impl Flow {
             state: query["state"].clone(),
             challenge: query["code_challenge"].clone(),
         }
+    }
+
+    pub(super) async fn install_as(&self, session: &str) -> Value {
+        let (status, installation) = call(
+            &self.app,
+            "POST",
+            "/api/v1/plugins",
+            json!({"service_id": self.service["id"], "service_revision": self.service["revision"]}),
+            Some(session),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{installation}");
+        installation
+    }
+
+    pub(super) async fn second_installation(&self) -> (ProviderServer, Value) {
+        let provider = ProviderServer::start().await;
+        provider
+            .reply(
+                "v1/manifest",
+                json!({
+                    "id": "org.hito.callback-fixture-second",
+                    "name": "Second fixture",
+                    "protocol_version": 1,
+                    "capabilities": ["playlists"],
+                    "authorization": {
+                        "kind": "oauth2_pkce",
+                        "client_id": "owned-test-client",
+                        "authorization_endpoint": "https://accounts.spotify.com/authorize",
+                        "token_endpoint": format!("{}/token", self.token.url),
+                        "scopes": ["playlist-read-private"]
+                    }
+                }),
+            )
+            .await;
+        let (status, service) = call(
+            &self.app,
+            "POST",
+            "/api/v1/plugins/services",
+            json!({"name": "Second fixture", "base_url": provider.url}),
+            Some(&self.owner),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let (status, installation) = call(
+            &self.app,
+            "POST",
+            "/api/v1/plugins",
+            json!({"service_id": service["id"], "service_revision": service["revision"]}),
+            Some(&self.owner),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        (provider, installation)
+    }
+
+    pub(super) async fn connect_installation(&self, session: &str, installation: &Value) {
+        let attempt = self.begin_for(session, installation).await;
+        let page = self.code_callback(session, &attempt).await;
+        assert_eq!(page.status, StatusCode::OK, "{}", page.body);
+    }
+
+    pub(super) async fn access_for(
+        &self,
+        installation: &Value,
+    ) -> hito_core::Result<hito_core::ProviderAccess> {
+        let actor = self.actor(&self.owner).await;
+        self.services
+            .plugins
+            .access_token(&actor, installation["id"].as_str().unwrap())
+            .await
     }
 
     pub(super) async fn connect(&self) -> Attempt {
