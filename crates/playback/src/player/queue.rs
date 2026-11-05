@@ -47,6 +47,7 @@ impl Queue {
             .copied()
     }
 
+    #[cfg(feature = "device")]
     pub fn upcoming(&self) -> Option<PlayerEntryRef> {
         let id = self.traversal.upcoming(&self.entries, self.current)?;
         self.positions

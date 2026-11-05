@@ -160,6 +160,7 @@ impl Traversal {
         self.following(entries, index)
     }
 
+    #[cfg(feature = "device")]
     pub fn upcoming(&self, entries: &[PlayerEntryRef], current: Option<usize>) -> Option<Uuid> {
         let index = current?;
         let current = entries.get(index)?.id;
