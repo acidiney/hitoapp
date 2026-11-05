@@ -90,7 +90,7 @@ test("a member uploads, replaces and removes a photo that the menu, profile and 
   memberPage.on("pageerror", (error) => errors.push(error.message));
   await signIn(memberPage, "avatar-member", memberPassword);
   const menu = memberPage.locator(".account-link .avatar");
-  await expect(menu).toHaveText("A");
+  await expect(menu).toHaveText("AM");
   await memberPage.goto("/settings?section=profile");
   await expect(
     memberPage.getByRole("button", { name: "Remove photo" }),
@@ -155,13 +155,13 @@ test("a member uploads, replaces and removes a photo that the menu, profile and 
 
   await memberPage.getByRole("button", { name: "Remove photo" }).click();
   await expect(memberPage.getByText(/Photo removed/)).toBeVisible();
-  await expect(menu).toHaveText("A");
+  await expect(menu).toHaveText("AM");
   await expect(memberPage.locator(".account-link .avatar img")).toHaveCount(0);
   await expect(
     memberPage.getByRole("button", { name: "Remove photo" }),
   ).toHaveCount(0);
   await page.reload();
-  await expect(row.locator(".avatar")).toHaveText("A");
+  await expect(row.locator(".avatar")).toHaveText("AM");
   expect(
     (await page.request.get(`/api/v1/accounts/${member.id}/avatar`)).status(),
   ).toBe(404);
