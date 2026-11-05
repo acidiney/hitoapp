@@ -64,15 +64,15 @@ test("a member sets a display name that the menu, profile and the administrator'
   await expect(menu).toContainText(hostile);
   await expect(menu).not.toContainText("display-name-member");
   await expect(menu.locator(".avatar")).toHaveText("IA");
-  await expect(page.locator(".profile-identity .setting-line-title")).toHaveText(
-    hostile,
-  );
+  await expect(
+    page.locator(".profile-identity .setting-line-title"),
+  ).toHaveText(hostile);
   await expect(page.locator(".profile-identity .setting-line-hint")).toHaveText(
     "display-name-member · Member",
   );
-  await expect(page.locator(".account-link i, .profile-identity i")).toHaveCount(
-    0,
-  );
+  await expect(
+    page.locator(".account-link i, .profile-identity i"),
+  ).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Display name" })).toHaveValue(
     hostile,
