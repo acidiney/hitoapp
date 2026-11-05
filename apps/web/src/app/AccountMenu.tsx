@@ -35,7 +35,11 @@ export default function AccountMenu({
         }
         onClick={() => log.info("navigation.requested", { route: "/settings" })}
       >
-        <Avatar id={user.id} name={accountName(user)} />
+        <Avatar
+          id={user.id}
+          name={accountName(user)}
+          version={user.avatar_version}
+        />
         <span>
           {accountName(user)}
           <small>{user.admin ? "Administrator" : "Account and settings"}</small>

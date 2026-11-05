@@ -21,6 +21,7 @@ type RequestOptions = {
   action: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
+  file?: Blob;
   account?: string;
   signal?: AbortSignal;
   cache?: RequestCache;
@@ -72,12 +73,15 @@ export async function request(path: string, options: RequestOptions) {
       signal,
       cache: options.cache,
       headers: {
-        "content-type": "application/json",
+        "content-type": options.file
+          ? "application/octet-stream"
+          : "application/json",
         "x-hito-request": "1",
         ...(options.account ? { "x-hito-account": options.account } : {}),
       },
       body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
+        options.file ??
+        (options.body === undefined ? undefined : JSON.stringify(options.body)),
     });
   } catch (error) {
     const cancelled = options.signal?.aborted === true;

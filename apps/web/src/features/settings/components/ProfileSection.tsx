@@ -10,6 +10,7 @@ import SettingsCard from "../../../shared/ui/SettingsCard";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useLockSession } from "../../session/hooks/useLockSession";
 import AccountSecurity from "../../session/components/AccountSecurity";
+import AvatarSettings from "../../session/components/AvatarSettings";
 import DisplayNameSettings from "../../session/components/DisplayNameSettings";
 import { useSignOut } from "../../session/hooks/useSignOut";
 import { setting } from "../model/settingsCatalog";
@@ -25,7 +26,12 @@ export default function ProfileSection({
     <>
       <SettingsCard setting={setting("account")}>
         <div className="profile-identity">
-          <Avatar id={user.id} name={accountName(user)} large />
+          <Avatar
+            id={user.id}
+            name={accountName(user)}
+            version={user.avatar_version}
+            large
+          />
           <span className="setting-line-copy">
             <span className="setting-line-title">{accountName(user)}</span>
             <span className="setting-line-hint">
@@ -34,6 +40,12 @@ export default function ProfileSection({
             </span>
           </span>
         </div>
+        <AvatarSettings
+          key={`avatar:${user.id}`}
+          account={user.id}
+          hasPhoto={Boolean(user.avatar_version)}
+          onSaved={() => router.reload({ only: ["user"] })}
+        />
       </SettingsCard>
       <DisplayNameSettings
         key={`display-name:${user.id}`}

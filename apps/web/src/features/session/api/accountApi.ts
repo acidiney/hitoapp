@@ -44,6 +44,34 @@ export const accountApi = {
     });
     return user;
   },
+  async setAvatar(
+    account: string,
+    file: Blob,
+    signal?: AbortSignal,
+  ): Promise<Schema<"User">> {
+    const user = await requestJson<Schema<"User">>("/account/avatar", {
+      action: "account.avatar_changed",
+      method: "PUT",
+      account,
+      file,
+      signal,
+    });
+    log.info("account.avatar_changed", { account_id: account });
+    return user;
+  },
+  async removeAvatar(
+    account: string,
+    signal?: AbortSignal,
+  ): Promise<Schema<"User">> {
+    const user = await requestJson<Schema<"User">>("/account/avatar", {
+      action: "account.avatar_removed",
+      method: "DELETE",
+      account,
+      signal,
+    });
+    log.info("account.avatar_removed", { account_id: account });
+    return user;
+  },
   sessions(
     account: string,
     signal?: AbortSignal,

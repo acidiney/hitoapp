@@ -378,6 +378,16 @@
   gap: 20px;
   padding: 20px 0;
 }
+.avatar-settings {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+.avatar-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .profile-identity .setting-line-title {
   font-size: 20px;
 }

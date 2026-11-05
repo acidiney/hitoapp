@@ -47,7 +47,13 @@ export default function AccountSettings({
         <SettingRow
           key={user.id}
           title={accountName(user)}
-          leading={<Avatar id={user.id} name={accountName(user)} />}
+          leading={
+            <Avatar
+              id={user.id}
+              name={accountName(user)}
+              version={user.avatar_version}
+            />
+          }
           hint={accountHint(user)}
           wide
           action={
