@@ -91,7 +91,10 @@ test("a provider redirect from another site reaches the callback with the sessio
     );
   });
   const otherSite = await listen((incoming, outgoing) => {
-    const target = new URL(incoming.url ?? "/", "http://other.test").searchParams.get("to");
+    const target = new URL(
+      incoming.url ?? "/",
+      "http://other.test",
+    ).searchParams.get("to");
     outgoing.setHeader("content-type", "text/html");
     outgoing.end(
       `<!doctype html><title>Provider</title><p>Provider consent finished.</p><a id="go" href="${target}">Return to Hito</a>`,
@@ -99,9 +102,15 @@ test("a provider redirect from another site reaches the callback with the sessio
   });
   const api = await request.newContext({ baseURL: baseURL! });
   const headers = { "x-hito-request": "1" };
-  let session = await api.post("/api/v1/setup", { headers, data: adminCredentials });
+  let session = await api.post("/api/v1/setup", {
+    headers,
+    data: adminCredentials,
+  });
   if (!session.ok()) {
-    session = await api.post("/api/v1/login", { headers, data: adminCredentials });
+    session = await api.post("/api/v1/login", {
+      headers,
+      data: adminCredentials,
+    });
   }
   expect(session.ok()).toBe(true);
   const bearer = (await session.json()).token as string;
@@ -174,7 +183,9 @@ test("a provider redirect from another site reaches the callback with the sessio
   };
 
   const responses = await arrive(`code=${CODE}&state=${connected.state}`);
-  await expect(page.getByRole("heading", { name: "Provider authorized" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Provider authorized" }),
+  ).toBeVisible();
   expect(responses).toEqual([200, 200]);
   expect(page.url()).toContain("/api/v1/plugin-authorization/callback");
   expect(token.requests).toHaveLength(1);
@@ -189,13 +200,17 @@ test("a provider redirect from another site reaches the callback with the sessio
 
   await page.goto(callback(`code=${CODE}&state=${connected.state}`));
   await expect(
-    page.getByRole("heading", { name: "This connection attempt was already used" }),
+    page.getByRole("heading", {
+      name: "This connection attempt was already used",
+    }),
   ).toBeVisible();
   expect(token.requests).toHaveLength(1);
   await capture(page, browserName, "already-used");
 
   await arrive(`error=access_denied&state=${declined.state}`);
-  await expect(page.getByRole("heading", { name: "Connection declined" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Connection declined" }),
+  ).toBeVisible();
   await capture(page, browserName, "declined");
   expect(await status(declined.id)).toBe(200);
 
@@ -214,7 +229,9 @@ test("a provider redirect from another site reaches the callback with the sessio
     `http://localhost:${otherSite.port}/?to=${encodeURIComponent(callback(`code=${CODE}&state=${connected.state}`))}`,
   );
   await bare.locator("#go").click();
-  await expect(bare.getByRole("heading", { name: "Sign in to Hito" })).toBeVisible();
+  await expect(
+    bare.getByRole("heading", { name: "Sign in to Hito" }),
+  ).toBeVisible();
   await capture(bare, browserName, "signed-out");
 
   await signedOut.close();
