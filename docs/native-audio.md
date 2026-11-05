@@ -182,26 +182,43 @@ Frame counts depend on machine load before the change because the gap was the ti
 
 ### Codec matrix
 
-Gapless depends on what each demuxer and decoder removes. FFmpeg generated a 24,000-frame sine for each row. Rows marked exact decode to exactly 24,000 frames, so a join adds nothing.
+Gapless depends on what each demuxer and decoder removes. FFmpeg 5.1 generated a 24,000-frame sine for each row. Rows marked exact decode to exactly 24,000 frames, so a join adds nothing. The gap column is the longest run of near-silent samples (below 0.0005) within 4,800 frames of the join on the clocked monitor.
 
-| Input | Decoded length | Gapless | Reason |
-| --- | --- | --- | --- |
-| WAV PCM | exact | sample exact | no encoder delay |
-| FLAC | exact | sample exact | no encoder delay |
-| ALAC in M4A | exact | sample exact | no encoder delay |
-| MP3 with a Xing or LAME header | exact | delay and padding trimmed | Symphonia reads the header and its decoder trims |
-| Ogg Vorbis | exact | delay and padding trimmed | the Ogg demuxer computes both from granule positions |
-| MP3 without a Xing or LAME header | 1,344 frames too long | not exact | no delay information; about 1,300 near-silent frames at a join |
-| AAC (M4A or ADTS) | 1,600 frames too long | not exact | Symphonia 0.6.1 does not apply M4A edit lists or iTunSMPB; about 180 near-silent frames at a join plus the extra decoded tail |
-| Opus | unsupported | not applicable | no decoder until the FFmpeg fallback exists |
+| Input | Decoded length before | Decoded length now | Join gap now | Reason |
+| --- | --- | --- | --- | --- |
+| WAV PCM | exact | exact | 0 frames | no encoder delay |
+| FLAC | exact | exact | 0 frames | no encoder delay |
+| ALAC in M4A | exact | exact | 0 frames | no encoder delay |
+| MP3 with a Xing or LAME header | exact | exact | 1 frame | Symphonia reads the header and its decoder trims |
+| Ogg Vorbis | exact | exact | 1 frame | the Ogg demuxer computes both from granule positions |
+| AAC in M4A with an edit list (FFmpeg default) | 25,600 (1,600 too long) | exact | 1 frame (was 183) | Hito reads the `elst` atom and trims the decoded output |
+| AAC in M4A with an iTunSMPB atom and no edit list | 25,600 (1,600 too long) | exact | 1 frame (was 183) | Hito reads priming and length from `iTunSMPB` and trims |
+| AAC in M4A with neither | 1,600 too long | 1,600 too long | 183 frames | nothing declares the delay |
+| AAC in ADTS | 1,600 too long | 1,600 too long | 183 frames | ADTS has no container-level delay field |
+| MP3 without a Xing or LAME header | 1,344 too long | 1,344 too long | about 1,300 frames | no delay information; no reliable signal to apply a standard delay |
+| Opus | unsupported | unsupported | not applicable | Symphonia 0.6.1 has no Opus decoder; the FFmpeg fallback does not exist yet |
 
-Hito does not parse iTunSMPB or edit lists itself. Those limits are Symphonia's. The device test records both inexact cases so a later library upgrade shows up as a change.
+One frame is a sample at a sine zero crossing, the same value the exact codecs show.
+
+### M4A trimming
+
+`Decoder::open` reads the MP4 structure of a seekable input before probing, then rewinds. The reader in `mp4_gapless.rs` takes the first audio track's `mdhd` timescale and `elst` entries, the `mvhd` timescale, and the `iTunSMPB` freeform atom in `moov/udta/meta/ilst`. Symphonia still demuxes and decodes. The decoder drops the declared priming frames, stops after the declared length, reports the trimmed length as the duration, and counts positions and seeks on the trimmed timeline. A seek starts decoding about 2,048 source frames early so the first returned frame has its overlap context.
+
+Rules.
+
+- One non-empty edit entry with a positive duration gives the start (`media_time`) and the length (`duration` in movie timescale, converted to frames). Empty edits, several entries, zero timescales and more than 64 entries are not used.
+- `iTunSMPB` gives priming and the original length in exact frames. When both exist and agree within one movie-timescale tick, `iTunSMPB` supplies the length, because an edit list stored in a coarse movie timescale can be off by a few frames. When they disagree, the edit list wins.
+- A declaration whose start plus length exceeds the stream is ignored, and the file plays untrimmed. A shorter declaration is honored.
+- Parsing is bounded: at most 4,096 atoms, leaf atoms read at most 4,096 bytes, 64 edit entries, and only the fixed nesting `moov/trak/(edts|mdia)`, `moov/udta/meta/ilst/----`. Atom sizes must fit in the parent, 64-bit sizes are checked for overflow, and any structural fault gives no trim instead of an error. Inputs that are not seekable are not parsed.
+- Seeking after the stream was read to its end fails in Symphonia's MP4 demuxer for any M4A, trimmed or not. This work does not change that.
+
+The fixtures come from FFmpeg 5.1 (`-use_editlist 0` removes the edit list) and a test helper that appends an `iTunSMPB` atom to `moov`. The device test records the join gap for every row above.
 
 ## Remaining integration
 
 The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback, resampling to arbitrary device-supported rates, and platform/hardware acceptance remain unfinished.
 
-FFmpeg fallback, AAC and untagged MP3 delay trimming, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+FFmpeg fallback, delay trimming for ADTS, untagged M4A and untagged MP3, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.
 
