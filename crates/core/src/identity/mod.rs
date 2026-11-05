@@ -3,6 +3,7 @@ mod account_data;
 mod accounts;
 mod credentials;
 mod deletion;
+mod display_name;
 mod locks;
 mod open_sessions;
 mod password;

@@ -62,7 +62,7 @@ async fn write_seen(
     written.map(|_| ()).map_err(|_| "storage")
 }
 
-fn is_hidden(character: char) -> bool {
+pub(super) fn is_hidden(character: char) -> bool {
     character.is_control()
         || matches!(
             character,
@@ -115,13 +115,13 @@ impl Identity {
         if credentials.password.len() > 1024 || credentials.username.len() > 64 {
             return Err(Error::Unauthorized);
         }
-        let row: Option<(String, String, bool, String)> = sqlx::query_as(
-            "SELECT id, username, admin, password_hash FROM users WHERE username = ?",
+        let row: Option<(String, String, bool, Option<String>, String)> = sqlx::query_as(
+            "SELECT id, username, admin, display_name, password_hash FROM users WHERE username = ?",
         )
         .bind(credentials.username.trim())
         .fetch_optional(&self.store.pool)
         .await?;
-        let Some((id, username, admin, hash)) = row else {
+        let Some((id, username, admin, display_name, hash)) = row else {
             return Err(Error::Unauthorized);
         };
         let hash_snapshot = hash.clone();
@@ -133,6 +133,7 @@ impl Identity {
                 id,
                 username,
                 admin,
+                display_name,
             },
             Some(&hash_snapshot),
             client,
@@ -171,8 +172,14 @@ impl Identity {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn authenticate(&self, token: &str) -> Result<Actor> {
         let session_hash = token_hash(token);
-        let (id, username, admin, quiet_seconds): (String, String, bool, i64) = sqlx::query_as(
-            "SELECT u.id, u.username, u.admin, unixepoch() - s.last_seen_at
+        let (id, username, admin, display_name, quiet_seconds): (
+            String,
+            String,
+            bool,
+            Option<String>,
+            i64,
+        ) = sqlx::query_as(
+            "SELECT u.id, u.username, u.admin, u.display_name, unixepoch() - s.last_seen_at
              FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.token_hash = ? AND s.expires_at > unixepoch()",
         )
@@ -184,6 +191,7 @@ impl Identity {
             id,
             username,
             admin,
+            display_name,
         };
         if quiet_seconds >= SEEN_INTERVAL_SECONDS {
             self.record_seen(&session_hash);
@@ -237,7 +245,7 @@ impl Actor {
         session_hash: &str,
     ) -> Result<Self> {
         let user = sqlx::query_as(
-            "SELECT u.id,u.username,u.admin FROM users u JOIN sessions s ON s.user_id = u.id
+            "SELECT u.id,u.username,u.admin,u.display_name FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.user_id = ? AND s.token_hash = ? AND s.expires_at > unixepoch()",
         )
         .bind(account)
@@ -263,7 +271,7 @@ impl Actor {
         connection: &mut sqlx::SqliteConnection,
         account: &str,
     ) -> Result<Self> {
-        let user = sqlx::query_as("SELECT id,username,admin FROM users WHERE id = ?")
+        let user = sqlx::query_as("SELECT id,username,admin,display_name FROM users WHERE id = ?")
             .bind(account)
             .fetch_optional(connection)
             .await?
