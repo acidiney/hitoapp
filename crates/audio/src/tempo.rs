@@ -1,5 +1,12 @@
 use crate::{AudioFormat, Converter, Error, Result, processor::Processor};
-use std::{collections::VecDeque, time::Duration};
+use std::{
+    collections::VecDeque,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+    },
+    time::Duration,
+};
 
 pub(crate) struct Block<'a> {
     pub samples: &'a [f32],
@@ -8,6 +15,36 @@ pub(crate) struct Block<'a> {
     pub end: Duration,
     pub speed: f32,
     pub track: u64,
+}
+
+struct Shared {
+    next: Mutex<Option<Converter>>,
+    ended: AtomicBool,
+    speed: AtomicU32,
+}
+
+#[derive(Clone)]
+pub(crate) struct Handoff(Arc<Shared>);
+
+impl Handoff {
+    pub fn set(&self, next: Converter) -> Result<bool> {
+        if self.0.ended.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
+        let speed = f32::from_bits(self.0.speed.load(Ordering::Acquire));
+        if !next.source().speed_capability().supports(speed) {
+            return Err(Error::Unsupported);
+        }
+        Ok(self.0.next.lock().unwrap().replace(next).is_some())
+    }
+
+    pub fn announce(&self, speed: f32) {
+        self.0.speed.store(speed.to_bits(), Ordering::Release);
+    }
+
+    pub fn clear(&self) -> bool {
+        self.0.next.lock().unwrap().take().is_some()
+    }
 }
 
 struct Join {
@@ -27,12 +64,11 @@ pub(crate) struct Tempo {
     position: Duration,
     consumed: Duration,
     flushed: bool,
-    next: Option<Converter>,
+    handoff: Handoff,
     joins: VecDeque<Join>,
     fed: u64,
     emitted: u64,
     track: u64,
-    ended: bool,
 }
 
 impl Tempo {
@@ -50,13 +86,20 @@ impl Tempo {
             position: Duration::ZERO,
             consumed: Duration::ZERO,
             flushed: false,
-            next: None,
+            handoff: Handoff(Arc::new(Shared {
+                next: Mutex::new(None),
+                ended: AtomicBool::new(false),
+                speed: AtomicU32::new(1_f32.to_bits()),
+            })),
             joins: VecDeque::new(),
             fed: 0,
             emitted: 0,
             track: 0,
-            ended: false,
         }
+    }
+
+    pub fn handoff(&self) -> Handoff {
+        self.handoff.clone()
     }
 
     pub fn track(&self) -> u64 {
@@ -65,21 +108,6 @@ impl Tempo {
 
     pub fn joining(&self) -> bool {
         !self.joins.is_empty()
-    }
-
-    pub fn set_next(&mut self, next: Converter) -> Result<bool> {
-        if self.ended {
-            return Err(Error::Interrupted);
-        }
-        let speed = self.requested.unwrap_or(self.speed);
-        if !next.source().speed_capability().supports(speed) {
-            return Err(Error::Unsupported);
-        }
-        Ok(self.next.replace(next).is_some())
-    }
-
-    pub fn clear_next(&mut self) -> bool {
-        self.next.take().is_some()
     }
 
     fn join(&mut self, next: Converter) {
@@ -137,12 +165,16 @@ impl Tempo {
         self.input.clear();
         self.input_offset = 0;
         self.consumed = position;
-        self.ended = false;
+        self.handoff.0.ended.store(false, Ordering::Release);
         let speed = self.requested.take().unwrap_or(self.speed);
         self.configure(speed)
     }
 
     pub fn speed(&mut self, speed: f32) {
+        self.handoff
+            .0
+            .speed
+            .store(speed.to_bits(), Ordering::Release);
         self.requested = Some(speed);
     }
 
@@ -221,11 +253,12 @@ impl Tempo {
             }
             if self.input_offset == self.input.len() {
                 let Some(block) = self.decoder.read_until(&mut interrupted)? else {
-                    if let Some(next) = self.next.take() {
+                    let next = self.handoff.0.next.lock().unwrap().take();
+                    if let Some(next) = next {
                         self.join(next);
                         continue;
                     }
-                    self.ended = true;
+                    self.handoff.0.ended.store(true, Ordering::Release);
                     if let Some(stretch) = &mut self.stretch {
                         stretch.flush()?;
                     }

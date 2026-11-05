@@ -93,6 +93,31 @@ System commands are Play, Pause, Toggle, Next, Previous, Stop, absolute Seek and
 
 Current limits. The state shows paused for a moment while a track loads. If output underruns and then recovers while the state stays playing, the operating system's position is not re-anchored until the next state change. The playback rate is passed to the sink, but the chosen OS crate has no rate field, so a sped-up track drifts on the operating system's clock until then. No physical operating-system panel has been checked. See [the desktop host](desktop.md#system-media-controls).
 
+## Gapless advance
+
+When the current entry is within 20 seconds of its known end, the native effects owner looks one entry ahead. It resolves a source for the entry that natural completion would select, using only sources already verified in the catalog (no provider refresh), opens it through the same grant rules, and offers it to the running `Session` with `prepare_next`. The engine then continues into it at the sample boundary (see [gapless transitions](native-audio.md#gapless-transitions)) without closing the output.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Resolving: next entry known and current entry within 20 s of its end
+  Resolving --> Offering: verified source found
+  Resolving --> Failed: no cached source
+  Offering --> Offered: engine accepted
+  Offering --> Failed: refused (format, ended stream, authorization)
+  Offered --> Idle: queue edit, skip or a seek more than 40 s before the end changes the successor
+  Offered --> Adopted: output crossed the boundary
+  Failed --> [*]: normal open at the boundary as before
+  Adopted --> [*]
+```
+
+- The predicted successor is part of the effects target, with the key the queue will produce after completion (same scope, next selection, next entry). The owner adopts the running stream only when the queue's actual new key equals that prediction. Any other result (a skip, a move, removal of the prepared entry, shuffle or repeat changes, a new selection) retires the session and opens the new entry as before.
+- Queue edits that change the successor withdraw the prepared input first. The engine cannot withdraw it once it has joined it (up to about 100 ms plus tempo latency before the old entry is audible to its end). A queue edit in that window plays the prepared entry briefly before the owner retires the stream.
+- At the boundary the owner reports the first entry as ended at its known duration, so history and progress for it complete, then continues with the second entry on the same session. The second entry keeps the volume and speed already applied, restarts its position at zero, and uses its own source, duration and speed capability. A speed the second source cannot do falls back to unit speed through the existing negotiation.
+- Authorization follows the playing input. The session owner watches the grant of the presented track, so withdrawing only the second entry's source after the boundary stops output even though the first entry's grant stays valid.
+- If no source is cached for the next entry, if the engine refuses it, or if the successor cannot be predicted, nothing changes: the entry ends and the next one opens at the boundary, with the same resolution and recovery as before. Provider search and refresh for a waiting next entry are not started by this path. That remains the deferred-source work in the [TODO](../TODO.md).
+- Lookahead holds the next entry's input open for up to the 20-second window, with up to 40 seconds of hysteresis after it started. It is cancelled by retirement, logout and account switching.
+
 ## Queue editing
 
 The owner accepts `move`, `append` and `remove` commands on stable entry IDs and mixes appended entries into the unplayed part of a shuffle order. The page sends them through the paths described in [the queue](queue.md).
@@ -111,4 +136,4 @@ The public `Session` API is backend-only. It does not authenticate a new caller 
 
 Core supplies a bounded ordered `recordings_by_ids` lookup and opaque `Actor::same_session` comparison. Equality does not prove a session is live; retained owners use `Identity::check_session`. Collection writes and provider-source publication recheck sessions inside their existing transactions. The [application coordinator](native-coordinator.md) records their queue, HTTP, and host integration.
 
-These fixtures establish ownership and cancellation behavior in Linux Docker. They do not establish sustained throughput, p95 latency, physical audio timing, gapless transitions, FFmpeg fallback, speed quality across all codecs/devices, or macOS/Windows acceptance. See [engine limits](native-audio.md) and the full [release plan](release-plan.md).
+These fixtures establish ownership and cancellation behavior in Linux Docker. They establish sample-exact gapless transitions through the private monitor for the codecs in the [codec matrix](native-audio.md#codec-matrix). They do not establish sustained throughput, p95 latency, physical audio timing, gapless playback on real devices or other platforms, deferred sources at native boundaries, FFmpeg fallback, speed quality across all codecs/devices, or macOS/Windows acceptance. See [engine limits](native-audio.md) and the full [release plan](release-plan.md).

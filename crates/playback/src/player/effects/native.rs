@@ -173,6 +173,7 @@ impl Native {
                 && snapshot.status == Status::Ready
                 && snapshot.track == self.track
                 && !snapshot.ended
+                && snapshot.position > Duration::ZERO
                 && self.controls.configured()
                 && remaining.is_some_and(|remaining| remaining <= window)
         });

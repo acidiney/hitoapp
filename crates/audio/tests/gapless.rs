@@ -379,3 +379,25 @@ fn offering_and_withdrawing_inputs_mid_playback_never_drops_samples() {
     assert_eq!(audit.mismatches, 0);
     assert_eq!(audit.longest_silence, 0);
 }
+
+#[test]
+#[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
+fn a_paused_stream_with_a_full_ring_still_answers_next_input_requests() {
+    let mut player = Player::open(wave(RATE, 0, 4 * RATE, counter)).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().position > Duration::from_millis(200));
+    player.pause();
+    std::thread::sleep(Duration::from_millis(400));
+    let (done, finished) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        player.prepare_next(wave(RATE, 9, 4_800, counter)).unwrap();
+        assert!(player.cancel_next().unwrap());
+        player.seek(Duration::from_millis(500)).unwrap();
+        let _ = done.send(());
+        player
+    });
+    finished
+        .recv_timeout(Duration::from_secs(3))
+        .expect("the paused worker did not answer");
+    worker.join().unwrap().close().unwrap();
+}

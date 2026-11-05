@@ -136,15 +136,72 @@ The desktop verification script also runs this check. Ordinary workspace builds 
 
 The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Opus explicitly returns unsupported until fallback exists.
 
-The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery at 2.0. Tempo checks measure preserved pitch and output duration (including converted high-rate and surround sources), source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
+The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, underrun recovery at 2.0, and exact sample continuity across prepared inputs (see [gapless transitions](#gapless-transitions)). Tempo checks measure preserved pitch and output duration (including converted high-rate and surround sources), source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
 
 Vendor diagnostics are suppressed only around Symphonia calls because malformed media can enter its log messages. Hito retains safe decoder readiness, seek, speed requests, tempo transitions, output, recovery, failure, and cleanup events. Player spans use a process-local audio ID. No media bytes or private paths enter those events.
 
+## Gapless transitions
+
+`Player::prepare_next(input)` opens a second decoder and hands it to the running worker. When the current input reaches its end, the worker continues into the prepared input in the same output stream, the same ring and the same callback. No output stream is closed or reopened, no priming silence is inserted, and the next input's first sample follows the current input's last sample. `Player::cancel_next()` withdraws a prepared input that has not started. A second `prepare_next` replaces the first.
+
+```mermaid
+flowchart LR
+  A[Current decoder] --> Conv[Converter to the device rate and channels]
+  B[Prepared decoder] --> Conv2[Converter to the same rate and channels]
+  Conv --> Tempo[One tempo stage]
+  Conv2 -->|joined at end of input| Tempo
+  Tempo --> Ring[Frames tagged with track number]
+  Ring --> Callback[Callback publishes position and track together]
+```
+
+Rules.
+
+- A prepared input must convert to the open stream's sample rate and channel count. The stream keeps the representation negotiated for its first input, so a different source rate is resampled and a mono or surround source is mixed. An input that cannot match the channel count returns `FormatChanged`. An input offered after the stream ended returns `Interrupted`, and the caller falls back to opening a new player.
+- The tempo stage is not flushed at the join. The next input enters the same processor, so a rate other than 1.0 keeps its pipeline across the boundary. Output frames are tagged with a track number counted on the output side of that processor. The number changes after exactly the frames that belong to the first input, so the boundary is not early by the processor's latency.
+- Frames carry the track number to the callback. The callback publishes track, position, rate and completion as one observation, and it schedules the old track's last point before the new track's first point even inside one callback buffer. `Snapshot::track` counts presented transitions and `Snapshot::format` describes the presented track. Position restarts at the new input's own time. Completion is published once, for the last input.
+- Offering or withdrawing an input never discards decoded audio. Controls that change the stream (seek, stop) still discard queued blocks, but `prepare_next` and `cancel_next` are applied between blocks.
+- A seek aimed at the old track after the worker moved on, or while the join is still draining through the processor, is accepted and ignored. The queue owner has already seen the natural advance. Output recovery after an underrun in that short window cannot re-seek the old input and ends the player with `Output`; the native owner then recovers through its existing source attempts.
+- Once the worker joins the prepared input it can no longer be withdrawn. That point is up to the ring depth (100 ms) plus the tempo latency before the old track is audible to its end.
+
+### Measured gaps
+
+Silence is the longest run of exactly zero samples between the first and last captured sample of a fixture whose samples are a counter that never equals zero. The clocked PulseAudio monitor captures the left channel at 48 kHz. Before is the previous behavior: close the player at the end of the first input and open another.
+
+| Case | Before | After |
+| --- | --- | --- |
+| Engine, WAV to WAV, reopening the player | 4,089 to 4,930 frames (85 to 103 ms, load dependent) | 0 frames, every sample equal |
+| Engine, FLAC to FLAC | not measured separately | 0 frames, every sample equal |
+| Engine, 440 Hz sine split across two files | not measured separately | 0 frames, no phase error above one 16-bit step |
+| Engine, 44.1 kHz second input into a 48 kHz stream | not measured separately | 0 frames, 48,000 frames for 24,000 plus 22,050 source frames |
+| Engine, speed 0.5 and 2.0 | not measured separately | 1 frame (a counter wrap that the processor smoothed to zero), no extra padding |
+| Queue, two recordings, native player | 7,045 frames (147 ms) | 0 frames, every sample equal |
+| Queue, a recording followed by itself | 5,195 frames (108 ms) | 0 frames, every sample equal |
+| Queue, speed 2.0 | 2,400 frames or more | 1 frame |
+
+Frame counts depend on machine load before the change because the gap was the time to resolve, open and prime a new stream. After the change the count is the same on every run.
+
+### Codec matrix
+
+Gapless depends on what each demuxer and decoder removes. FFmpeg generated a 24,000-frame sine for each row. Rows marked exact decode to exactly 24,000 frames, so a join adds nothing.
+
+| Input | Decoded length | Gapless | Reason |
+| --- | --- | --- | --- |
+| WAV PCM | exact | sample exact | no encoder delay |
+| FLAC | exact | sample exact | no encoder delay |
+| ALAC in M4A | exact | sample exact | no encoder delay |
+| MP3 with a Xing or LAME header | exact | delay and padding trimmed | Symphonia reads the header and its decoder trims |
+| Ogg Vorbis | exact | delay and padding trimmed | the Ogg demuxer computes both from granule positions |
+| MP3 without a Xing or LAME header | 1,344 frames too long | not exact | no delay information; about 1,300 near-silent frames at a join |
+| AAC (M4A or ADTS) | 1,600 frames too long | not exact | Symphonia 0.6.1 does not apply M4A edit lists or iTunSMPB; about 180 near-silent frames at a join plus the extra decoded tail |
+| Opus | unsupported | not applicable | no decoder until the FFmpeg fallback exists |
+
+Hito does not parse iTunSMPB or edit lists itself. Those limits are Symphonia's. The device test records both inexact cases so a later library upgrade shows up as a change.
+
 ## Remaining integration
 
-The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback, resampling to arbitrary device-supported rates, gapless, and platform/hardware acceptance remain unfinished.
+The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback, resampling to arbitrary device-supported rates, and platform/hardware acceptance remain unfinished.
 
-FFmpeg fallback, gapless preparation, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+FFmpeg fallback, AAC and untagged MP3 delay trimming, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.
 

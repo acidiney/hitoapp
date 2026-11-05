@@ -9,7 +9,7 @@ fn input(frames: u32) -> Converter {
 fn frames_by_track(speed: f32) -> (u64, u64, Duration) {
     let mut tempo = Tempo::new(input(12_000));
     tempo.speed(speed);
-    assert!(!tempo.set_next(input(6_000)).unwrap());
+    assert!(!tempo.handoff().set(input(6_000)).unwrap());
     let (mut first, mut second) = (0, 0);
     let mut start = None;
     while let Some(block) = tempo.read_until(|| false).unwrap() {
@@ -50,19 +50,19 @@ fn a_second_input_is_refused_once_the_stream_has_run_out_of_inputs() {
     let mut tempo = Tempo::new(input(2_400));
     while tempo.read_until(|| false).unwrap().is_some() {}
     assert!(matches!(
-        tempo.set_next(input(100)),
+        tempo.handoff().set(input(100)),
         Err(Error::Interrupted)
     ));
-    assert!(!tempo.clear_next());
+    assert!(!tempo.handoff().clear());
 }
 
 #[test]
 fn a_prepared_input_can_be_replaced_or_withdrawn_before_it_joins() {
     let mut tempo = Tempo::new(input(2_400));
-    assert!(!tempo.set_next(input(100)).unwrap());
-    assert!(tempo.set_next(input(200)).unwrap());
-    assert!(tempo.clear_next());
-    assert!(!tempo.clear_next());
+    assert!(!tempo.handoff().set(input(100)).unwrap());
+    assert!(tempo.handoff().set(input(200)).unwrap());
+    assert!(tempo.handoff().clear());
+    assert!(!tempo.handoff().clear());
     let mut tracks = std::collections::BTreeSet::new();
     while let Some(block) = tempo.read_until(|| false).unwrap() {
         tracks.insert(block.track);

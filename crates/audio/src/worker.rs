@@ -1,6 +1,10 @@
 use crate::{
-    AudioFormat, Converter, Decoder, Error, Result, device::Output, negotiate::Target,
-    render::Frame, state::State, tempo::Tempo,
+    AudioFormat, Converter, Decoder, Error, Result,
+    device::Output,
+    negotiate::Target,
+    render::Frame,
+    state::State,
+    tempo::{Handoff, Tempo},
 };
 use rtrb::Producer;
 use std::{
@@ -58,15 +62,17 @@ pub(crate) fn run(
     let mut finished = false;
     let mut started = false;
     let mut pending = None;
-    let mut deferred = Deferred::default();
+    let mut deferred = Deferred {
+        speed: None,
+        handoff: decoder.handoff(),
+        target,
+        format,
+    };
     let mut resets = 0;
     let mut last_reset = Duration::ZERO;
     'decode: loop {
         if let Some(speed) = deferred.speed.take() {
             decoder.speed(speed);
-        }
-        for control in std::mem::take(&mut deferred.joins) {
-            offer(control, &mut decoder, target, format, finished);
         }
         if state.stopped.load(Ordering::Acquire) {
             return Ok(());
@@ -111,7 +117,7 @@ pub(crate) fn run(
                     }
                 }
                 control @ (Control::Next { .. } | Control::CancelNext { .. }) => {
-                    offer(control, &mut decoder, target, format, finished);
+                    deferred.offer(control);
                 }
                 Control::Speed { value, reply } => {
                     decoder.speed(value);
@@ -225,13 +231,13 @@ pub(crate) fn run(
     }
 }
 
-fn join(next: Decoder, target: Target, current: AudioFormat, tempo: &mut Tempo) -> Result<bool> {
+fn join(next: Decoder, target: Target, current: AudioFormat, handoff: &Handoff) -> Result<bool> {
     let converter = Converter::with_output(next, target.sample_rate, target.channels);
     let format = converter.format();
     if format.sample_rate != current.sample_rate || format.channels != current.channels {
         return Err(Error::FormatChanged);
     }
-    tempo.set_next(converter)
+    handoff.set(converter)
 }
 
 fn reposition(decoder: &mut Tempo, state: &State, position: Duration) -> Result<u64> {
@@ -282,61 +288,55 @@ fn send(
     }
 }
 
-#[derive(Default)]
 struct Deferred {
     speed: Option<f32>,
-    joins: Vec<Control>,
+    handoff: Handoff,
+    target: Target,
+    format: AudioFormat,
+}
+
+impl Deferred {
+    fn offer(&self, control: Control) {
+        match control {
+            Control::Next {
+                decoder: next,
+                reply,
+            } => {
+                let result = join(next, self.target, self.format, &self.handoff);
+                tracing::debug!(
+                    event = "audio_next_input_prepared",
+                    accepted = result.is_ok(),
+                    "Next audio input offered to the running stream"
+                );
+                let _ = reply.send(result);
+            }
+            Control::CancelNext { reply } => {
+                let cancelled = self.handoff.clear();
+                tracing::debug!(
+                    event = "audio_next_input_cancelled",
+                    cancelled,
+                    "Next audio input withdrawn"
+                );
+                let _ = reply.send(cancelled);
+            }
+            _ => (),
+        }
+    }
 }
 
 fn defer(control: Control, deferred: &mut Deferred) -> Option<Control> {
     match control {
         Control::Speed { value, reply } => {
             deferred.speed = Some(value);
+            deferred.handoff.announce(value);
             let _ = reply.send(Ok(()));
             None
         }
         Control::Wake => None,
         control @ (Control::Next { .. } | Control::CancelNext { .. }) => {
-            deferred.joins.push(control);
+            deferred.offer(control);
             None
         }
         control => Some(control),
-    }
-}
-
-fn offer(
-    control: Control,
-    decoder: &mut Tempo,
-    target: Target,
-    format: AudioFormat,
-    finished: bool,
-) {
-    match control {
-        Control::Next {
-            decoder: next,
-            reply,
-        } => {
-            let result = if finished {
-                Err(Error::Interrupted)
-            } else {
-                join(next, target, format, decoder)
-            };
-            tracing::debug!(
-                event = "audio_next_input_prepared",
-                accepted = result.is_ok(),
-                "Next audio input offered to the running stream"
-            );
-            let _ = reply.send(result);
-        }
-        Control::CancelNext { reply } => {
-            let cancelled = decoder.clear_next();
-            tracing::debug!(
-                event = "audio_next_input_cancelled",
-                cancelled,
-                "Next audio input withdrawn"
-            );
-            let _ = reply.send(cancelled);
-        }
-        _ => (),
     }
 }
