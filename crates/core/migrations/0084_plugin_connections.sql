@@ -7,6 +7,8 @@ CREATE TABLE plugin_connections (
     tokens BLOB CHECK(tokens IS NULL OR (typeof(tokens) = 'blob' AND length(tokens) BETWEEN 74 AND 8800)),
     scopes TEXT NOT NULL CHECK(length(scopes) <= 4096),
     expires_at INTEGER,
+    refresh_failures INTEGER NOT NULL DEFAULT 0 CHECK(refresh_failures >= 0),
+    refresh_failing_since INTEGER,
     connected_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
     CHECK((status = 'connected') = (tokens IS NOT NULL))

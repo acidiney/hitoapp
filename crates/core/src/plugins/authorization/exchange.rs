@@ -39,6 +39,7 @@ pub(super) enum ExchangeFailure {
     Blocked,
     Rejected,
     InvalidGrant,
+    Terminal,
     Unavailable,
     Invalid,
 }
@@ -50,6 +51,7 @@ impl ExchangeFailure {
             Self::Blocked => "blocked_address",
             Self::Rejected => "rejected",
             Self::InvalidGrant => "invalid_grant",
+            Self::Terminal => "client_rejected",
             Self::Unavailable => "provider_unavailable",
             Self::Invalid => "invalid_response",
         }
@@ -110,6 +112,14 @@ fn seconds<'de, D: serde::Deserializer<'de>>(
             .parse()
             .map(Some)
             .map_err(|_| serde::de::Error::custom("invalid lifetime")),
+    }
+}
+
+fn classify(error: &str) -> ExchangeFailure {
+    match error {
+        "invalid_grant" => ExchangeFailure::InvalidGrant,
+        "invalid_client" | "unauthorized_client" => ExchangeFailure::Terminal,
+        _ => ExchangeFailure::Rejected,
     }
 }
 
@@ -308,6 +318,9 @@ impl TokenClient {
         if status.is_server_error() || status.as_u16() == 429 {
             return Err(ExchangeFailure::Unavailable);
         }
+        if status.as_u16() == 401 {
+            return Err(ExchangeFailure::Terminal);
+        }
         let json = response
             .headers()
             .get("content-type")
@@ -342,12 +355,19 @@ impl TokenClient {
         }
         if !status.is_success() {
             return Err(match serde_json::from_slice::<ErrorResponse>(&body) {
-                Ok(failure) if failure.error == "invalid_grant" => ExchangeFailure::InvalidGrant,
-                _ => ExchangeFailure::Rejected,
+                Ok(failure) => classify(&failure.error),
+                Err(_) => ExchangeFailure::Rejected,
             });
         }
-        let grant: TokenResponse =
-            serde_json::from_slice(&body).map_err(|_| ExchangeFailure::Invalid)?;
+        let grant: TokenResponse = match serde_json::from_slice(&body) {
+            Ok(grant) => grant,
+            Err(_) => {
+                return Err(match serde_json::from_slice::<ErrorResponse>(&body) {
+                    Ok(failure) => classify(&failure.error),
+                    Err(_) => ExchangeFailure::Invalid,
+                });
+            }
+        };
         let graphic = |value: &str| {
             !value.is_empty() && value.len() <= 4096 && value.bytes().all(|b| b.is_ascii_graphic())
         };

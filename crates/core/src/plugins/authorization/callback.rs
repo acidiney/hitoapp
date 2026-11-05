@@ -1,4 +1,4 @@
-use super::connection::{NewConnection, declaration_digest, scope_list, store};
+use super::connection::{NewConnection, declaration_digest, lifetime_seconds, scope_list, store};
 use super::exchange::Redemption;
 use super::{PluginAuthorizationCallback, PluginAuthorizationOutcome};
 use crate::plugins::Plugins;
@@ -232,7 +232,10 @@ impl Plugins {
                             digest: &consumed.digest,
                             sealed: &sealed,
                             scopes: &scopes,
-                            expires_in: grant.expires_in,
+                            lifetime: lifetime_seconds(
+                                grant.expires_in,
+                                grant.refresh_token.is_some(),
+                            ),
                         },
                     )
                     .await?;

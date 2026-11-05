@@ -10,6 +10,8 @@ use std::{collections::BTreeSet, time::Instant};
 use zeroize::Zeroizing;
 
 const MAX_LIFETIME_SECONDS: u64 = 31_536_000;
+const DEFAULT_LIFETIME_SECONDS: i64 = 3600;
+const MINIMUM_LIFETIME_SECONDS: i64 = 120;
 
 #[derive(Serialize)]
 struct SealedTokens<'a> {
@@ -41,7 +43,7 @@ pub(super) struct NewConnection<'a> {
     pub(super) digest: &'a [u8],
     pub(super) sealed: &'a [u8],
     pub(super) scopes: &'a str,
-    pub(super) expires_in: Option<u64>,
+    pub(super) lifetime: Option<i64>,
 }
 
 pub(super) fn declaration_digest(authorization: &Authorization) -> Result<[u8; 32]> {
@@ -60,20 +62,25 @@ pub(super) fn scope_list(granted: Option<&str>) -> Option<String> {
     (!scopes.is_empty()).then(|| scopes.into_iter().collect::<Vec<_>>().join(" "))
 }
 
+pub(super) fn lifetime_seconds(expires_in: Option<u64>, refreshable: bool) -> Option<i64> {
+    match expires_in {
+        Some(0) => Some(MINIMUM_LIFETIME_SECONDS),
+        Some(seconds) => Some(seconds.min(MAX_LIFETIME_SECONDS) as i64),
+        None => refreshable.then_some(DEFAULT_LIFETIME_SECONDS),
+    }
+}
+
 pub(super) async fn store(
     connection: &mut SqliteConnection,
     new: &NewConnection<'_>,
 ) -> Result<()> {
-    let lifetime = new
-        .expires_in
-        .map(|seconds| seconds.min(MAX_LIFETIME_SECONDS) as i64);
     sqlx::query("INSERT INTO plugin_connections(installation_id,user_id,service_id,declaration_digest,status,tokens,scopes,expires_at)
         VALUES (?1,?2,?3,?4,'connected',?5,?6,unixepoch() + ?7)
         ON CONFLICT(installation_id) DO UPDATE SET user_id = excluded.user_id, service_id = excluded.service_id,
             declaration_digest = excluded.declaration_digest, status = 'connected', tokens = excluded.tokens,
-            scopes = excluded.scopes, expires_at = excluded.expires_at, connected_at = unixepoch(), updated_at = unixepoch()")
+            scopes = excluded.scopes, expires_at = excluded.expires_at, refresh_failures = 0, refresh_failing_since = NULL, connected_at = unixepoch(), updated_at = unixepoch()")
         .bind(new.installation).bind(new.account).bind(new.service).bind(new.digest)
-        .bind(new.sealed).bind(new.scopes).bind(lifetime)
+        .bind(new.sealed).bind(new.scopes).bind(new.lifetime)
         .execute(connection).await?;
     Ok(())
 }
@@ -146,13 +153,13 @@ impl Plugins {
             .map_err(|_| Error::Internal("Stored provider tokens are invalid".into()))
     }
 
-    pub(super) async fn load_connection(&self, actor: &Actor, id: &str) -> Result<Option<Stored>> {
+    pub(super) async fn load_connection(&self, account: &str, id: &str) -> Result<Option<Stored>> {
         let row = sqlx::query("SELECT p.service_id,p.manifest,c.declaration_digest,c.status,c.tokens,c.scopes,c.expires_at,c.expires_at - unixepoch() AS remaining
             FROM plugin_installations p
             JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
             LEFT JOIN plugin_connections c ON c.installation_id = p.id AND c.user_id = p.user_id
             WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
-            .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
+            .bind(id).bind(account).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
         let Some(digest) = row.try_get::<Option<Vec<u8>>, _>("declaration_digest")? else {
             return Ok(None);
         };
@@ -206,7 +213,7 @@ impl Plugins {
     ) -> Result<PluginConnectionStatus> {
         let started = Instant::now();
         actor.check_session(&self.store).await?;
-        let stored = self.load_connection(actor, id).await?;
+        let stored = self.load_connection(actor.id(), id).await?;
         let status = match stored {
             Some(stored) => PluginConnectionStatus {
                 status: stored.state,
@@ -258,5 +265,40 @@ impl Plugins {
             "Provider connection disconnected"
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_declaration_digest_encoding_is_pinned() {
+        let authorization = Authorization::Oauth2Pkce {
+            client_id: "owned-pin-client".into(),
+            authorization_endpoint: "https://provider.example/authorize".into(),
+            token_endpoint: "https://provider.example/token".into(),
+            scopes: ["b".to_owned(), "a".to_owned()].into(),
+        };
+        assert_eq!(
+            serde_json::to_string(&authorization).unwrap(),
+            r#"{"kind":"oauth2_pkce","client_id":"owned-pin-client","authorization_endpoint":"https://provider.example/authorize","token_endpoint":"https://provider.example/token","scopes":["a","b"]}"#
+        );
+        let digest = declaration_digest(&authorization).unwrap();
+        let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+        assert_eq!(
+            hex,
+            "a81a938f64a37cdcdba5bf176786fcdcbc7a432bfee9247ac777777fa3ce1cec"
+        );
+    }
+
+    #[test]
+    fn lifetimes_default_when_refreshable_and_never_collapse_to_zero() {
+        assert_eq!(lifetime_seconds(None, true), Some(3600));
+        assert_eq!(lifetime_seconds(None, false), None);
+        assert_eq!(lifetime_seconds(Some(0), true), Some(120));
+        assert_eq!(lifetime_seconds(Some(0), false), Some(120));
+        assert_eq!(lifetime_seconds(Some(30), true), Some(30));
+        assert_eq!(lifetime_seconds(Some(u64::MAX), true), Some(31_536_000));
     }
 }
