@@ -1,9 +1,9 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useRef } from "react";
 import { ChevronRight, Folder, X } from "lucide-react";
 import { useDirectoryBrowser } from "../hooks/useDirectoryBrowser";
 
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
 
 type Props = {
   account: string;
@@ -20,48 +20,31 @@ export default function FolderPicker({
   onSelect,
   onClose,
 }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const browser = useDirectoryBrowser(account);
   const selected = browser.selection;
   const components = selected?.components ?? [];
   const grant = browser.directories.find(
     (directory) => directory.id === selected?.directory_id,
   );
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   async function choose() {
     if (selected && (await onSelect(selected))) onClose();
   }
   return (
-    <dialog
-      ref={dialog}
-      className="folder-picker"
-      aria-labelledby="folder-picker-title"
-      aria-describedby="folder-picker-description"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onClose();
-      }}
+    <Dialog
+      title="Add a music folder"
+      description="Choose a folder shared with this Hito server."
+      wide
+      busy={pending}
+      onClose={onClose}
     >
-      <header>
-        <div>
-          <h2 id="folder-picker-title">Add a music folder</h2>
-          <p id="folder-picker-description">
-            Choose a folder shared with this Hito server.
-          </p>
-        </div>
-        <button
-          className="icon-button"
-          aria-label="Close folder browser"
-          disabled={pending}
-          onClick={onClose}
-        >
-          <X size={20} />
-        </button>
-      </header>
+      <button
+        className="icon-button dialog-close"
+        aria-label="Close folder browser"
+        disabled={pending}
+        onClick={onClose}
+      >
+        <X size={20} />
+      </button>
       <nav className="folder-breadcrumbs" aria-label="Folder location">
         <button
           disabled={pending || !selected}
@@ -193,6 +176,6 @@ export default function FolderPicker({
           {pending ? "Adding folder…" : "Use this folder"}
         </Button>
       </footer>
-    </dialog>
+    </Dialog>
   );
 }

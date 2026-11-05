@@ -2,16 +2,21 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export default function Dialog({
   title,
+  description,
+  wide = false,
   busy = false,
   onClose,
   children,
 }: {
   title: string;
+  description?: string;
+  wide?: boolean;
   busy?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
   const id = useId();
+  const descriptionId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -34,14 +39,20 @@ export default function Dialog({
   return (
     <dialog
       ref={dialog}
-      className="dialog"
+      className={wide ? "dialog dialog-wide" : "dialog"}
       aria-labelledby={id}
+      aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) close.current();
       }}
     >
       <h2 id={id}>{title}</h2>
+      {description && (
+        <p id={descriptionId} className="dialog-description">
+          {description}
+        </p>
+      )}
       {children}
     </dialog>
   );
