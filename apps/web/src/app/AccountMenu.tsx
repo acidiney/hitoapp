@@ -6,6 +6,7 @@ import { useLockSession } from "../features/session/hooks/useLockSession";
 import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
 
+import Avatar from "../shared/ui/Avatar";
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
 
@@ -33,7 +34,7 @@ export default function AccountMenu({
         }
         onClick={() => log.info("navigation.requested", { route: "/settings" })}
       >
-        <span className="avatar">{user.username[0]?.toUpperCase()}</span>
+        <Avatar id={user.id} name={user.username} />
         <span>
           {user.username}
           <small>{user.admin ? "Administrator" : "Account and settings"}</small>
