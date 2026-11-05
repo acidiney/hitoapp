@@ -1,4 +1,5 @@
 mod authorization;
+mod configured;
 mod credentials;
 mod download;
 mod install_preview;
@@ -22,6 +23,7 @@ pub use authorization::{
     PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
     PluginConnectionState, PluginConnectionStatus, ProviderAccess,
 };
+pub use configured::{ConfiguredOffer, ConfiguredPluginService};
 pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
 pub(crate) use operation::Operation;
