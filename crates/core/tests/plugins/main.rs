@@ -2,6 +2,7 @@
 
 mod featured;
 mod plugin_authorization_key_recovery;
+mod plugin_authorization_loopback;
 mod plugin_connections;
 mod plugin_connections_upgrade;
 mod plugin_install_authority;

@@ -39,6 +39,20 @@ enum Claim {
     Exchange(Box<Consumed>),
 }
 
+enum Arrival<'a> {
+    Session(&'a Actor),
+    Loopback,
+}
+
+impl Arrival<'_> {
+    fn delivery(&self) -> &'static str {
+        match self {
+            Self::Session(_) => "session",
+            Self::Loopback => "loopback",
+        }
+    }
+}
+
 impl Plugins {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), callback_id = %Uuid::new_v4()))]
     pub async fn complete_authorization(
@@ -46,13 +60,46 @@ impl Plugins {
         actor: &Actor,
         callback: PluginAuthorizationCallback,
     ) -> Result<PluginAuthorizationOutcome> {
+        self.complete(Arrival::Session(actor), actor.id().to_owned(), callback)
+            .await
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = tracing::field::Empty, callback_id = %Uuid::new_v4()))]
+    pub async fn complete_loopback_authorization(
+        &self,
+        callback: PluginAuthorizationCallback,
+    ) -> Result<PluginAuthorizationOutcome> {
+        let state_hash = Sha256::digest(callback.state.as_bytes());
+        let account: Option<String> = sqlx::query_scalar(
+            "SELECT user_id FROM plugin_authorization_attempts WHERE state_hash = ? AND delivery = 'loopback'",
+        )
+        .bind(&state_hash[..])
+        .fetch_optional(&self.store.pool)
+        .await?;
+        let Some(account) = account else {
+            tracing::info!(
+                outcome = PluginAuthorizationOutcome::Invalid.as_str(),
+                "Loopback authorization callback matched no attempt"
+            );
+            return Ok(PluginAuthorizationOutcome::Invalid);
+        };
+        tracing::Span::current().record("account_id", account.as_str());
+        self.complete(Arrival::Loopback, account, callback).await
+    }
+
+    async fn complete(
+        &self,
+        arrival: Arrival<'_>,
+        account: String,
+        callback: PluginAuthorizationCallback,
+    ) -> Result<PluginAuthorizationOutcome> {
         let started = Instant::now();
         let admission = if callback.code.is_some() && callback.error.is_none() {
-            Some(self.token.admit(actor.id())?)
+            Some(self.token.admit(&account)?)
         } else {
             None
         };
-        let outcome = match self.claim(actor, &callback).await? {
+        let outcome = match self.claim(&arrival, &callback).await? {
             Claim::Done(outcome) => {
                 tracing::info!(
                     outcome = outcome.as_str(),
@@ -81,17 +128,58 @@ impl Plugins {
         Ok(outcome)
     }
 
-    async fn claim(&self, actor: &Actor, callback: &PluginAuthorizationCallback) -> Result<Claim> {
+    async fn claim(
+        &self,
+        arrival: &Arrival<'_>,
+        callback: &PluginAuthorizationCallback,
+    ) -> Result<Claim> {
         let state_hash = Sha256::digest(callback.state.as_bytes());
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        actor.check_session_on(&mut tx).await?;
+        let resumed;
+        let actor = match arrival {
+            Arrival::Session(actor) => {
+                actor.check_session_on(&mut tx).await?;
+                *actor
+            }
+            Arrival::Loopback => {
+                let holder: Option<(String, String)> = sqlx::query_as(
+                    "SELECT user_id, session_hash FROM plugin_authorization_attempts WHERE state_hash = ? AND delivery = 'loopback'",
+                )
+                .bind(&state_hash[..])
+                .fetch_optional(&mut *tx)
+                .await?;
+                let Some((account, session)) = holder else {
+                    return Ok(Claim::Done(PluginAuthorizationOutcome::Invalid));
+                };
+                resumed = match Actor::resume_session_on(&mut tx, &account, &session).await {
+                    Ok(actor) => actor,
+                    Err(Error::Unauthorized) => {
+                        return Ok(Claim::Done(PluginAuthorizationOutcome::Invalid));
+                    }
+                    Err(error) => return Err(error),
+                };
+                let locked: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM account_pin_locks p LEFT JOIN session_locks l ON l.token_hash = ?1
+                        WHERE p.user_id = ?2 AND (COALESCE(l.locked, 0) = 1
+                            OR (p.idle_minutes > 0 AND unixepoch() - COALESCE(l.active_at, unixepoch()) > p.idle_minutes * 60)))",
+                )
+                .bind(&session)
+                .bind(&account)
+                .fetch_one(&mut *tx)
+                .await?;
+                if locked || resumed.is_locked() {
+                    return Err(Error::Locked);
+                }
+                &resumed
+            }
+        };
         let Some(row) = sqlx::query("SELECT a.id,a.installation_id,a.service_id,a.installation_revision,a.service_revision,a.redirect_uri,a.pending_secret,a.status,
                 a.expires_at > unixepoch() AS live, (p.id IS NOT NULL AND s.id IS NOT NULL) AS current, p.manifest
             FROM plugin_authorization_attempts a
             LEFT JOIN plugin_installations p ON p.id = a.installation_id AND p.user_id = a.user_id AND p.service_id = a.service_id AND p.active = 1 AND p.revision = a.installation_revision
             LEFT JOIN plugin_services s ON s.id = a.service_id AND s.active = 1 AND s.revision = a.service_revision
-            WHERE a.state_hash = ? AND a.user_id = ? AND a.session_hash = ?")
-            .bind(&state_hash[..]).bind(actor.id()).bind(actor.session_binding())
+            WHERE a.state_hash = ? AND a.user_id = ? AND a.session_hash = ? AND a.delivery = ?")
+            .bind(&state_hash[..]).bind(actor.id()).bind(actor.session_binding()).bind(arrival.delivery())
             .fetch_optional(&mut *tx).await? else {
             return Ok(Claim::Done(PluginAuthorizationOutcome::Invalid));
         };

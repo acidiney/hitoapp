@@ -136,42 +136,89 @@ impl PluginAuthorizationCallback {
     }
 }
 
-pub struct PluginAuthorizationRedirect(Url);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Delivery {
+    Session,
+    Loopback,
+}
+
+impl Delivery {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Session => "session",
+            Self::Loopback => "loopback",
+        }
+    }
+}
+
+pub struct PluginAuthorizationRedirect {
+    url: Url,
+    delivery: Delivery,
+}
 
 impl PluginAuthorizationRedirect {
     pub fn new(callback: &str) -> Result<Self> {
-        let invalid = || {
-            Error::Invalid("Configure HITO_PUBLIC_ORIGIN as an HTTPS origin or a loopback IP over HTTP before connecting this provider".into())
+        Ok(Self {
+            url: parse_callback(callback)?,
+            delivery: Delivery::Session,
+        })
+    }
+
+    pub fn desktop_loopback(callback: &str) -> Result<Self> {
+        let url = parse_callback(callback)?;
+        let literal_loopback = match url.host() {
+            Some(Host::Ipv4(address)) => address.is_loopback(),
+            Some(Host::Ipv6(address)) => address.is_loopback(),
+            _ => false,
         };
-        if callback.len() > 2048
-            || callback
-                .chars()
-                .any(|value| value.is_control() || value.is_whitespace())
-        {
-            return Err(invalid());
+        if url.scheme() != "http" || !literal_loopback || url.port().is_none() {
+            return Err(Error::Invalid(
+                "The desktop return address must be a literal loopback address with a port".into(),
+            ));
         }
-        let callback = Url::parse(callback).map_err(|_| invalid())?;
-        let allowed_scheme = callback.scheme() == "https"
-            || (callback.scheme() == "http"
-                && match callback.host() {
-                    Some(Host::Ipv4(address)) => address.is_loopback(),
-                    Some(Host::Ipv6(address)) => address.is_loopback(),
-                    _ => false,
-                });
-        if !allowed_scheme
-            || callback.host().is_none()
-            || !callback.username().is_empty()
-            || callback.password().is_some()
-            || callback.query().is_some()
-            || callback.fragment().is_some()
-            || callback.path() != "/api/v1/plugin-authorization/callback"
-        {
-            return Err(invalid());
-        }
-        Ok(Self(callback))
+        Ok(Self {
+            url,
+            delivery: Delivery::Loopback,
+        })
     }
 
     pub(super) fn as_str(&self) -> &str {
-        self.0.as_str()
+        self.url.as_str()
     }
+
+    pub(super) fn delivery(&self) -> Delivery {
+        self.delivery
+    }
+}
+
+fn parse_callback(callback: &str) -> Result<Url> {
+    let invalid = || {
+        Error::Invalid("Configure HITO_PUBLIC_ORIGIN as an HTTPS origin or a loopback IP over HTTP before connecting this provider".into())
+    };
+    if callback.len() > 2048
+        || callback
+            .chars()
+            .any(|value| value.is_control() || value.is_whitespace())
+    {
+        return Err(invalid());
+    }
+    let callback = Url::parse(callback).map_err(|_| invalid())?;
+    let allowed_scheme = callback.scheme() == "https"
+        || (callback.scheme() == "http"
+            && match callback.host() {
+                Some(Host::Ipv4(address)) => address.is_loopback(),
+                Some(Host::Ipv6(address)) => address.is_loopback(),
+                _ => false,
+            });
+    if !allowed_scheme
+        || callback.host().is_none()
+        || !callback.username().is_empty()
+        || callback.password().is_some()
+        || callback.query().is_some()
+        || callback.fragment().is_some()
+        || callback.path() != "/api/v1/plugin-authorization/callback"
+    {
+        return Err(invalid());
+    }
+    Ok(callback)
 }

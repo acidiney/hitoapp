@@ -110,10 +110,10 @@ impl Plugins {
             return Err(Error::Conflict("Your account has eight pending provider connections. Finish one or wait ten minutes before trying again.".into()));
         }
         let expires_at: i64 = sqlx::query_scalar("INSERT INTO plugin_authorization_attempts
-            (id,user_id,session_hash,installation_id,service_id,installation_revision,service_revision,redirect_uri,state_hash,pending_secret,expires_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,unixepoch() + 600) RETURNING expires_at")
+            (id,user_id,session_hash,installation_id,service_id,installation_revision,service_revision,redirect_uri,state_hash,pending_secret,delivery,expires_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,unixepoch() + 600) RETURNING expires_at")
             .bind(&attempt_id).bind(actor.id()).bind(actor.session_binding()).bind(id).bind(&service)
-            .bind(revision).bind(service_revision).bind(redirect.as_str()).bind(&state_hash[..]).bind(secret)
+            .bind(revision).bind(service_revision).bind(redirect.as_str()).bind(&state_hash[..]).bind(secret).bind(redirect.delivery().as_str())
             .fetch_one(&mut *tx).await?;
         tx.commit().await?;
         tracing::info!(
