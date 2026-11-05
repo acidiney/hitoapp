@@ -36,6 +36,7 @@ impl LocalHost {
     ) -> Result<Self> {
         let lock = storage::claim(&paths.data)?;
         let folders = picker.map(|picker| folders::host(paths.music.clone(), picker));
+        let music = paths.music.clone();
         let mut config = hito_server::RuntimeConfig::load(
             paths.data.join("hito.db"),
             paths.music,
@@ -44,6 +45,7 @@ impl LocalHost {
         )
         .await
         .map_err(|_| Error::Startup)?;
+        crate::media_tools::resolve(&mut config.core.media_tools, vec![music]);
         let services = hito_core::open(config.core).await.map_err(|error| {
             tracing::error!(
                 event = "desktop_core_failed",

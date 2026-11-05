@@ -4,6 +4,7 @@ mod browser;
 mod folders;
 mod host;
 mod loopback;
+mod media_tools;
 #[cfg(feature = "gui")]
 mod native_picker;
 #[cfg(feature = "gui")]
@@ -16,6 +17,7 @@ pub use browser::SystemBrowser;
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
 pub use loopback::{DEFAULT_RETURN_PORT, InvalidReturnPort, RETURN_PORT_SETTING, ReturnPort};
+pub use media_tools::MediaToolSearch;
 #[cfg(feature = "gui")]
 pub use native_picker::NativePicker;
 #[cfg(feature = "gui")]
