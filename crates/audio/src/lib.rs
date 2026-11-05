@@ -2,6 +2,9 @@ mod capability;
 mod convert;
 mod decoding;
 mod error;
+mod mp4_gapless;
+#[cfg(test)]
+mod mp4_gapless_tests;
 #[cfg(any(feature = "device", test))]
 mod negotiate;
 mod resample;

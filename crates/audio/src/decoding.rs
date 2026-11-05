@@ -1,5 +1,8 @@
-use crate::{Error, Input, Result, capability};
-use std::{sync::LazyLock, time::Duration};
+use crate::{
+    Error, Input, Result, capability,
+    mp4_gapless::{Mp4Timing, Trim, read_mp4_timing},
+};
+use std::{io::SeekFrom, sync::LazyLock, time::Duration};
 use symphonia::core::{
     audio::Channels,
     codecs::audio::AudioDecoder,
@@ -7,7 +10,7 @@ use symphonia::core::{
     formats::{FormatReader, SeekMode, SeekTo, TrackType, probe::Hint},
     io::MediaSourceStream,
     meta::MetadataOptions,
-    units::{Time, TimeBase},
+    units::{Time, TimeBase, Timestamp},
 };
 
 static VENDOR_LOGS: LazyLock<tracing::Dispatch> = LazyLock::new(tracing::Dispatch::none);
@@ -40,11 +43,22 @@ pub struct Decoder {
     pending: bool,
     seek_target: Option<Duration>,
     at_end: bool,
+    declared: Option<Box<Mp4Timing>>,
+    trim: Option<Trim>,
 }
+
+const SEEK_PREROLL_FRAMES: u64 = 2_048;
 
 impl Decoder {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub fn open(input: impl Input + 'static) -> Result<Self> {
+    pub fn open(mut input: impl Input + 'static) -> Result<Self> {
+        let declared = if input.is_seekable() {
+            let timing = read_mp4_timing(&mut input).map(Box::new);
+            input.seek(SeekFrom::Start(0)).map_err(|_| Error::Decode)?;
+            timing
+        } else {
+            None
+        };
         let reader = vendor(|| {
             symphonia::default::get_probe().probe(
                 &Hint::new(),
@@ -87,6 +101,8 @@ impl Decoder {
             pending: false,
             seek_target: None,
             at_end: false,
+            declared,
+            trim: None,
         };
         if !decoder.decode(&mut || false)? {
             return Err(Error::Decode);
@@ -151,12 +167,13 @@ impl Decoder {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub fn seek(&mut self, position: Duration) -> Result<()> {
+        let source_position = self.source_seek_position(position);
         self.at_end = self
             .format
             .duration
             .is_some_and(|duration| position >= duration);
         if !self.at_end {
-            let time = Time::try_from_secs_f64(position.as_secs_f64()).ok_or(Error::Seek)?;
+            let time = Time::try_from_secs_f64(source_position.as_secs_f64()).ok_or(Error::Seek)?;
             vendor(|| {
                 self.reader.seek(
                     SeekMode::Accurate,
@@ -177,6 +194,47 @@ impl Decoder {
             "Audio decoder seeked"
         );
         Ok(())
+    }
+
+    fn source_seek_position(&self, position: Duration) -> Duration {
+        let Some(trim) = self.trim else {
+            return position;
+        };
+        let rate = f64::from(self.format.sample_rate);
+        let source = position.as_secs_f64() + trim.start as f64 / rate;
+        Duration::try_from_secs_f64((source - SEEK_PREROLL_FRAMES as f64 / rate).max(0.))
+            .unwrap_or(Duration::ZERO)
+    }
+
+    fn resolve_trim(&mut self, rate: u32) {
+        let Some(trim) = self.declared.take().and_then(|timing| timing.trim(rate)) else {
+            return;
+        };
+        let source_frames = self
+            .format
+            .duration
+            .map(|duration| (duration.as_secs_f64() * f64::from(rate)).round() as u64);
+        if source_frames.is_some_and(|frames| trim.start.saturating_add(trim.length) > frames + 1) {
+            tracing::debug!(
+                event = "audio_gapless_declaration_rejected",
+                "Gapless declaration exceeds the stream"
+            );
+            return;
+        }
+        self.format.duration = Some(frames_to_duration(trim.length, rate));
+        self.trim = Some(trim);
+        tracing::debug!(
+            event = "audio_gapless_trim_applied",
+            start_frames = trim.start,
+            length_frames = trim.length,
+            "Gapless trim applied"
+        );
+    }
+
+    fn source_frame(&self, pts: Timestamp, rate: u32) -> u64 {
+        self.time_base.calc_time(pts).map_or(0, |time| {
+            (time.as_secs_f64() * f64::from(rate)).round() as u64
+        })
     }
 
     #[tracing::instrument(level = "trace", skip_all, err(Debug))]
@@ -205,7 +263,8 @@ impl Decoder {
             {
                 return Err(Error::FormatChanged);
             }
-            if self.format.sample_rate == 0 {
+            let first_packet = self.format.sample_rate == 0;
+            if first_packet {
                 self.layout = audio.spec().channels().clone();
             }
             self.format.sample_rate = rate;
@@ -217,10 +276,35 @@ impl Decoder {
                 .unwrap_or(Duration::ZERO);
             self.samples.resize(audio.samples_interleaved(), 0.);
             audio.copy_to_slice_interleaved(&mut self.samples);
+            if first_packet {
+                self.resolve_trim(rate);
+            }
+            if let Some(trim) = self.trim {
+                let first = self.source_frame(packet.pts, rate);
+                let frames = (self.samples.len() / channels) as u64;
+                let kept_start = first.max(trim.start);
+                let kept_end = (first + frames).min(trim.start + trim.length);
+                if kept_start >= kept_end {
+                    if first >= trim.start + trim.length {
+                        self.at_end = true;
+                        return Ok(false);
+                    }
+                    continue;
+                }
+                self.samples
+                    .truncate((kept_end - first) as usize * channels);
+                self.samples
+                    .drain(..(kept_start - first) as usize * channels);
+                self.position = frames_to_duration(kept_start - trim.start, rate);
+            }
             if self.samples.iter().any(|sample| !sample.is_finite()) {
                 return Err(Error::Decode);
             }
             return Ok(true);
         }
     }
+}
+
+fn frames_to_duration(frames: u64, rate: u32) -> Duration {
+    Duration::from_secs_f64(frames as f64 / f64::from(rate))
 }
