@@ -13,7 +13,9 @@ import {
   artistReviewReader,
 } from "./fixtures/artist-review-state";
 import {
+  addMetadataProvider,
   openPreferences,
+  removeMetadataProvider,
   preferencesAction,
   preferencesLibraryState,
   savePreferences,
@@ -213,16 +215,8 @@ test(
         installation_id: installed.body.id,
       } satisfies Schema<"MetadataProvider">;
       const panel = await openPreferences(page);
-      await panel
-        .getByRole("button", { name: "Remove MusicBrainz", exact: true })
-        .click();
-      await chooseOption(
-        panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
-        provider.manifest.name,
-      );
-      await panel
-        .getByRole("button", { name: "Add metadata provider", exact: true })
-        .click();
+      await removeMetadataProvider(panel, "MusicBrainz");
+      await addMetadataProvider(panel, provider.manifest.name);
       await savePreferences(page, {
         revision: 0,
         enabled: true,

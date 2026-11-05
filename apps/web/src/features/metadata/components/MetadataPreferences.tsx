@@ -47,6 +47,7 @@ function PreferencesForm(
             <MetadataProviderList
               providers={preferences.providers}
               connections={preferences.connections}
+              enabled={preferences.enabled}
               pending={preferences.pending}
               canAdd={preferences.canAddProvider}
               onAdd={preferences.addProvider}

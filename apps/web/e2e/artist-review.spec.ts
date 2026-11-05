@@ -12,7 +12,9 @@ import {
   artistReviewReader,
 } from "./fixtures/artist-review-state";
 import {
+  addMetadataProvider,
   openPreferences,
+  removeMetadataProvider,
   preferencesAction,
   preferencesLibraryState,
   savePreferences,
@@ -193,16 +195,8 @@ test("an account reviews a namesake through its chosen metadata provider without
 
     stage = "choose personal metadata provider instead of built-in";
     const panel = await openPreferences(page);
-    await panel
-      .getByRole("button", { name: "Remove MusicBrainz", exact: true })
-      .click();
-    await chooseOption(
-      panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
-      owned.manifest.name,
-    );
-    await panel
-      .getByRole("button", { name: "Add metadata provider", exact: true })
-      .click();
+    await removeMetadataProvider(panel, "MusicBrainz");
+    await addMetadataProvider(panel, owned.manifest.name);
     await savePreferences(page, {
       revision: 0,
       enabled: true,

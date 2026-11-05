@@ -1,39 +1,27 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import Button from "../../../shared/ui/Button";
-import Listbox from "../../../shared/ui/Listbox";
+import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
+import {
+  AddProviderDialog,
+  RemoveProviderDialog,
+} from "./MetadataProviderDialogs";
 
-type ProviderOption = {
-  key: string;
-  label: string;
-  provider: Schema<"MetadataProvider">;
-};
+type Provider = Schema<"MetadataProvider">;
+type ProviderOption = { key: string; label: string; provider: Provider };
+type Dialogue = { kind: "add" } | { kind: "remove"; provider: Provider };
 
-function key(provider: Schema<"MetadataProvider">) {
+function key(provider: Provider) {
   return provider.kind === "builtin_musicbrainz"
     ? provider.kind
     : provider.installation_id;
 }
 
-export default function MetadataProviderList({
-  providers,
-  connections,
-  pending,
-  canAdd,
-  onAdd,
-  onRemove,
-  onMove,
-}: {
-  providers: Schema<"MetadataProvider">[];
-  connections: Schema<"PluginSettings"> | null;
-  pending: boolean;
-  canAdd: boolean;
-  onAdd(provider: Schema<"MetadataProvider">): void;
-  onRemove(provider: Schema<"MetadataProvider">): void;
-  onMove(provider: Schema<"MetadataProvider">, direction: -1 | 1): void;
-}) {
-  const [choice, setChoice] = useState("");
+function providerOptions(
+  connections: Schema<"PluginSettings"> | null,
+): ProviderOption[] {
   const options: ProviderOption[] = [
     {
       key: "builtin_musicbrainz",
@@ -47,54 +35,111 @@ export default function MetadataProviderList({
     );
     if (!service || !installation.manifest.capabilities.includes("catalog"))
       continue;
-    const provider: Schema<"MetadataProvider"> = {
+    const provider: Provider = {
       kind: "http_plugin",
       installation_id: installation.id,
     };
     options.push({ key: key(provider), label: service.name, provider });
   }
+  return options;
+}
+
+export default function MetadataProviderList({
+  providers,
+  connections,
+  enabled,
+  pending,
+  canAdd,
+  onAdd,
+  onRemove,
+  onMove,
+}: {
+  providers: Provider[];
+  connections: Schema<"PluginSettings"> | null;
+  enabled: boolean;
+  pending: boolean;
+  canAdd: boolean;
+  onAdd(provider: Provider): void;
+  onRemove(provider: Provider): void;
+  onMove(provider: Provider, direction: -1 | 1): void;
+}) {
+  const [dialogue, setDialogue] = useState<Dialogue | null>(null);
+  const options = providerOptions(connections);
+  const labelOf = (provider: Provider) =>
+    options.find((option) => option.key === key(provider))?.label ??
+    "Unavailable saved provider";
   const available = options.filter(
     (option) => !providers.some((provider) => key(provider) === option.key),
   );
-  const selected =
-    available.find((option) => option.key === choice) ?? available[0];
   return (
     <>
-      <ol className="provider-order" aria-label="Selected metadata providers">
+      {!enabled && providers.length > 0 && (
+        <p className="muted">
+          Metadata providers are off. This order is kept for when you turn them
+          on.
+        </p>
+      )}
+      <ol
+        className="provider-order"
+        aria-label="Selected metadata providers"
+        data-off={enabled ? undefined : true}
+      >
         {providers.map((provider, index) => {
-          const label =
-            options.find((option) => option.key === key(provider))?.label ??
-            "Unavailable saved provider";
+          const label = labelOf(provider);
+          const builtin = provider.kind === "builtin_musicbrainz";
+          const connected =
+            builtin || options.some((o) => o.key === key(provider));
           return (
             <li key={key(provider)}>
               <SettingRow
-                title={label}
-                hint={`Priority ${index + 1}`}
+                title={<h3>{label}</h3>}
+                hint={
+                  <>
+                    <span>{builtin ? "Built in" : "Plugin"}</span>
+                    <span>{`Priority ${index + 1}`}</span>
+                  </>
+                }
+                status={
+                  builtin ? undefined : (
+                    <HealthDot
+                      tone={connected ? "success" : "warning"}
+                      label={connected ? "Connected" : "Not connected"}
+                    />
+                  )
+                }
                 wide
                 action={
                   <>
-                    <Button
+                    <button
+                      type="button"
+                      className="icon-button"
                       aria-label={`Move earlier ${label}`}
+                      title="Move earlier"
                       disabled={pending || index === 0}
                       onClick={() => onMove(provider, -1)}
                     >
-                      Move earlier
-                    </Button>
-                    <Button
+                      <ArrowUp size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
                       aria-label={`Move later ${label}`}
+                      title="Move later"
                       disabled={pending || index === providers.length - 1}
                       onClick={() => onMove(provider, 1)}
                     >
-                      Move later
-                    </Button>
-                    <Button
-                      variant="destructive"
+                      <ArrowDown size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button provider-remove"
                       aria-label={`Remove ${label}`}
+                      title="Remove"
                       disabled={pending}
-                      onClick={() => onRemove(provider)}
+                      onClick={() => setDialogue({ kind: "remove", provider })}
                     >
-                      Remove provider
-                    </Button>
+                      <Trash2 size={18} aria-hidden="true" />
+                    </button>
                   </>
                 }
               />
@@ -102,28 +147,17 @@ export default function MetadataProviderList({
           );
         })}
       </ol>
-      {!providers.length && <p>No metadata providers selected.</p>}
+      {!providers.length && (
+        <p className="provider-empty">No metadata providers selected.</p>
+      )}
       {available.length ? (
         <div className="provider-add">
-          <Listbox
-            label="Metadata provider"
-            value={selected?.key ?? ""}
-            options={available.map((option) => ({
-              value: option.key,
-              label: option.label,
-            }))}
-            disabled={pending}
-            onChange={setChoice}
-          />
           <Button
-            disabled={pending || !canAdd || !selected}
-            onClick={() => {
-              if (!selected) return;
-              onAdd(selected.provider);
-              setChoice("");
-            }}
+            disabled={pending || !canAdd}
+            onClick={() => setDialogue({ kind: "add" })}
           >
-            Add metadata provider
+            <Plus size={16} aria-hidden="true" />
+            Add provider
           </Button>
         </div>
       ) : (
@@ -133,6 +167,23 @@ export default function MetadataProviderList({
         <p>
           Remove a provider before adding another. You can select up to eight.
         </p>
+      )}
+      {dialogue?.kind === "add" && (
+        <AddProviderDialog
+          choices={available.map(({ key, label }) => ({ key, label }))}
+          onAdd={(chosen) => {
+            const option = available.find((item) => item.key === chosen);
+            if (option) onAdd(option.provider);
+          }}
+          onClose={() => setDialogue(null)}
+        />
+      )}
+      {dialogue?.kind === "remove" && (
+        <RemoveProviderDialog
+          label={labelOf(dialogue.provider)}
+          onRemove={() => onRemove(dialogue.provider)}
+          onClose={() => setDialogue(null)}
+        />
       )}
     </>
   );

@@ -6,7 +6,9 @@ import { reviewPluginInstallation } from "./fixtures/plugin-installation-review"
 import { metadataPreferencesProvider } from "./fixtures/metadata-preferences-provider";
 import { preferencesEvidence } from "./fixtures/metadata-preferences-evidence";
 import {
+  addMetadataProvider,
   openPreferences,
+  removeMetadataProvider,
   preferencesAction,
   preferencesLibraryState,
   preferencesReader,
@@ -240,13 +242,7 @@ test("account metadata preferences persist ordered personal providers without to
       exact: true,
     });
     for (const connection of connections) {
-      await chooseOption(
-        panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
-        0,
-      );
-      await panel
-        .getByRole("button", { name: "Add metadata provider", exact: true })
-        .click();
+      await addMetadataProvider(panel, 0);
     }
     await expect(selected.getByRole("listitem")).toHaveCount(3);
     await selected
@@ -276,15 +272,14 @@ test("account metadata preferences persist ordered personal providers without to
         providers: [second, builtin, first],
       }),
     ).toBe(true);
-    await panel
-      .getByRole("button", { name: "Remove MusicBrainz", exact: true })
-      .click();
-    await panel
-      .getByRole("list", { name: "Selected metadata providers", exact: true })
-      .getByRole("listitem")
-      .nth(1)
-      .getByRole("button", { name: `Remove ${owned.name}`, exact: true })
-      .click();
+    await removeMetadataProvider(panel, "MusicBrainz");
+    await removeMetadataProvider(
+      panel
+        .getByRole("list", { name: "Selected metadata providers", exact: true })
+        .getByRole("listitem")
+        .nth(1),
+      owned.name,
+    );
     await savePreferences(page, {
       revision: 2,
       enabled: true,
@@ -369,11 +364,8 @@ test("account metadata preferences persist ordered personal providers without to
       }),
     ).toBeChecked();
     await expect(
-      otherPanel.getByRole("combobox", {
-        name: "Metadata provider",
-        exact: true,
-      }),
-    ).toBeDisabled();
+      otherPanel.getByRole("button", { name: "Add provider", exact: true }),
+    ).toHaveCount(0);
     const otherPlugins =
       await otherRead<Schema<"PluginSettings">>("/api/v1/plugins");
     expect(

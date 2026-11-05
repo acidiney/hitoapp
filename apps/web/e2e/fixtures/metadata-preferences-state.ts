@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
+import { chooseOption } from "./listbox";
 
 export function preferencesReader(page: Page) {
   let reads = 0;
@@ -60,6 +61,46 @@ export async function preferencesAction<T>(
     body: body.length ? (JSON.parse(body.toString()) as T) : null,
     sent: response.request().postDataJSON() as unknown,
   };
+}
+
+export async function addMetadataProvider(
+  panel: Locator,
+  option: string | number,
+): Promise<void> {
+  const page = panel.page();
+  await panel
+    .getByRole("button", { name: "Add provider", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Add a metadata provider",
+    exact: true,
+  });
+  await chooseOption(
+    dialog.getByRole("combobox", { name: "Metadata provider", exact: true }),
+    option,
+  );
+  await dialog
+    .getByRole("button", { name: "Add metadata provider", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+}
+
+export async function removeMetadataProvider(
+  panel: Locator,
+  name: string,
+): Promise<void> {
+  const page = panel.page();
+  await panel
+    .getByRole("button", { name: `Remove ${name}`, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: `Remove ${name}?`,
+    exact: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Remove provider", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
 }
 
 export async function openPreferences(page: Page) {

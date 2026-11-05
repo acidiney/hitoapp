@@ -4,7 +4,9 @@ import { expect, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import { artistReviewReader } from "./artist-review-state";
 import {
+  addMetadataProvider,
   openPreferences,
+  removeMetadataProvider,
   preferencesAction,
   preferencesLibraryState,
   savePreferences,
@@ -90,15 +92,8 @@ export async function prepareArtistGroups(
     installation_id: connection.id,
   } satisfies Schema<"MetadataProvider">;
   const panel = await openPreferences(page);
-  await panel
-    .getByRole("button", { name: "Remove MusicBrainz", exact: true })
-    .click();
-  await panel
-    .getByRole("combobox", { name: "Metadata provider", exact: true })
-    .selectOption(connection.id);
-  await panel
-    .getByRole("button", { name: "Add metadata provider", exact: true })
-    .click();
+  await removeMetadataProvider(panel, "MusicBrainz");
+  await addMetadataProvider(panel, offered.body.name);
   await savePreferences(page, {
     revision: 0,
     enabled: true,

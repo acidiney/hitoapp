@@ -44,9 +44,26 @@ function selectedRows() {
 }
 
 function add(position: number) {
-  choose(screen.getByRole("combobox", { name: "Metadata provider" }), position);
+  fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
+  const dialog = screen.getByRole("dialog", {
+    name: "Add a metadata provider",
+  });
+  choose(
+    within(dialog).getByRole("combobox", { name: "Metadata provider" }),
+    position,
+  );
   fireEvent.click(
-    screen.getByRole("button", { name: "Add metadata provider" }),
+    within(dialog).getByRole("button", { name: "Add metadata provider" }),
+  );
+}
+
+function remove(row: HTMLElement) {
+  fireEvent.click(within(row).getByRole("button", { name: /^Remove / }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: /^Remove .*\?$/ })).getByRole(
+      "button",
+      { name: "Remove provider" },
+    ),
   );
 }
 
@@ -66,18 +83,16 @@ test("personally approved catalogs replace the built-in provider and save their 
     settings(ordered, 8),
   );
   render(preferences());
-  const selector = await screen.findByRole("combobox", {
-    name: "Metadata provider",
-  });
+  fireEvent.click(await screen.findByRole("button", { name: "Add provider" }));
+  const selector = screen.getByRole("combobox", { name: "Metadata provider" });
   fireEvent.click(selector);
   expect(screen.getAllByRole("option")).toHaveLength(2);
   fireEvent.keyDown(selector, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   add(0);
   add(0);
   expect(selectedRows()).toHaveLength(3);
-  fireEvent.click(
-    within(selectedRows()[0]).getByRole("button", { name: /Remove/ }),
-  );
+  remove(selectedRows()[0]);
   expect(selectedRows()).toHaveLength(2);
   fireEvent.click(
     within(selectedRows()[1]).getByRole("button", { name: /Move earlier/ }),
@@ -124,15 +139,12 @@ test("the selected provider list cannot grow past its account limit", async () =
   );
   vi.mocked(pluginsApi.settings).mockResolvedValue(connections(catalogs));
   render(preferences());
-  const selector = await screen.findByRole("combobox", {
-    name: "Metadata provider",
-  });
-  choose(selector, 0);
-  const addButton = screen.getByRole("button", {
-    name: "Add metadata provider",
-  }) as HTMLButtonElement;
-  expect(addButton.disabled).toBe(true);
-  fireEvent.click(addButton);
+  const opener = (await screen.findByRole("button", {
+    name: "Add provider",
+  })) as HTMLButtonElement;
+  expect(opener.disabled).toBe(true);
+  fireEvent.click(opener);
+  expect(screen.queryByRole("dialog")).toBeNull();
   expect(selectedRows()).toHaveLength(8);
   expect(metadataPreferencesApi.update).not.toHaveBeenCalled();
   expect(unexpectedRequest).not.toHaveBeenCalled();
