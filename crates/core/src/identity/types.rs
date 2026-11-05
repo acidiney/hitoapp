@@ -8,6 +8,7 @@ pub struct User {
     pub username: String,
     pub admin: bool,
     pub display_name: Option<String>,
+    pub avatar_version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, ToSchema)]
@@ -16,6 +17,7 @@ pub struct AccountSummary {
     pub username: String,
     pub admin: bool,
     pub display_name: Option<String>,
+    pub avatar_version: Option<String>,
     pub last_active_at: Option<i64>,
 }
 

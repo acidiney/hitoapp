@@ -217,6 +217,7 @@ fn personal_catalog() -> Vec<String> {
             "artist_matching_jobs",
             "account_community_preferences",
             "account_history_preferences",
+            "account_avatars",
             "account_community_ranking_preferences",
             "account_pin_locks",
             "personal_recording_metadata",

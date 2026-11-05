@@ -52,7 +52,8 @@ impl Identity {
         actor.check_session_on(&mut tx).await?;
         let user: User = sqlx::query_as(
             "UPDATE users SET display_name = ? WHERE id = ?
-             RETURNING id, username, admin, display_name",
+             RETURNING id, username, admin, display_name,
+                       (SELECT content_hash FROM account_avatars WHERE user_id = users.id) AS avatar_version",
         )
         .bind(&display_name)
         .bind(actor.id())

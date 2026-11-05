@@ -1,6 +1,7 @@
 mod access;
 mod account_data;
 mod accounts;
+mod avatar;
 mod credentials;
 mod deletion;
 mod display_name;
@@ -16,6 +17,7 @@ use crate::store::Store;
 
 pub const SESSION_SECONDS: i64 = 2_592_000;
 pub(crate) use access::{library_access, personal_library, recording_access, shared_library};
+pub use avatar::{AvatarImage, MAX_AVATAR_UPLOAD_BYTES};
 pub use types::{
     AccountDeletion, AccountSummary, Actor, AuthSession, ChangePassword, Credentials,
     DeleteAccount, Library, LockStatus, RemovePin, SessionInfo, SessionsRevoked, SetPin, Unlock,

@@ -13,6 +13,7 @@ impl Identity {
             username,
             admin: false,
             display_name: None,
+            avatar_version: None,
         };
         let result = sqlx::query("INSERT INTO users(id, username, password_hash) VALUES (?, ?, ?)")
             .bind(&user.id)
@@ -37,6 +38,7 @@ impl Identity {
         actor.require_admin()?;
         Ok(sqlx::query_as(
             "SELECT u.id, u.username, u.admin, u.display_name,
+                    (SELECT content_hash FROM account_avatars WHERE user_id = u.id) AS avatar_version,
                     (SELECT MAX(s.last_seen_at) FROM sessions s
                      WHERE s.user_id = u.id AND s.expires_at > unixepoch()) AS last_active_at
              FROM users u ORDER BY u.username LIMIT 1000",

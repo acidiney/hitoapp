@@ -28,6 +28,7 @@ impl Identity {
             username,
             admin: true,
             display_name: None,
+            avatar_version: None,
         };
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let count: i64 = sqlx::query_scalar("SELECT count(*) FROM users")
