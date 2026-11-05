@@ -169,13 +169,13 @@ Silence is the longest run of exactly zero samples between the first and last ca
 
 | Case | Before | After |
 | --- | --- | --- |
-| Engine, WAV to WAV, reopening the player | 4,089 to 4,930 frames (85 to 103 ms, load dependent) | 0 frames, every sample equal |
+| Engine, WAV to WAV, reopening the player | 4,089 to 4,930 frames (85 to 103 ms, varies between runs) | 0 frames, every sample equal |
 | Engine, FLAC to FLAC | not measured separately | 0 frames, every sample equal |
 | Engine, 440 Hz sine split across two files | not measured separately | 0 frames, no phase error above one 16-bit step |
 | Engine, 44.1 kHz second input into a 48 kHz stream | not measured separately | 0 frames, 48,000 frames for 24,000 plus 22,050 source frames |
 | Engine, speed 0.5 and 2.0 | not measured separately | 1 frame (a counter wrap that the processor smoothed to zero), no extra padding |
-| Queue, two recordings, native player | 7,045 frames (147 ms) | 0 frames, every sample equal |
-| Queue, a recording followed by itself | 5,195 frames (108 ms) | 0 frames, every sample equal |
+| Queue, two recordings, native player | 5,431 to 7,045 frames (113 to 147 ms, varies between runs) | 0 frames, every sample equal |
+| Queue, a recording followed by itself | 5,195 frames (108 ms, one run) | 0 frames, every sample equal |
 | Queue, speed 2.0 | 2,400 frames or more | 1 frame |
 
 Frame counts depend on machine load before the change because the gap was the time to resolve, open and prime a new stream. After the change the count is the same on every run.

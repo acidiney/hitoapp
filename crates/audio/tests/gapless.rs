@@ -3,7 +3,7 @@
 use hito_audio::Player;
 use hito_audio::test_support as support;
 use hito_audio::test_support::capture::{Capture, wait};
-use hito_audio::test_support::continuity::{audit, counter, heard, level, longest_run};
+use hito_audio::test_support::continuity::{audit, counter, dump, heard, level, longest_run};
 use std::{fs::File, path::Path, process::Command, time::Duration};
 
 const RATE: u32 = 48_000;
@@ -55,6 +55,7 @@ fn reopening_the_player_between_tracks_leaves_an_audible_gap() {
     second.resume().unwrap();
     wait(|| second.snapshot().ended);
     let captured = finish(&capture, second);
+    dump("engine-reopen", &captured);
     let audit = audit(&captured, counter, 2 * HALF_SECOND as usize);
     eprintln!("reopen gap frames={}", audit.longest_silence);
     assert!(audit.longest_silence > 0);
@@ -73,6 +74,7 @@ fn wav_to_wav_inserts_no_silence_and_keeps_every_sample() {
     assert_eq!(player.snapshot().track, 1);
     assert_eq!(player.snapshot().position, Duration::from_millis(500));
     let captured = finish(&capture, player);
+    dump("engine-gapless", &captured);
     let audit = audit(&captured, counter, 2 * HALF_SECOND as usize);
     eprintln!("wav gap frames={}", audit.longest_silence);
     assert_eq!(audit.longest_silence, 0);

@@ -2,7 +2,7 @@
 #[path = "../fixtures/two_tracks.rs"]
 mod fixture;
 use hito_audio::test_support::capture::{Capture, energy};
-use hito_audio::test_support::continuity::{audit, counter, heard, level, longest_run};
+use hito_audio::test_support::continuity::{audit, counter, dump, heard, level, longest_run};
 use hito_playback::{
     Player, PlayerAction, PlayerCommand, PlayerOwner, PlayerPosition, PlayerSnapshot,
 };
@@ -157,6 +157,7 @@ async fn natural_advance_between_two_recordings_plays_one_continuous_stream() {
         first_second.is_some_and(|value| value <= 150),
         "second recording started at {first_second:?}"
     );
+    dump("queue", &captured);
     let audit = audit(&captured, counter, (FIRST + SECOND) as usize);
     eprintln!("queue gap frames={}", audit.longest_silence);
     assert_eq!(audit.longest_silence, 0);

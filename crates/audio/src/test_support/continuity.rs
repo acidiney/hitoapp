@@ -1,5 +1,5 @@
 pub fn counter(frame: u64) -> i16 {
-    (frame % 4001) as i16 * 8 + 8
+    (frame % 4093) as i16 * 8 + 8
 }
 
 pub fn level(sample: f32) -> i32 {
@@ -45,5 +45,22 @@ pub fn audit(captured: &[f32], expected: fn(u64) -> i16, frames: usize) -> Audit
         mismatches,
         heard: heard(&captured[start..=end]).len(),
         longest_silence: longest_run(&captured[start..=end]),
+    }
+}
+
+pub fn dump(name: &str, samples: &[f32]) {
+    if let Some(directory) = std::env::var("HITO_CAPTURE_DUMP")
+        .ok()
+        .filter(|directory| !directory.is_empty())
+    {
+        let bytes: Vec<u8> = samples
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect();
+        std::fs::write(
+            std::path::Path::new(&directory).join(format!("{name}.f32")),
+            bytes,
+        )
+        .unwrap();
     }
 }
