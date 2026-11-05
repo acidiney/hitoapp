@@ -8,7 +8,8 @@ import {
   copyFile,
   access,
 } from "node:fs/promises";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { monitorAudio } from "./audio-monitor.mjs";
@@ -65,8 +66,17 @@ const sound = spawn(
   ],
   { env: { ...process.env, XDG_RUNTIME_DIR: runtime }, stdio: "ignore" },
 );
+const stubs = join(temporary, "stubs");
+const openerLog = join(temporary, "opener.log");
+await mkdir(stubs);
+await writeFile(
+  join(stubs, "xdg-open"),
+  `#!/bin/sh\nprintf 'argc=%s\\n' "$#" >> "${openerLog}"\nfor argument in "$@"; do printf 'url=%s\\n' "$argument" >> "${openerLog}"; done\n`,
+  { mode: 0o755 },
+);
 const manager = spawn("openbox", ["--sm-disable"], { stdio: "ignore" });
 start({
+  PATH: `${stubs}:${process.env.PATH}`,
   XDG_CONFIG_HOME: config,
   XDG_DATA_HOME: join(temporary, "data"),
   XDG_RUNTIME_DIR: runtime,
@@ -174,6 +184,153 @@ async function verifyWithoutNetwork() {
     "the local library after the provider checks",
   );
 }
+const openerCalls = () => {
+  try {
+    return readFileSync(openerLog, "utf8").split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+async function verifyBrowserLauncher() {
+  let authorizeRequests = 0;
+  const provider = createServer((incoming, outgoing) => {
+    const path = new URL(incoming.url ?? "/", "http://provider.test").pathname;
+    outgoing.setHeader("content-type", "application/json");
+    if (path === "/authorize") authorizeRequests += 1;
+    const port = provider.address().port;
+    outgoing.end(
+      JSON.stringify({
+        id: "org.hito.desktop-launcher-fixture",
+        name: "Launcher fixture",
+        protocol_version: 1,
+        capabilities: ["playlists"],
+        authorization: {
+          kind: "oauth2_pkce",
+          client_id: "launcher-client",
+          authorization_endpoint: `http://127.0.0.1:${port}/authorize`,
+          token_endpoint: `http://127.0.0.1:${port}/token`,
+          scopes: ["playlist-read-private"],
+        },
+      }),
+    );
+  });
+  await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const endpoint = `http://127.0.0.1:${provider.address().port}/authorize`;
+  try {
+    const installed = await execute(`
+      return (async () => {
+        const account = await fetch('/api/v1/me').then(r => r.json());
+        const headers = {
+          'content-type': 'application/json',
+          'x-hito-request': '1',
+          'x-hito-account': account.id
+        };
+        const service = await fetch('/api/v1/plugins/services', {
+          method: 'POST', headers,
+          body: JSON.stringify({ name: 'Launcher fixture', base_url: ${JSON.stringify(`http://127.0.0.1:${provider.address().port}`)} })
+        }).then(r => r.json());
+        const installation = await fetch('/api/v1/plugins', {
+          method: 'POST', headers,
+          body: JSON.stringify({ service_id: service.id, service_revision: service.revision })
+        });
+        return { status: installation.status, ...(await installation.json()) };
+      })();
+    `);
+    assert.equal(installed.status, 201);
+    await execute("location.assign('/settings?section=plugins'); return true;");
+    await wait(
+      () =>
+        execute(
+          'return [...document.querySelectorAll("button")].some(b => b.textContent === "Connect")',
+        ),
+      "the provider Connect button",
+    );
+    const settingsUrl = await execute("return location.href");
+    await clickText("Connect");
+    await wait(
+      async () => openerCalls().length >= 2,
+      "the system opener to receive the sign-in page",
+    );
+    const calls = openerCalls();
+    assert.deepEqual(calls.slice(0, 1), ["argc=1"]);
+    assert.equal(calls.length, 2);
+    const received = new URL(calls[1].slice("url=".length));
+    const origin = await execute("return location.origin");
+    assert.equal(`${received.origin}${received.pathname}`, endpoint);
+    assert.equal(
+      received.searchParams.get("redirect_uri"),
+      `${origin}/api/v1/plugin-authorization/callback`,
+    );
+    assert.equal(received.searchParams.get("code_challenge_method"), "S256");
+    assert.equal(received.searchParams.get("client_id"), "launcher-client");
+    assert.equal(authorizeRequests, 0);
+    assert.equal(await execute("return location.href"), settingsUrl);
+    assert.equal(
+      await execute(
+        'return document.querySelector("[aria-label=\\"Sign-in status\\"]")?.textContent',
+      ),
+      "Waiting for Launcher fixture…",
+    );
+    const redacted = new URL(received);
+    for (const name of ["state", "code_challenge"])
+      redacted.searchParams.set(name, "REDACTED");
+    console.log(
+      "desktop launcher: system opener invoked once with one argument:",
+      redacted.toString(),
+    );
+    const forged = await execute(`
+      return (async () => {
+        const account = await fetch('/api/v1/me').then(r => r.json());
+        const installations = await fetch('/api/v1/plugins').then(r => r.json());
+        const id = installations.installations[0].id;
+        const headers = {
+          'content-type': 'application/json',
+          'x-hito-request': '1',
+          'x-hito-account': account.id
+        };
+        const first = ${JSON.stringify(received.toString())};
+        const begun = await fetch('/api/v1/plugins/' + id + '/authorization', {
+          method: 'POST', headers,
+          body: JSON.stringify({ revision: installations.installations[0].revision })
+        }).then(r => r.json());
+        const targets = [
+          'https://evil.example/authorize',
+          begun.authorization_url.replace('/authorize?', '/other?'),
+          first,
+          'file:///etc/passwd'
+        ];
+        const statuses = [];
+        for (const authorization_url of targets) {
+          const response = await fetch('/api/v1/plugins/' + id + '/authorization/' + begun.id + '/launch', {
+            method: 'POST', headers, body: JSON.stringify({ authorization_url })
+          });
+          statuses.push(response.status);
+        }
+        return statuses;
+      })();
+    `);
+    assert.deepEqual(forged, [422, 422, 422, 422]);
+    assert.equal(openerCalls().length, 2);
+    console.log("desktop launcher: forged launches for a live attempt refused", forged);
+    const callback = await fetch(
+      `${origin}/api/v1/plugin-authorization/callback?code=probe&state=probe`,
+      { redirect: "manual" },
+    );
+    console.log(
+      "desktop launcher: callback from a browser without the desktop cookie answered",
+      callback.status,
+    );
+    assert.equal(callback.status, 403);
+    await clickText("Stop waiting");
+  } finally {
+    provider.close();
+  }
+  await click('nav[aria-label="Main navigation"] a[href="/library"]');
+  await wait(
+    () => exists('button[aria-label="Play Fixture 440 Hz"]'),
+    "the local library after the launcher check",
+  );
+}
 try {
   await wait(async () => {
     try {
@@ -269,6 +426,7 @@ try {
   );
   await noBrowserAudio();
   if (process.env.HITO_TEST_NO_NETWORK === "1") await verifyWithoutNetwork();
+  await verifyBrowserLauncher();
   await click('button[aria-label="Play Fixture 440 Hz"]');
   await wait(
     async () => (await uiPosition()) > 0.2 && audible(),
@@ -403,12 +561,14 @@ try {
     ],
     { timeout: 5000 },
   );
-  assert.equal(
-    await execute(
-      'return (async () => {const invoke=window.__TAURI_INTERNALS__?.invoke; if(!invoke) return true; try {await invoke("plugin:app|version");return false;} catch {return true;}})()',
-    ),
-    true,
-  );
+  for (const command of ["plugin:app|version", "plugin:opener|open_url"])
+    assert.equal(
+      await execute(
+        `return (async () => {const invoke=window.__TAURI_INTERNALS__?.invoke; if(!invoke) return true; try {await invoke(${JSON.stringify(command)}, {url: "https://evil.example/"});return false;} catch {return true;}})()`,
+      ),
+      true,
+    );
+  assert.equal(openerCalls().length, 2);
   await noBrowserAudio();
   const origin = await execute("return location.origin");
   await close(origin);
