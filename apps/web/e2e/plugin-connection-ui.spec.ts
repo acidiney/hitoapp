@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, type BrowserContext, type Page, test } from "@playwright/test";
-import { adminCredentials, enterAdmin } from "./fixtures/admin-session";
+import { enterAdmin } from "./fixtures/admin-session";
 
 test.skip(
   process.env.HITO_PLUGIN_AUTHORIZATION_E2E !== "1",
@@ -11,10 +11,7 @@ test.skip(
 const ACCESS_TOKEN = "consent-access-token-value";
 const REFRESH_TOKEN = "consent-refresh-token-value";
 const headers = { "x-hito-request": "1" };
-const other = {
-  username: "consent-other",
-  password: "other account test password",
-};
+const password = "consent account test password";
 
 type Fixture = Awaited<ReturnType<typeof startProvider>>;
 
@@ -177,19 +174,24 @@ test("the consent flow connects through the provider page, survives a refusal an
   browserName,
 }) => {
   const name = `Consent fixture ${browserName}`;
+  const first = { username: `consent-first-${browserName}`, password };
+  const second = { username: `consent-second-${browserName}`, password };
   const fixture = await startProvider(name, baseURL!);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
   await enterAdmin(page);
-  const created = await post(page, "/api/v1/users", other);
-  expect([201, 409]).toContain(created.status());
+  for (const account of [first, second]) {
+    const created = await post(page, "/api/v1/users", account);
+    expect(created.status()).toBe(201);
+  }
   const offered = await post(page, "/api/v1/plugins/services", {
     name,
     base_url: fixture.address,
   });
   expect(offered.status()).toBe(201);
   const service = await offered.json();
+  await switchAccount(page, first);
   await install(page, service);
 
   await openPlugins(page, name);
@@ -234,7 +236,7 @@ test("the consent flow connects through the provider page, survives a refusal an
   ).toBeVisible();
   await page.unroute("**/api/v1/plugins/*/connection");
 
-  await switchAccount(page, other);
+  await switchAccount(page, second);
   await install(page, service);
   await openPlugins(page, name);
   await expect(signInStatus(page, name)).toHaveText("Not connected");
@@ -255,7 +257,7 @@ test("the consent flow connects through the provider page, survives a refusal an
   await page.reload();
   await expect(signInStatus(page, name)).toHaveText("Not connected");
 
-  await switchAccount(page, adminCredentials);
+  await switchAccount(page, first);
   await openPlugins(page, name);
   await expect(signInStatus(page, name)).toHaveText("Connected");
   expect(errors).toEqual([]);
