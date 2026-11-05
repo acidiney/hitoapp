@@ -827,6 +827,8 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "account_plugin_connections"),
         ("index", "service_plugin_connections"),
         ("index", "plugin_connection_fingerprints"),
+        ("table", "account_avatars"),
+        ("index", "sqlite_autoindex_account_avatars_1"),
         ("table", "listening_history"),
         ("index", "sqlite_autoindex_listening_history_1"),
         ("index", "listening_history_recent"),

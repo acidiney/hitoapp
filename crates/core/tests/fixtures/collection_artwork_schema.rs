@@ -3,6 +3,8 @@
 use sqlx::{Connection, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::borrow::Cow;
 
+#[path = "account_avatar_schema.rs"]
+pub mod account_avatar_schema;
 #[path = "account_display_name_schema.rs"]
 pub mod account_display_name_schema;
 #[path = "account_erasure_schema.rs"]
@@ -470,6 +472,10 @@ pub async fn reference_86() -> SqliteConnection {
     account_display_name_schema::reference(reference_85().await).await
 }
 
+pub async fn reference_87() -> SqliteConnection {
+    account_avatar_schema::reference(reference_86().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -511,6 +517,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         84 => reference_84().await,
         85 => reference_85().await,
         86 => reference_86().await,
+        87 => reference_87().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -714,6 +721,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 86),
+    )
+    .chain(
+        account_avatar_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 87),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
