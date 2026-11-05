@@ -1,4 +1,4 @@
-use super::{Job, LibraryStorage, folder_types::Folder};
+use super::{Job, JobFailure, LibraryStorage, folder_types::Folder};
 use crate::{Actor, Error, Result, identity::library_access};
 use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
@@ -53,11 +53,12 @@ impl LibraryStorage {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), job_id))]
     pub async fn job(&self, actor: &Actor, id: &str) -> Result<Job> {
         actor.require_admin()?;
-        let job: Job = sqlx::query_as(
+        let mut job: Job = sqlx::query_as(
             "SELECT j.id, j.library_id, j.folder_id, j.kind, j.state, j.progress, j.error FROM jobs j
              JOIN library_members m ON m.library_id = j.library_id
              WHERE j.id = ? AND m.user_id = ?",
         ).bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
+        job.failure = JobFailure::recorded(job.error.as_deref());
         tracing::Span::current().record("job_id", &job.id);
         Ok(job)
     }

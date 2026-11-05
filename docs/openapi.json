@@ -23023,6 +23023,16 @@
               "null"
             ]
           },
+          "failure": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "folder_id": {
             "type": [
               "string",
@@ -23046,6 +23056,12 @@
             "type": "string"
           }
         }
+      },
+      "JobFailure": {
+        "type": "string",
+        "enum": [
+          "media_tools_missing"
+        ]
       },
       "Library": {
         "type": "object",

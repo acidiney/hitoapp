@@ -106,7 +106,7 @@ pub use library_storage::AudioFile;
 pub use library_storage::WatchCounters;
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef,
-    FolderWatchSettings, Job, LibraryStorage, MissingRecordingsRemoval, MusicFolder,
+    FolderWatchSettings, Job, JobFailure, LibraryStorage, MissingRecordingsRemoval, MusicFolder,
     SharedDirectory, WatchBackend, WatchMode, WatchStatus, WatchedFolder,
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};

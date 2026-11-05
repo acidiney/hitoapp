@@ -146,14 +146,18 @@ impl Commands {
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(spawn_error) => {
                         tracing::warn!(
                             event = "media_tool_unavailable",
+                            io_kind = ?spawn_error.kind(),
                             "Media inspection tool unavailable"
                         );
-                        Err(Failure::Other(Error::Internal(
-                            "Media inspection tool is unavailable".into(),
-                        )))
+                        Err(Failure::Other(match spawn_error.kind() {
+                            std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied => {
+                                Error::MediaToolsMissing
+                            }
+                            _ => Error::Internal("Media inspection tool is unavailable".into()),
+                        }))
                     }
                 };
                 drop(media_guard);

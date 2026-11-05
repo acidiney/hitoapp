@@ -26,6 +26,8 @@ pub enum Error {
     Upstream(&'static str),
     #[error("There is not enough disk space to save this audio")]
     InsufficientStorage,
+    #[error("FFmpeg is not installed")]
+    MediaToolsMissing,
     #[error("Database operation failed")]
     Database(#[from] sqlx::Error),
     #[error("Database migration failed")]
@@ -60,6 +62,7 @@ impl Error {
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) => "upstream",
             Self::InsufficientStorage => "insufficient_storage",
+            Self::MediaToolsMissing => "media_tools_missing",
             Self::Database(_) => "database",
             Self::Migration(_) => "migration",
             Self::Internal(_) => "internal",

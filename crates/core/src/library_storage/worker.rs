@@ -101,8 +101,13 @@ impl LibraryStorage {
                 tracing::info!(job_id = %lease.job, files_read = count, "Scan completed");
             }
             Some(Err(error)) => {
-                sqlx::query("UPDATE jobs SET state = 'failed', error = 'Music scan failed. Check the connected folder and installed FFmpeg tools.', lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
-                    .bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
+                let message = if matches!(error, Error::MediaToolsMissing) {
+                    super::types::MEDIA_TOOLS_MISSING_MESSAGE
+                } else {
+                    "Music scan failed. Check the connected folder."
+                };
+                sqlx::query("UPDATE jobs SET state = 'failed', error = ?, lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
+                    .bind(message).bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
                 tracing::warn!(job_id = %lease.job, error_code = error.code(), "Scan failed");
             }
             None => {

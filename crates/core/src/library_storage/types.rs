@@ -11,6 +11,23 @@ pub struct Job {
     pub state: String,
     pub progress: i64,
     pub error: Option<String>,
+    #[sqlx(skip)]
+    pub failure: Option<JobFailure>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum JobFailure {
+    MediaToolsMissing,
+}
+
+pub(super) const MEDIA_TOOLS_MISSING_MESSAGE: &str =
+    "FFmpeg is not installed. Install it (for example `brew install ffmpeg`) and scan again.";
+
+impl JobFailure {
+    pub(super) fn recorded(message: Option<&str>) -> Option<Self> {
+        (message == Some(MEDIA_TOOLS_MISSING_MESSAGE)).then_some(Self::MediaToolsMissing)
+    }
 }
 
 pub(super) struct IndexedFile {

@@ -4025,6 +4025,7 @@ export interface components {
         };
         Job: {
             error?: string | null;
+            failure?: components["schemas"]["JobFailure"] | null;
             folder_id?: string | null;
             id: string;
             kind: string;
@@ -4033,6 +4034,8 @@ export interface components {
             progress: number;
             state: string;
         };
+        /** @enum {string} */
+        JobFailure: "media_tools_missing";
         Library: {
             id: string;
             name: string;
