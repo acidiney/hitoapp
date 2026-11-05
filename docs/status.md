@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-05 self-hosting addons
+
+Local development work, not a public release. Operators can start Spotify and YouTube with Hito in one command (`deploy/compose/addons.yaml`) and the server offers their addresses from `HITO_PLUGIN_SERVICES`. The setup launchers ask an opt-in question, default off. The [self-hosting guide](self-hosting.md) covers all nine addons.
+
+- Tested: core and server cases for the address list, idempotent offers, withdrawn services staying withdrawn, unreachable and invalid addons, retry when an addon starts late and log content; Node cases for the launcher's generated Compose file. Strict Clippy and formatting pass. The full Rust batch passed except migration-version fixtures that stop at 0087 while migration 0088 (desktop sign-in work) is present.
+- Walk-through from a fresh clone in an isolated Compose project: automatic offers, connecting both addons, a live 50-track Spotify import, YouTube search and Add, restart without duplicate offers, an addon stopped, update and remove. Screenshots are in the session evidence folder `self-hosting`.
+- Not verified: audio playback in a browser, the launcher dialogs on any platform, every addon other than Spotify and YouTube.
+
 ## 2026-11-02 architecture summary
 
 Local development work, not a public release. Commits `f634eda8` to `ae673808`. Each slice was deployed to the local development server after its checks passed; the server now runs `ae673808`.

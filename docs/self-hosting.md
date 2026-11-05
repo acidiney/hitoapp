@@ -102,7 +102,7 @@ From the repository folder:
 docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile plugins up -d --build
 ```
 
-This starts the server, `plugin-spotify` and `plugin-youtube` on one network. If you use the launcher's generated Compose file instead of `compose.yaml`, use that file as in [operations](operations.md#storage) and add `--profile plugins`.
+This builds and starts the server, `plugin-spotify` and `plugin-youtube` on one network. On a fresh clone it also starts Hito itself; the music folder is `HITO_MUSIC_FOLDER` and the port is `HITO_PORT` (default 8080). Use this option for an install that did not come from the launcher. If you installed with the launcher, use option A: it manages its own Compose file, project and data volume, and mixing the two would start a second, empty Hito.
 
 The addon ports `8092` and `8093` are published on your computer's loopback address only. If either is taken, set `HITO_SPOTIFY_PORT` or `HITO_YOUTUBE_PORT` before the command.
 
@@ -141,13 +141,13 @@ Offering makes the addon available. Each person then connects their own account:
 
 1. Open **Settings → Plugins**. Under **Connect a service**, the offered services are listed. If none is listed, ask the administrator to check that the addon runs and is offered.
 2. Pick **Spotify public playlists**. Leave **Bearer token** empty. Select **Review connection**.
-3. Read what the addon declares, then select **Accept and connect**. It now appears under **Your plugins**.
-4. Repeat for **YouTube**.
+3. Read what the addon declares (Spotify: playlists and covers), then select **Accept and connect**. It now appears under **Your plugins** with "No token saved", which is correct because it needs none.
+4. The card now offers the next service. Select **Review connection** for **YouTube** (search, playback, track details and covers) and **Accept and connect** again.
 
 Use it:
 
-- **Spotify:** open **Playlists → Import**, choose the Spotify connection, paste a public playlist link and select **Import a copy**. The link must be public. Hito copies the track list. It does not copy audio. A new playlist of unplayed tracks is normal; Hito looks for audio through your other sources, such as YouTube, when you press play.
-- **YouTube:** open **Discover**, choose the YouTube connection, search, and use **Play** or **Add to library**.
+- **Spotify:** open **Playlists**. In **Import a playlist**, make sure **Import a copy** is selected, paste a public playlist link and select **Import a copy**. The link must be public. Hito copies the track list, not audio. The new playlist shows, for example, "50 entries, 0 ready, 50 unavailable": tracks have no audio yet. Hito looks for audio through your other sources, such as YouTube, when you press play.
+- **YouTube:** open **Discover**. Under **Search your services**, select **YouTube**, type a track or artist and select **Search**. Use **Play** or **Add** on a result.
 
 Playing a track does not download a permanent copy.
 
@@ -208,8 +208,8 @@ Keys and tokens belong in those private files only. Never put them in a Compose 
 
 Hito keeps working. Only the features that need that addon stop.
 
-- **Settings** shows the connection. **Check connection** fails with "The plugin service could not be reached". Nothing is lost; the connection and token stay saved.
-- **Discover** search or Add fails with a message about the provider. Use **Refresh services** and try again after the addon is back.
+- **Settings → Plugins** shows a red notice, "The plugin service could not be reached", with **Reload connections**. Nothing is lost; the connection and token stay saved.
+- **Discover** search shows "YouTube could not finish. The plugin service could not be reached" with **Refresh services**. Try again after the addon is back.
 - **Saved recordings** stay in your library. Pressing play on one that needs the addon fails, and the track reports that its source is unavailable. When the addon returns, play works again without any action.
 - **Followed playlists** keep their last good copy and retry later.
 - **Folder music, your own playlists, likes and history** are not affected.
@@ -259,9 +259,10 @@ Logs contain outcomes and timings. They never contain tokens, search terms, titl
 
 ## What was tested
 
-Current behavior is described above. Evidence:
+Current behavior is described above. Evidence, from 2026-11-05:
 
-- Automated: the address list parser and the offer rules (labels, addresses, idempotent repeat, withdrawn service, unreachable and invalid addon, retry when an addon starts late, log content), and the launcher's generated Compose file with and without addons.
-- A walk-through from a fresh clone in an isolated Compose project: see the result at the end of this section once recorded in [status](status.md).
+- Automated: the address list parser and the offer rules (labels, addresses, idempotent repeat, a withdrawn service staying withdrawn, unreachable and invalid addons, retry when an addon starts late, log content), the environment setting at startup, and the launcher's generated Compose file with and without addons.
+- Walk-through from a fresh clone of the repository in an isolated Compose project (own network, volumes and ports, never the normal `hito` project), following this guide with option B: the build and start worked; the server offered both addresses by itself; a new administrator connected Spotify and YouTube; a live public Spotify playlist (50 tracks) imported through the Spotify addon; YouTube search returned results and **Add** saved one with details and sources from the addon; after a server restart nothing was offered twice; with the YouTube addon stopped, Settings and Discover showed the "could not be reached" messages quoted above; the update command and the remove command worked.
+- The generated launcher Compose file with addons on was checked with `docker compose config` and resolves the server and both addons.
 
-Not verified: Windows and Linux launcher dialogs (only reviewed), every browser's AAC support, long-running behavior, and any addon other than Spotify and YouTube.
+Not verified: playing audio in a browser (the test browser has no AAC), Spotify tracks resolving to YouTube audio in the browser, the Windows and Linux launcher dialogs and the macOS dialog (reviewed, not run), every browser's AAC support, long-running behavior, and any addon other than Spotify and YouTube.
