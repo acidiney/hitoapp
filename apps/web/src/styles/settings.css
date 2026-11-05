@@ -274,6 +274,7 @@
   margin-top: 8px;
 }
 .dialog {
+  margin: auto;
   width: min(440px, calc(100vw - 32px));
   padding: 24px;
   color: var(--ink);

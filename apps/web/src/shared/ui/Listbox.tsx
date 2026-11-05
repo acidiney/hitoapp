@@ -1,9 +1,24 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { Check, ChevronDown } from "lucide-react";
 
 export type ListboxOption = { value: string; label: string };
 
 const typeaheadWindowMs = 600;
+
+function reservedBottom(): number {
+  const style = getComputedStyle(document.documentElement);
+  return (
+    (parseFloat(style.getPropertyValue("--player")) || 0) +
+    (parseFloat(style.getPropertyValue("--tabs")) || 0)
+  );
+}
 
 function moved(key: string, active: number, count: number): number | null {
   if (key === "ArrowDown") return Math.min(active + 1, count - 1);
@@ -51,8 +66,19 @@ export default function Listbox({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(current);
   const search = useRef({ text: "", at: 0 });
+  const [above, setAbove] = useState(false);
   const list = useRef<HTMLUListElement>(null);
   const expanded = open && !disabled && options.length > 0;
+
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!expanded || !element) return;
+    const owner = element.parentElement?.getBoundingClientRect();
+    if (!owner) return;
+    const height = element.getBoundingClientRect().height;
+    const spaceBelow = window.innerHeight - reservedBottom() - owner.bottom;
+    setAbove(height + 4 > spaceBelow && owner.top - 8 >= height);
+  }, [expanded]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -114,52 +140,55 @@ export default function Listbox({
       <span id={labelId} className="listbox-label">
         {label}
       </span>
-      <button
-        type="button"
-        role="combobox"
-        className="listbox-control"
-        aria-haspopup="listbox"
-        aria-expanded={expanded}
-        aria-controls={listId}
-        aria-labelledby={labelId}
-        aria-activedescendant={expanded ? optionId(active) : undefined}
-        disabled={disabled}
-        onClick={(event) => {
-          event.currentTarget.focus();
-          if (expanded) setOpen(false);
-          else show();
-        }}
-        onKeyDown={press}
-        onBlur={() => setOpen(false)}
-      >
-        <span>{options[current]?.label}</span>
-        <ChevronDown size={18} aria-hidden="true" />
-      </button>
-      {expanded && (
-        <ul
-          ref={list}
-          id={listId}
-          role="listbox"
+      <div className="listbox-field">
+        <button
+          type="button"
+          role="combobox"
+          className="listbox-control"
+          aria-haspopup="listbox"
+          aria-expanded={expanded}
+          aria-controls={listId}
           aria-labelledby={labelId}
-          className="listbox-options"
-          onMouseDown={(event) => event.preventDefault()}
+          aria-activedescendant={expanded ? optionId(active) : undefined}
+          disabled={disabled}
+          onClick={(event) => {
+            event.currentTarget.focus();
+            if (expanded) setOpen(false);
+            else show();
+          }}
+          onKeyDown={press}
+          onBlur={() => setOpen(false)}
         >
-          {options.map((option, index) => (
-            <li
-              key={option.value}
-              id={optionId(index)}
-              role="option"
-              aria-selected={index === current}
-              data-active={index === active}
-              onMouseMove={() => setActive(index)}
-              onClick={() => commit(index)}
-            >
-              <span>{option.label}</span>
-              {index === current && <Check size={16} aria-hidden="true" />}
-            </li>
-          ))}
-        </ul>
-      )}
+          <span>{options[current]?.label}</span>
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        {expanded && (
+          <ul
+            ref={list}
+            id={listId}
+            role="listbox"
+            aria-labelledby={labelId}
+            className="listbox-options"
+            data-placement={above ? "above" : "below"}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {options.map((option, index) => (
+              <li
+                key={option.value}
+                id={optionId(index)}
+                role="option"
+                aria-selected={index === current}
+                data-active={index === active}
+                onMouseMove={() => setActive(index)}
+                onClick={() => commit(index)}
+              >
+                <span>{option.label}</span>
+                {index === current && <Check size={16} aria-hidden="true" />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

@@ -444,8 +444,10 @@
     gap: 12px;
   }
 }
-.listbox {
+.listbox-field {
   position: relative;
+}
+.listbox {
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -497,6 +499,11 @@
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.listbox-options[data-placement="above"] {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
 }
 .listbox-options li {
   display: flex;
