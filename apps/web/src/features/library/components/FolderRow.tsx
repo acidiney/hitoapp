@@ -21,6 +21,12 @@ function status(folder: Schema<"MusicFolder">): {
       tone: "action",
       label: `Scanning · ${job.progress.toLocaleString()} files read`,
     };
+  if (job?.state === "failed" && job.failure === "media_tools_missing")
+    return {
+      tone: "warning",
+      label:
+        "FFmpeg is not installed. Install it (for example `brew install ffmpeg`) and scan again.",
+    };
   if (job?.state === "failed")
     return {
       tone: "warning",
