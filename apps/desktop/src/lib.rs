@@ -3,6 +3,7 @@ mod backend;
 mod browser;
 mod folders;
 mod host;
+mod loopback;
 #[cfg(feature = "gui")]
 mod native_picker;
 #[cfg(feature = "gui")]
@@ -14,6 +15,7 @@ mod user_agent;
 pub use browser::SystemBrowser;
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
+pub use loopback::{DEFAULT_RETURN_PORT, InvalidReturnPort, RETURN_PORT_SETTING, ReturnPort};
 #[cfg(feature = "gui")]
 pub use native_picker::NativePicker;
 #[cfg(feature = "gui")]

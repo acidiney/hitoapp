@@ -1,4 +1,10 @@
-use crate::{Error, FolderPicker, Paths, Result, access::Access, folders, storage};
+use crate::{
+    Error, FolderPicker, Paths, Result, ReturnPort,
+    access::Access,
+    folders,
+    loopback::{DesktopBrowser, LoopbackReturn},
+    storage,
+};
 use hito_server::HostBrowser;
 use std::sync::Arc;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
@@ -11,12 +17,13 @@ pub struct LocalHost {
     entry: Url,
     stop: Option<oneshot::Sender<()>>,
     serving: Option<Serving>,
+    returns: Option<Arc<LoopbackReturn>>,
 }
 
 impl LocalHost {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn start(paths: Paths) -> Result<Self> {
-        Self::start_with_folders(paths, None, None, None).await
+        Self::start_with_folders(paths, None, None, None, ReturnPort::default()).await
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
@@ -25,6 +32,7 @@ impl LocalHost {
         media: Option<hito_playback::MediaIntegration>,
         picker: Option<Arc<dyn FolderPicker>>,
         browser: Option<Arc<dyn HostBrowser>>,
+        return_port: ReturnPort,
     ) -> Result<Self> {
         let lock = storage::claim(&paths.data)?;
         let folders = picker.map(|picker| folders::host(paths.music.clone(), picker));
@@ -61,6 +69,18 @@ impl LocalHost {
             Some(media) => hito_playback::Player::start_with_media(services.clone(), media),
             None => hito_playback::Player::start(services.clone()),
         };
+        let returns = browser.as_ref().map(|_| {
+            Arc::new(LoopbackReturn::new(
+                return_port,
+                hito_server::loopback_return_router(services.clone(), config.http.clone()),
+            ))
+        });
+        let browser: Option<Arc<dyn HostBrowser>> = match (browser, &returns) {
+            (Some(opener), Some(returns)) => {
+                Some(Arc::new(DesktopBrowser::new(opener, returns.clone())))
+            }
+            (browser, _) => browser,
+        };
         let router = hito_server::router_with_hosts(
             services.clone(),
             config.http,
@@ -83,6 +103,7 @@ impl LocalHost {
             entry,
             stop: Some(stop),
             serving: Some(serving),
+            returns,
         })
     }
 
@@ -92,6 +113,9 @@ impl LocalHost {
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn shutdown(mut self) -> Result<()> {
+        if let Some(returns) = self.returns.take() {
+            returns.close().await;
+        }
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }

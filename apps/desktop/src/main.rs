@@ -4,8 +4,8 @@ mod exit;
 
 use exit::{Decision, Lifecycle};
 use hito_desktop::{
-    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, SystemBrowser, SystemMedia,
-    WindowHandle, music_folder, user_agent,
+    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, RETURN_PORT_SETTING, ReturnPort,
+    SystemBrowser, SystemMedia, WindowHandle, music_folder, user_agent,
 };
 use hito_playback::{MediaIntegration, media_commands};
 use std::sync::Mutex;
@@ -60,6 +60,8 @@ fn main() {
                 SystemMedia::new(controls, data.join("media-artwork")),
                 commands,
             );
+            let return_port =
+                ReturnPort::from_setting(std::env::var(RETURN_PORT_SETTING).ok().as_deref())?;
             let host = tauri::async_runtime::block_on(LocalHost::start_with_folders(
                 Paths {
                     data: data.clone(),
@@ -71,6 +73,7 @@ fn main() {
                 Some(std::sync::Arc::new(SystemBrowser::new(|url| {
                     tauri_plugin_opener::open_url(url, None::<&str>).is_ok()
                 }))),
+                return_port,
             ))?;
             let entry = host.entry_url();
             let origin = entry.origin();
