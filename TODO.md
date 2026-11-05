@@ -391,6 +391,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Publish server containers/binaries, Compose deployment, Linux packages, and signed macOS/Windows installers.
 - [x] Add development setup launchers with native folder selection and generated Docker read-only mounts; manual `HITO_MUSIC_FOLDER` setup is an advanced option.
 - [ ] Verify native setup dialogs, permissions, drive reconnects, project discovery/adoption, stopped backups, and rollback on macOS, Windows, and Linux; package the setup experience for distribution.
+- [ ] Remove the desktop dependency on a separately installed FFmpeg: bundle `ffprobe` and `ffmpeg` with the app or add a Symphonia-only scan path. Until then the host finds installed tools in `PATH` and well-known directories and a missing install is reported as "FFmpeg is not installed". See [FFmpeg requirement](docs/desktop.md#ffmpeg-requirement).
 - [ ] Complete platform verification on all three desktop systems.
 - [ ] Provision community hosting/DNS and provider test accounts.
 - [ ] Protect signing credentials, configure Apple notarization, and obtain Windows signing through SignPath or an agreed alternative.

@@ -74,6 +74,18 @@ Settings > Plugins hands a provider's sign-in page to the system browser instead
 
 The provider returns to a fixed loopback address, not to the private backend. The desktop host binds `127.0.0.1:47321` when a sign-in begins (setting `HITO_DESKTOP_OAUTH_PORT` changes the port), serves only `/api/v1/plugin-authorization/callback` there, and closes it after eleven idle minutes or at shutdown. The system browser needs no window cookie to reach it. The one-time `state` and the PKCE verifier, which never leaves the backend, decide whether an attempt completes. Register `http://127.0.0.1:47321/api/v1/plugin-authorization/callback` once with the provider, for example under Redirect URIs in the Spotify developer dashboard. If the port is taken, Connect says so in plain words and does not pick another port. The rules, threats and tests are in [the loopback return](plugins.md#desktop-loopback-return). Only Linux has run, with stub openers and a fake provider. macOS, Windows and a real provider are untested.
 
+## FFmpeg requirement
+
+Scanning needs the `ffprobe` and `ffmpeg` programs installed on the computer. Hito does not bundle them yet. An app opened from the macOS Finder or a Linux launcher does not see the shell `PATH`, so the host resolves each tool once at startup and gives core absolute paths. The lookup order is:
+
+1. `HITO_FFPROBE` and `HITO_FFMPEG`, used as given when set.
+2. The directories in the process `PATH` (absolute entries only).
+3. Well-known directories: on macOS `/opt/homebrew/bin`, `/usr/local/bin` and `/opt/local/bin`; on Linux `/usr/bin` and `/usr/local/bin`. Windows has no extra directories, so only `PATH` and the two variables apply.
+
+Only regular files with an execute permission are accepted. Directories and files inside the Music folder are never used. If a tool is not found, the bare name stays and a scan fails with its own message in the folder row: "FFmpeg is not installed. Install it (for example `brew install ffmpeg`) and scan again." A folder or permission failure keeps the separate "Scan failed. Check the folder and try again." message. The job reports the reason as `failure: "media_tools_missing"`. Linux Docker tests cover the lookup order, the failed job and the folder row text. The Finder launch on macOS itself has not been exercised in a test.
+
+Open: bundle FFmpeg with the app, or add a Symphonia-only scan path, so a first run does not depend on a separate install. See [the backlog](../TODO.md).
+
 ## Without a server or a network
 
 The desktop app needs no Hito server and no internet connection for its own library. Setup, the owner account, choosing and scanning the Music folder, local playback, History and restart all run against the private loopback backend and the local SQLite file. Nothing in that path talks to a remote Hito server, and the desktop client has no setting for one yet. Synchronization with a server is planned, not built.
