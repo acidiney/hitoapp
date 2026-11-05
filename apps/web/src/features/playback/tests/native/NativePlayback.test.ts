@@ -19,6 +19,19 @@ test("a device that cannot play the source says so instead of the generic playba
   }
 });
 
+test("the preparing phase presents a loading state while the next track source is prepared", async () => {
+  const service = nativeService();
+  service.state.phase = "preparing";
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() => expect(player.snapshot().loading).toBe(true));
+    expect(player.snapshot().controlsAvailable).toBe(true);
+  } finally {
+    player.close();
+  }
+});
+
 test("a queued track skipped for an unplayable format keeps the specific reason", async () => {
   const service = nativeService();
   service.state.last_failure = {

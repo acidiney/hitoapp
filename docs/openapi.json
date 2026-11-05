@@ -25012,6 +25012,7 @@
           "opening",
           "ready",
           "releasing",
+          "preparing",
           "failed",
           "suspended"
         ]

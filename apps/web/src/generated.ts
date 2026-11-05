@@ -4522,7 +4522,7 @@ export interface components {
             lease: string;
         };
         /** @enum {string} */
-        PlayerPhase: "idle" | "resolving" | "loading" | "opening" | "ready" | "releasing" | "failed" | "suspended";
+        PlayerPhase: "idle" | "resolving" | "loading" | "opening" | "ready" | "releasing" | "preparing" | "failed" | "suspended";
         PlayerPosition: {
             /** Format: int64 */
             duration_ms?: number | null;

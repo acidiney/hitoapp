@@ -225,6 +225,7 @@ export class NativePlayback implements Player {
         value.phase === "resolving" ||
         value.phase === "opening" ||
         value.phase === "releasing" ||
+        value.phase === "preparing" ||
         value.seeking,
       volume: value.volume / 1000,
       error: playbackError(value),

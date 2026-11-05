@@ -300,6 +300,7 @@ pub enum PlayerPhase {
     Opening,
     Ready,
     Releasing,
+    Preparing,
     Failed,
     Suspended,
 }
