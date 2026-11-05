@@ -2740,6 +2740,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "image",
  "lofty",
  "serde",
  "serde_json",

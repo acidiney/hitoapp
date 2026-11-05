@@ -1,9 +1,10 @@
 use crate::{
     Config,
     api::{
-        self, browsing, catalog, collection, downloads, identity, jobs, player, playlist_follow,
-        plugin_authorization, plugins, podcasts, progress, providers, source_bindings,
-        source_choice, source_preparation, source_refresh, source_resolution, storage,
+        self, avatar, browsing, catalog, collection, downloads, identity, jobs, player,
+        playlist_follow, plugin_authorization, plugins, podcasts, progress, providers,
+        source_bindings, source_choice, source_preparation, source_refresh, source_resolution,
+        storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -86,6 +87,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::unlock))
         .routes(routes!(identity::record_activity))
         .routes(routes!(identity::update_display_name))
+        .routes(routes!(avatar::update_avatar, avatar::remove_avatar))
+        .routes(routes!(avatar::account_avatar))
         .routes(routes!(identity::change_password))
         .routes(routes!(identity::sessions, identity::revoke_other_sessions))
         .routes(routes!(identity::revoke_session))
@@ -300,6 +303,16 @@ pub fn router_with_hosts(
     browser: Option<Arc<dyn HostBrowser>>,
 ) -> Router {
     application(services, config, player, folders, browser)
+}
+
+pub fn loopback_return_router(services: Services, config: Config) -> Router {
+    api::loopback_return::router()
+        .layer(middleware::from_fn_with_state(
+            security::Security::new(config),
+            security::browser_security,
+        ))
+        .layer(middleware::from_fn(telemetry::request))
+        .with_state(services)
 }
 
 fn application(
