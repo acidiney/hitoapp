@@ -89,6 +89,20 @@ fn clean_client(client: Option<&str>) -> Option<String> {
     (!cleaned.is_empty()).then(|| cleaned.to_owned())
 }
 
+#[derive(sqlx::FromRow)]
+struct LoginRow {
+    #[sqlx(flatten)]
+    user: User,
+    password_hash: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct SeenRow {
+    #[sqlx(flatten)]
+    user: User,
+    quiet_seconds: i64,
+}
+
 impl Identity {
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn check_session(&self, actor: &Actor) -> Result<()> {
@@ -115,34 +129,28 @@ impl Identity {
         if credentials.password.len() > 1024 || credentials.username.len() > 64 {
             return Err(Error::Unauthorized);
         }
-        let row: Option<(String, String, bool, Option<String>, Option<String>, String)> =
-            sqlx::query_as(
-                "SELECT u.id, u.username, u.admin, u.display_name,
-                    (SELECT content_hash FROM account_avatars WHERE user_id = u.id), u.password_hash
+        let row: Option<LoginRow> = sqlx::query_as(
+            "SELECT u.id, u.username, u.admin, u.display_name,
+                    (SELECT content_hash FROM account_avatars WHERE user_id = u.id) AS avatar_version,
+                    u.password_hash
              FROM users u WHERE u.username = ?",
-            )
-            .bind(credentials.username.trim())
-            .fetch_optional(&self.store.pool)
-            .await?;
-        let Some((id, username, admin, display_name, avatar_version, hash)) = row else {
+        )
+        .bind(credentials.username.trim())
+        .fetch_optional(&self.store.pool)
+        .await?;
+        let Some(LoginRow {
+            user,
+            password_hash: hash,
+        }) = row
+        else {
             return Err(Error::Unauthorized);
         };
         let hash_snapshot = hash.clone();
         if !credentials::verify(credentials.password, hash).await? {
             return Err(Error::Unauthorized);
         }
-        self.create_session(
-            User {
-                id,
-                username,
-                admin,
-                display_name,
-                avatar_version,
-            },
-            Some(&hash_snapshot),
-            client,
-        )
-        .await
+        self.create_session(user, Some(&hash_snapshot), client)
+            .await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
@@ -176,17 +184,13 @@ impl Identity {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn authenticate(&self, token: &str) -> Result<Actor> {
         let session_hash = token_hash(token);
-        let (id, username, admin, display_name, avatar_version, quiet_seconds): (
-            String,
-            String,
-            bool,
-            Option<String>,
-            Option<String>,
-            i64,
-        ) = sqlx::query_as(
+        let SeenRow {
+            user,
+            quiet_seconds,
+        } = sqlx::query_as(
             "SELECT u.id, u.username, u.admin, u.display_name,
-                    (SELECT content_hash FROM account_avatars WHERE user_id = u.id),
-                    unixepoch() - s.last_seen_at
+                    (SELECT content_hash FROM account_avatars WHERE user_id = u.id) AS avatar_version,
+                    unixepoch() - s.last_seen_at AS quiet_seconds
              FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.token_hash = ? AND s.expires_at > unixepoch()",
         )
@@ -194,13 +198,6 @@ impl Identity {
         .fetch_optional(&self.store.pool)
         .await?
         .ok_or(Error::Unauthorized)?;
-        let user = User {
-            id,
-            username,
-            admin,
-            display_name,
-            avatar_version,
-        };
         if quiet_seconds >= SEEN_INTERVAL_SECONDS {
             self.record_seen(&session_hash);
         }
