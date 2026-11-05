@@ -1,5 +1,6 @@
 pub mod capture;
 pub mod continuity;
+pub mod m4a;
 
 use std::{
     fs::File,

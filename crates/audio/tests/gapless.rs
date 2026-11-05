@@ -4,6 +4,7 @@ use hito_audio::Player;
 use hito_audio::test_support as support;
 use hito_audio::test_support::capture::{Capture, wait};
 use hito_audio::test_support::continuity::{audit, counter, dump, heard, level, longest_run};
+use hito_audio::test_support::m4a::{Declared, aac_tone};
 use std::{fs::File, path::Path, process::Command, time::Duration};
 
 const RATE: u32 = 48_000;
@@ -324,11 +325,11 @@ fn quiet_run(samples: &[f32]) -> usize {
     longest
 }
 
-fn lossy_boundary_silence(name: &str, codec: &str, extra: &[&str]) -> usize {
+fn lossy_boundary_silence(name: &str, encode: impl Fn(&Path)) -> usize {
     let root = tempfile::tempdir().unwrap();
     let (first, second) = (root.path().join(name), root.path().join(format!("2{name}")));
-    tone(&first, codec, extra);
-    tone(&second, codec, extra);
+    encode(&first);
+    encode(&second);
     let capture = Capture::open();
     let mut player = Player::open(File::open(&first).unwrap()).unwrap();
     player.prepare_next(File::open(&second).unwrap()).unwrap();
@@ -336,6 +337,7 @@ fn lossy_boundary_silence(name: &str, codec: &str, extra: &[&str]) -> usize {
     wait(|| player.snapshot().ended);
     assert_eq!(player.snapshot().track, 1);
     let captured = finish(&capture, player);
+    dump(&format!("lossy-{name}"), &captured);
     let start = captured
         .iter()
         .position(|sample| sample.abs() > 0.0005)
@@ -347,17 +349,36 @@ fn lossy_boundary_silence(name: &str, codec: &str, extra: &[&str]) -> usize {
 #[test]
 #[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
 fn lossy_streams_join_without_silence_only_when_their_delay_is_declared() {
-    let tagged = lossy_boundary_silence("tagged.mp3", "libmp3lame", &[]);
-    let vorbis = lossy_boundary_silence("tagged.ogg", "libvorbis", &[]);
-    let untagged = lossy_boundary_silence("untagged.mp3", "libmp3lame", &["-write_xing", "0"]);
-    let aac = lossy_boundary_silence("priming.m4a", "aac", &[]);
+    let tagged = lossy_boundary_silence("tagged.mp3", |path| tone(path, "libmp3lame", &[]));
+    let vorbis = lossy_boundary_silence("tagged.ogg", |path| tone(path, "libvorbis", &[]));
+    let untagged = lossy_boundary_silence("untagged.mp3", |path| {
+        tone(path, "libmp3lame", &["-write_xing", "0"])
+    });
+    let aac_adts = lossy_boundary_silence("priming.aac", |path| tone(path, "aac", &["-f", "adts"]));
+    let aac_edit_list =
+        lossy_boundary_silence("elst.m4a", |path| aac_tone(path, Declared::EditList));
+    let aac_itunsmpb = lossy_boundary_silence("smpb.m4a", |path| {
+        aac_tone(
+            path,
+            Declared::ItunesSmpb {
+                priming: 1_024,
+                padding: 576,
+                length: u64::from(HALF_SECOND),
+            },
+        )
+    });
+    let aac_nothing =
+        lossy_boundary_silence("nothing.m4a", |path| aac_tone(path, Declared::Nothing));
     eprintln!(
-        "mp3 with LAME tag gap frames={tagged}, vorbis gap frames={vorbis}, mp3 without tag gap frames={untagged}, aac gap frames={aac}"
+        "mp3 with LAME tag gap frames={tagged}, vorbis gap frames={vorbis}, mp3 without tag gap frames={untagged}, aac adts gap frames={aac_adts}, aac m4a edit list gap frames={aac_edit_list}, aac m4a iTunSMPB gap frames={aac_itunsmpb}, aac m4a declaring nothing gap frames={aac_nothing}"
     );
     assert!(tagged <= 16);
     assert!(vorbis <= 16);
     assert!(untagged > 500);
-    assert!(aac > 100);
+    assert!(aac_adts > 100);
+    assert!(aac_nothing > 100);
+    assert!(aac_edit_list <= 16);
+    assert!(aac_itunsmpb <= 16);
 }
 
 #[test]
