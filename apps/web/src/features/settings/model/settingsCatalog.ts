@@ -6,6 +6,7 @@ export type SettingId =
   | "change-password"
   | "open-sessions"
   | "screen-lock"
+  | "listening-history"
   | "automatic-lookups"
   | "lyrics"
   | "community"
@@ -68,6 +69,14 @@ const ENTRIES: SettingEntry[] = [
     description:
       "A 4 to 8 digit PIN locks this session while you step away. It never replaces your password: five wrong PINs sign you out, and changing or removing it needs your password.",
     keywords: "pin idle timeout lock",
+  },
+  {
+    id: "listening-history",
+    section: "privacy",
+    label: "Listening history",
+    description:
+      "Choose whether Hito remembers what you play, or delete what it has saved. Only this account is affected.",
+    keywords: "history recently played pause delete clear erase privacy",
   },
   {
     id: "automatic-lookups",

@@ -30,6 +30,7 @@ test("History row playback carries saved intent while toolbar playback starts no
     playlists: [],
     native_playback: true,
     lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+    history_enabled: true,
     activity: {
       history: [
         {
@@ -68,6 +69,7 @@ test("History rows link to the album the track belongs to", () => {
       playlists: [],
       native_playback: false,
       lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+      history_enabled: true,
       activity: {
         history: [
           {
