@@ -30,6 +30,7 @@ let state: ConnectionState = reachableState;
 let lostAt = 0;
 let probes = 0;
 let probing = false;
+let retryRequested = false;
 let lostChange = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
@@ -79,7 +80,12 @@ async function probe() {
   }
   log.debug("connection.probe", { count: probes, enabled: up });
   if (up) reportReachable();
-  else if (!state.reachable) schedule();
+  else if (!state.reachable) {
+    if (retryRequested) {
+      retryRequested = false;
+      void probe();
+    } else schedule();
+  }
 }
 
 export function reportUnreachable(reason: OutageReason) {
@@ -94,6 +100,7 @@ export function reportUnreachable(reason: OutageReason) {
 export function reportReachable() {
   if (state.reachable) return;
   clearTimeout(timer);
+  retryRequested = false;
   log.info("connection.restored", {
     count: probes,
     duration_ms: Date.now() - lostAt,
@@ -104,6 +111,10 @@ export function reportReachable() {
 
 export function retryConnectionNow() {
   if (state.reachable) return;
+  if (probing) {
+    retryRequested = true;
+    return;
+  }
   clearTimeout(timer);
   void probe();
 }
@@ -135,6 +146,7 @@ export function clearOutage() {
   clearTimeout(timer);
   timer = undefined;
   probing = false;
+  retryRequested = false;
   probes = 0;
   lostChange = false;
   state = reachableState;

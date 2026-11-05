@@ -120,6 +120,25 @@ test("retrying now probes immediately and regaining the network probes at once",
   expect(getConnection().reachable).toBe(true);
 });
 
+test("retrying now while a probe is in flight probes again as soon as it fails", async () => {
+  let release: (response: Response) => void = () => {};
+  const fetchMock = vi
+    .fn()
+    .mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (release = resolve)),
+    )
+    .mockResolvedValue(new Response("{}", { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  reportUnreachable("network");
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  retryConnectionNow();
+  release(new Response("", { status: 503 }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(getConnection().reachable).toBe(true);
+});
+
 test("probes never carry credentials, bodies or the request that failed", async () => {
   const fetchMock = serverState({ value: true });
   vi.stubGlobal("fetch", fetchMock);
