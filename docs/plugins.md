@@ -10,6 +10,8 @@ Generic playlist Import a copy is deployed on the local development server, with
 
 Open Settings → Plugins. An administrator expands **Services for this server**, enters the service address, and selects **Offer service**. Hito fetches the public manifest and uses its validated name. **Advanced settings** has an optional custom label for services that require a token before exposing their manifest. An explicit label skips this initial lookup; the personal connection still validates the manifest with its own optional token.
 
+The operator can also pre-offer addresses with `HITO_PLUGIN_SERVICES=label=address,...`. At startup, and by retrying in the background until each answers, the server fetches the manifest, validates it, and adds the offer with the same address rules as the administrator form. An address that is already offered, or that an administrator withdrew, is skipped. The setting never installs a connection for any account. See the [self-hosting guide](self-hosting.md).
+
 Offers are shared choices, not shared credentials or automatic installations. Only administrators can choose addresses that Hito will contact. Ordinary accounts select an offered service and optionally enter its bearer token. No environment-variable editing is needed. Existing service labels remain unchanged.
 
 An automatic name lookup sends no credentials or browser cookies. Failed validation saves no offer. Hito rechecks the administrator's live session after the HTTP request, without holding a SQLite write transaction during network work.

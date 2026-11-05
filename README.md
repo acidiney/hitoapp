@@ -35,13 +35,13 @@ To add more folders later, run the launcher again. It keeps your existing folder
 
 ### Optional services
 
-Hito works with only your own files. You can also run optional services next to it, for example to import public Spotify playlists. Start one from the repository folder:
+Hito works with only your own files. You can also run optional services, called addons, next to it: Spotify (import public playlists) and YouTube (search and audio) first, and others such as Jamendo. Start Hito with both in one command from the repository folder:
 
 ```sh
-docker compose -p hito -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins up -d plugin-spotify
+docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile plugins up -d --build
 ```
 
-Then, in Hito, open **Settings → Plugins**, offer `http://plugin-spotify:8092/` and connect it. The other services and their addresses are listed in [plugins](docs/plugins.md). Each one is optional.
+The server offers both addresses in **Settings → Plugins**. Each account then connects them. The setup launcher can do the same: answer **Start addons** when it asks. The [self-hosting guide](docs/self-hosting.md) lists all nine addons, what each needs, how to connect, update, stop and remove them, and what to do when one fails.
 
 ### Stop it
 

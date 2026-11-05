@@ -69,6 +69,7 @@ Everything here describes a local development state. No document describes a pub
 
 ## Plugins and providers
 
+- [Self-hosting guide](self-hosting.md): running Hito with addons as an operator, in plain language.
 - [Plugin connections and protocol](plugins.md): protocol, review flow, credentials, curated catalog admission.
 - [Catalog extension contracts](plugin-catalog.md), [timed lyrics and backing tracks](plugin-timed-content.md) and [provider artwork](plugin-artwork.md): optional plugin capabilities, plus the cover lookup flow, Cover Art Archive covers and artist photos.
 - [Folder plugin](plugin-folder.md), [Spotify plugin](plugin-spotify.md), [YouTube plugin](plugin-youtube.md) and [Jamendo plugin](plugin-jamendo.md).
