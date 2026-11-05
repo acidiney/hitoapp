@@ -96,7 +96,11 @@ test("administrators offer an address and connect separately using its manifest 
   });
   fireEvent.click(screen.getByRole("button", { name: "Offer service" }));
 
-  await screen.findByRole("option", { name: "Fixture provider" });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Service").textContent).toBe(
+      "Fixture provider",
+    ),
+  );
   expect(pluginsApi.offer).toHaveBeenCalledExactlyOnceWith(
     "admin",
     { base_url: service.base_url },
@@ -260,7 +264,12 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
     services: [{ ...service, id: "other", name: "Other service" }, service],
   });
   fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
-  await screen.findByRole("option", { name: "Other service" });
+  const services = screen.getByLabelText("Service");
+  await waitFor(() => {
+    fireEvent.click(services);
+    expect(screen.getByRole("option", { name: "Other service" })).toBeTruthy();
+  });
+  fireEvent.keyDown(services, { key: "Escape" });
   expect(
     (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
       .value,
@@ -280,7 +289,9 @@ test("withdrawing the selected offer clears its token before selecting another s
     services: [{ ...service, id: "other", name: "Other service" }],
   });
   fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
-  await screen.findByRole("option", { name: "Other service" });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Service").textContent).toBe("Other service"),
+  );
   expect(
     (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
       .value,

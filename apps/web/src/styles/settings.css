@@ -221,7 +221,9 @@
   gap: 12px;
   padding: 12px 0;
 }
-.provider-add label,
+.provider-add .listbox {
+  min-width: min(260px, 100%);
+}
 .plugin-form label,
 .pin-form label,
 .password-form label,
@@ -231,14 +233,6 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 500;
-}
-.provider-add select,
-.plugin-form select {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--control-border);
-  border-radius: 10px;
-  background: var(--surface);
 }
 .profile-identity {
   display: flex;
@@ -374,18 +368,7 @@
   }
 }
 .library-chooser {
-  display: grid;
-  gap: 6px;
   max-width: 360px;
-  font-size: 13px;
-  font-weight: 500;
-}
-.library-chooser select {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--control-border);
-  border-radius: 10px;
-  background: var(--surface);
 }
 .setting-line-action .icon-button {
   min-width: 36px;

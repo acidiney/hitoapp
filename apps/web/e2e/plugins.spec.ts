@@ -270,7 +270,7 @@ test.describe("account switching", () => {
         await acceptedOffer.json();
       await expect(
         page.getByRole("combobox", { name: "Service", exact: true }),
-      ).toHaveValue(/.+/);
+      ).not.toBeEmpty();
       expect(requests).toEqual([]);
       await page.setViewportSize({ width: 390, height: 844 });
       const reviewButton = page.getByRole("button", {

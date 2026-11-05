@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import { artworkFixture } from "./fixtures/artwork";
@@ -83,10 +84,8 @@ test("existing independent playlist copies automatically retain private provider
       name: "Service",
       exact: true,
     });
-    await selector.selectOption(service.id);
-    await expect(selector.locator("option:checked")).toHaveText(
-      fixture.manifest.name,
-    );
+    await chooseOption(selector, fixture.manifest.name);
+    await expect(selector).toContainText(fixture.manifest.name);
     const token = page.getByLabel("Bearer token (optional)", { exact: true });
     const reviewButton = page.getByRole("button", {
       name: "Review connection",

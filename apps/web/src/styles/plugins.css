@@ -13,16 +13,12 @@
   gap: 8px;
   font-size: 13px;
 }
-.plugin-form input,
-.plugin-form select {
+.plugin-form input {
   width: 100%;
   min-width: 0;
   min-height: 44px;
 }
-.plugin-form select {
-  padding: 10px 12px;
-}
-.plugin-form :is(input, select, button) {
+.plugin-form :is(input, button) {
   scroll-margin-block: 24px calc(var(--player) + var(--tabs) + 24px);
 }
 .plugin-form > .button {

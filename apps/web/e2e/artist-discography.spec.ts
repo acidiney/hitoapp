@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -177,9 +178,10 @@ test(
         isDeepStrictEqual(offered.sent, { base_url: provider.address }) &&
           offered.body.name === provider.manifest.name,
       ).toBe(true);
-      await page
-        .getByRole("combobox", { name: "Service", exact: true })
-        .selectOption(offered.body.id);
+      await chooseOption(
+        page.getByRole("combobox", { name: "Service", exact: true }),
+        provider.manifest.name,
+      );
       await page
         .getByLabel("Bearer token (optional)", { exact: true })
         .fill(provider.token);
@@ -214,9 +216,10 @@ test(
       await panel
         .getByRole("button", { name: "Remove MusicBrainz", exact: true })
         .click();
-      await panel
-        .getByRole("combobox", { name: "Metadata provider", exact: true })
-        .selectOption(installed.body.id);
+      await chooseOption(
+        panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
+        provider.manifest.name,
+      );
       await panel
         .getByRole("button", { name: "Add metadata provider", exact: true })
         .click();

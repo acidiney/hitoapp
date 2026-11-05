@@ -47,9 +47,6 @@ test("a person installs the real folder demo, discovers, adopts, plays, seeks, a
   });
   await expect(
     page.getByRole("combobox", { name: "Service", exact: true }),
-  ).toHaveValue(/.+/);
-  await expect(
-    page.getByRole("combobox", { name: "Service", exact: true }),
   ).toContainText("Hito music folder");
   await page.getByText("Services for this server", { exact: true }).click();
   await page

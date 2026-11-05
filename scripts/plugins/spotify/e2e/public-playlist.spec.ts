@@ -172,8 +172,6 @@ test("a public Spotify link becomes a complete private editable metadata copy wi
     expect(service.name).toBe("Spotify public playlists");
     expect(service.base_url).toBe(pluginAddress);
     await expect(page.getByRole("combobox", { name: "Service", exact: true }))
-      .toHaveValue(service.id);
-    await expect(page.getByRole("combobox", { name: "Service", exact: true }))
       .toContainText("Spotify public playlists");
     await page.getByText("Services for this server", { exact: true }).click();
 

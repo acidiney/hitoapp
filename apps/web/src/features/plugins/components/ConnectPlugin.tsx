@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import type { PluginActions } from "../hooks/usePlugins";
 import { usePluginInstallation } from "../hooks/usePluginInstallation";
 import Button from "../../../shared/ui/Button";
+import Listbox from "../../../shared/ui/Listbox";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import PluginInstallationReview from "./PluginInstallationReview";
 
@@ -32,22 +33,16 @@ export default function ConnectPlugin({
           void workflow.preview();
         }}
       >
-        <label>
-          Service
-          <select
-            value={service.id}
-            disabled={actions.pending}
-            onChange={(event) => {
-              workflow.select(event.target.value);
-            }}
-          >
-            {services.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Listbox
+          label="Service"
+          value={service.id}
+          options={services.map((item) => ({
+            value: item.id,
+            label: item.name,
+          }))}
+          disabled={actions.pending}
+          onChange={workflow.select}
+        />
         <p className="plugin-address">{service.base_url}</p>
         <label>
           Bearer token (optional)

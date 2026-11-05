@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
+import { choose } from "../../../test/listbox";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import PluginSettings from "../components/PluginSettings";
 import { usePlugins } from "../hooks/usePlugins";
@@ -246,9 +247,7 @@ test("changing the token invalidates a reviewed declaration and previews only th
 test("selecting another service discards its predecessor's review and credential", async () => {
   const http = workflow("explicit_download");
   await reviewConnection(installationToken);
-  fireEvent.change(screen.getByLabelText("Service"), {
-    target: { value: otherService.id },
-  });
+  choose(screen.getByLabelText("Service"), otherService.name);
   expect(
     screen.queryByRole("heading", { name: "Review connection" }),
   ).toBeNull();
@@ -555,10 +554,7 @@ test.each(["token", "service"] as const)(
       fireEvent.change(screen.getByLabelText("Bearer token (optional)"), {
         target: { value: replacementInstallationToken },
       });
-    else
-      fireEvent.change(screen.getByLabelText("Service"), {
-        target: { value: otherService.id },
-      });
+    else choose(screen.getByLabelText("Service"), otherService.name);
     await waitFor(() => expect(signal?.aborted).toBe(true));
     await act(async () => held.release());
     expect(

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -148,9 +149,10 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toBe(true);
     if (!offered.body)
       throw new Error("The offered artist provider is missing");
-    await page
-      .getByRole("combobox", { name: "Service", exact: true })
-      .selectOption(offered.body.id);
+    await chooseOption(
+      page.getByRole("combobox", { name: "Service", exact: true }),
+      owned.manifest.name,
+    );
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);
@@ -194,9 +196,10 @@ test("an account reviews a namesake through its chosen metadata provider without
     await panel
       .getByRole("button", { name: "Remove MusicBrainz", exact: true })
       .click();
-    await panel
-      .getByRole("combobox", { name: "Metadata provider", exact: true })
-      .selectOption(installed.body.id);
+    await chooseOption(
+      panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
+      owned.manifest.name,
+    );
     await panel
       .getByRole("button", { name: "Add metadata provider", exact: true })
       .click();

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { chooseOption } from "./fixtures/listbox";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
@@ -137,10 +138,7 @@ test.describe("isolated packaged YouTube", () => {
         name: "Service",
         exact: true,
       });
-      await expect(
-        service.getByRole("option", { name: "YouTube", exact: true }),
-      ).toHaveCount(1);
-      await service.selectOption(offered.id);
+      await chooseOption(service, "YouTube");
 
       next("personal connection without a bearer");
       await expect(

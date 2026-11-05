@@ -5,6 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { choose } from "../../../test/listbox";
 import { isOn } from "../../../test/switch";
 import { beforeEach, expect, test, vi } from "vitest";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
@@ -42,11 +43,8 @@ function selectedRows() {
   ).getAllByRole("listitem");
 }
 
-function add(installation: string) {
-  fireEvent.change(
-    screen.getByRole("combobox", { name: "Metadata provider" }),
-    { target: { value: installation } },
-  );
+function add(position: number) {
+  choose(screen.getByRole("combobox", { name: "Metadata provider" }), position);
   fireEvent.click(
     screen.getByRole("button", { name: "Add metadata provider" }),
   );
@@ -68,14 +66,14 @@ test("personally approved catalogs replace the built-in provider and save their 
     settings(ordered, 8),
   );
   render(preferences());
-  const selector = (await screen.findByRole("combobox", {
+  const selector = await screen.findByRole("combobox", {
     name: "Metadata provider",
-  })) as HTMLSelectElement;
-  expect(Array.from(selector.options, (option) => option.value)).not.toContain(
-    search.installation.id,
-  );
-  add(first.installation.id);
-  add(second.installation.id);
+  });
+  fireEvent.click(selector);
+  expect(screen.getAllByRole("option")).toHaveLength(2);
+  fireEvent.keyDown(selector, { key: "Escape" });
+  add(0);
+  add(0);
   expect(selectedRows()).toHaveLength(3);
   fireEvent.click(
     within(selectedRows()[0]).getByRole("button", { name: /Remove/ }),
@@ -129,9 +127,7 @@ test("the selected provider list cannot grow past its account limit", async () =
   const selector = await screen.findByRole("combobox", {
     name: "Metadata provider",
   });
-  fireEvent.change(selector, {
-    target: { value: catalogs[7].installation.id },
-  });
+  choose(selector, 0);
   const addButton = screen.getByRole("button", {
     name: "Add metadata provider",
   }) as HTMLButtonElement;

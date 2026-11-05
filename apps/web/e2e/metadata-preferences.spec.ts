@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { chooseOption } from "./fixtures/listbox";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
@@ -183,9 +184,10 @@ test("account metadata preferences persist ordered personal providers without to
       ).toBe(true);
       if (!offered.body)
         throw new Error("The offered catalog identity is missing");
-      await page
-        .getByRole("combobox", { name: "Service", exact: true })
-        .selectOption(offered.body.id);
+      await chooseOption(
+        page.getByRole("combobox", { name: "Service", exact: true }),
+        index,
+      );
       const reviewed = await reviewPluginInstallation(
         page,
         offered.body,
@@ -238,9 +240,10 @@ test("account metadata preferences persist ordered personal providers without to
       exact: true,
     });
     for (const connection of connections) {
-      await panel
-        .getByRole("combobox", { name: "Metadata provider", exact: true })
-        .selectOption(connection.id);
+      await chooseOption(
+        panel.getByRole("combobox", { name: "Metadata provider", exact: true }),
+        0,
+      );
       await panel
         .getByRole("button", { name: "Add metadata provider", exact: true })
         .click();

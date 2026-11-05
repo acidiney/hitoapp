@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "../components/LibrarySettings";
+import { choose } from "../../../test/listbox";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { storageApi } from "../api/storageApi";
 
@@ -170,7 +171,7 @@ test("failed folder connection preserves the selection and shows a retryable err
   ).toContain("Albums");
 });
 
-test("several shared libraries are chosen from an accessible select", async () => {
+test("several shared libraries are chosen from an accessible listbox", async () => {
   vi.mocked(storageApi.folders).mockResolvedValue([]);
   render(
     createElement(
@@ -187,7 +188,7 @@ test("several shared libraries are chosen from an accessible select", async () =
   );
   const chooser = await screen.findByRole("combobox", { name: "Library" });
   expect(screen.queryByRole("radiogroup", { name: "Library" })).toBeNull();
-  fireEvent.change(chooser, { target: { value: "b" } });
+  choose(chooser, "Archive");
   await waitFor(() =>
     expect(storageApi.folders).toHaveBeenLastCalledWith(
       "admin",
@@ -195,4 +196,55 @@ test("several shared libraries are chosen from an accessible select", async () =
       expect.anything(),
     ),
   );
+});
+
+test("the folder picker is a labelled modal dialog that closes with Escape and returns focus", async () => {
+  render(
+    createElement(NoticeProvider, null, createElement(LibrarySettings, props)),
+  );
+  const opener = await screen.findByRole("button", {
+    name: "Add music folder",
+  });
+  opener.focus();
+  fireEvent.click(opener);
+  const dialog = await screen.findByRole("dialog", {
+    name: "Add a music folder",
+  });
+  expect(dialog.className).toContain("dialog");
+  expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+  expect(dialog.textContent).toContain(
+    "Choose a folder shared with this Hito server.",
+  );
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(opener);
+});
+
+test("the folder picker cannot be dismissed while a folder is being added", async () => {
+  let release: (value: Schema<"MusicFolder">) => void = () => {};
+  vi.mocked(storageApi.connect).mockReturnValue(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
+  );
+  render(
+    createElement(NoticeProvider, null, createElement(LibrarySettings, props)),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add music folder" }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Open My music" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Use this folder" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  await screen.findByRole("button", { name: "Adding folder…" });
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: "Close folder browser" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  release(folder);
 });

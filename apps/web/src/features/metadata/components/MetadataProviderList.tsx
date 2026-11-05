@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import Button from "../../../shared/ui/Button";
+import Listbox from "../../../shared/ui/Listbox";
 import SettingRow from "../../../shared/ui/SettingRow";
 
 type ProviderOption = {
@@ -104,20 +105,16 @@ export default function MetadataProviderList({
       {!providers.length && <p>No metadata providers selected.</p>}
       {available.length ? (
         <div className="provider-add">
-          <label>
-            Metadata provider
-            <select
-              value={selected?.key ?? ""}
-              disabled={pending}
-              onChange={(event) => setChoice(event.target.value)}
-            >
-              {available.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Listbox
+            label="Metadata provider"
+            value={selected?.key ?? ""}
+            options={available.map((option) => ({
+              value: option.key,
+              label: option.label,
+            }))}
+            disabled={pending}
+            onChange={setChoice}
+          />
           <Button
             disabled={pending || !canAdd || !selected}
             onClick={() => {

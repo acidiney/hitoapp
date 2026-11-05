@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { chooseOption } from "./fixtures/listbox";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
@@ -115,9 +116,10 @@ test("source-free imported albums preserve unknown credits through personal edit
       offered.body.base_url === owned.address &&
         offered.body.name === owned.manifest.name,
     ).toBe(true);
-    await page
-      .getByRole("combobox", { name: "Service", exact: true })
-      .selectOption(offered.body.id);
+    await chooseOption(
+      page.getByRole("combobox", { name: "Service", exact: true }),
+      owned.manifest.name,
+    );
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);

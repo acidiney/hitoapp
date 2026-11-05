@@ -444,3 +444,78 @@
     gap: 12px;
   }
 }
+.listbox {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.listbox-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.listbox-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: start;
+}
+.listbox-control > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listbox-control > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.listbox-control[aria-expanded="true"] {
+  border-color: var(--action);
+}
+.listbox-control[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+.listbox-options {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  z-index: 20;
+  max-height: min(280px, 50dvh);
+  margin: 4px 0 0;
+  padding: 4px;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.listbox-options li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.listbox-options li[data-active="true"] {
+  background: var(--subtle);
+}
+.listbox-options li[aria-selected="true"] {
+  font-weight: 700;
+}
+.listbox-options li > svg {
+  flex: 0 0 auto;
+  color: var(--action);
+}

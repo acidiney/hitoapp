@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Folder } from "lucide-react";
 
+import Listbox from "../../../shared/ui/Listbox";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -18,19 +19,17 @@ export default function LibrarySettings({
     return (
       <>
         {shared.length > 1 && (
-          <label className="library-chooser">
-            Library
-            <select
+          <div className="library-chooser">
+            <Listbox
+              label="Library"
               value={library.id}
-              onChange={(event) => select(event.target.value)}
-            >
-              {shared.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={shared.map((item) => ({
+                value: item.id,
+                label: item.name,
+              }))}
+              onChange={select}
+            />
+          </div>
         )}
         <MusicFolders
           key={`${user.id}\0${library.id}`}
