@@ -1,7 +1,10 @@
 mod origins;
 mod watching;
 
-use hito_core::{CommunityConfig, CommunityRankingConfig, CoreConfig, HostDeviceId, StorageConfig};
+use hito_core::{
+    CommunityConfig, CommunityRankingConfig, ConfiguredPluginService, CoreConfig, HostDeviceId,
+    StorageConfig,
+};
 use origins::{parse_additional_origins, validate_combined_origins};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
@@ -33,6 +36,7 @@ pub struct RuntimeConfig {
     pub http: Config,
     pub listen: SocketAddr,
     pub json_logs: bool,
+    pub plugin_services: Vec<ConfiguredPluginService>,
     pub(crate) community_config_invalid: bool,
     pub(crate) community_ranking_config_invalid: bool,
 }
@@ -108,6 +112,17 @@ impl RuntimeConfig {
             .ok()
             .map(|contact| contact.trim().to_owned())
             .filter(|contact| !contact.is_empty());
+        config.plugin_services = match std::env::var("HITO_PLUGIN_SERVICES") {
+            Ok(value) => ConfiguredPluginService::parse_list(&value)?,
+            Err(std::env::VarError::NotPresent) => Vec::new(),
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "HITO_PLUGIN_SERVICES must contain valid UTF-8",
+                )
+                .into());
+            }
+        };
         config.listen = std::env::var("HITO_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:8080".into())
             .parse()?;
@@ -176,6 +191,7 @@ impl RuntimeConfig {
             },
             listen: SocketAddr::from(([0, 0, 0, 0], 8080)),
             json_logs: false,
+            plugin_services: Vec::new(),
             community_config_invalid: false,
             community_ranking_config_invalid: false,
         })

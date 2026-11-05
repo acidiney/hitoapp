@@ -4,12 +4,14 @@ mod downloads;
 mod follows;
 mod indexing;
 mod matching;
+mod plugin_offers;
 mod podcasts;
 mod polling;
 mod retention;
 mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
+pub use plugin_offers::offer_configured_plugin_services;
 use std::future::Future;
 use tracing::{Instrument, instrument::WithSubscriber};
 use tracing_subscriber::prelude::*;
@@ -58,13 +60,26 @@ pub async fn run(
     tracing::info!(event = "server_starting", "Starting Hito");
     let services = hito_core::open(config.core).await?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
-    serve(
+    let (stop_offers, offers_stopped) = tokio::sync::watch::channel(false);
+    let offers = tokio::spawn(
+        offer_configured_plugin_services(
+            services.plugins.clone(),
+            config.plugin_services,
+            offers_stopped,
+        )
+        .instrument(tracing::Span::current())
+        .with_current_subscriber(),
+    );
+    let result = serve(
         listener,
         router_with_config(services.clone(), config.http),
         services,
         shutdown,
     )
-    .await
+    .await;
+    let _ = stop_offers.send(true);
+    let _ = offers.await;
+    result
 }
 
 pub async fn serve(
