@@ -217,6 +217,15 @@
 .provider-order[data-off] {
   opacity: 0.6;
 }
+.provider-order .setting-line[data-wide] .setting-line-main {
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+}
+.provider-order .setting-line-hint > span {
+  display: inline;
+}
+.provider-order .setting-line-hint > span + span::before {
+  content: " · ";
+}
 .provider-order .setting-line-action {
   display: flex;
   gap: 2px;
@@ -225,6 +234,9 @@
   color: var(--error);
 }
 @media (max-width: 767px) {
+  .provider-order .setting-line[data-wide] .setting-line-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .provider-order .icon-button {
     min-width: 44px;
     min-height: 44px;
