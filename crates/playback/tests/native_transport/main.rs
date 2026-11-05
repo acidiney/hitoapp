@@ -3,6 +3,7 @@
 mod player_native;
 mod player_native_authority;
 mod player_native_completion;
+mod player_native_deferred;
 mod player_native_failures;
 mod player_native_gapless;
 mod player_native_history;

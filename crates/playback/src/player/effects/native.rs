@@ -1,7 +1,8 @@
 use super::{
     Key, Target, Update,
     controls::Controls,
-    lookahead::{Event, Lookahead, WINDOW},
+    deferred::{BOUNDARY_WAIT, Outcome},
+    lookahead::{Event, Lookahead, PREPARATION_WINDOW, WINDOW},
     sources::Sources,
 };
 use crate::{PlayerError, PlayerPhase, Session, Status};
@@ -10,6 +11,13 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+enum Boundary {
+    Open,
+    Holding(Pin<Box<tokio::time::Sleep>>, tokio::time::Instant),
+    Released,
+}
+
 pub(crate) struct Native {
     sources: Sources,
     target: Option<Target>,
@@ -23,6 +31,7 @@ pub(crate) struct Native {
     track: u64,
     crossed: Option<Key>,
     tail: Option<(Duration, Option<Duration>)>,
+    boundary: Boundary,
 }
 impl Native {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
@@ -31,6 +40,7 @@ impl Native {
             track: 0,
             crossed: None,
             tail: None,
+            boundary: Boundary::Open,
             sources: Sources::new(catalog, playback),
             target: None,
             session: None,
@@ -154,17 +164,12 @@ impl Native {
         let (Some(target), Some(session)) = (&self.target, &self.session) else {
             return;
         };
-        let wanted = target.next.filter(|_| {
-            let snapshot = session.snapshot();
-            let remaining = snapshot
-                .format
-                .and_then(|format| format.duration)
-                .map(|duration| duration.saturating_sub(snapshot.position));
-            let window = if self.lookahead.started() {
-                WINDOW * 2
-            } else {
-                WINDOW
-            };
+        let snapshot = session.snapshot();
+        let remaining = snapshot
+            .format
+            .and_then(|format| format.duration)
+            .map(|duration| duration.saturating_sub(snapshot.position));
+        let following = target.next.filter(|_| {
             target.output
                 && target.permitted
                 && !self.failed
@@ -172,19 +177,34 @@ impl Native {
                 && self.crossed.is_none()
                 && snapshot.status == Status::Ready
                 && snapshot.track == self.track
-                && !snapshot.ended
                 && snapshot.position > Duration::ZERO
                 && self.controls.configured()
-                && remaining.is_some_and(|remaining| remaining <= window)
+        });
+        let early = following.filter(|_| {
+            let window = if self.lookahead.deferring() {
+                PREPARATION_WINDOW * 2
+            } else {
+                PREPARATION_WINDOW
+            };
+            remaining.is_some_and(|remaining| remaining <= window)
+        });
+        let wanted = early.filter(|_| {
+            let window = if self.lookahead.started() {
+                WINDOW * 2
+            } else {
+                WINDOW
+            };
+            !snapshot.ended && remaining.is_some_and(|remaining| remaining <= window)
         });
         let session = session.clone();
         let actor = target.actor.clone();
-        self.lookahead.sync(wanted, &session, &actor);
+        self.lookahead.sync(early, wanted, &session, &actor);
     }
     fn adopt(&mut self) {
         std::mem::swap(&mut self.sources, &mut self.lookahead.sources);
         self.lookahead.reset();
         self.controls.adopt();
+        self.boundary = Boundary::Open;
         self.failed = false;
         tracing::debug!(
             event = "player_lookahead_adopted",
@@ -241,21 +261,73 @@ impl Native {
                 result = self.controls.next() => {
                     if let Err(error) = result { return self.recover(Some(error)); }
                     if let Some(update) = self.crossing() { return update; }
-                    return self.snapshot();
+                    return self.held(self.snapshot());
                 },
                 event = self.lookahead.next(self.session.as_ref()), if self.lookahead.active() => {
                     if event == Event::Broken { return self.recover(None); }
+                    if event == Event::Settled && matches!(self.boundary, Boundary::Holding(..)) {
+                        return self.release("settled");
+                    }
+                },
+                _ = async {
+                    if let Boundary::Holding(timer, _) = &mut self.boundary { timer.as_mut().await }
+                }, if matches!(self.boundary, Boundary::Holding(..)) => {
+                    return self.release("timeout");
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
                     if changed.is_err() { return self.recover(None); }
                     if let Some(update) = self.crossing() { return update; }
                     let update = self.snapshot();
                     if update.phase == PlayerPhase::Failed { return self.recover(None); }
-                    return update;
+                    return self.held(update);
                 },
                 else => std::future::pending().await,
             }
         }
+    }
+    fn held(&mut self, mut update: Update) -> Update {
+        let Some(next) = self.target.as_ref().and_then(|target| target.next) else {
+            return update;
+        };
+        if !update.ended || update.phase != PlayerPhase::Ready {
+            return update;
+        }
+        if matches!(self.boundary, Boundary::Open) {
+            if !self.lookahead.waiting_for(next.key) {
+                return update;
+            }
+            self.boundary = Boundary::Holding(
+                Box::pin(tokio::time::sleep(BOUNDARY_WAIT)),
+                tokio::time::Instant::now(),
+            );
+            tracing::info!(
+                event = "player_boundary_wait_started",
+                "Holding the boundary while the next entry source is prepared"
+            );
+        }
+        if matches!(self.boundary, Boundary::Holding(..)) {
+            if !self.lookahead.waiting_for(next.key) {
+                return self.release("settled");
+            }
+            update.ended = false;
+            update.playing = false;
+            update.phase = PlayerPhase::Preparing;
+        }
+        update
+    }
+    fn release(&mut self, reason: &'static str) -> Update {
+        if let Boundary::Holding(_, since) =
+            std::mem::replace(&mut self.boundary, Boundary::Released)
+        {
+            tracing::info!(
+                event = "player_boundary_wait_finished",
+                reason,
+                ready = self.lookahead.outcome() == Some(Outcome::Ready),
+                waited_ms = since.elapsed().as_millis() as u64,
+                "Boundary hold ended"
+            );
+        }
+        self.snapshot()
     }
     fn snapshot(&self) -> Update {
         self.controls.snapshot(
@@ -285,6 +357,7 @@ impl Native {
         self.track = 0;
         self.crossed = None;
         self.tail = None;
+        self.boundary = Boundary::Open;
         self.controls.retire(snapshot);
         self.observed = None;
         if let Some(session) = self.session.take() {
@@ -346,6 +419,7 @@ impl Native {
         if let Some(mut closing) = self.closing.take() {
             closing.as_mut().await;
         }
+        self.lookahead.close().await;
         self.sources.close().await;
         tracing::info!(event = "player_native_closed", "Native effect owner joined");
     }

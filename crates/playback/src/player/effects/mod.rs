@@ -1,6 +1,8 @@
 #[cfg(feature = "device")]
 mod controls;
 #[cfg(feature = "device")]
+mod deferred;
+#[cfg(feature = "device")]
 mod lookahead;
 #[cfg(feature = "device")]
 pub(super) mod native;
