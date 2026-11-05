@@ -13,7 +13,7 @@ use axum::{
 };
 use hito_core::{
     AccountSummary, AuthSession, ChangePassword, Credentials, DeleteAccount, LockStatus, RemovePin,
-    Services, SessionInfo, SessionsRevoked, SetPin, Unlock, User,
+    Services, SessionInfo, SessionsRevoked, SetPin, Unlock, UpdateDisplayName, User,
 };
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -98,6 +98,25 @@ pub async fn logout(
 ))]
 pub async fn me(Account(actor): Account) -> Json<User> {
     Json(actor.user().clone())
+}
+
+#[utoipa::path(put, path = "/api/v1/account/display-name", operation_id = "update_display_name",
+    request_body = UpdateDisplayName, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = User), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse),
+))]
+pub async fn update_display_name(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<UpdateDisplayName>,
+) -> ApiResult<Json<User>> {
+    Ok(Json(
+        services
+            .identity
+            .set_display_name(&actor, request.display_name)
+            .await?,
+    ))
 }
 
 #[utoipa::path(get, path = "/api/v1/account/lock", security(("session" = []), ("bearer" = [])), responses(

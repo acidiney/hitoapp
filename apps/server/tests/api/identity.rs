@@ -254,7 +254,10 @@ async fn the_administrator_list_carries_only_the_newest_last_active_time() {
         .map(String::as_str)
         .collect();
     keys.sort();
-    assert_eq!(keys, ["admin", "id", "last_active_at", "username"]);
+    assert_eq!(
+        keys,
+        ["admin", "display_name", "id", "last_active_at", "username"]
+    );
     let admin_row = users
         .as_array()
         .unwrap()

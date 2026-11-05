@@ -19,7 +19,7 @@ pub(crate) use access::{library_access, personal_library, recording_access, shar
 pub use types::{
     AccountDeletion, AccountSummary, Actor, AuthSession, ChangePassword, Credentials,
     DeleteAccount, Library, LockStatus, RemovePin, SessionInfo, SessionsRevoked, SetPin, Unlock,
-    User,
+    UpdateDisplayName, User,
 };
 
 #[derive(Clone)]

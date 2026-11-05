@@ -85,6 +85,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::lock))
         .routes(routes!(identity::unlock))
         .routes(routes!(identity::record_activity))
+        .routes(routes!(identity::update_display_name))
         .routes(routes!(identity::change_password))
         .routes(routes!(identity::sessions, identity::revoke_other_sessions))
         .routes(routes!(identity::revoke_session))

@@ -9,6 +9,9 @@ mod featured;
 #[path = "api/account_sessions.rs"]
 mod account_sessions;
 
+#[path = "api/display_name.rs"]
+mod display_name;
+
 #[path = "api/history_privacy.rs"]
 mod history_privacy;
 

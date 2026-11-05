@@ -99,7 +99,7 @@ pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
     AccountDeletion, AccountSummary, Actor, AuthSession, ChangePassword, Credentials,
     DeleteAccount, Identity, Library, LockStatus, RemovePin, SESSION_SECONDS, SessionInfo,
-    SessionsRevoked, SetPin, Unlock, User,
+    SessionsRevoked, SetPin, Unlock, UpdateDisplayName, User,
 };
 pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]

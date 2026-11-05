@@ -150,6 +150,13 @@ pub struct AccountDeletion {
 
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
+pub struct UpdateDisplayName {
+    #[serde(default)]
+    pub display_name: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ChangePassword {
     pub current_password: String,
     pub new_password: String,
