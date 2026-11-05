@@ -1,4 +1,4 @@
-# Account security: password change and open sessions
+# Account security: password change, open sessions and display name
 
 Current behavior on the development tree. It runs on the local development server after a rebuild. It is not part of a public release.
 
@@ -41,9 +41,21 @@ Migration 0082 adds `created_at`, `last_seen_at` and `client` to `sessions`. Exi
 
 ### Last active in the administrator account list
 
-`GET /api/v1/users` (administrators only; everyone else gets `403`) returns `AccountSummary` rows: `id`, `username`, `admin` and `last_active_at`. `last_active_at` is the newest `last_seen_at` among that account's sessions that have not expired, as unix seconds, or `null` when the account has no open session (never signed in, or every session expired). Because last seen is written at most every 5 minutes, the time can be up to 5 minutes behind. The list shows nothing else about sessions: no ids, no client labels, no per-session times. Other views of an account (`/me`, sign-in, account creation) do not carry the field.
+`GET /api/v1/users` (administrators only; everyone else gets `403`) returns `AccountSummary` rows: `id`, `username`, `admin` and `last_active_at`. `last_active_at` is the newest `last_seen_at` among that account's sessions that have not expired, as unix seconds, or `null` when the account has no open session (never signed in, or every session expired). Because last seen is written at most every 5 minutes, the time can be up to 5 minutes behind. The list shows nothing else about sessions: no ids, no client labels, no per-session times. Other views of an account (`/me`, sign-in, account creation) do not carry `last_active_at`. The rows also carry `display_name` (null when unset), see [display name](#display-name).
+
+## Display name
+
+An account can have an optional display name next to its username. The username is still the only sign-in identity: sign-in, the account deletion confirmation and the first-run form use it, and the display name is never matched against anything.
+
+- Storage: migration 0086 adds `users.display_name`, null by default, with a check for 1 to 64 characters. Existing accounts keep null. See [database maintenance](database-maintenance.md#migration-0086-account-display-name).
+- `PUT /api/v1/account/display-name` with `{"display_name": "..."}` sets the name of the caller's own account and answers `200` with the account (`User`). A null or blank value clears it. There is no route that changes another account's name, and administrators have no edit capability for it; they only see it.
+- Rules (core): the value is trimmed, then must be 1 to 64 Unicode scalar values (not bytes, so emoji and accented letters count once). Control characters, line breaks, tabs and invisible format or bidirectional characters (zero-width space, bidi overrides and isolates, soft hyphen, the byte order mark and similar) are refused with `422`. A zero-width joiner is accepted only between two symbols, so emoji sequences such as a person with a skin tone and an occupation keep working while a joiner inside a word does not. Names are not unique; two accounts can share one. A locked session answers `423`.
+- Where it appears: `GET /me`, sign-in and account creation return `display_name` (null when unset), `GET /users` rows carry it for administrators, and the shared page props `user` carries it, so the web gets the new name after a partial reload of `user`.
+- Logging: the change logs `display_name_changed` with only whether a name is now set, never the name. The web logs the same outcome with a count of 0 or 1.
 
 ## Web
+
+Settings, Profile has a Display name card (a text field, a Save display name button that stays disabled until the text changes, a message after saving, and the server's message on refusal; the 64 character limit is also checked before sending). The account menu, the Profile header, the Accounts rows, the Home greeting and the avatar initials use the display name and fall back to the username. When a display name is set, the Profile header and each Accounts row show the username beside the role as secondary text. Initials come from the display name; a name made only of symbols uses its first symbol. The name is always rendered as text, so markup typed into it is shown literally. "Signed in as" in About keeps showing the username. First-run setup and Create account do not take a display name; it is set afterwards in Profile.
 
 Settings, Profile has a Change password card and an Open sessions card. A wrong current password (`wrong_password`) shows "The current password is not correct." and keeps what was typed for the new password; `429` adds that unknown sessions can be revoked under Open sessions; other failures, including `409`, show the server message. After a change the list is read again. Each row reads like "Firefox on macOS · Last active 5 minutes ago", with the sign-in time below it and "This session" marking the current one. Each other session has Revoke; Sign out other sessions is disabled when there are none. Both hooks cancel their requests when the page or account changes. Settings, Accounts shows each account's hint as "Administrator · Last active 5 minutes ago" or "Member · No open sessions".
 

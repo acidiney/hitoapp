@@ -187,3 +187,11 @@ Migration 0085 adds two tables. `listening_history` holds one row per account an
 For an operator: take the whole-volume backup first. Restoring it is the only way back. After the upgrade History and Home read the new table; the progress table keeps the resume positions. It is not part of a public release. See [listening history](listening-history.md).
 
 Evidence: `crates/core/tests/listening_history_upgrade.rs` checks that every earlier schema object is kept exactly, that the copy keeps each account's rows and times, that no preference row is added, that a foreign key check finds no violation and that the preference check refuses values other than 0 and 1.
+
+## Migration 0086, account display name
+
+Migration 0086 adds one nullable column, `users.display_name`, with a check that a stored value has 1 to 64 characters. Every existing account keeps null and keeps signing in with its username. No table or index is added and no row is rewritten, so the upgrade is instant. The column is part of the account row, so deleting an account removes it.
+
+For an operator: take the whole-volume backup first. Restoring it is the only way back. It is not part of a public release. See [account security](account-security.md#display-name).
+
+Evidence: `crates/core/tests/account_display_name_upgrade.rs` checks that the only schema change is the `users` table, that accounts and sessions are kept with a null name, that a foreign key check finds no violation and that the check refuses an empty value and 65 characters (ASCII and emoji) while accepting 64.
