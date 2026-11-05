@@ -3,14 +3,11 @@
 use hito_audio::Player;
 use hito_audio::test_support as support;
 use hito_audio::test_support::capture::{Capture, wait};
+use hito_audio::test_support::continuity::{audit, counter, heard, level, longest_run};
 use std::{fs::File, path::Path, process::Command, time::Duration};
 
 const RATE: u32 = 48_000;
 const HALF_SECOND: u32 = 24_000;
-
-fn counter(frame: u64) -> i16 {
-    (frame % 4000) as i16 * 8 + 8
-}
 
 fn phase_sine(frame: u64) -> i16 {
     ((frame as f64 * 440. * std::f64::consts::TAU / f64::from(RATE) + 0.3).sin() * 16_000.) as i16
@@ -20,55 +17,6 @@ fn wave(rate: u32, start: u64, frames: u32, sample: fn(u64) -> i16) -> File {
     support::wave(rate, 2, frames, move |frame, _| {
         sample(start + u64::from(frame))
     })
-}
-
-fn level(sample: f32) -> i32 {
-    (sample * 32768.).round() as i32
-}
-
-struct Audit {
-    mismatches: usize,
-    heard: usize,
-    longest_silence: usize,
-}
-
-fn audit(captured: &[f32], expected: fn(u64) -> i16, frames: usize) -> Audit {
-    let start = captured
-        .iter()
-        .position(|sample| *sample != 0.)
-        .expect("nothing was captured");
-    let end = captured.iter().rposition(|sample| *sample != 0.).unwrap();
-    let mismatches = (0..frames)
-        .filter(|index| {
-            let observed = captured.get(start + index).copied().unwrap_or(0.);
-            (level(observed) - i32::from(expected(*index as u64))).abs() > 1
-        })
-        .count();
-    Audit {
-        mismatches,
-        heard: captured[start..=end]
-            .iter()
-            .filter(|sample| **sample != 0.)
-            .count(),
-        longest_silence: longest_run(&captured[start..=end]),
-    }
-}
-
-fn longest_run(samples: &[f32]) -> usize {
-    let (mut longest, mut run) = (0, 0);
-    for sample in samples {
-        run = if *sample == 0. { run + 1 } else { 0 };
-        longest = longest.max(run);
-    }
-    longest
-}
-
-fn heard(captured: &[f32]) -> Vec<f32> {
-    captured
-        .iter()
-        .copied()
-        .filter(|sample| *sample != 0.)
-        .collect()
 }
 
 fn encode(source: File, path: &Path, codec: &str) {

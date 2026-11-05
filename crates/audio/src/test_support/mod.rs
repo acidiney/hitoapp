@@ -1,4 +1,5 @@
 pub mod capture;
+pub mod continuity;
 
 use std::{
     fs::File,

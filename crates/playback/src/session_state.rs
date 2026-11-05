@@ -43,6 +43,7 @@ pub struct Snapshot {
     pub ended: bool,
     pub position: Duration,
     pub speed: u16,
+    pub track: u64,
     pub format: Option<hito_audio::AudioFormat>,
     pub error: Option<Error>,
 }
@@ -54,6 +55,7 @@ impl Snapshot {
             ended: false,
             position: Duration::ZERO,
             speed: 1000,
+            track: 0,
             format: None,
             error: None,
         }
@@ -65,6 +67,7 @@ impl Snapshot {
             ended: audio.ended,
             position: audio.position,
             speed: (audio.speed * 1000.).round() as u16,
+            track: audio.track,
             format: Some(audio.format),
             error: audio.error.map(Error::Native),
         }

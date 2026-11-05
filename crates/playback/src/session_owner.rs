@@ -1,19 +1,20 @@
 use crate::{
     Error, Snapshot, Source, Status,
+    grants::Grants,
     session_worker::{self, OwnerStop, Request},
 };
-use hito_core::PlaybackSource;
 use std::sync::{Arc, mpsc};
 use tokio::sync::{oneshot, watch};
 
 pub(crate) async fn own(
-    grant: PlaybackSource,
+    grants: Arc<Grants>,
     requests: mpsc::Receiver<Request>,
     cancel: Arc<OwnerStop>,
     state: watch::Sender<Snapshot>,
     mut stopped: oneshot::Receiver<()>,
 ) {
     let input_stop = cancel.input();
+    let grant = grants.active(0);
     let input = tokio::select! {
         biased;
         _ = &mut stopped => { finish(&state, Status::Stopped, None); return; },
@@ -49,14 +50,26 @@ pub(crate) async fn own(
         })
     });
     let mut started = false;
+    let mut tracked = 0;
+    let mut watching = grant.clone();
+    let mut progress = state.subscribe();
     let (status, error, joined) = loop {
         tokio::select! {
             biased;
             _ = &mut stopped => break (Status::Stopped, None, false),
             _ = input_stop.cancelled() => break (Status::Stopped, None, false),
-            _ = grant.revoked() => break (Status::Revoked, Some(Error::Access), false),
+            _ = watching.revoked() => break (Status::Revoked, Some(Error::Access), false),
+            changed = progress.changed() => {
+                if changed.is_ok() {
+                    let track = progress.borrow_and_update().track;
+                    if track != tracked {
+                        tracked = track;
+                        watching = grants.active(track);
+                    }
+                }
+            },
             result = &mut worker => {
-                if grant.check().await.is_err() { break (Status::Revoked, Some(Error::Access), true); }
+                if watching.check().await.is_err() { break (Status::Revoked, Some(Error::Access), true); }
                 break match result {
                     Ok(Ok(())) => (Status::Stopped, None, true),
                     Ok(Err(error)) => (Status::Failed, Some(error), true),
@@ -64,7 +77,7 @@ pub(crate) async fn own(
                 };
             },
             result = &mut opening, if !started => {
-                if grant.check().await.is_err() { break (Status::Revoked, Some(Error::Access), false); }
+                if watching.check().await.is_err() { break (Status::Revoked, Some(Error::Access), false); }
                 if let Err(error) = result.unwrap_or(Err(Error::Worker)) { break (Status::Failed, Some(error), false); }
                 if cancel.requested() { break (Status::Stopped, None, false); }
                 if activate.send(()).is_err() { break (Status::Failed, Some(Error::Worker), false); }

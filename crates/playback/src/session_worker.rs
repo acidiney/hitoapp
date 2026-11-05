@@ -8,9 +8,15 @@ use std::{
 };
 use tokio::sync::{oneshot, watch};
 
+pub(crate) enum Order {
+    Command(Command),
+    Next(Box<Source>),
+    CancelNext,
+}
+
 pub(crate) struct Request {
-    pub command: Command,
-    pub reply: oneshot::Sender<Result<()>>,
+    pub order: Order,
+    pub reply: oneshot::Sender<Result<bool>>,
 }
 
 pub(crate) struct OwnerStop {
@@ -90,7 +96,7 @@ pub(crate) fn run(
         }
         match requests.recv_timeout(Duration::from_millis(25)) {
             Ok(request) if !request.reply.is_closed() => {
-                let result = command(&mut player, request.command);
+                let result = handle(&mut player, request.order);
                 publish(&state, Snapshot::from_audio(player.snapshot()));
                 let _ = request.reply.send(result);
             }
@@ -103,6 +109,14 @@ pub(crate) fn run(
         Ok(())
     } else {
         result.and(closed)
+    }
+}
+
+fn handle(player: &mut hito_audio::Player, order: Order) -> Result<bool> {
+    match order {
+        Order::Command(value) => command(player, value).map(|()| false),
+        Order::Next(input) => player.prepare_next(*input).map_err(Error::Native),
+        Order::CancelNext => player.cancel_next().map_err(Error::Native),
     }
 }
 

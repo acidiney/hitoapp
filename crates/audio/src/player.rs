@@ -204,7 +204,7 @@ impl Player {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
-    pub fn prepare_next(&mut self, input: impl Input + 'static) -> Result<()> {
+    pub fn prepare_next(&mut self, input: impl Input + 'static) -> Result<bool> {
         if self.state.stopped.load(Ordering::Acquire) {
             return Err(Error::Interrupted);
         }
@@ -222,7 +222,7 @@ impl Player {
             self.formats.pop();
         }
         self.formats.push(format);
-        Ok(())
+        Ok(replaced)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]

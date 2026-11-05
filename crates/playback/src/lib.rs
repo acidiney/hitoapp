@@ -16,6 +16,8 @@ pub use player::{
 };
 pub use source::Source;
 #[cfg(feature = "device")]
+mod grants;
+#[cfg(feature = "device")]
 mod session;
 #[cfg(feature = "device")]
 mod session_owner;
