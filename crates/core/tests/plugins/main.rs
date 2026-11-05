@@ -3,6 +3,7 @@
 mod featured;
 mod plugin_authorization_key_recovery;
 mod plugin_connections;
+mod plugin_connections_upgrade;
 mod plugin_install_authority;
 mod plugin_install_capacity;
 mod plugin_install_credentials;

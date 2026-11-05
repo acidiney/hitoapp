@@ -56,7 +56,10 @@ pub(super) fn statements() -> Vec<String> {
     plan.push("DELETE FROM correction_erasure_scopes WHERE kind='recording'".to_string());
     plan.push("DELETE FROM library_members WHERE user_id=?1 AND library_id NOT IN (SELECT id FROM libraries WHERE owner_id=?1)".to_string());
     plan.extend(owned(&["libraries"], "owner_id"));
-    plan.extend(owned(&["plugin_installations", "sync_events"], "user_id"));
+    plan.extend(owned(
+        &["plugin_connections", "plugin_installations", "sync_events"],
+        "user_id",
+    ));
     plan.extend(owned(&["users"], "id"));
     plan
 }
