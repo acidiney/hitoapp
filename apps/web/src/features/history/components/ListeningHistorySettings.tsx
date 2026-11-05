@@ -49,6 +49,7 @@ export default function ListeningHistorySettings({
             </p>
           )}
           <SettingRow
+            compact
             title="Delete listening history"
             hint="Removes every entry from History and clears Recently played. Likes, playlists, resume positions and downloads are not affected."
             action={
