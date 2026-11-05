@@ -1,5 +1,6 @@
 mod access;
 mod backend;
+mod browser;
 mod folders;
 mod host;
 #[cfg(feature = "gui")]
@@ -10,6 +11,7 @@ mod storage;
 mod system_media;
 mod user_agent;
 
+pub use browser::SystemBrowser;
 pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
 #[cfg(feature = "gui")]

@@ -4,8 +4,8 @@ mod exit;
 
 use exit::{Decision, Lifecycle};
 use hito_desktop::{
-    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, SystemMedia, WindowHandle,
-    music_folder, user_agent,
+    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, SystemBrowser, SystemMedia,
+    WindowHandle, music_folder, user_agent,
 };
 use hito_playback::{MediaIntegration, media_commands};
 use std::sync::Mutex;
@@ -68,6 +68,9 @@ fn main() {
                 },
                 Some(media),
                 Some(std::sync::Arc::new(NativePicker::new(app.handle().clone()))),
+                Some(std::sync::Arc::new(SystemBrowser::new(|url| {
+                    tauri_plugin_opener::open_url(url, None::<&str>).is_ok()
+                }))),
             ))?;
             let entry = host.entry_url();
             let origin = entry.origin();
