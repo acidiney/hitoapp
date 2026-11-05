@@ -42,6 +42,7 @@ pub struct CallbackPage {
     title: &'static str,
     message: &'static str,
     refresh_after_one_second: bool,
+    return_link: bool,
 }
 
 impl CallbackPage {
@@ -57,7 +58,13 @@ impl CallbackPage {
             title,
             message,
             refresh_after_one_second: false,
+            return_link: true,
         }
+    }
+
+    pub fn without_return_link(mut self) -> Self {
+        self.return_link = false;
+        self
     }
 
     pub fn retry() -> Self {
@@ -67,6 +74,7 @@ impl CallbackPage {
             title: "Finishing your connection",
             message: "Hito is completing your provider connection. This takes a moment.",
             refresh_after_one_second: true,
+            return_link: true,
         }
     }
 
@@ -76,7 +84,7 @@ impl CallbackPage {
         } else {
             ""
         };
-        let action = if self.refresh_after_one_second {
+        let action = if self.refresh_after_one_second || !self.return_link {
             ""
         } else {
             "<a class=\"button\" href=\"/\">Return to Hito</a>"

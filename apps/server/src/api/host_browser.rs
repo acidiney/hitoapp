@@ -20,8 +20,18 @@ pub enum HostOpen {
     Failed,
 }
 
+pub enum HostReturn {
+    Unused,
+    Ready(Url),
+    Unavailable(String),
+}
+
 pub trait HostBrowser: Send + Sync + 'static {
     fn open(&self, url: Url) -> BoxFuture<'_, HostOpen>;
+
+    fn prepare_return(&self) -> BoxFuture<'_, HostReturn> {
+        Box::pin(async { HostReturn::Unused })
+    }
 }
 
 #[derive(Clone)]

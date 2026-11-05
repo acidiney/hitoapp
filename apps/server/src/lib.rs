@@ -14,11 +14,12 @@ mod source_resolution;
 mod storage_manifest;
 mod telemetry;
 
-pub use api::host_browser::{HostBrowser, HostOpen};
+pub use api::host_browser::{HostBrowser, HostOpen, HostReturn};
 pub use api::host_folders::{HostChoice, HostFolders};
 pub use config::{Config, RuntimeConfig};
 pub use routes::{
-    openapi, router, router_with_config, router_with_host, router_with_hosts, router_with_player,
+    loopback_return_router, openapi, router, router_with_config, router_with_host,
+    router_with_hosts, router_with_player,
 };
-pub use runtime::{run, serve};
+pub use runtime::{offer_configured_plugin_services, run, serve};
 pub use telemetry::application_log;

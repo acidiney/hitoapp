@@ -209,6 +209,8 @@ mod plugin_authorization;
 mod plugin_authorization_callback;
 #[path = "api/plugin_authorization_launch.rs"]
 mod plugin_authorization_launch;
+#[path = "api/plugin_authorization_loopback.rs"]
+mod plugin_authorization_loopback;
 #[path = "api/plugin_connection.rs"]
 mod plugin_connection;
 #[path = "api/plugins.rs"]

@@ -1,5 +1,6 @@
 use super::{
     callback_page::{CallbackPage, Tone},
+    host_browser::{HostBrowserAccess, HostReturn},
     plugins::PluginRevision,
 };
 use crate::{
@@ -26,6 +27,7 @@ pub async fn begin(
     State(services): State<Services>,
     Account(actor): Account,
     Extension(config): Extension<Config>,
+    Extension(host): Extension<HostBrowserAccess>,
     Path(id): Path<String>,
     JsonBody(request): JsonBody<PluginRevision>,
 ) -> ApiResult<(
@@ -33,18 +35,16 @@ pub async fn begin(
     [(&'static str, &'static str); 1],
     Json<PluginAuthorization>,
 )> {
-    let origin_uri: Uri = config.origin.parse().map_err(|_| invalid_origin())?;
-    if origin_uri.scheme().is_none()
-        || origin_uri.authority().is_none()
-        || origin_uri.path() != "/"
-        || origin_uri.query().is_some()
-    {
-        return Err(invalid_origin().into());
-    }
-    let origin = config.origin.strip_suffix('/').unwrap_or(&config.origin);
-    let redirect = PluginAuthorizationRedirect::new(&format!(
-        "{origin}/api/v1/plugin-authorization/callback"
-    ))?;
+    let redirect = match &host.0 {
+        Some(browser) => match browser.prepare_return().await {
+            HostReturn::Unused => public_redirect(&config)?,
+            HostReturn::Ready(url) => PluginAuthorizationRedirect::desktop_loopback(url.as_str())?,
+            HostReturn::Unavailable(message) => {
+                return Err(hito_core::Error::Conflict(message).into());
+            }
+        },
+        None => public_redirect(&config)?,
+    };
     let attempt = services
         .plugins
         .begin_authorization(&actor, &id, request.revision, &redirect)
@@ -99,6 +99,19 @@ pub async fn disconnect(
 ) -> ApiResult<(StatusCode, [(&'static str, &'static str); 1])> {
     services.plugins.disconnect(&actor, &id).await?;
     Ok((StatusCode::NO_CONTENT, [("cache-control", "no-store")]))
+}
+
+fn public_redirect(config: &Config) -> hito_core::Result<PluginAuthorizationRedirect> {
+    let origin_uri: Uri = config.origin.parse().map_err(|_| invalid_origin())?;
+    if origin_uri.scheme().is_none()
+        || origin_uri.authority().is_none()
+        || origin_uri.path() != "/"
+        || origin_uri.query().is_some()
+    {
+        return Err(invalid_origin());
+    }
+    let origin = config.origin.strip_suffix('/').unwrap_or(&config.origin);
+    PluginAuthorizationRedirect::new(&format!("{origin}/api/v1/plugin-authorization/callback"))
 }
 
 fn invalid_origin() -> hito_core::Error {
@@ -203,6 +216,10 @@ async fn authenticated_callback(
 }
 
 fn outcome_response(outcome: PluginAuthorizationOutcome) -> Response {
+    outcome_page(outcome).into_response()
+}
+
+pub(super) fn outcome_page(outcome: PluginAuthorizationOutcome) -> CallbackPage {
     use PluginAuthorizationOutcome as Outcome;
     let (status, tone, title, message) = match outcome {
         Outcome::Connected => (
@@ -254,5 +271,5 @@ fn outcome_response(outcome: PluginAuthorizationOutcome) -> Response {
             "Open Settings in the browser where you started the connection, then try again.",
         ),
     };
-    CallbackPage::outcome(status, tone, title, message).into_response()
+    CallbackPage::outcome(status, tone, title, message)
 }

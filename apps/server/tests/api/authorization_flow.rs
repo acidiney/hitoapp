@@ -267,6 +267,7 @@ pub(super) struct Attempt {
 
 pub(super) struct Flow {
     pub(super) app: Router,
+    pub(super) loopback: Router,
     pub(super) directory: tempfile::TempDir,
     pub(super) owner: String,
     pub(super) installation: Value,
@@ -288,16 +289,31 @@ impl Flow {
     }
 
     pub(super) async fn start_with(endpoint: Option<&str>) -> Self {
+        Self::build(endpoint, None).await
+    }
+
+    pub(super) async fn start_desktop(browser: Arc<dyn hito_server::HostBrowser>) -> Self {
+        Self::build(None, Some(browser)).await
+    }
+
+    async fn build(
+        endpoint: Option<&str>,
+        browser: Option<Arc<dyn hito_server::HostBrowser>>,
+    ) -> Self {
         let directory = tempfile::tempdir().unwrap();
         let services = services(directory.path(), &directory.path().join("music")).await;
         let services_handle = services.clone();
-        let app = hito_server::router_with_config(
-            services,
-            hito_server::Config {
-                origin: "https://hito.test".into(),
-                ..Default::default()
-            },
-        );
+        let config = hito_server::Config {
+            origin: "https://hito.test".into(),
+            ..Default::default()
+        };
+        let loopback = hito_server::loopback_return_router(services_handle.clone(), config.clone());
+        let app = match browser {
+            Some(browser) => {
+                hito_server::router_with_hosts(services, config, None, None, Some(browser))
+            }
+            None => hito_server::router_with_config(services, config),
+        };
         let owner = admin(&app).await;
         let token = TokenServer::start().await;
         let provider = ProviderServer::start().await;
@@ -339,6 +355,7 @@ impl Flow {
         assert_eq!(status, StatusCode::CREATED);
         Self {
             app,
+            loopback,
             directory,
             owner,
             installation,
