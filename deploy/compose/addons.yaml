@@ -1,0 +1,9 @@
+include:
+  - path: deploy/compose/spotify.yaml
+    project_directory: .
+  - path: deploy/compose/youtube.yaml
+    project_directory: .
+services:
+  server:
+    environment:
+      HITO_PLUGIN_SERVICES: spotify=http://plugin-spotify:8092/,youtube=http://plugin-youtube:8093/
