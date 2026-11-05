@@ -38,6 +38,8 @@ test("Privacy saves source rankings independently and requires review after a st
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, options) => {
     const path = String(input);
     const method = options?.method ?? "GET";
+    if (path === "/api/v1/history/preferences")
+      return Response.json({ enabled: true });
     const headers = new Headers(options?.headers);
     expect(headers.get("x-hito-account")).toBe("alice");
     expect(headers.get("x-hito-request")).toBe("1");

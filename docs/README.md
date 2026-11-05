@@ -45,6 +45,7 @@ Everything here describes a local development state. No document describes a pub
 - [Artist identity groups](artist-identity-groups.md): chosen artists, group pages and bulk choice.
 - [Artist discography](artist-discography.md): release groups, editions, types and library availability.
 - [Similar artists](artist-similarity.md): the optional section and the ListenBrainz plugin evaluation.
+- [Listening history](listening-history.md): the per-account pause setting, deleting history, what History and Home read, and what is kept.
 - [Database maintenance](database-maintenance.md): the migration-only command, backups and per-migration notes up to 0081, with links to the feature documents.
 
 ## Playback and sources

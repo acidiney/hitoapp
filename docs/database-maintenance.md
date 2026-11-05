@@ -179,3 +179,11 @@ Migration 0082 adds three columns to `sessions`: `created_at` and `last_seen_at`
 For an operator: take the whole-volume backup first. Restoring it is the only way back. It is safe with live sessions, as long as the writers are stopped as the migration command requires. After it, the first request of each session older than 5 minutes writes `last_seen_at` once. It is not part of a public release.
 
 Evidence: `crates/core/tests/session_client_upgrade.rs` checks the backfilled values for two sessions with different expiry times, that the only schema change is the `sessions` table, that a foreign key check finds no violation, that a migrated session still authenticates and is listed with a null label, and that the label check refuses an empty or 65-byte value.
+
+## Migration 0085, listening history
+
+Migration 0085 adds two tables. `listening_history` holds one row per account and recording (`played_at`, indexed by account and time) and is filled from `listening_progress` (`played_at` is the old `updated_at`). `account_history_preferences` holds one `history_enabled` value (0 or 1) per account and starts empty, so every account keeps recording history. No existing table or index changes, and positions in `listening_progress` are not touched. The copy reads every progress row once and writes one history row for each.
+
+For an operator: take the whole-volume backup first. Restoring it is the only way back. After the upgrade History and Home read the new table; the progress table keeps the resume positions. It is not part of a public release. See [listening history](listening-history.md).
+
+Evidence: `crates/core/tests/listening_history_upgrade.rs` checks that every earlier schema object is kept exactly, that the copy keeps each account's rows and times, that no preference row is added, that a foreign key check finds no violation and that the preference check refuses values other than 0 and 1.

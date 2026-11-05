@@ -22,7 +22,8 @@ Responses include a generated `X-Request-Id` for correlation. Errors use an `err
 | Authorized embedded or folder artwork | `GET /recordings/{id}/artwork` |
 | Original audio with byte ranges | `GET /sources/{id}/audio` |
 | Personal playlists | `GET /playlists`, `GET /playlists/{id}` |
-| Private recent listening progress | `GET /activity` |
+| Private recent listening history | `GET /activity` |
+| Pause or resume recording history, delete history | `GET`/`PUT /history/preferences`, `DELETE /history` ([listening history](listening-history.md)) |
 | Apply operations / pull accepted events | `POST /sync`, `GET /sync?cursor=0` |
 
 Artwork returns PNG, JPEG, GIF, or WebP bytes with `Cache-Control: private, no-store`. Access follows the recording's library permissions. Missing images and inaccessible recordings return 404. Embedded front covers take priority, followed by other embedded pictures and neighboring `cover`, `folder`, or `front` JPEG/PNG files. The reader accepts regular files only, limits image bodies to 8 MiB and cumulative metadata reads to 16 MiB, and shares four blocking-reader permits across catalog clones. A canceled HTTP request retains its permit until the blocking read finishes. Compressed ID3 parsing is disabled because decompression bypasses the physical-read budget; artwork falls back to neighboring cover files when those tags cannot be read.
