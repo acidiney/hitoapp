@@ -3,6 +3,7 @@ mod audiobooks;
 mod events;
 mod follow;
 mod history;
+mod history_privacy;
 mod home;
 mod import;
 mod import_persist;
@@ -53,9 +54,9 @@ pub use import_receipts::{OpenedProviderPlaylist, PlaylistImportReceipt};
 pub use metadata_refresh::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
 pub(crate) use saved_playback::saved_progress;
 pub use types::{
-    Action, Activity, AddedAlbum, HistoryEntry, Home, HomeAlbum, Operation, Playlist,
-    PlaylistDetail, PlaylistEntry, RecordingProgress, SavedPosition, SyncBatch, SyncEvent,
-    SyncPage, SyncReceipt, UnheardOnAlbum,
+    Action, Activity, AddedAlbum, HistoryCleared, HistoryEntry, HistoryPreference, Home, HomeAlbum,
+    Operation, Playlist, PlaylistDetail, PlaylistEntry, RecordingProgress, SavedPosition,
+    SyncBatch, SyncEvent, SyncPage, SyncReceipt, UnheardOnAlbum, UpdateHistoryPreference,
 };
 
 #[derive(Clone)]

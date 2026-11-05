@@ -44,9 +44,9 @@ impl Collection {
         .await?;
         let mut recent_albums: Vec<HomeAlbum> = sqlx::query_as(
             "SELECT r.release_id AS id, a.title, a.artist,
-                    MAX(p.updated_at) AS last_played_at, COUNT(*) AS played
-             FROM (SELECT recording_id, updated_at FROM listening_progress
-                   WHERE user_id = ? ORDER BY updated_at DESC, rowid LIMIT ?) p
+                    MAX(p.played_at) AS last_played_at, COUNT(*) AS played
+             FROM (SELECT recording_id, played_at FROM listening_history
+                   WHERE user_id = ? ORDER BY played_at DESC, rowid LIMIT ?) p
              JOIN recordings r ON r.id = p.recording_id
              JOIN account_releases a ON a.user_id = ? AND a.id = r.release_id
              WHERE EXISTS (SELECT 1 FROM library_members m WHERE m.library_id = r.library_id AND m.user_id = ?)

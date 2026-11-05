@@ -83,6 +83,15 @@ async fn home_work_stays_bounded_as_listening_history_and_the_library_grow() {
     .unwrap();
     sqlx::query(
         "WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i + 1 FROM n WHERE i < 20000)
+         INSERT INTO listening_history(user_id, recording_id, played_at)
+         SELECT ?, printf('c3000000-0000-4000-8000-%012x', i), 1 FROM n",
+    )
+    .bind(actor.id())
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    sqlx::query(
+        "WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i + 1 FROM n WHERE i < 20000)
          INSERT INTO likes(user_id, recording_id, liked)
          SELECT ?, printf('c3000000-0000-4000-8000-%012x', i), 1 FROM n",
     )

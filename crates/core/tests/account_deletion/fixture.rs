@@ -169,6 +169,11 @@ impl World {
         )
         .await;
         self.hito
+            .collection
+            .set_history_enabled(&actor, false)
+            .await
+            .unwrap();
+        self.hito
             .downloads
             .create(
                 &actor,

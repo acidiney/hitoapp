@@ -29,5 +29,17 @@ pub(super) async fn set(
     .bind(speed)
     .execute(&mut **tx)
     .await?;
+    let recorded = sqlx::query(
+        "INSERT INTO listening_history(user_id, recording_id)
+         SELECT ?1, ?2
+         WHERE COALESCE((SELECT history_enabled FROM account_history_preferences WHERE user_id = ?1), 1) = 1
+         ON CONFLICT(user_id, recording_id) DO UPDATE SET played_at = unixepoch()",
+    )
+    .bind(actor.id())
+    .bind(recording.to_string())
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+    tracing::trace!(history_recorded = recorded > 0, "Listening progress stored");
     Ok(())
 }

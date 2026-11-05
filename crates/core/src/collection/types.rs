@@ -241,6 +241,22 @@ pub struct HistoryEntry {
     pub liked: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct HistoryPreference {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateHistoryPreference {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct HistoryCleared {
+    pub removed: u64,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct Home {
     pub has_music: bool,

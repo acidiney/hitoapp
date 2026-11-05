@@ -49,7 +49,7 @@ async fn set_played_at(directory: &Path, recording: &str, at: i64) {
     )
     .await
     .unwrap();
-    sqlx::query("UPDATE listening_progress SET updated_at = ? WHERE recording_id = ?")
+    sqlx::query("UPDATE listening_history SET played_at = ? WHERE recording_id = ?")
         .bind(at)
         .bind(recording)
         .execute(&mut connection)
