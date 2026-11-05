@@ -36,6 +36,7 @@ async fn queue_workflow_logs_retain_safe_correlation_and_exclude_private_input()
     .await;
     let captured = Arc::new(Mutex::new(Vec::new()));
     let writer = captured.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()
@@ -145,6 +146,7 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
     let f = fixture::LocalPlayback::start().await;
     let captured = Arc::new(Mutex::new(Vec::new()));
     let writer = captured.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

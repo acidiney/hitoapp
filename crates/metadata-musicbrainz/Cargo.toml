@@ -22,5 +22,6 @@ uuid.workspace = true
 [dev-dependencies]
 axum.workspace = true
 futures-util.workspace = true
+hito-testkit = { path = "../testkit" }
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber.workspace = true

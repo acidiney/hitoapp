@@ -13,6 +13,7 @@ use tracing::instrument::WithSubscriber;
 async fn canceled_shutdown_retains_the_library_until_native_progress_and_http_cleanup_join() {
     let events = events::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(tracing_subscriber::fmt()
         .json().with_ansi(false)
         .with_env_filter("hito_core=trace,hito_desktop=trace,hito_server=trace,hito_playback=trace,hito_audio=trace")

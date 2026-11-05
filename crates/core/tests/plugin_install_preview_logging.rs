@@ -105,6 +105,7 @@ async fn exercise(hito: &Services, actor: &Actor, server: &fixture::ProviderServ
     let before = private_state(hito, actor, &recording.id).await;
     let logs = CapturedLogs::default();
     let captured = logs.clone();
+    hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter("off,hito_core=trace")
         .with_ansi(false)

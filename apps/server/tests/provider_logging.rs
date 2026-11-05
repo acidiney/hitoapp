@@ -25,6 +25,7 @@ impl Write for Capture {
 async fn provider_workflows_log_safe_outcomes_without_private_content_or_credentials() {
     let logs = Capture::default();
     let captured = logs.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::fmt()
         .json()
         .with_max_level(tracing::Level::TRACE)

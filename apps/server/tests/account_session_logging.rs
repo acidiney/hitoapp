@@ -61,6 +61,7 @@ async fn send(
 async fn password_and_session_workflows_log_outcomes_without_secrets() {
     let logs = Capture::default();
     let captured = logs.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::fmt()
         .json()
         .with_max_level(tracing::Level::TRACE)

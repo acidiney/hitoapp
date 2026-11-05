@@ -50,6 +50,7 @@ impl Call {
         let cancellation_observed = Arc::new(Notify::new());
         let observed = cancellation_observed.clone();
         let reserved = Reserved::default();
+        hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
         let subscriber = tracing_subscriber::registry().with(reserved.clone());
         let task = tokio::spawn(
             async move {

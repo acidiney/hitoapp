@@ -180,6 +180,7 @@ impl Write for Capture {
 
 impl Capture {
     pub fn dispatch(&self) -> tracing::Dispatch {
+        hito_testkit::logs::anchor_callsite_interest();
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()

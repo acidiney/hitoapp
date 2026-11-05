@@ -3,12 +3,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+pub use hito_testkit::logs::{anchor_callsite_interest, anchored_dispatch};
+
 #[derive(Clone, Default)]
 pub struct CapturedLogs(Arc<Mutex<Vec<u8>>>);
 
 impl CapturedLogs {
     pub fn subscriber(&self) -> impl tracing::Subscriber + Send + Sync + 'static {
-        hito_testkit::logs::anchor_callsite_interest();
+        anchor_callsite_interest();
         let captured = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace")

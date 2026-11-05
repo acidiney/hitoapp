@@ -66,6 +66,7 @@ async fn cancelling_after_begin_ack_releases_the_writer_and_leaves_no_import_rec
         playlist_reference: "https://provider.invalid/begin-cancel-selection".into(),
     };
     let marker = PublicationStarted::default();
+    hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(tracing_subscriber::registry().with(marker.clone()));
     let preparation_wake = Arc::new(ImportWake::default());
     let mut importing = Box::pin(hito.collection.import_provider_playlist(

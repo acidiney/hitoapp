@@ -144,6 +144,7 @@ async fn exercise(
     let request_id = Uuid::new_v4();
     let (cancel, cancelled) = oneshot::channel();
     let started = tokio::time::Instant::now();
+    hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::registry().with(publication.clone());
     *pending = Some({
         let catalog = hito.catalog.clone();

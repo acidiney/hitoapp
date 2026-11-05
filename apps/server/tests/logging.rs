@@ -36,6 +36,7 @@ impl Write for Capture {
 async fn requests_have_correlated_outcome_logs_without_private_data() {
     let logs = Capture::default();
     let captured = logs.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::fmt()
         .json()
         .with_max_level(tracing::Level::TRACE)

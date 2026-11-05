@@ -59,6 +59,7 @@ async fn started_automatic_publication_stays_owned_when_playback_is_cancelled() 
     .unwrap();
     let details = fixture.server.hold("v1/recordings/detail").await;
     let publication = Publication(Arc::new(Notify::new()));
+    hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::registry().with(publication.clone());
     let (cancel, cancelled) = oneshot::channel();
     let request_id = Uuid::new_v4();

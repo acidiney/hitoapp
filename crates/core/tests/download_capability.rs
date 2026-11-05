@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn explicit_download_outlives_its_session_and_old_receipts_never_spawn_after_removal() {
+    hito_core::test_support::metadata_tag_logs::anchor_callsite_interest();
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter("off,hito_core::library_storage::managed=debug,hito_core::library_storage::inspection=debug,hito_core::downloads=debug")
         .with_test_writer()
