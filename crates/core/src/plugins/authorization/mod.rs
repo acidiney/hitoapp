@@ -2,6 +2,7 @@ mod access;
 mod callback;
 mod connection;
 mod exchange;
+mod launch;
 mod types;
 
 use super::Plugins;

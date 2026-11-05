@@ -8,6 +8,7 @@ use crate::{
     inertia::{self, props::*},
     security, telemetry,
 };
+use api::host_browser::{HostBrowser, HostBrowserAccess};
 use api::host_folders::{HostFolderAccess, HostFolders};
 use axum::{Extension, Router, middleware, routing::get};
 use hito_core::Services;
@@ -66,6 +67,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugins::clear_credential))
         .routes(routes!(plugin_authorization::begin))
         .routes(routes!(plugin_authorization::status))
+        .routes(routes!(api::host_browser::launch))
         .routes(routes!(
             plugin_authorization::connection,
             plugin_authorization::disconnect
@@ -264,7 +266,7 @@ pub fn router(services: Services) -> Router {
 }
 
 pub fn router_with_config(services: Services, config: Config) -> Router {
-    application(services, config, None, None)
+    application(services, config, None, None, None)
 }
 
 pub fn router_with_player(
@@ -272,7 +274,7 @@ pub fn router_with_player(
     config: Config,
     player: hito_playback::Player,
 ) -> Router {
-    application(services, config, Some(player), None)
+    application(services, config, Some(player), None, None)
 }
 
 pub fn router_with_host(
@@ -281,7 +283,17 @@ pub fn router_with_host(
     player: Option<hito_playback::Player>,
     folders: Arc<dyn HostFolders>,
 ) -> Router {
-    application(services, config, player, Some(folders))
+    application(services, config, player, Some(folders), None)
+}
+
+pub fn router_with_hosts(
+    services: Services,
+    config: Config,
+    player: Option<hito_playback::Player>,
+    folders: Option<Arc<dyn HostFolders>>,
+    browser: Option<Arc<dyn HostBrowser>>,
+) -> Router {
+    application(services, config, player, folders, browser)
 }
 
 fn application(
@@ -289,6 +301,7 @@ fn application(
     config: Config,
     player: Option<hito_playback::Player>,
     folders: Option<Arc<dyn HostFolders>>,
+    browser: Option<Arc<dyn HostBrowser>>,
 ) -> Router {
     let (api, document) = api_routes().split_for_parts();
     Router::new()
@@ -326,6 +339,7 @@ fn application(
         .layer(Extension(config.clone()))
         .layer(Extension(player::Playback::new(player)))
         .layer(Extension(HostFolderAccess(folders)))
+        .layer(Extension(HostBrowserAccess(browser)))
         .layer(middleware::from_fn_with_state(
             security::Security::new(config),
             security::browser_security,
