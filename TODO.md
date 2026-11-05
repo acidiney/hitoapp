@@ -338,7 +338,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [x] Visual fidelity pass for the Shell, Settings, Home, Search and Discover against the prototype mockups (see [status](docs/status.md#web-redesign-visual-fidelity-pass)).
   - [x] Accounts rows show the administrator-only last active time (newest unexpired session, or "No open sessions"). See [account security](docs/account-security.md#last-active-in-the-administrator-account-list).
   - [x] Plugins as two-column cards (one column on phones) with plain-English capability chips, the connection status, the Account sign-in line and the existing actions. See the [design system](docs/design-system.md#settings).
-  - [ ] Fidelity follow-ups: Accounts rows with avatars and a settings search field.
+  - [x] Fidelity follow-ups: Accounts rows with avatars (initials and a stable colour from the account id) and a settings search field. See the [design system](docs/design-system.md#settings).
   - [x] Real Artist, Album and Playlist screens on the shared components, using the generated cover colour (done in phase 4 above).
   - [ ] Translate the interface (the prototype uses Portuguese; the app is English for now) as a separate i18n item: extract labels, choose the locale from the account or browser, keep ⌘K and other platform hints.
   - [x] Phases 5 and 7, Now playing, Queue and first-run setup: full-screen player with Up next, Lyrics and Source tabs, the `/queue` page, and the setup screen on the new two-column layout. See [status](docs/status.md#web-redesign-phases-5-and-7-now-playing-queue-and-first-run-setup). The web redesign is complete for what the server can fill.

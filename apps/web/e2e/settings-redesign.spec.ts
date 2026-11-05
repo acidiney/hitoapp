@@ -76,3 +76,27 @@ test("settings deep links, legacy aliases and the grouped navigation work for an
   await expect(dialog).toBeHidden();
   await expect(subscribe).toBeFocused();
 });
+
+test("settings search opens a setting in its section and highlights it", async ({
+  page,
+}) => {
+  await openSharedAdminSession(page);
+  await page.goto("/settings?section=music");
+  const search = page.getByRole("combobox", { name: "Search settings" });
+  await page.keyboard.press("/");
+  await expect(search).toBeFocused();
+  await search.fill("password");
+  await page.getByRole("option", { name: /Change password/ }).click();
+  await expect(page).toHaveURL(/section=profile#setting-change-password$/);
+  const card = page.getByRole("region", { name: "Change password" });
+  await expect(card).toBeVisible();
+  await expect(
+    card.getByRole("heading", { name: "Change password" }),
+  ).toBeFocused();
+  await expect(search).toHaveValue("");
+
+  await search.fill("zebra");
+  await expect(page.getByText("No settings match")).toBeVisible();
+  await search.press("Escape");
+  await expect(search).toHaveValue("");
+});
