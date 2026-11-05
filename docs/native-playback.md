@@ -102,7 +102,10 @@ stateDiagram-v2
   [*] --> Idle
   Idle --> Resolving: next entry known and current entry within 20 s of its end
   Resolving --> Offering: verified source found
-  Resolving --> Failed: no cached source
+  Resolving --> Awaiting: no cached source, deferred preparation running
+  Awaiting --> Resolving: preparation reported ready
+  Awaiting --> Failed: preparation unavailable
+  Resolving --> Failed: no cached source, no preparation
   Offering --> Offered: engine accepted
   Offering --> Failed: refused (format, ended stream, authorization)
   Offered --> Idle: queue edit, skip or a seek more than 40 s before the end changes the successor
@@ -115,8 +118,46 @@ stateDiagram-v2
 - Queue edits that change the successor withdraw the prepared input first. The engine cannot withdraw it once it has joined it (up to about 100 ms plus tempo latency before the old entry is audible to its end). A queue edit in that window plays the prepared entry briefly before the owner retires the stream.
 - At the boundary the owner reports the first entry as ended at its known duration, so history and progress for it complete, then continues with the second entry on the same session. The second entry keeps the volume and speed already applied, restarts its position at zero, and uses its own source, duration and speed capability. A speed the second source cannot do falls back to unit speed through the existing negotiation.
 - Authorization follows the playing input. The session owner watches the grant of the presented track, so withdrawing only the second entry's source after the boundary stops output even though the first entry's grant stays valid.
-- If no source is cached for the next entry, if the engine refuses it, or if the successor cannot be predicted, nothing changes: the entry ends and the next one opens at the boundary, with the same resolution and recovery as before. Provider search and refresh for a waiting next entry are not started by this path. That remains the deferred-source work in the [TODO](../TODO.md).
+- If the engine refuses the prepared input, or if the successor cannot be predicted, nothing changes: the entry ends and the next one opens at the boundary, with the same resolution and recovery as before.
 - Lookahead holds the next entry's input open for up to the 20-second window, with up to 40 seconds of hysteresis after it started. It is cancelled by retirement, logout and account switching.
+
+### Deferred next-entry sources
+
+A next entry may have no ready source: its audio may need a provider refresh, a source search, or a provider preparation. The browser already starts that work while the current track plays. The native owner now does the same through the same core calls the HTTP routes use, as the current account and with no persistent download.
+
+```mermaid
+flowchart TD
+  Window[Current entry within 90 s of its end] --> Ready{Ready source in the catalog?}
+  Ready -- yes --> Done[Settled: ready]
+  Ready -- no --> Refresh[Refresh provider sources, bounded 10 s]
+  Refresh --> Resolve[Resolve source by search, bounded 10 s]
+  Resolve --> Prepare{Preparable source?}
+  Prepare -- no --> Unavailable[Settled: unavailable]
+  Prepare -- yes --> Request[prepare_source, per-account pending limit applies]
+  Request --> Poll[Read status every 5 s or the stored next check]
+  Poll -- ready --> Done
+  Poll -- failed, blocked, cancelled, unknown, 3 failed reads or 90 s --> Unavailable
+  Done --> Gapless[Cached 20 s lookahead offers the input and joins gaplessly]
+```
+
+- The preparation stage starts when the current entry is within 90 seconds of its known end (180 seconds of hysteresis after it started), is playing and has a predicted successor. Discovery (refresh, search) is bounded to 15 seconds in total and the whole preparation to 90 seconds, as in the browser. Refresh and search keep their own 10 second bounds and per-account admission; preparation keeps the per-account pending limit of 16. A refused request settles as unavailable and writes nothing.
+- When the source becomes ready before the entry ends, the 20-second lookahead resolves it as a cached source, prepares the decoder and joins gaplessly. The stage `Awaiting` covers a cached read that found nothing while preparation was still running; readiness re-reads once.
+- When the current entry ends while preparation is still running for the predicted successor, the owner holds the boundary for at most 10 seconds. It reports the new `preparing` phase through the snapshot and state stream (the web UI shows it as loading), does not report the entry as ended, and releases when preparation settles or the wait expires. It then reports the entry as ended and the next entry opens normally, with the existing failure and skip behavior when no source is playable. A stream that has already ended cannot take a prepared input, so a source that becomes ready during the wait costs a normal open, not a gapless join.
+- Queue edits, skips, a seek out of the window, logout, a locked session and owner close cancel the preparation. The status reader stops, in-flight refresh and search are signalled and joined by the owner, and no further checks or submissions follow. The durable preparation row the server already keeps for a request is not withdrawn: it belongs to the provider operation, not to the player, and a later request for the same source coalesces with it.
+- Detection uses the browser's cadence: the first status read is immediate and later reads wait at least 5 seconds. A source that becomes ready at some point is therefore noticed up to 5 seconds later, which dominates the gap in the measurements below.
+
+Measured on the private clocked monitor (Linux Docker, owned HTTP provider fake with the real core preparation worker; evidence in the table is from one run each, `player_native_deferred`):
+
+| Case | Inserted silence |
+| --- | --- |
+| Source ready before the boundary | 0 frames, every sample equal |
+| Source ready about 2 s into the wait (noticed at the next 5 s check) | 198,331 frames (4.13 s), then a normal open |
+| Never ready | 485,019 frames (10.10 s): the 10 s hold, then the failed-open skip |
+| Preparation fails at the provider | about 1.14 s: noticed at the next status check after the boundary |
+| Per-account pending limit reached | 5,408 frames (0.11 s): refused, no hold, failed-open skip |
+| Entry removed while preparing | 0 frames: preparation cancelled, gapless join into the new successor |
+
+These are fixture measurements on the Linux monitor. They do not describe a real provider's latency, physical devices or other platforms.
 
 ## Queue editing
 
@@ -136,4 +177,4 @@ The public `Session` API is backend-only. It does not authenticate a new caller 
 
 Core supplies a bounded ordered `recordings_by_ids` lookup and opaque `Actor::same_session` comparison. Equality does not prove a session is live; retained owners use `Identity::check_session`. Collection writes and provider-source publication recheck sessions inside their existing transactions. The [application coordinator](native-coordinator.md) records their queue, HTTP, and host integration.
 
-These fixtures establish ownership and cancellation behavior in Linux Docker. They establish sample-exact gapless transitions through the private monitor for the codecs in the [codec matrix](native-audio.md#codec-matrix). They do not establish sustained throughput, p95 latency, physical audio timing, gapless playback on real devices or other platforms, deferred sources at native boundaries, FFmpeg fallback, speed quality across all codecs/devices, or macOS/Windows acceptance. See [engine limits](native-audio.md) and the full [release plan](release-plan.md).
+These fixtures establish ownership and cancellation behavior in Linux Docker. They establish sample-exact gapless transitions through the private monitor for the codecs in the [codec matrix](native-audio.md#codec-matrix). They do not establish sustained throughput, p95 latency, physical audio timing, gapless playback on real devices or other platforms, deferred sources with a real provider or on a physical device, FFmpeg fallback, speed quality across all codecs/devices, or macOS/Windows acceptance. See [engine limits](native-audio.md) and the full [release plan](release-plan.md).
