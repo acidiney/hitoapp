@@ -38,12 +38,14 @@ export default function PluginConnection({
   plugin,
   actions,
   storageReady,
+  desktop,
   onRemoved,
 }: {
   account: string;
   plugin: Schema<"PluginInstallation">;
   actions: PluginActions;
   storageReady: boolean;
+  desktop: boolean;
   onRemoved: () => void;
 }) {
   const checkButton = useRef<HTMLButtonElement>(null);
@@ -135,7 +137,11 @@ export default function PluginConnection({
           </>
         }
       />
-      <PluginAuthorization account={account} plugin={plugin} />
+      <PluginAuthorization
+        account={account}
+        plugin={plugin}
+        desktop={desktop}
+      />
       {waiting && !review && (
         <div
           className="section-warning plugin-news"

@@ -21,6 +21,7 @@ vi.mock("../api/pluginsApi", () => ({
     connectionStatus: vi.fn(),
     beginAuthorization: vi.fn(),
     authorizationStatus: vi.fn(),
+    launchAuthorization: vi.fn(),
     disconnect: vi.fn(),
   },
 }));
@@ -73,10 +74,14 @@ function settings(installations: Schema<"PluginInstallation">[]) {
     credential_storage_ready: true,
   });
 }
-function page(account = "alice") {
+function page(account = "alice", desktop = false) {
   return createElement(ArtworkProvider, {
     account,
-    children: createElement(PluginSettings, { account, admin: false }),
+    children: createElement(PluginSettings, {
+      account,
+      admin: false,
+      desktop,
+    }),
   });
 }
 function popup() {
@@ -97,9 +102,9 @@ async function advance(ms: number) {
     await vi.advanceTimersByTimeAsync(ms);
   });
 }
-async function ready(initialStatus = notConnected) {
+async function ready(initialStatus = notConnected, desktop = false) {
   vi.mocked(pluginsApi.connectionStatus).mockResolvedValue(initialStatus);
-  const view = render(page());
+  const view = render(page("alice", desktop));
   await screen.findByText("Fixture provider");
   await waitFor(() =>
     expect(status().textContent).not.toBe("Checking sign-in…"),
@@ -123,6 +128,7 @@ beforeEach(() => {
     expires_at: attempt().expires_at,
   });
   vi.mocked(pluginsApi.disconnect).mockResolvedValue(undefined);
+  vi.mocked(pluginsApi.launchAuthorization).mockResolvedValue(undefined);
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -184,6 +190,7 @@ test("Connect opens the provider in a new tab, waits, polls with backoff and sho
     expect.any(AbortSignal),
   );
   expect(tab.location.href).toBe(providerUrl);
+  expect(pluginsApi.launchAuthorization).not.toHaveBeenCalled();
   expect(status().textContent).toBe("Waiting for Fixture provider…");
   expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   expect(window.location.href).not.toContain("attempt-1");
@@ -422,4 +429,41 @@ test("granted scopes become plain words", () => {
   expect(
     grantedAccess(["a-b_c", "https://x.example/auth/youtube.readonly"]),
   ).toBe("a b c, youtube readonly");
+});
+
+test("in the desktop app Connect hands the exact server URL to the system browser and opens no web view", async () => {
+  const open = vi.spyOn(window, "open");
+  await ready(notConnected, true);
+  await connect();
+
+  expect(open).not.toHaveBeenCalled();
+  expect(pluginsApi.launchAuthorization).toHaveBeenCalledExactlyOnceWith(
+    "alice",
+    "installation",
+    "attempt-1",
+    providerUrl,
+    expect.any(AbortSignal),
+  );
+  expect(status().textContent).toBe("Waiting for Fixture provider…");
+  expect(screen.queryByText(/did not open a new tab/)).toBeNull();
+  expect(screen.queryByRole("link", { name: /sign-in/ })).toBeNull();
+
+  await advance(1000);
+  expect(pluginsApi.authorizationStatus).toHaveBeenCalledTimes(1);
+});
+
+test("in the desktop app a system browser that cannot open ends the attempt with a plain message", async () => {
+  vi.mocked(pluginsApi.launchAuthorization).mockRejectedValue(
+    new Error("The system browser could not be opened"),
+  );
+  await ready(notConnected, true);
+  await connect();
+
+  expect(status().textContent).toBe("Not connected");
+  expect(screen.getByRole("alert").textContent).toBe(
+    "The system browser could not be opened",
+  );
+  expect(screen.getByRole("button", { name: "Connect" })).toBeTruthy();
+  await advance(10_000);
+  expect(pluginsApi.authorizationStatus).not.toHaveBeenCalled();
 });

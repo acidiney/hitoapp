@@ -41,6 +41,7 @@ const initial = (owner: string): State => ({
 export function usePluginAuthorization(
   account: string,
   plugin: Schema<"PluginInstallation">,
+  desktop: boolean,
 ) {
   const enabled = plugin.manifest.authorization != null;
   const { id, revision } = plugin;
@@ -153,7 +154,7 @@ export function usePluginAuthorization(
   const connect = useCallback(async () => {
     const request = scope.capture();
     if (!request.active() || state.phase.kind !== "idle") return;
-    const tab = window.open("", "_blank");
+    const tab = desktop ? null : window.open("", "_blank");
     if (tab) tab.opener = null;
     update({ phase: { kind: "starting" }, notice: null });
     try {
@@ -166,8 +167,18 @@ export function usePluginAuthorization(
         tab?.close();
         return;
       }
-      const opened = tab !== null && !tab.closed;
-      if (opened) tab.location.href = begun.authorization_url;
+      if (desktop) {
+        await pluginsApi.launchAuthorization(
+          account,
+          id,
+          begun.id,
+          begun.authorization_url,
+          request.signal,
+        );
+        if (!request.active()) return;
+      }
+      const opened = desktop || (tab !== null && !tab.closed);
+      if (tab && opened) tab.location.href = begun.authorization_url;
       log.info("plugins.authorization_started", {
         account_id: account,
         count: opened ? 1 : 0,
@@ -191,7 +202,7 @@ export function usePluginAuthorization(
           notice: { tone: "error", text: errorMessage(error) },
         });
     }
-  }, [account, plugin, scope, state.phase.kind, update]);
+  }, [account, desktop, id, plugin, scope, state.phase.kind, update]);
 
   const disconnect = useCallback(async () => {
     const request = scope.capture();

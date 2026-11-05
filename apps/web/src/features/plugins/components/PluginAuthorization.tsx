@@ -70,11 +70,13 @@ function Actions({
 export default function PluginAuthorization({
   account,
   plugin,
+  desktop,
 }: {
   account: string;
   plugin: Schema<"PluginInstallation">;
+  desktop: boolean;
 }) {
-  const authorization = usePluginAuthorization(account, plugin);
+  const authorization = usePluginAuthorization(account, plugin, desktop);
   const [confirming, setConfirming] = useState(false);
   if (!authorization.enabled) return null;
   const provider = plugin.manifest.name;

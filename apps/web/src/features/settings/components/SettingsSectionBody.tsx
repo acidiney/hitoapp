@@ -26,7 +26,11 @@ export default function SettingsSectionBody({
       return <MusicSection {...props} />;
     case "plugins":
       return (
-        <PluginSettings account={props.user.id} admin={props.user.admin} />
+        <PluginSettings
+          account={props.user.id}
+          admin={props.user.admin}
+          desktop={props.native_playback}
+        />
       );
     case "playback":
       return <PlaybackSection native={props.native_playback} />;

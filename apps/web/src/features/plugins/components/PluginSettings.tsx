@@ -11,10 +11,19 @@ import PluginServices from "./PluginServices";
 export default function PluginSettings(props: {
   account: string;
   admin: boolean;
+  desktop?: boolean;
 }) {
   return <PluginPanel key={props.account} {...props} />;
 }
-function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
+function PluginPanel({
+  account,
+  admin,
+  desktop = false,
+}: {
+  account: string;
+  admin: boolean;
+  desktop?: boolean;
+}) {
   const actions = usePlugins(account);
   const heading = useRef<HTMLHeadingElement>(null);
   const restoreFocus = () => heading.current?.focus();
@@ -63,6 +72,7 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
                   actions={actions}
                   onRemoved={restoreFocus}
                   storageReady={data.credential_storage_ready}
+                  desktop={desktop}
                 />
               ))}
             </ul>

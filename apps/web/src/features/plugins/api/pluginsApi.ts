@@ -50,6 +50,26 @@ export const pluginsApi = {
       },
     );
   },
+  async launchAuthorization(
+    account: string,
+    installation: string,
+    attempt: string,
+    authorizationUrl: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await request(
+      `/plugins/${part(installation)}/authorization/${part(attempt)}/launch`,
+      {
+        action: "plugins.authorization_launch",
+        method: "POST",
+        account,
+        body: {
+          authorization_url: authorizationUrl,
+        } satisfies Schema<"AuthorizationLaunch">,
+        signal,
+      },
+    );
+  },
   async disconnect(
     account: string,
     installation: string,
