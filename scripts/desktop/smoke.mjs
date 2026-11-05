@@ -9,6 +9,7 @@ import {
   access,
 } from "node:fs/promises";
 import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,10 +69,20 @@ const sound = spawn(
 );
 const stubs = join(temporary, "stubs");
 const openerLog = join(temporary, "opener.log");
+const followMarker = join(temporary, "follow-provider");
+const followLog = join(temporary, "follow.log");
 await mkdir(stubs);
 await writeFile(
+  join(stubs, "follow.mjs"),
+  `import { appendFileSync } from "node:fs";
+const response = await fetch(process.argv[2]);
+const page = await response.text();
+appendFileSync(${JSON.stringify(followLog)}, JSON.stringify({ status: response.status, origin: new URL(response.url).origin, path: new URL(response.url).pathname, authorized: page.includes("Provider authorized"), noReturnLink: !page.includes("href=") }) + "\\n");
+`,
+);
+await writeFile(
   join(stubs, "xdg-open"),
-  `#!/bin/sh\nprintf 'argc=%s\\n' "$#" >> "${openerLog}"\nfor argument in "$@"; do printf 'url=%s\\n' "$argument" >> "${openerLog}"; done\n`,
+  `#!/bin/sh\nprintf 'argc=%s\\n' "$#" >> "${openerLog}"\nfor argument in "$@"; do printf 'url=%s\\n' "$argument" >> "${openerLog}"; done\nif [ -f "${followMarker}" ]; then node "${join(stubs, "follow.mjs")}" "$1" >/dev/null 2>&1 & fi\n`,
   { mode: 0o755 },
 );
 const manager = spawn("openbox", ["--sm-disable"], { stdio: "ignore" });
@@ -191,13 +202,52 @@ const openerCalls = () => {
     return [];
   }
 };
+const followed = () => {
+  try {
+    return readFileSync(followLog, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
+};
 async function verifyBrowserLauncher() {
-  let authorizeRequests = 0;
+  let appRequests = 0;
+  const authorizations = [];
+  const exchanges = [];
   const provider = createServer((incoming, outgoing) => {
-    const path = new URL(incoming.url ?? "/", "http://provider.test").pathname;
-    outgoing.setHeader("content-type", "application/json");
-    if (path === "/authorize") authorizeRequests += 1;
+    const url = new URL(incoming.url ?? "/", "http://provider.test");
     const port = provider.address().port;
+    if (url.pathname === "/authorize") {
+      if (/HitoDesktop/.test(incoming.headers["user-agent"] ?? "")) appRequests += 1;
+      authorizations.push(url);
+      const back = new URL(url.searchParams.get("redirect_uri"));
+      back.searchParams.set("code", "desktop-smoke-code");
+      back.searchParams.set("state", url.searchParams.get("state"));
+      outgoing.writeHead(302, { location: back.toString() });
+      outgoing.end();
+      return;
+    }
+    if (url.pathname === "/token" && incoming.method === "POST") {
+      let body = "";
+      incoming.on("data", (chunk) => (body += chunk));
+      incoming.on("end", () => {
+        exchanges.push(new URLSearchParams(body));
+        outgoing.setHeader("content-type", "application/json");
+        outgoing.end(
+          JSON.stringify({
+            access_token: "desktop-smoke-access",
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: "desktop-smoke-refresh",
+            scope: "playlist-read-private",
+          }),
+        );
+      });
+      return;
+    }
+    outgoing.setHeader("content-type", "application/json");
     outgoing.end(
       JSON.stringify({
         id: "org.hito.desktop-launcher-fixture",
@@ -257,13 +307,13 @@ async function verifyBrowserLauncher() {
     const received = new URL(calls[1].slice("url=".length));
     const origin = await execute("return location.origin");
     assert.equal(`${received.origin}${received.pathname}`, endpoint);
-    assert.equal(
-      received.searchParams.get("redirect_uri"),
-      `${origin}/api/v1/plugin-authorization/callback`,
-    );
+    const fixedReturn =
+      "http://127.0.0.1:47321/api/v1/plugin-authorization/callback";
+    assert.equal(received.searchParams.get("redirect_uri"), fixedReturn);
+    assert.notEqual(new URL(fixedReturn).origin, origin);
     assert.equal(received.searchParams.get("code_challenge_method"), "S256");
     assert.equal(received.searchParams.get("client_id"), "launcher-client");
-    assert.equal(authorizeRequests, 0);
+    assert.equal(appRequests, 0);
     assert.equal(await execute("return location.href"), settingsUrl);
     assert.equal(
       await execute(
@@ -322,6 +372,57 @@ async function verifyBrowserLauncher() {
     );
     assert.equal(callback.status, 403);
     await clickText("Stop waiting");
+    await writeFile(followMarker, "1");
+    await clickText("Connect");
+    await wait(
+      async () => openerCalls().length >= 4 && followed().length >= 1,
+      "the system browser stand-in to follow the provider page back to the loopback address",
+    );
+    const returned = followed()[0];
+    console.log("desktop sign-in: system browser stand-in ended on", returned);
+    assert.equal(returned.status, 200);
+    assert.equal(returned.origin, "http://127.0.0.1:47321");
+    assert.equal(returned.path, "/api/v1/plugin-authorization/callback");
+    assert.equal(returned.authorized, true);
+    assert.equal(returned.noReturnLink, true);
+    assert.equal(appRequests, 0);
+    await wait(
+      () =>
+        execute(
+          'return document.querySelector("[aria-label=\\"Sign-in status\\"]")?.textContent === "Connected"',
+        ),
+      "the Settings row to show Connected",
+    );
+    assert.equal(exchanges.length, 1);
+    const exchange = exchanges[0];
+    assert.equal(exchange.get("grant_type"), "authorization_code");
+    assert.equal(exchange.get("code"), "desktop-smoke-code");
+    assert.equal(exchange.get("redirect_uri"), fixedReturn);
+    assert.equal(exchange.get("client_id"), "launcher-client");
+    const secondAuthorization = authorizations.at(-1);
+    const challenge = createHash("sha256")
+      .update(exchange.get("code_verifier"))
+      .digest("base64url");
+    assert.equal(
+      challenge,
+      secondAuthorization.searchParams.get("code_challenge"),
+    );
+    assert.equal(await execute("return location.href"), settingsUrl);
+    console.log(
+      "desktop sign-in: Settings row shows Connected; token exchange used the fixed loopback redirect and a matching PKCE verifier",
+    );
+    execFileSync(
+      "import",
+      [
+        "-window",
+        "root",
+        "/workspace/test-results/desktop/desktop-oauth-connected.png",
+      ],
+      { timeout: 5000 },
+    );
+    const pageText = await execute("return document.body.innerText");
+    for (const secret of ["desktop-smoke-access", "desktop-smoke-refresh", "desktop-smoke-code"])
+      assert.equal(pageText.includes(secret), false);
   } finally {
     provider.close();
   }
@@ -568,7 +669,7 @@ try {
       ),
       true,
     );
-  assert.equal(openerCalls().length, 2);
+  assert.equal(openerCalls().length, 4);
   await noBrowserAudio();
   const origin = await execute("return location.origin");
   await close(origin);
@@ -643,6 +744,8 @@ try {
   );
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
+  assert.equal(logs().includes("desktop-smoke-code"), false);
+  assert.equal(logs().includes("desktop-smoke-access"), false);
   console.log(
     "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence and joined shutdown passed.",
   );
