@@ -12,6 +12,7 @@ import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 import { newCapabilities, serviceSummary } from "../model/pluginSummary";
+import PluginAuthorization from "./PluginAuthorization";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 type Review = Extract<Schema<"PluginRefresh">, { kind: "review_required" }>;
@@ -33,11 +34,13 @@ function news(
   return added.length > 0 ? added.join(", ") : "updated details";
 }
 export default function PluginConnection({
+  account,
   plugin,
   actions,
   storageReady,
   onRemoved,
 }: {
+  account: string;
   plugin: Schema<"PluginInstallation">;
   actions: PluginActions;
   storageReady: boolean;
@@ -130,6 +133,7 @@ export default function PluginConnection({
           </>
         }
       />
+      <PluginAuthorization account={account} plugin={plugin} />
       {waiting && !review && (
         <div
           className="section-warning plugin-news"

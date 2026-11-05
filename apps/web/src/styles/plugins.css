@@ -114,3 +114,14 @@
     margin-bottom: 10px;
   }
 }
+.plugin-authorization {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+.plugin-authorization h5 {
+  margin: 0;
+  font-size: 15px;
+}
+.plugin-authorization > p {
+  margin: 0 0 14px;
+}

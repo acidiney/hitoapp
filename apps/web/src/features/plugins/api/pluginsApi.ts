@@ -3,6 +3,65 @@ import { request, requestJson } from "../../../shared/http";
 
 const part = encodeURIComponent;
 export const pluginsApi = {
+  async connectionStatus(
+    account: string,
+    installation: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"PluginConnectionStatus">> {
+    return requestJson<Schema<"PluginConnectionStatus">>(
+      `/plugins/${part(installation)}/connection`,
+      {
+        action: "plugins.connection",
+        account,
+        signal,
+        cache: "no-store",
+      },
+    );
+  },
+  async beginAuthorization(
+    account: string,
+    plugin: Schema<"PluginInstallation">,
+    signal: AbortSignal,
+  ): Promise<Schema<"PluginAuthorization">> {
+    return requestJson<Schema<"PluginAuthorization">>(
+      `/plugins/${part(plugin.id)}/authorization`,
+      {
+        action: "plugins.authorize",
+        method: "POST",
+        account,
+        body: { revision: plugin.revision },
+        signal,
+      },
+    );
+  },
+  async authorizationStatus(
+    account: string,
+    installation: string,
+    attempt: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"PluginAuthorizationStatus">> {
+    return requestJson<Schema<"PluginAuthorizationStatus">>(
+      `/plugins/${part(installation)}/authorization/${part(attempt)}`,
+      {
+        action: "plugins.authorization_status",
+        account,
+        signal,
+        cache: "no-store",
+      },
+    );
+  },
+  async disconnect(
+    account: string,
+    installation: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await request(`/plugins/${part(installation)}/connection`, {
+      action: "plugins.disconnect",
+      method: "DELETE",
+      account,
+      signal,
+    });
+  },
   async followPlaylist(
     account: string,
     installation: string,

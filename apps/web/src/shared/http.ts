@@ -113,6 +113,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action === "source_preparation.status" ||
       options.action === "playlists.follow.status" ||
       options.action === "podcasts.status" ||
+      options.action === "plugins.authorization_status" ||
       options.action.startsWith("artwork.") ||
       options.action.endsWith("tracks_page") ||
       options.action === "progress.save" ||

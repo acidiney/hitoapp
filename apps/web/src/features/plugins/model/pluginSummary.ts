@@ -75,3 +75,14 @@ export function newCapabilities(
     (value) => proposed.includes(value) && !accepted.includes(value),
   ).map((value) => NEW_LABELS[value]);
 }
+
+export function grantedAccess(scopes: string[]): string {
+  return scopes
+    .map((scope) =>
+      (scope.split("/").filter(Boolean).at(-1) ?? scope)
+        .replace(/[-_:.]+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join(", ");
+}

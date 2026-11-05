@@ -58,6 +58,7 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
               {data.installations.map((plugin) => (
                 <PluginConnection
                   key={plugin.id}
+                  account={account}
                   plugin={plugin}
                   actions={actions}
                   onRemoved={restoreFocus}
