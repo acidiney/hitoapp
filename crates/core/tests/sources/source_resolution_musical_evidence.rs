@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_musical.rs"]
 mod fixture;
 use hito_core::test_support::support;
@@ -5,7 +6,7 @@ use hito_core::test_support::support;
 use futures_util::FutureExt;
 use hito_core::{OpenedAudio, ResolveSource, SourceResolutionOutcome};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -13,7 +14,7 @@ async fn saved_musical_identity_resolves_wrapped_video_title_with_approved_metad
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
             let request_id = Uuid::new_v4();
@@ -121,7 +122,7 @@ async fn mismatched_musical_source_witness_rejects_ready_audio_without_publicati
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
             let before = owned.hito.catalog.recording_metadata(

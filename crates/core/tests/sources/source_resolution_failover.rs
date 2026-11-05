@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_failover.rs"]
 mod protocol;
 #[path = "../fixtures/resolution_musical.rs"]
@@ -9,7 +10,7 @@ use futures_util::FutureExt;
 use hito_core::{Error, OpenedAudio, ResolveSource};
 use protocol::{Event, Plan};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -27,7 +28,7 @@ async fn exercise(plan: Plan, outcome: &str) {
     let primary = saved::ProviderServer::start().await;
     let previous_audio = saved::ProviderServer::start().await;
     let mut provider = None;
-    let result = tokio::time::timeout(Duration::from_secs(12), AssertUnwindSafe(async {
+    let result = tokio::time::timeout(HANG_CEILING, AssertUnwindSafe(async {
         let owned = saved::SavedRecording::prepare(&primary, &previous_audio).await;
         owned.hito.plugins.remove(&owned.actor, &owned.audio_installation.id, owned.audio_installation.revision).await
             .unwrap_or_else(|_| panic!("the unused setup connection must be removed before the protocol exercise"));

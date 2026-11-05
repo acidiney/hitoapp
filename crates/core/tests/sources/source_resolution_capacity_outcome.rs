@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_musical.rs"]
 #[allow(dead_code)]
 mod fixture;
@@ -6,14 +7,14 @@ use hito_core::test_support::support;
 use futures_util::FutureExt;
 use hito_core::{Error, ProviderSearch, ResolveSource, SourceResolutionOutcome};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
 async fn held_provider_capacity_is_unavailable_and_release_allows_a_valid_source() {
     let primary = fixture::ProviderServer::start().await;
     let audio = fixture::ProviderServer::start().await;
-    let result = tokio::time::timeout(Duration::from_secs(12), AssertUnwindSafe(async {
+    let result = tokio::time::timeout(HANG_CEILING, AssertUnwindSafe(async {
         let owned = fixture::SavedRecording::prepare(&primary, &audio).await;
         let held = audio.hold("v1/search").await;
         let request_id = Uuid::new_v4();

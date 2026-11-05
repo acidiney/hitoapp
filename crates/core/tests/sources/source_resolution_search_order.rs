@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_musical.rs"]
 #[allow(dead_code)]
 mod fixture;
@@ -7,7 +8,7 @@ use futures_util::FutureExt;
 use hito_core::{OpenedAudio, ResolveSource, SourceResolutionOutcome};
 use hito_plugin_sdk::{ProviderRecording, RecordingMetadata, SearchPage, SourcePage};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 const FIRST: &str = "zzzzzzzzzzz";
@@ -17,7 +18,7 @@ async fn equally_timed_candidates_preserve_the_providers_first_valid_search_resu
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
             configure_ranked_candidates(&youtube).await;

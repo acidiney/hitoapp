@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_musical.rs"]
 #[allow(dead_code)]
 mod fixture;
@@ -7,7 +8,7 @@ use futures_util::FutureExt;
 use hito_core::{OpenedAudio, ResolveSource, SourceResolution, SourceResolutionOutcome};
 use hito_plugin_sdk::{ProviderRecording, RecordingMetadata, SourcePage};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -30,7 +31,7 @@ async fn exercise_canonical_live(target_album: &str, expected: Expected) {
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare_named_target(
                 &spotify, &youtube, "Live", target_album,

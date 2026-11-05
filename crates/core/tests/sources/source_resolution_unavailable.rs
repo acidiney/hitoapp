@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_unavailable.rs"]
 mod fixture;
 use hito_core::test_support::support;
@@ -5,14 +6,14 @@ use hito_core::test_support::support;
 use futures_util::FutureExt;
 use hito_core::ResolveSource;
 use serde_json::{Value, json};
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
 async fn provider_source_failure_is_not_committed_as_an_unsuitable_recording() {
     let primary = fixture::ProviderServer::start().await;
     let audio = fixture::ProviderServer::start().await;
-    let exercise = tokio::time::timeout(Duration::from_secs(12), AssertUnwindSafe(async {
+    let exercise = tokio::time::timeout(HANG_CEILING, AssertUnwindSafe(async {
         let owned = fixture::SavedLibrary::prepare(&primary, &audio).await;
         let detail = audio.hold("v1/recordings/detail").await;
         let request_id = Uuid::new_v4();

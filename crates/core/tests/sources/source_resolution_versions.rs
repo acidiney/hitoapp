@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/provider_attachment.rs"]
 #[allow(dead_code, unused_imports)]
 mod fixture;
@@ -10,7 +11,7 @@ use hito_core::{
     SourceResolution, SourceResolutionOutcome,
 };
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -19,7 +20,7 @@ async fn automatic_matching_distinguishes_a_live_album_from_a_song_named_live() 
     let original = support::write_wav(&music.join("owned-version-control.wav"), 37);
     let server = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let installed = fixture::connect(
                 &hito,

@@ -1,3 +1,4 @@
+use hito_core::test_support::hang_guard::HANG_CEILING;
 #[path = "../fixtures/resolution_musical.rs"]
 #[allow(dead_code)]
 mod fixture;
@@ -7,7 +8,7 @@ use futures_util::FutureExt;
 use hito_core::{ResolveSource, SourceResolutionOutcome};
 use hito_plugin_sdk::{ProviderRecording, RecordingMetadata, SourcePage};
 use serde_json::json;
-use std::{panic::AssertUnwindSafe, time::Duration};
+use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -34,7 +35,7 @@ async fn assert_wrapped_live_video_is_rejected(title: &str) {
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
-        Duration::from_secs(8),
+        HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
             let before = owned
