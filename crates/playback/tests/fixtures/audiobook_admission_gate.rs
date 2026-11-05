@@ -1,28 +1,17 @@
 use std::{
     fmt,
     sync::{
-        Arc, Condvar, Mutex, OnceLock,
+        Arc, Condvar, Mutex,
         atomic::{AtomicBool, Ordering},
     },
 };
 use tokio::sync::Notify;
 use tracing::{
-    Dispatch, Event, Subscriber,
+    Event, Subscriber,
     field::{Field, Visit},
     span::Id,
 };
 use tracing_subscriber::{Layer, layer::Context, registry::LookupSpan};
-
-static ANCHORS: OnceLock<[Dispatch; 2]> = OnceLock::new();
-
-pub fn consult_every_dispatcher_for_callsites() {
-    ANCHORS.get_or_init(|| {
-        [
-            Dispatch::new(tracing_subscriber::registry()),
-            Dispatch::new(tracing_subscriber::registry()),
-        ]
-    });
-}
 
 #[derive(Clone, Default)]
 pub struct AdmissionGate {

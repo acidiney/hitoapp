@@ -14,7 +14,6 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn deletion_and_exact_chapter_publication_share_one_authority_order() {
-    admission_gate::consult_every_dispatcher_for_callsites();
     let f = audiobook::Library::start().await;
     let [a, b] = f.recordings;
     let anchor: AudiobookChapterAnchor = serde_json::from_value(f.anchors[2].clone()).unwrap();
@@ -33,7 +32,8 @@ async fn deletion_and_exact_chapter_publication_share_one_authority_order() {
     .await;
     let gate = admission_gate::AdmissionGate::default();
     let _release = gate.guard();
-    let dispatch = tracing::Dispatch::new(tracing_subscriber::registry().with(gate.clone()));
+    let dispatch =
+        hito_testkit::logs::anchored_dispatch(tracing_subscriber::registry().with(gate.clone()));
     let (player, owner) =
         tracing::dispatcher::with_default(&dispatch, || Player::start(f.source.services.clone()));
     let attachment = player
@@ -184,7 +184,6 @@ async fn deletion_and_exact_chapter_publication_share_one_authority_order() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cancellation_settles_held_admission_without_blocking_new_commands_or_losing_accepted_receipts()
  {
-    admission_gate::consult_every_dispatcher_for_callsites();
     let f = audiobook::Library::start().await;
     let [a, b] = f.recordings;
     let target: AudiobookChapterAnchor = serde_json::from_value(f.anchors[2].clone()).unwrap();
@@ -211,7 +210,8 @@ async fn cancellation_settles_held_admission_without_blocking_new_commands_or_lo
     )
     .unwrap();
     let gate = admission_gate::AdmissionGate::default();
-    let dispatch = tracing::Dispatch::new(tracing_subscriber::registry().with(gate.clone()));
+    let dispatch =
+        hito_testkit::logs::anchored_dispatch(tracing_subscriber::registry().with(gate.clone()));
     let (player, owner) =
         tracing::dispatcher::with_default(&dispatch, || Player::start(f.source.services.clone()));
     let attached = player
