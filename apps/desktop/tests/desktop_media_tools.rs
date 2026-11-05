@@ -89,7 +89,7 @@ async fn a_scan_without_ffmpeg_tools_tells_the_user_to_install_them() {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     assert_eq!(job["state"], "failed", "{job}");
-    assert_eq!(job["failure"], "media_tools_missing");
+    assert_eq!(job["failure"], "media_tools_missing", "{job}");
     assert!(
         job["error"]
             .as_str()
