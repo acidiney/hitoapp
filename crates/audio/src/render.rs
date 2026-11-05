@@ -17,10 +17,12 @@ pub(crate) enum Frame {
         speed: f32,
         position: u64,
         epoch: u64,
+        track: u64,
     },
     End {
         position: u64,
         epoch: u64,
+        track: u64,
     },
 }
 
@@ -139,7 +141,11 @@ impl Render {
                     speed,
                     position,
                     epoch,
+                    track,
                 } => {
+                    if last.is_some_and(|point: Point| point.track != track) {
+                        self.schedule(last.take().unwrap());
+                    }
                     for (output, sample) in output.iter_mut().zip(samples) {
                         *output = T::from_sample((sample * volume).clamp(-1., 1.));
                     }
@@ -149,9 +155,14 @@ impl Render {
                         position,
                         ended: false,
                         speed: Some(speed),
+                        track,
                     });
                 }
-                Frame::End { position, epoch } => {
+                Frame::End {
+                    position,
+                    epoch,
+                    track,
+                } => {
                     if let Some(point) = last.take() {
                         self.schedule(point);
                     }
@@ -161,6 +172,7 @@ impl Render {
                         position,
                         ended: true,
                         speed: None,
+                        track,
                     });
                     self.scheduled_end = epoch;
                 }

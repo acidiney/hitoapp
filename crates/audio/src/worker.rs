@@ -1,6 +1,6 @@
 use crate::{
-    AudioFormat, Converter, Decoder, Error, Result, device::Output, render::Frame, state::State,
-    tempo::Tempo,
+    AudioFormat, Converter, Decoder, Error, Result, device::Output, negotiate::Target,
+    render::Frame, state::State, tempo::Tempo,
 };
 use rtrb::Producer;
 use std::{
@@ -15,7 +15,15 @@ use std::{
 pub(crate) enum Control {
     Seek {
         position: Duration,
+        track: u64,
         reply: SyncSender<Result<()>>,
+    },
+    Next {
+        decoder: Decoder,
+        reply: SyncSender<Result<bool>>,
+    },
+    CancelNext {
+        reply: SyncSender<bool>,
     },
     Speed {
         value: f32,
@@ -77,17 +85,52 @@ pub(crate) fn run(
                 Control::Stop => return Ok(()),
                 Control::Recover | Control::Wake => (),
                 Control::Seek {
-                    position: target,
+                    position: wanted,
+                    track: requested,
                     reply,
                 } => {
-                    let result = reposition(&mut decoder, &state, target);
-                    if let Ok(next) = result {
-                        epoch = next;
+                    if requested != decoder.track() || decoder.joining() {
+                        state.seek_requested.store(false, Ordering::Release);
+                        let _ = reply.send(Ok(()));
+                        tracing::debug!(
+                            event = "audio_seek_ignored_at_boundary",
+                            "Seek ignored because playback is already moving to the next input"
+                        );
+                    } else {
+                        let result = reposition(&mut decoder, &state, wanted);
+                        if let Ok(next) = result {
+                            epoch = next;
+                        }
+                        finished = false;
+                        state.seek_requested.store(false, Ordering::Release);
+                        let _ = reply.send(result.map(|_| ()));
+                        result?;
                     }
-                    finished = false;
-                    state.seek_requested.store(false, Ordering::Release);
-                    let _ = reply.send(result.map(|_| ()));
-                    result?;
+                }
+                Control::Next {
+                    decoder: next,
+                    reply,
+                } => {
+                    let result = if finished {
+                        Err(Error::Interrupted)
+                    } else {
+                        join(next, target, format, &mut decoder)
+                    };
+                    tracing::debug!(
+                        event = "audio_next_input_prepared",
+                        accepted = result.is_ok(),
+                        "Next audio input offered to the running stream"
+                    );
+                    let _ = reply.send(result);
+                }
+                Control::CancelNext { reply } => {
+                    let cancelled = decoder.clear_next();
+                    tracing::debug!(
+                        event = "audio_next_input_cancelled",
+                        cancelled,
+                        "Next audio input withdrawn"
+                    );
+                    let _ = reply.send(cancelled);
                 }
                 Control::Speed { value, reply } => {
                     decoder.speed(value);
@@ -98,7 +141,11 @@ pub(crate) fn run(
         let reported = state.xruns.load(Ordering::Acquire);
         if reported != xruns {
             xruns = reported;
-            let target = state.snapshot(format).position;
+            let observed = state.snapshot(format);
+            if observed.track != decoder.track() {
+                return Err(Error::Output);
+            }
+            let target = observed.position;
             if target >= last_reset + Duration::from_millis(200) {
                 resets = 0;
             }
@@ -163,6 +210,7 @@ pub(crate) fn run(
                         position,
                         epoch,
                         speed: block.speed,
+                        track: block.track,
                     },
                     &mut producer,
                     &commands,
@@ -177,7 +225,11 @@ pub(crate) fn run(
         } else {
             let position = nanos(decoder.end());
             if let Some(control) = send(
-                Frame::End { position, epoch },
+                Frame::End {
+                    position,
+                    epoch,
+                    track: decoder.track(),
+                },
                 &mut producer,
                 &commands,
                 &state,
@@ -190,6 +242,15 @@ pub(crate) fn run(
             finished = true;
         }
     }
+}
+
+fn join(next: Decoder, target: Target, current: AudioFormat, tempo: &mut Tempo) -> Result<bool> {
+    let converter = Converter::with_output(next, target.sample_rate, target.channels);
+    let format = converter.format();
+    if format.sample_rate != current.sample_rate || format.channels != current.channels {
+        return Err(Error::FormatChanged);
+    }
+    tempo.set_next(converter)
 }
 
 fn reposition(decoder: &mut Tempo, state: &State, position: Duration) -> Result<u64> {

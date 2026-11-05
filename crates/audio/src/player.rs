@@ -39,7 +39,7 @@ impl Stop {
 
 pub struct Player {
     id: u64,
-    format: AudioFormat,
+    formats: Vec<AudioFormat>,
     output: AudioFormat,
     state: Arc<State>,
     commands: SyncSender<Control>,
@@ -97,7 +97,7 @@ impl Player {
         };
         Ok(Self {
             id,
-            format,
+            formats: vec![format],
             output,
             state,
             commands,
@@ -110,11 +110,16 @@ impl Player {
     }
 
     pub fn speed_capability(&self) -> SpeedCapability {
-        self.format.speed_capability()
+        self.snapshot().format.speed_capability()
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        self.state.snapshot(self.format)
+        let mut snapshot = self.state.snapshot(self.formats[0]);
+        let index = usize::try_from(snapshot.track).map_or(self.formats.len() - 1, |track| {
+            track.min(self.formats.len() - 1)
+        });
+        snapshot.format = self.formats[index];
+        snapshot
     }
 
     pub fn stop_handle(&self) -> Stop {
@@ -168,7 +173,7 @@ impl Player {
         if let Some(error) = snapshot.error {
             return Err(error);
         }
-        let position = self
+        let position = snapshot
             .format
             .duration
             .map_or(position, |duration| position.min(duration));
@@ -176,7 +181,11 @@ impl Player {
         self.state.seek_requested.store(true, Ordering::Release);
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
-            .send(Control::Seek { position, reply })
+            .send(Control::Seek {
+                position,
+                track: snapshot.track,
+                reply,
+            })
             .map_err(|_| Error::Worker)?;
         let result = applied.recv().map_err(|_| Error::Worker)?;
         if let Err(error) = result {
@@ -192,6 +201,44 @@ impl Player {
             "Audio playback seeked"
         );
         Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
+    pub fn prepare_next(&mut self, input: impl Input + 'static) -> Result<()> {
+        if self.state.stopped.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
+        if let Some(error) = self.snapshot().error {
+            return Err(error);
+        }
+        let decoder = Decoder::open(input)?;
+        let format = decoder.format();
+        let (reply, applied) = mpsc::sync_channel(1);
+        self.commands
+            .send(Control::Next { decoder, reply })
+            .map_err(|_| Error::Worker)?;
+        let replaced = applied.recv().map_err(|_| Error::Worker)??;
+        if replaced {
+            self.formats.pop();
+        }
+        self.formats.push(format);
+        Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
+    pub fn cancel_next(&mut self) -> Result<bool> {
+        if self.state.stopped.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
+        let (reply, applied) = mpsc::sync_channel(1);
+        self.commands
+            .send(Control::CancelNext { reply })
+            .map_err(|_| Error::Worker)?;
+        let cancelled = applied.recv().map_err(|_| Error::Worker)?;
+        if cancelled {
+            self.formats.pop();
+        }
+        Ok(cancelled)
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id = self.id))]
@@ -210,7 +257,7 @@ impl Player {
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
-        if !self.format.speed_capability().supports(value) {
+        if !self.speed_capability().supports(value) {
             return Err(Error::Unsupported);
         }
         let (reply, applied) = mpsc::sync_channel(1);

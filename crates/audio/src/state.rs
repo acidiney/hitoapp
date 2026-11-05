@@ -10,6 +10,7 @@ pub struct Snapshot {
     pub ended: bool,
     pub position: Duration,
     pub speed: f32,
+    pub track: u64,
     pub format: AudioFormat,
     pub error: Option<Error>,
     pub underruns: u64,
@@ -27,6 +28,7 @@ pub(crate) struct State {
     position_epoch: AtomicU64,
     position: AtomicU64,
     base: AtomicU64,
+    track: AtomicU64,
     ended: AtomicU64,
     presented_sequence: AtomicU64,
     reset_sequence: AtomicU64,
@@ -51,6 +53,7 @@ impl State {
             position_epoch: AtomicU64::new(0),
             position: AtomicU64::new(0),
             base: AtomicU64::new(0),
+            track: AtomicU64::new(0),
             ended: AtomicU64::new(0),
             presented_sequence: AtomicU64::new(0),
             reset_sequence: AtomicU64::new(0),
@@ -99,7 +102,7 @@ impl State {
     }
 
     pub fn snapshot(&self, format: AudioFormat) -> Snapshot {
-        let (position, speed, ended) = loop {
+        let (position, speed, ended, track) = loop {
             if let Some(observation) = self.try_observation() {
                 break observation;
             }
@@ -114,6 +117,7 @@ impl State {
             ended,
             position: Duration::from_nanos(position),
             speed,
+            track,
             format,
             error,
             underruns: self.underruns.load(Ordering::Relaxed),
@@ -129,7 +133,7 @@ impl State {
         }
     }
 
-    fn try_observation(&self) -> Option<(u64, f32, bool)> {
+    fn try_observation(&self) -> Option<(u64, f32, bool, u64)> {
         let presented = self.presented_sequence.load(Ordering::Acquire);
         let reset = self.reset_sequence.load(Ordering::Acquire);
         if !presented.is_multiple_of(2) || !reset.is_multiple_of(2) {
@@ -143,13 +147,14 @@ impl State {
         };
         let speed = f32::from_bits(self.speed.load(Ordering::Relaxed));
         let ended = self.ended.load(Ordering::Relaxed) == epoch;
+        let track = self.track.load(Ordering::Relaxed);
         fence(Ordering::Acquire);
         (self.presented_sequence.load(Ordering::Relaxed) == presented
             && self.reset_sequence.load(Ordering::Relaxed) == reset)
-            .then_some((position, speed, ended))
+            .then_some((position, speed, ended, track))
     }
 
-    pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool) {
+    pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool, track: u64) {
         self.presented_sequence.fetch_add(1, Ordering::AcqRel);
         fence(Ordering::Release);
         self.position.store(position, Ordering::Relaxed);
@@ -157,6 +162,7 @@ impl State {
             self.speed.store(speed.to_bits(), Ordering::Relaxed);
         }
         self.position_epoch.store(epoch, Ordering::Relaxed);
+        self.track.store(track, Ordering::Relaxed);
         if ended {
             self.ended.store(epoch, Ordering::Relaxed);
         }

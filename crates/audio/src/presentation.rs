@@ -9,6 +9,7 @@ pub(crate) struct Point {
     pub position: u64,
     pub ended: bool,
     pub speed: Option<f32>,
+    pub track: u64,
 }
 
 pub(crate) struct Presentation {
@@ -55,7 +56,13 @@ impl Presentation {
             self.head = (self.head + 1) % self.pending.len();
             self.count -= 1;
             if point.epoch == epoch {
-                state.present(point.epoch, point.position, point.speed, point.ended);
+                state.present(
+                    point.epoch,
+                    point.position,
+                    point.speed,
+                    point.ended,
+                    point.track,
+                );
             }
         }
     }

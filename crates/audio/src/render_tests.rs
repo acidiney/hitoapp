@@ -27,6 +27,7 @@ fn a_callback_with_an_old_epoch_preserves_future_frames() {
             speed: 1.,
             position: 20_833,
             epoch: 2,
+            track: 0,
         })
         .unwrap();
     let mut render = Render::new(consumer, state, format());
@@ -50,6 +51,7 @@ fn an_empty_read_cannot_publish_completion_ahead_of_late_final_frames() {
             speed: 1.,
             position: 20_833,
             epoch: 1,
+            track: 0,
         })
         .unwrap();
     producer
@@ -58,12 +60,14 @@ fn an_empty_read_cannot_publish_completion_ahead_of_late_final_frames() {
             speed: 1.,
             position: 41_667,
             epoch: 1,
+            track: 0,
         })
         .unwrap();
     producer
         .push(Frame::End {
             position: 41_667,
             epoch: 1,
+            track: 0,
         })
         .unwrap();
     let mut output = [0_f32; 3];
@@ -94,12 +98,14 @@ fn overlapping_startup_timestamps_do_not_overlap_submitted_buffers() {
             speed: 1.,
             position: 20_833,
             epoch: 1,
+            track: 0,
         })
         .unwrap();
     producer
         .push(Frame::End {
             position: 20_833,
             epoch: 1,
+            track: 0,
         })
         .unwrap();
     render.fill(&mut [0_f32; 2], &info(1, 1));
@@ -128,6 +134,7 @@ fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() 
                         speed: if position.is_multiple_of(2) { 2. } else { 0.5 },
                         position,
                         epoch: 1,
+                        track: 0,
                     })
                     .unwrap();
                 render.fill(&mut [0_f32; 1], &info(position * 100, position * 100));
@@ -136,6 +143,7 @@ fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() 
                 .push(Frame::End {
                     position: 100_000,
                     epoch: 1,
+                    track: 0,
                 })
                 .unwrap();
             render.fill(&mut [0_f32; 1], &info(10_000_100, 10_000_100));
@@ -162,4 +170,34 @@ fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() 
         }
     });
     assert!(state.snapshot(format()).ended);
+}
+
+#[test]
+fn a_track_change_inside_one_callback_presents_the_old_track_before_the_new_one() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = Arc::new(State::new());
+    state.playing.store(true, Ordering::Release);
+    let mut render = Render::new(consumer, state.clone(), format());
+    render.fill(&mut [0_f32; 1], &info(0, 100_000));
+    for (track, position, level) in [(0, 20_833, 0.25), (1, 20_833, 0.5)] {
+        producer
+            .push(Frame::Audio {
+                samples: [level; 2],
+                speed: 1.,
+                position,
+                epoch: 1,
+                track,
+            })
+            .unwrap();
+    }
+    let mut output = [0_f32; 2];
+    render.fill(&mut output, &info(10, 100_010));
+    assert_eq!(output, [0.25, 0.5]);
+    assert_eq!(state.snapshot(format()).track, 0);
+    render.fill(&mut [0_f32; 1], &info(100_050, 200_050));
+    let middle = state.snapshot(format());
+    assert_eq!((middle.track, middle.position.as_nanos()), (0, 20_833));
+    render.fill(&mut [0_f32; 1], &info(100_100, 200_100));
+    let last = state.snapshot(format());
+    assert_eq!((last.track, last.position.as_nanos()), (1, 20_833));
 }

@@ -1,5 +1,5 @@
 use crate::{AudioFormat, Converter, Error, Result, processor::Processor};
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 
 pub(crate) struct Block<'a> {
     pub samples: &'a [f32],
@@ -7,6 +7,12 @@ pub(crate) struct Block<'a> {
     pub step: f64,
     pub end: Duration,
     pub speed: f32,
+    pub track: u64,
+}
+
+struct Join {
+    out_frames: u64,
+    ends_at: Duration,
 }
 
 pub(crate) struct Tempo {
@@ -21,6 +27,12 @@ pub(crate) struct Tempo {
     position: Duration,
     consumed: Duration,
     flushed: bool,
+    next: Option<Converter>,
+    joins: VecDeque<Join>,
+    fed: u64,
+    emitted: u64,
+    track: u64,
+    ended: bool,
 }
 
 impl Tempo {
@@ -38,7 +50,62 @@ impl Tempo {
             position: Duration::ZERO,
             consumed: Duration::ZERO,
             flushed: false,
+            next: None,
+            joins: VecDeque::new(),
+            fed: 0,
+            emitted: 0,
+            track: 0,
+            ended: false,
         }
+    }
+
+    pub fn track(&self) -> u64 {
+        self.track
+    }
+
+    pub fn joining(&self) -> bool {
+        !self.joins.is_empty()
+    }
+
+    pub fn set_next(&mut self, next: Converter) -> Result<bool> {
+        if self.ended {
+            return Err(Error::Interrupted);
+        }
+        let speed = self.requested.unwrap_or(self.speed);
+        if !next.source().speed_capability().supports(speed) {
+            return Err(Error::Unsupported);
+        }
+        Ok(self.next.replace(next).is_some())
+    }
+
+    pub fn clear_next(&mut self) -> bool {
+        self.next.take().is_some()
+    }
+
+    fn join(&mut self, next: Converter) {
+        self.decoder = next;
+        if self.stretch.is_some() {
+            self.joins.push_back(Join {
+                out_frames: (self.fed as f64 / f64::from(self.speed)).round() as u64,
+                ends_at: self.consumed,
+            });
+        } else {
+            self.track += 1;
+            self.position = Duration::ZERO;
+        }
+        self.consumed = Duration::ZERO;
+        tracing::debug!(
+            event = "audio_tempo_joined",
+            track = self.track,
+            pending = self.joins.len(),
+            "Tempo continued into the next input"
+        );
+    }
+
+    fn cross(&mut self) {
+        self.joins.pop_front();
+        self.track += 1;
+        self.position = Duration::ZERO;
     }
 
     pub fn format(&self) -> AudioFormat {
@@ -54,6 +121,9 @@ impl Tempo {
         self.speed = speed;
         self.position = self.consumed;
         self.flushed = false;
+        self.fed = 0;
+        self.emitted = 0;
+        self.joins.clear();
         self.stretch = if speed == 1. {
             None
         } else {
@@ -67,6 +137,7 @@ impl Tempo {
         self.input.clear();
         self.input_offset = 0;
         self.consumed = position;
+        self.ended = false;
         let speed = self.requested.take().unwrap_or(self.speed);
         self.configure(speed)
     }
@@ -105,18 +176,39 @@ impl Tempo {
                 );
             }
             let step = f64::from(self.speed) / f64::from(format.sample_rate);
-            if let Some(stretch) = &mut self.stretch {
-                let frames = stretch.receive(&mut self.output)?;
+            if self.stretch.is_some() {
+                let limit = self
+                    .joins
+                    .front()
+                    .map(|join| join.out_frames.saturating_sub(self.emitted));
+                if limit == Some(0) {
+                    self.cross();
+                    continue;
+                }
+                let capacity = limit.map_or(self.output.len() / channels, |limit| {
+                    (self.output.len() / channels).min(limit.min(usize::MAX as u64) as usize)
+                });
+                let frames = self
+                    .stretch
+                    .as_mut()
+                    .unwrap()
+                    .receive(&mut self.output[..capacity * channels])?;
                 if frames > 0 {
                     let position = self.position;
-                    self.position = (position + Duration::from_secs_f64(frames as f64 * step))
-                        .min(self.consumed);
+                    let end = self
+                        .joins
+                        .front()
+                        .map_or(self.consumed, |join| join.ends_at);
+                    self.position =
+                        (position + Duration::from_secs_f64(frames as f64 * step)).min(end);
+                    self.emitted += frames as u64;
                     return Ok(Some(Block {
                         samples: &self.output[..frames * channels],
                         position,
                         step,
-                        end: self.consumed,
+                        end,
                         speed: self.speed,
+                        track: self.track,
                     }));
                 }
             }
@@ -129,6 +221,11 @@ impl Tempo {
             }
             if self.input_offset == self.input.len() {
                 let Some(block) = self.decoder.read_until(&mut interrupted)? else {
+                    if let Some(next) = self.next.take() {
+                        self.join(next);
+                        continue;
+                    }
+                    self.ended = true;
                     if let Some(stretch) = &mut self.stretch {
                         stretch.flush()?;
                     }
@@ -150,6 +247,7 @@ impl Tempo {
                 );
             if let Some(stretch) = &mut self.stretch {
                 stretch.put(&self.input[start..self.input_offset])?;
+                self.fed += ((self.input_offset - start) / channels) as u64;
             } else {
                 self.position = self.consumed;
                 return Ok(Some(Block {
@@ -159,8 +257,13 @@ impl Tempo {
                     step,
                     end: self.consumed,
                     speed: self.speed,
+                    track: self.track,
                 }));
             }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tempo_join_tests.rs"]
+mod join_tests;
