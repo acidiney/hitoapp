@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_85().await;
+        let mut reference = collection_artwork_schema::reference_86().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED {
@@ -563,6 +563,9 @@ impl RetainedState {
         let follows = ("table".to_owned(), "playlist_follows".to_owned());
         self.schema
             .insert(follows.clone(), declared.get(&follows).unwrap().clone());
+        let users = ("table".to_owned(), "users".to_owned());
+        self.schema
+            .insert(users.clone(), declared.get(&users).unwrap().clone());
         let sessions = ("table".to_owned(), "sessions".to_owned());
         self.schema
             .insert(sessions.clone(), declared.get(&sessions).unwrap().clone());

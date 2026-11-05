@@ -195,6 +195,15 @@ pub async fn assert_schema_preserved(
                 )
             });
         }
+        if expected.0 == "table" && expected.1 == "users" {
+            expected.3 = expected.3.map(|ddl| {
+                ddl.replacen(
+                    "created_at INTEGER NOT NULL DEFAULT (unixepoch())\n)",
+                    "created_at INTEGER NOT NULL DEFAULT (unixepoch())\n, display_name TEXT CHECK (display_name IS NULL OR length(display_name) BETWEEN 1 AND 64))",
+                    1,
+                )
+            });
+        }
         if expected.0 == "table" && expected.1 == "sessions" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(

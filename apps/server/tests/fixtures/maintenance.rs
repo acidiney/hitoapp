@@ -415,6 +415,9 @@ impl Snapshot {
             if table.name == "plugin_authorization_attempts" {
                 expected.push("status".to_owned());
             }
+            if table.name == "users" {
+                expected.push("display_name".to_owned());
+            }
             if table.name == "sessions" {
                 expected.extend(["created_at", "last_seen_at", "client"].map(str::to_owned));
             }
@@ -594,6 +597,15 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
                 ddl.replacen(
                     "expires_at <= created_at + 600)\n)",
                     "expires_at <= created_at + 600)\n, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','exchanging','completed','failed')))",
+                    1,
+                )
+            });
+        }
+        if declared.0 == "table" && declared.1 == "users" {
+            declared.3 = declared.3.map(|ddl| {
+                ddl.replacen(
+                    "created_at INTEGER NOT NULL DEFAULT (unixepoch())\n)",
+                    "created_at INTEGER NOT NULL DEFAULT (unixepoch())\n, display_name TEXT CHECK (display_name IS NULL OR length(display_name) BETWEEN 1 AND 64))",
                     1,
                 )
             });
