@@ -1,7 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "plugin-authorization-callback.spec.ts",
+  testMatch: [
+    "plugin-authorization-callback.spec.ts",
+    "plugin-connection-ui.spec.ts",
+  ],
   workers: 2,
   retries: 0,
   timeout: 15 * 60_000,
@@ -11,7 +14,7 @@ export default defineConfig({
     headless: true,
     viewport: { width: 900, height: 600 },
     trace: "off",
-    video: "off",
+    video: process.env.HITO_PLUGIN_AUTHORIZATION_VIDEO ? "on" : "off",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
