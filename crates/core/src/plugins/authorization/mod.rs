@@ -36,29 +36,14 @@ impl Plugins {
         redirect: &PluginAuthorizationRedirect,
     ) -> Result<PluginAuthorization> {
         let started = Instant::now();
-        let row = sqlx::query("SELECT p.revision,p.service_id,p.manifest,s.revision AS service_revision
-            FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
-            WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
-            .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
-        let revision: i64 = row.try_get("revision")?;
-        if revision != expected_revision {
-            return Err(changed());
-        }
-        let manifest: Manifest = serde_json::from_str(row.try_get("manifest")?)
-            .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
-        manifest
-            .validate()
-            .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
-        let Authorization::Oauth2Pkce {
+        let Declaration {
+            revision,
+            service,
+            service_revision,
             client_id,
             authorization_endpoint,
             scopes,
-            ..
-        } = manifest.authorization.ok_or_else(|| {
-            Error::Invalid("This plugin does not offer account authorization".into())
-        })?;
-        let service: String = row.try_get("service_id")?;
-        let service_revision: i64 = row.try_get("service_revision")?;
+        } = self.declaration(actor, id, expected_revision).await?;
         let attempt_id = Uuid::new_v4().to_string();
         let state = random_secret()?;
         let verifier = random_secret()?;
@@ -131,6 +116,55 @@ impl Plugins {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), installation_id = id))]
+    pub async fn check_authorization(
+        &self,
+        actor: &Actor,
+        id: &str,
+        expected_revision: i64,
+    ) -> Result<()> {
+        self.declaration(actor, id, expected_revision)
+            .await
+            .map(|_| ())
+    }
+
+    async fn declaration(
+        &self,
+        actor: &Actor,
+        id: &str,
+        expected_revision: i64,
+    ) -> Result<Declaration> {
+        let row = sqlx::query("SELECT p.revision,p.service_id,p.manifest,s.revision AS service_revision
+            FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
+            WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
+            .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
+        let revision: i64 = row.try_get("revision")?;
+        if revision != expected_revision {
+            return Err(changed());
+        }
+        let manifest: Manifest = serde_json::from_str(row.try_get("manifest")?)
+            .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
+        manifest
+            .validate()
+            .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
+        let Authorization::Oauth2Pkce {
+            client_id,
+            authorization_endpoint,
+            scopes,
+            ..
+        } = manifest.authorization.ok_or_else(|| {
+            Error::Invalid("This plugin does not offer account authorization".into())
+        })?;
+        Ok(Declaration {
+            revision,
+            service: row.try_get("service_id")?,
+            service_revision: row.try_get("service_revision")?,
+            client_id,
+            authorization_endpoint,
+            scopes,
+        })
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), installation_id = id))]
     pub async fn authorization_status(
         &self,
         actor: &Actor,
@@ -165,6 +199,15 @@ impl Plugins {
             expires_at,
         })
     }
+}
+
+struct Declaration {
+    revision: i64,
+    service: String,
+    service_revision: i64,
+    client_id: String,
+    authorization_endpoint: String,
+    scopes: std::collections::BTreeSet<String>,
 }
 
 #[derive(Serialize)]

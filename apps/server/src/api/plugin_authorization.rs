@@ -36,13 +36,21 @@ pub async fn begin(
     Json<PluginAuthorization>,
 )> {
     let redirect = match &host.0 {
-        Some(browser) => match browser.prepare_return().await {
-            HostReturn::Unused => public_redirect(&config)?,
-            HostReturn::Ready(url) => PluginAuthorizationRedirect::desktop_loopback(url.as_str())?,
-            HostReturn::Unavailable(message) => {
-                return Err(hito_core::Error::Conflict(message).into());
+        Some(browser) => {
+            services
+                .plugins
+                .check_authorization(&actor, &id, request.revision)
+                .await?;
+            match browser.prepare_return().await {
+                HostReturn::Unused => public_redirect(&config)?,
+                HostReturn::Ready(url) => {
+                    PluginAuthorizationRedirect::desktop_loopback(url.as_str())?
+                }
+                HostReturn::Unavailable(message) => {
+                    return Err(hito_core::Error::Conflict(message).into());
+                }
             }
-        },
+        }
         None => public_redirect(&config)?,
     };
     let attempt = services

@@ -1,16 +1,51 @@
+use axum::{
+    extract::{Request, State},
+    http::{StatusCode, header},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+};
 use futures_util::future::BoxFuture;
 use hito_server::{HostBrowser, HostOpen, HostReturn};
+use hyper::server::conn::http1;
+use hyper_util::{
+    rt::{TokioIo, TokioTimer},
+    service::TowerToHyperService,
+};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle, time::Instant};
+use tokio::{
+    net::TcpListener,
+    sync::{Semaphore, oneshot},
+    task::{JoinHandle, JoinSet},
+    time::Instant,
+};
 use url::Url;
 
 pub const DEFAULT_RETURN_PORT: u16 = 47321;
 pub const RETURN_PORT_SETTING: &str = "HITO_DESKTOP_OAUTH_PORT";
 const IDLE_AFTER: Duration = Duration::from_secs(11 * 60);
+
+#[derive(Clone, Copy)]
+struct Limits {
+    idle: Duration,
+    header_read: Duration,
+    connection: Duration,
+    connections: usize,
+    stop_grace: Duration,
+}
+
+impl Limits {
+    const DEFAULT: Self = Self {
+        idle: IDLE_AFTER,
+        header_read: Duration::from_secs(5),
+        connection: Duration::from_secs(15),
+        connections: 8,
+        stop_grace: Duration::from_secs(2),
+    };
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReturnPort(u16);
@@ -30,6 +65,7 @@ impl ReturnPort {
         }
     }
 
+    #[cfg(test)]
     pub fn any_free_port() -> Self {
         Self(0)
     }
@@ -55,20 +91,20 @@ struct Listening {
 pub(crate) struct LoopbackReturn {
     port: ReturnPort,
     app: axum::Router,
-    idle: Duration,
+    limits: Limits,
     listening: tokio::sync::Mutex<Option<Listening>>,
 }
 
 impl LoopbackReturn {
     pub fn new(port: ReturnPort, app: axum::Router) -> Self {
-        Self::with_idle(port, app, IDLE_AFTER)
+        Self::with_limits(port, app, Limits::DEFAULT)
     }
 
-    fn with_idle(port: ReturnPort, app: axum::Router, idle: Duration) -> Self {
+    fn with_limits(port: ReturnPort, app: axum::Router, limits: Limits) -> Self {
         Self {
             port,
             app,
-            idle,
+            limits,
             listening: tokio::sync::Mutex::new(None),
         }
     }
@@ -80,13 +116,12 @@ impl LoopbackReturn {
                 *current.deadline.lock().unwrap_or_else(|p| p.into_inner()) <= Instant::now();
             if !current.task.is_finished() && !expired {
                 *current.deadline.lock().unwrap_or_else(|p| p.into_inner()) =
-                    Instant::now() + self.idle;
+                    Instant::now() + self.limits.idle;
                 let url = current.url.clone();
                 *listening = Some(current);
                 return HostReturn::Ready(url);
             }
-            let _ = current.stop.send(());
-            let _ = current.task.await;
+            halt(current, self.limits.stop_grace).await;
         }
         match self.bind().await {
             Ok(started) => {
@@ -100,8 +135,7 @@ impl LoopbackReturn {
 
     pub async fn close(&self) {
         if let Some(current) = self.listening.lock().await.take() {
-            let _ = current.stop.send(());
-            let _ = current.task.await;
+            halt(current, self.limits.stop_grace).await;
         }
     }
 
@@ -133,20 +167,16 @@ impl LoopbackReturn {
             "http://{address}/api/v1/plugin-authorization/callback"
         ))
         .map_err(|_| "Hito could not build the provider return address.".to_string())?;
-        let deadline = Arc::new(Mutex::new(Instant::now() + self.idle));
+        let deadline = Arc::new(Mutex::new(Instant::now() + self.limits.idle));
         let (stop, stopped) = oneshot::channel::<()>();
         let watched = deadline.clone();
-        let app = self.app.clone();
+        let app = self.app.clone().layer(middleware::from_fn_with_state(
+            format!("127.0.0.1:{}", address.port()),
+            host_guard,
+        ));
+        let limits = self.limits;
         let task = tokio::spawn(async move {
-            let shutdown = async move {
-                tokio::select! {
-                    _ = stopped => {}
-                    _ = idle(watched) => {}
-                }
-            };
-            let _ = axum::serve(listener, app)
-                .with_graceful_shutdown(shutdown)
-                .await;
+            serve(listener, app, stopped, watched, limits).await;
             tracing::info!(
                 event = "desktop_return_stopped",
                 "The provider return listener stopped"
@@ -164,6 +194,89 @@ impl LoopbackReturn {
             task,
         })
     }
+}
+
+async fn halt(listening: Listening, grace: Duration) {
+    let Listening { stop, mut task, .. } = listening;
+    let _ = stop.send(());
+    if tokio::time::timeout(grace, &mut task).await.is_err() {
+        task.abort();
+        let _ = task.await;
+    }
+}
+
+async fn host_guard(State(host): State<String>, request: Request, next: Next) -> Response {
+    let allowed = request
+        .headers()
+        .get(header::HOST)
+        .is_some_and(|value| value.as_bytes() == host.as_bytes());
+    if allowed && !request.headers().contains_key(header::ORIGIN) {
+        return next.run(request).await;
+    }
+    tracing::warn!(
+        event = "desktop_return_host_rejected",
+        "A request with another host name or a cross-origin marker reached the provider return listener"
+    );
+    (
+        StatusCode::FORBIDDEN,
+        [
+            (header::CACHE_CONTROL, "no-store"),
+            (header::REFERRER_POLICY, "no-referrer"),
+        ],
+    )
+        .into_response()
+}
+
+async fn serve(
+    listener: TcpListener,
+    app: axum::Router,
+    stopped: oneshot::Receiver<()>,
+    deadline: Arc<Mutex<Instant>>,
+    limits: Limits,
+) {
+    let slots = Arc::new(Semaphore::new(limits.connections));
+    let mut connections = JoinSet::new();
+    let shutdown = async move {
+        tokio::select! {
+            _ = stopped => {}
+            _ = idle(deadline) => {}
+        }
+    };
+    tokio::pin!(shutdown);
+    loop {
+        tokio::select! {
+            biased;
+            _ = &mut shutdown => break,
+            _ = connections.join_next(), if !connections.is_empty() => {}
+            accepted = listener.accept() => {
+                let Ok((stream, _)) = accepted else {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    continue;
+                };
+                let Ok(permit) = slots.clone().try_acquire_owned() else {
+                    tracing::warn!(
+                        event = "desktop_return_busy",
+                        "A provider return connection was refused at the connection cap"
+                    );
+                    continue;
+                };
+                let service = TowerToHyperService::new(app.clone());
+                connections.spawn(async move {
+                    let _permit = permit;
+                    let mut builder = http1::Builder::new();
+                    builder
+                        .timer(TokioTimer::new())
+                        .header_read_timeout(limits.header_read)
+                        .keep_alive(false);
+                    let connection = builder.serve_connection(TokioIo::new(stream), service);
+                    let _ = tokio::time::timeout(limits.connection, connection).await;
+                });
+            }
+        }
+    }
+    drop(listener);
+    connections.abort_all();
+    while connections.join_next().await.is_some() {}
 }
 
 async fn idle(deadline: Arc<Mutex<Instant>>) {
@@ -200,6 +313,15 @@ impl HostBrowser for DesktopBrowser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    const TEST_LIMITS: Limits = Limits {
+        idle: Duration::from_millis(300),
+        header_read: Duration::from_millis(300),
+        connection: Duration::from_secs(2),
+        connections: 2,
+        stop_grace: Duration::from_millis(500),
+    };
 
     async fn closed(url: &Url) -> bool {
         let port = url.port().unwrap();
@@ -215,12 +337,26 @@ mod tests {
         }
     }
 
+    async fn stalled(url: &Url) -> tokio::net::TcpStream {
+        let mut stream = tokio::net::TcpStream::connect(SocketAddr::from((
+            Ipv4Addr::LOCALHOST,
+            url.port().unwrap(),
+        )))
+        .await
+        .unwrap();
+        stream
+            .write_all(b"GET /api/v1/plugin-authorization/callback?sta")
+            .await
+            .unwrap();
+        stream
+    }
+
     #[tokio::test]
     async fn an_idle_listener_stops_and_a_new_attempt_starts_it_again() {
-        let returns = LoopbackReturn::with_idle(
+        let returns = LoopbackReturn::with_limits(
             ReturnPort::any_free_port(),
             axum::Router::new(),
-            Duration::from_millis(300),
+            TEST_LIMITS,
         );
         let first = ready(&returns).await;
         assert!(!closed(&first).await);
@@ -235,5 +371,77 @@ mod tests {
         assert!(!closed(&restarted).await);
         returns.close().await;
         assert!(closed(&restarted).await);
+    }
+
+    #[tokio::test]
+    async fn a_stalled_connection_cannot_block_close_or_the_next_connect() {
+        let limits = Limits {
+            header_read: Duration::from_secs(60),
+            connection: Duration::from_secs(60),
+            ..TEST_LIMITS
+        };
+        let returns =
+            LoopbackReturn::with_limits(ReturnPort::any_free_port(), axum::Router::new(), limits);
+        let url = ready(&returns).await;
+        let _stalled = stalled(&url).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let started = Instant::now();
+        returns.close().await;
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(closed(&url).await);
+
+        let restarted = ready(&returns).await;
+        let _stalled = stalled(&restarted).await;
+        tokio::time::sleep(Duration::from_millis(700)).await;
+        let started = Instant::now();
+        let again = ready(&returns).await;
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(!closed(&again).await);
+        let started = Instant::now();
+        returns.close().await;
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[tokio::test]
+    async fn a_connection_that_never_finishes_its_request_line_is_dropped() {
+        let returns = LoopbackReturn::with_limits(
+            ReturnPort::any_free_port(),
+            axum::Router::new(),
+            Limits {
+                idle: Duration::from_secs(30),
+                ..TEST_LIMITS
+            },
+        );
+        let url = ready(&returns).await;
+        let mut stream = stalled(&url).await;
+        let mut buffer = [0u8; 256];
+        let outcome = tokio::time::timeout(Duration::from_secs(3), stream.read(&mut buffer)).await;
+        assert!(
+            outcome.is_ok(),
+            "the server must end the stalled connection"
+        );
+        returns.close().await;
+    }
+
+    #[tokio::test]
+    async fn connections_beyond_the_cap_are_refused_while_the_listener_stays_up() {
+        let returns = LoopbackReturn::with_limits(
+            ReturnPort::any_free_port(),
+            axum::Router::new(),
+            Limits {
+                idle: Duration::from_secs(30),
+                header_read: Duration::from_secs(30),
+                ..TEST_LIMITS
+            },
+        );
+        let url = ready(&returns).await;
+        let _first = stalled(&url).await;
+        let _second = stalled(&url).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut third = stalled(&url).await;
+        let mut buffer = [0u8; 16];
+        let refused = tokio::time::timeout(Duration::from_secs(2), third.read(&mut buffer)).await;
+        assert!(matches!(refused, Ok(Ok(0)) | Ok(Err(_))));
+        returns.close().await;
     }
 }

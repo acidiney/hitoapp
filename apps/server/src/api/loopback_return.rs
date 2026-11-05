@@ -53,7 +53,21 @@ async fn callback(State(services): State<Services>, RawQuery(query): RawQuery) -
         )
         .without_return_link()
         .into_response(),
-        Err(error) => crate::error::ApiError(error).into_response(),
+        Err(error) => {
+            tracing::warn!(
+                event = "loopback_callback_failed",
+                error_kind = error.code(),
+                "Loopback authorization callback failed"
+            );
+            CallbackPage::outcome(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Tone::Failure,
+                "Hito could not finish the connection",
+                "Start again from Settings.",
+            )
+            .without_return_link()
+            .into_response()
+        }
     }
 }
 

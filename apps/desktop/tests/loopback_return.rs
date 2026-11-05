@@ -1,21 +1,55 @@
-use axum::{Json, Router, extract::State, routing::get, routing::post};
+use axum::{Json, Router, extract::State, http::StatusCode as Status, routing::get, routing::post};
+use base64::Engine;
 use hito_desktop::{LocalHost, Paths, ReturnPort, SystemBrowser};
 use reqwest::{Client, StatusCode};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::{
     net::{SocketAddr, TcpListener},
     sync::{Arc, Mutex},
 };
 
+#[derive(Default)]
+struct Issued {
+    challenges: Mutex<HashMap<String, String>>,
+}
+
+type Fixture = (Arc<Mutex<Vec<String>>>, Arc<Issued>);
+
 struct Provider {
     port: u16,
     tokens: Arc<Mutex<Vec<String>>>,
+    issued: Arc<Issued>,
+}
+
+impl Provider {
+    fn issue(&self, code: &str, authorization_url: &str) {
+        self.issued
+            .challenges
+            .lock()
+            .unwrap()
+            .insert(code.into(), pair(authorization_url, "code_challenge"));
+    }
+
+    async fn redeem(&self, form: &str) -> reqwest::StatusCode {
+        Client::new()
+            .post(format!("http://127.0.0.1:{}/token", self.port))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(form.to_owned())
+            .send()
+            .await
+            .unwrap()
+            .status()
+    }
 }
 
 async fn provider() -> Provider {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let tokens = Arc::new(Mutex::new(Vec::new()));
+    let issued = Arc::new(Issued::default());
+    let shared = (tokens.clone(), issued.clone());
     let app = Router::new()
         .route(
             "/v1/manifest",
@@ -38,20 +72,43 @@ async fn provider() -> Provider {
         .route(
             "/token",
             post(
-                |State(tokens): State<Arc<Mutex<Vec<String>>>>, body: String| async move {
-                    tokens.lock().unwrap().push(body);
-                    Json(json!({
-                        "access_token": "owned-desktop-access",
-                        "token_type": "Bearer",
-                        "expires_in": 3600,
-                        "refresh_token": "owned-desktop-refresh"
-                    }))
+                |State((tokens, issued)): State<Fixture>, body: String| async move {
+                    tokens.lock().unwrap().push(body.clone());
+                    let form: HashMap<String, String> =
+                        url::form_urlencoded::parse(body.as_bytes())
+                            .into_owned()
+                            .collect();
+                    let expected = form
+                        .get("code")
+                        .and_then(|code| issued.challenges.lock().unwrap().get(code).cloned());
+                    let proven = form.get("code_verifier").is_some_and(|verifier| {
+                        Some(
+                            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                                .encode(Sha256::digest(verifier.as_bytes())),
+                        ) == expected
+                    });
+                    if !proven {
+                        return (Status::BAD_REQUEST, Json(json!({"error": "invalid_grant"})));
+                    }
+                    (
+                        Status::OK,
+                        Json(json!({
+                            "access_token": "owned-desktop-access",
+                            "token_type": "Bearer",
+                            "expires_in": 3600,
+                            "refresh_token": "owned-desktop-refresh"
+                        })),
+                    )
                 },
             ),
         )
-        .with_state(tokens.clone());
+        .with_state(shared);
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    Provider { port, tokens }
+    Provider {
+        port,
+        tokens,
+        issued,
+    }
 }
 
 fn free_port() -> u16 {
@@ -221,6 +278,7 @@ async fn the_system_browser_completes_the_sign_in_on_the_fixed_loopback_address_
         "the return address is not the private window backend"
     );
     let state = pair(authorization, "state");
+    provider.issue("owned-code", authorization);
     let browser = Client::new();
     let page = browser
         .get(format!("{redirect}?code=owned-code&state={state}"))
@@ -294,6 +352,7 @@ async fn the_loopback_listener_serves_only_the_callback_and_guessed_states_fail(
     ] {
         let response = browser.get(base.join(path).unwrap()).send().await.unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+        assert_eq!(response.headers()["referrer-policy"], "no-referrer");
         assert!(response.headers().get("set-cookie").is_none());
     }
     let guessed = browser
@@ -304,6 +363,8 @@ async fn the_loopback_listener_serves_only_the_callback_and_guessed_states_fail(
         .await
         .unwrap();
     assert_eq!(guessed.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(guessed.headers()["referrer-policy"], "no-referrer");
+    assert_eq!(guessed.headers()["cache-control"], "no-store");
     assert!(provider.tokens.lock().unwrap().is_empty());
     desktop.host.shutdown().await.unwrap();
 }
@@ -358,5 +419,72 @@ async fn a_port_in_use_fails_connect_with_a_plain_message_and_never_picks_anothe
         ),
         format!("http://127.0.0.1:{port}/api/v1/plugin-authorization/callback")
     );
+    desktop.host.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_cross_site_or_misnamed_request_is_refused_and_a_captured_code_is_useless_without_the_verifier()
+ {
+    let provider = provider().await;
+    let port = free_port();
+    let desktop = desktop(ReturnPort::from_setting(Some(&port.to_string())).unwrap()).await;
+    let installation = installation(&desktop, &provider).await;
+    let (_, started) = begin(&desktop, &installation).await;
+    let authorization = started["authorization_url"].as_str().unwrap();
+    let state = pair(authorization, "state");
+    provider.issue("captured-code", authorization);
+    let target = format!(
+        "http://127.0.0.1:{port}/api/v1/plugin-authorization/callback?code=captured-code&state={state}"
+    );
+    let browser = Client::new();
+    let cross_site = browser
+        .get(&target)
+        .header("origin", "https://evil.example")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(cross_site.status(), StatusCode::FORBIDDEN);
+    assert_eq!(cross_site.headers()["referrer-policy"], "no-referrer");
+    for host in ["localhost", "evil.example", "127.0.0.1", "[::1]:1"] {
+        let response = browser
+            .get(&target)
+            .header("host", host)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{host}");
+        assert_eq!(response.headers()["referrer-policy"], "no-referrer");
+    }
+    assert!(provider.tokens.lock().unwrap().is_empty());
+
+    let attacker_without_verifier = format!(
+        "grant_type=authorization_code&code=captured-code&client_id=return-client&redirect_uri=http%3A%2F%2F127.0.0.1%3A{port}%2Fapi%2Fv1%2Fplugin-authorization%2Fcallback"
+    );
+    assert_eq!(
+        provider.redeem(&attacker_without_verifier).await,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        provider
+            .redeem(&format!(
+                "{attacker_without_verifier}&code_verifier=guessed-verifier"
+            ))
+            .await,
+        StatusCode::BAD_REQUEST
+    );
+
+    let (_, connection) = desktop
+        .call(
+            "GET",
+            &format!(
+                "api/v1/plugins/{}/connection",
+                installation["id"].as_str().unwrap()
+            ),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(connection["status"], "not_connected");
+    let honest = browser.get(&target).send().await.unwrap();
+    assert_eq!(honest.status(), StatusCode::OK);
     desktop.host.shutdown().await.unwrap();
 }

@@ -15,18 +15,21 @@ const RETURN: &str = "http://127.0.0.1:47321/api/v1/plugin-authorization/callbac
 
 struct Stub {
     ready: Mutex<Option<String>>,
+    prepared: std::sync::atomic::AtomicUsize,
 }
 
 impl Stub {
     fn ready() -> Arc<Self> {
         Arc::new(Self {
             ready: Mutex::new(Some(RETURN.into())),
+            prepared: Default::default(),
         })
     }
 
     fn occupied() -> Arc<Self> {
         Arc::new(Self {
             ready: Mutex::new(None),
+            prepared: Default::default(),
         })
     }
 }
@@ -38,6 +41,8 @@ impl HostBrowser for Stub {
 
     fn prepare_return(&self) -> BoxFuture<'_, HostReturn> {
         Box::pin(async {
+            self.prepared
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             match self.ready.lock().unwrap().clone() {
                 Some(url) => HostReturn::Ready(url.parse().unwrap()),
                 None => HostReturn::Unavailable(
@@ -290,6 +295,7 @@ async fn an_attempt_whose_session_ended_fails_safely() {
     assert!(status.is_success());
     let page = system_browser(&flow, &attempt).await;
     assert_eq!(page.status, StatusCode::BAD_REQUEST);
+    assert_eq!(page.headers["referrer-policy"], "no-referrer");
     assert!(flow.token.requests().is_empty());
     let (_, connection) = flow.connection(&flow.owner).await;
     assert_eq!(connection["status"], "not_connected");
@@ -427,4 +433,58 @@ async fn an_unavailable_return_address_fails_the_connect_action_with_a_plain_mes
             .unwrap()
     };
     assert_eq!(count, 0);
+}
+
+#[tokio::test]
+async fn the_return_address_is_prepared_only_for_an_attempt_that_passes_validation() {
+    let stub = Stub::ready();
+    let flow = Flow::start_desktop(stub.clone()).await;
+    let revision = flow.installation["revision"].as_i64().unwrap();
+    let stale = call(
+        &flow.app,
+        "POST",
+        &flow.begin_path(),
+        json!({"revision": revision + 1}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(stale.0, StatusCode::CONFLICT);
+    let unknown = call(
+        &flow.app,
+        "POST",
+        "/api/v1/plugins/no-such-installation/authorization",
+        json!({"revision": revision}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(unknown.0, StatusCode::NOT_FOUND);
+    assert_eq!(stub.prepared.load(std::sync::atomic::Ordering::SeqCst), 0);
+    let (status, _) = call(
+        &flow.app,
+        "POST",
+        &flow.begin_path(),
+        json!({"revision": revision}),
+        Some(&flow.owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(stub.prepared.load(std::sync::atomic::Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn an_unexpected_failure_shows_a_styled_page_with_no_referrer() {
+    let flow = Flow::start_desktop(Stub::ready()).await;
+    let attempt = flow.begin().await;
+    flow.sql("DROP TABLE plugin_connections").await;
+    let page = system_browser(&flow, &attempt).await;
+    assert!(page.status.is_server_error() || page.status.is_client_error());
+    assert_eq!(page.headers["referrer-policy"], "no-referrer");
+    assert_eq!(page.headers["cache-control"], "no-store");
+    assert!(
+        page.headers["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
+    assert!(page.body.contains("data-tone="));
 }
