@@ -12,8 +12,9 @@ const MAINTENANCE_LIMIT: i64 = 500;
 const ADMINISTRATOR_LIMIT: i64 = 2000;
 const REPORT_LIMIT: i64 = 100_000;
 
-pub(crate) const REFERENCING_TABLES: [&str; 25] = [
+pub(crate) const REFERENCING_TABLES: [&str; 26] = [
     "likes",
+    "listening_history",
     "listening_progress",
     "playlist_entries",
     "download_files",

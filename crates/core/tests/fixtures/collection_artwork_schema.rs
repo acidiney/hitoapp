@@ -31,6 +31,8 @@ pub mod follow_approval_schema;
 pub mod genre_schema;
 #[path = "artist_identity_selection_schema.rs"]
 pub mod identity_schema;
+#[path = "listening_history_schema.rs"]
+pub mod listening_history_schema;
 #[path = "artist_match_schema.rs"]
 pub mod match_schema;
 #[path = "musicbrainz_genres_schema.rs"]
@@ -458,6 +460,10 @@ pub async fn reference_84() -> SqliteConnection {
     plugin_connections_schema::reference(reference_83().await).await
 }
 
+pub async fn reference_85() -> SqliteConnection {
+    listening_history_schema::reference(reference_84().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -497,6 +503,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         82 => reference_82().await,
         83 => reference_83().await,
         84 => reference_84().await,
+        85 => reference_85().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -688,6 +695,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 84),
+    )
+    .chain(
+        listening_history_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 85),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
