@@ -188,6 +188,14 @@ For an operator: take the whole-volume backup first. Restoring it is the only wa
 
 Evidence: `crates/core/tests/listening_history_upgrade.rs` checks that every earlier schema object is kept exactly, that the copy keeps each account's rows and times, that no preference row is added, that a foreign key check finds no violation and that the preference check refuses values other than 0 and 1.
 
+## Migration 0087, account avatar
+
+Migration 0087 adds one table, `account_avatars`: one row per account with a 64 character content hash, the normalized image bytes (a check keeps them between 1 byte and 256 KiB) and an update time. It starts empty, so every account keeps showing initials. No existing table or index changes and no row is rewritten. The table references `users` with `ON DELETE CASCADE`, and the account erasure plan deletes it explicitly before the account row.
+
+For an operator: take the whole-volume backup first. Restoring it is the only way back. Pictures live inside the database file, so they are covered by the same backup. It is not part of a public release. See [account security](account-security.md#avatar-photo).
+
+Evidence: `crates/core/tests/account_avatar_upgrade.rs` checks that every earlier schema object is kept exactly, that accounts are kept without a photo, that a foreign key check finds no violation, that the checks refuse a short hash and an oversized picture, and that deleting the account removes its picture.
+
 ## Migration 0086, account display name
 
 Migration 0086 adds one nullable column, `users.display_name`, with a check that a stored value has 1 to 64 characters. Every existing account keeps null and keeps signing in with its username. No table or index is added and no row is rewritten, so the upgrade is instant. The column is part of the account row, so deleting an account removes it.

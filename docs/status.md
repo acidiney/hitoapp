@@ -752,3 +752,10 @@ Source only, 2026-11-05. Runs on the local development server only after a rebui
 - Side fix: the Accounts row copy now wraps beside the action buttons; before, the last-active text was cut off behind them at desktop width.
 - Before and after screenshots at 1280x800 and 375x812 (Profile, editing and saved, account menu on Home, Accounts list) were captured from the isolated e2e server with test accounts; the "before" is the web bundle of the parent commit on the new server. They are kept outside the repository.
 - Not built: an avatar photo, a display name at first-run setup or in Create account, an administrator edit, a uniqueness rule.
+
+## Account avatar photo
+
+Source only, 2026-11-05. Runs on the local development server only after a rebuild; not deployed.
+
+- Migration 0087 adds `account_avatars`. `PUT` and `DELETE /account/avatar` change the caller's own photo; `GET /accounts/{id}/avatar` serves it to that account and to administrators, with an ETag and `304` revalidation. `/me`, sign-in, the shared page props and the administrator Accounts list carry `avatar_version`. Settings, Profile has Upload photo and Remove photo, and the account menu, Profile header and Accounts rows show the photo with the initials as fallback. Uploads are read by their bytes (JPEG, PNG, WebP), limited to 2 MiB, refused by header dimensions before decoding, orientation-corrected, flattened, center-cropped to 256 by 256 and re-encoded as JPEG, so no metadata survives. The pictures are stored in SQLite like the other artwork, not as files. See [account security](account-security.md#avatar-photo) and [migration 0087](database-maintenance.md#migration-0087-account-avatar).
+- Not built: an animated or transparent photo (transparency is flattened onto white), cropping or zooming in the page, a photo shown to members other than the owner, an administrator removing another account's photo, a size choice other than 256 pixels.
