@@ -7,11 +7,20 @@ use std::{
     },
 };
 
-static CALLSITE_INTEREST_ANCHOR: OnceLock<tracing::Dispatch> = OnceLock::new();
+static CALLSITE_INTEREST_ANCHORS: OnceLock<[tracing::Dispatch; 2]> = OnceLock::new();
 
 pub fn anchor_callsite_interest() {
-    CALLSITE_INTEREST_ANCHOR
-        .get_or_init(|| tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()));
+    CALLSITE_INTEREST_ANCHORS.get_or_init(|| {
+        [
+            tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()),
+            tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()),
+        ]
+    });
+}
+
+pub fn anchored_dispatch(subscriber: impl tracing::Subscriber + Send + Sync) -> tracing::Dispatch {
+    anchor_callsite_interest();
+    tracing::Dispatch::new(subscriber)
 }
 
 pub const MAX_CAPTURE_BYTES: usize = 65_536;
