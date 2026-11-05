@@ -234,7 +234,12 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(playlist_follow::playlist_follow))
         .routes(routes!(playlist_follow::refresh_followed_playlist))
         .routes(routes!(collection::sync, collection::sync_events))
-        .routes(routes!(collection::activity));
+        .routes(routes!(collection::activity))
+        .routes(routes!(
+            collection::history_preference,
+            collection::update_history_preference
+        ))
+        .routes(routes!(collection::delete_history));
     router = router
         .routes(routes!(player::inspect))
         .routes(routes!(player::claim))

@@ -6,11 +6,13 @@ use crate::{
 use axum::{
     Json,
     extract::{Path, State},
+    http::StatusCode,
 };
 use hito_core::{
-    Activity, ImportProviderPlaylist, ImportedPlaylistMetadataRefresh, Playlist, PlaylistDetail,
-    PlaylistImportReceipt, RefreshImportedPlaylistMetadata, Services, SyncBatch, SyncPage,
-    SyncReceipt,
+    Activity, HistoryCleared, HistoryPreference, ImportProviderPlaylist,
+    ImportedPlaylistMetadataRefresh, Playlist, PlaylistDetail, PlaylistImportReceipt,
+    RefreshImportedPlaylistMetadata, Services, SyncBatch, SyncPage, SyncReceipt,
+    UpdateHistoryPreference,
 };
 use serde::Deserialize;
 use utoipa::IntoParams;
@@ -133,3 +135,63 @@ pub async fn activity(
 ) -> ApiResult<Json<Activity>> {
     Ok(Json(services.collection.activity(&actor).await?))
 }
+
+#[utoipa::path(get, path = "/api/v1/history/preferences", operation_id = "history_preference",
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = HistoryPreference, headers(("Cache-Control" = String, description = "no-store"))),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+))]
+pub async fn history_preference(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<([(&'static str, &'static str); 1], Json<HistoryPreference>)> {
+    Ok((
+        NO_STORE,
+        Json(services.collection.history_preference(&actor).await?),
+    ))
+}
+
+#[utoipa::path(put, path = "/api/v1/history/preferences", operation_id = "update_history_preference",
+    request_body = UpdateHistoryPreference, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = HistoryPreference, headers(("Cache-Control" = String, description = "no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+))]
+pub async fn update_history_preference(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<UpdateHistoryPreference>,
+) -> ApiResult<([(&'static str, &'static str); 1], Json<HistoryPreference>)> {
+    Ok((
+        NO_STORE,
+        Json(
+            services
+                .collection
+                .set_history_enabled(&actor, request.enabled)
+                .await?,
+        ),
+    ))
+}
+
+#[utoipa::path(delete, path = "/api/v1/history", operation_id = "delete_history",
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = HistoryCleared, headers(("Cache-Control" = String, description = "no-store"))),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+))]
+pub async fn delete_history(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<(
+    StatusCode,
+    [(&'static str, &'static str); 1],
+    Json<HistoryCleared>,
+)> {
+    Ok((
+        StatusCode::OK,
+        NO_STORE,
+        Json(services.collection.clear_history(&actor).await?),
+    ))
+}
+
+const NO_STORE: [(&str, &str); 1] = [("cache-control", "no-store")];

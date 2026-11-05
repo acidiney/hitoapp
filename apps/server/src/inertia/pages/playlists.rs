@@ -50,8 +50,19 @@ pub(super) async fn history(request: PageRequest<'_>) -> ApiResult<PageProps> {
             Ok(request.services.collection.activity(request.actor).await?)
         })
         .await?;
+    let history_enabled = request
+        .when("history_enabled", async {
+            Ok(request
+                .services
+                .collection
+                .history_preference(request.actor)
+                .await?
+                .enabled)
+        })
+        .await?;
     Ok(PageProps::History(HistoryPageProps {
         shared: request.shared,
         activity,
+        history_enabled,
     }))
 }

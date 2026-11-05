@@ -263,6 +263,9 @@ pub struct HistoryPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub activity: Option<Activity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub history_enabled: Option<bool>,
 }
 
 #[derive(Serialize, ToSchema)]
