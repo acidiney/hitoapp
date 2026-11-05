@@ -198,6 +198,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             vec![
                 "activity",
                 "errors",
+                "history_enabled",
                 "libraries",
                 "lock",
                 "native_playback",
