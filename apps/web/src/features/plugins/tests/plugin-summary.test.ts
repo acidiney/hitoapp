@@ -21,6 +21,15 @@ test("a playlist and artwork service names what it does for the listener", () =>
   );
 });
 
+test("a service named after its playlists does not repeat the word", () => {
+  expect(serviceSummary("Spotify public playlists", caps("playlists"))).toBe(
+    "Imports and follows Spotify public playlists.",
+  );
+  expect(serviceSummary("Radio Playlist", caps("playlists"))).toBe(
+    "Imports and follows Radio Playlist.",
+  );
+});
+
 test("single abilities keep the service name where it helps", () => {
   expect(serviceSummary("Jamendo", caps("sources"))).toBe(
     "Plays songs from Jamendo.",

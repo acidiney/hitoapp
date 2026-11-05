@@ -50,7 +50,12 @@ function phrases(name: string, has: (value: Capability) => boolean) {
   else if (has("search")) found.push(`finds songs on ${name}`);
   if (has("catalog") && !has("search"))
     found.push(`lists albums and artists from ${name}`);
-  if (has("playlists")) found.push(`imports and follows ${name} playlists`);
+  if (has("playlists"))
+    found.push(
+      /playlists?$/i.test(name)
+        ? `imports and follows ${name}`
+        : `imports and follows ${name} playlists`,
+    );
   if (has("metadata")) found.push("fills in track details");
   if (has("lyrics")) found.push("shows lyrics");
   if (has("artwork")) found.push("fetches album covers");
