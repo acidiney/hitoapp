@@ -39,14 +39,14 @@ function sidebar(path: string) {
   return screen.getByRole("navigation", { name: "Main navigation" });
 }
 
-function account(path: string, pin = true) {
+function account(path: string, pin = true, person: object = user) {
   vi.mocked(usePlayer).mockReturnValue({ clear: vi.fn() } as never);
   render(
     createElement(
       NoticeProvider,
       null,
       createElement(AccountMenu, {
-        user,
+        user: person as typeof user,
         lock: { ...lock, pin_enabled: pin },
         path,
       }),
@@ -128,6 +128,29 @@ test("the avatar opens account and settings while lock and sign out stay reachab
   ).toBe("/settings");
   expect(screen.getByRole("button", { name: "Lock" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+});
+
+test("the account menu shows the display name, its initials, and falls back to the username", () => {
+  account("/library", true, { ...user, display_name: "Ana Souza" });
+  const link = screen.getByRole("link", { name: "Account and settings" });
+  expect(link.textContent).toContain("Ana Souza");
+  expect(link.textContent).not.toContain("alice");
+  expect(link.querySelector(".avatar")?.textContent).toBe("AS");
+});
+
+test("the account menu falls back to the username without a display name", () => {
+  account("/library", true, { ...user, display_name: null });
+  const link = screen.getByRole("link", { name: "Account and settings" });
+  expect(link.textContent).toContain("alice");
+  expect(link.querySelector(".avatar")?.textContent).toBe("A");
+});
+
+test("a hostile display name is shown as text, never as markup", () => {
+  const hostile = '<img src=x onerror="window.pwned=1"><script>1</script>';
+  account("/library", true, { ...user, display_name: hostile });
+  const link = screen.getByRole("link", { name: "Account and settings" });
+  expect(link.textContent).toContain(hostile);
+  expect(link.querySelector("img, script")).toBeNull();
 });
 
 test("lock is offered only with a PIN", () => {

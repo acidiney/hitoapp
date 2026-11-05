@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
+import { accountName } from "../../../shared/accountName";
 import Avatar from "../../../shared/ui/Avatar";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
@@ -45,8 +46,8 @@ export default function AccountSettings({
       {users.map((user) => (
         <SettingRow
           key={user.id}
-          title={user.username}
-          leading={<Avatar id={user.id} name={user.username} />}
+          title={accountName(user)}
+          leading={<Avatar id={user.id} name={accountName(user)} />}
           hint={accountHint(user)}
           wide
           action={

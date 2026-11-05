@@ -35,3 +35,13 @@ test("every avatar colour keeps its initials readable", () => {
   }
   expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 0);
 });
+
+test("initials come from a display name and fall back to its first symbol", () => {
+  expect(initials("Ana Souza")).toBe("AS");
+  expect(initials("Zoë Müller")).toBe("ZM");
+  expect(initials("宇多田ヒカル")).toBe("宇");
+  expect(initials("🦉")).toBe("🦉");
+  expect(initials("👩🏽‍🎤 Star")).toBe("S");
+  expect(initials("👩🏽‍🎤")).toBe("👩🏽‍🎤");
+  expect(initials("<b>")).toBe("B");
+});

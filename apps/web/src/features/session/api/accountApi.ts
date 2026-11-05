@@ -25,6 +25,25 @@ export const accountApi = {
     });
     return result;
   },
+  async setDisplayName(
+    account: string,
+    displayName: string | null,
+    signal?: AbortSignal,
+  ): Promise<Schema<"User">> {
+    const body: Schema<"UpdateDisplayName"> = { display_name: displayName };
+    const user = await requestJson<Schema<"User">>("/account/display-name", {
+      action: "account.display_name",
+      method: "PUT",
+      account,
+      body,
+      signal,
+    });
+    log.info("account.display_name_changed", {
+      account_id: account,
+      count: user.display_name ? 1 : 0,
+    });
+    return user;
+  },
   sessions(
     account: string,
     signal?: AbortSignal,

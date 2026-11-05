@@ -56,6 +56,37 @@ test("each account row shows its last active time or that no session is open", a
   expect(screen.getByText("Member · No open sessions")).toBeTruthy();
 });
 
+test("a row shows the display name with the username beside the role, and falls back to the username", async () => {
+  vi.mocked(accountsApi.list).mockResolvedValue([
+    {
+      id: "a",
+      username: "admin",
+      admin: true,
+      display_name: "Ana Souza",
+      last_active_at: NOW / 1000 - 300,
+    },
+    {
+      id: "b",
+      username: "listener",
+      admin: false,
+      display_name: '<img src=x onerror="window.pwned=1">',
+      last_active_at: null,
+    },
+    { id: "c", username: "plain", admin: false, last_active_at: null },
+  ]);
+  const { container } = view();
+  await screen.findByText("Ana Souza");
+  expect(
+    screen.getByText("admin · Administrator · Last active 5 minutes ago"),
+  ).toBeTruthy();
+  expect(screen.getByText("listener · Member · No open sessions")).toBeTruthy();
+  expect(screen.getByText('<img src=x onerror="window.pwned=1">')).toBeTruthy();
+  expect(container.querySelector("img")).toBeNull();
+  expect(screen.getByText("plain")).toBeTruthy();
+  expect(screen.getByText("Member · No open sessions")).toBeTruthy();
+  expect(container.querySelectorAll(".avatar")[0].textContent).toBe("AS");
+});
+
 test("a newly created account reads as having no open sessions", async () => {
   vi.mocked(accountsApi.list).mockResolvedValue([
     { id: "a", username: "admin", admin: true, last_active_at: NOW / 1000 },

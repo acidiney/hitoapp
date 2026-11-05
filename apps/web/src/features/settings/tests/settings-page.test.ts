@@ -177,6 +177,34 @@ test("the profile shows the signed-in account and keeps sign-out and lock reacha
   expect(screen.getByRole("button", { name: "Lock now" })).toBeTruthy();
 });
 
+test("the profile header shows the display name with the username beneath, or the username alone", () => {
+  const named = open("/settings?section=profile", {
+    ...admin,
+    user: { ...admin.user, display_name: "Alice <b>Admin</b>" },
+  });
+  const identity = named.container.querySelector(".profile-identity")!;
+  expect(identity.querySelector(".setting-line-title")?.textContent).toBe(
+    "Alice <b>Admin</b>",
+  );
+  expect(identity.querySelector(".setting-line-hint")?.textContent).toBe(
+    "alice · Administrator",
+  );
+  expect(identity.querySelector(".avatar")?.textContent).toBe("AB");
+  expect(identity.querySelector("b")).toBeNull();
+  expect(
+    (screen.getByRole("textbox", { name: "Display name" }) as HTMLInputElement)
+      .value,
+  ).toBe("Alice <b>Admin</b>");
+  named.unmount();
+  const plain = open("/settings?section=profile");
+  const bare = plain.container.querySelector(".profile-identity")!;
+  expect(bare.querySelector(".setting-line-title")?.textContent).toBe("alice");
+  expect(bare.querySelector(".setting-line-hint")?.textContent).toBe(
+    "Administrator",
+  );
+  expect(bare.querySelector(".avatar")?.textContent).toBe("A");
+});
+
 test("opening a section from the list focuses its heading and going back focuses the page heading", () => {
   const view = open("/settings");
   const rerender = (url: string) => {

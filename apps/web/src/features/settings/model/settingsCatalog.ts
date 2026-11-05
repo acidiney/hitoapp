@@ -2,6 +2,7 @@ import type { SectionId } from "./sections";
 
 export type SettingId =
   | "account"
+  | "display-name"
   | "session"
   | "change-password"
   | "open-sessions"
@@ -39,6 +40,14 @@ const ENTRIES: SettingEntry[] = [
     section: "profile",
     label: "Account",
     keywords: "username role administrator member avatar who am i",
+  },
+  {
+    id: "display-name",
+    section: "profile",
+    label: "Display name",
+    description:
+      "An optional name shown in place of your username in the menu and account lists. It never changes how you sign in.",
+    keywords: "name nickname profile username rename",
   },
   {
     id: "session",

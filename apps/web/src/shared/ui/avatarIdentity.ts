@@ -11,9 +11,17 @@ function fnv1a(text: string): number {
   return hash;
 }
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+function firstSymbol(name: string): string {
+  const first = graphemes.segment(name.trim())[Symbol.iterator]().next();
+  return first.done ? "?" : first.value.segment;
+}
+
 export function initials(name: string): string {
   const parts = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  if (parts.length === 0) return "?";
+  if (parts.length === 0)
+    return /\p{Extended_Pictographic}/u.test(name) ? firstSymbol(name) : "?";
   return parts
     .slice(0, 2)
     .map((part) => Array.from(part)[0].toUpperCase())

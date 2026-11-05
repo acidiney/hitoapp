@@ -165,6 +165,29 @@ test("an empty library offers folders, playlist import and services", () => {
   expect(screen.queryByRole("region", { name: "Quick access" })).toBeNull();
 });
 
+test("home greets the display name and falls back to the username", () => {
+  const data = props({});
+  data.user = {
+    id: "alice",
+    username: "Alice",
+    admin: true,
+    display_name: "Ana",
+  };
+  const { unmount } = render(createElement(HomePage, data));
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Ana$/);
+  unmount();
+  data.user = {
+    id: "alice",
+    username: "Alice",
+    admin: true,
+    display_name: null,
+  };
+  render(createElement(HomePage, data));
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
+    /Alice$/,
+  );
+});
+
 test("a listener who cannot manage folders is told to ask the administrator", () => {
   const data = props({ has_music: false });
   data.user = { id: "bob", username: "Bob", admin: false };

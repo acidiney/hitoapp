@@ -364,6 +364,7 @@
 .plugin-form label,
 .pin-form label,
 .password-form label,
+.display-name-form label,
 .dialog-form label,
 .field-label {
   display: grid;
@@ -390,6 +391,7 @@
   font-size: 12px;
 }
 .password-form fieldset,
+.display-name-form fieldset,
 .pin-form fieldset {
   display: grid;
   gap: 10px;
@@ -399,11 +401,13 @@
   border: 0;
 }
 .password-form input,
+.display-name-form input,
 .pin-form input {
   width: 100%;
   min-height: 44px;
 }
 .password-form fieldset > div,
+.display-name-form fieldset > div,
 .pin-form fieldset > div {
   display: flex;
   flex-wrap: wrap;

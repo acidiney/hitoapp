@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
 
+import { accountName } from "../../../shared/accountName";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import SearchField from "../../../shared/ui/SearchField";
 import {
@@ -32,7 +33,7 @@ export default function HomePage({
   return (
     <div className="home-page">
       <header className="home-header">
-        <h1>{greeting(new Date().getHours(), user.username)}</h1>
+        <h1>{greeting(new Date().getHours(), accountName(user))}</h1>
         <SearchField
           id={SHELL_SEARCH_ID}
           label="Search"

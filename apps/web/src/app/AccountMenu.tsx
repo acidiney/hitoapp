@@ -7,6 +7,7 @@ import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
 
 import Avatar from "../shared/ui/Avatar";
+import { accountName } from "../shared/accountName";
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
 
@@ -34,9 +35,9 @@ export default function AccountMenu({
         }
         onClick={() => log.info("navigation.requested", { route: "/settings" })}
       >
-        <Avatar id={user.id} name={user.username} />
+        <Avatar id={user.id} name={accountName(user)} />
         <span>
-          {user.username}
+          {accountName(user)}
           <small>{user.admin ? "Administrator" : "Account and settings"}</small>
         </span>
       </Link>

@@ -10,5 +10,6 @@ export function accountHint(
     account.last_active_at == null
       ? "No open sessions"
       : `Last active ${relativeTime(account.last_active_at, now)}`;
-  return `${role} · ${activity}`;
+  const identity = account.display_name ? `${account.username} · ` : "";
+  return `${identity}${role} · ${activity}`;
 }
