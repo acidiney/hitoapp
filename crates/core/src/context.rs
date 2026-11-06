@@ -7,7 +7,11 @@ pub struct MediaTools {
     pub ffprobe: PathBuf,
     pub timeout: Duration,
     pub parallelism: usize,
+    pub temp_budget: u64,
+    pub temp_dir: Option<PathBuf>,
 }
+
+pub const DEFAULT_TEMP_BUDGET: u64 = 2 * 1024 * 1024 * 1024;
 
 impl Default for MediaTools {
     fn default() -> Self {
@@ -18,6 +22,8 @@ impl Default for MediaTools {
             parallelism: std::thread::available_parallelism()
                 .map_or(2, usize::from)
                 .clamp(2, 8),
+            temp_budget: DEFAULT_TEMP_BUDGET,
+            temp_dir: None,
         }
     }
 }

@@ -103,6 +103,8 @@ impl LibraryStorage {
             Some(Err(error)) => {
                 let message = if matches!(error, Error::MediaToolsMissing) {
                     super::types::MEDIA_TOOLS_MISSING_MESSAGE
+                } else if matches!(error, Error::InsufficientStorage) {
+                    super::types::TEMP_STORAGE_FULL_MESSAGE
                 } else {
                     "Music scan failed. Check the connected folder."
                 };

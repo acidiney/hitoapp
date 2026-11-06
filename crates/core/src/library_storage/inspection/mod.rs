@@ -53,10 +53,11 @@ impl FileInspector {
 
     pub(crate) fn new(tools: MediaTools) -> Self {
         let commands = Commands::new(tools.parallelism);
+        let snapshots = snapshot::Reader::new(tools.temp_budget, tools.temp_dir.clone());
         Self {
             tools,
             commands,
-            snapshots: snapshot::Reader::new(),
+            snapshots,
         }
     }
 

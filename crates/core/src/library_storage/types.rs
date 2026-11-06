@@ -24,6 +24,8 @@ pub enum JobFailure {
 pub(super) const MEDIA_TOOLS_MISSING_MESSAGE: &str =
     "FFmpeg is not installed. Install it (for example `brew install ffmpeg`) and scan again.";
 
+pub(super) const TEMP_STORAGE_FULL_MESSAGE: &str = "There is not enough temporary disk space to scan. Free space, or lower the scan temporary budget, and scan again.";
+
 impl JobFailure {
     pub(super) fn recorded(message: Option<&str>) -> Option<Self> {
         (message == Some(MEDIA_TOOLS_MISSING_MESSAGE)).then_some(Self::MediaToolsMissing)

@@ -1,4 +1,7 @@
-use super::{Control, MediaSnapshot, Mode, Prepared, Snapshot, changed, unreadable};
+use super::{
+    Control, MediaSnapshot, Mode, Prepared, PrivateCopy, Reservation, Snapshot, changed,
+    copy_failure, unreadable,
+};
 use crate::{Result, library_storage::root::Root};
 use sha2::{Digest, Sha256};
 use std::{
@@ -46,7 +49,13 @@ impl Stamp {
     }
 }
 
-pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> Result<Prepared> {
+pub(super) fn read(
+    root: &Root,
+    path: &Path,
+    mode: Mode,
+    control: &Control,
+    reservation: Option<Reservation>,
+) -> Result<Prepared> {
     control.check()?;
     let path = path.to_owned();
     let mut file = root.open_file(&path).map_err(|_| unreadable())?;
@@ -80,8 +89,13 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
         use std::os::unix::fs::PermissionsExt;
         directory.permissions(std::fs::Permissions::from_mode(0o700));
     }
-    let directory = Arc::new(directory.tempdir().map_err(|_| unreadable())?);
+    let directory = match &control.temp_dir {
+        Some(base) => directory.tempdir_in(base),
+        None => directory.tempdir(),
+    }
+    .map_err(|error| copy_failure(&error))?;
     let media_path = directory.path().join("media");
+    let directory = Arc::new(PrivateCopy::new(directory, reservation));
     let mut output = OpenOptions::new();
     output.read(true).write(true).create_new(true);
     #[cfg(unix)]
@@ -89,9 +103,11 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
         use std::os::unix::fs::OpenOptionsExt;
         output.mode(0o600).custom_flags(libc::O_NOFOLLOW);
     }
-    let mut output = output.open(&media_path).map_err(|_| unreadable())?;
+    let mut output = output
+        .open(&media_path)
+        .map_err(|error| copy_failure(&error))?;
     let checksum = transfer(&mut file, initial.size, Some(&mut output), control)?;
-    output.flush().map_err(|_| unreadable())?;
+    output.flush().map_err(|error| copy_failure(&error))?;
     let tags = super::id3::neutralise(&mut output, control)?;
     drop(output);
     let artists = super::super::tagged_artists::read(&media_path);
@@ -152,7 +168,7 @@ fn transfer(
         if let Some(output) = output.as_deref_mut() {
             output
                 .write_all(&buffer[..count])
-                .map_err(|_| unreadable())?;
+                .map_err(|error| copy_failure(&error))?;
         }
         hasher.update(&buffer[..count]);
         remaining -= count as u64;

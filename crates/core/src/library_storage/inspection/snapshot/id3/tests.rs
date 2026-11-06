@@ -12,6 +12,7 @@ fn control() -> Control {
         cancelled: Arc::new(AtomicBool::new(false)),
         started: Instant::now(),
         timeout: Duration::from_secs(30),
+        temp_dir: None,
     }
 }
 

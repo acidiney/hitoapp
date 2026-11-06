@@ -65,7 +65,7 @@ impl LibraryStorage {
                             count += 1;
                         }
                         Err(error) if lease.is_stopping() => return Err(error),
-                        Err(error @ Error::Database(_)) => return Err(error),
+                        Err(error @ (Error::Database(_) | Error::InsufficientStorage)) => return Err(error),
                         Err(error) => {
                             self.invalidate_path(lease, &root, path.as_path()).await?;
                             skipped += 1;

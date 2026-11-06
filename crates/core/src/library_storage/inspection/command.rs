@@ -72,7 +72,7 @@ impl Commands {
         arguments: Vec<OsString>,
         limit: usize,
         timeout: Duration,
-        media_guard: Option<Arc<tempfile::TempDir>>,
+        media_guard: Option<Arc<super::snapshot::PrivateCopy>>,
     ) -> Result<Vec<u8>> {
         self.run_until(
             program,
@@ -91,7 +91,7 @@ impl Commands {
         arguments: Vec<OsString>,
         limit: usize,
         deadline: Instant,
-        media_guard: Option<Arc<tempfile::TempDir>>,
+        media_guard: Option<Arc<super::snapshot::PrivateCopy>>,
     ) -> Completion {
         let started = Instant::now();
         let operation = async {
