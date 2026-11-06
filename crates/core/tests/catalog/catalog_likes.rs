@@ -193,3 +193,32 @@ async fn liked_recordings_list_only_the_callers_likes_whatever_the_search_asks()
     assert_eq!(bobs.total, 1);
     assert_eq!(bobs.items[0].id, all.items[0].id);
 }
+
+#[tokio::test]
+async fn one_recording_reports_only_the_current_users_like() {
+    let (_dir, hito, actor, _library) = catalog().await;
+    let items = hito
+        .catalog
+        .recordings(&actor, Search::default())
+        .await
+        .unwrap()
+        .items;
+    let (liked, other) = (&items[0].id, &items[1].id);
+    synchronize(
+        &hito,
+        &actor,
+        vec![Action::LikeSet {
+            recording_id: Uuid::parse_str(liked).unwrap(),
+            liked: true,
+        }],
+    )
+    .await;
+    assert!(hito.catalog.recording_liked(&actor, liked).await.unwrap());
+    assert!(!hito.catalog.recording_liked(&actor, other).await.unwrap());
+    assert!(
+        hito.catalog
+            .recording_liked(&actor, "00000000-0000-4000-8000-000000000000")
+            .await
+            .is_err()
+    );
+}

@@ -56,11 +56,21 @@ pub(super) async fn recording_details(request: PageRequest<'_>, id: &str) -> Api
                 .await?)
         })
         .await?;
+    let liked = request
+        .when("liked", async {
+            Ok(request
+                .services
+                .catalog
+                .recording_liked(request.actor, id)
+                .await?)
+        })
+        .await?;
     Ok(PageProps::RecordingDetails(Box::new(
         RecordingDetailsPageProps {
             shared: request.shared,
             detail,
             copies,
+            liked,
         },
     )))
 }

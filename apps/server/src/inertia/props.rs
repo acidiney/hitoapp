@@ -201,6 +201,9 @@ pub struct RecordingDetailsPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub copies: Option<RecordingCopies>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub liked: Option<bool>,
 }
 
 #[derive(Serialize, ToSchema)]

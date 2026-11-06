@@ -1,8 +1,22 @@
 use super::{Catalog, Page, Recording, Search, push_available, push_plays_from_services};
-use crate::{Actor, Error, Library, Result};
+use crate::{Actor, Error, Library, Result, identity::recording_access};
 use sqlx::{QueryBuilder, Sqlite};
 
 impl Catalog {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn recording_liked(&self, actor: &Actor, recording: &str) -> Result<bool> {
+        let mut connection = self.store.pool.acquire().await?;
+        actor.check_session_on(&mut connection).await?;
+        recording_access(&mut connection, actor, recording).await?;
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND recording_id = ?)",
+        )
+        .bind(actor.id())
+        .bind(recording)
+        .fetch_one(&mut *connection)
+        .await?)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn libraries(&self, actor: &Actor) -> Result<Vec<Library>> {
         Ok(sqlx::query_as(

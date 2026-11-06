@@ -27382,7 +27382,8 @@
             "type": "object",
             "required": [
               "detail",
-              "copies"
+              "copies",
+              "liked"
             ],
             "properties": {
               "copies": {
@@ -27390,6 +27391,9 @@
               },
               "detail": {
                 "$ref": "#/components/schemas/RecordingMetadata"
+              },
+              "liked": {
+                "type": "boolean"
               }
             }
           }

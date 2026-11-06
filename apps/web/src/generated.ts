@@ -5083,6 +5083,7 @@ export interface components {
         RecordingDetailsPageProps: components["schemas"]["SharedPageProps"] & {
             copies: components["schemas"]["RecordingCopies"];
             detail: components["schemas"]["RecordingMetadata"];
+            liked: boolean;
         };
         /** @enum {string} */
         RecordingGroupProof: "musicbrainz_recording" | "isrc";
