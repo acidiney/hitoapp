@@ -24,8 +24,12 @@ pub struct AudioLibrary {
 }
 impl AudioLibrary {
     pub async fn start() -> Self {
+        Self::start_paced(crate::StreamPace::DEFAULT).await
+    }
+    pub async fn start_paced(pace: crate::StreamPace) -> Self {
         let server = ProviderServer::start().await;
-        let (directory, hito, actor, _library, music) = support::library("provider-audio").await;
+        let (directory, hito, actor, _library, music) =
+            support::library_configured("provider-audio", |config| config.stream_pace = pace).await;
         let original = support::write_wav(&music.join("original.wav"), 10);
         let service = hito
             .plugins

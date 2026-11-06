@@ -68,6 +68,8 @@ pub struct CoreConfig {
     pub cover_art_loopback_endpoint: Option<url::Url>,
     #[cfg(any(test, feature = "test-support"))]
     pub artist_image_loopback_endpoint: Option<url::Url>,
+    #[cfg(any(test, feature = "test-support"))]
+    pub stream_pace: crate::StreamPace,
 }
 
 impl CoreConfig {
@@ -112,6 +114,8 @@ impl CoreConfig {
             cover_art_loopback_endpoint: None,
             #[cfg(any(test, feature = "test-support"))]
             artist_image_loopback_endpoint: None,
+            #[cfg(any(test, feature = "test-support"))]
+            stream_pace: crate::StreamPace::DEFAULT,
         }
     }
 }

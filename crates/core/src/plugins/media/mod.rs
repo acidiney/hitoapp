@@ -18,10 +18,11 @@ pub(super) struct MediaClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    pace: crate::StreamPace,
 }
 
 impl MediaClient {
-    pub(super) fn new() -> Result<Self> {
+    pub(super) fn new(pace: crate::StreamPace) -> Result<Self> {
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -37,6 +38,7 @@ impl MediaClient {
             client,
             slots: Arc::new(Semaphore::new(16)),
             accounts: Accounts::new(2),
+            pace,
         })
     }
     #[tracing::instrument(level = "debug", skip_all)]
@@ -111,6 +113,7 @@ impl MediaClient {
                         _account: account,
                         _global: global,
                     }),
+                    self.pace,
                 ),
                 audio.length,
             ));

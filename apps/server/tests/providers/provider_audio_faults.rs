@@ -162,3 +162,46 @@ async fn a_connection_reset_mid_body_fails_the_browser_read_promptly_and_the_nex
         f.original.as_slice()
     );
 }
+
+#[tokio::test]
+async fn a_provider_below_the_throughput_floor_fails_the_browser_read_within_the_window_and_frees_the_slot()
+ {
+    let f = AudioLibrary::start_paced(hito_core::StreamPace {
+        window: Duration::from_millis(1800),
+        floor_bytes_per_second: 6000,
+        ..hito_core::StreamPace::DEFAULT
+    })
+    .await;
+    f.ready().await;
+    f.server
+        .audio_trickle(f.original.len() / 6 + 1, Duration::from_millis(900));
+    let browser = Browser::sign_in(&f).await;
+    let response = browser.get(None).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let started = Instant::now();
+    let mut body = response.into_body();
+    let mut received = 0;
+    let failed = loop {
+        match body.frame().await {
+            Some(Ok(frame)) => received += frame.into_data().map_or(0, |data| data.len()),
+            Some(Err(_)) => break true,
+            None => break false,
+        }
+    };
+    assert!(failed, "a stream below the floor must not end cleanly");
+    assert!(
+        started.elapsed() < Duration::from_millis(3600),
+        "{:?}",
+        started.elapsed()
+    );
+    assert!(received < f.original.len());
+    f.server.audio_trickle(f.original.len(), Duration::ZERO);
+    for _ in 0..2 {
+        let healed = browser.get(None).await;
+        assert_eq!(healed.status(), StatusCode::OK);
+        assert_eq!(
+            healed.into_body().collect().await.unwrap().to_bytes(),
+            f.original.as_slice()
+        );
+    }
+}

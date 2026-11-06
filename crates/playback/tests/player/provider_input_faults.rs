@@ -178,3 +178,37 @@ async fn a_slow_first_byte_delays_the_open_and_a_silent_provider_fails_it_at_the
     gate.open();
     hito_playback::Source::open(grant(&f).await).await.unwrap();
 }
+
+#[tokio::test]
+async fn a_provider_below_the_throughput_floor_fails_the_input_within_the_window() {
+    let f = AudioLibrary::start_paced(hito_core::StreamPace {
+        window: Duration::from_millis(1800),
+        floor_bytes_per_second: 6000,
+        ..hito_core::StreamPace::DEFAULT
+    })
+    .await;
+    f.ready().await;
+    f.server
+        .audio_trickle(f.original.len() / 6 + 1, Duration::from_millis(900));
+    let mut source = hito_playback::Source::open(grant(&f).await).await.unwrap();
+    let outcome = tokio::task::spawn_blocking(move || {
+        let started = Instant::now();
+        let mut received = 0;
+        let failed = loop {
+            let mut buffer = [0; 4096];
+            match source.read(&mut buffer) {
+                Ok(0) => break false,
+                Ok(read) => received += read,
+                Err(_) => break true,
+            }
+        };
+        (failed, received, started.elapsed())
+    });
+    let (failed, received, elapsed) = tokio::time::timeout(Duration::from_secs(10), outcome)
+        .await
+        .expect("a slow provider must not hold the audio thread")
+        .unwrap();
+    assert!(failed, "a stream below the floor must surface as an error");
+    assert!(received < f.original.len());
+    assert!(elapsed < Duration::from_millis(3600), "{elapsed:?}");
+}

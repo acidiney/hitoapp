@@ -1,8 +1,10 @@
 pub(crate) mod headers;
+pub(crate) mod pace;
 mod range;
 pub(crate) mod remote;
 mod stream;
 use crate::{AudioFile, PlaybackSource, Result};
+pub use pace::StreamPace;
 pub use range::ByteRange;
 pub use stream::AudioStream;
 

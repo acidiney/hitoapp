@@ -106,6 +106,7 @@ impl EnclosureOrigin {
                         _account: account,
                         _global: global,
                     }),
+                    crate::StreamPace::DEFAULT,
                 ),
                 audio.length,
             ));

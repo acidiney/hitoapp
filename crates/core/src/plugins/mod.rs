@@ -49,12 +49,16 @@ pub struct Plugins {
 }
 
 impl Plugins {
-    pub(crate) async fn new(store: Store, vault: vault::Vault) -> Result<Self> {
+    pub(crate) async fn new(
+        store: Store,
+        vault: vault::Vault,
+        pace: crate::StreamPace,
+    ) -> Result<Self> {
         Ok(Self {
             store,
             vault,
             remote: transport::ControlClient::new()?,
-            media: media::MediaClient::new()?,
+            media: media::MediaClient::new(pace)?,
             token: authorization::TokenClient::new()?,
             connection_locks: std::sync::Arc::default(),
         })

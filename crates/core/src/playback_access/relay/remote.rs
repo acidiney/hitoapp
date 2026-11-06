@@ -1,7 +1,11 @@
+use super::pace::{Meter, StreamPace};
 use crate::{Error, Result};
 use bytes::Bytes;
 use futures_util::future::BoxFuture;
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
 
@@ -38,12 +42,14 @@ pub(crate) struct RemoteAudio {
     authority: Authority,
     revoked: watch::Receiver<bool>,
     monitor: tokio::task::JoinHandle<()>,
+    meter: Meter,
 }
 impl RemoteAudio {
     pub(crate) fn new(
         response: reqwest::Response,
         authority: Authority,
         permits: Option<Permits>,
+        pace: StreamPace,
     ) -> Self {
         let connection = Arc::new(Mutex::new(Connection {
             response: Some(response),
@@ -81,6 +87,7 @@ impl RemoteAudio {
             authority,
             revoked,
             monitor,
+            meter: Meter::new(pace),
         }
     }
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
@@ -91,15 +98,23 @@ impl RemoteAudio {
         }
         let result = if connection.pending.is_empty() {
             let response = connection.response.as_mut().ok_or(Error::NotFound)?;
-            tokio::select! {
+            let waiting = Instant::now();
+            let read = tokio::select! {
                 biased;
                 _ = self.revoked.changed() => Err(Error::NotFound),
-                result = tokio::time::timeout(Duration::from_secs(15), response.chunk()) => {
+                result = tokio::time::timeout(self.meter.read_idle(), response.chunk()) => {
                     match result {
                         Ok(chunk) => chunk.map_err(|_| Error::Upstream("The audio stream could not be read")),
                         Err(_) => Err(Error::Upstream("The audio stream did not return data in time")),
                     }
                 },
+            };
+            match read {
+                Ok(Some(bytes)) => self
+                    .meter
+                    .record(waiting.elapsed(), bytes.len())
+                    .map(|()| Some(bytes)),
+                other => other,
             }
         } else {
             Ok(Some(std::mem::take(&mut connection.pending)))

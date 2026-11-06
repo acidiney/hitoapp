@@ -53,6 +53,18 @@ pub async fn library_with_artist_images(
     cover_art: Option<url::Url>,
     artist_images: Option<url::Url>,
 ) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
+    library_configured(host, |config| {
+        config.musicbrainz_loopback_endpoint = musicbrainz;
+        config.cover_art_loopback_endpoint = cover_art;
+        config.artist_image_loopback_endpoint = artist_images;
+    })
+    .await
+}
+
+pub async fn library_configured(
+    host: &str,
+    configure: impl FnOnce(&mut CoreConfig),
+) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");
     std::fs::create_dir(&music).unwrap();
@@ -61,9 +73,7 @@ pub async fn library_with_artist_images(
         music.clone(),
         HostDeviceId::new(host).unwrap(),
     );
-    config.musicbrainz_loopback_endpoint = musicbrainz;
-    config.cover_art_loopback_endpoint = cover_art;
-    config.artist_image_loopback_endpoint = artist_images;
+    configure(&mut config);
     std::fs::write(dir.path().join("hito.db"), migrated_database().await).unwrap();
     let hito = open(config).await.unwrap();
     let session = hito

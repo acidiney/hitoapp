@@ -44,7 +44,7 @@ impl IntoResponse for ApiError {
             | Error::ProviderBusy(_)
             | Error::AuthorizationRequired(_)
             | Error::OperationRejected(_) => StatusCode::CONFLICT,
-            Error::Upstream(_) => StatusCode::BAD_GATEWAY,
+            Error::Upstream(_) | Error::StreamTooSlow => StatusCode::BAD_GATEWAY,
             Error::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
@@ -54,14 +54,17 @@ impl IntoResponse for ApiError {
             Error::WrongPassword => Some(ErrorCode::WrongPassword),
             _ => None,
         };
-        let error = if let Error::Upstream(message) = &self.0 {
+        let error = if matches!(&self.0, Error::Upstream(_) | Error::StreamTooSlow) {
             tracing::warn!(
                 event = "upstream_failed",
                 error_kind = self.0.code(),
                 status = status.as_u16(),
                 "External service failed"
             );
-            message.to_string()
+            match &self.0 {
+                Error::Upstream(message) => message.to_string(),
+                other => other.to_string(),
+            }
         } else if status.is_server_error() {
             tracing::error!(
                 event = "request_failed",

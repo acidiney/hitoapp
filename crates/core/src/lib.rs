@@ -119,7 +119,7 @@ pub use metadata::{
 };
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, ByteRange, CandidatesEnd, MAX_FALLBACK_ATTEMPTS,
-    OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource,
+    OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource, StreamPace,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
@@ -172,7 +172,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let managed =
         library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
     let vault = secrets::Vault::open(&store, &config.database).await?;
-    let plugins = Plugins::new(store.clone(), vault.clone()).await?;
+    #[cfg(any(test, feature = "test-support"))]
+    let stream_pace = config.stream_pace;
+    #[cfg(not(any(test, feature = "test-support")))]
+    let stream_pace = StreamPace::DEFAULT;
+    let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace).await?;
     let community = Community::new(
         store.clone(),
         config.host_device.clone(),

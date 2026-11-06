@@ -80,7 +80,12 @@ impl Downloads {
             ("queued", "queued", None, true, 0)
         } else if storage_full {
             ("queued", "queued", None, true, STORAGE_RETRY_SECONDS)
-        } else if lease.attempts < 3 && matches!(&error, Some(crate::Error::Upstream(_))) {
+        } else if lease.attempts < 3
+            && matches!(
+                &error,
+                Some(crate::Error::Upstream(_) | crate::Error::StreamTooSlow)
+            )
+        {
             (
                 "queued",
                 "queued",

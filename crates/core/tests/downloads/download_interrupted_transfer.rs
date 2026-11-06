@@ -333,3 +333,53 @@ async fn a_slowly_trickling_provider_completes_the_download_with_every_byte() {
     assert_eq!(ready.bytes_received, fixture.original.len() as u64);
     assert_eq!(managed_names(&fixture).len(), 1);
 }
+
+#[tokio::test]
+async fn a_provider_below_the_throughput_floor_costs_one_retryable_attempt_each_and_fails_after_three()
+ {
+    let fixture = AudioLibrary::start_paced(hito_core::StreamPace {
+        window: Duration::from_millis(1800),
+        floor_bytes_per_second: 6000,
+        ..hito_core::StreamPace::DEFAULT
+    })
+    .await;
+    fixture.ready().await;
+    fixture
+        .server
+        .audio_trickle(fixture.original.len() / 6 + 1, Duration::from_millis(900));
+    request(&fixture).await;
+    for attempt in 1..=2 {
+        let started = std::time::Instant::now();
+        assert!(run(&fixture).await);
+        assert!(
+            started.elapsed() < Duration::from_millis(3600),
+            "{:?}",
+            started.elapsed()
+        );
+        let waiting = state(&fixture).await;
+        assert!(matches!(waiting.status, DownloadState::Queued));
+        assert_eq!(waiting.error.as_deref(), Some("provider_unavailable"));
+        assert_eq!(managed_names(&fixture), Vec::<String>::new());
+        assert_eq!(fixture.server.requests("v1/audio").await.len(), attempt);
+        make_due(&fixture).await;
+    }
+    assert!(run(&fixture).await);
+    let failed = state(&fixture).await;
+    assert!(matches!(failed.status, DownloadState::Failed));
+    assert_eq!(failed.error.as_deref(), Some("transfer_failed"));
+    assert_eq!(managed_names(&fixture), Vec::<String>::new());
+    assert_eq!(fixture.server.requests("v1/audio").await.len(), 3);
+
+    fixture
+        .hito
+        .downloads
+        .remove(&fixture.actor, &failed.intent_id)
+        .await
+        .unwrap();
+    fixture
+        .server
+        .audio_trickle(fixture.original.len(), Duration::ZERO);
+    request(&fixture).await;
+    assert!(run(&fixture).await);
+    assert!(matches!(state(&fixture).await.status, DownloadState::Ready));
+}

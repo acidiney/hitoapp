@@ -8,7 +8,7 @@ pub(crate) mod relay;
 
 pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
 pub use grant::PlaybackSource;
-pub use relay::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
+pub use relay::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio, StreamPace};
 
 pub(crate) use local::LocalOrigin;
 pub(crate) use origin::Origins;

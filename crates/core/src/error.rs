@@ -24,6 +24,8 @@ pub enum Error {
     OperationRejected(String),
     #[error("{0}")]
     Upstream(&'static str),
+    #[error("The audio service sent data too slowly")]
+    StreamTooSlow,
     #[error("There is not enough disk space to save this audio")]
     InsufficientStorage,
     #[error("FFmpeg is not installed")]
@@ -61,6 +63,7 @@ impl Error {
             Self::AuthorizationRequired(_) => "authorization_required",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) => "upstream",
+            Self::StreamTooSlow => "stream_too_slow",
             Self::InsufficientStorage => "insufficient_storage",
             Self::MediaToolsMissing => "media_tools_missing",
             Self::Database(_) => "database",
