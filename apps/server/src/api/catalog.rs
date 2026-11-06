@@ -1,7 +1,7 @@
 use crate::{
     auth::Account,
     error::{ApiResult, ErrorResponse},
-    extract::QueryParams,
+    extract::{JsonBody, QueryParams},
 };
 use axum::{
     Json,
@@ -9,8 +9,9 @@ use axum::{
     response::Response,
 };
 use hito_core::{AudioStream, Library, Page, Recording, Search, Services, Source};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
 #[serde(transparent)]
@@ -42,6 +43,51 @@ pub async fn recordings(
     Ok(Json(RecordingPage(
         services.catalog.recordings(&actor, search).await?,
     )))
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingLookupRequest {
+    #[schema(max_items = 500)]
+    pub recording_ids: Vec<Uuid>,
+}
+
+const LOOKUP_LIMIT: usize = 500;
+
+#[utoipa::path(post, path = "/api/v1/recordings/lookup", operation_id = "recordings_lookup",
+    request_body = RecordingLookupRequest, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = [Recording]), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.user().id.as_str()))]
+pub async fn recordings_lookup(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<RecordingLookupRequest>,
+) -> ApiResult<Json<Vec<Recording>>> {
+    if request.recording_ids.len() > LOOKUP_LIMIT {
+        return Err(hito_core::Error::Invalid(format!(
+            "Look up at most {LOOKUP_LIMIT} recordings at a time"
+        ))
+        .into());
+    }
+    let started = std::time::Instant::now();
+    let found = services
+        .catalog
+        .readable_recordings(&actor, &request.recording_ids)
+        .await?;
+    tracing::debug!(
+        event = "recordings_lookup_response",
+        requested = request.recording_ids.len(),
+        returned = found.len(),
+        outcome = "read",
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Recording lookup returned"
+    );
+    Ok(Json(found))
 }
 
 #[utoipa::path(get, path = "/api/v1/recordings/{id}/sources", params(("id" = String, Path)),

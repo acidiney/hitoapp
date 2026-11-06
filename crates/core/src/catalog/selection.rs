@@ -10,6 +10,24 @@ impl Catalog {
         actor: &Actor,
         recordings: &[Uuid],
     ) -> Result<Vec<Recording>> {
+        self.lookup(actor, recordings, true).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), count = recordings.len()))]
+    pub async fn readable_recordings(
+        &self,
+        actor: &Actor,
+        recordings: &[Uuid],
+    ) -> Result<Vec<Recording>> {
+        self.lookup(actor, recordings, false).await
+    }
+
+    async fn lookup(
+        &self,
+        actor: &Actor,
+        recordings: &[Uuid],
+        all: bool,
+    ) -> Result<Vec<Recording>> {
         if recordings.len() > 1000 {
             return Err(Error::Invalid(
                 "Select at most 1000 recordings per lookup".into(),
@@ -17,7 +35,7 @@ impl Catalog {
         }
         tokio::time::timeout(
             std::time::Duration::from_secs(1),
-            self.resolve_recordings(actor, recordings),
+            self.resolve_recordings(actor, recordings, all),
         )
         .await
         .unwrap_or(Err(Error::Upstream(
@@ -29,21 +47,34 @@ impl Catalog {
         &self,
         actor: &Actor,
         recordings: &[Uuid],
+        all: bool,
     ) -> Result<Vec<Recording>> {
         actor.check_session(&self.store).await?;
-        let selected = recordings_on(
-            &mut *self.store.pool.acquire().await?,
-            &self.host,
-            actor,
-            recordings,
-        )
-        .await?;
+        let mut connection = self.store.pool.acquire().await?;
+        let selected = if all {
+            recordings_on(&mut connection, &self.host, actor, recordings).await?
+        } else {
+            select_recordings_on(&mut connection, &self.host, actor, recordings).await?
+        };
         actor.check_session(&self.store).await?;
         Ok(selected)
     }
 }
 
 pub(crate) async fn recordings_on(
+    connection: &mut sqlx::SqliteConnection,
+    host: &crate::HostDeviceId,
+    actor: &Actor,
+    recordings: &[Uuid],
+) -> Result<Vec<Recording>> {
+    let selected = select_recordings_on(connection, host, actor, recordings).await?;
+    if selected.len() != recordings.len() {
+        return Err(Error::NotFound);
+    }
+    Ok(selected)
+}
+
+async fn select_recordings_on(
     connection: &mut sqlx::SqliteConnection,
     host: &crate::HostDeviceId,
     actor: &Actor,
@@ -73,9 +104,5 @@ pub(crate) async fn recordings_on(
             .push_bind(actor.id().to_owned());
     metadata::join_recording_fields(&mut query, actor);
     query.push(" ORDER BY CAST(requested.key AS INTEGER)");
-    let selected: Vec<Recording> = query.build_query_as().fetch_all(connection).await?;
-    if selected.len() != recordings.len() {
-        return Err(Error::NotFound);
-    }
-    Ok(selected)
+    Ok(query.build_query_as().fetch_all(connection).await?)
 }

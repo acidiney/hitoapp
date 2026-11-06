@@ -113,6 +113,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(podcasts::unsubscribe))
         .routes(routes!(catalog::libraries))
         .routes(routes!(catalog::recordings))
+        .routes(routes!(catalog::recordings_lookup))
         .routes(routes!(progress::saved_playback))
         .routes(routes!(browsing::releases))
         .routes(routes!(browsing::release))

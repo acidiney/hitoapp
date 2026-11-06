@@ -157,3 +157,45 @@ async fn queue_lookup_retains_permitted_recordings_when_their_local_audio_disapp
     assert_eq!(selected[0].id, f.recording);
     assert!(!selected[0].available);
 }
+
+#[tokio::test]
+async fn remembered_queue_lookup_returns_only_recordings_the_actor_can_still_read() {
+    let (_directory, hito, actor, _library) = support::catalog().await;
+    let tracks = hito
+        .catalog
+        .recordings(&actor, Search::default())
+        .await
+        .unwrap()
+        .items;
+    let first = Uuid::parse_str(&tracks[1].id).unwrap();
+    let second = Uuid::parse_str(&tracks[0].id).unwrap();
+    let found = hito
+        .catalog
+        .readable_recordings(&actor, &[first, Uuid::new_v4(), second, first])
+        .await
+        .unwrap();
+    assert_eq!(
+        found
+            .iter()
+            .map(|track| track.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            tracks[1].id.as_str(),
+            tracks[0].id.as_str(),
+            tracks[1].id.as_str()
+        ]
+    );
+    assert!(
+        hito.catalog
+            .readable_recordings(&actor, &[])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(matches!(
+        hito.catalog
+            .readable_recordings(&actor, &vec![first; 1001])
+            .await,
+        Err(hito_core::Error::Invalid(_))
+    ));
+}
