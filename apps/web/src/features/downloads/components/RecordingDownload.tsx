@@ -72,15 +72,21 @@ export default function RecordingDownload({
               : download?.status === "queued" &&
                   download.error === "insufficient_storage"
                 ? `Not enough disk space on this ${local ? "device" : "server"}. Hito will try again.`
-                : download?.status === "queued"
-                  ? "Download queued."
-                  : download?.status === "running"
-                    ? "Downloading audio…"
-                    : download?.status === "verifying"
-                      ? "Verifying audio…"
-                      : download?.status === "failed"
-                        ? "Download failed. Remove it before requesting another copy."
-                        : null}
+                : download?.status === "queued" &&
+                    download.error === "provider_unavailable"
+                  ? "The music service did not deliver the audio. Hito will try again."
+                  : download?.status === "queued"
+                    ? "Download queued."
+                    : download?.status === "running"
+                      ? "Downloading audio…"
+                      : download?.status === "verifying"
+                        ? "Verifying audio…"
+                        : download?.status === "failed" &&
+                            download.error === "transfer_failed"
+                          ? "Download failed because the music service did not deliver the audio. Remove it before requesting another copy."
+                          : download?.status === "failed"
+                            ? "Download failed. Remove it before requesting another copy."
+                            : null}
       </p>
       {verified && previousSource && download?.status !== "ready" && (
         <p role="status">This download belongs to a previous source.</p>
