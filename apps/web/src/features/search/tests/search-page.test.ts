@@ -8,11 +8,19 @@ const { player, router } = vi.hoisted(() => ({
   player: {
     playQueue: vi.fn().mockResolvedValue(undefined),
     prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)),
+    subscribe: () => () => {},
+    snapshot: () => ({ current: null }),
   },
   router: { get: vi.fn() },
 }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => player,
+}));
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({
+    mutate: vi.fn(async () => ({ ok: true })),
+    pending: false,
+  }),
 }));
 vi.mock("@inertiajs/react", () => ({
   router,
@@ -140,17 +148,17 @@ test("library results are grouped with a top result, availability and one action
   render(createElement(SearchPage, props()));
   expect(screen.getByRole("heading", { name: "Top result" })).toBeTruthy();
   const tracks = screen.getByRole("region", { name: "Tracks" });
-  expect(within(tracks).getByText("In library")).toBeTruthy();
-  expect(within(tracks).getByText("Catalog only")).toBeTruthy();
+  expect(within(tracks).getByText("Not playable yet")).toBeTruthy();
   fireEvent.click(
     within(tracks).getByRole("button", { name: "Play Tide one" }),
   );
   expect(player.playQueue).toHaveBeenCalled();
   expect(
-    within(tracks)
-      .getByRole("link", { name: "View Tide two" })
-      .getAttribute("href"),
+    within(tracks).getByRole("link", { name: "Tide two" }).getAttribute("href"),
   ).toBe("/recordings/r2");
+  expect(
+    within(tracks).getByRole("button", { name: "Actions for Tide two" }),
+  ).toBeTruthy();
   const albums = screen.getByRole("region", { name: "Albums" });
   expect(
     within(albums).getByRole("link", { name: /Tide/ }).getAttribute("href"),

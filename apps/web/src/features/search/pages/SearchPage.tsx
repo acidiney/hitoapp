@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
 
 import { usePlayer } from "../../playback/components/PlaybackProvider";
+import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import FilterPills from "../../../shared/ui/FilterPills";
 import SearchField from "../../../shared/ui/SearchField";
@@ -29,6 +30,7 @@ type Scope = "all" | "library" | "providers";
 
 export default function SearchPage({
   user,
+  playlists,
   query,
   recordings,
   releases,
@@ -38,6 +40,7 @@ export default function SearchPage({
   service_names,
 }: Schema<"SearchPageProps">) {
   const player = usePlayer();
+  const { mutate } = useMutation(user.id);
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
   const [asked, setAsked] = useState<string | null>(null);
@@ -67,10 +70,6 @@ export default function SearchPage({
     releases: releases.items.length,
     artistNames: artistResults.map((artist) => artist.name),
   });
-  function play(track: Schema<"Recording">) {
-    const playable = recordings.items.filter((item) => item.available);
-    void player.playQueue(playable, Math.max(0, playable.indexOf(track)));
-  }
   return (
     <div className="search-page">
       <header className="search-header">
@@ -123,7 +122,11 @@ export default function SearchPage({
                     : undefined
                 }
               />
-              <TrackResults tracks={recordings.items} onPlay={play} />
+              <TrackResults
+                tracks={recordings.items}
+                playlists={playlists}
+                mutate={mutate}
+              />
               <AlbumResults releases={releases.items} />
               <ArtistResults artists={artistResults} />
             </>

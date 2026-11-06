@@ -1,13 +1,13 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import { Play } from "lucide-react";
 
 import { time } from "../../../shared/format";
+import type { Mutate } from "../../../shared/hooks/useMutation";
 import Artwork from "../../artwork/components/Artwork";
-import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import Button from "../../../shared/ui/Button";
 import { releaseCreditLabel } from "../../catalog/model/albumCredit";
-import ListRow from "../../../shared/ui/ListRow";
+import TrackTable, {
+  type TrackTableRow,
+} from "../../playback/components/TrackTable";
 import type { ArtistHit } from "../model/artistHits";
 
 function trackCover(track: Schema<"Recording">) {
@@ -16,44 +16,6 @@ function trackCover(track: Schema<"Recording">) {
     title: track.album ?? track.title,
     artist: track.artist,
   };
-}
-
-function TrackRow({
-  track,
-  onPlay,
-}: {
-  track: Schema<"Recording">;
-  onPlay: (track: Schema<"Recording">) => void;
-}) {
-  return (
-    <ListRow
-      cover={<Artwork recording={track.id} fallback={trackCover(track)} />}
-      title={track.title}
-      subtitle={[track.artist, track.album].filter(Boolean).join(" · ")}
-      state={
-        <AvailabilityLabel state={track.available ? "library" : "catalog"} />
-      }
-      action={
-        track.available ? (
-          <Button
-            aria-label={`Play ${track.title}`}
-            onClick={() => onPlay(track)}
-          >
-            <Play size={14} fill="currentColor" aria-hidden="true" />
-            Play
-          </Button>
-        ) : (
-          <Link
-            className="button secondary"
-            href={`/recordings/${encodeURIComponent(track.id)}`}
-            aria-label={`View ${track.title}`}
-          >
-            View
-          </Link>
-        )
-      }
-    />
-  );
 }
 
 export function TopResult({
@@ -111,18 +73,25 @@ export function TopResult({
 
 export function TrackResults({
   tracks,
-  onPlay,
+  playlists,
+  mutate,
 }: {
   tracks: Schema<"Recording">[];
-  onPlay: (track: Schema<"Recording">) => void;
+  playlists: Schema<"Playlist">[];
+  mutate: Mutate;
 }) {
   if (tracks.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-tracks">
       <h2 id="search-tracks">Tracks</h2>
-      {tracks.map((track) => (
-        <TrackRow key={track.id} track={track} onPlay={onPlay} />
-      ))}
+      <TrackTable
+        rows={tracks.map<TrackTableRow>((track) => ({
+          kind: "recording",
+          track: { ...track, row_id: track.id },
+        }))}
+        playlists={playlists}
+        mutate={mutate}
+      />
     </section>
   );
 }
