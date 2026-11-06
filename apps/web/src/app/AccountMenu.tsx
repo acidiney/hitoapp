@@ -5,6 +5,7 @@ import { useSignOut } from "../features/session/hooks/useSignOut";
 import { useLockSession } from "../features/session/hooks/useLockSession";
 import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
+import { clearStoredQueues } from "../features/playback/browser/QueueStorage";
 
 import Avatar from "../shared/ui/Avatar";
 import { accountName } from "../shared/accountName";
@@ -21,7 +22,10 @@ export default function AccountMenu({
   path: string;
 }) {
   const player = usePlayer();
-  const { busy, signOut } = useSignOut(user.id, () => player.clear());
+  const { busy, signOut } = useSignOut(user.id, () => {
+    player.clear();
+    clearStoredQueues();
+  });
   const locking = useLockSession(user.id, () => player.clear());
   useIdleLock(user.id, lock, () => player.clear());
   return (

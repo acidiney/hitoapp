@@ -19,6 +19,7 @@ import { useBrowserMediaSession } from "../browser/BrowserMediaSession";
 import { BrowserProgress } from "../browser/BrowserProgress";
 import { audiobookApi } from "../../audiobooks/api/audiobookApi";
 import { BrowserCommunityReporting } from "../browser/BrowserCommunityReporting";
+import { QueuePersistence } from "../browser/QueuePersistence";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -138,8 +139,19 @@ function BrowserAccountPlayback({
     audio.dataset.hitoPlayer = "";
     audio.preload = "auto";
     document.body.append(audio);
+    const persistence = new QueuePersistence(player, account);
+    const restoring = new AbortController();
+    let stopPersisting: (() => void) | null = null;
+    void persistence
+      .restore(restoring.signal)
+      .catch(() => log.warn("queue.restore_failed"))
+      .finally(() => {
+        if (!restoring.signal.aborted) stopPersisting = persistence.start();
+      });
     return () => {
       log.info("playback.account_closed", { account_id: account });
+      restoring.abort();
+      stopPersisting?.();
       player.retire();
       community.close();
       for (const element of media.values()) element.remove();
