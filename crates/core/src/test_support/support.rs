@@ -13,6 +13,12 @@ async fn migrated_database() -> &'static [u8] {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("hito.db");
             let store = crate::store::Store::open(&path).await.unwrap();
+            let (busy,): (i64,) = sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
+                .fetch_one(&store.pool)
+                .await
+                .map(|row: (i64, i64, i64)| (row.0,))
+                .unwrap();
+            assert!(busy == 0, "the migrated template must be fully checkpointed");
             store.pool.close().await;
             std::fs::read(&path).unwrap()
         })
