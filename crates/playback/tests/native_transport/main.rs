@@ -14,6 +14,7 @@ mod player_native_ownership;
 mod player_native_previous;
 mod player_native_previous_authority;
 mod player_native_previous_retry;
+mod player_native_provider_faults;
 mod player_native_provider_recovery;
 mod player_native_recovery;
 mod player_native_recovery_join;
