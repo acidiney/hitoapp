@@ -155,7 +155,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       within(rows[1]).getByRole("button", { name: "Review artist" }),
     );
     const preview = within(
-      await information.findByRole("region", { name: "Review artist" }),
+      await information.findByRole("dialog", { name: "Review artist" }),
     );
     expect(
       preview.getByText(artistPreview.profile.disambiguation, { exact: true }),

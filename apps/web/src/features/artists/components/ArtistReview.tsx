@@ -15,6 +15,8 @@ import { useArtistReview } from "../hooks/useArtistReview";
 import { useSharedUnlink } from "../hooks/useSharedUnlink";
 import ArtistDiscography from "./ArtistDiscography";
 import ArtistPhoto from "./ArtistPhoto";
+import ArtistFacts, { artistKinds } from "./ArtistFacts";
+import ArtistReviewDialog from "./ArtistReviewDialog";
 import CandidateReleases from "./CandidateReleases";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
@@ -22,15 +24,6 @@ import SharedUnlink from "./SharedUnlink";
 import { providerName } from "../model/associationEvidence";
 
 import Button from "../../../shared/ui/Button";
-
-const kinds = {
-  person: "Person",
-  group: "Group",
-  orchestra: "Orchestra",
-  choir: "Choir",
-  character: "Character",
-  other: "Other",
-};
 
 export default function ArtistReview({
   account,
@@ -76,6 +69,7 @@ export default function ArtistReview({
     void workflow.open();
   });
   const panelId = useId();
+  const opener = useRef<HTMLElement | null>(null);
   const panelHeading = useRef<HTMLHeadingElement>(null);
   const panelOpen = panel && workflow.loaded;
   useEffect(() => {
@@ -213,7 +207,10 @@ export default function ArtistReview({
               candidates={workflow.results.page.items}
               photos={workflow.provider?.value.kind === "builtin_musicbrainz"}
               disabled={workflow.pending !== null}
-              onReview={workflow.previewCandidate}
+              onReview={(candidate, button) => {
+                opener.current = button;
+                return workflow.previewCandidate(candidate);
+              }}
             />
           )}
           {workflow.results?.page.items.length === 0 && (
@@ -226,27 +223,15 @@ export default function ArtistReview({
             </p>
           )}
           {workflow.preview && (
-            <section className="rd-panel" aria-label="Review artist">
-              <h3>Review artist</h3>
-              <h4>Saved track credit</h4>
-              <p>{detail.artist.value}</p>
-              <h4>Provider profile</h4>
-              <ArtistFacts profile={workflow.preview.profile} />
-              <p>
-                Save this artist review for this track. Your saved details and
-                playlists are kept.
-              </p>
-              <Button
-                variant="primary"
-                type="button"
-                disabled={workflow.pending !== null}
-                onClick={() => void workflow.confirm()}
-              >
-                {workflow.pending === "confirm"
-                  ? "Saving artist review…"
-                  : "Use this artist"}
-              </Button>
-            </section>
+            <ArtistReviewDialog
+              credit={detail.artist.value}
+              profile={workflow.preview.profile}
+              photos={workflow.provider?.value.kind === "builtin_musicbrainz"}
+              pending={workflow.pending === "confirm"}
+              opener={opener}
+              onConfirm={() => void workflow.confirm()}
+              onClose={workflow.dismissPreview}
+            />
           )}
           {workflow.saved && <p role="status">Artist review saved.</p>}
           <SavedArtistReviews
@@ -338,7 +323,7 @@ function ArtistSummary({
 
 function candidateFacts(candidate: Schema<"ArtistSearchCandidate">) {
   return [
-    candidate.kind ? kinds[candidate.kind] : "Type not provided",
+    candidate.kind ? artistKinds[candidate.kind] : "Type not provided",
     candidate.country ? regionName(candidate.country) : null,
     candidate.begin_year ? `${candidate.begin_year}–` : null,
   ]
@@ -361,7 +346,10 @@ function ArtistCandidates({
   candidates: Schema<"ArtistSearchCandidate">[];
   photos: boolean;
   disabled: boolean;
-  onReview(candidate: Schema<"ArtistSearchCandidate">): Promise<void>;
+  onReview(
+    candidate: Schema<"ArtistSearchCandidate">,
+    button: HTMLElement,
+  ): Promise<void>;
 }) {
   return (
     <ul className="rd-rows" aria-label="Artist search results">
@@ -388,25 +376,12 @@ function ArtistCandidates({
             type="button"
             className="rd-row-action"
             disabled={disabled}
-            onClick={() => void onReview(candidate)}
+            onClick={(event) => void onReview(candidate, event.currentTarget)}
           >
             Review artist
           </Button>
         </li>
       ))}
     </ul>
-  );
-}
-
-function ArtistFacts({ profile }: { profile: Schema<"CatalogArtistProfile"> }) {
-  return (
-    <>
-      <h3>{profile.artist.name}</h3>
-      <p>{profile.kind ? kinds[profile.kind] : "Type not provided"}</p>
-      {profile.disambiguation && <p>{profile.disambiguation}</p>}
-      {profile.sort_name && profile.sort_name !== profile.artist.name && (
-        <p>Sort name: {profile.sort_name}</p>
-      )}
-    </>
   );
 }

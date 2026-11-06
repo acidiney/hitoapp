@@ -118,7 +118,7 @@ test("saving an artist review leaves identity unselected until its reviewed asso
       name: "Review artist",
     }),
   );
-  const preview = await screen.findByRole("region", { name: "Review artist" });
+  const preview = await screen.findByRole("dialog", { name: "Review artist" });
   fireEvent.click(
     within(preview).getByRole("button", { name: "Use this artist" }),
   );

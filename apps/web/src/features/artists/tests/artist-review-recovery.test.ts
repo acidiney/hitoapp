@@ -129,7 +129,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     fireEvent.click(
       within(rows[1]).getByRole("button", { name: "Review artist" }),
     );
-    return screen.findByRole("region", { name: "Review artist" });
+    return screen.findByRole("dialog", { name: "Review artist" });
   }
   try {
     fireEvent.click(screen.getByRole("button", { name: "Change artist" }));
@@ -159,7 +159,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.queryByRole("region", { name: "Review artist" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Review artist" })).toBeNull();
     expect(
       screen.queryByRole("list", { name: "Artist search results" }),
     ).toBeNull();

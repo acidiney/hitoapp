@@ -210,7 +210,7 @@ test("editing a query or provider retires held artist responses and a current re
     expect(
       screen.queryByRole("list", { name: "Artist search results" }),
     ).toBeNull();
-    expect(screen.queryByRole("region", { name: "Review artist" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Review artist" })).toBeNull();
     const current = {
       ...artistReviewContext,
       provider: reference(firstCatalog),
@@ -228,7 +228,7 @@ test("editing a query or provider retires held artist responses and a current re
       "POST",
     );
     await selectSecondArtist();
-    const currentPreview = await screen.findByRole("region", {
+    const currentPreview = await screen.findByRole("dialog", {
       name: "Review artist",
     });
     await act(async () => {
@@ -382,7 +382,7 @@ test.each(["account", "recording", "artist operation"] as const)(
         "POST",
       );
       await selectSecondArtist();
-      const currentPreview = await screen.findByRole("region", {
+      const currentPreview = await screen.findByRole("dialog", {
         name: "Review artist",
       });
       expect(

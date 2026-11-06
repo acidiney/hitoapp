@@ -95,7 +95,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     fireEvent.click(
       within(rows[1]).getByRole("button", { name: "Review artist" }),
     );
-    const preview = await screen.findByRole("region", {
+    const preview = await screen.findByRole("dialog", {
       name: "Review artist",
     });
     fireEvent.click(
@@ -119,7 +119,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     expect(
       screen.queryByRole("region", { name: "Reviewed artist profile" }),
     ).toBeNull();
-    expect(screen.queryByRole("region", { name: "Review artist" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Review artist" })).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Use this artist" }),
     ).toBeNull();

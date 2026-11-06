@@ -125,7 +125,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
         screen.queryByRole("list", { name: "Artist search results" }),
       ).toBeNull();
       expect(
-        screen.queryByRole("region", { name: "Review artist" }),
+        screen.queryByRole("dialog", { name: "Review artist" }),
       ).toBeNull();
       expect(
         screen.queryByRole("button", { name: "Use this artist" }),

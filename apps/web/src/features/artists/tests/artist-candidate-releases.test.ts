@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -42,7 +43,29 @@ const builtinSearch = {
   },
 };
 
-beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+const watched: { element: Element; fire: () => void }[] = [];
+
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  watched.length = 0;
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe(element: Element) {
+        watched.push({
+          element,
+          fire: () =>
+            this.callback(
+              [{ isIntersecting: true } as IntersectionObserverEntry],
+              this as unknown as IntersectionObserver,
+            ),
+        });
+      }
+      disconnect() {}
+    },
+  );
+});
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -90,28 +113,35 @@ async function candidates(answer: (artist: string) => unknown) {
   return { fetch, rows: within(list).getAllByRole("listitem") };
 }
 
-test("searching asks for no release titles until one candidate is opened", async () => {
+function scrollIntoView(row: HTMLElement) {
+  const entry = watched.find(({ element }) => row.contains(element));
+  if (!entry) throw new Error("This candidate is not watched for visibility");
+  act(() => entry.fire());
+}
+
+test("searching asks for no release titles and offers no button until a candidate scrolls into view", async () => {
   const { fetch, rows } = await candidates(() => ({ status: "unavailable" }));
   expect(rows).toHaveLength(2);
   expect(releasesCalls(fetch)).toHaveLength(0);
   expect(
-    within(rows[0]).getByRole("button", { name: "Show known releases" }),
-  ).toBeTruthy();
+    within(rows[0]).queryByRole("button", { name: "Show known releases" }),
+  ).toBeNull();
 });
 
-test("opening one candidate asks only for that artist and lists its release titles", async () => {
+test("a candidate that scrolls into view asks only for its artist and lists at most three release titles", async () => {
   const { fetch, rows } = await candidates((artist) => ({
     status: "available",
     context: builtinContext,
     titles:
-      artist === FIRST ? ["Morning Light", "Second Wind", "Harbor Lights"] : [],
+      artist === FIRST
+        ? ["Morning Light", "Second Wind", "Harbor Lights", "Fourth Tide"]
+        : [],
   }));
-  fireEvent.click(
-    within(rows[0]).getByRole("button", { name: "Show known releases" }),
-  );
+  scrollIntoView(rows[0]);
   expect(await within(rows[0]).findByText("Morning Light")).toBeTruthy();
   expect(within(rows[0]).getByText("Second Wind")).toBeTruthy();
   expect(within(rows[0]).getByText("Harbor Lights")).toBeTruthy();
+  expect(within(rows[0]).queryByText("Fourth Tide")).toBeNull();
   const calls = releasesCalls(fetch);
   expect(calls).toHaveLength(1);
   expect(JSON.parse(calls[0][1]?.body as string)).toEqual({
@@ -128,9 +158,7 @@ test("a candidate with no listed releases says so and a failed request can be re
       ? { status: "unavailable" }
       : { status: "available", context: builtinContext, titles: [] },
   );
-  fireEvent.click(
-    within(rows[0]).getByRole("button", { name: "Show known releases" }),
-  );
+  scrollIntoView(rows[0]);
   expect(
     await within(rows[0]).findByText("Releases are unavailable. Try again."),
   ).toBeTruthy();

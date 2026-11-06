@@ -161,7 +161,7 @@ test("artist information is searched and previewed before its exact selected ide
   fireEvent.click(
     within(rows[1]).getByRole("button", { name: "Review artist" }),
   );
-  const preview = await screen.findByRole("region", {
+  const preview = await screen.findByRole("dialog", {
     name: "Review artist",
   });
   expect(

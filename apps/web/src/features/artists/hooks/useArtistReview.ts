@@ -332,6 +332,13 @@ export function useArtistReview(
     });
   }
 
+  function dismissPreview() {
+    if (writing()) return;
+    setSnapshot((value) =>
+      value.owner === owner ? { ...value, preview: null } : value,
+    );
+  }
+
   async function confirm() {
     const request = scope.capture();
     const preview = current.preview;
@@ -372,6 +379,7 @@ export function useArtistReview(
     open,
     search,
     previewCandidate,
+    dismissPreview,
     confirm,
     loadProfile,
     refreshAssociations,
