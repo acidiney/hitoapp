@@ -62,6 +62,8 @@ export default function TrackSources({
   const localOnly = playing ? isLocalSource(playing.source) : localFile;
   const providerTrack = source?.origin === "provider_response";
   const noAudio = playing === undefined && !localFile;
+  const choiceKnown =
+    choice.choice !== null || choice.unavailable || choice.statusError !== "";
   const hideChoice =
     noAudio &&
     choice.choice !== null &&
@@ -70,11 +72,11 @@ export default function TrackSources({
     !choice.statusError;
   const attachment = (prominent: boolean) => (
     <SourceAttachment
-      key={`attachment/${prominent}/${account}/${detail.recording_id}`}
+      key={`attachment/${account}/${detail.recording_id}`}
       account={account}
       detail={detail}
       prominent={prominent}
-      expanded={prominent && tabActive}
+      expanded={prominent && tabActive && choiceKnown}
       defaultQuery={`${detail.title.value} ${detail.artist.value}`.trim()}
       onAttached={choice.invalidateRead}
     />
