@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { lyricsApi } from "../api/lyricsApi";
@@ -34,6 +34,7 @@ function empty(owner: Owner): State {
 export function useRecordingLyrics(
   account: string,
   detail: Schema<"RecordingMetadata">,
+  automatic = false,
 ) {
   const providers = useLyricProviderChoices(account, detail);
   const selected = detail.selected_observation;
@@ -195,6 +196,18 @@ export function useRecordingLyrics(
       });
     }
   }
+
+  const lookup = JSON.stringify([
+    target?.observation_id,
+    target?.installation_id,
+    target?.provider_recording.id,
+  ]);
+  const reader = useRef(load);
+  reader.current = load;
+  const readable = target !== null;
+  useEffect(() => {
+    if (automatic && readable) void reader.current();
+  }, [automatic, readable, lookup, scope]);
 
   return {
     providers,

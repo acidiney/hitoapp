@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
 import { lyricRecordingPage } from "../fixtures/recordingLyrics";
 import {
   attachedLyricProvider,
@@ -18,6 +19,9 @@ import {
 } from "../fixtures/recordingLyricsProviders";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { log } from "../../../shared/log";
+import { setAutomaticLyrics } from "../fixtures/automaticLyrics";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -76,9 +80,8 @@ test("the chosen-provider lyric deadline includes its JSON body and a late body 
   const view = render(lyricProviderPage(page));
   try {
     await waitFor(() => expect(requests).toHaveLength(2));
-    const editor = within(
-      screen.getByRole("region", { name: "Your track details" }),
-    );
+    openTrackEditors();
+    const editor = within(screen.getByRole("region", { name: "Details" }));
     const title = editor.getByRole<HTMLInputElement>("textbox", {
       name: "Track title",
     });

@@ -1,9 +1,12 @@
 import { createElement, type ReactNode } from "react";
-import { screen } from "@testing-library/react";
+import { within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import type { Schema } from "../../../shared/schema";
 import { attributedRecordingPage } from "../fixtures/recordingAttribution";
 import { recordingAttributionView } from "../fixtures/recordingAttributionView";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -31,8 +34,7 @@ function credited(
   };
 }
 
-const creditLine = () =>
-  document.querySelector<HTMLElement>(".rd-header-copy p");
+const creditLine = () => document.querySelector<HTMLElement>(".track-credit");
 
 test("the credit line links each credited artist the account has and keeps the provider's join text", async () => {
   const view = recordingAttributionView([
@@ -43,10 +45,12 @@ test("the credit line links each credited artist the account has and keeps the p
   ]);
   try {
     await view.settled(1);
-    const links = screen.getAllByRole("link", { name: "Bo" });
+    const links = within(creditLine()!).getAllByRole("link", { name: "Bo" });
     expect(links).toHaveLength(1);
     expect(links[0].getAttribute("href")).toBe("/artists/bo%20id%2F1");
-    expect(screen.queryByRole("link", { name: "Ada" })).toBeNull();
+    expect(
+      within(creditLine()!).queryByRole("link", { name: "Ada" }),
+    ).toBeNull();
     expect(creditLine()?.textContent).toContain("Bo feat. Ada");
   } finally {
     view.finish();
@@ -58,7 +62,9 @@ test("the credit line falls back to the artist text when no list is known or it 
   try {
     await view.settled(1);
     expect(creditLine()?.textContent).toContain("Bo feat. Ada");
-    expect(screen.queryByRole("link", { name: "Bo" })).toBeNull();
+    expect(
+      within(creditLine()!).queryByRole("link", { name: "Bo" }),
+    ).toBeNull();
   } finally {
     view.finish();
   }
@@ -74,7 +80,7 @@ test("a list without join text is separated with commas and every artist stays a
   try {
     await view.settled(1);
     expect(
-      screen
+      within(creditLine()!)
         .getAllByRole("link", { name: /^(Bo|Ada)$/ })
         .map((link) => link.getAttribute("href")),
     ).toEqual(["/artists/bo", "/artists/ada"]);

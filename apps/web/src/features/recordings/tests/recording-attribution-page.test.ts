@@ -2,6 +2,8 @@ import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
@@ -11,6 +13,8 @@ import {
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -82,9 +86,8 @@ test("recording details shows selected metadata credits without changing persona
     expect(
       screen.getByRole("heading", { name: detail.title.value, level: 1 }),
     ).toBeTruthy();
-    const editor = within(
-      screen.getByRole("region", { name: "Your track details" }),
-    );
+    openTrackEditors();
+    const editor = within(screen.getByRole("region", { name: "Details" }));
     expect(
       editor.getByRole<HTMLInputElement>("textbox", { name: "Track title" })
         .value,

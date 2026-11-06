@@ -84,10 +84,12 @@ export default function ArtistReview({
   return (
     <section
       className="rd-card"
-      aria-label="Artist information"
+      aria-labelledby="artist-match"
       aria-busy={workflow.pending !== null}
     >
-      <h2>Artist information</h2>
+      <h2 id="artist-match" tabIndex={-1}>
+        Linked artist
+      </h2>
       <p>
         Hito matches this track's artist for you. Change it only if the match is
         wrong.

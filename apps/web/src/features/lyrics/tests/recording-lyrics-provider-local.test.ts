@@ -8,6 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../fixtures/automaticLyrics";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { Schema } from "../../../shared/schema";
@@ -16,6 +18,8 @@ import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { log } from "../../../shared/log";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -104,9 +108,8 @@ test("a local recording without primary metadata can explicitly choose its retai
         [`${base}/download`, `${base}/source-choice`].sort(),
       ),
     );
-    const editor = within(
-      screen.getByRole("region", { name: "Your track details" }),
-    );
+    openTrackEditors();
+    const editor = within(screen.getByRole("region", { name: "Details" }));
     const title = editor.getByRole<HTMLInputElement>("textbox", {
       name: "Track title",
     });

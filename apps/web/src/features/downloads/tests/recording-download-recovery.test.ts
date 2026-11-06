@@ -8,6 +8,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -15,6 +17,8 @@ import {
   attachedPage,
   savedRecording,
 } from "../../sources/fixtures/sourceAttachment";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -112,6 +116,7 @@ test("a lost download acknowledgement retries the exact request with a new live 
     window.dispatchEvent(new Event("focus"));
   });
   expect(fetch).toHaveBeenCalledTimes(beforeFocus);
+  openTrackEditors();
   const title = screen.getByRole("textbox", {
     name: "Track title",
   }) as HTMLInputElement;

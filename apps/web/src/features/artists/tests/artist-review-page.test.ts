@@ -8,6 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
@@ -28,6 +30,8 @@ import {
 } from "../fixtures/artistReview";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -99,7 +103,8 @@ test("track details offers lazy artist review without replacing unsaved personal
     expect(
       screen.getByRole("heading", { name: detail.title.value, level: 1 }),
     ).toBeTruthy();
-    const editor = screen.getByRole("region", { name: "Your track details" });
+    openTrackEditors();
+    const editor = screen.getByRole("region", { name: "Details" });
     const title = within(editor).getByRole("textbox", {
       name: "Track title",
     }) as HTMLInputElement;
@@ -112,7 +117,7 @@ test("track details offers lazy artist review without replacing unsaved personal
     fireEvent.change(artist, { target: { value: artistDraft } });
 
     const information = within(
-      screen.getByRole("region", { name: "Artist information" }),
+      screen.getByRole("region", { name: "Linked artist" }),
     );
     expect(
       information.queryByRole("searchbox", { name: "Search artists" }),
@@ -132,9 +137,7 @@ test("track details offers lazy artist review without replacing unsaved personal
     });
     fireEvent.change(query, { target: { value: artistQuery } });
     expect(fetch).toHaveBeenCalledTimes(7);
-    expect(screen.getByRole("region", { name: "Your track details" })).toBe(
-      editor,
-    );
+    expect(screen.getByRole("region", { name: "Details" })).toBe(editor);
     expect(within(editor).getByRole("textbox", { name: "Track title" })).toBe(
       title,
     );
@@ -166,9 +169,7 @@ test("track details offers lazy artist review without replacing unsaved personal
     expect(
       preview.getByRole("button", { name: "Use this artist" }),
     ).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Your track details" })).toBe(
-      editor,
-    );
+    expect(screen.getByRole("region", { name: "Details" })).toBe(editor);
     expect(within(editor).getByRole("textbox", { name: "Track title" })).toBe(
       title,
     );

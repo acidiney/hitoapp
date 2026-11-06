@@ -38,11 +38,24 @@ export default function RecordingLyrics({
   const lyrics = result?.status === "ready" ? result.document.lyrics : null;
   return (
     <section
-      className="rd-card"
+      className="track-lyrics"
       aria-label="Lyrics"
       aria-busy={pending || providers.pending}
     >
-      <h2>Lyrics</h2>
+      {lyrics && (
+        <div className="track-toolbar">
+          <span className="track-chip" data-tone="neutral">
+            {lyrics.lines.some((line) => line.start_ms > 0)
+              ? "Synced"
+              : "Unsynced"}
+          </span>
+          {lyrics.language && (
+            <span className="track-chip" data-tone="neutral">
+              {lyrics.language}
+            </span>
+          )}
+        </div>
+      )}
       {providers.pending ? (
         <>
           <p role="status">Loading lyric providers…</p>
@@ -56,7 +69,7 @@ export default function RecordingLyrics({
         </Button>
       )}
       {providers.items && providers.items.length > 0 && (
-        <label className="rd-field">
+        <label className="track-field">
           Lyric provider
           <select
             value={providers.selected?.observation_id ?? ""}
@@ -80,12 +93,14 @@ export default function RecordingLyrics({
         </Button>
       )}
       {providers.items?.length === 0 && (
-        <p>No connected lyric providers are available for this track.</p>
+        <p className="track-muted">
+          No connected lyric providers are available for this track.
+        </p>
       )}
       {!available &&
         !providers.pending &&
         !providers.items &&
-        !providers.error && <p>Lyrics are not available for this track yet.</p>}
+        !providers.error && <p className="track-muted">No lyrics yet.</p>}
       {available && (
         <>
           {pending ? (
@@ -119,7 +134,7 @@ export default function RecordingLyrics({
             <p>No lyrics found for this recording.</p>
           )}
           {lyrics && (
-            <div>
+            <div className="track-lyrics-body">
               {lyrics.rendition_label && <h3>{lyrics.rendition_label}</h3>}
               <ol aria-label="Lyric lines">
                 {lyrics.lines.map((line, index) => (

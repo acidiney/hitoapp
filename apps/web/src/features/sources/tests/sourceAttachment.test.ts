@@ -9,6 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
@@ -30,6 +32,8 @@ import {
   savedRecording,
   sourceAttachmentPage,
 } from "../fixtures/sourceAttachment";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -94,6 +98,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       }),
     );
   const { rerender, unmount } = render(view(sourceAttachmentPage));
+  openTrackEditors();
   const draft = screen.getByRole("textbox", {
     name: "Track title",
   }) as HTMLInputElement;

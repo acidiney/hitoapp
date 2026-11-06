@@ -1,172 +1,157 @@
 import type { Schema } from "../../../shared/schema";
-import { Link, router } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
+import type { ReactNode } from "react";
 
-import Artwork from "../../artwork/components/Artwork";
-import ArtworkStatus from "../../artwork/components/ArtworkStatus";
-import MetadataEditor from "../../metadata/components/MetadataEditor";
-import MusicBrainzIds from "../../metadata/components/MusicBrainzIds";
 import MetadataObservations from "../../metadata/components/MetadataObservations";
-import ArtistReview from "../../artists/components/ArtistReview";
-import { opensArtistSearch } from "../../artists/model/artistSearchLink";
-import RecordingCredits from "../../metadata/components/RecordingCredits";
-import SourceAvailability from "../../sources/components/SourceAvailability";
-import SourceAttachment from "../../sources/components/SourceAttachment";
-import SourceChoiceControls from "../../sources/components/SourceChoiceControls";
-import RecordingDownload from "../../downloads/components/RecordingDownload";
-import CreditLine from "../components/CreditLine";
-import RecordingCopies from "../components/RecordingCopies";
-import { useRecordingSplit } from "../hooks/useRecordingSplit";
-import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
-import { useSourceChoice } from "../../sources/hooks/useSourceChoice";
 import RecordingLyrics from "../../lyrics/components/RecordingLyrics";
 import { useRecordingLyrics } from "../../lyrics/hooks/useRecordingLyrics";
+import { useAccountSwitch } from "../../../shared/hooks/useAccountSwitch";
+import { usePlayer } from "../../playback/components/PlaybackProvider";
+import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
+import { useSourceChoice } from "../../sources/hooks/useSourceChoice";
+import TrackHeader from "../components/TrackHeader";
+import TrackMetadata from "../components/TrackMetadata";
+import TrackOverview from "../components/TrackOverview";
+import TrackSources from "../components/TrackSources";
+import TrackTabBar, { panelId, tabId } from "../components/TrackTabBar";
+import { useTrackTab } from "../hooks/useTrackTab";
+import { hasLocalFile, trackStatus } from "../model/trackStatus";
+import { trackTabs, type TrackTab } from "../model/trackTabs";
 
-export default function RecordingDetailsPage({
+function Panel({
+  tab,
+  current,
+  children,
+}: {
+  tab: TrackTab;
+  current: TrackTab;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="track-panel"
+      role="tabpanel"
+      id={panelId(tab)}
+      aria-labelledby={tabId(tab)}
+      data-active={tab === current}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TrackTabs({
   user,
   detail,
   copies,
   native_playback,
 }: Schema<"RecordingDetailsPageProps">) {
-  const separate = useRecordingSplit(user.id, detail.recording_id, () =>
-    router.reload(),
-  );
+  const player = usePlayer();
+  const { tab, select, reveal } = useTrackTab(detail.recording_id);
   const download = useRecordingDownload(user.id, detail.recording_id);
-  const lyrics = useRecordingLyrics(user.id, detail);
+  const [automaticLyrics] = useAccountSwitch("lyrics-auto", user.id);
+  const lyrics = useRecordingLyrics(user.id, detail, automaticLyrics);
   const choice = useSourceChoice(
     user.id,
     detail.recording_id,
     download.invalidateRead,
   );
   const source = detail.selected_observation;
-  const hasSources = (choice.choice?.sources.length ?? 0) > 0;
-  const attachment = source?.origin === "provider_response" && (
-    <SourceAttachment
-      key={`attachment/${user.id}/${detail.recording_id}`}
-      account={user.id}
-      detail={detail}
-      prominent={!hasSources}
-      onAttached={choice.invalidateRead}
-    />
-  );
+  const localFile = hasLocalFile(detail);
+  const base = trackStatus(choice.choice, choice.unavailable, localFile);
+  const status = {
+    ...base,
+    playable: choice.eligibilityPending && base.playable ? null : base.playable,
+  };
+  const edited =
+    detail.title.personal !== null || detail.artist.personal !== null;
+  const sourceCount = choice.choice?.sources.length;
+  const badges: Partial<Record<TrackTab, string>> = {
+    ...(sourceCount === undefined ? {} : { sources: String(sourceCount) }),
+    ...(edited ? { metadata: "Edited" } : {}),
+  };
   const target = { kind: "recording", id: detail.recording_id } as const;
   return (
-    <div className="recording-details">
-      <Link className="text-link" href="/library">
-        Back to library
-      </Link>
-      <header className="rd-header">
-        <Artwork
-          className="rd-cover"
-          recording={detail.recording_id}
-          fallback={{
-            id: detail.recording_id,
-            title: detail.title.value,
-            artist: detail.artist.value,
-            inline: false,
-          }}
-        />
-        <div className="rd-header-copy">
-          <span className="rd-kicker">Track details</span>
-          <h1>{detail.title.value}</h1>
-          <p>
-            <CreditLine
-              credits={detail.credited_artists}
-              fallback={detail.artist.value}
-            />
-            {source?.album ? ` · ${source.album}` : ""}
-          </p>
-          <ArtworkStatus recording={detail.recording_id} />
-        </div>
-      </header>
-      <div className="rd-layout">
-        <div className="rd-main">
-          <RecordingCopies
-            recording={detail.recording_id}
-            copies={copies.copies}
-            splitting={separate.splitting}
-            error={separate.error}
-            onSplit={separate.split}
-          />
-          {source?.origin === "provider_response" && source.attribution && (
-            <section className="rd-card" aria-label="Selected metadata credits">
-              <h2>Selected metadata credits</h2>
-              <RecordingCredits attribution={source.attribution} />
-            </section>
-          )}
-          <MusicBrainzIds
-            ids={[
-              {
-                label: "Recording",
-                kind: "recording",
-                id: detail.musicbrainz_recording_id,
-              },
-            ]}
-          />
-          <MetadataEditor
-            key={`editor/${user.id}/${target.id}`}
-            account={user.id}
-            {...target}
-            metadata={detail}
-          />
-          <ArtistReview
-            key={JSON.stringify([
-              "artist-review",
-              user.id,
-              detail.recording_id,
-              source?.id,
-              detail.artist.operation_id,
-            ])}
-            account={user.id}
-            detail={detail}
-            openSearch={opensArtistSearch(window.location.search)}
-          />
-        </div>
-        <aside className="rd-side" aria-label="Playback, download and lyrics">
-          {!hasSources && attachment}
-          <SourceChoiceControls {...choice} />
-          {hasSources && attachment}
-          <RecordingDownload
-            {...download}
-            local={native_playback}
-            eligibilityPending={choice.eligibilityPending}
-          />
-          <RecordingLyrics
-            providers={lyrics.providers}
-            available={lyrics.available}
-            pending={lyrics.pending}
-            result={lyrics.result}
-            error={lyrics.error}
-            refresh={lyrics.refresh}
-            onLoad={() => void lyrics.load()}
-            onCancel={lyrics.cancel}
-            onRefreshDetails={
-              lyrics.providers.engaged
-                ? lyrics.refreshProviders
-                : () => router.reload()
-            }
-          />
-          <SourceAvailability
-            key={`availability/${user.id}/${detail.recording_id}`}
-            account={user.id}
-            choiceRevision={choice.choice?.revision}
-            eligibilityPending={choice.eligibilityPending}
-            track={{
+    <div className="track-page" data-tab={tab}>
+      <TrackHeader
+        detail={detail}
+        status={status}
+        onPlay={() =>
+          void player.playQueue([
+            {
               id: detail.recording_id,
               title: detail.title.value,
               artist: detail.artist.value,
+              album: source?.album ?? null,
               duration_ms: source?.duration_ms ?? 0,
-              available: false,
-            }}
-          />
-        </aside>
-      </div>
-      <MetadataObservations
-        key={`${user.id}/${detail.recording_id}/${source?.id ?? "none"}/${detail.title.operation_id ?? "inherited"}/${detail.artist.operation_id ?? "inherited"}`}
-        account={user.id}
-        target={target}
-        initial={detail.observations}
-        selected={source?.id}
+              available: true,
+            },
+          ])
+        }
+        onFindAudio={() => reveal("find-audio")}
       />
+      <TrackTabBar tab={tab} badges={badges} onSelect={select} />
+      {trackTabs.map((entry) => (
+        <Panel key={entry} tab={entry} current={tab}>
+          {entry === "overview" && (
+            <TrackOverview
+              detail={detail}
+              copies={copies}
+              status={status}
+              localFile={localFile}
+              choice={choice.choice}
+              lyrics={lyrics.result}
+              onSelect={select}
+              onReveal={reveal}
+            />
+          )}
+          {entry === "lyrics" && (
+            <RecordingLyrics
+              providers={lyrics.providers}
+              available={lyrics.available}
+              pending={lyrics.pending}
+              result={lyrics.result}
+              error={lyrics.error}
+              refresh={lyrics.refresh}
+              onLoad={() => void lyrics.load()}
+              onCancel={lyrics.cancel}
+              onRefreshDetails={
+                lyrics.providers.engaged
+                  ? lyrics.refreshProviders
+                  : () => router.reload()
+              }
+            />
+          )}
+          {entry === "sources" && (
+            <TrackSources
+              account={user.id}
+              detail={detail}
+              choice={choice}
+              localFile={localFile}
+              download={download}
+              nativePlayback={native_playback}
+            />
+          )}
+          {entry === "metadata" && (
+            <TrackMetadata account={user.id} detail={detail} copies={copies} />
+          )}
+          {entry === "history" && (
+            <MetadataObservations
+              key={`${user.id}/${detail.recording_id}/${source?.id ?? "none"}/${detail.title.operation_id ?? "inherited"}/${detail.artist.operation_id ?? "inherited"}`}
+              account={user.id}
+              target={target}
+              initial={detail.observations}
+              selected={source?.id}
+            />
+          )}
+        </Panel>
+      ))}
     </div>
   );
+}
+
+export default function RecordingDetailsPage(
+  props: Schema<"RecordingDetailsPageProps">,
+) {
+  return <TrackTabs key={props.detail.recording_id} {...props} />;
 }

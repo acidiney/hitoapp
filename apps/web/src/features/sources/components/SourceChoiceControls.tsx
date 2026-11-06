@@ -29,6 +29,12 @@ type Props = {
   check(): Promise<void>;
 };
 
+function savedSelection(choice: Schema<"SourceChoice">, source: string) {
+  return choice.sources.some(
+    (entry) => entry.selected && entry.source.id === source,
+  );
+}
+
 export default function SourceChoiceControls({
   choice,
   stagedSource,
@@ -96,25 +102,37 @@ export default function SourceChoiceControls({
                 <span className="rd-choice-origin">
                   {entry.source.provider}
                 </span>
-                <AvailabilityLabel
-                  state={
-                    entry.source.device_id
-                      ? "library"
-                      : entry.source.ready
-                        ? "available"
-                        : "catalog"
-                  }
-                  label={
-                    entry.source.device_id
-                      ? "On this device"
-                      : entry.source.ready
-                        ? "Ready"
-                        : "Not prepared"
-                  }
-                />
+                <span className="rd-choice-state">
+                  <AvailabilityLabel
+                    state={
+                      entry.source.device_id
+                        ? "library"
+                        : entry.source.ready
+                          ? "available"
+                          : "catalog"
+                    }
+                    label={
+                      entry.source.device_id
+                        ? "On this device"
+                        : entry.source.ready
+                          ? "Ready"
+                          : "Not prepared"
+                    }
+                  />
+                  {choice.mode === "manual" && entry.selected && (
+                    <span className="track-chip" data-tone="neutral">
+                      Pinned
+                    </span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
+          {stagedSource !== null && !savedSelection(choice, stagedSource) && (
+            <p role="status">
+              Selected, not saved yet. Use source to play from it.
+            </p>
+          )}
           <div className="rd-actions">
             {choice.mode !== "automatic" && (
               <Button disabled={!canReset} onClick={() => void reset()}>

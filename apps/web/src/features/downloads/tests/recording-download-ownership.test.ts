@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -10,6 +11,8 @@ import { attachedPage } from "../../sources/fixtures/sourceAttachment";
 import { recordingA, recordingB } from "../../playlists/fixtures/playlistPages";
 
 import { heldResponse } from "../../../test/async";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

@@ -68,7 +68,14 @@ export default function SourceCandidateReview({
       returnFocus={opener}
       onClose={onClose}
     >
-      <div className="review-compare">
+      <div className="review-compare" data-aligned="true">
+        <div className="review-labels" aria-hidden="true">
+          <span />
+          <span />
+          <span>Title</span>
+          <span>Artist</span>
+          <span>Length</span>
+        </div>
         <Side
           label="Saved track"
           id={detail.recording_id}

@@ -52,8 +52,10 @@ export default function RecordingDownload({
               : "Download";
   const action = retryKind ? retry : download ? remove : start;
   return (
-    <section className="rd-card" aria-labelledby="recording-download-heading">
-      <h2 id="recording-download-heading">Download</h2>
+    <section className="rd-card" aria-labelledby="server-copy">
+      <h2 id="server-copy" tabIndex={-1}>
+        {local ? "Device copy" : "Server copy"}
+      </h2>
       <p>
         Save a copy on this {local ? "device" : "server"} to listen when its
         music service is unavailable.

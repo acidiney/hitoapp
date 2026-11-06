@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -18,6 +19,8 @@ import {
   sourceAttachmentPage,
 } from "../fixtures/sourceAttachment";
 import { automaticChoice } from "../fixtures/sourceChoice";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -160,11 +163,11 @@ test("a much longer candidate is flagged and Use this source attaches it from th
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-test("the add-a-source card leads the source column for a track without a playable source", async () => {
+test("the find audio block leads the sources tab for a track without a playable source", async () => {
   mount([hit({})]);
-  const add = screen.getByRole("region", { name: "Add an audio source" });
-  const side = screen.getByRole("complementary");
-  expect(side.firstElementChild).toBe(add);
+  const add = screen.getByRole("region", { name: "Find audio" });
+  const panel = screen.getByRole("tabpanel", { name: "Sources" });
+  expect(panel.firstElementChild?.firstElementChild).toBe(add);
   expect(
     within(add).getByRole("button", { name: "Find a source" }).className,
   ).toContain("primary");
@@ -173,9 +176,11 @@ test("the add-a-source card leads the source column for a track without a playab
 test("a track that already has sources keeps the card after the playback source choice", async () => {
   mount([hit({})], { choice: automaticChoice });
   const choice = await screen.findByRole("region", { name: "Playback source" });
-  const add = screen.getByRole("region", { name: "Add an audio source" });
+  const add = screen.getByRole("region", { name: "Add another source" });
   expect(
     choice.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  await waitFor(() => expect(screen.getByRole("complementary")).toBeTruthy());
+  expect(
+    within(add).getByRole("button", { name: "Find a source" }).className,
+  ).toContain("secondary");
 });

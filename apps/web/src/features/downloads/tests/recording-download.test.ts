@@ -7,6 +7,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -14,6 +16,8 @@ import {
   attachedPage,
   savedRecording,
 } from "../../sources/fixtures/sourceAttachment";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -83,6 +87,7 @@ test("a track downloads only on request and removes its saved server copy by int
   const download = screen.getByRole("button", {
     name: "Download",
   });
+  openTrackEditors();
   const title = screen.getByRole("textbox", {
     name: "Track title",
   }) as HTMLInputElement;

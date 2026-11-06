@@ -9,6 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -24,6 +26,8 @@ import {
   recoveredDownloadB,
 } from "../fixtures/sourceChoiceDownloadRecovery";
 import { heldResponse } from "../../../test/async";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -119,9 +123,10 @@ test("source changes preserve a pending download and its exact uncertain retry",
     ),
   );
   const download = () =>
-    within(screen.getByRole("region", { name: "Download" }));
+    within(screen.getByRole("region", { name: "Server copy" }));
   const choice = () =>
     within(screen.getByRole("region", { name: "Playback source" }));
+  openTrackEditors();
   const title = () =>
     screen.getByRole("textbox", { name: "Track title" }) as HTMLInputElement;
   const posted = (path: string) =>

@@ -1,3 +1,4 @@
+import { trackTabHref } from "../../recordings/model/trackTabs";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import { useQueuePage } from "../hooks/useQueuePage";
@@ -143,7 +144,7 @@ export function SourcePanel({
         {track && (
           <p className="np-card-foot">
             <RouteLink
-              href={`/recordings/${encodeURIComponent(track.id)}`}
+              href={trackTabHref(track.id, "sources")}
               onNavigate={leave}
             >
               Choose another source in track details

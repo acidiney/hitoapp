@@ -2,8 +2,11 @@ import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "../fixtures/sourceAttachment";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -19,7 +22,7 @@ vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));
 vi.mock("../../artwork/components/ArtworkStatus", () => ({
   default: () => null,
 }));
-vi.mock("../../metadata/components/MetadataEditor", () => ({
+vi.mock("../../metadata/components/MetadataDetails", () => ({
   default: () => null,
 }));
 vi.mock("../../metadata/components/MetadataObservations", () => ({

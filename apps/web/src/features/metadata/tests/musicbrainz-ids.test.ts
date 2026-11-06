@@ -1,10 +1,13 @@
 import { createElement, type ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import type { Schema } from "../../../shared/schema";
 import MusicBrainzIds from "../components/MusicBrainzIds";
 import { attributedRecordingPage } from "../../recordings/fixtures/recordingAttribution";
 import { recordingAttributionView } from "../../recordings/fixtures/recordingAttributionView";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

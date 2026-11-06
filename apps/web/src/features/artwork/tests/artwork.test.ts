@@ -13,6 +13,9 @@ import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 import type { components } from "../../../generated";
 import { deferred } from "../../../test/async";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
+
+setAutomaticLyrics(false);
 
 type ArtworkFetch = components["schemas"]["ArtworkFetch"];
 

@@ -8,6 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../fixtures/automaticLyrics";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { Schema } from "../../../shared/schema";
@@ -21,6 +23,8 @@ import {
   readyLyrics,
 } from "../fixtures/recordingLyrics";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -79,8 +83,9 @@ test("track details reads exact provider lyrics on request without changing pers
         [`${base}/download`, `${base}/source-choice`].sort(),
       ),
     );
+    openTrackEditors();
     const title = within(
-      screen.getByRole("region", { name: "Your track details" }),
+      screen.getByRole("region", { name: "Details" }),
     ).getByRole<HTMLInputElement>("textbox", { name: "Track title" });
     const draft = 'Owned unsent "private" title';
     fireEvent.change(title, { target: { value: draft } });
@@ -140,9 +145,10 @@ test("track details reads exact provider lyrics on request without changing pers
     expect(responses.every((response) => response.bodyUsed)).toBe(true);
     expect(title.value).toBe(draft);
     expect(
-      within(
-        screen.getByRole("region", { name: "Your track details" }),
-      ).getByRole("textbox", { name: "Track title" }),
+      within(screen.getByRole("region", { name: "Details" })).getByRole(
+        "textbox",
+        { name: "Track title" },
+      ),
     ).toBe(title);
     expect(lyricRecordingPage).toEqual(before);
     expect(play).not.toHaveBeenCalled();

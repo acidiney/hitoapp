@@ -8,6 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../fixtures/automaticLyrics";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { Schema } from "../../../shared/schema";
@@ -20,6 +22,8 @@ import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { log } from "../../../shared/log";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -124,9 +128,8 @@ test("a stale chosen lyric provider refreshes current authority without losing t
   const view = render(content());
   try {
     await waitFor(() => expect(requests).toHaveLength(2));
-    const editor = within(
-      screen.getByRole("region", { name: "Your track details" }),
-    );
+    openTrackEditors();
+    const editor = within(screen.getByRole("region", { name: "Details" }));
     const title = editor.getByRole<HTMLInputElement>("textbox", {
       name: "Track title",
     });

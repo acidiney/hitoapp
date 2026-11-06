@@ -31,11 +31,10 @@ export default function SourceAttachment({
       workflow.connection.manifest.name)
     : "";
   return (
-    <section
-      className="rd-card source-attachment"
-      aria-label="Add an audio source"
-    >
-      <h2>Add an audio source</h2>
+    <section className="rd-card source-attachment" aria-labelledby="find-audio">
+      <h2 id="find-audio" tabIndex={-1}>
+        {prominent ? "Find audio" : "Add another source"}
+      </h2>
       <p>
         Find audio through your connected music services and review the match
         before adding it to this saved track.

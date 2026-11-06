@@ -9,6 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import {
   attributedRecordingPage,
   historicalRecordingAttribution,
@@ -19,6 +21,8 @@ import {
   uncreditedRecordingObservation,
 } from "../fixtures/recordingAttribution";
 import { recordingAttributionView } from "../fixtures/recordingAttributionView";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -92,6 +96,7 @@ test("metadata history keeps each observation's retained credits while personal 
     }
     expect(within(observations[0]).getByText("Current metadata")).toBeTruthy();
     expect(within(observations[1]).queryByText("Current metadata")).toBeNull();
+    openTrackEditors();
     const title = screen.getByRole<HTMLInputElement>("textbox", {
       name: "Track title",
     });

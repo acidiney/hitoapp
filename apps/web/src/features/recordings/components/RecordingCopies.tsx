@@ -23,8 +23,10 @@ export default function RecordingCopies({
 }) {
   if (copies.length === 0 && !error) return null;
   return (
-    <section className="rd-card" aria-labelledby="recording-copies-heading">
-      <h2 id="recording-copies-heading">Copies of this song</h2>
+    <section className="rd-card" aria-labelledby="copies">
+      <h2 id="copies" tabIndex={-1}>
+        Copies of this song
+      </h2>
       {copies.length > 0 && (
         <p>
           Hito can prove these are the same song, so your lists show one card.

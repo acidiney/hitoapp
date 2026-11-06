@@ -3,6 +3,8 @@ import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { openTrackEditors } from "../../recordings/fixtures/trackEditors";
+import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -14,6 +16,8 @@ import {
 } from "../fixtures/sourceChoice";
 
 import { heldResponse } from "../../../test/async";
+
+setAutomaticLyrics(false);
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -185,6 +189,7 @@ test("confirming an unavailable choice invalidates old readiness without losing 
     fetch.mock.calls.filter(
       ([url, options]) => url === path && options?.method === method,
     );
+  openTrackEditors();
   const title = screen.getByRole("textbox", {
     name: "Track title",
   }) as HTMLInputElement;

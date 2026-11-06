@@ -25,6 +25,7 @@ function Observation({
     <li>
       <article>
         <header>
+          <span className="track-category">Read</span>
           <span>
             {observation.provider === "local"
               ? "Local file"
@@ -114,11 +115,13 @@ export default function MetadataObservations({
   const history = useMetadataHistory(account, target, initial);
   return (
     <section
-      className="rd-card metadata-history"
+      className="rd-card metadata-history track-history"
       aria-labelledby="source-history-heading"
       aria-busy={history.pending}
     >
-      <h2 id="source-history-heading">Source observations</h2>
+      <h2 id="source-history-heading" className="sr-only">
+        Source observations
+      </h2>
       <p>
         Metadata read from your library. Personal edits leave these observations
         intact.

@@ -1,3 +1,4 @@
+import { trackTabHref } from "../../recordings/model/trackTabs";
 import { useState } from "react";
 import type { Track } from "../model";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
@@ -22,10 +23,7 @@ function TrackLyrics({
   );
   const [choosing, setChoosing] = useState(false);
   const details = (
-    <RouteLink
-      href={`/recordings/${encodeURIComponent(track.id)}`}
-      onNavigate={leave}
-    >
+    <RouteLink href={trackTabHref(track.id, "lyrics")} onNavigate={leave}>
       Track details
     </RouteLink>
   );
