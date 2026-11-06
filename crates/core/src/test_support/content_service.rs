@@ -6,6 +6,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+mod audio_faults;
+
+use audio_faults::AudioFaults;
 use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock, Semaphore, watch};
@@ -17,6 +20,7 @@ struct Fixture {
     held_range: RwLock<Option<std::ops::Range<usize>>>,
     held_audio_tail: std::sync::Mutex<Option<Arc<HeldAudioTail>>>,
     broken_tail: RwLock<Option<usize>>,
+    audio_faults: AudioFaults,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
     recording_replies: RwLock<HashMap<(String, String), Value>>,
@@ -41,6 +45,7 @@ impl ProviderServer {
             held_range: RwLock::new(None),
             held_audio_tail: Default::default(),
             broken_tail: RwLock::new(None),
+            audio_faults: Default::default(),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
             recording_replies: Default::default(),
@@ -104,6 +109,18 @@ impl ProviderServer {
     }
     pub async fn audio(&self, status: StatusCode, headers: HeaderMap, bytes: Vec<u8>) {
         *self.state.audio.write().await = (status, headers, bytes);
+    }
+    pub fn audio_statuses(&self, statuses: Vec<StatusCode>) {
+        self.state.audio_faults.script_statuses(statuses);
+    }
+    pub fn audio_first_byte_delay(&self, delay: std::time::Duration) {
+        self.state.audio_faults.delay_first_byte(delay);
+    }
+    pub fn audio_trickle(&self, chunk: usize, interval: std::time::Duration) {
+        self.state.audio_faults.trickle(chunk, interval);
+    }
+    pub fn audio_ignores_ranges(&self) {
+        self.state.audio_faults.ignore_ranges();
     }
     pub async fn range_chunks(&self, maximum: usize) {
         *self.state.range_chunk.write().await = Some(maximum);
@@ -194,6 +211,13 @@ async fn audio(
     if *state.offline.read().await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
+    if let Some(status) = state.audio_faults.next_status() {
+        return status.into_response();
+    }
+    if let Some(delay) = state.audio_faults.first_byte_delay() {
+        tokio::time::sleep(delay).await;
+    }
+    let range = range.filter(|_| !state.audio_faults.ignores_ranges());
     let first = range
         .as_deref()
         .and_then(|range| range.strip_prefix("bytes="))
@@ -231,6 +255,9 @@ async fn audio(
     }) && !wait_gate(&state, "audio-range").await
     {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    if let Some(response) = state.audio_faults.paced(status, headers.clone(), &bytes) {
+        return response;
     }
     let held_tail = state.held_audio_tail.lock().unwrap().clone();
     if let Some(tail) = held_tail {
