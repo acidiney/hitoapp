@@ -10,6 +10,7 @@
     "e2e:collection-artwork": "playwright test -c playwright.collection-artwork.config.ts",
     "e2e:community-ranking": "playwright test -c playwright.community-ranking.config.ts",
     "e2e:plugin-authorization": "playwright test -c playwright.plugin-authorization.config.ts",
+    "e2e:latency": "playwright test -c playwright.latency.config.ts",
     "e2e:lyric-provider-choice": "playwright test -c playwright.lyric-provider-choice.config.ts",
     "generate:api": "openapi-typescript ../../docs/openapi.json -o src/generated.ts",
     "lint": "prettier --check . && tsc --noEmit && tsc -p tsconfig.e2e.json --noEmit && eslint . --max-warnings 71"

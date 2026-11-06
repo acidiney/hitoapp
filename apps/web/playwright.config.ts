@@ -8,6 +8,7 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   testIgnore: [
     "**/*.test.ts",
+    "**/latency/**",
     "**/collection-artwork.spec.ts",
     "**/community-ranking.spec.ts",
     "**/recording-lyric-provider-choice.spec.ts",
