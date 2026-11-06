@@ -1,5 +1,15 @@
 # Implementation status
 
+## 2026-11-06 playback latency measurement
+
+Local development measurement, not a release result and not deployed. `scripts/bench-playback.sh` (also `make bench-playback`) measures local start, ready remote start and available-source recovery with 100 samples per series, in the browser (Chromium, plus WebKit for AAC) and in the native player, against a generated 10,000-track library and an owned loopback provider with a settable 0 or 40 ms delay. The method, hardware, tables, chart and limits are in [Playback latency](performance.md).
+
+- Measured on Docker on an Apple M5 Pro development Mac, not on reference hardware. Every p95 is below its target: local start 120 ms at worst (target 250 ms), ready remote start 338 ms at worst (target 2 s), recovery 1.68 s from the cut at worst and a median audible gap of 0.09 to 0.4 s (target 3 s).
+- Where time goes: native opens a remote source with five provider requests, so its start grows by about 5 round trips; the browser needs one. The browser notices a cut stream after about 310 ms.
+- Found, not fixed: 2 of 100 WebKit AAC starts reached `playing` but never advanced past 0 (one more in a 200-start repeat; none in Chromium or native); one native start at 40 ms took 610 ms after an apparent first-attempt failure; a 10,000-track first scan takes about 15.5 minutes.
+- Not done: reference hardware and network, physical audio output, real providers over TLS, debrid preparation, cold-disk starts, and the 100,000-track, ten-account, five-listener load. The TODO item for measurement is ticked for the three gates on development hardware; the reference repeat and debrid timing stay open under it.
+- Tested: strict all-target Clippy (workspace, and `hito-playback` with the `device` feature for the example) and formatting are clean. The full Rust batch passed (2,113 tests across 251 result lines, 0 failures, 5 ignored; core, server, playback, audio, testkit, MusicBrainz, remote audio, community and ten plugin packages). The full web suite passed (1,555 cases across 332 files), with both TypeScript checks, the production build and web lint at 0 errors and 71 warnings. The default browser run still lists 141 cases; the latency harness is outside it and ships in no release binary.
+
 ## 2026-11-06 source preference and direct fallback
 
 Local development work, not a public release, not deployed. Each account can rank Local files, Saved copies and its connected providers (Settings, Playback, Source preference) and switch "Try the next source if one fails" on or off (default on). The order applies to the browser source list and to the desktop candidates; a manual choice for one recording still wins, and the opt-in community ranking only orders inside a provider once an order is saved. Fallback is bounded to 6 sources per play and logs why it stopped. Migration 0089 adds `account_source_preferences`. The pre-existing order is written down in [choosing the audio source](source-preference.md).
@@ -646,7 +656,7 @@ The full scope remains in [release-plan.md](release-plan.md). The checklist in [
 - Real-Debrid, AllDebrid, Premiumize and TorBox; official folder/Jamendo/YouTube services and fixture/live-provider acceptance; RSS podcasts, audiobooks, chapters/bookmarks, timed lyrics and backing tracks.
 - Packaged macOS, Windows and Linux desktop clients, local backend lifecycle, native folder discovery/selection, media controls, FFmpeg fallback, physical-output acceptance (including 384 kHz and 352.8 kHz on macOS built-in speakers after output negotiation).
 - Separate opt-in community ranking/corrections, validation, moderation, rate limits, outage behavior, hosting and DNS.
-- The 100,000-track, ten-account, five-listener load gate and documented p95 targets of ≤250 ms local start, ≤2 s ready remote start and ≤3 s available-source recovery; debrid preparation is measured separately; codec, gapless, outage, synchronization and permission fixtures.
+- The 100,000-track, ten-account, five-listener load gate and the p95 targets of ≤250 ms local start, ≤2 s ready remote start and ≤3 s available-source recovery on reference hardware (a development-hardware measurement meets them, see [Playback latency](performance.md)); debrid preparation is measured separately and is not measured yet; codec, gapless, outage, synchronization and permission fixtures.
 - Containers/binaries/Compose, Linux packages, signed installers, notarization/Windows signing, protected signing material, upgrades, backup restoration, installation and approval-based updates on all three desktop systems. SoundTouch source/license notices exist; binary and relink packaging remain open.
 - The separate logo and wordmark redesign.
 

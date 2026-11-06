@@ -53,6 +53,7 @@ Everything here describes a local development state. No document describes a pub
 
 - [Playback queue](queue.md): queue entries and ownership in the browser and the desktop app.
 - [Native playback](native-playback.md), [native coordinator](native-coordinator.md) and [native audio engine](native-audio.md): the Rust player, its command owner and the decoder and output.
+- [Playback latency](performance.md): the p95 start and recovery measurement, its method, results and limits.
 - [Browser media session](browser-media-session.md): Media Session metadata, duration revisions and source recovery.
 - [Next-entry preparation](next-entry-preparation.md): preparing the upcoming queue entry.
 - [Automatic sources](automatic-sources.md): finding audio for a saved recording.

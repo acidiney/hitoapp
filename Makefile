@@ -11,11 +11,12 @@ COMPOSE := docker compose
 RUST := $(COMPOSE) --profile tools run --rm rust
 NODE := $(COMPOSE) --profile tools run --rm node
 
-.PHONY: help up down build-tools fmt fmt-check test-rust test-web check-core check-server check-playback check-plugins check-community check-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify
+.PHONY: help up down build-tools fmt fmt-check test-rust test-web check-core check-server check-playback check-plugins check-community check-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify bench-playback
 
 help:
 	@echo "Targets that act on the running 'hito' application project: up down"
 	@echo "Targets that run one-off tool containers: build-tools fmt fmt-check test-rust test-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify"
+	@echo "Opt-in measurement (about 80 minutes, see docs/performance.md): bench-playback"
 	@echo "Area checks (tests for one area, through the tools profile): check-core check-server check-playback check-plugins check-community check-web"
 	@echo "Variables: COMPOSE_PROJECT=<name> redirects every target except up and down"
 	@echo "           COMPOSE_EXTRA=<override.yaml[:more.yaml]> is added to the Compose file list for every target"
@@ -100,3 +101,6 @@ desktop:
 
 verify:
 	./scripts/verify.sh
+
+bench-playback:
+	sh scripts/bench-playback.sh
