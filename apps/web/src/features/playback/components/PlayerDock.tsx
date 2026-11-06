@@ -17,6 +17,8 @@ import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
+import PlayerTrackActions from "./PlayerTrackActions";
+import { artistHref as knownArtistHref } from "./TrackNames";
 
 export default function PlayerDock({
   account,
@@ -42,7 +44,9 @@ export default function PlayerDock({
     player.subscribe,
     () => player.snapshot().volume,
   );
-  const artistHref = useArtistLink(account, current);
+  const knownArtist = current ? knownArtistHref(current) : null;
+  const matchedArtist = useArtistLink(account, knownArtist ? null : current);
+  const artistHref = knownArtist ?? matchedArtist;
   const [expanded, setExpanded] = useState(false);
   const expandedOpener = useRef<HTMLButtonElement | null>(null);
   const queueButton = useRef<HTMLButtonElement>(null);
@@ -112,6 +116,7 @@ export default function PlayerDock({
               <small>Choose a track from your library</small>
             )}
           </span>
+          {current && <PlayerTrackActions track={current} />}
         </div>
         <PlaybackControls />
         <div className="player-tools">

@@ -3,6 +3,7 @@ import { router } from "@inertiajs/react";
 import type { ReactNode } from "react";
 import { Heart } from "lucide-react";
 import type { Mutate } from "../../../shared/hooks/useMutation";
+import { usePlayer } from "./PlaybackProvider";
 import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import TrackRowMenu from "./TrackRowMenu";
 import type { TrackRow } from "./TrackTable";
@@ -14,9 +15,13 @@ export default function TrackRowActions({
   mutate,
   onMutationAccepted,
   editing = false,
+  queueActions = true,
+  onNavigate,
   children,
 }: {
   editing?: boolean;
+  queueActions?: boolean;
+  onNavigate?: () => void;
   children?: ReactNode;
   track: TrackRow;
   playlists: Schema<"Playlist">[];
@@ -24,6 +29,7 @@ export default function TrackRowActions({
   mutate: Mutate;
   onMutationAccepted?: (action: Schema<"Action">) => void;
 }) {
+  const player = usePlayer();
   const entryId = track.entry_id;
   async function toggleLike() {
     const action: Schema<"Action"> = {
@@ -32,6 +38,7 @@ export default function TrackRowActions({
       liked: !track.liked,
     };
     if (!(await mutate(action)).ok) return;
+    player.setRecordingLiked?.(track.id, !track.liked);
     if (onMutationAccepted) onMutationAccepted(action);
     else router.reload();
   }
@@ -60,6 +67,8 @@ export default function TrackRowActions({
           playlist={playlist}
           mutate={mutate}
           onMutationAccepted={onMutationAccepted}
+          queueActions={queueActions}
+          onNavigate={onNavigate}
         />
       )}
     </div>

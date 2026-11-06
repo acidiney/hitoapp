@@ -25,12 +25,16 @@ export default function TrackRowMenu({
   playlist,
   mutate,
   onMutationAccepted,
+  queueActions = true,
+  onNavigate,
 }: {
   track: TrackRow;
   playlists: Schema<"Playlist">[];
   playlist?: Schema<"Playlist">;
   mutate: Mutate;
   onMutationAccepted?: (action: Schema<"Action">) => void;
+  queueActions?: boolean;
+  onNavigate?: () => void;
 }) {
   const player = usePlayer();
   const notify = useNoticeIfProvided();
@@ -44,8 +48,13 @@ export default function TrackRowMenu({
     else router.reload();
   }
 
+  function visit(href: string) {
+    onNavigate?.();
+    router.visit(href);
+  }
+
   const queueItems: ActionMenuItem[] = [];
-  if (player.playNext)
+  if (queueActions && player.playNext)
     queueItems.push({
       label: "Play next",
       onSelect: () => {
@@ -53,7 +62,7 @@ export default function TrackRowMenu({
         void player.playNext?.(track);
       },
     });
-  if (player.addToQueue)
+  if (queueActions && player.addToQueue)
     queueItems.push({
       label: "Add to queue",
       onSelect: () => {
@@ -65,7 +74,7 @@ export default function TrackRowMenu({
   const items: ActionMenuItem[] = [
     {
       label: "Track details",
-      onSelect: () => router.visit(trackHref(track.id)),
+      onSelect: () => visit(trackHref(track.id)),
     },
     ...queueItems,
     {
@@ -107,7 +116,7 @@ export default function TrackRowMenu({
       : []),
     {
       label: track.available ? "Fix source" : "Find audio",
-      onSelect: () => router.visit(sourceHref(track)),
+      onSelect: () => visit(sourceHref(track)),
     },
   ];
 

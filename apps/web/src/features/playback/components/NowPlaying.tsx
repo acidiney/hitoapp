@@ -7,6 +7,9 @@ import { SeekBar, TransportButtons } from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";
 import NowPlayingTabs from "./NowPlayingTabs";
 import RouteLink from "../../../shared/ui/RouteLink";
+import PlayerTrackActions from "./PlayerTrackActions";
+import { artistHref } from "./TrackNames";
+import { artistSearchLink } from "../hooks/useArtistLink";
 
 export default function NowPlaying({
   account,
@@ -56,16 +59,21 @@ export default function NowPlaying({
             />
           </div>
           <div className="np-title">
-            <h1>{current?.title ?? "Ready when you are"}</h1>
-            {current ? (
-              <RouteLink
-                href={`/search?q=${encodeURIComponent(current.artist)}`}
-                onNavigate={close}
-              >
-                {current.artist}
-              </RouteLink>
-            ) : (
-              <p>Choose a track to start listening.</p>
+            <div className="np-title-copy">
+              <h1>{current?.title ?? "Ready when you are"}</h1>
+              {current ? (
+                <RouteLink
+                  href={artistHref(current) ?? artistSearchLink(current.artist)}
+                  onNavigate={close}
+                >
+                  {current.artist}
+                </RouteLink>
+              ) : (
+                <p>Choose a track to start listening.</p>
+              )}
+            </div>
+            {current && (
+              <PlayerTrackActions track={current} onNavigate={close} />
             )}
           </div>
           <div className="np-seek">

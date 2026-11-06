@@ -9,6 +9,7 @@ import RouteLink from "../../../shared/ui/RouteLink";
 import { time } from "../../../shared/format";
 import { SPEED_CHOICES } from "./SpeedControl";
 import type { Track } from "../model";
+import PlayerTrackActions from "./PlayerTrackActions";
 export { LyricsPanel } from "./NowPlayingLyrics";
 
 export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
@@ -55,6 +56,7 @@ export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
                   {time(recording.duration_ms / 1000)}
                 </span>
               </button>
+              <PlayerTrackActions track={recording} onNavigate={openQueue} />
             </li>
           ))}
         </ol>

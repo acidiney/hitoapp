@@ -12,6 +12,7 @@ import Sidebar from "./Sidebar";
 import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
+import { TrackActionsProvider } from "../features/playback/components/TrackActionsProvider";
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
@@ -42,42 +43,44 @@ export default function Shell({ children }: { children: ReactNode }) {
     <NoticeProvider key={user.id}>
       <ArtworkProvider account={user.id}>
         <PlaybackProvider account={user.id} native={page.props.native_playback}>
-          <a className="skip-link" href="#main">
-            Skip to content
-          </a>
-          <div
-            className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
-          >
-            <Sidebar playlists={playlists} path={url.pathname} />
-            <div className="workspace">
-              <AccountMenu user={user} lock={lock} path={url.pathname} />
-              {!OWN_SEARCH.has(page.component) &&
-                !DETAIL_PAGES.has(page.component) && (
-                  <LibrarySearch
-                    query={url.searchParams.get("q") ?? ""}
-                    target={
-                      page.component === "AlbumIndexPage"
-                        ? "albums"
-                        : page.component === "ArtistIndexPage"
-                          ? "artists"
-                          : "library"
-                    }
-                  />
+          <TrackActionsProvider account={user.id} playlists={playlists}>
+            <a className="skip-link" href="#main">
+              Skip to content
+            </a>
+            <div
+              className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
+            >
+              <Sidebar playlists={playlists} path={url.pathname} />
+              <div className="workspace">
+                <AccountMenu user={user} lock={lock} path={url.pathname} />
+                {!OWN_SEARCH.has(page.component) &&
+                  !DETAIL_PAGES.has(page.component) && (
+                    <LibrarySearch
+                      query={url.searchParams.get("q") ?? ""}
+                      target={
+                        page.component === "AlbumIndexPage"
+                          ? "albums"
+                          : page.component === "ArtistIndexPage"
+                            ? "artists"
+                            : "library"
+                      }
+                    />
+                  )}
+                {!DETAIL_PAGES.has(page.component) && (
+                  <LibrarySections path={url.pathname} />
                 )}
-              {!DETAIL_PAGES.has(page.component) && (
-                <LibrarySections path={url.pathname} />
-              )}
-              <ConnectionNotice />
-              <NoticeBanner />
-              <main id="main" tabIndex={-1}>
-                {children}
-              </main>
+                <ConnectionNotice />
+                <NoticeBanner />
+                <main id="main" tabIndex={-1}>
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
-          <PlayerDock
-            account={user.id}
-            queueActive={url.pathname === "/queue"}
-          />
+            <PlayerDock
+              account={user.id}
+              queueActive={url.pathname === "/queue"}
+            />
+          </TrackActionsProvider>
         </PlaybackProvider>
       </ArtworkProvider>
     </NoticeProvider>

@@ -5,6 +5,7 @@ import { coverIdentity } from "../../artwork/model/coverIdentity";
 import { time } from "../../../shared/format";
 import type { PlaybackOccurrence } from "../model";
 import { QUEUE_ROW } from "../hooks/useQueueWindow";
+import PlayerTrackActions from "./PlayerTrackActions";
 
 type Props = {
   entry: PlaybackOccurrence;
@@ -61,6 +62,7 @@ const QueueRow = memo(function QueueRow({
         </span>
       </button>
       <span className="queue-duration">{time(track.duration_ms / 1000)}</span>
+      <PlayerTrackActions track={track} />
       <span className="queue-order">
         <button
           className="icon-button"

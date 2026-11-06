@@ -64,7 +64,19 @@
 }
 .np-title {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.np-title-copy {
+  display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.np-title .track-actions {
+  flex-shrink: 0;
+  margin-right: -10px;
 }
 .np-title h1 {
   font-size: 30px;

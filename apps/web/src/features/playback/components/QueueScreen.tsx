@@ -9,6 +9,7 @@ import PageHeading from "../../../shared/ui/PageHeading";
 import { time } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { X } from "lucide-react";
+import PlayerTrackActions from "./PlayerTrackActions";
 import type { Player, PlaybackOccurrence, QueueView } from "../model";
 
 function NowClock() {
@@ -93,6 +94,7 @@ export default function QueueScreen() {
               <small>{current.artist}</small>
             </span>
             <NowClock />
+            <PlayerTrackActions track={current} />
             {currentId && (
               <button
                 type="button"
