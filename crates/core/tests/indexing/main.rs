@@ -5,6 +5,7 @@ mod indexing_codecs;
 mod indexing_duplicates;
 mod indexing_enqueue;
 mod indexing_identity;
+mod indexing_parallelism;
 mod indexing_processes;
 mod indexing_releases;
 mod indexing_shutdown;

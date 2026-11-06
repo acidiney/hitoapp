@@ -9,10 +9,11 @@ use super::{
     walking::{Paths, paths},
 };
 use crate::{Error, Result};
+use futures_util::{StreamExt, stream::FuturesOrdered};
 use std::{
     collections::BTreeSet,
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::time::Interval;
 
@@ -40,30 +41,62 @@ impl LibraryStorage {
             }
         }
         let mut receiver = paths(&root)?;
+        let parallelism = self.inspector.parallelism();
+        let mut pending = FuturesOrdered::new();
+        let mut walking = true;
         let mut count = 0;
         let mut skipped = 0;
-        while let Some(path) = self
-            .next_path(lease, &lease.folder, count, &mut receiver, &mut heartbeat)
-            .await?
-        {
-            match self
-                .inspect_with_lease(lease, &lease.folder, count, &root, &path, &mut heartbeat)
-                .await
-            {
-                Ok(file) => {
-                    lease.check_running()?;
-                    self.index_file(lease, &root, file).await?;
-                    count += 1;
-                }
-                Err(error) if lease.is_stopping() => return Err(error),
-                Err(error @ Error::Database(_)) => return Err(error),
-                Err(error) => {
-                    self.invalidate_path(lease, &root, &path).await?;
-                    skipped += 1;
-                    tracing::warn!(error_code = error.code(), "Skipping unverified audio file");
-                }
+        let started = Instant::now();
+        while walking || !pending.is_empty() {
+            let accepting = walking && pending.len() < parallelism;
+            tokio::select! {
+                biased;
+                _ = lease.cancelled() => return Err(super::lease::stopped()),
+                _ = heartbeat.tick() => {
+                    lease.renew(&self.store, count).await?;
+                    lease.check_folder(&self.store, &lease.folder).await?;
+                },
+                Some((path, inspected)) = pending.next() => {
+                    let path: PathBuf = path;
+                    match inspected {
+                        Ok(file) => {
+                            lease.check_running()?;
+                            self.index_file(lease, &root, file).await?;
+                            count += 1;
+                        }
+                        Err(error) if lease.is_stopping() => return Err(error),
+                        Err(error @ Error::Database(_)) => return Err(error),
+                        Err(error) => {
+                            self.invalidate_path(lease, &root, path.as_path()).await?;
+                            skipped += 1;
+                            tracing::warn!(error_code = error.code(), "Skipping unverified audio file");
+                        }
+                    }
+                },
+                next = receiver.next(), if accepting => {
+                    let next: Option<PathBuf> = next?;
+                    match next {
+                        Some(path) => {
+                            let root = &root;
+                            let cached = self.cached_file(lease, &lease.folder, root, path.as_path()).await?;
+                            pending.push_back(async move {
+                                let inspected = self.inspector.inspect(root, path.as_path(), cached).await;
+                                (path, inspected)
+                            });
+                        }
+                        None => walking = false,
+                    }
+                },
             }
         }
+        let elapsed = started.elapsed();
+        tracing::info!(
+            files_read = count,
+            files_skipped = skipped,
+            parallelism,
+            elapsed_ms = elapsed.as_millis() as u64,
+            "Scan inspected"
+        );
         let stale = self.reconcile_missing(lease, count).await?;
         tracing::info!(
             files_read = count,
@@ -83,19 +116,10 @@ impl LibraryStorage {
         path: &Path,
         heartbeat: &mut Interval,
     ) -> Result<IndexedFile> {
-        lease.check_folder(&self.store, folder).await?;
-        let relative = relative(root, path)?;
-        let cached: Option<CachedFile> = sqlx::query_as(
-            "SELECT f.file_checksum AS checksum, f.audio_digest, m.inspection_version AS metadata_version,
-                m.title, m.artist, m.duration_ms, m.disc_number, m.track_number, o.tags AS tag_details,
-                COALESCE(a.title, 'Unknown album') AS album, COALESCE(a.artist, m.artist) AS album_artist
-             FROM local_files f JOIN sources s ON s.id = f.source_id
-             JOIN source_metadata m ON m.source_id = s.id LEFT JOIN releases a ON a.id = m.release_id
-             LEFT JOIN metadata_observations o ON o.id = m.observation_id
-             WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ?",
-        ).bind(&folder.id).bind(relative).bind(root.path().to_string_lossy().as_ref())
-            .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).fetch_optional(&self.store.pool).await?;
-        let inspection = self.inspector.inspect(root, path, cached);
+        let inspection = async {
+            let cached = self.cached_file(lease, folder, root, path).await?;
+            self.inspector.inspect(root, path, cached).await
+        };
         tokio::pin!(inspection);
         loop {
             tokio::select! {
@@ -108,6 +132,28 @@ impl LibraryStorage {
                 },
             }
         }
+    }
+
+    async fn cached_file(
+        &self,
+        lease: &Lease,
+        folder: &Folder,
+        root: &Root,
+        path: &Path,
+    ) -> Result<Option<CachedFile>> {
+        lease.check_folder(&self.store, folder).await?;
+        let relative = relative(root, path)?;
+        let cached: Option<CachedFile> = sqlx::query_as(
+            "SELECT f.file_checksum AS checksum, f.audio_digest, m.inspection_version AS metadata_version,
+                m.title, m.artist, m.duration_ms, m.disc_number, m.track_number, o.tags AS tag_details,
+                COALESCE(a.title, 'Unknown album') AS album, COALESCE(a.artist, m.artist) AS album_artist
+             FROM local_files f JOIN sources s ON s.id = f.source_id
+             JOIN source_metadata m ON m.source_id = s.id LEFT JOIN releases a ON a.id = m.release_id
+             LEFT JOIN metadata_observations o ON o.id = m.observation_id
+             WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ?",
+        ).bind(&folder.id).bind(relative).bind(root.path().to_string_lossy().as_ref())
+            .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).fetch_optional(&self.store.pool).await?;
+        Ok(cached)
     }
 
     pub(super) async fn next_path(

@@ -12,6 +12,7 @@ use tracing::Instrument;
 #[derive(Clone)]
 pub(super) struct Commands {
     slots: Arc<Semaphore>,
+    capacity: u32,
     retirement: Option<Scope>,
 }
 
@@ -39,9 +40,11 @@ impl From<Error> for Failure {
 }
 
 impl Commands {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(capacity: usize) -> Self {
+        let capacity = capacity.clamp(1, 64) as u32;
         Self {
-            slots: Arc::new(Semaphore::new(2)),
+            slots: Arc::new(Semaphore::new(capacity as usize)),
+            capacity,
             retirement: None,
         }
     }
@@ -49,6 +52,7 @@ impl Commands {
     pub(super) fn scoped(&self, retirement: Scope) -> Self {
         Self {
             slots: self.slots.clone(),
+            capacity: self.capacity,
             retirement: Some(retirement),
         }
     }
@@ -56,7 +60,7 @@ impl Commands {
     pub(super) async fn settle(&self) -> Result<()> {
         let _idle = self
             .slots
-            .acquire_many(2)
+            .acquire_many(self.capacity)
             .await
             .map_err(|_| Error::Internal("Media inspection stopped".into()))?;
         Ok(())

@@ -6,6 +6,7 @@ pub struct MediaTools {
     pub ffmpeg: PathBuf,
     pub ffprobe: PathBuf,
     pub timeout: Duration,
+    pub parallelism: usize,
 }
 
 impl Default for MediaTools {
@@ -14,6 +15,9 @@ impl Default for MediaTools {
             ffmpeg: "ffmpeg".into(),
             ffprobe: "ffprobe".into(),
             timeout: Duration::from_secs(300),
+            parallelism: std::thread::available_parallelism()
+                .map_or(2, usize::from)
+                .clamp(2, 8),
         }
     }
 }

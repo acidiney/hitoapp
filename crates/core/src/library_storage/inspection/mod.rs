@@ -39,6 +39,10 @@ impl FileInspector {
         self.commands.settle().await
     }
 
+    pub(super) fn parallelism(&self) -> usize {
+        self.tools.parallelism.clamp(1, 64)
+    }
+
     pub(super) fn scoped(&self, retirement: Scope) -> Self {
         Self {
             tools: self.tools.clone(),
@@ -48,9 +52,10 @@ impl FileInspector {
     }
 
     pub(crate) fn new(tools: MediaTools) -> Self {
+        let commands = Commands::new(tools.parallelism);
         Self {
             tools,
-            commands: Commands::new(),
+            commands,
             snapshots: snapshot::Reader::new(),
         }
     }
