@@ -5,6 +5,20 @@ import type { MetadataTarget } from "../model/metadata";
 import RecordingCredits from "./RecordingCredits";
 import Button from "../../../shared/ui/Button";
 
+function observedAt(seconds: number) {
+  const date = new Date(seconds * 1000);
+  const day = date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const clock = date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${day} · ${clock}`;
+}
+
 const tagLabels = {
   title: "Title",
   artist: "Artist",
@@ -31,33 +45,26 @@ function Observation({
             className="track-when"
             dateTime={new Date(observation.observed_at * 1000).toISOString()}
           >
-            {new Date(observation.observed_at * 1000).toLocaleString(
-              undefined,
-              {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              },
-            )}
+            {observedAt(observation.observed_at)}
           </time>
         )}
         <span className="track-category">Read</span>
         <div className="track-observation">
-          <header>
-            <span>
-              {observation.provider === "local"
-                ? "Local file"
-                : observation.provider}
-              {selected && (
-                <strong className="metadata-selected">Current metadata</strong>
-              )}
-            </span>
-          </header>
-          <h3>{observation.title}</h3>
+          <h3>
+            Metadata read from{" "}
+            {observation.provider === "local"
+              ? "local file"
+              : observation.provider}
+          </h3>
           <p>
-            {observation.artist} · {observation.album ?? "Unknown album"}
+            {observation.title} · {observation.artist} ·{" "}
+            {observation.album ?? "Unknown album"}
+            {selected && (
+              <>
+                {" · "}
+                <strong className="metadata-selected">Current metadata</strong>
+              </>
+            )}
           </p>
           <RecordingCredits attribution={observation.attribution} />
           {observation.origin === "legacy_normalized" ? (
@@ -134,10 +141,6 @@ export default function MetadataObservations({
       <h2 id="source-history-heading" className="sr-only">
         Source observations
       </h2>
-      <p>
-        Metadata read from your library. Personal edits leave these observations
-        intact.
-      </p>
       {!history.isLatest && (
         <button
           className="text-link"
@@ -165,7 +168,11 @@ export default function MetadataObservations({
         </p>
       )}
       {history.page.next_before !== null && (
-        <Button disabled={history.pending} onClick={() => void history.older()}>
+        <Button
+          className="track-older"
+          disabled={history.pending}
+          onClick={() => void history.older()}
+        >
           {history.pending ? "Loading…" : "Older observations"}
         </Button>
       )}
