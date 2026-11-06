@@ -173,6 +173,32 @@ pub(super) async fn artist(request: PageRequest<'_>, id: &str) -> ApiResult<Page
     }))
 }
 
+pub(super) async fn catalog_album(request: PageRequest<'_>, id: &str) -> ApiResult<PageProps> {
+    let detail = request
+        .when("detail", async {
+            Ok(request
+                .services
+                .artist_catalog
+                .artist_identity_group(
+                    request.actor,
+                    id,
+                    ArtistIdentityGroupBrowse {
+                        library: None,
+                        library_offset: None,
+                        recording_offset: None,
+                        release_offset: None,
+                        limit: Some(1),
+                    },
+                )
+                .await?)
+        })
+        .await?;
+    Ok(PageProps::CatalogAlbum(ArtistIdentityGroupPageProps {
+        shared: request.shared,
+        detail,
+    }))
+}
+
 pub(super) async fn artist_identity_group(
     request: PageRequest<'_>,
     id: &str,

@@ -24040,6 +24040,7 @@
           "AlbumPage",
           "ArtistIndexPage",
           "ArtistIdentityGroupPage",
+          "CatalogAlbumPage",
           "ArtistPage",
           "RecordingDetailsPage",
           "AlbumDetailsPage",

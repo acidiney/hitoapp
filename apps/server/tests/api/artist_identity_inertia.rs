@@ -213,6 +213,11 @@ async fn exercise(library: &Library) {
     assert_eq!(partial["props"], json!({"errors": {}, "detail": detail}));
     let html = page(&library.app, &library.owner, &path, None, true).await;
     assert_eq!(html, full);
+    let release_path = format!("/artist-groups/{group}/releases/e2e%3Agroup%2Flinked");
+    let release_page = page(&library.app, &library.owner, &release_path, None, false).await;
+    assert_eq!(release_page["component"], "CatalogAlbumPage");
+    assert_eq!(release_page["props"]["detail"]["group"], detail["group"]);
+    assert_eq!(release_page["props"]["user"]["id"], library.owner.id);
 
     let query = format!(
         "library={}&q=Owned&offset=0&limit=1",

@@ -4241,7 +4241,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "GenrePage" | "PodcastIndexPage" | "PodcastPage" | "NotFoundPage";
+        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "CatalogAlbumPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "GenrePage" | "PodcastIndexPage" | "PodcastPage" | "NotFoundPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;

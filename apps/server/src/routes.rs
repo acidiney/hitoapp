@@ -342,6 +342,10 @@ fn application(
         .route("/artists", get(inertia::page))
         .route("/artists/{id}", get(inertia::page))
         .route("/artist-groups/{id}", get(inertia::page))
+        .route(
+            "/artist-groups/{id}/releases/{release_group}",
+            get(inertia::page),
+        )
         .route("/recordings/{id}", get(inertia::page))
         .route("/likes", get(inertia::page))
         .route("/history", get(inertia::page))
