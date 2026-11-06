@@ -94,3 +94,118 @@ async fn running_out_of_candidates_is_recorded_as_exhaustion() {
     assert!(plan.next().await.unwrap().is_none());
     assert_eq!(plan.ended(), Some(hito_core::CandidatesEnd::Exhausted));
 }
+
+mod manual_choice {
+    use hito_core::test_support::provider_audio::{Alternate, AudioLibrary};
+    use hito_core::{CandidatesEnd, ChooseSource};
+    use std::{collections::BTreeSet, future::pending};
+    use uuid::Uuid;
+
+    struct World {
+        f: AudioLibrary,
+        alternate: Alternate,
+    }
+
+    async fn world() -> World {
+        let f = AudioLibrary::start().await;
+        let alternate = f.save_copy_and_attach_alternate().await;
+        World { f, alternate }
+    }
+
+    impl World {
+        fn first(&self) -> String {
+            self.f.source.id.clone()
+        }
+
+        fn saved(&self) -> String {
+            self.alternate.saved_copy.clone()
+        }
+
+        fn second(&self) -> String {
+            self.alternate.second.clone()
+        }
+
+        async fn choose(&self, source: &str) {
+            self.f
+                .hito
+                .catalog
+                .choose_source(
+                    &self.f.actor,
+                    &self.f.source.recording_id,
+                    ChooseSource {
+                        request_id: Uuid::new_v4(),
+                        source_id: source.parse().unwrap(),
+                    },
+                )
+                .await
+                .unwrap();
+        }
+
+        async fn native(&self) -> Vec<String> {
+            let mut candidates = self
+                .f
+                .hito
+                .playback
+                .playback_candidates(&self.f.actor, &self.f.source.recording_id)
+                .await
+                .unwrap();
+            let mut seen = Vec::new();
+            while let Some(grant) = candidates.next().await.unwrap() {
+                seen.push(grant.source_id().to_owned());
+            }
+            seen
+        }
+
+        async fn browser(&self) -> BTreeSet<String> {
+            self.f
+                .hito
+                .catalog
+                .playback_sources_until(&self.f.actor, &self.f.source.recording_id, pending())
+                .await
+                .unwrap()
+                .into_iter()
+                .filter(|source| source.ready)
+                .map(|source| source.id)
+                .collect()
+        }
+    }
+
+    fn set(ids: &[String]) -> BTreeSet<String> {
+        ids.iter().cloned().collect()
+    }
+
+    #[tokio::test]
+    async fn a_choice_excludes_other_providers_and_their_saved_copies_like_the_browser() {
+        let w = world().await;
+        let all = set(&[w.saved(), w.first(), w.second()]);
+        assert_eq!(set(&w.native().await), all);
+        assert_eq!(w.browser().await, all);
+        w.choose(&w.second()).await;
+        assert_eq!(w.native().await, [w.second()]);
+        assert_eq!(w.browser().await, set(&[w.second()]));
+        w.choose(&w.first()).await;
+        let kept = set(&[w.saved(), w.first()]);
+        let native = w.native().await;
+        assert_eq!(native.len(), 2);
+        assert_eq!(set(&native), kept);
+        assert_eq!(w.browser().await, kept);
+    }
+
+    #[tokio::test]
+    async fn a_chosen_source_that_stops_working_never_falls_back_to_another_provider() {
+        let w = world().await;
+        w.choose(&w.second()).await;
+        let mut candidates =
+            w.f.hito
+                .playback
+                .playback_candidates(&w.f.actor, &w.f.source.recording_id)
+                .await
+                .unwrap();
+        assert_eq!(
+            candidates.next().await.unwrap().unwrap().source_id(),
+            w.second()
+        );
+        assert!(candidates.next().await.unwrap().is_none());
+        assert_eq!(candidates.ended(), Some(CandidatesEnd::Exhausted));
+    }
+}

@@ -442,3 +442,117 @@ async fn turning_fallback_off_offers_only_the_preferred_candidate_and_says_why()
     );
     world.finish().await;
 }
+
+async fn choose_by_label(world: &World, actor: &Actor, label: &str) -> String {
+    let hito = &world.owned.hito;
+    let sources = hito
+        .catalog
+        .sources(actor, &world.owned.recording.id)
+        .await
+        .unwrap();
+    let chosen = sources.iter().find(|source| source.label == label).unwrap();
+    hito.catalog
+        .choose_source(
+            actor,
+            &world.owned.recording.id,
+            ChooseSource {
+                request_id: Uuid::new_v4(),
+                source_id: Uuid::parse_str(&chosen.id).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+    chosen.id.clone()
+}
+
+async fn offered(world: &World, actor: &Actor) -> Vec<String> {
+    let mut candidates = world
+        .owned
+        .hito
+        .playback
+        .playback_candidates(actor, &world.owned.recording.id)
+        .await
+        .unwrap();
+    let mut seen = Vec::new();
+    while let Some(grant) = candidates.next().await.unwrap() {
+        seen.push(grant.source_id().to_owned());
+    }
+    seen
+}
+
+#[tokio::test]
+async fn native_candidates_offer_only_the_chosen_provider_source() {
+    let world = World::start().await;
+    let actor = &world.owned.actor;
+    world
+        .save(
+            true,
+            vec![
+                world.provider(&world.youtube),
+                world.provider(&world.jamendo),
+            ],
+        )
+        .await;
+    let jamendo = choose_by_label(&world, actor, "private-jamendo-label").await;
+    assert_eq!(offered(&world, actor).await, [jamendo]);
+    world.finish().await;
+}
+
+#[tokio::test]
+async fn a_failed_chosen_source_ends_the_native_candidates_like_the_browser_list() {
+    let world = World::start().await;
+    let actor = &world.owned.actor;
+    let youtube = choose_by_label(&world, actor, "private-youtube-label").await;
+    let browser = world
+        .owned
+        .hito
+        .catalog
+        .playback_sources_until(actor, &world.owned.recording.id, pending())
+        .await
+        .unwrap();
+    let ready: Vec<_> = browser
+        .iter()
+        .filter(|source| source.ready)
+        .map(|source| source.id.clone())
+        .collect();
+    assert_eq!(ready, std::slice::from_ref(&youtube));
+    let mut candidates = world
+        .owned
+        .hito
+        .playback
+        .playback_candidates(actor, &world.owned.recording.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        candidates.next().await.unwrap().unwrap().source_id(),
+        youtube
+    );
+    assert!(candidates.next().await.unwrap().is_none());
+    assert_eq!(
+        candidates.ended(),
+        Some(hito_core::CandidatesEnd::Exhausted)
+    );
+    world.finish().await;
+}
+
+#[tokio::test]
+async fn another_accounts_choice_does_not_change_native_candidates() {
+    let world = World::start().await;
+    let actor = &world.owned.actor;
+    let before = offered(&world, actor).await;
+    assert_eq!(before.len(), 2);
+    let guest = second_account(&world.owned.hito, actor).await;
+    let denied = |result: hito_core::Result<_>| matches!(result, Err(Error::NotFound));
+    assert!(denied(
+        world
+            .owned
+            .hito
+            .playback
+            .playback_candidates(&guest, &world.owned.recording.id)
+            .await
+            .map(|_| ())
+    ));
+    choose_by_label(&world, actor, "private-jamendo-label").await;
+    assert_eq!(offered(&world, actor).await.len(), 1);
+    world.finish().await;
+}
