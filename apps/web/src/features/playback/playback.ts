@@ -428,6 +428,19 @@ export class Playback implements Player {
     this.appendBatch([track]);
   }
 
+  async playNext(track: Track): Promise<void> {
+    this.cancelAudiobook();
+    if (this.queue.length === 0) {
+      await this.playQueue([track]);
+      return;
+    }
+    if (!this.appendBatch([track])) return;
+    const added = this.queue.at(this.queue.length - 1).id;
+    const following = this.queue.at(this.state.index + 1);
+    if (following && following.id !== added)
+      this.moveEntry(added, following.id);
+  }
+
   continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
     return this.audiobook.run(book, signal);
   }

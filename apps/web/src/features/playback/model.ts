@@ -100,6 +100,7 @@ export interface Player {
     more?: QueueSupply,
   ): Promise<void>;
   addToQueue?(track: Track): Promise<void>;
+  playNext?(track: Track): Promise<void>;
   continueAudiobook(audiobook: string, signal: AbortSignal): Promise<boolean>;
   prepareSelection(): PreparedSelection;
   toggle(): Promise<void>;
