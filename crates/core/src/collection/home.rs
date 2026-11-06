@@ -1,7 +1,7 @@
 use super::{AddedAlbum, Collection, Home, HomeAlbum, UnheardOnAlbum};
 use crate::{
     Actor, HostDeviceId, Recording, Result,
-    catalog::{push_available, push_plays_from_services},
+    catalog::{push_available, push_plays_from_services, push_primary_artist},
     metadata,
 };
 use sqlx::QueryBuilder;
@@ -159,6 +159,8 @@ impl Collection {
             .push(" AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ");
         push_available(&mut query, &self.host, actor.id());
         query.push(" AS available, ");
+        push_primary_artist(&mut query, actor.id());
+        query.push(" AS artist_id, ");
         push_plays_from_services(&mut query, actor.id());
         query
             .push(" AS plays_from_services, COALESCE(l.liked, 0) AS liked FROM recordings r LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ")

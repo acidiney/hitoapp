@@ -3903,6 +3903,7 @@ export interface components {
         HistoryEntry: {
             album?: string | null;
             artist: string;
+            artist_id?: string | null;
             available: boolean;
             /** Format: int64 */
             duration_ms: number;
@@ -4359,6 +4360,7 @@ export interface components {
             items: {
                 album?: string | null;
                 artist: string;
+                artist_id?: string | null;
                 available: boolean;
                 /** Format: int64 */
                 duration_ms: number;
@@ -4712,7 +4714,9 @@ export interface components {
             retention_id: string;
         };
         PlaylistEntry: {
+            album?: string | null;
             artist: string;
+            artist_id?: string | null;
             available: boolean;
             /** Format: int64 */
             duration_ms: number;
@@ -4725,6 +4729,7 @@ export interface components {
             /** Format: int64 */
             position: number;
             recording_id?: string | null;
+            release_id?: string | null;
             title: string;
         };
         PlaylistFollow: {
@@ -5059,6 +5064,7 @@ export interface components {
         Recording: {
             album?: string | null;
             artist: string;
+            artist_id?: string | null;
             available: boolean;
             /** Format: int64 */
             duration_ms: number;

@@ -82,6 +82,8 @@ pub(super) async fn selected(
     );
     crate::catalog::push_available(&mut query, host, actor.id());
     query.push(" AS available, ");
+    crate::catalog::push_primary_artist(&mut query, actor.id());
+    query.push(" AS artist_id, ");
     crate::catalog::push_plays_from_services(&mut query, actor.id());
     query.push(" AS plays_from_services,COALESCE(k.liked,0) AS liked FROM recordings r LEFT JOIN personal_recording_metadata p ON p.recording_id = r.id AND p.user_id = ").push_bind(actor.id().to_owned())
         .push(" LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ").push_bind(actor.id().to_owned())

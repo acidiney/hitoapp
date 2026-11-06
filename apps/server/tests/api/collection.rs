@@ -132,6 +132,49 @@ async fn independent_playlist_entries_merge_and_removed_entries_stay_removed() {
 }
 
 #[tokio::test]
+async fn track_rows_carry_the_artist_page_id_and_playlist_entries_carry_album_fields() {
+    let (_dir, app, token, recording) = indexed_app().await;
+    let (_, recordings) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
+    let (_, artists) = call(&app, "GET", "/api/v1/artists", Value::Null, Some(&token)).await;
+    let artist = artists["items"][0]["id"].as_str().unwrap().to_owned();
+    assert_eq!(recordings["items"][0]["artist_id"], artist);
+    let (status, page) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{artist}"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["recordings"]["items"][0]["artist_id"], artist);
+    let playlist = uuid::Uuid::new_v4();
+    let operations = vec![
+        json!({"id":uuid::Uuid::new_v4(),"action":{"kind":"playlist_create","playlist_id":playlist,"name":"Linked"}}),
+        json!({"id":uuid::Uuid::new_v4(),"action":{"kind":"entry_insert","playlist_id":playlist,"entry_id":uuid::Uuid::new_v4(),"recording_id":recording,"position":0}}),
+    ];
+    let batch = json!({"device_id":"device","operations":operations});
+    assert_eq!(
+        call(&app, "POST", "/api/v1/sync", batch, Some(&token))
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let (_, detail) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/playlists/{playlist}"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    let entry = detail["entries"][0].as_object().unwrap();
+    assert_eq!(entry["artist_id"], artist);
+    assert_eq!(entry["release_id"], recordings["items"][0]["release_id"]);
+    assert_eq!(entry["album"], recordings["items"][0]["album"]);
+}
+
+#[tokio::test]
 async fn likes_and_resume_positions_are_private_and_survive_new_sessions() {
     let (_dir, app, token, recording) = indexed_app().await;
     let batch = json!({"device_id":"laptop","operations":[

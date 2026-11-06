@@ -59,7 +59,7 @@ pub use artwork::{
 pub(crate) use artwork::{credited_artist_photo_exists, credited_artist_photos_possible};
 pub(crate) use artwork::{enqueue_cover_art, queue_observed_release_covers};
 pub(crate) use availability::{
-    SourceAccess, push_available, push_plays_from_services, push_source_access,
+    SourceAccess, push_available, push_plays_from_services, push_primary_artist, push_source_access,
 };
 pub use browse::Browse;
 pub use featured::{FeaturedEntry, FeaturedShelf};

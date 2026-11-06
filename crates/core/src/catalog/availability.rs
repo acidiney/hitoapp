@@ -92,6 +92,13 @@ pub(crate) fn push_plays_from_services(query: &mut QueryBuilder<'_, Sqlite>, acc
         .push(" AND EXISTS (SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources'))");
 }
 
+pub(crate) fn push_primary_artist(query: &mut QueryBuilder<'_, Sqlite>, account: &str) {
+    query
+        .push("(SELECT credit.artist_id FROM account_recording_credits credit WHERE credit.recording_id = r.id AND credit.user_id = ")
+        .push_bind(account.to_owned())
+        .push(")");
+}
+
 pub(crate) fn push_available(
     query: &mut QueryBuilder<'_, Sqlite>,
     host: &HostDeviceId,

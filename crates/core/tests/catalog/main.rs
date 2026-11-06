@@ -13,6 +13,7 @@ mod catalog_musicbrainz_genres;
 mod catalog_paging;
 mod catalog_recording_credits;
 mod catalog_releases;
+mod catalog_row_links;
 mod catalog_scale;
 mod collection_artwork;
 mod collection_artwork_upgrade;

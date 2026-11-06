@@ -22575,6 +22575,12 @@
           "artist": {
             "type": "string"
           },
+          "artist_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "available": {
             "type": "boolean"
           },
@@ -24515,6 +24521,12 @@
                 "artist": {
                   "type": "string"
                 },
+                "artist_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "available": {
                   "type": "boolean"
                 },
@@ -25936,8 +25948,20 @@
           "plays_from_services"
         ],
         "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "artist": {
             "type": "string"
+          },
+          "artist_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "available": {
             "type": "boolean"
@@ -25976,6 +26000,12 @@
             "format": "int64"
           },
           "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_id": {
             "type": [
               "string",
               "null"
@@ -27292,6 +27322,12 @@
           },
           "artist": {
             "type": "string"
+          },
+          "artist_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "available": {
             "type": "boolean"

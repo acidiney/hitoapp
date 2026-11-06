@@ -1,7 +1,7 @@
 use super::{ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, PlaylistEntry};
 use crate::{
     Actor, Error, HostDeviceId, Result,
-    catalog::{push_available, push_plays_from_services},
+    catalog::{push_available, push_plays_from_services, push_primary_artist},
     metadata,
 };
 use sqlx::{QueryBuilder, Row, SqliteConnection, sqlite::SqliteRow};
@@ -36,6 +36,13 @@ pub(super) async fn read(
                 CASE WHEN e.recording_id IS NULL AND COALESCE(imported.kind,followed.kind) IS NOT NULL THEN COALESCE(imported.artist,followed.artist, '')
                     WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS inherited_artist,
                 CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
+                CASE WHEN m.user_id IS NULL THEN NULL ELSE r.release_id END AS release_id,
+                CASE WHEN m.user_id IS NULL THEN NULL ELSE release.title END AS album,
+                CASE WHEN m.user_id IS NULL THEN NULL ELSE ",
+    );
+    push_primary_artist(&mut query, actor.id());
+    query.push(
+        " END AS artist_id,
                 (m.user_id IS NOT NULL AND ",
     );
     push_available(&mut query, host, actor.id());
@@ -48,7 +55,8 @@ pub(super) async fn read(
          LEFT JOIN recordings r ON r.id = e.recording_id
          LEFT JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ",
     ).push_bind(actor.id().to_owned()).push(
-        " LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = m.user_id ",
+        " LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = m.user_id
+          LEFT JOIN account_releases release ON release.id = r.release_id AND release.user_id = m.user_id ",
     );
     metadata::join_recording_fields(&mut query, actor);
     query
@@ -103,6 +111,9 @@ fn entry(row: SqliteRow) -> Result<PlaylistEntry> {
         inherited_title: row.try_get("inherited_title")?,
         inherited_artist: row.try_get("inherited_artist")?,
         artist: row.try_get("artist")?,
+        artist_id: row.try_get("artist_id")?,
+        release_id: row.try_get("release_id")?,
+        album: row.try_get("album")?,
         duration_ms: row.try_get("duration_ms")?,
         available: row.try_get("available")?,
         plays_from_services: row.try_get("plays_from_services")?,

@@ -1,6 +1,6 @@
 use super::{
-    Browse, Catalog, Page, Recording, SourceAccess, push_plays_from_services, push_source_access,
-    release_availability::WantedRecording,
+    Browse, Catalog, Page, Recording, SourceAccess, push_plays_from_services, push_primary_artist,
+    push_source_access, release_availability::WantedRecording,
 };
 use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
 use serde::Serialize;
@@ -185,6 +185,8 @@ impl Catalog {
         query.push("EXISTS (SELECT 1 FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id = r.id AND ");
         push_source_access(&mut query, &self.host, actor.id(), SourceAccess::Playable);
         query.push(") AS available, ");
+        push_primary_artist(&mut query, actor.id());
+        query.push(" AS artist_id, ");
         push_plays_from_services(&mut query, actor.id());
         query
             .push(
