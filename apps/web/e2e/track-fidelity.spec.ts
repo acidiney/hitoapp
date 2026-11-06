@@ -60,7 +60,7 @@ test("the track page renders the mockup data screen by screen", async ({
   await expect(header.locator(".track-credit")).toContainText(
     "Casa Aberta · 2021",
   );
-  const facts = page.locator(".track-facts");
+  const facts = page.locator(".track-overview .track-facts");
   await expect(facts).toContainText("FLAC 16-bit / 44.1 kHz · 31.4 MB");
   await expect(facts).toContainText("Track 3 of 11 · Maré Discos");
   await expect(facts).toContainText("2 days ago · stopped at 1:37");
