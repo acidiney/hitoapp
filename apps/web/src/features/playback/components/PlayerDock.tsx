@@ -15,7 +15,8 @@ import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
-import { visitFromPlayer } from "../../../shared/ui/RouteLink";
+import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
+import { trackLink, useArtistLink } from "../hooks/useArtistLink";
 
 export default function PlayerDock({
   account,
@@ -41,6 +42,7 @@ export default function PlayerDock({
     player.subscribe,
     () => player.snapshot().volume,
   );
+  const artistHref = useArtistLink(account, current);
   const [expanded, setExpanded] = useState(false);
   const expandedOpener = useRef<HTMLButtonElement | null>(null);
   const queueButton = useRef<HTMLButtonElement>(null);
@@ -91,10 +93,24 @@ export default function PlayerDock({
             />
           </button>
           <span>
-            <strong>{current?.title ?? "Ready when you are"}</strong>
-            <small>
-              {current?.artist ?? "Choose a track from your library"}
-            </small>
+            {current ? (
+              <strong>
+                <RouteLink className="player-link" href={trackLink(current)}>
+                  {current.title}
+                </RouteLink>
+              </strong>
+            ) : (
+              <strong>Ready when you are</strong>
+            )}
+            {current && artistHref ? (
+              <small>
+                <RouteLink className="player-link" href={artistHref}>
+                  {current.artist}
+                </RouteLink>
+              </small>
+            ) : (
+              <small>Choose a track from your library</small>
+            )}
           </span>
         </div>
         <PlaybackControls />
