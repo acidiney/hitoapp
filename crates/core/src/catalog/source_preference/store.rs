@@ -132,7 +132,7 @@ async fn eligible_providers(
         JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
         WHERE installation.user_id=? AND installation.active=1
         AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value='sources')
-        ORDER BY installation.id",
+        ORDER BY installation.rowid",
     )
     .bind(actor.id())
     .fetch_all(connection)

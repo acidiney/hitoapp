@@ -57,6 +57,8 @@ Rules, in the order they apply:
 - The browser logs `playback.source_fallback` (recording ID, source ID, step number, reason `previous_source_failed`), `playback.source_fallback_off` and `playback.source_fallback_limit`. Core logs `playback_source_fallback` with the outcome `next_source`, `fallback_off`, `attempt_limit` or `exhausted` for the desktop player. No titles, addresses or credentials are logged.
 - The switch is read from the server only after a first source has failed, so a normal play makes no extra request.
 
+**Automatic source search.** When Hito looks for audio for a recording that has none, it asks at most 4 of the account's connected providers that can search and supply sources. The 4 are chosen by the saved order above: providers the listener ranked come first, in that order, then providers not in the saved order, in the order they were connected. With no saved preference the first 4 connected providers are asked, the same 4 every time. Only the account's own active connections are considered, and another account's preference has no effect. Providers that recently failed are not deprioritised: Hito keeps no per-provider health signal yet. Core cases: six audio providers with a saved order (exactly the top 4 are asked), no preference (the first 4 connected, repeated across fresh libraries), and a second account saving its own preference.
+
 **Where it applies.**
 
 | Surface | Preference order | Fallback switch and bound |

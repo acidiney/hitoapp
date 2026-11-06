@@ -3,8 +3,13 @@ use super::{
     matching::MusicalRecording,
     provider::{Candidate, Page, Subject},
 };
-use crate::{Actor, Catalog, Error, Result};
+use crate::{
+    Actor, Catalog, Error, Result,
+    catalog::{Origin, ranking_on},
+};
 use std::vec::IntoIter;
+
+const MAX_CONNECTIONS: usize = 4;
 
 #[derive(sqlx::FromRow)]
 struct Connection {
@@ -30,13 +35,19 @@ impl Candidates {
         let Some(query) = musical.query() else {
             return Ok(Self::default());
         };
-        let connections = sqlx::query_as::<_, Connection>("SELECT installation.id,installation.revision FROM plugin_installations installation
+        let mut connections = sqlx::query_as::<_, Connection>("SELECT installation.id,installation.revision FROM plugin_installations installation
             JOIN plugin_services service ON service.id = installation.service_id AND service.active = 1
             WHERE installation.user_id = ? AND installation.active = 1
                 AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'search')
                 AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'sources')
-            ORDER BY installation.id LIMIT 4")
+            ORDER BY installation.rowid")
             .bind(actor.id()).fetch_all(&catalog.store.pool).await?;
+        let ranking = {
+            let mut connection = catalog.store.pool.acquire().await?;
+            ranking_on(&mut connection, actor).await?
+        };
+        connections.sort_by_key(|connection| ranking.position(Origin::Provider(&connection.id)));
+        connections.truncate(MAX_CONNECTIONS);
         Ok(Self {
             provider_unavailable: false,
             connection_count: connections.len(),
