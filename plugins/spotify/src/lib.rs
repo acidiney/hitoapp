@@ -1,7 +1,7 @@
 mod config;
 mod error;
 mod http;
-mod public;
+pub(crate) mod public;
 
 pub use config::{Config, InitError};
 pub use http::router;

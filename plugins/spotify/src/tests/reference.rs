@@ -92,3 +92,35 @@ async fn noncanonical_playlist_references_are_rejected_without_an_upstream_reque
         assert_eq!(calls.load(Ordering::SeqCst), 0, "reference case: {case}");
     }
 }
+
+#[test]
+fn shared_playlist_links_from_localized_pages_and_the_app_resolve_to_the_playlist() {
+    let id = "37i9dQZF1DXcBWIGoYBM5M";
+    for reference in [
+        format!("https://open.spotify.com/playlist/{id}"),
+        format!("https://open.spotify.com/playlist/{id}?si=a1b2c3d4e5f6"),
+        format!("https://open.spotify.com/intl-pt/playlist/{id}"),
+        format!("https://open.spotify.com/intl-pt/playlist/{id}?si=a1b2c3d4e5f6"),
+        format!("https://open.spotify.com/intl-pt-br/playlist/{id}"),
+        format!("spotify:playlist:{id}"),
+    ] {
+        assert_eq!(
+            crate::public::reference_id(&reference).as_deref().ok(),
+            Some(id),
+            "{reference}"
+        );
+    }
+    for reference in [
+        format!("https://open.spotify.com/intl-/playlist/{id}"),
+        format!("https://open.spotify.com/intl-PT/playlist/{id}"),
+        format!("https://open.spotify.com/intl-pt/x/playlist/{id}"),
+        format!("https://open.spotify.com/intl-toolongcode/playlist/{id}"),
+        format!("spotify:playlist:{id}:extra"),
+        format!("spotify:album:{id}"),
+    ] {
+        assert!(
+            crate::public::reference_id(&reference).is_err(),
+            "{reference}"
+        );
+    }
+}

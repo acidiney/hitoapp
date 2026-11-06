@@ -145,16 +145,38 @@ impl Client {
     }
 }
 
-fn reference_id(reference: &str) -> Result<String, Error> {
+pub(crate) fn reference_id(reference: &str) -> Result<String, Error> {
     if reference.contains('#') {
         return Err(Error::InvalidRequest);
     }
-    let path = reference
-        .strip_prefix("https://open.spotify.com/playlist/")
-        .ok_or(Error::InvalidRequest)?;
-    let id = path.split_once('?').map_or(path, |(id, _)| id);
+    let id = match reference.strip_prefix("spotify:playlist:") {
+        Some(id) => id,
+        None => {
+            let path = reference
+                .strip_prefix("https://open.spotify.com/")
+                .ok_or(Error::InvalidRequest)?;
+            let path = path.split_once('?').map_or(path, |(path, _)| path);
+            let path = match path.split_once('/') {
+                Some((locale, rest)) if localized_prefix(locale) => rest,
+                _ => path,
+            };
+            path.strip_prefix("playlist/")
+                .ok_or(Error::InvalidRequest)?
+        }
+    };
     if !model::valid_id(id) {
         return Err(Error::InvalidRequest);
     }
     Ok(id.to_owned())
+}
+
+fn localized_prefix(segment: &str) -> bool {
+    segment.strip_prefix("intl-").is_some_and(|code| {
+        (2..=5).contains(&code.len())
+            && code
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'-')
+            && !code.starts_with('-')
+            && !code.ends_with('-')
+    })
 }
