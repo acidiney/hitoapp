@@ -2,21 +2,27 @@ import type { Schema } from "../../../shared/schema";
 import { Play, Search } from "lucide-react";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
-import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import Button from "../../../shared/ui/Button";
 import { candidateLength } from "../../sources/model/candidateFacts";
 import type { TrackStatus } from "../model/trackStatus";
 import CreditLine from "./CreditLine";
+import TrackActions from "./TrackActions";
 
 export default function TrackHeader({
+  account,
   detail,
+  liked,
+  playlists,
   status,
   onPlay,
   onFindAudio,
 }: {
+  account: string;
   detail: Schema<"RecordingMetadata">;
+  liked: boolean;
+  playlists: Schema<"Playlist">[];
   status: TrackStatus;
   onPlay(): void;
   onFindAudio(): void;
@@ -102,8 +108,20 @@ export default function TrackHeader({
                 <Search size={16} aria-hidden="true" /> Find audio
               </Button>
             )}
+            <TrackActions
+              account={account}
+              liked={liked}
+              playlists={playlists}
+              track={{
+                id: detail.recording_id,
+                title: detail.title.value,
+                artist: detail.artist.value,
+                album: source?.album ?? null,
+                duration_ms: source?.duration_ms ?? 0,
+                available: status.playable === true,
+              }}
+            />
           </div>
-          <ArtworkStatus recording={detail.recording_id} />
         </div>
       </div>
     </header>

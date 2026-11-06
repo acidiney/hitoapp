@@ -10,6 +10,7 @@ import {
 } from "../../lyrics/fixtures/recordingLyrics";
 import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import { choiceSourceA } from "../../sources/fixtures/sourceChoice";
+import { attachmentSettings } from "../../sources/fixtures/sourceAttachment";
 import { attributedRecordingPage } from "../fixtures/recordingAttribution";
 import { renderTrackPage } from "../fixtures/trackPageView";
 
@@ -235,4 +236,118 @@ test("the history tab lists reads with a category word", () => {
   renderTrackPage(attributedRecordingPage, { search: "?tab=history" });
   const panel = screen.getByRole("tabpanel", { name: "History" });
   expect(within(panel).getAllByText("Read").length).toBeGreaterThan(0);
+});
+
+test("the header like button writes the like and flips its label", async () => {
+  vi.mocked(change).mockResolvedValue({ acknowledged: [] } as never);
+  const page = structuredClone(attributedRecordingPage);
+  renderTrackPage(page);
+  fireEvent.click(
+    screen.getByRole("button", { name: `Like ${page.detail.title.value}` }),
+  );
+  await waitFor(() =>
+    expect(change).toHaveBeenCalledWith(
+      page.user.id,
+      {
+        kind: "like_set",
+        recording_id: page.detail.recording_id,
+        liked: true,
+      },
+      expect.any(AbortSignal),
+    ),
+  );
+  await screen.findByRole("button", {
+    name: `Unlike ${page.detail.title.value}`,
+  });
+});
+
+test("a liked track starts as liked", () => {
+  const page = { ...structuredClone(attributedRecordingPage), liked: true };
+  renderTrackPage(page);
+  expect(
+    screen.getByRole("button", { name: `Unlike ${page.detail.title.value}` }),
+  ).toBeTruthy();
+});
+
+test("the header adds the track to one of the account's playlists", async () => {
+  vi.mocked(change).mockResolvedValue({ acknowledged: [] } as never);
+  const page = structuredClone(attributedRecordingPage);
+  renderTrackPage(page);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `Add ${page.detail.title.value} to playlist`,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: page.playlists[0].name }),
+  );
+  await waitFor(() =>
+    expect(change).toHaveBeenCalledWith(
+      page.user.id,
+      expect.objectContaining({
+        kind: "entry_insert",
+        playlist_id: page.playlists[0].id,
+        recording_id: page.detail.recording_id,
+      }),
+      expect.any(AbortSignal),
+    ),
+  );
+});
+
+test("Retry artwork lives in the overflow menu and is disabled while artwork is fine", () => {
+  renderTrackPage(attributedRecordingPage);
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+  expect(
+    (
+      screen.getByRole("menuitem", {
+        name: "Retry artwork",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(document.querySelector(".track-header .artwork-status")).toBeNull();
+});
+
+test("a track with nothing playable shows Find audio expanded, no empty source block and a zero badge", async () => {
+  const page = structuredClone(attributedRecordingPage);
+  const view = renderTrackPage(page, {
+    search: "?tab=sources",
+    choice: {
+      recording_id: page.detail.recording_id,
+      revision: 1,
+      mode: "automatic",
+      sources: [
+        {
+          source: { ...choiceSourceA, ready: false },
+          selected: false,
+          selectable: true,
+        },
+      ],
+    },
+    extra: (path) =>
+      path === "/api/v1/plugins"
+        ? Response.json(attachmentSettings)
+        : undefined,
+  });
+  const find = await screen.findByRole("region", { name: "Find audio" });
+  await within(find).findByRole("searchbox", { name: "Search music" });
+  expect(
+    (
+      within(find).getByRole("searchbox", {
+        name: "Search music",
+      }) as HTMLInputElement
+    ).value,
+  ).toBe(`${page.detail.title.value} ${page.detail.artist.value}`);
+  expect(
+    within(find).getByRole("group", { name: "Music service" }),
+  ).toBeTruthy();
+  expect(
+    within(find).queryByRole("button", { name: "Find a source" }),
+  ).toBeNull();
+  expect(screen.queryByRole("region", { name: "Playback source" })).toBeNull();
+  await screen.findByRole("tab", { name: /Sources\s*0/ });
+  const header = document.querySelector<HTMLElement>(".track-header")!;
+  expect(within(header).getByText("Catalog only")).toBeTruthy();
+  expect(
+    view.fetch.mock.calls.filter(([path]) => String(path).includes("/search")),
+  ).toHaveLength(0);
 });

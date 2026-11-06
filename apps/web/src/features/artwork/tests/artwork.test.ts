@@ -238,15 +238,27 @@ test("recording details retries failed artwork only after an explicit action", a
   );
   const cover = () => container.querySelector(`img[src="${artwork}"]`);
 
-  expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+  const openMenu = () =>
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+  openMenu();
+  expect(
+    (
+      screen.getByRole("menuitem", {
+        name: "Retry artwork",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
   expect(cover()).toBeTruthy();
   await act(async () => {
     fireEvent.error(cover()!);
   });
-  await act(async () => {
-    await vi.advanceTimersToNextTimerAsync();
-  });
-  const retry = screen.getByRole("button", { name: "Retry artwork" });
+  for (let step = 0; step < 5 && requests().length < 3; step++)
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+  openMenu();
+  const retry = screen.getByRole("menuitem", { name: "Retry artwork" });
   expect((retry as HTMLButtonElement).disabled).toBe(false);
   expect(cover()).toBeNull();
   expect(requests()).toHaveLength(3);
@@ -259,11 +271,19 @@ test("recording details retries failed artwork only after an explicit action", a
     fireEvent.click(retry);
   });
   expect(cover()?.getAttribute("src")).toBe(artwork);
-  await act(async () => {
-    await vi.advanceTimersToNextTimerAsync();
-  });
+  for (let step = 0; step < 5 && requests().length < 6; step++)
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
   expect(cover()?.getAttribute("src")).toBe(artwork);
-  expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+  openMenu();
+  expect(
+    (
+      screen.getByRole("menuitem", {
+        name: "Retry artwork",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
   expect(requests().map(([path]) => path)).toEqual([
     availability,
     enqueue,

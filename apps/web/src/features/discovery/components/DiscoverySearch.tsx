@@ -13,6 +13,7 @@ export default function DiscoverySearch({
   onChoose,
   onSearch,
   pills = false,
+  initialQuery = "",
 }: {
   connections: Schema<"PluginInstallation">[];
   names: Record<string, string>;
@@ -21,8 +22,9 @@ export default function DiscoverySearch({
   onChoose: (id: string) => void;
   onSearch: (query: string) => Promise<boolean>;
   pills?: boolean;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   function submit(event: FormEvent) {
     event.preventDefault();
     void onSearch(query);

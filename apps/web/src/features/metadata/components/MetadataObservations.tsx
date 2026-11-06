@@ -24,78 +24,90 @@ function Observation({
   return (
     <li>
       <article>
-        <header>
-          <span className="track-category">Read</span>
-          <span>
-            {observation.provider === "local"
-              ? "Local file"
-              : observation.provider}
-            {selected && (
-              <strong className="metadata-selected">Current metadata</strong>
-            )}
-          </span>
-          {observation.observed_at === null ? (
-            <small>Imported during upgrade</small>
-          ) : (
-            <time
-              dateTime={new Date(observation.observed_at * 1000).toISOString()}
-            >
-              {new Date(observation.observed_at * 1000).toLocaleString()}
-            </time>
-          )}
-        </header>
-        <h3>{observation.title}</h3>
-        <p>
-          {observation.artist} · {observation.album ?? "Unknown album"}
-        </p>
-        <RecordingCredits attribution={observation.attribution} />
-        {observation.origin === "legacy_normalized" ? (
-          <p className="metadata-legacy">
-            Original tag details were not recorded. The next successful scan can
-            inspect them.
-          </p>
-        ) : observation.origin === "provider_response" ? (
-          <dl className="metadata-tag-list">
-            <div>
-              <dt>Provider recording</dt>
-              <dd>{observation.provider_recording_id}</dd>
-            </div>
-            {observation.provider_revision && (
-              <div>
-                <dt>Provider revision</dt>
-                <dd>{observation.provider_revision}</dd>
-              </div>
-            )}
-          </dl>
+        {observation.observed_at === null ? (
+          <small className="track-when">Imported during upgrade</small>
         ) : (
-          <details>
-            <summary>Inspected tags</summary>
-            <dl className="metadata-tag-list">
-              {Object.entries(tagLabels).map(([key, label]) => {
-                const tag = observation.tags?.[key as keyof typeof tagLabels];
-                return (
-                  <div key={key}>
-                    <dt>{label}</dt>
-                    <dd>
-                      {tag ? (
-                        <>
-                          {tag.value}
-                          <small>
-                            {tag.location.kind === "format"
-                              ? "File tags"
-                              : `Audio stream ${tag.location.index + 1}`}
-                          </small>
-                        </>
-                      ) : (
-                        <span className="muted">No tag</span>
-                      )}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-          </details>
+          <time
+            className="track-when"
+            dateTime={new Date(observation.observed_at * 1000).toISOString()}
+          >
+            {new Date(observation.observed_at * 1000).toLocaleString(
+              undefined,
+              {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              },
+            )}
+          </time>
         )}
+        <span className="track-category">Read</span>
+        <div className="track-observation">
+          <header>
+            <span>
+              {observation.provider === "local"
+                ? "Local file"
+                : observation.provider}
+              {selected && (
+                <strong className="metadata-selected">Current metadata</strong>
+              )}
+            </span>
+          </header>
+          <h3>{observation.title}</h3>
+          <p>
+            {observation.artist} · {observation.album ?? "Unknown album"}
+          </p>
+          <RecordingCredits attribution={observation.attribution} />
+          {observation.origin === "legacy_normalized" ? (
+            <p className="metadata-legacy">
+              Original tag details were not recorded. The next successful scan
+              can inspect them.
+            </p>
+          ) : observation.origin === "provider_response" ? (
+            <dl className="metadata-tag-list">
+              <div>
+                <dt>Provider recording</dt>
+                <dd>{observation.provider_recording_id}</dd>
+              </div>
+              {observation.provider_revision && (
+                <div>
+                  <dt>Provider revision</dt>
+                  <dd>{observation.provider_revision}</dd>
+                </div>
+              )}
+            </dl>
+          ) : (
+            <details>
+              <summary>Inspected tags</summary>
+              <dl className="metadata-tag-list">
+                {Object.entries(tagLabels).map(([key, label]) => {
+                  const tag = observation.tags?.[key as keyof typeof tagLabels];
+                  return (
+                    <div key={key}>
+                      <dt>{label}</dt>
+                      <dd>
+                        {tag ? (
+                          <>
+                            {tag.value}
+                            <small>
+                              {tag.location.kind === "format"
+                                ? "File tags"
+                                : `Audio stream ${tag.location.index + 1}`}
+                            </small>
+                          </>
+                        ) : (
+                          <span className="muted">No tag</span>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </details>
+          )}
+        </div>
       </article>
     </li>
   );

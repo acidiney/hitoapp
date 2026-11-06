@@ -419,6 +419,15 @@ export class Playback implements Player {
     await this.open(index, position);
   }
 
+  async addToQueue(track: Track): Promise<void> {
+    this.cancelAudiobook();
+    if (this.queue.length === 0) {
+      await this.playQueue([track]);
+      return;
+    }
+    this.appendBatch([track]);
+  }
+
   continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
     return this.audiobook.run(book, signal);
   }

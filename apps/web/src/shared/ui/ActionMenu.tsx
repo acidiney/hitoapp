@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 export type ActionMenuItem = {
@@ -12,10 +12,12 @@ export default function ActionMenu({
   label,
   items,
   triggerClassName = "",
+  icon,
 }: {
   label: string;
   items: ActionMenuItem[];
   triggerClassName?: string;
+  icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ export default function ActionMenu({
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen(!open)}
       >
-        <MoreHorizontal size={20} aria-hidden="true" />
+        {icon ?? <MoreHorizontal size={20} aria-hidden="true" />}
       </button>
       {open && (
         <div

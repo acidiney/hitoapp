@@ -35,6 +35,7 @@ export default function TrackSources({
   detail,
   choice,
   localFile,
+  active: tabActive,
   download,
   nativePlayback,
 }: {
@@ -42,39 +43,43 @@ export default function TrackSources({
   detail: Schema<"RecordingMetadata">;
   choice: ReturnType<typeof useSourceChoice>;
   localFile: boolean;
+  active: boolean;
   download: ReturnType<typeof useRecordingDownload>;
   nativePlayback: boolean;
 }) {
   const source = detail.selected_observation;
   const sources = choice.choice?.sources ?? [];
   const hasSources = sources.length > 0;
-  const active =
+  const playing =
     sources.find((entry) => entry.selected && entry.source.ready) ??
     sources.find((entry) => entry.source.ready);
-  const localOnly = active ? isLocalSource(active.source) : localFile;
+  const localOnly = playing ? isLocalSource(playing.source) : localFile;
+  const providerTrack = source?.origin === "provider_response";
+  const noAudio = playing === undefined && !localFile;
+  const hideChoice =
+    noAudio &&
+    choice.choice !== null &&
+    choice.choice.mode === "automatic" &&
+    !choice.error &&
+    !choice.statusError;
+  const attachment = (prominent: boolean) => (
+    <SourceAttachment
+      key={`attachment/${account}/${detail.recording_id}`}
+      account={account}
+      detail={detail}
+      prominent={prominent}
+      expanded={prominent && tabActive}
+      defaultQuery={`${detail.title.value} ${detail.artist.value}`.trim()}
+      onAttached={choice.invalidateRead}
+    />
+  );
   const showCopy = !localOnly || download.download !== null;
   return (
     <div className="track-sources">
-      {source?.origin === "provider_response" && !hasSources && (
-        <SourceAttachment
-          key={`attachment/${account}/${detail.recording_id}`}
-          account={account}
-          detail={detail}
-          prominent
-          onAttached={choice.invalidateRead}
-        />
-      )}
+      {providerTrack && noAudio && attachment(true)}
       {localFile && !hasSources && <LocalFileSource />}
-      <SourceChoiceControls {...choice} />
-      {source?.origin === "provider_response" && hasSources && (
-        <SourceAttachment
-          key={`attachment/${account}/${detail.recording_id}`}
-          account={account}
-          detail={detail}
-          prominent={false}
-          onAttached={choice.invalidateRead}
-        />
-      )}
+      {!hideChoice && <SourceChoiceControls {...choice} />}
+      {providerTrack && !noAudio && attachment(false)}
       {showCopy && (
         <RecordingDownload
           {...download}

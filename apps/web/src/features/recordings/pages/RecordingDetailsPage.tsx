@@ -44,6 +44,8 @@ function TrackTabs({
   user,
   detail,
   copies,
+  liked,
+  playlists,
   native_playback,
 }: Schema<"RecordingDetailsPageProps">) {
   const player = usePlayer();
@@ -65,7 +67,15 @@ function TrackTabs({
   };
   const edited =
     detail.title.personal !== null || detail.artist.personal !== null;
-  const sourceCount = choice.choice?.sources.length;
+  const readySources = choice.choice?.sources.filter(
+    (entry) => entry.source.ready,
+  ).length;
+  const sourceCount =
+    readySources === undefined
+      ? localFile
+        ? 1
+        : undefined
+      : Math.max(readySources, localFile && readySources === 0 ? 1 : 0);
   const badges: Partial<Record<TrackTab, string>> = {
     ...(sourceCount === undefined ? {} : { sources: String(sourceCount) }),
     ...(edited ? { metadata: "Edited" } : {}),
@@ -74,7 +84,10 @@ function TrackTabs({
   return (
     <div className="track-page" data-tab={tab}>
       <TrackHeader
+        account={user.id}
         detail={detail}
+        liked={liked}
+        playlists={playlists}
         status={status}
         onPlay={() =>
           void player.playQueue([
@@ -128,6 +141,7 @@ function TrackTabs({
               detail={detail}
               choice={choice}
               localFile={localFile}
+              active={tab === "sources"}
               download={download}
               nativePlayback={native_playback}
             />

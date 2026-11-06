@@ -51,10 +51,7 @@ export default function MetadataDetails({
           </div>
         )}
       </div>
-      <p className="track-muted">
-        Changes apply to your account across this recording's albums and
-        playlists.
-      </p>
+
       {error && (
         <p className="form-error" role="alert">
           {error}

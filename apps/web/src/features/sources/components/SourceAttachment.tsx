@@ -1,7 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
 import DiscoverySearch from "../../discovery/components/DiscoverySearch";
 import Button from "../../../shared/ui/Button";
@@ -13,11 +13,15 @@ export default function SourceAttachment({
   account,
   detail,
   prominent,
+  expanded = false,
+  defaultQuery = "",
   onAttached,
 }: {
   account: string;
   detail: Schema<"RecordingMetadata">;
   prominent: boolean;
+  expanded?: boolean;
+  defaultQuery?: string;
   onAttached(): void;
 }) {
   const workflow = useSourceAttachment(
@@ -26,12 +30,23 @@ export default function SourceAttachment({
     onAttached,
   );
   const opener = useRef<HTMLElement | null>(null);
+  const opened = useRef(false);
+  const open = workflow.open;
+  useEffect(() => {
+    if (!expanded || opened.current) return;
+    opened.current = true;
+    void open();
+  }, [expanded, open]);
   const provider = workflow.connection
     ? (workflow.names[workflow.connection.service_id] ??
       workflow.connection.manifest.name)
     : "";
   return (
-    <section className="rd-card source-attachment" aria-labelledby="find-audio">
+    <section
+      className="rd-card source-attachment"
+      aria-labelledby="find-audio"
+      data-expanded={expanded || undefined}
+    >
       <h2 id="find-audio" tabIndex={-1}>
         {prominent ? "Find audio" : "Add another source"}
       </h2>
@@ -66,6 +81,8 @@ export default function SourceAttachment({
             pending={workflow.pending === "search"}
             onChoose={workflow.choose}
             onSearch={workflow.search}
+            pills={expanded}
+            initialQuery={defaultQuery}
           />
           {workflow.items.length > 0 && (
             <ul className="rd-rows" aria-label="Source search results">

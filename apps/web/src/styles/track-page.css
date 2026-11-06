@@ -74,8 +74,21 @@
   gap: 10px;
   margin-top: 14px;
 }
+.track-actions-row {
+  align-items: center;
+}
 .track-actions-row .button {
   min-width: 44px;
+}
+.track-actions-row .track-icon-action {
+  width: 44px;
+  padding: 0;
+}
+.track-actions-row .action-menu {
+  position: relative;
+}
+.track-actions-row .action-menu-list {
+  min-width: 200px;
 }
 .track-chip {
   display: inline-flex;
@@ -400,6 +413,9 @@ p.track-muted {
   padding-top: 0;
   border-top: 0;
 }
+.track-sources .source-attachment .pills {
+  margin-bottom: 4px;
+}
 .track-panel .rd-card .rd-card {
   padding: 0;
   border-top: 0;
@@ -544,8 +560,11 @@ p.track-muted {
     margin-left: -112px;
     width: calc(100% + 112px);
   }
-  .track-actions-row .button {
+  .track-actions-row > .button:not(.track-icon-action) {
     flex: 1;
+  }
+  .track-actions-row .track-icon-action {
+    flex: 0 0 44px;
   }
   .track-fact {
     grid-template-columns: minmax(0, 1fr);
@@ -602,4 +621,56 @@ p.track-muted {
   .dialog-wide:has(.review-compare) footer.review-actions .button {
     flex: 1;
   }
+}
+
+.source-attachment[data-expanded] > h2 + p {
+  display: none;
+}
+.source-attachment[data-expanded] .discovery-search {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.source-attachment[data-expanded] .discovery-search > label {
+  font-size: 0;
+}
+.source-attachment[data-expanded] .discovery-search .discovery-query {
+  font-size: 15px;
+}
+.source-attachment[data-expanded] .discovery-search-actions .button {
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.source-attachment[data-expanded] .pills button {
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.track-history .metadata-observations > li > article {
+  display: grid;
+  grid-template-columns: var(--label) 64px minmax(0, 1fr);
+  column-gap: var(--gap);
+  align-items: baseline;
+}
+.track-when {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.track-observation {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .track-history .metadata-observations > li > article {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .track-when {
+    grid-column: 1 / -1;
+  }
+}
+
+.track-when {
+  white-space: nowrap;
 }

@@ -36,8 +36,32 @@ test("a library track walks through every tab with the mouse and the keyboard an
     recording.title,
   );
   expect(await selectedTab(page)).toBe("Overview");
-  await expect(header.getByRole("button", { name: "Play" })).toBeVisible();
+  await expect(
+    header.getByRole("button", { name: "Play", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("tabpanel", { name: "Overview" })).toBeVisible();
+  await expect(
+    header.getByRole("button", { name: `Like ${recording.title}` }),
+  ).toBeVisible();
+  await header.getByRole("button", { name: `Like ${recording.title}` }).click();
+  await expect(
+    header.getByRole("button", { name: `Unlike ${recording.title}` }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    header.getByRole("button", { name: `Unlike ${recording.title}` }),
+  ).toBeVisible();
+  await header
+    .getByRole("button", { name: `Unlike ${recording.title}` })
+    .click();
+  await expect(
+    header.getByRole("button", { name: `Like ${recording.title}` }),
+  ).toBeVisible();
+  await header.getByRole("button", { name: "More actions" }).click();
+  await expect(
+    header.getByRole("menuitem", { name: "Retry artwork" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await trackShot(page, "01-overview");
   await trackShot(page, "19-overview-light", "desktop-light");
   await trackShot(page, "p1-overview-phone", "phone-dark");
@@ -226,7 +250,9 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     const base = `/recordings/${recording.id}`;
     await page.goto(base);
     const header = page.locator(".track-header");
-    await expect(header.getByRole("button", { name: "Play" })).toBeVisible();
+    await expect(
+      header.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible();
     await expect(header.getByText("Plays from plugin")).toBeVisible();
     await expect(
       page.getByRole("list", { name: "Lyrics preview" }),
@@ -282,7 +308,7 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     await expect(
       header.getByRole("button", { name: "Find audio" }),
     ).toBeVisible();
-    await expect(header.getByText(/Not prepared|Catalog only/)).toBeVisible();
+    await expect(header.getByText("Catalog only")).toBeVisible();
     await trackShot(page, "02-overview-no-audio");
     await header.getByRole("button", { name: "Find audio" }).click();
     expect(await selectedTab(page)).toBe("Sources");
@@ -292,12 +318,12 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     const panel = page.getByRole("region", {
       name: /^(Find audio|Add another source)$/,
     });
-    await panel
-      .getByRole("button", { name: "Find a source", exact: true })
-      .click();
-    await panel
-      .getByRole("combobox", { name: "Music service" })
-      .selectOption(installed[0].id);
+    await expect(
+      panel.getByRole("group", { name: "Music service" }),
+    ).toBeVisible();
+    await expect(
+      panel.getByRole("searchbox", { name: "Search music" }),
+    ).toHaveValue(`${without.title} ${without.artist}`);
     await panel
       .getByRole("searchbox", { name: "Search music" })
       .fill(candidate.recording.title);

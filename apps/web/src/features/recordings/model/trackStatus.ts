@@ -55,7 +55,7 @@ export function trackStatus(
   if (!ready)
     return {
       state: "catalog",
-      label: choice.sources.length > 0 ? "Not prepared" : "Catalog only",
+      label: "Catalog only",
       pinned,
       playable: false,
     };

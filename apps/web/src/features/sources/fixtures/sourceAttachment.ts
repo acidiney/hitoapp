@@ -49,6 +49,7 @@ export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
   libraries: [],
   playlists: [copiedPlaylistPage.detail.playlist],
   copies: { canonical_id: savedRecording.id, copies: [] },
+  liked: false,
   detail: {
     recording_id: savedRecording.id,
     title: {

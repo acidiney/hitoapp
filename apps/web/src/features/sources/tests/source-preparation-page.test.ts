@@ -22,6 +22,9 @@ vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));
 vi.mock("../../artwork/components/ArtworkStatus", () => ({
   default: () => null,
 }));
+vi.mock("../../recordings/components/TrackActions", () => ({
+  default: () => null,
+}));
 vi.mock("../../metadata/components/MetadataDetails", () => ({
   default: () => null,
 }));

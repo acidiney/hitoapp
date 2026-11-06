@@ -97,7 +97,7 @@ test("the header state uses the shared availability words", () => {
   });
   expect(
     trackStatus(choice("automatic", [source({ ready: false })]), false),
-  ).toMatchObject({ label: "Not prepared", playable: false });
+  ).toMatchObject({ label: "Catalog only", playable: false });
 });
 
 test("a local file with no service source still plays and reads In library", () => {
