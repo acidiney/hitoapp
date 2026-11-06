@@ -355,3 +355,39 @@ async fn read_page(
     assert_eq!(page.snapshot, playlist.snapshot);
     page
 }
+
+#[tokio::test]
+async fn a_playlist_that_spotify_serves_as_a_not_found_page_gets_a_specific_unprocessable_error() {
+    use axum::{response::Html, routing::get};
+    let server = Server::start(axum::Router::new().route(
+        "/embed/playlist/0000000000000000000001",
+        get(|| async {
+            Html(
+                "<!doctype html><script id=\"__NEXT_DATA__\" type=\"application/json\">{\"props\":{\"pageProps\":{\"status\":404,\"title\":\"Page not found\"}}}</script>",
+            )
+        }),
+    ))
+    .await;
+    let plugin = Server::start(
+        router(Config {
+            public_base: server.url.clone(),
+            query_endpoint: server.url.join("pathfinder/v2/query").unwrap(),
+        })
+        .unwrap(),
+    )
+    .await;
+    let response = reqwest::Client::new()
+        .post(plugin.url.join("v1/playlists/detail").unwrap())
+        .json(&json!({"kind": "canonical", "playlist_id": "0000000000000000000001"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = response.json::<serde_json::Value>().await.unwrap();
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be imported")
+    );
+}

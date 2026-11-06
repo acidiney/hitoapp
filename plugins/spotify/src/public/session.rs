@@ -16,7 +16,8 @@ struct Props {
 
 #[derive(Deserialize)]
 struct PageProps {
-    state: State,
+    state: Option<State>,
+    status: Option<u16>,
 }
 
 #[derive(Deserialize)]
@@ -59,7 +60,15 @@ pub(super) fn read(bytes: &[u8]) -> Result<Session, Error> {
     let html = std::str::from_utf8(bytes).map_err(|_| Error::InvalidResponse)?;
     let data = script_contents(html)?;
     let bootstrap: Bootstrap = serde_json::from_str(data).map_err(|_| Error::InvalidResponse)?;
-    let data = bootstrap.props.page_props.state.settings.session;
+    let page = bootstrap.props.page_props;
+    let Some(state) = page.state else {
+        return Err(if page.status == Some(404) {
+            Error::NotPublic
+        } else {
+            Error::InvalidResponse
+        });
+    };
+    let data = state.settings.session;
     let session = Session {
         token: data.access_token,
         expiration_ms: data.access_token_expiration_timestamp_ms,

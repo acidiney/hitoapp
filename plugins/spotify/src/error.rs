@@ -10,6 +10,10 @@ pub(crate) enum Error {
     InvalidRequest,
     #[error("Spotify does not allow public access to this playlist")]
     PublicAccessDenied,
+    #[error(
+        "Spotify does not serve this playlist to a public link. Private playlists and personal mixes such as Discover Weekly need your Spotify account and cannot be imported"
+    )]
+    NotPublic,
     #[error("The Spotify playlist was not found")]
     NotFound,
     #[error("This playlist snapshot is no longer available. Import the playlist again")]
@@ -39,7 +43,7 @@ impl Error {
         match self {
             Self::InvalidRequest => Self::InvalidArtworkRequest,
             Self::InvalidResponse => Self::InvalidArtworkResponse,
-            Self::NotFound => Self::ArtworkNotFound,
+            Self::NotFound | Self::NotPublic => Self::ArtworkNotFound,
             Self::PublicAccessDenied => Self::ArtworkAccessDenied,
             Self::Deadline => Self::ArtworkDeadline,
             other => other,
@@ -53,6 +57,7 @@ impl IntoResponse for Error {
             Self::InvalidRequest | Self::InvalidArtworkRequest => StatusCode::BAD_REQUEST,
             Self::PublicAccessDenied | Self::ArtworkAccessDenied => StatusCode::FORBIDDEN,
             Self::NotFound | Self::ArtworkNotFound => StatusCode::NOT_FOUND,
+            Self::NotPublic => StatusCode::UNPROCESSABLE_ENTITY,
             Self::SnapshotUnavailable => StatusCode::GONE,
             Self::Busy | Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::InvalidResponse | Self::InvalidArtworkResponse => StatusCode::BAD_GATEWAY,
