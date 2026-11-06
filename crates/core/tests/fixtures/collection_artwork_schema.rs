@@ -9,6 +9,8 @@ pub mod account_avatar_schema;
 pub mod account_display_name_schema;
 #[path = "account_erasure_schema.rs"]
 pub mod account_schema;
+#[path = "account_source_preference_schema.rs"]
+pub mod account_source_preference_schema;
 #[path = "album_edition_schema.rs"]
 pub mod album_schema;
 #[path = "artist_images_schema.rs"]
@@ -482,6 +484,10 @@ pub async fn reference_88() -> SqliteConnection {
     plugin_authorization_delivery_schema::reference(reference_87().await).await
 }
 
+pub async fn reference_89() -> SqliteConnection {
+    account_source_preference_schema::reference(reference_88().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -525,6 +531,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         86 => reference_86().await,
         87 => reference_87().await,
         88 => reference_88().await,
+        89 => reference_89().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -734,6 +741,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 87),
+    )
+    .chain(
+        account_source_preference_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 89),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
