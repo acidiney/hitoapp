@@ -18,7 +18,11 @@ test("the artist page lists discography as album cards that open a real album pa
       name: `Open ${catalogAlbum.groupTitle}`,
     });
     await expect(card).toBeVisible();
-    await expect(page.getByRole("table", { name: "Tracks" })).toHaveCount(0);
+    await expect(
+      page
+        .getByRole("region", { name: "Discography", exact: true })
+        .getByRole("table"),
+    ).toHaveCount(0);
     await card.click();
     await expect(page).toHaveURL(/\/artist-groups\/[^/]+\/releases\//);
     await expect(
@@ -37,7 +41,10 @@ test("the artist page lists discography as album cards that open a real album pa
     await expect(
       page.getByRole("button", { name: "Shuffle album" }),
     ).toBeVisible();
-    await expect(page.locator("select")).toHaveCount(0);
+    await expect(page.locator("header.album-header select")).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Edition" })).toHaveCount(
+      0,
+    );
 
     await table
       .getByRole("button", { name: `Play ${interlude}`, exact: true })

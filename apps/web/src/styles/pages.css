@@ -446,6 +446,13 @@
   align-items: center;
   margin: 12px 0 16px;
 }
+.discography-controls .segmented {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.discography-controls .segmented button {
+  white-space: nowrap;
+}
 .segmented button[aria-pressed="true"] {
   background: var(--surface);
   font-weight: 700;

@@ -18,6 +18,15 @@ export const catalogAlbum = {
   ],
 };
 
+export const catalogOtherReleases = [
+  { title: "Second light", kind: "album", date: "2021-03-05" },
+  { title: "Night shift sessions", kind: "album", date: "2016-10-28" },
+  { title: "Small hours", kind: "ep", date: "2018-02-09" },
+  { title: "Harbour", kind: "ep", date: "2014-06-13" },
+  { title: "Paper boats", kind: "single", date: "2022-01-21" },
+  { title: "Long way round (live)", kind: "single", date: "2020-09-11" },
+] as const;
+
 export type CatalogAlbumState = {
   available: Set<string>;
   outage: boolean;
@@ -121,9 +130,24 @@ export async function catalogAlbumProvider() {
         return reply({
           artist_id: catalogAlbum.artistId,
           snapshot: null,
-          total_count: 1,
+          total_count: 1 + catalogOtherReleases.length,
           next_cursor: null,
           items: [
+            ...catalogOtherReleases.map((release, index) => ({
+              id: `e2e:group/other-${index}`,
+              title: release.title,
+              artist_credit: [
+                {
+                  artist: null,
+                  credited_name: catalogAlbum.artistName,
+                  join_phrase: "",
+                },
+              ],
+              kind: release.kind,
+              secondary_types: [],
+              first_release_date: release.date,
+              revision: null,
+            })),
             {
               id: catalogAlbum.groupId,
               title: catalogAlbum.groupTitle,

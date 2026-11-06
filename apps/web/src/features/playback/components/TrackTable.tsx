@@ -40,6 +40,8 @@ export type CatalogRowView = {
 export type CatalogControls = {
   play(index: number): void;
   find(index: number): void;
+  open(index: number): void;
+  like(index: number): void;
   mutated(action: Schema<"Action">): void;
 };
 
@@ -245,6 +247,8 @@ export default function TrackTable({
                       title={view.title}
                       status={view.status}
                       onFind={() => catalog.find(index)}
+                      onOpen={() => catalog.open(index)}
+                      onLike={() => catalog.like(index)}
                     />
                   ) : track ? (
                     <TrackActions

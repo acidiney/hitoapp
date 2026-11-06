@@ -160,21 +160,24 @@ export function useCatalogPlayback(
     setRecordings(new Map(saved.current));
   }
 
-  async function find(index: number) {
+  async function find(index: number): Promise<Schema<"Recording"> | null> {
     const occurrence = occurrences[index];
-    if (edition === null || occurrence === undefined) return;
+    if (edition === null || occurrence === undefined) return null;
+    const known = saved.current.get(occurrence);
+    if (known) return known;
     const controller = new AbortController();
     finders.current.add(controller);
     const catalog = run(controller, true);
     catalog.mark(occurrence, { status: "finding" });
     try {
       const result = await catalog.find(occurrence, controller.signal);
-      if (result.kind === "found")
+      if (result.kind === "found") {
         catalog.mark(occurrence, {
           status: "found",
           recording: result.recording.id,
         });
-      else if (result.kind === "stop") {
+        return result.recording;
+      } else if (result.kind === "stop") {
         catalog.mark(occurrence, { status: "idle" });
         catalog.halt(result);
       } else catalog.mark(occurrence, { status: result.kind });
@@ -183,6 +186,7 @@ export function useCatalogPlayback(
     } finally {
       finders.current.delete(controller);
     }
+    return null;
   }
 
   async function start(from: number): Promise<boolean> {

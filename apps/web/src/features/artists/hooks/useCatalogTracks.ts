@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { router } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
 import type {
   CatalogControls,
   TrackRow,
   TrackTableRow,
 } from "../../playback/components/TrackTable";
+import type { Mutate } from "../../../shared/hooks/useMutation";
 import { albumEditionApi } from "../api/albumEditionApi";
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useCatalogAlbum } from "./useCatalogAlbum";
@@ -18,6 +20,7 @@ function trackRow(recording: Schema<"Recording">, liked: boolean): TrackRow {
 export function useCatalogTracks(
   context: ArtistEditionContext,
   withLibrary: boolean,
+  mutate?: Mutate,
 ) {
   const { account, recording, association, group } = context;
   const album = useCatalogAlbum(context);
@@ -94,6 +97,20 @@ export function useCatalogTracks(
   const controls: CatalogControls = {
     play: (index) => void playback.start(index),
     find: (index) => void playback.find(index),
+    open: async (index) => {
+      const found = await playback.find(index);
+      if (found) router.get(`/recordings/${encodeURIComponent(found.id)}`);
+    },
+    like: async (index) => {
+      const found = await playback.find(index);
+      if (!found || !mutate) return;
+      const action = {
+        kind: "like_set",
+        recording_id: found.id,
+        liked: true,
+      } as const;
+      if ((await mutate(action)).ok) controls.mutated(action);
+    },
     mutated: (action) => {
       if (action.kind === "like_set")
         setLiked((value) =>

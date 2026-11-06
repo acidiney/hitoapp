@@ -22,6 +22,7 @@ import {
   foundRecording,
   twoEditionsPage,
 } from "../fixtures/catalogAlbumPlay";
+import { router } from "@inertiajs/react";
 import { choose } from "../../../test/listbox";
 
 const player = vi.hoisted(() => {
@@ -221,5 +222,32 @@ test("the edition switcher is a listbox in the header and loads that edition's t
     expect(trackBodies.map((body) => body.edition_id)).toContain(
       twoEditionsPage.page.items[1].id,
     ),
+  );
+});
+
+test("an unfound row has details and like buttons that find audio first", async () => {
+  const table = await openPage();
+  const title = catalogAlbumTitles[3];
+  fireEvent.click(
+    within(table).getByRole("button", { name: `Find audio and like ${title}` }),
+  );
+  await waitFor(() =>
+    expect(mutate).toHaveBeenCalledWith({
+      kind: "like_set",
+      recording_id: "recording-found-4",
+      liked: true,
+    }),
+  );
+  expect(
+    await within(table).findByRole("button", { name: `Unlike ${title}` }),
+  ).toBeTruthy();
+  const other = catalogAlbumTitles[0];
+  fireEvent.click(
+    within(table).getByRole("button", {
+      name: `Find audio and open details for ${other}`,
+    }),
+  );
+  await waitFor(() =>
+    expect(router.get).toHaveBeenCalledWith("/recordings/recording-found-1"),
   );
 });

@@ -49,7 +49,7 @@ export default function CatalogAlbum({
     playback,
     library,
     controls,
-  } = useCatalogTracks(context, withLibrary);
+  } = useCatalogTracks(context, withLibrary, mutate);
   const owned = library.albums[group.id] ?? [];
   const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;

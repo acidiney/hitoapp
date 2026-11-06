@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import { Search } from "lucide-react";
+import { Heart, Info, Search } from "lucide-react";
 import type { CatalogRowView } from "./TrackTable";
 
 const notes: Partial<Record<CatalogRowView["status"], string>> = {
@@ -27,7 +27,11 @@ export default function CatalogRowActions({
   title,
   status,
   onFind,
+  onOpen,
+  onLike,
 }: {
+  onOpen: () => void;
+  onLike: () => void;
   title: string;
   status: CatalogRowView["status"];
   onFind: () => void;
@@ -35,6 +39,24 @@ export default function CatalogRowActions({
   const retry = status === "not_found" || status === "failed";
   return (
     <div className="track-actions">
+      <button
+        type="button"
+        className="icon-button"
+        disabled={status === "finding"}
+        aria-label={`Find audio and open details for ${title}`}
+        onClick={onOpen}
+      >
+        <Info size={17} />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        disabled={status === "finding"}
+        aria-label={`Find audio and like ${title}`}
+        onClick={onLike}
+      >
+        <Heart size={17} />
+      </button>
       {retry && (
         <Link
           className="text-link"
