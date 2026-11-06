@@ -422,16 +422,6 @@
 .track-table .track-actions .icon-button.selected {
   color: var(--action);
 }
-@media (hover: hover) {
-  .track-table
-    tbody
-    tr:not(:hover):not(:focus-within)
-    .track-actions
-    > a.icon-button,
-  .track-table tbody tr:not(:hover):not(:focus-within) .track-actions > select {
-    opacity: 0;
-  }
-}
 .track-card h3 {
   font-weight: 700;
 }
@@ -832,10 +822,6 @@ section[aria-label="Discography"] > section > .button {
   .track-table .track-actions .icon-button {
     min-width: 44px;
     min-height: 44px;
-  }
-  .track-table tbody tr .track-actions > a.icon-button,
-  .track-table tbody tr .track-actions > select {
-    opacity: 1;
   }
 }
 

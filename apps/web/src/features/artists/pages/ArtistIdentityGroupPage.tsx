@@ -172,6 +172,7 @@ export default function ArtistIdentityGroupPage({
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}
+                without={["artist"]}
               />
             </>
           ) : (

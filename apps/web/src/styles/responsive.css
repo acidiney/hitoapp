@@ -253,16 +253,6 @@
   .track-cell > div:last-child {
     min-height: 32px;
   }
-  .mobile-artist {
-    display: block;
-    color: var(--muted);
-    font-size: 10px;
-    margin-top: 4px;
-  }
-  .add-to-playlist {
-    max-width: 82px;
-    font-size: 10px;
-  }
   .player {
     left: 8px;
     right: 8px;

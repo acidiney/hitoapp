@@ -6,11 +6,14 @@ import { usePlayer } from "./PlaybackProvider";
 import type { PlaybackStart, Track } from "../model";
 
 import type { Mutate } from "../../../shared/hooks/useMutation";
-import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
+import TrackRowActions from "./TrackRowActions";
+import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import EntryMoves from "./EntryMoves";
 import RowPlay from "./RowPlay";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
 import CatalogRowActions, { CatalogRowNote } from "./CatalogRowActions";
+import TrackNames, { artistHref, albumHref } from "./TrackNames";
+import { trackHref } from "./TrackRowMenu";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
@@ -20,6 +23,7 @@ export type TrackRow = Track & {
   liked: boolean;
   album?: string | null;
   release_id?: string | null;
+  artist_id?: string | null;
   disc_number?: number | null;
   track_number?: number | null;
   playback_start?: PlaybackStart;
@@ -62,6 +66,21 @@ export type PlaylistEdit = {
   move(entryId: string, delta: -1 | 1): void;
 };
 
+export type TrackColumn = "artist" | "album";
+
+function trackNumber(track: TrackRow, fallback: number): string | number {
+  if (track.track_number == null) return fallback;
+  const disc =
+    track.disc_number && track.disc_number > 1 ? `${track.disc_number}.` : "";
+  return `${disc}${track.track_number}`;
+}
+
+function retainedNote(origin: Schema<"PlaylistEntry">["origin"]): string {
+  if (origin?.kind === "unknown") return "Unknown item from its provider";
+  if (origin?.kind === "unavailable") return "Unavailable from its provider";
+  return "Unavailable recording";
+}
+
 export default function TrackTable({
   rows,
   offset = 0,
@@ -71,6 +90,7 @@ export default function TrackTable({
   listing,
   edit,
   catalog,
+  without = [],
 }: {
   catalog?: CatalogControls;
   edit?: PlaylistEdit;
@@ -80,6 +100,7 @@ export default function TrackTable({
   playlists: Schema<"Playlist">[];
   playlist?: Schema<"Playlist">;
   mutate: Mutate;
+  without?: TrackColumn[];
 }) {
   const player = usePlayer();
   const currentId = useSyncExternalStore(
@@ -89,8 +110,6 @@ export default function TrackTable({
   const tracks = rows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
-  const resolved = (row: TrackTableRow) =>
-    row.kind === "catalog" ? row.row.recording : null;
   const playTracks = usePlayTracks(tracks, listing);
   const queuePositions = new Map<string, number>(
     tracks.map((track, index) => [track.row_id, index]),
@@ -100,6 +119,16 @@ export default function TrackTable({
     if (index !== undefined)
       void playTracks.playFrom(index, track.playback_start);
   }
+  const anyAlbum = rows.some((row) =>
+    row.kind === "recording"
+      ? row.track.album != null
+      : row.kind === "catalog"
+        ? row.row.album != null || row.row.recording?.album != null
+        : false,
+  );
+  const showArtist = !without.includes("artist");
+  const showAlbum = !without.includes("album") && anyAlbum;
+  const editing = edit?.active ?? false;
   return (
     <div className="table-scroll">
       <table
@@ -112,8 +141,8 @@ export default function TrackTable({
               <span className="sr-only">Play</span>#
             </th>
             <th>Title</th>
-            <th className="artist-column">Artist</th>
-            <th className="album-column">Album</th>
+            {showArtist && <th className="artist-column">Artist</th>}
+            {showAlbum && <th className="album-column">Album</th>}
             <th className="duration-column">Time</th>
             <th>
               <span className="sr-only">Actions</span>
@@ -122,7 +151,12 @@ export default function TrackTable({
         </thead>
         <tbody>
           {rows.map((row, index) => {
-            const track = row.kind === "recording" ? row.track : resolved(row);
+            const track =
+              row.kind === "recording"
+                ? row.track
+                : row.kind === "catalog"
+                  ? row.row.recording
+                  : null;
             const view = row.kind === "catalog" ? row.row : null;
             const display =
               row.kind === "recording"
@@ -136,6 +170,15 @@ export default function TrackTable({
                 : row.kind === "catalog"
                   ? row.row.id
                   : row.entry.entry_id;
+            const album = track?.album ?? view?.album ?? null;
+            const albumLink = track ? albumHref(track) : null;
+            const artistLink = track ? artistHref(track) : null;
+            const duration =
+              track !== null
+                ? track.duration_ms
+                : view !== null
+                  ? view.durationMs
+                  : null;
             return (
               <tr
                 key={rowId}
@@ -143,7 +186,7 @@ export default function TrackTable({
                   track !== null && currentId === track.id ? "playing-row" : ""
                 }
               >
-                <td>
+                <td className="number-column">
                   {view && catalog ? (
                     <RowPlay
                       title={view.title}
@@ -153,15 +196,11 @@ export default function TrackTable({
                   ) : track ? (
                     <RowPlay
                       title={track.title}
-                      number={
-                        track.track_number != null
-                          ? `${track.disc_number && track.disc_number > 1 ? `${track.disc_number}.` : ""}${track.track_number}`
-                          : index + 1 + offset
-                      }
+                      number={trackNumber(track, index + 1 + offset)}
                       onPlay={() => play(track)}
                     />
                   ) : (
-                    <span>{index + 1 + offset}</span>
+                    <span className="row-number">{index + 1 + offset}</span>
                   )}
                 </td>
                 <td className="track-cell">
@@ -186,62 +225,49 @@ export default function TrackTable({
                   ) : (
                     <Artwork />
                   )}
-                  <div>
-                    {view && catalog ? (
-                      <button
-                        className="track-title"
-                        onClick={() => catalog.play(index)}
-                      >
-                        {view.title}
-                      </button>
-                    ) : track ? (
-                      <button
-                        className="track-title"
-                        onClick={() => play(track)}
-                      >
+                  <div className="track-copy">
+                    {track ? (
+                      <Link className="track-title" href={trackHref(track.id)}>
                         {track.title}
-                      </button>
+                      </Link>
+                    ) : view ? (
+                      <span className="track-title">{view.title}</span>
                     ) : (
                       <span className="retained-title">{display.title}</span>
                     )}
                     {view && !track ? (
                       <CatalogRowNote status={view.status} />
                     ) : row.kind === "retained" ? (
-                      <small>
-                        {row.entry.origin?.kind === "unknown"
-                          ? "Unknown item from its provider"
-                          : row.entry.origin?.kind === "unavailable"
-                            ? "Unavailable from its provider"
-                            : "Unavailable recording"}
-                      </small>
+                      <small>{retainedNote(row.entry.origin)}</small>
                     ) : (
                       <TrackAvailabilityNote track={track!} />
                     )}
-                    <span className="mobile-artist">{display.artist}</span>
+                    <TrackNames
+                      className="track-meta"
+                      artist={showArtist ? display.artist : undefined}
+                      artistHref={artistLink}
+                      album={showAlbum ? album : null}
+                      albumHref={albumLink}
+                    />
                   </div>
                 </td>
-                <td className="artist-column muted">{display.artist}</td>
-                <td className="album-column muted">
-                  {track?.release_id ? (
-                    <Link
-                      href={`/albums/${encodeURIComponent(track.release_id)}`}
-                    >
-                      {track.album ?? "Unknown album"}
-                    </Link>
-                  ) : (
-                    (track?.album ?? view?.album ?? "—")
-                  )}
-                </td>
+                {showArtist && (
+                  <td className="artist-column muted">
+                    <TrackNames
+                      artist={display.artist}
+                      artistHref={artistLink}
+                    />
+                  </td>
+                )}
+                {showAlbum && (
+                  <td className="album-column muted">
+                    <TrackNames album={album} albumHref={albumLink} />
+                  </td>
+                )}
                 <td className="duration-column muted">
-                  {view && !track
-                    ? view.durationMs == null
-                      ? "—"
-                      : time(view.durationMs / 1000)
-                    : track
-                      ? time(track.duration_ms / 1000)
-                      : "—"}
+                  {duration == null ? "—" : time(duration / 1000)}
                 </td>
-                <td>
+                <td className="actions-column">
                   {view && !track && catalog ? (
                     <CatalogRowActions
                       title={view.title}
@@ -251,11 +277,11 @@ export default function TrackTable({
                       onLike={() => catalog.like(index)}
                     />
                   ) : track ? (
-                    <TrackActions
+                    <TrackRowActions
                       track={track}
                       playlists={playlists}
                       playlist={playlist}
-                      editing={edit?.active ?? false}
+                      editing={editing}
                       mutate={mutate}
                       onMutationAccepted={catalog?.mutated}
                     >
@@ -268,7 +294,7 @@ export default function TrackTable({
                           edit={edit}
                         />
                       )}
-                    </TrackActions>
+                    </TrackRowActions>
                   ) : row.kind === "retained" && playlist && edit?.active ? (
                     <div className="track-actions">
                       <EntryMoves

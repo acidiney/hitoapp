@@ -30,6 +30,10 @@ export function useNotice() {
   return useNotices().notify;
 }
 
+export function useNoticeIfProvided() {
+  return useContext(NoticeContext)?.notify ?? (() => {});
+}
+
 export function NoticeBanner() {
   const { message, notify } = useNotices();
   if (!message) return null;

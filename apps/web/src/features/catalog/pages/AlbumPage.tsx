@@ -28,7 +28,14 @@ export default function AlbumPage({
   const tracks = page.items.map((track) => ({
     ...track,
     row_id: track.entry_id,
+    artist_id:
+      release.artist_id !== null && track.artist === release.artist
+        ? release.artist_id
+        : null,
   }));
+  const sharedArtist =
+    release.artist !== null &&
+    tracks.every((track) => track.artist === release.artist);
   const credit = releaseCreditLabel(
     release,
     tracks.map((track) => track.artist),
@@ -111,6 +118,7 @@ export default function AlbumPage({
             offset={page.offset}
             playlists={playlists}
             mutate={mutate}
+            without={sharedArtist ? ["album", "artist"] : ["album"]}
           />
         </>
       ) : (

@@ -77,13 +77,15 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   expect(within(rows[1]).getByText("Plays from your services")).toBeTruthy();
   for (const [index, member] of detail.detail.recordings.items.entries()) {
     expect(
-      within(rows[index]).getByRole("button", { name: member.recording.title }),
-    ).toBeTruthy();
-    expect(
       within(rows[index])
-        .getByRole("link", { name: `Details for ${member.recording.title}` })
+        .getByRole("link", { name: member.recording.title })
         .getAttribute("href"),
     ).toBe(`/recordings/${member.recording.id}`);
+    expect(
+      within(rows[index]).getByRole("button", {
+        name: `Actions for ${member.recording.title}`,
+      }),
+    ).toBeTruthy();
   }
   expect(
     screen

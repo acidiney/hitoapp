@@ -130,8 +130,8 @@ test("Podcast episodes resume saved positions, start over explicitly and replace
     within(firstRow).getByRole("button", { name: "Like Owned first episode" }),
   ).toBeTruthy();
   expect(
-    within(firstRow).getByRole("combobox", {
-      name: "Add Owned first episode to playlist",
+    within(firstRow).getByRole("button", {
+      name: "Actions for Owned first episode",
     }),
   ).toBeTruthy();
   fireEvent.click(

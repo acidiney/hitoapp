@@ -1,5 +1,6 @@
-import { Link } from "@inertiajs/react";
-import { Heart, Info, Search } from "lucide-react";
+import { router } from "@inertiajs/react";
+import { Heart, Search } from "lucide-react";
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import type { CatalogRowView } from "./TrackTable";
 
 const notes: Partial<Record<CatalogRowView["status"], string>> = {
@@ -37,44 +38,52 @@ export default function CatalogRowActions({
   onFind: () => void;
 }) {
   const retry = status === "not_found" || status === "failed";
+  const finding = status === "finding";
   return (
     <div className="track-actions">
       <button
         type="button"
         className="icon-button"
-        disabled={status === "finding"}
-        aria-label={`Find audio and open details for ${title}`}
-        onClick={onOpen}
-      >
-        <Info size={17} />
-      </button>
-      <button
-        type="button"
-        className="icon-button"
-        disabled={status === "finding"}
+        disabled={finding}
         aria-label={`Find audio and like ${title}`}
         onClick={onLike}
       >
         <Heart size={17} />
       </button>
-      {retry && (
-        <Link
-          className="text-link"
-          href="/settings?section=music"
-          aria-label={`Connect services to find ${title}`}
-        >
-          Services
-        </Link>
-      )}
       <button
         type="button"
         className="icon-button"
-        disabled={status === "finding"}
+        disabled={finding}
         aria-label={`${retry ? "Try again to find" : "Find"} audio for ${title}`}
         onClick={onFind}
       >
         <Search size={17} />
       </button>
+      <ActionMenu
+        label={`Actions for ${title}`}
+        triggerClassName="icon-button"
+        align="end"
+        items={[
+          {
+            label: "Track details",
+            disabled: finding,
+            onSelect: onOpen,
+          },
+          {
+            label: retry ? "Try again to find audio" : "Find audio",
+            disabled: finding,
+            onSelect: onFind,
+          },
+          ...(retry
+            ? [
+                {
+                  label: "Connect services",
+                  onSelect: () => router.visit("/settings?section=music"),
+                },
+              ]
+            : []),
+        ]}
+      />
     </div>
   );
 }

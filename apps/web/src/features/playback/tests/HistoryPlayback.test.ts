@@ -93,6 +93,8 @@ test("History rows link to the album the track belongs to", () => {
     }),
   );
   expect(
-    screen.getByRole("link", { name: "All Hope Is Gone" }).getAttribute("href"),
-  ).toBe("/albums/all-hope");
+    screen
+      .getAllByRole("link", { name: "All Hope Is Gone" })
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/albums/all-hope", "/albums/all-hope"]);
 });

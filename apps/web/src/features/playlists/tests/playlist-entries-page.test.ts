@@ -117,7 +117,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
     retained.queryByRole("button", { name: /Play|Like|Unlike|Details/ }),
   ).toBeNull();
   expect(retained.getAllByRole("button")).toHaveLength(3);
-  expect(retained.getAllByRole("cell")[4].textContent?.trim()).toBe("—");
+  expect(retained.getAllByRole("cell")[3].textContent?.trim()).toBe("—");
   fireEvent.click(
     retained.getByRole("button", {
       name: "Remove Unknown provider item from playlist",

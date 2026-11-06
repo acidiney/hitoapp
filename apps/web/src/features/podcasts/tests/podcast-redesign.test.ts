@@ -128,9 +128,7 @@ test("the podcast header continues the episode in progress and the list shows st
       .getAttribute("aria-valuenow"),
   ).toBe("50");
   expect(
-    within(rows[1])
-      .getByRole("link", { name: "Details for Halfway" })
-      .getAttribute("href"),
+    within(rows[1]).getByRole("link", { name: "Halfway" }).getAttribute("href"),
   ).toBe("/recordings/rec-mid");
 
   fireEvent.click(

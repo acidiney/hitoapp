@@ -1,0 +1,238 @@
+.track-table .number-column {
+  width: 44px;
+}
+.track-table td.number-column {
+  padding-right: 0;
+}
+.row-number {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.row-play {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  justify-content: center;
+}
+@media (hover: none) {
+  .row-play svg {
+    display: block;
+  }
+  .row-play span {
+    display: none;
+  }
+}
+.track-copy {
+  min-width: 0;
+}
+.track-table .track-title {
+  display: inline-block;
+  max-width: 100%;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.track-table .track-title:hover,
+.track-card .track-title:hover {
+  text-decoration: underline;
+}
+.track-name {
+  color: inherit;
+  text-decoration: none;
+}
+a.track-name:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.track-name-part + .track-name-part::before {
+  content: " · ";
+}
+.track-meta {
+  display: none;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-table .artist-column,
+.track-table .album-column {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-table td.actions-column {
+  padding-right: 4px;
+}
+.track-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+}
+.track-actions .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--muted);
+  border-radius: 10px;
+}
+.track-actions .icon-button:hover:not(:disabled),
+.track-actions .icon-button:focus-visible {
+  color: var(--ink);
+  background: var(--subtle);
+}
+.track-actions .icon-button.selected {
+  color: var(--action);
+}
+.track-actions .action-menu-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 500;
+}
+.track-actions .action-menu-trigger[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--subtle);
+}
+@media (hover: hover) {
+  .track-table
+    tbody
+    tr:not(:hover):not(:focus-within)
+    .track-actions
+    > .action-menu:not(:has([aria-expanded="true"])),
+  .episode-row:not(:hover):not(:focus-within)
+    .track-actions
+    > .action-menu:not(:has([aria-expanded="true"])) {
+    opacity: 0;
+  }
+}
+
+.action-menu-list {
+  z-index: 40;
+  max-width: min(360px, calc(100vw - 16px));
+}
+.action-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  white-space: nowrap;
+}
+.action-menu-item svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.action-menu-back {
+  justify-content: flex-start;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-left: 8px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 8px 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.track-card-cover .card-play {
+  top: 10px;
+  right: 10px;
+  bottom: auto;
+  width: 40px;
+  height: 40px;
+  transition: opacity 120ms ease;
+}
+@media (hover: hover) {
+  .track-card:not(:hover):not(:focus-within) .card-play {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .track-card-cover .card-play {
+    transition: none;
+  }
+}
+.track-card-copy {
+  padding: 10px 2px 0;
+}
+.track-card h3 {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.track-card h3 .track-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  text-decoration: none;
+}
+.track-card-copy p {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.track-card-copy .availability {
+  margin-top: 4px;
+}
+.track-card > .track-actions {
+  justify-content: flex-start;
+  margin: 0 0 0 -12px;
+}
+
+@media (max-width: 1279px) {
+  .track-meta {
+    display: block;
+  }
+  .track-meta [data-part="artist"],
+  .track-meta [data-part="artist"] + [data-part="album"]::before {
+    display: none;
+  }
+}
+@media (max-width: 1000px) {
+  .track-meta [data-part="artist"],
+  .track-meta [data-part="artist"] + [data-part="album"]::before {
+    display: inline;
+  }
+}
+@media (max-width: 767px) {
+  .track-table {
+    table-layout: fixed;
+  }
+  .track-table .number-column {
+    width: 40px;
+  }
+  .track-table th.duration-column,
+  .track-table td.duration-column {
+    width: 52px;
+  }
+  .track-table th:last-child,
+  .track-table td.actions-column {
+    width: 88px;
+  }
+  .track-table td:nth-child(2),
+  .track-cell {
+    min-width: 0;
+  }
+  .track-table .track-title {
+    font-size: 13px;
+  }
+  .track-meta {
+    font-size: 11px;
+  }
+  .track-table td.actions-column {
+    padding-left: 0;
+  }
+}

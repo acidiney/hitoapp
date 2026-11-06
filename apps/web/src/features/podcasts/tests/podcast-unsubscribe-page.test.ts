@@ -163,8 +163,8 @@ test("Podcast unsubscribe recovers its exact receipt after status omits the subs
     screen.getByRole("button", { name: "Unlike Owned retained episode" }),
   ).toBeTruthy();
   expect(
-    screen.getByRole("combobox", {
-      name: "Add Owned retained episode to playlist",
+    screen.getByRole("button", {
+      name: "Actions for Owned retained episode",
     }),
   ).toBeTruthy();
   expect(playback.current).toBe(episode.recording);

@@ -18,7 +18,7 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
 vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
-vi.mock("../../playback/components/TrackActions", () => ({
+vi.mock("../../playback/components/TrackRowActions", () => ({
   default: () => null,
 }));
 vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));

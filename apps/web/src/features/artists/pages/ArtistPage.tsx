@@ -128,6 +128,7 @@ export default function ArtistPage({
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}
+                without={["artist"]}
               />
             </>
           ) : (

@@ -126,7 +126,7 @@ test("retained playlists remain editable and known recordings resolve audio only
           row.queryByRole("button", { name: /Play|Like|Unlike|Details/ }),
         ).toBeNull();
         expect(rows[index].querySelector("img")).toBeNull();
-        expect(row.getAllByRole("cell")[4].textContent?.trim()).toBe("—");
+        expect(row.getAllByRole("cell")[3].textContent?.trim()).toBe("—");
         expect(
           row.getByText(
             entry.origin?.kind === "unknown"
@@ -138,14 +138,10 @@ test("retained playlists remain editable and known recordings resolve audio only
         const rowPlay = row.getByRole("button", {
           name: `Play ${entry.title}`,
         });
-        const titlePlay = row.getByRole("button", { name: entry.title });
         expect(rowPlay.hasAttribute("disabled")).toBe(false);
-        expect(titlePlay.hasAttribute("disabled")).toBe(false);
         expect(row.getByText("Plays from your services")).toBeTruthy();
         expect(
-          row
-            .getByRole("link", { name: `Details for ${entry.title}` })
-            .getAttribute("href"),
+          row.getByRole("link", { name: entry.title }).getAttribute("href"),
         ).toBe(`/recordings/${entry.recording_id}`);
         expect(
           row

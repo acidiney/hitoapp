@@ -54,7 +54,7 @@ vi.mock("../../../shared/hooks/useMutation", () => ({
 }));
 const location = vi.hoisted(() => ({ url: "/" }));
 vi.mock("@inertiajs/react", () => ({
-  router: { get: vi.fn(), reload: vi.fn() },
+  router: { get: vi.fn(), reload: vi.fn(), visit: vi.fn() },
   usePage: () => ({ url: location.url }),
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
@@ -172,9 +172,7 @@ test("a row without audio can find it and then offers like and details like a li
   fireEvent.click(
     within(table).getByRole("button", { name: `Find audio for ${title}` }),
   );
-  const details = await within(table).findByRole("link", {
-    name: `Details for ${title}`,
-  });
+  const details = await within(table).findByRole("link", { name: title });
   expect(details.getAttribute("href")).toBe("/recordings/recording-found-1");
   fireEvent.click(within(table).getByRole("button", { name: `Like ${title}` }));
   await waitFor(() =>
@@ -205,11 +203,11 @@ test("a track with no confident match says so and lets the owner retry or connec
       name: `Try again to find audio for ${title}`,
     }),
   ).toBeTruthy();
-  expect(
-    within(table)
-      .getByRole("link", { name: `Connect services to find ${title}` })
-      .getAttribute("href"),
-  ).toBe("/settings?section=music");
+  fireEvent.click(
+    within(table).getByRole("button", { name: `Actions for ${title}` }),
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Connect services" }));
+  expect(router.visit).toHaveBeenCalledWith("/settings?section=music");
 });
 
 test("the edition switcher is a listbox in the header and loads that edition's tracks", async () => {
@@ -243,10 +241,9 @@ test("an unfound row has details and like buttons that find audio first", async 
   ).toBeTruthy();
   const other = catalogAlbumTitles[0];
   fireEvent.click(
-    within(table).getByRole("button", {
-      name: `Find audio and open details for ${other}`,
-    }),
+    within(table).getByRole("button", { name: `Actions for ${other}` }),
   );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Track details" }));
   await waitFor(() =>
     expect(router.get).toHaveBeenCalledWith("/recordings/recording-found-1"),
   );

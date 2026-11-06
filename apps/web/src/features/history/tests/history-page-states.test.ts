@@ -14,7 +14,7 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
     snapshot: () => ({ current: null }),
   }),
 }));
-vi.mock("../../playback/components/TrackActions", () => ({
+vi.mock("../../playback/components/TrackRowActions", () => ({
   default: () => null,
 }));
 vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));

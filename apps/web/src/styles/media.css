@@ -282,6 +282,11 @@
 .episode-title {
   font-weight: 700;
   overflow-wrap: anywhere;
+  color: var(--ink);
+  text-decoration: none;
+}
+.episode-title:hover {
+  text-decoration: underline;
 }
 .episode-sub {
   font-size: 13px;
@@ -316,12 +321,6 @@
 }
 .episode-actions .track-actions .icon-button {
   color: var(--muted);
-}
-@media (hover: hover) {
-  .episode-row:not(:hover):not(:focus-within) .track-actions > a.icon-button,
-  .episode-row:not(:hover):not(:focus-within) .track-actions > select {
-    opacity: 0;
-  }
 }
 
 .chapter-row {

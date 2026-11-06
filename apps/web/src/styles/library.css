@@ -192,10 +192,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.track-card > .track-actions {
-  justify-content: flex-start;
-  margin: 6px -4px -6px;
-}
 .track-actions {
   display: flex;
   gap: 2px;
@@ -205,12 +201,6 @@
 .track-actions .icon-button {
   min-width: 44px;
   min-height: 44px;
-}
-.add-to-playlist {
-  font-size: 10px;
-  padding: 7px;
-  min-height: 36px;
-  max-width: 100px;
 }
 .table-scroll {
   overflow-x: auto;
@@ -286,9 +276,6 @@
 }
 .playing-row .track-title {
   color: var(--primary);
-}
-.mobile-artist {
-  display: none;
 }
 .duration-column {
   width: 54px;

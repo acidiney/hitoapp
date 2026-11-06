@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
+import { Link } from "@inertiajs/react";
 import { Play, RotateCcw } from "lucide-react";
-import TrackActions from "../../playback/components/TrackActions";
+import TrackRowActions from "../../playback/components/TrackRowActions";
 import ProgressBar from "../../../shared/ui/ProgressBar";
 import { longDuration, time } from "../../../shared/format";
 import type { Mutate } from "../../../shared/hooks/useMutation";
@@ -41,7 +42,12 @@ export default function PodcastEpisodes({
                 : "—"}
             </span>
             <div className="episode-copy">
-              <span className="episode-title">{track.title}</span>
+              <Link
+                className="episode-title"
+                href={`/recordings/${encodeURIComponent(track.id)}`}
+              >
+                {track.title}
+              </Link>
               <span className="episode-sub">
                 {!track.available
                   ? "Unavailable on this device"
@@ -78,7 +84,7 @@ export default function PodcastEpisodes({
                   <RotateCcw size={15} />
                 </button>
               )}
-              <TrackActions
+              <TrackRowActions
                 track={track}
                 playlists={playlists}
                 mutate={mutate}
