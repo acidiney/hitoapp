@@ -112,8 +112,7 @@ impl Downloads {
         let Some(mut pending) = guard.wait(self.files.begin(lease.reservation()?)).await? else {
             return Ok(None);
         };
-        if self
-            .copy_audio(lease, &mut guard, &mut pending, body, representation)
+        if Box::pin(self.copy_audio(lease, &mut guard, &mut pending, body, representation))
             .await?
             .is_none()
         {
