@@ -1,10 +1,17 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 export default function Dialog({
   title,
   description,
   wide = false,
   busy = false,
+  returnFocus,
   onClose,
   children,
 }: {
@@ -12,6 +19,7 @@ export default function Dialog({
   description?: string;
   wide?: boolean;
   busy?: boolean;
+  returnFocus?: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -20,6 +28,8 @@ export default function Dialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  const returning = useRef(returnFocus);
+  returning.current = returnFocus;
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -33,7 +43,8 @@ export default function Dialog({
     return () => {
       element.removeEventListener("close", closed);
       element.close();
-      if (opener?.isConnected) opener.focus();
+      const target = returning.current?.current ?? opener;
+      if (target?.isConnected) target.focus();
     };
   }, []);
   return (

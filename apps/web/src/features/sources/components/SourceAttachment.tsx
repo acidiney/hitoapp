@@ -1,18 +1,23 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 
-import { time } from "../../../shared/format";
+import { useRef } from "react";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
 import DiscoverySearch from "../../discovery/components/DiscoverySearch";
 import Button from "../../../shared/ui/Button";
+import Artwork from "../../artwork/components/Artwork";
+import SourceCandidateReview from "./SourceCandidateReview";
+import { candidateArtist, candidateLength } from "../model/candidateFacts";
 
 export default function SourceAttachment({
   account,
   detail,
+  prominent,
   onAttached,
 }: {
   account: string;
   detail: Schema<"RecordingMetadata">;
+  prominent: boolean;
   onAttached(): void;
 }) {
   const workflow = useSourceAttachment(
@@ -20,6 +25,11 @@ export default function SourceAttachment({
     detail.recording_id,
     onAttached,
   );
+  const opener = useRef<HTMLElement | null>(null);
+  const provider = workflow.connection
+    ? (workflow.names[workflow.connection.service_id] ??
+      workflow.connection.manifest.name)
+    : "";
   return (
     <section
       className="rd-card source-attachment"
@@ -32,6 +42,7 @@ export default function SourceAttachment({
       </p>
       {!workflow.loaded && (
         <Button
+          variant={prominent ? "primary" : "secondary"}
           disabled={workflow.pending !== null}
           onClick={() => void workflow.open()}
         >
@@ -60,18 +71,33 @@ export default function SourceAttachment({
           {workflow.items.length > 0 && (
             <ul className="rd-rows" aria-label="Source search results">
               {workflow.items.map((hit) => (
-                <li className="rd-row rd-candidate" key={hit.id}>
-                  <h3>{hit.title}</h3>
-                  <p>{hit.artist}</p>
-                  <p>
-                    {hit.duration_ms == null
-                      ? "Duration unknown"
-                      : time(hit.duration_ms / 1000)}
-                  </p>
+                <li className="rd-row source-candidate" key={hit.id}>
+                  <Artwork
+                    className="source-candidate-cover"
+                    fallback={{
+                      id: hit.release?.id ?? hit.id,
+                      title: hit.release?.title ?? hit.title,
+                      inline: false,
+                    }}
+                  />
+                  <div className="source-candidate-copy">
+                    <h3>{hit.title}</h3>
+                    {candidateArtist(hit.artist) && (
+                      <p>{candidateArtist(hit.artist)}</p>
+                    )}
+                    <p className="source-candidate-facts">
+                      {[candidateLength(hit.duration_ms), provider]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
                   <Button
                     className="rd-row-action"
                     disabled={workflow.pending !== null}
-                    onClick={() => void workflow.reviewCandidate(hit)}
+                    onClick={(event) => {
+                      opener.current = event.currentTarget;
+                      void workflow.reviewCandidate(hit);
+                    }}
                   >
                     Review match
                   </Button>
@@ -85,43 +111,18 @@ export default function SourceAttachment({
             !workflow.items.length && (
               <p>No matching tracks. Try another track or artist.</p>
             )}
-          {workflow.review && (
-            <section className="rd-panel" aria-label="Review source match">
-              <h3>Review source match</h3>
-              <div>
-                <h4>Saved track</h4>
-                <p>{detail.title.value}</p>
-                <p>{detail.artist.value}</p>
-                <p>
-                  {time((detail.selected_observation?.duration_ms ?? 0) / 1000)}
-                </p>
-              </div>
-              <div>
-                <h4>Candidate source</h4>
-                <p>{workflow.review.detail.candidate.title}</p>
-                <p>{workflow.review.detail.candidate.artist}</p>
-                <p>
-                  {workflow.review.detail.candidate.duration_ms == null
-                    ? "Duration unknown"
-                    : time(workflow.review.detail.candidate.duration_ms / 1000)}
-                </p>
-              </div>
-              <p>
-                Confirm this is the same track. Your saved details and playlists
-                are kept.
-              </p>
-              <Button
-                variant="primary"
-                disabled={workflow.pending !== null}
-                onClick={() => void workflow.confirm()}
-              >
-                {workflow.pending === "attach"
-                  ? "Adding source…"
-                  : "Use this source"}
-              </Button>
-            </section>
-          )}
         </fieldset>
+      )}
+      {workflow.review && (
+        <SourceCandidateReview
+          detail={detail}
+          review={workflow.review.detail}
+          provider={provider}
+          pending={workflow.pending === "attach"}
+          opener={opener}
+          onConfirm={() => void workflow.confirm()}
+          onClose={workflow.dismissReview}
+        />
       )}
       {workflow.attached && <p role="status">Source added to this track.</p>}
     </section>

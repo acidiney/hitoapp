@@ -140,7 +140,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     limit: 20,
   });
   fireEvent.click(reviewButton);
-  const comparison = await screen.findByRole("region", {
+  const comparison = await screen.findByRole("dialog", {
     name: "Review source match",
   });
   expect(within(comparison).getByText(savedRecording.title)).toBeTruthy();
@@ -363,7 +363,7 @@ test("a delayed review cannot cross an account and recording change or load the 
   expect(screen.queryByText(attachmentReview.candidate.title)).toBeNull();
   expect(screen.queryByText("Search result title")).toBeNull();
   expect(
-    screen.queryByRole("region", { name: "Review source match" }),
+    screen.queryByRole("dialog", { name: "Review source match" }),
   ).toBeNull();
   expect(screen.queryByRole("button", { name: "Use this source" })).toBeNull();
   expect(requests()).toHaveLength(3);

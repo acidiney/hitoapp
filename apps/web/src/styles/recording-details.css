@@ -380,3 +380,145 @@
     flex-wrap: wrap;
   }
 }
+
+.source-candidate {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+}
+.source-candidate-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.source-candidate-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.source-candidate-copy h3,
+.source-candidate-copy p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.source-candidate-copy h3 {
+  font-size: 14px;
+}
+.source-candidate-copy p {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.source-candidate-facts {
+  color: var(--muted);
+}
+.source-candidate > .rd-row-action {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.review-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.review-side {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.review-side h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.review-side p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.review-side .review-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.review-photo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.review-photo > .artwork {
+  width: 100%;
+  height: 100%;
+}
+.review-cover {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.dialog-wide p.review-hint {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-line);
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-weight: 600;
+}
+.dialog-wide p.review-hint[data-close="true"] {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+footer.review-actions {
+  justify-content: flex-end;
+}
+@media (max-width: 600px) {
+  .source-candidate {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .source-candidate-cover {
+    width: 48px;
+    height: 48px;
+  }
+  .source-candidate > .rd-row-action {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+  .review-compare {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .review-side {
+    grid-template-columns: 64px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+  .review-side h4 {
+    grid-column: 1 / -1;
+  }
+  .review-photo {
+    grid-row: span 4;
+    width: 56px;
+    height: 56px;
+    margin: 0;
+  }
+  .review-cover {
+    grid-row: span 3;
+    width: 64px;
+    height: 64px;
+    margin: 0;
+  }
+}

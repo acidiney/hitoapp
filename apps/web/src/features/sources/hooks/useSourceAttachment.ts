@@ -241,6 +241,11 @@ export function useSourceAttachment(
     );
   }
 
+  function dismissReview() {
+    if (owner.phase === "attach" || !current.review) return;
+    setSnapshot({ ...current, review: null });
+  }
+
   async function confirm() {
     const request = scope.capture();
     const review = current.review;
@@ -291,6 +296,7 @@ export function useSourceAttachment(
     choose,
     search,
     reviewCandidate: review,
+    dismissReview,
     confirm,
   };
 }

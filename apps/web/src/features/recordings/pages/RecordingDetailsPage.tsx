@@ -38,6 +38,16 @@ export default function RecordingDetailsPage({
     download.invalidateRead,
   );
   const source = detail.selected_observation;
+  const hasSources = (choice.choice?.sources.length ?? 0) > 0;
+  const attachment = source?.origin === "provider_response" && (
+    <SourceAttachment
+      key={`attachment/${user.id}/${detail.recording_id}`}
+      account={user.id}
+      detail={detail}
+      prominent={!hasSources}
+      onAttached={choice.invalidateRead}
+    />
+  );
   const target = { kind: "recording", id: detail.recording_id } as const;
   return (
     <div className="recording-details">
@@ -112,7 +122,9 @@ export default function RecordingDetailsPage({
           />
         </div>
         <aside className="rd-side" aria-label="Playback, download and lyrics">
+          {!hasSources && attachment}
           <SourceChoiceControls {...choice} />
+          {hasSources && attachment}
           <RecordingDownload
             {...download}
             local={native_playback}
@@ -133,14 +145,6 @@ export default function RecordingDetailsPage({
                 : () => router.reload()
             }
           />
-          {source?.origin === "provider_response" && (
-            <SourceAttachment
-              key={`attachment/${user.id}/${detail.recording_id}`}
-              account={user.id}
-              detail={detail}
-              onAttached={choice.invalidateRead}
-            />
-          )}
           <SourceAvailability
             key={`availability/${user.id}/${detail.recording_id}`}
             account={user.id}

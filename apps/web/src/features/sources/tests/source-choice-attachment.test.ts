@@ -150,7 +150,7 @@ test("attaching a reviewed source refreshes sibling choices and fences an older 
   });
   fireEvent.click(review);
   const comparison = within(
-    await add().findByRole("region", { name: "Review source match" }),
+    await screen.findByRole("dialog", { name: "Review source match" }),
   );
   expect(comparison.getByText(savedRecording.title)).toBeTruthy();
   expect(comparison.getByText(attachmentReview.candidate.title)).toBeTruthy();
