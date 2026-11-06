@@ -44,7 +44,7 @@ export default function ArtistPage({
           >
             <Artwork
               recording={artist.artwork_recording_id ?? undefined}
-              fallback={{ id: artist.id, title: artist.name }}
+              fallback={{ id: artist.id, title: artist.name, kind: "artist" }}
             />
           </ArtistPhoto>
         }

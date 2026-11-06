@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Disc3, ListMusic } from "lucide-react";
 import { useArtwork } from "./ArtworkProvider";
 import FallbackCover from "../../../shared/ui/FallbackCover";
+import type { CoverArtKind } from "../../../shared/ui/coverArt";
 
 export type CoverIdentity = {
   id: string;
   title: string;
   artist?: string | null;
+  kind?: CoverArtKind;
   inline?: boolean;
 };
 
@@ -56,6 +58,8 @@ export default function Artwork({
     recordingUrl,
     recordingRetrieval.revision,
   ]);
+  const coverKind =
+    playlistId || playlist ? "playlist" : release ? "album" : "track";
   const url =
     playlistUrl && failedPlaylist !== playlistKey
       ? playlistUrl
@@ -90,7 +94,12 @@ export default function Artwork({
       aria-hidden="true"
     >
       {url && fallback && !loaded && (
-        <FallbackCover {...fallback} artist={null} inline={false} />
+        <FallbackCover
+          kind={coverKind}
+          {...fallback}
+          artist={null}
+          inline={false}
+        />
       )}
       {url ? (
         <img
@@ -107,7 +116,7 @@ export default function Artwork({
           onError={markMissing}
         />
       ) : fallback ? (
-        <FallbackCover {...fallback} />
+        <FallbackCover kind={coverKind} {...fallback} />
       ) : playlist ? (
         <ListMusic strokeWidth={1} />
       ) : (

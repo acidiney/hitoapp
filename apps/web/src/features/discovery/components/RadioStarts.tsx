@@ -31,7 +31,11 @@ export default function RadioStarts({
                 <span className="radio-start-cover" aria-hidden="true">
                   <Artwork
                     recording={artist.name.recording_id}
-                    fallback={{ id: artist.id, title: artist.name.value }}
+                    fallback={{
+                      id: artist.id,
+                      title: artist.name.value,
+                      kind: "artist",
+                    }}
                   />
                 </span>
                 <span className="radio-start-copy">

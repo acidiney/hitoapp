@@ -66,7 +66,7 @@ export default function PodcastPage({
           <Artwork
             recording={workflow.page.items[0]?.recording.id}
             release={workflow.page.items[0]?.recording.release_id ?? undefined}
-            fallback={{ id, title, artist: "Podcast" }}
+            fallback={{ id, title, artist: "Podcast", kind: "podcast" }}
           />
         }
         eyebrow="Podcast"

@@ -296,7 +296,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toHaveCount(2);
     await expect(results.locator(".rd-candidate-photo img")).toHaveCount(0);
     await expect(
-      results.locator(".rd-candidate-photo .fallback-cover-title").first(),
+      results.locator(".rd-candidate-photo .fallback-cover-monogram").first(),
     ).not.toBeEmpty();
     expect(photoRequests).toEqual([]);
     const second = results

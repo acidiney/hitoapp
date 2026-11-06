@@ -6,16 +6,6 @@ import { isMusicBrainzId } from "../model/musicbrainzId";
 
 const RETRY_MS = [2000, 5000];
 
-function initials(name: string): string {
-  const letters = name
-    .split(/\s+/)
-    .map((word) => Array.from(word.replace(/[^\p{L}\p{N}]/gu, ""))[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("");
-  return letters.toUpperCase() || "?";
-}
-
 export type ArtistPhotoKind = "artist" | "credited-artist";
 
 export default function ArtistPhoto({
@@ -51,7 +41,7 @@ export default function ArtistPhoto({
       aria-hidden="true"
     >
       {!loaded && (
-        <FallbackCover id={identity} title={name} monogram={initials(name)} />
+        <FallbackCover id={identity} title={name} kind="artist" monogramOnly />
       )}
       {showing && (
         <img

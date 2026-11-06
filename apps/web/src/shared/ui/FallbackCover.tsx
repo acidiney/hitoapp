@@ -1,40 +1,56 @@
-import type { CSSProperties } from "react";
-import { coverStyle } from "./coverPalette";
+import { memo, useMemo, type CSSProperties } from "react";
+import CoverArtSvg from "./CoverArtSvg";
+import { coverArt, type CoverArtKind } from "./coverArt";
 
-export default function FallbackCover({
+function FallbackCoverView({
   id,
   title,
   artist,
+  kind = "album",
   inline = true,
-  monogram,
+  monogramOnly = false,
 }: {
   id: string;
   title: string;
   artist?: string | null;
+  kind?: CoverArtKind;
   inline?: boolean;
-  monogram?: string;
+  monogramOnly?: boolean;
 }) {
-  const style = coverStyle(id);
-  const colours = {
-    "--cover-bg": style.background,
-    "--cover-fg": style.foreground,
-    "--cover-accent": style.accent,
-  } as CSSProperties;
+  const art = useMemo(
+    () => coverArt(kind, id, title, artist),
+    [kind, id, title, artist],
+  );
+  const style = { "--cover-base": art.paint.base } as CSSProperties;
   return (
     <div
       className="fallback-cover"
       role="img"
-      aria-label={`Cover of ${title}`}
-      data-shape={style.shape}
-      style={colours}
+      aria-label={`${kind === "artist" ? "Photo" : "Cover"} of ${title}`}
+      data-kind={art.paint.kind}
+      style={style}
     >
-      {artist && <span className="fallback-cover-artist">{artist}</span>}
-      <span
-        className="fallback-cover-title"
-        data-text={inline || monogram ? undefined : title}
-      >
-        {monogram ?? (inline ? title : null)}
-      </span>
+      <CoverArtSvg art={art} />
+      {inline && !monogramOnly && (
+        <div className="fallback-cover-text" data-scale={art.text.scale}>
+          {art.text.subtitle && (
+            <span className="fallback-cover-subtitle">{art.text.subtitle}</span>
+          )}
+          <span className="fallback-cover-title">{art.text.title}</span>
+        </div>
+      )}
+      {inline && (
+        <span
+          className="fallback-cover-monogram"
+          data-always={monogramOnly || undefined}
+        >
+          {art.monogram}
+        </span>
+      )}
     </div>
   );
 }
+
+const FallbackCover = memo(FallbackCoverView);
+
+export default FallbackCover;

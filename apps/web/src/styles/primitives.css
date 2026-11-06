@@ -223,85 +223,121 @@
   height: 100%;
   aspect-ratio: 1;
   box-sizing: border-box;
-  padding: 9%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: var(--cover-bg, #2f4bff);
-  color: var(--cover-fg, #ffffff);
+  background: var(--cover-base, #3a3a46);
+  color: #ffffff;
+  border-radius: inherit;
+}
+.fallback-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px var(--line-strong);
+  pointer-events: none;
 }
-.fallback-cover > span {
-  position: relative;
+.fallback-cover[data-kind="artist"] {
+  border-radius: 50%;
 }
-.fallback-cover-artist {
-  font-size: max(7px, 8cqw);
-  font-weight: 500;
-  letter-spacing: 0.12em;
+.cover-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.fallback-cover-text {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: 0 8cqw 8cqw;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2cqw;
+  min-width: 0;
+}
+.fallback-cover-subtitle {
+  font-size: 7cqw;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.85;
-  max-width: 74%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .fallback-cover-title {
-  font-size: max(9px, 15cqw);
+  font-size: 14cqw;
   font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-  overflow: hidden;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
-.fallback-cover[data-shape="circle"]::before,
-.fallback-cover[data-shape="band"]::before {
-  content: "";
-  position: absolute;
-  background: var(--cover-accent);
+.fallback-cover-text[data-scale="medium"] .fallback-cover-title {
+  font-size: 10cqw;
+  -webkit-line-clamp: 3;
 }
-.fallback-cover[data-shape="circle"]::before {
-  right: 9%;
-  top: 9%;
-  width: 14%;
-  aspect-ratio: 1;
-  border-radius: 50%;
+.fallback-cover-text[data-scale="small"] .fallback-cover-title {
+  font-size: 8.5cqw;
+  -webkit-line-clamp: 3;
 }
-.fallback-cover[data-shape="band"]::before {
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 5%;
-}
-.artist-card.round .fallback-cover,
-.shelf-card[data-round] .fallback-cover,
-.tinted-header[data-size="artist"] .fallback-cover {
-  padding: 18%;
+.fallback-cover[data-kind="artist"] .fallback-cover-text {
+  inset: 58% 0 0;
+  padding: 2cqw 17cqw 12cqw;
   justify-content: center;
   align-items: center;
   text-align: center;
 }
-.artist-card.round .fallback-cover::before,
-.shelf-card[data-round] .fallback-cover::before,
-.tinted-header[data-size="artist"] .fallback-cover::before {
+.fallback-cover[data-kind="artist"] .fallback-cover-title {
+  font-size: 11cqw;
+  -webkit-line-clamp: 2;
+}
+.fallback-cover[data-kind="artist"]
+  .fallback-cover-text[data-scale="medium"]
+  .fallback-cover-title,
+.fallback-cover[data-kind="artist"]
+  .fallback-cover-text[data-scale="small"]
+  .fallback-cover-title {
+  font-size: 8cqw;
+  -webkit-line-clamp: 3;
+}
+.fallback-cover[data-kind="audiobook"] .fallback-cover-text {
+  padding-left: 18cqw;
+}
+.fallback-cover-monogram {
   display: none;
+  position: absolute;
+  inset: 0;
+  place-items: center;
+  font-size: max(12px, 44cqw);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.fallback-cover-monogram[data-always] {
+  display: grid;
+}
+@container (width < 96px) {
+  .fallback-cover-text {
+    display: none;
+  }
+  .fallback-cover-monogram {
+    display: grid;
+  }
+  .fallback-cover .cover-art-motif {
+    opacity: 0.3;
+  }
+}
+@container (width < 48px) {
+  .fallback-cover .cover-art-motif {
+    display: none;
+  }
 }
 
-.rd-candidate-photo .fallback-cover {
-  padding: 0;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-.rd-candidate-photo .fallback-cover::before {
-  display: none;
-}
-.rd-candidate-photo .fallback-cover-title:not(:empty) {
-  font-size: 18px;
-  letter-spacing: 0.02em;
-}
 .shelf-row {
   display: grid;
   grid-auto-flow: column;

@@ -838,9 +838,6 @@ section[aria-label="Discography"] > section > .button {
     opacity: 1;
   }
 }
-.fallback-cover-title[data-text]::before {
-  content: attr(data-text);
-}
 
 section[aria-label="Complete track list"] {
   margin-bottom: 18px;

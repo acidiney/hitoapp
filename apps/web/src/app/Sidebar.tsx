@@ -2,7 +2,8 @@ import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Compass, Home, Library, Plus, Search } from "lucide-react";
 import BrandMark from "../shared/ui/BrandMark";
-import { coverStyle } from "../shared/ui/coverPalette";
+import CoverArtSvg from "../shared/ui/CoverArtSvg";
+import { coverArt } from "../shared/ui/coverArt";
 
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
@@ -71,11 +72,9 @@ export default function Sidebar({
         </div>
         {playlists.slice(0, 12).map((playlist) => (
           <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
-            <span
-              className="playlist-swatch"
-              style={{ background: coverStyle(playlist.id).background }}
-              aria-hidden="true"
-            />
+            <span className="playlist-swatch" aria-hidden="true">
+              <CoverArtSvg art={coverArt("playlist", playlist.id, "", null)} />
+            </span>
             <span>{playlist.name}</span>
           </Link>
         ))}

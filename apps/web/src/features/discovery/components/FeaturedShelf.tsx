@@ -27,7 +27,12 @@ function FeaturedCover({ entry }: { entry: Schema<"FeaturedEntry"> }) {
   const retry = useArtworkRetry(COVER_RETRY_MS, url ?? "");
   return (
     <>
-      <FallbackCover id={entry.id} title={entry.title} inline={false} />
+      <FallbackCover
+        id={entry.id}
+        title={entry.title}
+        kind={entry.kind === "playlist" ? "playlist" : "album"}
+        inline={false}
+      />
       {url && !retry.exhausted && !retry.waiting && (
         <img
           key={retry.attempt}

@@ -112,7 +112,7 @@ test("each built-in candidate shows a round photo from the same-origin route wit
   const image = rows[0].querySelector("img");
   expect(image?.getAttribute("src")).toBe(`/api/v1/cover-art/artist/${FIRST}`);
   expect(
-    first.getByRole("img", { name: "Cover of Adele", hidden: true }),
+    first.getByRole("img", { name: "Photo of Adele", hidden: true }),
   ).toBeTruthy();
   expect(within(rows[1]).getByText("Group")).toBeTruthy();
   expect(rows[1].querySelector("img")?.getAttribute("src")).toBe(
@@ -125,7 +125,7 @@ test("a candidate from a personal provider never asks the photo route", async ()
   const rows = await search(secondCatalog.installation.id);
   expect(rows[0].querySelector("img")).toBeNull();
   expect(
-    within(rows[0]).getByRole("img", { name: "Cover of Adele", hidden: true }),
+    within(rows[0]).getByRole("img", { name: "Photo of Adele", hidden: true }),
   ).toBeTruthy();
   expect(artistAssociation.id).toBeTruthy();
 });
@@ -149,7 +149,7 @@ test("a photo that never arrives leaves the initial circle and is retried a boun
   }
   expect(document.querySelector("img")).toBeNull();
   expect(
-    screen.getByRole("img", { name: "Cover of Adele", hidden: true }),
+    screen.getByRole("img", { name: "Photo of Adele", hidden: true }),
   ).toBeTruthy();
 });
 

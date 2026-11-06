@@ -78,7 +78,11 @@ export default function ArtistIndexPage({
                 <ArtistGroupPhoto account={user.id} group={group}>
                   <Artwork
                     recording={group.name.recording_id}
-                    fallback={{ id: group.id, title: group.name.value }}
+                    fallback={{
+                      id: group.id,
+                      title: group.name.value,
+                      kind: "artist",
+                    }}
                   />
                 </ArtistGroupPhoto>
                 <h2>{group.name.value}</h2>
@@ -134,7 +138,11 @@ export default function ArtistIndexPage({
                 >
                   <Artwork
                     recording={artist.artwork_recording_id ?? undefined}
-                    fallback={{ id: artist.id, title: artist.name }}
+                    fallback={{
+                      id: artist.id,
+                      title: artist.name,
+                      kind: "artist",
+                    }}
                   />
                 </ArtistPhoto>
                 <h2>{artist.name}</h2>

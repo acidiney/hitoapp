@@ -9,17 +9,6 @@ test("cover text keeps 4.5:1 against the cover colour", () => {
     );
 });
 
-test("cover shapes stay out of the title block", () => {
-  const css = stylesheet("primitives.css");
-  const circle = rule(css, '.fallback-cover[data-shape="circle"]::before');
-  const top = parseFloat(circle.match(/top:\s*([\d.]+)%/)![1]);
-  const size = parseFloat(circle.match(/width:\s*([\d.]+)%/)![1]);
-  expect(top + size).toBeLessThanOrEqual(25);
-  const band = rule(css, '.fallback-cover[data-shape="band"]::before');
-  const width = parseFloat(band.match(/width:\s*([\d.]+)%/)![1]);
-  expect(width).toBeLessThanOrEqual(9);
-});
-
 test("a switch that is off is at least 3:1 against its surroundings in both schemes", () => {
   const { light, dark } = tokens();
   for (const scheme of [light, dark]) {
@@ -78,8 +67,8 @@ test("the transport play button shows hover feedback that works on a light ink i
 
 test("the playing cover and playlist swatches carry their own edge so dark covers show on a dark page", () => {
   const css = stylesheet("primitives.css") + stylesheet("shell.css");
-  expect(rule(css, ".fallback-cover")).toMatch(/box-shadow:\s*inset/);
-  expect(rule(css, ".playlist-swatch")).toMatch(/box-shadow:\s*inset/);
+  expect(rule(css, ".fallback-cover::after")).toMatch(/box-shadow:\s*inset/);
+  expect(rule(css, ".playlist-swatch::after")).toMatch(/box-shadow:\s*inset/);
 });
 
 test("the mini player hides items by class, not by label", () => {

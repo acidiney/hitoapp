@@ -44,6 +44,7 @@ export default function AudiobookIndexPage({
                   id: book.id,
                   title: book.name,
                   artist: "Audiobook",
+                  kind: "audiobook",
                   inline: false,
                 }}
                 playlist

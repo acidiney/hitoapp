@@ -51,7 +51,11 @@ export default function ArtistIdentityGroupPage({
           <ArtistGroupPhoto account={user.id} group={group}>
             <Artwork
               recording={group.name.recording_id}
-              fallback={{ id: group.id, title: group.name.value }}
+              fallback={{
+                id: group.id,
+                title: group.name.value,
+                kind: "artist",
+              }}
             />
           </ArtistGroupPhoto>
         }

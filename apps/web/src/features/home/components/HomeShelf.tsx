@@ -9,7 +9,7 @@ function ShelfCover({ card }: { card: ShelfCard }) {
     return (
       <Artwork
         recording={cover.recording}
-        fallback={{ id: cover.id, title: card.title }}
+        fallback={{ id: cover.id, title: card.title, kind: "artist" }}
       />
     );
   return (

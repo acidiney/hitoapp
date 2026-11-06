@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { createElement, type ReactNode } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -16,12 +14,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const css = readFileSync(
-  resolve(import.meta.dirname, "../../../styles/primitives.css"),
-  "utf8",
-).replace(/\s+/g, " ");
-
-test("the artist shelf uses the round cover variant with a centred title", () => {
+test("the artist shelf draws the artist cover as a round photo", () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response("{}", { status: 404 })),
@@ -56,10 +49,6 @@ test("the artist shelf uses the round cover variant with a centred title", () =>
     ".shelf-card[data-round] .fallback-cover",
   );
   expect(cover).not.toBeNull();
-  const start = css.indexOf(".shelf-card[data-round] .fallback-cover");
-  expect(start).toBeGreaterThan(-1);
-  const rule = css.slice(start, css.indexOf("}", start));
-  expect(rule).toContain("justify-content: center");
-  expect(rule).toContain("text-align: center");
-  expect(css).toContain(".shelf-card[data-round] .fallback-cover::before");
+  expect(cover!.getAttribute("data-kind")).toBe("artist");
+  expect(cover!.getAttribute("aria-label")).toBe("Photo of Slipknot");
 });

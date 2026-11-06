@@ -64,6 +64,7 @@ export default function PodcastIndexPage({
                     id={subscription.subscription_id}
                     title={title}
                     artist="Podcast"
+                    kind="podcast"
                     inline={false}
                   />
                 </div>
