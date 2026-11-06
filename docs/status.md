@@ -1,12 +1,20 @@
 # Implementation status
 
+## 2026-11-06 slow providers and download resume
+
+Local development tests with owned loopback fakes, not a release result and not deployed. Two gaps from the fault exercise are closed.
+
+- Throughput floor: remote audio read for the browser relay, the native input and downloads was bounded only per read (15 seconds), so a provider sending a few bytes every 14 seconds could hold a slot almost forever. One meter now requires an average of at least 16 KiB/s over the last 30 seconds of waiting for the provider (consumer pauses are not counted). A slower stream ends with the typed error `stream_too_slow`, releases its slot and logs one warning. Downloads count it as a retryable provider failure inside the three attempts. The constants and the reasoning are in [Audio throughput floor](plugins.md#audio-throughput-floor). Tests (windows shortened through the test-only `CoreConfig::stream_pace`): core relay, HTTP relay, native input and downloads each cut a trickle off within about twice the window and accept the same trickle above a lower floor; log privacy and the meter's unit cases pass.
+- Download resume: an interrupted transfer now continues with `Range: bytes=N-` into the same staging file, up to three times per attempt, when the provider advertised ranges and a total length and the `206` matches (start, total, `ETag`, `Last-Modified`). A provider that ignores the range, a changed validator or total, or a `416` restarts from byte zero in the same file; mismatched content is never spliced. The final inspection and checksum are unchanged, and a resume costs no extra attempt. Five core cases (continue, no validators, range ignored, `ETag` changed, failed resume then clean retry) and one log case pass. The first request to a fixture that resets after 6,000 bytes plus the resume fetched 16,044 bytes for a 16,044-byte file.
+- Limits: the partial file is not kept between attempts, so a failed attempt still retries from zero. No bundled provider plugin sends an `ETag` or `Last-Modified` yet, so resume against them relies on the total length alone. The floor is not applied inside the Jamendo plugin or the debrid adapters, which keep their own 15 second per-read bound, and it has not been tried on real slow links.
+
 ## 2026-11-06 provider and server fault tests
 
 Local development tests with owned loopback fakes, not a release result. The Rust provider fixture and the browser provider fixture gained fault modes (scripted statuses, slow first byte, silent provider, trickle, ignored ranges, reset after N bytes). New tests cover the browser, the native player and its input, the server audio relay (core and HTTP) and downloads. The matrix is in [Fault coverage](testing.md#fault-coverage).
 
 - Measured: an error status on open costs one provider request and answers in under two seconds; a silent provider fails at the ten second header bound and frees its slot; a trickling body completes with no total limit; a reset mid-track recovers from a fresh request in the browser and natively; a provider that keeps failing is asked four times in the browser and then left alone; a download retries three times and then fails with a reason.
 - Found and fixed: the recording page said "Download queued." while a download was retrying after a provider failure and gave no reason once it had failed. It now says the music service did not deliver the audio.
-- Behavior to know: when a provider ignores a seek range, the browser keeps playing but cannot confirm which offset it plays; natively the input rejects the wrong-offset body and playback recovers through another source. Downloads restart from the first byte after an interruption.
+- Behavior to know: when a provider ignores a seek range, the browser keeps playing but cannot confirm which offset it plays; natively the input rejects the wrong-offset body and playback recovers through another source. Downloads now resume an interrupted transfer inside the attempt (see the later entry above).
 - Not done: a native player against a Hito server outage (there is no synchronization client yet), community-service outages during playback, real networks, TLS, packet loss, and reference hardware.
 
 ## 2026-11-06 library scan speed
