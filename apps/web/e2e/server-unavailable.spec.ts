@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Outage = "closed" | "gateway" | "up";
+type Outage = "closed" | "gateway" | "health-only" | "up";
 
 async function simulate(page: Page) {
   const state: { mode: Outage } = { mode: "up" };
@@ -13,7 +13,12 @@ async function simulate(page: Page) {
       url.pathname.startsWith("/api/v1/") ||
       request.headers()["x-inertia"] !== undefined;
     if (!talksToHito || state.mode === "up") return route.continue();
-    if (state.mode === "closed") return route.abort("connectionrefused");
+    if (state.mode === "health-only" && url.pathname === "/health") {
+      state.mode = "up";
+      return route.continue();
+    }
+    if (state.mode === "closed" || state.mode === "health-only")
+      return route.abort("connectionrefused");
     return route.fulfill({
       status: 502,
       contentType: "text/html",
@@ -86,7 +91,7 @@ test("Try now reconnects without waiting for the next automatic attempt", async 
   await openLibrarySection(page, "Albums");
   const notice = page.getByRole("status").filter({ hasText: "Cannot reach" });
   await expect(notice).toBeVisible();
-  state.mode = "up";
+  state.mode = "health-only";
   await notice.getByRole("button", { name: "Try now" }).click();
   await expect(notice).toBeHidden({ timeout: 3000 });
 });
