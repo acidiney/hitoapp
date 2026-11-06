@@ -135,6 +135,7 @@ export function useArtistDiscography(
           association.id,
           { limit: PAGE_LIMIT, continuation },
           controller.signal,
+          restarting,
         ),
         stopped,
       ]);

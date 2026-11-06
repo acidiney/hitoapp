@@ -140,6 +140,7 @@ export function useArtistEditions(
           association.id,
           { release_group_id: group.id, limit: PAGE_LIMIT, continuation },
           controller.signal,
+          restarting,
         ),
         stopped,
       ]);

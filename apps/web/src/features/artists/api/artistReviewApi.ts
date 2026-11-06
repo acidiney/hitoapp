@@ -1,3 +1,4 @@
+import { cachedRead } from "./catalogCache";
 import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
 
@@ -109,13 +110,19 @@ export const artistReviewApi = {
     association: string,
     signal: AbortSignal,
   ): Promise<Schema<"ArtistProfileAvailability">> {
-    return requestJson<Schema<"ArtistProfileAvailability">>(
-      `/recordings/${part(recording)}/artist-associations/${part(association)}/profile`,
-      {
-        action: "artist_review.profile",
-        account,
-        signal,
-      },
+    return cachedRead(
+      account,
+      ["profile", recording, association],
+      (loadSignal) =>
+        requestJson<Schema<"ArtistProfileAvailability">>(
+          `/recordings/${part(recording)}/artist-associations/${part(association)}/profile`,
+          {
+            action: "artist_review.profile",
+            account,
+            signal: loadSignal,
+          },
+        ),
+      signal,
     );
   },
 };

@@ -14,3 +14,17 @@ export function choose(control: HTMLElement, option: string | number) {
   if (!target) throw new Error(`No option ${String(option)}`);
   fireEvent.click(target);
 }
+
+export function optionsOf(control: HTMLElement) {
+  if (control.getAttribute("aria-expanded") !== "true")
+    fireEvent.click(control);
+  const list = document.getElementById(
+    control.getAttribute("aria-controls") ?? "",
+  );
+  if (!list) throw new Error("The combobox did not open a listbox");
+  const labels = within(list)
+    .getAllByRole("option")
+    .map((item) => item.textContent ?? "");
+  fireEvent.click(control);
+  return labels;
+}

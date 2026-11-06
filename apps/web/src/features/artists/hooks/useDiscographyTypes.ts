@@ -138,6 +138,7 @@ export function useDiscographyTypes(
               release_type: type,
             },
             signal,
+            restarting,
           ),
       );
       if (!request.active()) return;

@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
 import { audioOutcome } from "./albumEditionApi";
+import { cachedRead } from "./catalogCache";
 
 const part = encodeURIComponent;
 const INVALID_RESPONSE =
@@ -47,18 +48,26 @@ export const artistEditionApi = {
     association: string,
     body: Schema<"ReadReleaseGroupEditions">,
     signal: AbortSignal,
+    fresh = false,
   ): Promise<Schema<"ReleaseGroupEditionsAvailability">> {
-    return json<Schema<"ReleaseGroupEditionsAvailability">>(
-      await request(
-        `/recordings/${part(recording)}/artist-associations/${part(association)}/release-group-editions`,
-        {
-          action: "artist_editions.read",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      ),
+    return cachedRead(
+      account,
+      ["editions", recording, association, body],
+      async (loadSignal) =>
+        json<Schema<"ReleaseGroupEditionsAvailability">>(
+          await request(
+            `/recordings/${part(recording)}/artist-associations/${part(association)}/release-group-editions`,
+            {
+              action: "artist_editions.read",
+              method: "POST",
+              account,
+              body,
+              signal: loadSignal,
+            },
+          ),
+        ),
+      signal,
+      fresh,
     );
   },
   async tracks(
@@ -68,17 +77,23 @@ export const artistEditionApi = {
     body: Schema<"ReadEditionTrackList">,
     signal: AbortSignal,
   ): Promise<Schema<"EditionTrackListAvailability">> {
-    return json<Schema<"EditionTrackListAvailability">>(
-      await request(
-        `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-list`,
-        {
-          action: "artist_edition_track_list.read",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      ),
+    return cachedRead(
+      account,
+      ["tracks", recording, association, body],
+      async (loadSignal) =>
+        json<Schema<"EditionTrackListAvailability">>(
+          await request(
+            `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-list`,
+            {
+              action: "artist_edition_track_list.read",
+              method: "POST",
+              account,
+              body,
+              signal: loadSignal,
+            },
+          ),
+        ),
+      signal,
     );
   },
   async audio(

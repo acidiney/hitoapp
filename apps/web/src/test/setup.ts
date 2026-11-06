@@ -1,6 +1,7 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import { resetConnection } from "../shared/connection";
+import { catalogCacheClock } from "../features/artists/api/catalogCache";
 
 HTMLDialogElement.prototype.showModal = function () {
   this.setAttribute("open", "");
@@ -12,6 +13,7 @@ HTMLDialogElement.prototype.close = function () {
 function reset() {
   cleanup();
   resetConnection();
+  catalogCacheClock.reset();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
