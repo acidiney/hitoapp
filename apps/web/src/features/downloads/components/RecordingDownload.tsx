@@ -17,6 +17,23 @@ type Props = {
   check(): Promise<void>;
 };
 
+function megabytes(bytes: number) {
+  return `${(bytes / 1_000_000).toFixed(1)}`;
+}
+
+function progressText(download: Schema<"DownloadStatus">) {
+  if (!download.total_bytes) return "Downloading audio…";
+  return (
+    <>
+      <span>Downloading audio…</span>{" "}
+      <span className="track-mono">
+        {megabytes(download.bytes_received)} of{" "}
+        {megabytes(download.total_bytes)} MB
+      </span>
+    </>
+  );
+}
+
 export default function RecordingDownload({
   download,
   checking,
@@ -80,7 +97,7 @@ export default function RecordingDownload({
                   : download?.status === "queued"
                     ? "Download queued."
                     : download?.status === "running"
-                      ? "Downloading audio…"
+                      ? progressText(download)
                       : download?.status === "verifying"
                         ? "Verifying audio…"
                         : download?.status === "failed" &&

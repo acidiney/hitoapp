@@ -59,7 +59,7 @@ export default function TrackMetadata({
                   <span className="track-aside">
                     · inspected{" "}
                     {new Date(source.observed_at * 1000).toLocaleDateString(
-                      undefined,
+                      "en-GB",
                       { day: "numeric", month: "short", year: "numeric" },
                     )}
                   </span>
@@ -101,7 +101,7 @@ export default function TrackMetadata({
                 {others.length} other {others.length === 1 ? "copy" : "copies"}
                 {" · "}
                 <a className="text-link" href="#copies">
-                  {others[0].title}
+                  {others[0].album ?? others[0].title}
                 </a>
                 {others[0].proof && (
                   <span className="track-aside">

@@ -70,7 +70,7 @@ export default function TrackSources({
     !choice.statusError;
   const attachment = (prominent: boolean) => (
     <SourceAttachment
-      key={`attachment/${account}/${detail.recording_id}`}
+      key={`attachment/${prominent}/${account}/${detail.recording_id}`}
       account={account}
       detail={detail}
       prominent={prominent}
@@ -87,7 +87,6 @@ export default function TrackSources({
       {providerTrack && noAudio && attachment(true)}
       {localFile && !hasSources && <LocalFileSource />}
       {!hideChoice && <SourceChoiceControls {...choice} />}
-      {providerTrack && !noAudio && attachment(false)}
       {showCopy && (
         <RecordingDownload
           {...download}
@@ -95,6 +94,7 @@ export default function TrackSources({
           eligibilityPending={choice.eligibilityPending}
         />
       )}
+      {providerTrack && !noAudio && attachment(false)}
       <SourceAvailability
         key={`availability/${account}/${detail.recording_id}`}
         account={account}

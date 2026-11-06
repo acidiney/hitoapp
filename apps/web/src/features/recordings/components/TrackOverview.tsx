@@ -179,7 +179,7 @@ export default function TrackOverview({
                       className="track-link"
                       href={`/recordings/${encodeURIComponent(copy.recording_id)}`}
                     >
-                      {copy.title}
+                      {copy.album ?? copy.title}
                     </Link>
                     {copy.proof && <span>{PROOF[copy.proof]}</span>}
                   </li>

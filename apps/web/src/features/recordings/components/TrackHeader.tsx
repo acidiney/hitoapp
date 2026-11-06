@@ -96,14 +96,11 @@ export default function TrackHeader({
           </p>
           <p className="track-status">
             <AvailabilityLabel state={status.state} label={status.label} />
-            {status.pinned && (
-              <span className="track-chip" data-tone="neutral">
-                Pinned
-              </span>
-            )}
-            {(length || origin) && (
+            {(length || origin || status.pinned) && (
               <span className="track-mono">
-                {[length, origin].filter(Boolean).join(" · ")}
+                {[length, origin, status.pinned ? "Pinned" : null]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
             )}
           </p>

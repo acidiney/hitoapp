@@ -101,7 +101,9 @@ export default function SourceChoiceControls({
                   {entry.source.label}
                 </label>
                 <span className="rd-choice-origin">
-                  {entry.source.provider}
+                  {entry.source.provider === "local"
+                    ? "Music folder"
+                    : entry.source.provider}
                 </span>
                 <span className="rd-choice-state">
                   <span
@@ -121,7 +123,7 @@ export default function SourceChoiceControls({
                         : "Not prepared"}
                   </span>
                   {choice.mode === "manual" && entry.selected && (
-                    <span className="track-chip" data-tone="neutral">
+                    <span className="track-chip" data-tone="action">
                       Pinned
                     </span>
                   )}
@@ -129,7 +131,14 @@ export default function SourceChoiceControls({
               </li>
             ))}
           </ul>
-          <div className="rd-actions">
+          <div
+            className="rd-actions"
+            hidden={
+              choice.mode === "automatic" &&
+              stagedSource === null &&
+              choice.sources.length < 2
+            }
+          >
             {choice.mode !== "automatic" && (
               <Button disabled={!canReset} onClick={() => void reset()}>
                 Return to automatic
@@ -148,6 +157,14 @@ export default function SourceChoiceControls({
               Selected, not saved yet. Use source to play from it.
             </p>
           )}
+          {choice.mode === "automatic" &&
+            stagedSource === null &&
+            choice.sources.length === 1 && (
+              <p className="track-note">
+                Automatic picks the best ready source. With one source there is
+                nothing to choose.
+              </p>
+            )}
         </>
       )}
       {retrying && (
