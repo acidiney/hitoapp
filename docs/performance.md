@@ -243,7 +243,9 @@ flowchart LR
 
 - `MediaTools.parallelism` bounds both the files in flight and the number of media processes alive at once (it was a fixed 2). The default is the number of CPUs, at least 2 and at most 8. Setting 1 gives the old serial behaviour.
 - The per-folder limits still hold: two read threads per folder, one walker, and the stall deadlines and cancellation of each read and command.
-- Every file in flight holds one private copy of its media file in the temporary directory until it is inspected. The temporary space needed is therefore up to `parallelism` times the largest file instead of once. There is no total byte budget for the copies.
+- Every file in flight holds one private copy of its media file in the temporary directory until it is inspected. A total byte budget (`MediaTools.temp_budget`, default 2 GiB) bounds the copies together: a file is admitted to inspection only while the sizes of the copies in flight stay within the budget. Admission is first come, first served, so a large file is not starved. A single file bigger than the budget waits for the other copies to finish and is then inspected alone, so it never deadlocks. Small files still run fully parallel. Budget is returned when the copy is removed, including when the scan is stopped, a file fails or the scan is cancelled. The budget is measured in 4 KiB blocks of file size and counts the copy only, not the temporary space `ffmpeg` itself may use.
+- If the temporary disk is full anyway (or over quota), the copy fails with the existing `insufficient_storage` error, the scan stops instead of skipping every remaining file, the job reports that there is not enough temporary disk space, and the partial copies are removed.
+- Server settings: `HITO_SCAN_PARALLELISM` (1 to 64), `HITO_SCAN_TEMP_BUDGET_MIB` (1 to 1048576, default 2048) and `HITO_SCAN_TEMP_DIR` (an existing writable directory; default the system temporary directory). See [operations](operations.md#music-scanning).
 - The scan logs `parallelism`, the files read and skipped, and the elapsed milliseconds of the inspection phase. No path or title is logged.
 
 ### Re-measurement
