@@ -230,3 +230,21 @@ async fn a_slow_body_above_the_throughput_floor_completes_intact() {
     assert_eq!(received, f.original);
     assert!(started.elapsed() >= Duration::from_secs(4));
 }
+
+fn real_time_pace() -> StreamPace {
+    StreamPace {
+        window: Duration::from_secs(1),
+        ..StreamPace::DEFAULT
+    }
+}
+
+#[tokio::test]
+async fn a_stream_delivered_at_64_kbit_real_time_passes_the_default_floor_on_the_relay() {
+    let f = AudioLibrary::start_paced(real_time_pace()).await;
+    f.ready().await;
+    f.server.audio_trickle(1024, Duration::from_millis(125));
+    let started = Instant::now();
+    let received = drain(open(&f).await.unwrap()).await.unwrap();
+    assert_eq!(received, f.original);
+    assert!(started.elapsed() >= Duration::from_millis(1500));
+}

@@ -24,7 +24,7 @@ impl Default for StreamPace {
 
 pub const READ_IDLE: Duration = Duration::from_secs(15);
 pub const WINDOW: Duration = Duration::from_secs(30);
-pub const FLOOR_BYTES_PER_SECOND: u64 = 16 * 1024;
+pub const FLOOR_BYTES_PER_SECOND: u64 = 4 * 1024;
 
 pub(crate) struct Meter {
     pace: StreamPace,

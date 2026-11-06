@@ -231,3 +231,23 @@ async fn a_resumed_transfer_logs_its_outcome_and_offset_and_nothing_private() {
     assert!(!output.contains(&url));
     assert!(!output.contains("tag-9f3a"));
 }
+
+#[tokio::test]
+async fn a_download_delivered_at_64_kbit_real_time_passes_the_default_floor() {
+    let fixture = AudioLibrary::start_paced(hito_core::StreamPace {
+        window: Duration::from_secs(1),
+        ..hito_core::StreamPace::DEFAULT
+    })
+    .await;
+    fixture.ready().await;
+    fixture
+        .server
+        .audio_trickle(1024, Duration::from_millis(125));
+    request(&fixture).await;
+    assert!(run(&fixture).await);
+    let ready = state(&fixture).await;
+    assert!(matches!(ready.status, DownloadState::Ready));
+    assert_eq!(ready.bytes_received, fixture.original.len() as u64);
+    assert_eq!(stored_checksum(&fixture).await, digest(&fixture.original));
+    assert_eq!(attempts(&fixture).await, 1);
+}
