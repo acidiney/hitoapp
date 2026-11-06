@@ -283,6 +283,8 @@ What each piece owns:
 - Outcomes are `ready`, `no_suitable_source`, `provider_unavailable`, `protected_choice` and `cancelled`. `provider_unavailable` records that a provider call failed or was busy, so a blocked extraction does not read as "nothing matched".
 - Resolution only attaches a source. Audio plays later through a separate relay that checks live authority again. See [plugins](plugins.md#audio-relay) and [automatic sources](automatic-sources.md).
 
+Which of a recording's verified sources plays first is a separate step: see [choosing the audio source](source-preference.md) for the order, the per-account source preference and the bounded fallback.
+
 ## Core composition
 
 Current behavior. `hito_core::open` builds one `Store` (the private SQLite handle) and then the ten capabilities that make up `Services`. Each capability is a plain struct holding the pieces it owns. `ArtistCatalog` holds a `Catalog` handle (passed explicitly by `open`) because it reads release tracks and adopts matched provider audio through `Catalog`; `Catalog` holds no handle back, and the album page that combines both is `ArtistCatalog::release`. `Services` has no forwarding methods: the server and desktop host call a capability directly. The store field of `Services` is private and is used only for the health check.

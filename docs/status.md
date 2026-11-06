@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-06 source preference and direct fallback
+
+Local development work, not a public release, not deployed. Each account can rank Local files, Saved copies and its connected providers (Settings, Playback, Source preference) and switch "Try the next source if one fails" on or off (default on). The order applies to the browser source list and to the desktop candidates; a manual choice for one recording still wins, and the opt-in community ranking only orders inside a provider once an order is saved. Fallback is bounded to 6 sources per play and logs why it stopped. Migration 0089 adds `account_source_preferences`. The pre-existing order is written down in [choosing the audio source](source-preference.md).
+
+- Tested: core cases with two owned fake providers (defaults, isolation, rejected writes, saved order, manual choice, community ranking, desktop candidate order, switch off, the bound, exhaustion), a selection-order table, migration 0089 upgrade fixtures and schema bounds, one HTTP case, web cases for the card and the fallback policy, and one browser case.
+- Not done: source conversion and bitrate settings (the TODO item stays open for them), a per-recording view of skipped sources, fallback timing against real provider failures, physical devices.
+
+
 ## 2026-11-05 self-hosting addons
 
 Local development work, not a public release. Operators can start Spotify and YouTube with Hito in one command (`deploy/compose/addons.yaml`) and the server offers their addresses from `HITO_PLUGIN_SERVICES`. The setup launchers ask an opt-in question, default off. The [self-hosting guide](self-hosting.md) covers all nine addons.
@@ -634,7 +642,7 @@ The full scope remains in [release-plan.md](release-plan.md). The checklist in [
 - MusicBrainz/provider matching and optional enrichment, uncertain-match review and appearance corrections. Personal unlinking, latest-change undo, merge splitting, administrator promotion for built-in artists and reconciliation after raw credit retags pass core, upgrade, HTTP, DOM and browser tests (migrations 0057 to 0069 run on the local development server). Splits only reach reviewed artists, promotions only cover the built-in provider and undo of a shared change is refused until the correction is withdrawn. Account deletion is built (migration 0067) and calls the correction erase steps; recording deletion is built in source (migration 0070, not yet deployed); see [the correction model](artist-catalog-host.md#splitting-a-merged-artist) and [deletion and retention](artist-catalog-host.md#deletion-and-retention).
 - Durable offline replicas, standalone import preview, reconnect/account isolation, device-local availability and concurrent edit/delete handling.
 - Playlist downloads, followed-download/shared-copy references, broader transfer/crash recovery, disk exhaustion and a separate temporary cache. Explicit provider-track downloads are deployed with the evidence and limits above.
-- Source ranking/preferences/overrides, direct fallback, conversion/bitrate settings, debrid preparation, gapless playback and complete source recovery.
+- Source conversion/bitrate settings (the source preference and direct fallback are built in source, see [choosing the audio source](source-preference.md)), debrid preparation, gapless playback and complete source recovery.
 - Real-Debrid, AllDebrid, Premiumize and TorBox; official folder/Jamendo/YouTube services and fixture/live-provider acceptance; RSS podcasts, audiobooks, chapters/bookmarks, timed lyrics and backing tracks.
 - Packaged macOS, Windows and Linux desktop clients, local backend lifecycle, native folder discovery/selection, media controls, FFmpeg fallback, physical-output acceptance (including 384 kHz and 352.8 kHz on macOS built-in speakers after output negotiation).
 - Separate opt-in community ranking/corrections, validation, moderation, rate limits, outage behavior, hosting and DNS.

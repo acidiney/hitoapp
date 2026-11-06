@@ -21,6 +21,7 @@ Everything here describes a local development state. No document describes a pub
   - [RFC 0004, host and sync client identity](rfcs/0004-host-and-sync-client-identity.md): proposed.
 - [Recording identity](recording-identity.md): stable recording IDs, sources, and why a tag edit or moved file does not change identity.
 - [Playback access](playback-access.md): how core grants audio for one exact recording and source.
+- [Choosing the audio source](source-preference.md): the order in which a recording's sources are tried, the per-account source preference and the direct fallback.
 - [API](api.md) and the generated [OpenAPI schema](openapi.json): the `/api/v1` contract.
 - [Logging](logging.md): what workflows log and what they never log.
 - [Design system](design-system.md): tokens, components and the screens of the web redesign. The redesign covers every screen the server can fill. Open items are listed there.
