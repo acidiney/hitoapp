@@ -220,3 +220,26 @@ async fn an_artist_without_a_usable_identity_is_still_listed_by_name() {
     assert!(recording.artists[1].page_url.is_none());
     assert!(recording.artist_urls.is_empty());
 }
+
+#[tokio::test]
+async fn a_track_with_more_credited_artists_than_page_links_still_imports_with_every_credit() {
+    let mut entry = owned_entry(0);
+    let artists = (1..=10)
+        .map(|number| {
+            named(
+                &format!("Owned collaborator {number}"),
+                &format!("{number:022}"),
+            )
+        })
+        .collect();
+    credited(&mut entry, artists);
+    let recording = recording_of(entry).await;
+    assert_eq!(recording.artists.len(), 10);
+    assert!(recording.artist_urls.is_empty());
+    assert!(
+        recording
+            .artists
+            .iter()
+            .all(|artist| artist.page_url.is_some())
+    );
+}

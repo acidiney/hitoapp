@@ -5,6 +5,8 @@ use hito_plugin_sdk::{
 };
 use serde::Deserialize;
 
+const MAX_ARTIST_URLS: usize = 8;
+
 #[derive(Deserialize)]
 struct Response {
     data: Data,
@@ -198,7 +200,9 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     };
     let mut recording = ProviderRecording {
         isrc: None,
-        artist_urls: pages.unwrap_or_default(),
+        artist_urls: pages
+            .filter(|pages| pages.len() <= MAX_ARTIST_URLS)
+            .unwrap_or_default(),
         artists,
         id: id.to_owned(),
         title: track.name,
