@@ -33,7 +33,7 @@ pub async fn musical(library: &Library, unrelated: Uuid) -> Value {
         "recordings": library.hito.catalog.recordings(&library.actor, Search::default()).await.unwrap(),
         "artists": library.hito.catalog.artists(&library.actor, Browse::default()).await.unwrap(),
         "releases": library.hito.catalog.releases(&library.actor, Browse::default()).await.unwrap(),
-        "metadata": metadata,
+        "metadata": metadata.iter().map(hito_core::test_support::support::metadata_snapshot).collect::<Vec<_>>(),
         "sources": sources,
         "playlists": library.hito.collection.playlists(&library.actor).await.unwrap(),
         "unrelated": library.hito.collection.playlist(&library.actor, &unrelated.to_string()).await.unwrap(),
@@ -120,12 +120,22 @@ pub async fn assert_deleted(library: &Library) {
 
 pub fn expected_after_deletion(before: &Value, book: Uuid, unrelated: Uuid, name: &str) -> Value {
     let mut expected = before.clone();
+    forget_playlist(&mut expected, book);
+    rename(&mut expected, unrelated, name);
+    expected
+}
+
+pub fn forget_playlist(expected: &mut Value, playlist: Uuid) {
     expected["playlists"]
         .as_array_mut()
         .unwrap()
-        .retain(|playlist| playlist["id"] != book.to_string());
-    rename(&mut expected, unrelated, name);
-    expected
+        .retain(|entry| entry["id"] != playlist.to_string());
+    for metadata in expected["metadata"].as_array_mut().unwrap() {
+        metadata["appears_in"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|entry| entry["id"] != playlist.to_string());
+    }
 }
 
 pub fn rename(expected: &mut Value, unrelated: Uuid, name: &str) {
@@ -137,6 +147,13 @@ pub fn rename(expected: &mut Value, unrelated: Uuid, name: &str) {
         .unwrap();
     playlist["name"] = json!(name);
     expected["unrelated"]["playlist"]["name"] = json!(name);
+    for metadata in expected["metadata"].as_array_mut().unwrap() {
+        for appearance in metadata["appears_in"].as_array_mut().unwrap() {
+            if appearance["id"] == unrelated.to_string() {
+                appearance["name"] = json!(name);
+            }
+        }
+    }
 }
 
 pub async fn deny(library: &Library, actor: &Actor, action: Action) {

@@ -146,6 +146,14 @@ impl Auth {
         response.body
     }
 
+    async fn metadata_without_playback(&self, app: &Router, recording: &str) -> Value {
+        let mut metadata = self
+            .get(app, &format!("/api/v1/recordings/{recording}/metadata"))
+            .await;
+        metadata.as_object_mut().unwrap().remove("last_played");
+        metadata
+    }
+
     pub async fn sync(&self, app: &Router, actions: Vec<Action>) -> Vec<Value> {
         let operations: Vec<Operation> = actions
             .into_iter()
@@ -215,7 +223,7 @@ impl Auth {
             "recordings": self.get(app, "/api/v1/recordings").await,
             "artists": self.get(app, "/api/v1/artists").await,
             "releases": self.get(app, "/api/v1/releases").await,
-            "metadata": self.get(app, &format!("/api/v1/recordings/{recording}/metadata")).await,
+            "metadata": self.metadata_without_playback(app, recording).await,
             "sources": self.get(app, &format!("/api/v1/recordings/{recording}/sources")).await,
             "playlists": self.get(app, "/api/v1/playlists").await,
             "details": details, "downloads": downloads,

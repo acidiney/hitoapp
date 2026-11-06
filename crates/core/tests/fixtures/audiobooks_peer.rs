@@ -145,7 +145,7 @@ impl Peer {
             "recordings": library.hito.catalog.recordings(&self.actor, Search::default()).await.unwrap(),
             "artists": library.hito.catalog.artists(&self.actor, Browse::default()).await.unwrap(),
             "releases": library.hito.catalog.releases(&self.actor, Browse::default()).await.unwrap(),
-            "metadata": metadata,
+            "metadata": metadata.iter().map(hito_core::test_support::support::metadata_snapshot).collect::<Vec<_>>(),
             "sources": sources,
             "playlists": library.hito.collection.playlists(&self.actor).await.unwrap(),
             "activity": library.hito.collection.activity(&self.actor).await.unwrap(),

@@ -223,7 +223,7 @@ impl Library {
             "recordings": self.hito.catalog.recordings(&self.actor, Search::default()).await.unwrap(),
             "artists": self.hito.catalog.artists(&self.actor, Browse::default()).await.unwrap(),
             "releases": self.hito.catalog.releases(&self.actor, Browse::default()).await.unwrap(),
-            "metadata": metadata,
+            "metadata": metadata.iter().map(hito_core::test_support::support::metadata_snapshot).collect::<Vec<_>>(),
             "sources": sources,
             "playlists": self.hito.collection.playlists(&self.actor).await.unwrap(),
             "chapters": self.hito.collection.playlist(&self.actor, &self.playlist.to_string()).await.unwrap(),

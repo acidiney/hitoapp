@@ -136,6 +136,10 @@ async fn audiobook_pages_authorize_the_book_before_selecting_partial_shared_prop
     let mut expected = retained;
     expected["owner"]["events"] = after["owner"]["events"].clone();
     expected["owner"]["playlists"] = expected_playlists;
+    expected["owner"]["metadata"]["appears_in"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|playlist| playlist["id"] != library.book.to_string());
     assert!(
         after == expected,
         "Deleted-book navigation must preserve the peer's complete private state, owner metadata/likes/progress, unrelated duplicate playlist, source identities and explicit download absence"

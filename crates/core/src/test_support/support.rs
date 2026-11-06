@@ -188,3 +188,9 @@ pub fn audio_bytes(mut audio: crate::AudioFile) -> Vec<u8> {
     std::io::Read::read_to_end(&mut audio.file, &mut bytes).unwrap();
     bytes
 }
+
+pub fn metadata_snapshot(metadata: &crate::RecordingMetadata) -> serde_json::Value {
+    let mut snapshot = serde_json::to_value(metadata).unwrap();
+    snapshot.as_object_mut().unwrap().remove("last_played");
+    snapshot
+}

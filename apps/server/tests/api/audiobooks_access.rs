@@ -133,6 +133,10 @@ async fn audiobook_reads_enforce_account_scope_and_hide_deleted_backing_playlist
         .as_array_mut()
         .unwrap()
         .retain(|playlist| playlist["id"] != library.book.to_string());
+    expected["owner"]["metadata"]["appears_in"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|playlist| playlist["id"] != library.book.to_string());
     assert!(
         after == expected,
         "Parent deletion and subsequent reads must preserve the peer's complete private state, owner metadata/sources/likes/progress, unrelated duplicate playlist and download absence"

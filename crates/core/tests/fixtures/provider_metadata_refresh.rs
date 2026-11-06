@@ -94,8 +94,8 @@ pub async fn private_state(f: &Library, recording: &str) -> Value {
         "catalog": catalog,
         "albums": f.hito.catalog.releases(&f.actor, Default::default()).await.unwrap(),
         "artists": f.hito.catalog.artists(&f.actor, Default::default()).await.unwrap(),
-        "metadata": f.hito.catalog.recording_metadata(&f.actor, recording, Default::default()).await.unwrap(),
-        "all_metadata": all_metadata,
+        "metadata": unrelated_metadata(&f.hito.catalog.recording_metadata(&f.actor, recording, Default::default()).await.unwrap()),
+        "all_metadata": all_metadata.iter().map(unrelated_metadata).collect::<Vec<_>>(),
         "sources": f.hito.catalog.sources(&f.actor, recording).await.unwrap(),
         "source_choice": f.hito.catalog.source_choice(&f.actor, recording).await.unwrap(),
         "activity": f.hito.collection.activity(&f.actor).await.unwrap(),
@@ -132,4 +132,10 @@ pub async fn request_counts(f: &Library) -> Vec<(&'static str, usize, usize)> {
         counts.push((path, origin, alternate));
     }
     counts
+}
+
+fn unrelated_metadata(metadata: &hito_core::RecordingMetadata) -> Value {
+    let mut snapshot = support::metadata_snapshot(metadata);
+    snapshot.as_object_mut().unwrap().remove("appears_in");
+    snapshot
 }

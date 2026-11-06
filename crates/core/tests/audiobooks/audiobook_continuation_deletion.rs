@@ -225,10 +225,7 @@ async fn chapter_and_book_deletion_win_over_delayed_continuation_without_blockin
     )
     .await;
     expected = deleted::expected_after_deletion(&expected, library.playlist, alternate, first_name);
-    expected["playlists"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|playlist| playlist["id"] != never_grouped.to_string());
+    deleted::forget_playlist(&mut expected, never_grouped);
     assert_deleted(&library, never_grouped).await;
     let final_name = "Private independent work after committed deletion";
     deleted::accept(
