@@ -20,6 +20,7 @@ export default function MetadataDetailRow({
   const [draft, setDraft] = useState(metadata.value);
   const [error, setError] = useState("");
   const label = `Track ${field}`;
+  const visible = field === "title" ? "Title" : "Artist";
   const inputId = `personal-recording-${field}`;
   const penId = `edit-recording-${field}`;
   const personal = metadata.personal !== null;
@@ -65,11 +66,12 @@ export default function MetadataDetailRow({
         onKeyDown={press}
       >
         <label className="track-row-label" htmlFor={inputId}>
-          {label}
+          {visible}
         </label>
         <div className="track-row-value">
           <input
             id={inputId}
+            aria-label={label}
             value={draft}
             required
             autoFocus
@@ -78,9 +80,9 @@ export default function MetadataDetailRow({
             onChange={(event) => setDraft(event.target.value)}
           />
           <span className="track-muted" id={`${inputId}-inheritance`}>
-            {personal ? `Personal ${field}` : "Following source metadata"} ·
-            Source {field}:{" "}
-            <strong>{metadata.inherited ?? "Not provided by source"}</strong>
+            {personal ? "Personal" : "Following source"} · source says{" "}
+            <strong>{metadata.inherited ?? "Not provided by source"}</strong>.
+            Applies to this account across albums and playlists.
           </span>
           {error && (
             <p className="form-error" role="alert">
@@ -114,7 +116,7 @@ export default function MetadataDetailRow({
 
   return (
     <div className="track-row">
-      <span className="track-row-label">{label}</span>
+      <span className="track-row-label">{visible}</span>
       <div className="track-row-value">
         <span>{metadata.value}</span>
         {chip}
@@ -127,7 +129,7 @@ export default function MetadataDetailRow({
       <button
         id={penId}
         type="button"
-        className="icon-button"
+        className="button secondary track-row-edit"
         aria-label={`Edit ${label.toLowerCase()}`}
         onClick={() => setEditing(true)}
       >

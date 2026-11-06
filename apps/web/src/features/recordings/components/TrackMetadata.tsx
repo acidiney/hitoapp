@@ -3,10 +3,14 @@ import { router } from "@inertiajs/react";
 import ArtistReview from "../../artists/components/ArtistReview";
 import { opensArtistSearch } from "../../artists/model/artistSearchLink";
 import MetadataDetails from "../../metadata/components/MetadataDetails";
-import MusicBrainzIds from "../../metadata/components/MusicBrainzIds";
 import RecordingCredits from "../../metadata/components/RecordingCredits";
 import { useRecordingSplit } from "../hooks/useRecordingSplit";
 import RecordingCopies from "./RecordingCopies";
+
+const PROOF: Record<NonNullable<Schema<"RecordingCopy">["proof"]>, string> = {
+  musicbrainz_recording: "same recording",
+  isrc: "same ISRC",
+};
 
 export default function TrackMetadata({
   account,
@@ -21,6 +25,9 @@ export default function TrackMetadata({
     router.reload(),
   );
   const source = detail.selected_observation;
+  const others = copies.copies.filter(
+    (copy) => copy.recording_id !== detail.recording_id,
+  );
   return (
     <div className="track-metadata">
       <MetadataDetails
@@ -42,37 +49,69 @@ export default function TrackMetadata({
       />
       <section className="track-block" aria-labelledby="track-origin-heading">
         <h2 id="track-origin-heading">Where these details come from</h2>
-        {source && (
-          <dl className="track-facts">
+        <dl className="track-facts">
+          {source && (
             <div className="track-fact">
               <dt>Selected source</dt>
               <dd>
                 {source.provider === "local" ? "Local file" : source.provider}
                 {source.observed_at !== null && (
                   <span className="track-aside">
-                    inspected{" "}
-                    {new Date(source.observed_at * 1000).toLocaleDateString()}
+                    · inspected{" "}
+                    {new Date(source.observed_at * 1000).toLocaleDateString(
+                      undefined,
+                      { day: "numeric", month: "short", year: "numeric" },
+                    )}
                   </span>
                 )}
               </dd>
             </div>
-          </dl>
-        )}
-        {source?.origin === "provider_response" && source.attribution && (
-          <section className="rd-card" aria-label="Selected metadata credits">
-            <h3>Selected metadata credits</h3>
-            <RecordingCredits attribution={source.attribution} />
-          </section>
-        )}
-        <MusicBrainzIds
-          ids={[
-            {
-              label: "Recording",
-              kind: "recording",
-              id: detail.musicbrainz_recording_id,
-            },
-          ]}
-        />
+          )}
+          {source?.origin === "provider_response" && source.attribution && (
+            <div
+              className="track-fact track-credits"
+              role="region"
+              aria-label="Selected metadata credits"
+            >
+              <dt>Credits</dt>
+              <dd>
+                <RecordingCredits attribution={source.attribution} />
+              </dd>
+            </div>
+          )}
+          {detail.musicbrainz_recording_id !== null && (
+            <div className="track-fact">
+              <dt>MusicBrainz</dt>
+              <dd>
+                <a
+                  className="track-mono track-id"
+                  href={`https://musicbrainz.org/recording/${encodeURIComponent(detail.musicbrainz_recording_id)}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  {detail.musicbrainz_recording_id}
+                </a>
+              </dd>
+            </div>
+          )}
+          {others.length > 0 && (
+            <div className="track-fact">
+              <dt>Copies</dt>
+              <dd>
+                {others.length} other {others.length === 1 ? "copy" : "copies"}
+                {" · "}
+                <a className="text-link" href="#copies">
+                  {others[0].title}
+                </a>
+                {others[0].proof && (
+                  <span className="track-aside">
+                    · {PROOF[others[0].proof]}
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
       </section>
       <RecordingCopies
         recording={detail.recording_id}

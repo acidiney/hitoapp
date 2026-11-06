@@ -83,7 +83,7 @@ export default function ArtistReview({
   }
   return (
     <section
-      className="rd-card"
+      className="rd-card track-linked-artist"
       aria-labelledby="artist-match"
       aria-busy={workflow.pending !== null}
     >
@@ -305,20 +305,23 @@ function ArtistSummary({
   return (
     <div className="rd-summary">
       <div className="rd-row-copy">
-        <strong>Artist: {chosen && name ? name : credit}</strong>
-        {provenance && <p>{provenance}</p>}
-      </div>
-      <div className="rd-row-actions">
+        <strong>{chosen && name ? name : credit}</strong>
+        {chosen && association && (
+          <span className="track-chip" data-tone="neutral">
+            {providerName(association.provider)}
+          </span>
+        )}
         {chosen && (
           <Link
             className="text-link"
             href={`/artist-groups/${encodeURIComponent(state.group_id)}`}
           >
-            Open artist
+            Open profile
           </Link>
         )}
-        {action}
+        {provenance && <p>{provenance}</p>}
       </div>
+      <div className="rd-row-actions">{action}</div>
     </div>
   );
 }

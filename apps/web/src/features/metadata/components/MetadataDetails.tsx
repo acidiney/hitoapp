@@ -2,7 +2,6 @@ import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { useMetadataEditor } from "../hooks/useMetadataEditor";
 import type { MetadataField } from "../model/metadata";
-import Button from "../../../shared/ui/Button";
 import MetadataDetailRow from "./MetadataDetailRow";
 
 const fields = ["title", "artist"] as const satisfies MetadataField[];
@@ -41,13 +40,14 @@ export default function MetadataDetails({
             <span className="track-chip" data-tone="action">
               {edited.length} personal {edited.length === 1 ? "edit" : "edits"}
             </span>
-            <Button
-              variant="secondary"
+            <button
+              type="button"
+              className="text-link"
               disabled={pending}
               onClick={() => void reset()}
             >
               Reset all to source
-            </Button>
+            </button>
           </div>
         )}
       </div>
