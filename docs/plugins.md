@@ -571,6 +571,10 @@ The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web 
 
 Mutation JSON rejects unknown fields. Refresh returns `updated` or `review_required`. Responses expose only whether a credential is saved, never a token or encrypted credential. Conflicts require reloading current state; upstream failures return a safe 502 explanation without the service's response body. Browser mutations retain the existing same-origin/account checks and private no-store response policy.
 
+## Plugin request errors
+
+Hito turns a plugin's HTTP status into a plain message and never shows the response body or address. Status 502, 503 and 504, and a request that gets no answer within 10 seconds, show "The music service is not responding right now. Try again in a moment." Status 429 shows "The music service is busy. Try again in a moment." Status 401 and 403 show "The plugin service refused the request. Check the connection in Settings → Plugins." Any other error status shows "The plugin service rejected the request". A connection that cannot be opened shows "The plugin service could not be reached". The first two are temporary, so a second attempt often works. Requests are not retried automatically. Tested through the plugin fake server in `crates/core/tests/plugins/plugins_transport.rs`.
+
 ## Credential key and backups
 
 Bearer tokens are encrypted using RustCrypto XChaCha20-Poly1305 with a fresh random nonce and authenticated account/installation/service context. The versioned envelope includes a key fingerprint. Tokens are limited to 4,096 visible ASCII characters. They are not logged, returned, or saved in browser storage.

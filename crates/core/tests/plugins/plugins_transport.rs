@@ -137,3 +137,59 @@ async fn unavailable_plugin_requests_expire_and_release_admission_for_retry() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn plugin_statuses_map_to_accurate_user_messages_without_leaking_the_body() {
+    let server = fixture::PluginServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("plugin-status-host").await;
+    let service = hito
+        .plugins
+        .offer_service(
+            &actor,
+            OfferPluginService {
+                name: "Fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let not_responding = "The music service is not responding right now. Try again in a moment.";
+    let busy = "The music service is busy. Try again in a moment.";
+    let refused =
+        "The plugin service refused the request. Check the connection in Settings → Plugins.";
+    let rejected = "The plugin service rejected the request";
+    for (status, expected) in [
+        (StatusCode::BAD_GATEWAY, not_responding),
+        (StatusCode::SERVICE_UNAVAILABLE, not_responding),
+        (StatusCode::GATEWAY_TIMEOUT, not_responding),
+        (StatusCode::TOO_MANY_REQUESTS, busy),
+        (StatusCode::UNAUTHORIZED, refused),
+        (StatusCode::FORBIDDEN, refused),
+        (StatusCode::BAD_REQUEST, rejected),
+        (StatusCode::INTERNAL_SERVER_ERROR, rejected),
+    ] {
+        server
+            .response(
+                status,
+                HeaderMap::new(),
+                b"private upstream error".to_vec(),
+                false,
+            )
+            .await;
+        let error = hito
+            .plugins
+            .install(
+                &actor,
+                InstallPlugin {
+                    accept_manifest_digest: None,
+                    service_id: service.id.clone(),
+                    service_revision: service.revision,
+                    bearer_token: None,
+                },
+            )
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.to_string(), expected, "status {status}");
+    }
+}

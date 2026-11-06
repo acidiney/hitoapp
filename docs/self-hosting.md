@@ -221,7 +221,10 @@ Hito keeps working. Only the features that need that addon stop.
 | --- | --- |
 | No service under **Connect a service** | The server has not offered it. Check the addon runs (`ps`, `curl` the manifest). Look in the server log for a `Configured plugin service not offered` line and its `outcome`. Or offer the address by hand |
 | "The plugin service could not be reached" | The addon is stopped, still starting, or the address is wrong. Use the internal name (`http://plugin-spotify:8092/`), not `localhost`. `localhost` inside the server container is the server itself |
-| "The plugin service rejected the connection" | The addon answered with an error. It may need a bearer token that you did not enter, or it is unhealthy. Check its log |
+| "The music service is not responding right now" | The addon answered 502, 503 or 504, or did not answer within 10 seconds, usually because the music service behind it was slow. Try again in a moment. If it keeps happening, check the addon log |
+| "The music service is busy" | The addon answered 429. Wait a moment and try again |
+| "The plugin service refused the request" | The addon answered 401 or 403. It may need a bearer token that you did not enter or that is wrong. Check the connection in Settings → Plugins |
+| "The plugin service rejected the request" | The addon answered with another error. It is probably unhealthy. Check its log |
 | "The plugin service did not return JSON data" or "returned invalid JSON data" | The address points at something that is not an addon, for example a web page. Check the port |
 | "This service is already offered" | That address is already offered. Nothing to do |
 | "Use an HTTP or HTTPS service address without credentials, query, or fragment" | The address has a user name, `?query`, `#fragment` or another scheme. Fix the address |

@@ -279,9 +279,7 @@ impl ControlClient {
     ) -> Result<T> {
         self.exchange_optional_admitted(base_url, token, call, remaining, false)
             .await?
-            .ok_or(Error::Upstream(
-                "The plugin service rejected the connection",
-            ))
+            .ok_or(Error::Upstream("The plugin service rejected the request"))
     }
 
     async fn exchange_optional_admitted<T: serde::de::DeserializeOwned>(
@@ -314,7 +312,13 @@ impl ControlClient {
             .header("x-hito-plugin-protocol", "1")
             .send()
             .await
-            .map_err(|_| Error::Upstream("The plugin service could not be reached"))?;
+            .map_err(|error| {
+                if error.is_timeout() {
+                    Error::Upstream(NOT_RESPONDING)
+                } else {
+                    Error::Upstream("The plugin service could not be reached")
+                }
+            })?;
         let status = response.status();
         tracing::debug!(
             status = status.as_u16(),
@@ -325,9 +329,7 @@ impl ControlClient {
             return Ok(None);
         }
         if !status.is_success() {
-            return Err(Error::Upstream(
-                "The plugin service rejected the connection",
-            ));
+            return Err(status_error(status));
         }
         if response
             .headers()
@@ -381,4 +383,18 @@ pub(super) struct Call {
     pub(super) path: &'static str,
     pub(super) body: Option<serde_json::Value>,
     pub(super) maximum: usize,
+}
+
+const NOT_RESPONDING: &str =
+    "The music service is not responding right now. Try again in a moment.";
+
+fn status_error(status: reqwest::StatusCode) -> Error {
+    Error::Upstream(match status.as_u16() {
+        502..=504 => NOT_RESPONDING,
+        429 => "The music service is busy. Try again in a moment.",
+        401 | 403 => {
+            "The plugin service refused the request. Check the connection in Settings → Plugins."
+        }
+        _ => "The plugin service rejected the request",
+    })
 }
