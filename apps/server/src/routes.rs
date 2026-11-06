@@ -3,8 +3,8 @@ use crate::{
     api::{
         self, avatar, browsing, catalog, collection, downloads, identity, jobs, player,
         playlist_follow, plugin_authorization, plugins, podcasts, progress, providers,
-        source_bindings, source_choice, source_preparation, source_refresh, source_resolution,
-        storage,
+        source_bindings, source_choice, source_preference, source_preparation, source_refresh,
+        source_resolution, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -135,6 +135,10 @@ fn api_routes() -> OpenApiRouter<Services> {
             source_choice::choose_source
         ))
         .routes(routes!(source_choice::reset_source_choice))
+        .routes(routes!(
+            source_preference::source_preferences,
+            source_preference::update_source_preferences
+        ))
         .routes(routes!(
             source_preparation::create,
             source_preparation::status

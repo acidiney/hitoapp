@@ -39,6 +39,7 @@ pub mod providers;
 pub mod recording_groups;
 pub mod source_bindings;
 pub mod source_choice;
+pub mod source_preference;
 pub mod source_preparation;
 pub mod source_refresh;
 pub mod source_resolution;
