@@ -10,7 +10,10 @@ import type { useSourceChoice } from "../../sources/hooks/useSourceChoice";
 function LocalFileSource() {
   return (
     <section className="rd-card" aria-labelledby="local-file-source">
-      <h2 id="local-file-source">Playback source</h2>
+      <div className="track-block-head">
+        <h2 id="local-file-source">Playback source</h2>
+        <span className="track-muted">Automatic</span>
+      </div>
       <ul className="rd-rows rd-choices">
         <li className="rd-row rd-choice">
           <label>
@@ -25,7 +28,10 @@ function LocalFileSource() {
           </span>
         </li>
       </ul>
-      <p>Hito plays the file from your music folder.</p>
+      <p className="track-note">
+        Automatic picks the best ready source. With one source there is nothing
+        to choose.
+      </p>
     </section>
   );
 }
@@ -73,7 +79,9 @@ export default function TrackSources({
       onAttached={choice.invalidateRead}
     />
   );
-  const showCopy = !localOnly || download.download !== null;
+  const copyHidden =
+    localOnly || (noAudio && !choice.unavailable && !choice.checking);
+  const showCopy = !copyHidden || download.download !== null;
   return (
     <div className="track-sources">
       {providerTrack && noAudio && attachment(true)}

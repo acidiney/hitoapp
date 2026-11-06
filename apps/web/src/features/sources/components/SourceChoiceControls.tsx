@@ -2,7 +2,6 @@ import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
 
 import Button from "../../../shared/ui/Button";
-import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 
 const modes: Record<Schema<"SourceChoice">["mode"], string> = {
   automatic: "Automatic source selection",
@@ -65,8 +64,10 @@ export default function SourceChoiceControls({
   if (unavailable) return null;
   return (
     <section className="rd-card" aria-labelledby={heading}>
-      <h2 id={heading}>Playback source</h2>
-      {choice && <p>{modes[choice.mode]}</p>}
+      <div className="track-block-head">
+        <h2 id={heading}>Playback source</h2>
+        {choice && <p className="track-muted">{modes[choice.mode]}</p>}
+      </div>
       <p role="status">
         {pending
           ? "Saving source choice…"
@@ -103,22 +104,22 @@ export default function SourceChoiceControls({
                   {entry.source.provider}
                 </span>
                 <span className="rd-choice-state">
-                  <AvailabilityLabel
-                    state={
+                  <span
+                    className="track-chip"
+                    data-tone={
                       entry.source.device_id
-                        ? "library"
+                        ? "action"
                         : entry.source.ready
-                          ? "available"
-                          : "catalog"
+                          ? "success"
+                          : "warning"
                     }
-                    label={
-                      entry.source.device_id
-                        ? "On this device"
-                        : entry.source.ready
-                          ? "Ready"
-                          : "Not prepared"
-                    }
-                  />
+                  >
+                    {entry.source.device_id
+                      ? "On this device"
+                      : entry.source.ready
+                        ? "Ready"
+                        : "Not prepared"}
+                  </span>
                   {choice.mode === "manual" && entry.selected && (
                     <span className="track-chip" data-tone="neutral">
                       Pinned
@@ -128,11 +129,6 @@ export default function SourceChoiceControls({
               </li>
             ))}
           </ul>
-          {stagedSource !== null && !savedSelection(choice, stagedSource) && (
-            <p role="status">
-              Selected, not saved yet. Use source to play from it.
-            </p>
-          )}
           <div className="rd-actions">
             {choice.mode !== "automatic" && (
               <Button disabled={!canReset} onClick={() => void reset()}>
@@ -147,6 +143,11 @@ export default function SourceChoiceControls({
               Use source
             </Button>
           </div>
+          {stagedSource !== null && !savedSelection(choice, stagedSource) && (
+            <p className="track-note" role="status">
+              Selected, not saved yet. Use source to play from it.
+            </p>
+          )}
         </>
       )}
       {retrying && (

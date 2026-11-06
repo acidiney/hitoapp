@@ -7,7 +7,12 @@ import DiscoverySearch from "../../discovery/components/DiscoverySearch";
 import Button from "../../../shared/ui/Button";
 import Artwork from "../../artwork/components/Artwork";
 import SourceCandidateReview from "./SourceCandidateReview";
-import { candidateArtist, candidateLength } from "../model/candidateFacts";
+import { Check } from "lucide-react";
+import {
+  candidateArtist,
+  candidateLength,
+  lengthComparison,
+} from "../model/candidateFacts";
 
 export default function SourceAttachment({
   account,
@@ -41,6 +46,11 @@ export default function SourceAttachment({
     ? (workflow.names[workflow.connection.service_id] ??
       workflow.connection.manifest.name)
     : "";
+  const savedMs = detail.selected_observation?.duration_ms;
+  const sameTrack = (hit: Schema<"ProviderRecording">) =>
+    lengthComparison(savedMs, hit.duration_ms)?.close === true &&
+    candidateArtist(hit.artist)?.toLocaleLowerCase() ===
+      detail.artist.value.trim().toLocaleLowerCase();
   return (
     <section
       className="rd-card source-attachment"
@@ -98,8 +108,12 @@ export default function SourceAttachment({
                   />
                   <div className="source-candidate-copy">
                     <h3>{hit.title}</h3>
-                    {candidateArtist(hit.artist) && (
-                      <p>{candidateArtist(hit.artist)}</p>
+                    {(candidateArtist(hit.artist) || hit.release?.title) && (
+                      <p>
+                        {[candidateArtist(hit.artist), hit.release?.title]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     )}
                     <p className="source-candidate-facts">
                       {[candidateLength(hit.duration_ms), provider]
@@ -107,16 +121,24 @@ export default function SourceAttachment({
                         .join(" · ")}
                     </p>
                   </div>
-                  <Button
-                    className="rd-row-action"
-                    disabled={workflow.pending !== null}
-                    onClick={(event) => {
-                      opener.current = event.currentTarget;
-                      void workflow.reviewCandidate(hit);
-                    }}
-                  >
-                    Review match
-                  </Button>
+                  <div className="source-candidate-end">
+                    {sameTrack(hit) && (
+                      <span className="track-ok">
+                        <Check size={14} aria-hidden="true" /> Same length and
+                        artist
+                      </span>
+                    )}
+                    <Button
+                      className="rd-row-action"
+                      disabled={workflow.pending !== null}
+                      onClick={(event) => {
+                        opener.current = event.currentTarget;
+                        void workflow.reviewCandidate(hit);
+                      }}
+                    >
+                      Review match
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

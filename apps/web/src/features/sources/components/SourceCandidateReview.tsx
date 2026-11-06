@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import Artwork from "../../artwork/components/Artwork";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
+import { Check } from "lucide-react";
 import {
   candidateArtist,
   candidateLength,
@@ -12,22 +13,26 @@ import {
 
 function Side({
   label,
+  heading = label,
   id,
   title,
   artist,
+  album,
   durationMs,
   recording,
 }: {
   label: string;
+  heading?: string;
   id: string;
   title: string;
   artist: string;
+  album: string | null | undefined;
   durationMs: number | null | undefined;
   recording?: string;
 }) {
   return (
     <div className="review-side" role="group" aria-label={label}>
-      <h4>{label}</h4>
+      <h4>{heading}</h4>
       <Artwork
         className="review-cover"
         recording={recording}
@@ -35,7 +40,10 @@ function Side({
       />
       <p className="review-title">{title}</p>
       <p>{candidateArtist(artist) ?? "Artist not listed"}</p>
-      <p>{candidateLength(durationMs) ?? "Length not listed"}</p>
+      <p>{album || "—"}</p>
+      <p className="track-mono">
+        {candidateLength(durationMs) ?? "Length not listed"}
+      </p>
     </div>
   );
 }
@@ -74,6 +82,7 @@ export default function SourceCandidateReview({
           <span />
           <span>Title</span>
           <span>Artist</span>
+          <span>Album</span>
           <span>Length</span>
         </div>
         <Side
@@ -81,19 +90,23 @@ export default function SourceCandidateReview({
           id={detail.recording_id}
           title={detail.title.value}
           artist={detail.artist.value}
+          album={detail.selected_observation?.album}
           durationMs={savedMs}
           recording={detail.recording_id}
         />
         <Side
           label="Candidate source"
+          heading={provider ? `Candidate · ${provider}` : "Candidate source"}
           id={review.candidate.id}
           title={review.candidate.title}
           artist={review.candidate.artist}
+          album={review.candidate.release?.title}
           durationMs={review.candidate.duration_ms}
         />
       </div>
       {comparison && (
         <p className="review-hint" data-close={comparison.close} role="status">
+          {comparison.close && <Check size={16} aria-hidden="true" />}
           {comparison.text}
         </p>
       )}
