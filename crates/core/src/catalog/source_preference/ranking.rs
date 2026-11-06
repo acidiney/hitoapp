@@ -103,6 +103,13 @@ mod tests {
         })
     }
 
+    type Row<'a> = (
+        &'a str,
+        SourceRanking,
+        Vec<(&'a str, &'a str, &'a str)>,
+        Vec<&'a str>,
+    );
+
     fn sorted(ranking: &SourceRanking, input: &[(&str, &str, &str)]) -> Vec<String> {
         let mut sources: Vec<Source> = input.iter().map(|row| source(row.0, row.1)).collect();
         let installations: HashMap<String, String> = input
@@ -122,7 +129,7 @@ mod tests {
             provider("a"),
             provider("b"),
         ];
-        let rows: Vec<(&str, SourceRanking, Vec<(&str, &str, &str)>, Vec<&str>)> = vec![
+        let rows: Vec<Row> = vec![
             (
                 "unsaved keeps local, saved, podcast, then the incoming provider order",
                 ranking(0, defaults.clone()),
