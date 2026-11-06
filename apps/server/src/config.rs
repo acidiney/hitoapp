@@ -1,4 +1,5 @@
 mod origins;
+mod scanning;
 mod watching;
 
 use hito_core::{
@@ -6,6 +7,7 @@ use hito_core::{
     StorageConfig,
 };
 use origins::{parse_additional_origins, validate_combined_origins};
+use scanning::{ScanSettings, apply_scan_settings};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
 use watching::parse_folder_watching;
@@ -98,6 +100,14 @@ impl RuntimeConfig {
         if let Some(tool) = std::env::var_os("HITO_FFPROBE") {
             config.core.media_tools.ffprobe = tool.into();
         }
+        apply_scan_settings(
+            &mut config.core.media_tools,
+            ScanSettings {
+                parallelism: std::env::var("HITO_SCAN_PARALLELISM").ok().as_deref(),
+                temp_budget_mib: std::env::var("HITO_SCAN_TEMP_BUDGET_MIB").ok().as_deref(),
+                temp_dir: std::env::var("HITO_SCAN_TEMP_DIR").ok().as_deref(),
+            },
+        )?;
         config.http.origin =
             std::env::var("HITO_PUBLIC_ORIGIN").unwrap_or_else(|_| "http://localhost:8080".into());
         validate_combined_origins(&config.http.origin, &additional_origins)?;
