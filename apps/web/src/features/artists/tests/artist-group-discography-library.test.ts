@@ -147,22 +147,13 @@ test("releases are grouped by primary type with exact library availability and n
       .querySelector(":scope > ul")!.children,
   ) as HTMLElement[];
   expect(albums).toHaveLength(2);
-  fireEvent.click(
-    within(albums[0]).getByRole("button", { name: "Open Same title" }),
-  );
-  fireEvent.click(
-    within(albums[1]).getByRole("button", { name: "Open Same title" }),
-  );
-  const link = await within(albums[0]).findByRole("link", {
-    name: "Open in your library",
-  });
-  expect(link.getAttribute("href")).toBe("/albums/local%20album%2F%C3%A9");
-  expect(
-    await within(albums[1]).findByText("Not linked to a library album"),
-  ).toBeTruthy();
-  expect(
-    within(albums[1]).queryByRole("link", { name: "Open in your library" }),
-  ).toBeNull();
+  for (const card of albums)
+    expect(
+      within(card)
+        .getByRole("link", { name: "Open Same title" })
+        .getAttribute("href"),
+    ).toContain("/releases/");
+  expect(within(region).queryByRole("table")).toBeNull();
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 1 });
   expect(player.playQueue).not.toHaveBeenCalled();
   expect(player.subscribePosition).not.toHaveBeenCalled();

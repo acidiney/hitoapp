@@ -1,3 +1,4 @@
+import { choose, optionsOf } from "../../../test/listbox";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { Schema } from "../../../shared/schema";
@@ -20,6 +21,10 @@ import { catalogAlbumElement } from "../fixtures/catalogAlbumPlay";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { log } from "../../../shared/log";
 import { flush } from "../../../test/async";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
@@ -258,9 +263,7 @@ test.each(["late success body", "late error headers"] as const)(
       await act(async () => {
         await held.entered;
       });
-      fireEvent.change(screen.getByRole("combobox", { name: "Edition" }), {
-        target: { value: bonusEdition.id },
-      });
+      choose(screen.getByRole("combobox", { name: "Edition" }), 1);
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
       const table = await screen.findByRole("table", { name: "Tracks" });

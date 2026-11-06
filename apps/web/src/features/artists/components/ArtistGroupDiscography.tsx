@@ -37,6 +37,9 @@ export default function ArtistGroupDiscography({
           profile={workflow.ready.profile}
           browseOnMount
           showLibrary
+          albumHref={(release) =>
+            `/artist-groups/${encodeURIComponent(group.id)}/releases/${encodeURIComponent(release)}`
+          }
         />
       )}
     </section>

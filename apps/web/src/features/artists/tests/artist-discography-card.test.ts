@@ -16,6 +16,7 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 
+const navigation = vi.hoisted(() => ({ get: vi.fn() }));
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
   subscribe: () => () => {},
@@ -29,7 +30,7 @@ vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
 vi.mock("@inertiajs/react", () => ({
-  router: { get: vi.fn() },
+  router: navigation,
   usePage: () => ({ url: window.location.pathname + window.location.search }),
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
@@ -98,7 +99,7 @@ async function open() {
   return region;
 }
 
-test("a release card shows the type and year only, with open and play as separate controls", async () => {
+test("a release card shows the type and year only and links to the release page", async () => {
   const region = await open();
   const card = within(
     within(region)
@@ -108,11 +109,17 @@ test("a release card shows the type and year only, with open and play as separat
   expect(card.getByText("Single · 2008")).toBeTruthy();
   expect(card.queryByText(/2008-04-20/)).toBeNull();
   expect(
-    card.getByRole("button", { name: "Open Hometown Glory" }),
-  ).toBeTruthy();
-  expect(
-    card.getByRole("button", { name: "Play Hometown Glory" }),
-  ).toBeTruthy();
+    card
+      .getByRole("link", { name: "Open Hometown Glory" })
+      .getAttribute("href"),
+  ).toBe(
+    `/artist-groups/${artistIdentityBrowsing().group.id}/releases/rg%3Aowned`,
+  );
+  expect(card.queryByRole("button", { name: /^Open / })).toBeNull();
+  fireEvent.click(card.getByRole("button", { name: "Play Hometown Glory" }));
+  expect(navigation.get).toHaveBeenCalledWith(
+    `/artist-groups/${artistIdentityBrowsing().group.id}/releases/rg%3Aowned?play=1`,
+  );
   expect(card.queryByRole("button", { name: "Open album" })).toBeNull();
   expect(card.queryByRole("button", { name: "Play album" })).toBeNull();
   expect(card.queryByText("Not in your library")).toBeNull();
@@ -131,7 +138,7 @@ test("a release that is not in the library shows no badge and no mark", async ()
   expect(card.queryByRole("img", { name: "In your library" })).toBeNull();
 });
 
-test("the card opens the album in place and its library links appear there", async () => {
+test("opening a card navigates to the release page instead of expanding in place", async () => {
   const region = await open();
   const card = within(
     within(region)
@@ -139,8 +146,10 @@ test("the card opens the album in place and its library links appear there", asy
       .closest("li") as HTMLElement,
   );
   expect(card.queryByRole("link", { name: "Open in your library" })).toBeNull();
-  fireEvent.click(card.getByRole("button", { name: "Open Hometown Glory" }));
+  expect(card.queryByRole("table", { name: "Tracks" })).toBeNull();
   expect(
-    await card.findByRole("link", { name: "Open in your library" }),
-  ).toBeTruthy();
+    card
+      .getByRole("link", { name: "Open Hometown Glory" })
+      .getAttribute("href"),
+  ).toContain("/releases/");
 });

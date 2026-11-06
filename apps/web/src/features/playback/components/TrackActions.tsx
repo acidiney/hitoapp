@@ -53,13 +53,13 @@ export default function TrackActions({
   playlists: Schema<"Playlist">[];
   playlist?: Schema<"Playlist">;
   mutate: Mutate;
-  onMutationAccepted?: () => void;
+  onMutationAccepted?: (action: Schema<"Action">) => void;
 }) {
   const editable = playlists.filter((list) => list.kind === "local");
   const entryId = track.entry_id;
   async function update(action: Schema<"Action">) {
     if ((await mutate(action)).ok) {
-      if (onMutationAccepted) onMutationAccepted();
+      if (onMutationAccepted) onMutationAccepted(action);
       else router.reload();
     }
   }

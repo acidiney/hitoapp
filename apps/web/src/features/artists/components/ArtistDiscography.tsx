@@ -7,6 +7,7 @@ import { useDiscographyTypes } from "../hooks/useDiscographyTypes";
 import DiscographyRelease from "./DiscographyRelease";
 import DiscographySections from "./DiscographySections";
 import Button from "../../../shared/ui/Button";
+import { useCatalogRefreshing } from "../api/catalogCache";
 
 export default function ArtistDiscography({
   account,
@@ -17,7 +18,9 @@ export default function ArtistDiscography({
   showLibrary = false,
   release,
   onAlbumEdition,
+  albumHref,
 }: {
+  albumHref?: (id: string) => string;
   account: string;
   recording: string;
   association: Schema<"ArtistAssociation">;
@@ -55,6 +58,7 @@ export default function ArtistDiscography({
     groups,
     showLibrary,
   );
+  const refreshing = useCatalogRefreshing();
   if (!workflow.opened)
     return (
       <Button type="button" onClick={() => void workflow.browse()}>
@@ -69,6 +73,11 @@ export default function ArtistDiscography({
           {workflow.pages > 0
             ? "Loading more releases…"
             : "Loading discography…"}
+        </p>
+      )}
+      {refreshing && !workflow.pending && (
+        <p role="status" className="quiet">
+          Checking for updates…
         </p>
       )}
       {workflow.error &&
@@ -116,6 +125,7 @@ export default function ArtistDiscography({
             library={library.albums}
             release={release}
             onAlbumEdition={onAlbumEdition}
+            albumHref={albumHref}
             paging={{
               catalogComplete:
                 workflow.pages > 0 &&

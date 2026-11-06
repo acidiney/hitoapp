@@ -1,11 +1,11 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
-import { Link } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 
 import CatalogCover from "./CatalogCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import AlbumLevelCheck from "./AlbumLevelCheck";
+import LibraryAvailability from "./LibraryAvailability";
 import ArtistEditions from "./ArtistEditions";
 import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
@@ -18,49 +18,6 @@ const kinds = {
   other: "Other",
 };
 
-function tracks(count: number) {
-  return `${count} ${count === 1 ? "track" : "tracks"}`;
-}
-
-function Availability({
-  account,
-  albums,
-  group,
-}: {
-  account: string;
-  albums: Schema<"LibraryAlbum">[];
-  group: string;
-}) {
-  if (albums.length === 0)
-    return <p className="sr-only">Not linked to a library album</p>;
-  return (
-    <ul aria-label="In your library">
-      {albums.map((album) => (
-        <li key={album.release_id}>
-          <p>
-            {album.playable_count === 0
-              ? `${tracks(album.track_count)} in your library, none playable yet`
-              : album.playable_count === album.track_count
-                ? `${tracks(album.track_count)} in your library, all playable`
-                : `${album.playable_count} of ${album.track_count} tracks playable`}
-          </p>
-          <AlbumLevelCheck
-            account={account}
-            release={album.release_id}
-            releaseGroup={group}
-          />
-          <Link
-            className="text-link"
-            href={`/albums/${encodeURIComponent(album.release_id)}`}
-          >
-            Open in your library
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export default function DiscographyRelease({
   account,
   recording,
@@ -71,7 +28,9 @@ export default function DiscographyRelease({
   heading: Heading = "h4",
   release,
   onAlbumEdition,
+  albumHref,
 }: {
+  albumHref?: (id: string) => string;
   account: string;
   recording: string;
   association: Schema<"ArtistAssociation">;
@@ -99,7 +58,11 @@ export default function DiscographyRelease({
           playOnReady={view === "play"}
         />
         {library && (
-          <Availability account={account} albums={library} group={group.id} />
+          <LibraryAvailability
+            account={account}
+            albums={library}
+            group={group.id}
+          />
         )}
       </li>
     );
@@ -124,8 +87,13 @@ export default function DiscographyRelease({
             />
           }
           openLabel={`Open ${group.title}`}
+          href={albumHref?.(group.id)}
           onOpen={() => setView("open")}
-          onPlay={() => setView("play")}
+          onPlay={
+            albumHref
+              ? () => router.get(`${albumHref(group.id)}?play=1`)
+              : () => setView("play")
+          }
           inLibrary={
             availability?.state === "library"
               ? availability.label
@@ -175,7 +143,11 @@ export default function DiscographyRelease({
         />
       )}
       {library && (
-        <Availability account={account} albums={library} group={group.id} />
+        <LibraryAvailability
+          account={account}
+          albums={library}
+          group={group.id}
+        />
       )}
       <ArtistEditions
         account={account}

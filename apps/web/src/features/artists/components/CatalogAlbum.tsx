@@ -1,16 +1,19 @@
-import { regionName } from "../../../shared/regionName";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "@inertiajs/react";
 import { Play, Shuffle } from "lucide-react";
+import type { Schema } from "../../../shared/schema";
 import { time } from "../../../shared/format";
+import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
-import { useCatalogAlbum } from "../hooks/useCatalogAlbum";
-import { useCatalogPlayback } from "../hooks/useCatalogPlayback";
+import TrackTable from "../../playback/components/TrackTable";
+import { useCatalogRefreshing } from "../api/catalogCache";
+import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
-import CatalogTrackTable from "./CatalogTrackTable";
+import CatalogEditionSwitch from "./CatalogEditionSwitch";
+import LibraryAvailability from "./LibraryAvailability";
 
 const kinds = {
   album: "Album",
@@ -24,18 +27,31 @@ export default function CatalogAlbum({
   context,
   heading,
   playOnReady,
+  playlists = [],
+  crumbs,
+  withLibrary = false,
 }: {
+  withLibrary?: boolean;
   context: ArtistEditionContext;
-  heading: "h4" | "h5";
+  heading: "h1" | "h4" | "h5";
   playOnReady: boolean;
+  playlists?: Schema<"Playlist">[];
+  crumbs?: ReactNode;
 }) {
   const { group } = context;
-  const { editions, tracks, rows, credit } = useCatalogAlbum(context);
-  const playback = useCatalogPlayback(
-    context,
-    editions.chosen?.id ?? null,
-    rows.map((row) => row.id),
-  );
+  const { mutate } = useMutation(context.account);
+  const {
+    editions,
+    tracks,
+    rows,
+    occurrences,
+    credit,
+    playback,
+    library,
+    controls,
+  } = useCatalogTracks(context, withLibrary);
+  const owned = library.albums[group.id] ?? [];
+  const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;
   const started = useRef(false);
   const starter = useRef(playback.start);
@@ -51,26 +67,28 @@ export default function CatalogAlbum({
         Open album
       </Button>
     );
-  const duration = totalMs(rows);
+  const title = group.title || editions.chosen?.title || "Release";
+  const duration = totalMs(occurrences);
   const switchable = editions.editions.length > 1 || !!editions.continuation;
   return (
     <section aria-label="Album" aria-busy={editions.pending || tracks.pending}>
       <AlbumHeader
+        crumbs={crumbs}
+        eyebrow={group.kind ? kinds[group.kind] : "Release"}
         heading={heading}
         cover={
           <CatalogCover
             group={group.id}
             edition={editions.chosen?.id ?? null}
-            title={group.title}
+            title={title}
             artist={credit}
           />
         }
-        title={group.title}
+        title={title}
         credit={credit && <span className="album-artist">{credit}</span>}
         stats={
           <>
             {[
-              group.kind ? kinds[group.kind] : null,
               group.first_release_date,
               rows.length > 0
                 ? `${rows.length} ${rows.length === 1 ? "track" : "tracks"}${duration > 0 ? ` · ${time(duration / 1000)}` : ""}`
@@ -106,6 +124,28 @@ export default function CatalogAlbum({
         }
         notes={
           <>
+            {switchable && (
+              <CatalogEditionSwitch
+                editions={editions.editions}
+                chosen={editions.chosen?.id ?? ""}
+                pending={editions.pending}
+                more={!editions.error && !!editions.continuation}
+                onChoose={editions.choose}
+                onMore={() => void editions.more()}
+              />
+            )}
+            {withLibrary && owned.length > 0 && (
+              <LibraryAvailability
+                account={context.account}
+                albums={owned}
+                group={group.id}
+              />
+            )}
+            {refreshing && (
+              <p className="album-note quiet" role="status">
+                Checking for updates…
+              </p>
+            )}
             {playback.consentOff && (
               <p className="album-note" role="status">
                 Playing a catalog album searches your connected services, and
@@ -123,40 +163,6 @@ export default function CatalogAlbum({
           </>
         }
       />
-      {switchable && (
-        <div className="edition-switch">
-          <label>
-            <span>Edition</span>
-            <select
-              aria-label="Edition"
-              value={editions.chosen?.id ?? ""}
-              disabled={editions.pending}
-              onChange={(event) => editions.choose(event.target.value)}
-            >
-              {editions.editions.map((edition) => (
-                <option key={edition.id} value={edition.id}>
-                  {[
-                    edition.disambiguation ?? edition.title,
-                    edition.release_date,
-                    edition.country ? regionName(edition.country) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </option>
-              ))}
-            </select>
-          </label>
-          {!editions.error && editions.continuation && (
-            <Button
-              type="button"
-              disabled={editions.pending}
-              onClick={() => void editions.more()}
-            >
-              Load more editions
-            </Button>
-          )}
-        </div>
-      )}
       {(editions.pending || tracks.pending) && (
         <p role="status">Loading tracks…</p>
       )}
@@ -199,10 +205,11 @@ export default function CatalogAlbum({
         )}
       {editions.limited && <p>Showing the first 50 pages of editions.</p>}
       {rows.length > 0 && (
-        <CatalogTrackTable
+        <TrackTable
           rows={rows}
-          states={playback.rows}
-          onPlay={(index) => void playback.start(index)}
+          catalog={controls}
+          playlists={playlists}
+          mutate={mutate}
         />
       )}
     </section>

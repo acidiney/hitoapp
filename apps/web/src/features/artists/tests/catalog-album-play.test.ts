@@ -1,3 +1,4 @@
+import { choose, optionsOf } from "../../../test/listbox";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -27,6 +28,10 @@ import {
   secondEdition,
   twoEditionsPage,
 } from "../fixtures/catalogAlbumPlay";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 const player = vi.hoisted(() => {
   const queue = { total: 1, currentIndex: 0 as number | null };
@@ -168,8 +173,8 @@ test("two editions offer one compact switcher that reads the other edition's tra
   const fetch = serve({ editions: twoEditionsPage });
   const card = await openAlbum();
   const switcher = card.getByRole("combobox", { name: "Edition" });
-  expect(within(switcher).getAllByRole("option")).toHaveLength(2);
-  fireEvent.change(switcher, { target: { value: secondEdition.id } });
+  expect(optionsOf(switcher)).toHaveLength(2);
+  choose(switcher, 1);
   await waitFor(() =>
     expect(
       fetch.mock.calls
@@ -360,9 +365,7 @@ test("once playback started, leaving the page or switching edition does not stop
   const selection = player.selected.mock.calls[0][0] as {
     more: { next(signal: AbortSignal): Promise<unknown[]> };
   };
-  fireEvent.change(card.getByRole("combobox", { name: "Edition" }), {
-    target: { value: secondEdition.id },
-  });
+  choose(card.getByRole("combobox", { name: "Edition" }), 1);
   expect(await selection.more.next(new AbortController().signal)).toEqual([
     foundRecording(1),
   ]);
@@ -385,9 +388,7 @@ test("switching edition while a track is being searched retires the old search",
     fireEvent.click(card.getByRole("button", { name: "Play album" }));
   });
   await waitFor(() => expect(audioBodies).toHaveLength(1));
-  fireEvent.change(card.getByRole("combobox", { name: "Edition" }), {
-    target: { value: secondEdition.id },
-  });
+  choose(card.getByRole("combobox", { name: "Edition" }), 1);
   release();
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 30));

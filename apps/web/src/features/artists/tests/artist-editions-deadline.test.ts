@@ -16,6 +16,10 @@ import {
 import { log } from "../../../shared/log";
 import { flush } from "../../../test/async";
 
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
+
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
 );

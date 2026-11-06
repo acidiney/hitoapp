@@ -9,13 +9,9 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
+import LibraryAvailability from "../components/LibraryAvailability";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "../fixtures/artistGroupDiscography";
-import {
-  artistAssociation,
-  reviewedArtistProfile,
-} from "../fixtures/artistReview";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -41,18 +37,6 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
-function release(id: string): Schema<"CatalogReleaseGroup"> {
-  return {
-    id,
-    title: `Title of ${id}`,
-    artist_credit: null,
-    kind: "album",
-    secondary_types: [],
-    first_release_date: null,
-    revision: null,
-  };
-}
-
 const album = (releaseId: string): Schema<"LibraryAlbum"> => ({
   release_id: releaseId,
   edition_id: "edition:1",
@@ -62,34 +46,22 @@ const album = (releaseId: string): Schema<"LibraryAlbum"> => ({
 
 async function open(albumsByGroup: Record<string, string[]>) {
   const http = artistGroupHttp();
-  http.reply("discography", {
-    status: "available",
-    association_id: artistAssociation.id,
-    continuation: null,
-    page: {
-      artist_id: reviewedArtistProfile.profile.artist.id,
-      snapshot: null,
-      total_count: null,
-      next_cursor: null,
-      items: Object.keys(albumsByGroup).map(release),
-    },
-  });
-  http.replyLibrary({
-    association_id: artistAssociation.id,
-    groups: Object.entries(albumsByGroup).map(([id, albums]) => ({
-      release_group_id: id,
-      albums: albums.map(album),
-    })),
-  });
   const { detail } = artistIdentityBrowsing();
-  render(createElement(ArtistIdentityGroupPage, detail));
-  const region = await screen.findByRole("region", { name: "Discography" });
-  for (const id of Object.keys(albumsByGroup))
-    fireEvent.click(
-      await within(region).findByRole("button", {
-        name: `Open Title of ${id}`,
-      }),
-    );
+  render(
+    createElement(
+      "section",
+      { "aria-label": "Discography" },
+      ...Object.entries(albumsByGroup).map(([id, albums]) =>
+        createElement(LibraryAvailability, {
+          key: id,
+          account: detail.user.id,
+          albums: albums.map(album),
+          group: id,
+        }),
+      ),
+    ),
+  );
+  const region = screen.getByRole("region", { name: "Discography" });
   await within(region).findAllByText(/Compare|Not linked/);
   return { http, region };
 }

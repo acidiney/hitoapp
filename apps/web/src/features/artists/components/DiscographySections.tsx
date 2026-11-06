@@ -47,8 +47,10 @@ export default function DiscographySections({
   library,
   release,
   onAlbumEdition,
+  albumHref,
   paging,
 }: {
+  albumHref?: (id: string) => string;
   account: string;
   recording: string;
   association: Schema<"ArtistAssociation">;
@@ -167,6 +169,7 @@ export default function DiscographySections({
                     heading="h5"
                     release={release}
                     onAlbumEdition={onAlbumEdition}
+                    albumHref={albumHref}
                   />
                 ))}
               </ul>

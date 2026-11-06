@@ -22,6 +22,10 @@ import {
 } from "../fixtures/artistReview";
 import { log } from "../../../shared/log";
 
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
+
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
 );

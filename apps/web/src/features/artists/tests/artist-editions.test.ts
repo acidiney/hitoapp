@@ -1,3 +1,4 @@
+import { choose, optionsOf } from "../../../test/listbox";
 import { createElement } from "react";
 import {
   act,
@@ -28,6 +29,10 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 import { tracksOfEdition } from "../fixtures/catalogAlbumPlay";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
@@ -111,11 +116,12 @@ test("an opened catalog group pages editions on request and lists only the chose
     const rows = within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.textContent);
-    expect(rows).toEqual([
-      expect.stringContaining("1.1Tema repetido"),
-      expect.stringContaining("2.A1Tema repetido"),
-    ]);
+      .map((row) => row.textContent ?? "");
+    expect(rows.map((row) => /^(\d+\.[A-Z]?\d+)/.exec(row)?.[1] ?? "")).toEqual(
+      ["1.1", "2.A1"],
+    );
+    expect(rows[0]).toContain("Tema repetido");
+    expect(rows[1]).toContain("Tema repetido");
     expect(rows[0]).toContain("2:05");
     expect(rows[1]).toContain("2:06");
     expect(within(group).queryByText("Pregap", { exact: true })).toBeNull();
@@ -127,10 +133,9 @@ test("an opened catalog group pages editions on request and lists only the chose
     ).toBeNull();
 
     const switcher = within(group).getByRole("combobox", { name: "Edition" });
-    expect(within(switcher).getAllByRole("option")).toHaveLength(1);
-    expect(within(switcher).getByRole("option").textContent).toBe(
+    expect(optionsOf(switcher)).toEqual([
       "Standard edition · 2024-02 · Portugal",
-    );
+    ]);
     fireEvent.click(
       within(group).getByRole("button", { name: "Load more editions" }),
     );
@@ -143,20 +148,17 @@ test("an opened catalog group pages editions on request and lists only the chose
     } satisfies Schema<"ReadReleaseGroupEditions">);
     expect(fetch.mock.calls[3][1]?.body).not.toContain(providerEditionCursor);
     await act(async () => releaseMore(reply(lastEditionPage)));
-    await waitFor(() =>
-      expect(within(switcher).getAllByRole("option")).toHaveLength(2),
-    );
-    fireEvent.change(switcher, { target: { value: bonusEdition.id } });
+    await waitFor(() => expect(optionsOf(switcher)).toHaveLength(2));
+    choose(switcher, 1);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5));
     expect(JSON.parse(fetch.mock.calls[4][1]?.body as string)).toEqual({
       release_group_id: editionGroup.id,
       edition_id: bonusEdition.id,
     } satisfies Schema<"ReadEditionTrackList">);
     await waitFor(() =>
-      expect(within(group).getAllByRole("combobox")[0]).toHaveProperty(
-        "value",
-        bonusEdition.id,
-      ),
+      expect(
+        within(group).getByRole("combobox", { name: "Edition" }).textContent,
+      ).toBe("Bonus edition"),
     );
     for (const [, options] of fetch.mock.calls) {
       const headers = new Headers(options?.headers);

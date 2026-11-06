@@ -1,3 +1,4 @@
+import { choose, optionsOf } from "../../../test/listbox";
 import {
   act,
   fireEvent,
@@ -28,6 +29,10 @@ import {
   tracksOfEdition,
 } from "../fixtures/catalogAlbumPlay";
 import { flush } from "../../../test/async";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
@@ -94,8 +99,8 @@ test("a rejected later-page token can be restarted explicitly after server key l
     expect(detail.aborts()).toBe(1);
     expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
     expect(
-      screen.getByRole("option", { name: /Standard edition/ }),
-    ).toBeTruthy();
+      screen.getByRole("combobox", { name: "Edition" }).textContent,
+    ).toContain("Standard edition");
     await act(async () => {
       restart.release();
     });
@@ -106,8 +111,8 @@ test("a rejected later-page token can be restarted explicitly after server key l
       detail.release();
     });
     expect(
-      screen.queryByRole("option", { name: /Standard edition/ }),
-    ).toBeNull();
+      screen.queryByRole("combobox", { name: "Edition" })?.textContent ?? "",
+    ).not.toContain("Standard edition");
     expect(screen.queryByText(lateTitle)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(http.fetch).toHaveBeenCalledTimes(6);
@@ -188,9 +193,7 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
   try {
     await screen.findByRole("table", { name: "Tracks" });
     const options = () =>
-      within(screen.getByRole("combobox", { name: "Edition" })).getAllByRole(
-        "option",
-      );
+      optionsOf(screen.getByRole("combobox", { name: "Edition" }));
     for (let page = 2; page <= 50; page++) {
       fireEvent.click(screen.getByText("Load more editions"));
       await waitFor(() => expect(options()).toHaveLength(page));

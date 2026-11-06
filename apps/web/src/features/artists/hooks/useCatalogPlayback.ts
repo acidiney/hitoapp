@@ -57,6 +57,10 @@ export function useCatalogPlayback(
   const player = usePlayer();
   const { account, recording, association, group } = context;
   const [rows, setRows] = useState<ReadonlyMap<string, RowState>>(new Map());
+  const [recordings, setRecordings] = useState<
+    ReadonlyMap<string, Schema<"Recording">>
+  >(new Map());
+  const finders = useRef(new Set<AbortController>());
   const [halted, setHalted] = useState("");
   const [consentOff, setConsentOff] = useState(false);
   const saved = useRef(new Map<string, Schema<"Recording">>());
@@ -74,12 +78,15 @@ export function useCatalogPlayback(
   useEffect(() => {
     saved.current = new Map();
     setRows(new Map());
+    setRecordings(new Map());
     setHalted("");
     setConsentOff(false);
     return () => {
       life.retire();
       running.current?.abort();
       running.current = null;
+      for (const finder of finders.current) finder.abort();
+      finders.current.clear();
     };
   }, [life, account, recording, association.id, group.id, edition]);
 
@@ -114,8 +121,10 @@ export function useCatalogPlayback(
         continue;
       }
       const result = resolution(outcome);
-      if (result.kind === "found")
+      if (result.kind === "found") {
         saved.current.set(occurrence, result.recording);
+        if (!signal.aborted) setRecordings(new Map(saved.current));
+      }
       return result;
     }
   }
@@ -142,6 +151,38 @@ export function useCatalogPlayback(
         else setHalted(stop.message);
       },
     };
+  }
+
+  function seed(known: ReadonlyMap<string, Schema<"Recording">>) {
+    for (const [occurrence, recording] of known)
+      if (!saved.current.has(occurrence))
+        saved.current.set(occurrence, recording);
+    setRecordings(new Map(saved.current));
+  }
+
+  async function find(index: number) {
+    const occurrence = occurrences[index];
+    if (edition === null || occurrence === undefined) return;
+    const controller = new AbortController();
+    finders.current.add(controller);
+    const catalog = run(controller, true);
+    catalog.mark(occurrence, { status: "finding" });
+    try {
+      const result = await catalog.find(occurrence, controller.signal);
+      if (result.kind === "found")
+        catalog.mark(occurrence, {
+          status: "found",
+          recording: result.recording.id,
+        });
+      else if (result.kind === "stop") {
+        catalog.mark(occurrence, { status: "idle" });
+        catalog.halt(result);
+      } else catalog.mark(occurrence, { status: result.kind });
+    } catch {
+      catalog.mark(occurrence, { status: "idle" });
+    } finally {
+      finders.current.delete(controller);
+    }
   }
 
   async function start(from: number): Promise<boolean> {
@@ -192,5 +233,5 @@ export function useCatalogPlayback(
     if (began && !player.snapshot().shuffle) player.shuffle();
   }
 
-  return { rows, halted, consentOff, start, shuffle };
+  return { rows, recordings, halted, consentOff, start, shuffle, find, seed };
 }

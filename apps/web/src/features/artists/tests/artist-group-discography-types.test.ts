@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { forgetCatalog } from "../api/catalogCache";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "../fixtures/artistGroupDiscography";
@@ -315,6 +316,7 @@ test("empty type sections are hidden when the catalog is complete or the filter 
   await within(region).findByRole("heading", { name: "Albums (3)" });
   expect(within(region).queryByRole("region", { name: "Singles" })).toBeNull();
   cleanup();
+  forgetCatalog();
 
   const http = artistGroupHttp();
   http.reply("discography", page(albums(0, 3), "whole-next"));

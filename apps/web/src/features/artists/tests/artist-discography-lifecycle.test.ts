@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { forgetCatalog } from "../api/catalogCache";
 import ArtistDiscography from "../components/ArtistDiscography";
 import type { Schema } from "../../../shared/schema";
 import {
@@ -24,6 +25,10 @@ import {
 } from "../fixtures/artistDiscography";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import { flush } from "../../../test/async";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 type Props = ComponentProps<typeof ArtistDiscography>;
 const initial: Props = {
@@ -157,6 +162,7 @@ for (const mode of ["headers", "body"] as const) {
           },
         };
         view.rerender(createElement(ArtistDiscography, current));
+        forgetCatalog();
         http.reply(page(current, freshTitle));
         fireEvent.click(
           screen.getByRole("button", { name: "Browse discography" }),

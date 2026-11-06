@@ -24,6 +24,10 @@ import {
   providerDiscographyCursor,
 } from "../fixtures/artistDiscography";
 
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
+
 test("an expired discography continuation requires an explicit restart before replacing its known releases", async () => {
   const errors = vi.spyOn(console, "error");
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();

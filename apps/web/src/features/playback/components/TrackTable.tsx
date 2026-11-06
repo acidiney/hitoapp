@@ -10,6 +10,7 @@ import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
 import EntryMoves from "./EntryMoves";
 import RowPlay from "./RowPlay";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
+import CatalogRowActions, { CatalogRowNote } from "./CatalogRowActions";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
@@ -25,8 +26,26 @@ export type TrackRow = Track & {
   entry_id?: string;
 };
 
+export type CatalogRowView = {
+  id: string;
+  number: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  durationMs: number | null;
+  status: "idle" | "finding" | "found" | "not_found" | "failed";
+  recording: TrackRow | null;
+};
+
+export type CatalogControls = {
+  play(index: number): void;
+  find(index: number): void;
+  mutated(action: Schema<"Action">): void;
+};
+
 export type TrackTableRow =
   | { kind: "recording"; track: TrackRow }
+  | { kind: "catalog"; row: CatalogRowView }
   | {
       kind: "retained";
       entry: Pick<
@@ -49,7 +68,9 @@ export default function TrackTable({
   mutate,
   listing,
   edit,
+  catalog,
 }: {
+  catalog?: CatalogControls;
   edit?: PlaylistEdit;
   rows: TrackTableRow[];
   listing?: TrackListing;
@@ -66,6 +87,8 @@ export default function TrackTable({
   const tracks = rows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
+  const resolved = (row: TrackTableRow) =>
+    row.kind === "catalog" ? row.row.recording : null;
   const playTracks = usePlayTracks(tracks, listing);
   const queuePositions = new Map<string, number>(
     tracks.map((track, index) => [track.row_id, index]),
@@ -97,10 +120,20 @@ export default function TrackTable({
         </thead>
         <tbody>
           {rows.map((row, index) => {
-            const track = row.kind === "recording" ? row.track : null;
-            const display = row.kind === "recording" ? row.track : row.entry;
+            const track = row.kind === "recording" ? row.track : resolved(row);
+            const view = row.kind === "catalog" ? row.row : null;
+            const display =
+              row.kind === "recording"
+                ? row.track
+                : row.kind === "catalog"
+                  ? row.row
+                  : row.entry;
             const rowId =
-              row.kind === "recording" ? row.track.row_id : row.entry.entry_id;
+              row.kind === "recording"
+                ? row.track.row_id
+                : row.kind === "catalog"
+                  ? row.row.id
+                  : row.entry.entry_id;
             return (
               <tr
                 key={rowId}
@@ -109,7 +142,13 @@ export default function TrackTable({
                 }
               >
                 <td>
-                  {track ? (
+                  {view && catalog ? (
+                    <RowPlay
+                      title={view.title}
+                      number={view.number}
+                      onPlay={() => catalog.play(index)}
+                    />
+                  ) : track ? (
                     <RowPlay
                       title={track.title}
                       number={
@@ -124,7 +163,15 @@ export default function TrackTable({
                   )}
                 </td>
                 <td className="track-cell">
-                  {track ? (
+                  {view && !track ? (
+                    <Artwork
+                      fallback={{
+                        id: view.id,
+                        title: view.album ?? view.title,
+                        artist: view.artist,
+                      }}
+                    />
+                  ) : track ? (
                     <Artwork
                       release={track.release_id ?? undefined}
                       recording={track.id}
@@ -138,7 +185,14 @@ export default function TrackTable({
                     <Artwork />
                   )}
                   <div>
-                    {track ? (
+                    {view && catalog ? (
+                      <button
+                        className="track-title"
+                        onClick={() => catalog.play(index)}
+                      >
+                        {view.title}
+                      </button>
+                    ) : track ? (
                       <button
                         className="track-title"
                         onClick={() => play(track)}
@@ -148,7 +202,9 @@ export default function TrackTable({
                     ) : (
                       <span className="retained-title">{display.title}</span>
                     )}
-                    {row.kind === "retained" ? (
+                    {view && !track ? (
+                      <CatalogRowNote status={view.status} />
+                    ) : row.kind === "retained" ? (
                       <small>
                         {row.entry.origin?.kind === "unknown"
                           ? "Unknown item from its provider"
@@ -157,7 +213,7 @@ export default function TrackTable({
                             : "Unavailable recording"}
                       </small>
                     ) : (
-                      <TrackAvailabilityNote track={row.track} />
+                      <TrackAvailabilityNote track={track!} />
                     )}
                     <span className="mobile-artist">{display.artist}</span>
                   </div>
@@ -171,20 +227,33 @@ export default function TrackTable({
                       {track.album ?? "Unknown album"}
                     </Link>
                   ) : (
-                    (track?.album ?? "—")
+                    (track?.album ?? view?.album ?? "—")
                   )}
                 </td>
                 <td className="duration-column muted">
-                  {track ? time(track.duration_ms / 1000) : "—"}
+                  {view && !track
+                    ? view.durationMs == null
+                      ? "—"
+                      : time(view.durationMs / 1000)
+                    : track
+                      ? time(track.duration_ms / 1000)
+                      : "—"}
                 </td>
                 <td>
-                  {track ? (
+                  {view && !track && catalog ? (
+                    <CatalogRowActions
+                      title={view.title}
+                      status={view.status}
+                      onFind={() => catalog.find(index)}
+                    />
+                  ) : track ? (
                     <TrackActions
                       track={track}
                       playlists={playlists}
                       playlist={playlist}
                       editing={edit?.active ?? false}
                       mutate={mutate}
+                      onMutationAccepted={catalog?.mutated}
                     >
                       {edit?.active && (
                         <EntryMoves

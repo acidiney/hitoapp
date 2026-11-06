@@ -17,8 +17,9 @@ test("a catalog album plays like a library album: Play starts the first track, q
   try {
     await page.goto(artist.path);
     await page
-      .getByRole("button", { name: `Open ${catalogAlbum.groupTitle}` })
+      .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
       .click();
+    await expect(page).toHaveURL(/\/releases\//);
     await expect(
       page.getByRole("heading", { name: catalogAlbum.groupTitle }),
     ).toHaveCount(1);
@@ -82,7 +83,7 @@ test("with automatic service search off, Play says why, links to the setting and
   try {
     await page.goto(artist.path);
     await page
-      .getByRole("button", { name: `Open ${catalogAlbum.groupTitle}` })
+      .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
       .click();
     await page.getByRole("button", { name: "Play album" }).click();
     const note = page.getByRole("status").filter({
@@ -150,7 +151,7 @@ test("on a desktop the corner play button appears on hover and keyboard focus on
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(artist.path);
-    const open = page.getByRole("button", {
+    const open = page.getByRole("link", {
       name: `Open ${catalogAlbum.groupTitle}`,
     });
     const play = page.getByRole("button", {

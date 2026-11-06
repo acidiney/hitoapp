@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { forgetCatalog } from "../api/catalogCache";
 import ArtistDiscography from "../components/ArtistDiscography";
 import {
   catalogAlbumElement,
@@ -30,6 +31,10 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
+
+vi.mock("../../../shared/hooks/useMutation", () => ({
+  useMutation: () => ({ mutate: vi.fn(), pending: false }),
+}));
 
 vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
@@ -105,6 +110,7 @@ test("closed edition choices do not multiply owned request controllers as discog
   const http = discographyHttp();
   const views: Array<ReturnType<typeof render>> = [];
   async function closedGroups(count: number) {
+    forgetCatalog();
     http.reply({
       ...firstDiscographyPage,
       continuation: null,
