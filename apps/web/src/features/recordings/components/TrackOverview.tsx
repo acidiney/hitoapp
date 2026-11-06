@@ -126,7 +126,9 @@ export default function TrackOverview({
               ) : (
                 observation.album
               )}
-              {position && <span className="track-aside">{position}</span>}
+              {position && (
+                <span className="track-aside">{`· ${position}`}</span>
+              )}
             </Fact>
           )}
           {length && (
@@ -135,18 +137,23 @@ export default function TrackOverview({
             </Fact>
           )}
           <Fact label="Source">
-            {active
-              ? sourceName(active.source)
-              : localFile
-                ? "Local file"
-                : "None"}
             {active || localFile ? (
-              <span className="track-chip" data-tone="success">
-                Ready
-              </span>
+              <>
+                {active ? sourceName(active.source) : "Local file"}
+                <span className="track-chip" data-tone="success">
+                  Ready
+                </span>
+                {choice && (
+                  <span className="track-aside">
+                    {status.pinned ? "· Pinned" : "· Automatic"}
+                  </span>
+                )}
+              </>
             ) : (
               <>
-                {" · "}
+                <span className="track-chip" data-tone="warning">
+                  None
+                </span>
                 <button
                   type="button"
                   className="text-link"
@@ -155,11 +162,6 @@ export default function TrackOverview({
                   Find audio
                 </button>
               </>
-            )}
-            {(active || localFile) && choice && (
-              <span className="track-aside">
-                {status.pinned ? "Pinned" : "Automatic"}
-              </span>
             )}
           </Fact>
         </dl>

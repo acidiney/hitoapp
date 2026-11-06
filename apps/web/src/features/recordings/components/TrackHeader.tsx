@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { Play, Search } from "lucide-react";
+import { ChevronLeft, Play, Search } from "lucide-react";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
@@ -45,9 +45,18 @@ export default function TrackHeader({
       : []),
     { label: detail.title.value },
   ];
+  const back = crumbs[crumbs.length - 2];
+  const origin =
+    status.state === "catalog" && source && source.provider !== "local"
+      ? `From ${source.provider}`
+      : null;
   return (
     <header className="track-header">
       <Breadcrumbs crumbs={crumbs} />
+      <Link className="track-back" href={back.href!}>
+        <ChevronLeft size={16} aria-hidden="true" />
+        {back.label}
+      </Link>
       <div className="track-hero">
         <Artwork
           className="track-cover"
@@ -92,7 +101,11 @@ export default function TrackHeader({
                 Pinned
               </span>
             )}
-            {length && <span className="track-mono">{length}</span>}
+            {(length || origin) && (
+              <span className="track-mono">
+                {[length, origin].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </p>
           <div className="track-actions-row">
             {status.playable === true || status.playable === null ? (
