@@ -56,7 +56,48 @@ This qualifies the shared recording-detail workflow in source. The 50-page bound
 
 ## Release cards
 
-A catalog release is a `MediaCard` ([design system](design-system.md#components)): a rounded cover, the title (at most two lines) and one muted line with the type, any secondary types and the first release year, for example "Single · 2008". The card opens the album in place; a round play button on the bottom-right of the cover ("Play <title>") opens it and starts the first track once the tracks are ready. A small check on the cover marks a release linked to a library album, with a longer accessible label such as "In your library, partial · 7 of 10". The "Not in your library" badge and the Play album and Open album buttons are gone. The per-album library line, the comparison with the saved edition and the link into the library appear in the opened album.
+A catalog release is a `MediaCard` ([design system](design-system.md#components)): a rounded cover, the title (at most two lines) and one muted line with the type, any secondary types and the first release year, for example "Single · 2008". In a chosen artist's Full discography the card is a link to the release's own page, and a round play button on the bottom-right of the cover ("Play <title>") opens that page and starts the first track once the tracks are ready. A small check on the cover marks a release linked to a library album, with a longer accessible label such as "In your library, partial · 7 of 10". The grid never expands in place. Recording Details still opens a release inline, using the same album component and rows.
+
+## Catalog album page
+
+`/artist-groups/{group}/releases/{release group}` is its own route (`CatalogAlbumPage`; the server renders it with the chosen artist's group detail and the browser reads the release group from the path). It reuses `CatalogAlbum`, so the page and the inline view cannot drift:
+
+- the album header with breadcrumbs back to the chosen artist, the type as eyebrow, cover, credit, track count and length, **Play** and **Shuffle**, and the edition switcher inside the header;
+- the edition switcher is the shared Listbox (a labelled combobox with a listbox, no native select) with **Load more editions** beside it when the provider has more;
+- the library line (comparison with the saved edition, **Open in your library**) when a library album is linked;
+- the standard `TrackTable` for every row.
+
+```mermaid
+flowchart LR
+  Grid[Discography grid card] -->|link| Page[Catalog album page]
+  Page --> Editions[Edition read, cached]
+  Editions --> Tracks[Track list read, cached]
+  Tracks --> Rows[TrackTable rows]
+  Rows -->|Play a row| Queue[Player selection with a queue supply]
+  Rows -->|Find audio| Find[edition-track-audio]
+  Find --> Recording[Recording saved, row becomes a library row]
+  Recording --> Actions[Like, Details and source, Add to playlist]
+```
+
+Rows are the same `TrackTable` rows as a library album. A row whose audio is not known yet is a `catalog` row: it plays through the catalog queue supply (the same player selection that library albums use, resolving the clicked track first and the next ones lazily), and its action is **Find audio for ...**, which calls the existing `edition-track-audio` route. When that saves a recording the row turns into a normal recording row with Like, the Details link (`/recordings/{id}`, where the audio source is configured or corrected) and Add to playlist. A track with no confident match says "Not found on your services" and offers **Try again to find audio** and a link to the services settings. For an album linked to the library, the matches of the album comparison seed the rows so tracks the owner already has show Like and Details at once. A liked state changed on the page is kept in the page, because catalog rows are not part of the server-rendered props.
+
+Cold load of a release page (direct link or reload) has no release group record, so the title comes from the first edition and the type and date line is "Release". Navigating from the grid keeps the full record.
+
+Limits: a catalog track cannot be liked, given a source or added to a playlist until it has a recording, because all three belong to recordings. Finding audio is the only way to create one from a catalog row.
+
+## Cached catalog reads
+
+Findings (before): every visit to a chosen artist rebuilt the whole catalog from the provider. The artist association and profile, the first page of the discography, the library availability check and every type section were read again, and opening a release read its editions and then its track list again. Nothing outlived the component that asked, so going back from an album, or opening an album the owner had just heard, repeated all of it. The page waited on those reads and showed a spinner.
+
+Now `catalogCache` holds provider answers in browser memory, per account, with the exact request (recording, association, body) as the key. Only `available` answers are stored. An answer younger than 10 minutes is returned at once. An answer between 10 minutes and 6 hours is also returned at once while a single background read refreshes it, and a quiet "Checking for updates…" status shows meanwhile; the refreshed answer is used the next time. Older answers are read normally. Explicit Restart and Try again requests skip the cache. Local-database reads (the association list, library availability) are not cached. The cache lives only in the tab: a reload or sign-out starts empty, and the release records seen in discography pages are remembered the same way so the album page can show the title and type at once.
+
+Continuation tokens are bound to the server process and session. A cached page keeps its token only as long as that stays valid. A rejected token already offers Restart.
+
+## Editions with YouTube sources
+
+What works: an edition changes the track list and its order. Each track is matched to audio by title, credited artist and length through the account's connected services (including a YouTube connection) with the automatic source policy. The first useful match is saved as a recording and its source. The Details page of that recording is where the source is chosen or replaced, as for any recording.
+
+What does not: the mapping is per occurrence of an edition, so switching edition looks tracks up again and does not carry matches over, except the tracks the library already holds for a linked album. A track without a single credited artist and a length is not searched. Live or remastered versions can match the wrong upload; correcting it is a manual choice on Details. There is no way to type a YouTube address for a catalog track that has no recording yet. This is the code's current behavior; no live YouTube run was made for this change.
 
 ## Chosen-artist pages
 
