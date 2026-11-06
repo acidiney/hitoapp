@@ -62,7 +62,7 @@ async fn write_seen(
     written.map(|_| ()).map_err(|_| "storage")
 }
 
-pub(super) fn is_hidden(character: char) -> bool {
+pub(crate) fn is_hidden(character: char) -> bool {
     character.is_control()
         || matches!(
             character,

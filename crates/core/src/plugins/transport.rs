@@ -14,6 +14,7 @@ mod catalog_similarity;
 mod featured;
 mod lyrics;
 mod preparation;
+mod refusal;
 mod source_batch;
 pub(crate) use source_batch::SourceBatch;
 
@@ -329,6 +330,9 @@ impl ControlClient {
             return Ok(None);
         }
         if !status.is_success() {
+            if status.as_u16() == 422 {
+                return Err(refusal::read(response, maximum).await);
+            }
             return Err(status_error(status));
         }
         if response

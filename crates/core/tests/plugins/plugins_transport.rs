@@ -193,3 +193,97 @@ async fn plugin_statuses_map_to_accurate_user_messages_without_leaking_the_body(
         assert_eq!(error.to_string(), expected, "status {status}");
     }
 }
+
+#[tokio::test]
+async fn a_422_passes_through_only_a_safe_plugin_message() {
+    let server = fixture::PluginServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("plugin-422-host").await;
+    let service = hito
+        .plugins
+        .offer_service(
+            &actor,
+            OfferPluginService {
+                name: "Fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let generic = "The plugin service rejected the request";
+    let message = "Private playlists and personal mixes cannot be imported";
+    let long = "x".repeat(300);
+    let cases: Vec<(Vec<u8>, bool, String)> = vec![
+        (
+            serde_json::to_vec(&serde_json::json!({"error": format!("  {message}  ")})).unwrap(),
+            true,
+            message.into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": "Not\u{202e} public\u{7}"})).unwrap(),
+            true,
+            "Not public".into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": long})).unwrap(),
+            true,
+            "x".repeat(240),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": "\u{202e}\u{7} "})).unwrap(),
+            true,
+            generic.into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": "See https://evil.example/x"}))
+                .unwrap(),
+            true,
+            generic.into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": "see HTTP://evil.example"})).unwrap(),
+            true,
+            generic.into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": "x".repeat(10240)})).unwrap(),
+            true,
+            generic.into(),
+        ),
+        (b"not json at all".to_vec(), true, generic.into()),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": 7})).unwrap(),
+            true,
+            generic.into(),
+        ),
+        (
+            serde_json::to_vec(&serde_json::json!({"error": message})).unwrap(),
+            false,
+            generic.into(),
+        ),
+    ];
+    for (body, json, expected) in cases {
+        let headers = if json {
+            json_headers()
+        } else {
+            HeaderMap::new()
+        };
+        server
+            .response(StatusCode::UNPROCESSABLE_ENTITY, headers, body, false)
+            .await;
+        let error = hito
+            .plugins
+            .install(
+                &actor,
+                InstallPlugin {
+                    accept_manifest_digest: None,
+                    service_id: service.id.clone(),
+                    service_revision: service.revision,
+                    bearer_token: None,
+                },
+            )
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.to_string(), expected);
+    }
+}

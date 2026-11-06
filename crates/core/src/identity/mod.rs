@@ -10,6 +10,7 @@ mod open_sessions;
 mod password;
 mod pins;
 mod sessions;
+pub(crate) use sessions::is_hidden;
 mod setup;
 mod types;
 
