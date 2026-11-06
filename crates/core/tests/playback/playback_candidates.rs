@@ -55,3 +55,42 @@ async fn candidates_visit_each_copy_once_and_new_copies_require_a_new_plan() {
         Err(hito_core::Error::Unauthorized)
     ));
 }
+
+#[tokio::test]
+async fn fallback_attempts_are_bounded_and_the_stop_is_recorded() {
+    let f = fixture::LocalPlayback::start().await;
+    for copy in 0..9 {
+        std::fs::write(f.music.join(format!("copy-{copy}.wav")), &f.original).unwrap();
+    }
+    support::scan(&f.services, &f.actor, &f.library).await;
+    let mut plan = f
+        .services
+        .playback
+        .playback_candidates(&f.actor, &f.recording)
+        .await
+        .unwrap();
+    let mut offered = 0;
+    while plan.next().await.unwrap().is_some() {
+        offered += 1;
+        assert!(offered <= 100, "candidate iteration must terminate");
+    }
+    assert_eq!(offered, hito_core::MAX_FALLBACK_ATTEMPTS);
+    assert_eq!(plan.ended(), Some(hito_core::CandidatesEnd::AttemptLimit));
+    assert!(plan.next().await.unwrap().is_none());
+    assert_eq!(plan.ended(), Some(hito_core::CandidatesEnd::AttemptLimit));
+}
+
+#[tokio::test]
+async fn running_out_of_candidates_is_recorded_as_exhaustion() {
+    let f = fixture::LocalPlayback::start().await;
+    let mut plan = f
+        .services
+        .playback
+        .playback_candidates(&f.actor, &f.recording)
+        .await
+        .unwrap();
+    assert!(plan.next().await.unwrap().is_some());
+    assert!(plan.ended().is_none());
+    assert!(plan.next().await.unwrap().is_none());
+    assert_eq!(plan.ended(), Some(hito_core::CandidatesEnd::Exhausted));
+}

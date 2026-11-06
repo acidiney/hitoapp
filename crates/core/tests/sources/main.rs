@@ -2,6 +2,7 @@
 
 mod manual_source_choice_upgrade;
 mod source_choice_reset_upgrade;
+mod source_preference;
 mod source_preparation_foreign_keys;
 mod source_preparation_history;
 mod source_preparation_query_plans;

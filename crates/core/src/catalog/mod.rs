@@ -40,6 +40,9 @@ mod playback_sources;
 #[cfg(test)]
 #[path = "tests/release_query_work.rs"]
 mod release_query_work;
+mod source_preference;
+pub(crate) use source_preference::{Origin, SourceRanking, provider_installations, ranking_on};
+pub use source_preference::{SourcePreferenceEntry, SourcePreferences, UpdateSourcePreferences};
 mod sources;
 mod timed_content;
 pub use timed_content::{

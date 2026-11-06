@@ -1,17 +1,48 @@
 use super::{PlaybackAccess, PlaybackSource};
 use crate::{
     Actor, Error, Result,
-    catalog::{MAX_PLAYBACK_BINDINGS, SourceAccess, push_source_access},
+    catalog::{
+        MAX_PLAYBACK_BINDINGS, Origin, SourceAccess, SourceRanking, push_source_access, ranking_on,
+    },
     identity::recording_access,
 };
 use sqlx::QueryBuilder;
 use std::{collections::VecDeque, time::Duration};
 
-#[derive(sqlx::FromRow)]
+#[derive(Clone, sqlx::FromRow)]
 struct ProviderSnapshot {
     binding_id: String,
+    installation_id: String,
     revision: i64,
     generation: i64,
+}
+
+#[derive(Clone)]
+enum Stage {
+    Local,
+    Download,
+    Podcast,
+    Provider(ProviderSnapshot),
+}
+
+impl Stage {
+    fn origin(&self) -> Origin<'_> {
+        match self {
+            Self::Local => Origin::LocalFiles,
+            Self::Download => Origin::SavedCopies,
+            Self::Podcast => Origin::Podcast,
+            Self::Provider(snapshot) => Origin::Provider(&snapshot.installation_id),
+        }
+    }
+}
+
+pub const MAX_FALLBACK_ATTEMPTS: u64 = 6;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CandidatesEnd {
+    Exhausted,
+    FallbackOff,
+    AttemptLimit,
 }
 
 pub struct PlaybackCandidates {
@@ -19,12 +50,13 @@ pub struct PlaybackCandidates {
     actor: Actor,
     recording: String,
     remaining: u64,
-    local: bool,
-    download: bool,
+    stages: VecDeque<Stage>,
     after: Option<String>,
     ceiling: Option<String>,
     podcast: Option<PlaybackSource>,
-    providers: VecDeque<ProviderSnapshot>,
+    fallback: bool,
+    offered: u64,
+    ended: Option<CandidatesEnd>,
 }
 
 impl PlaybackAccess {
@@ -46,7 +78,7 @@ impl PlaybackAccess {
             let (count, ceiling): (i64, Option<String>) = files.build_query_as()
                 .fetch_one(&mut *connection).await?;
             let providers: Vec<ProviderSnapshot> = sqlx::query_as(
-                "SELECT item.id AS binding_id,item.revision,state.generation FROM provider_items item
+                "SELECT item.id AS binding_id,item.installation_id,item.revision,state.generation FROM provider_items item
                 JOIN provider_source_state state ON state.binding_id = item.id
                 JOIN plugin_installations p ON p.id = item.installation_id AND p.active = 1
                 JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
@@ -70,6 +102,7 @@ impl PlaybackAccess {
             enclosure.push(" LIMIT 1");
             let podcast_source: Option<String> = enclosure.build_query_scalar()
                 .fetch_optional(&mut *connection).await?;
+            let ranking = ranking_on(&mut connection, actor).await?;
             drop(connection);
             let podcast = match podcast_source {
                 Some(source) => match self.playback_source(actor, recording, &source).await {
@@ -84,12 +117,13 @@ impl PlaybackAccess {
                 actor: actor.clone(),
                 recording: recording.to_owned(),
                 remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64 + u64::from(podcast.is_some()),
-                local: count > 0,
-                download: count > 0,
+                stages: stages(count > 0, podcast.is_some(), providers, &ranking),
                 after: None,
                 ceiling,
                 podcast,
-                providers: providers.into(),
+                fallback: ranking.fallback(),
+                offered: 0,
+                ended: None,
             })
         })
         .await
@@ -100,13 +134,59 @@ impl PlaybackAccess {
 }
 
 impl PlaybackCandidates {
+    pub fn ended(&self) -> Option<CandidatesEnd> {
+        self.ended
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = self.actor.id()))]
     pub async fn next(&mut self) -> Result<Option<PlaybackSource>> {
-        tokio::time::timeout(Duration::from_secs(1), self.advance())
+        let blocked = self.ended.or(if self.offered > 0 && !self.fallback {
+            Some(CandidatesEnd::FallbackOff)
+        } else if self.offered >= MAX_FALLBACK_ATTEMPTS {
+            Some(CandidatesEnd::AttemptLimit)
+        } else {
+            None
+        });
+        if let Some(reason) = blocked {
+            self.actor.check_session(&self.playback.store).await?;
+            if self.ended.is_none() {
+                self.stop(reason);
+            }
+            return Ok(None);
+        }
+        let found = tokio::time::timeout(Duration::from_secs(1), self.advance())
             .await
             .unwrap_or(Err(Error::Upstream(
                 "Playback source selection could not finish in time",
-            )))
+            )))?;
+        let Some(grant) = found else {
+            self.stop(CandidatesEnd::Exhausted);
+            return Ok(None);
+        };
+        self.offered += 1;
+        if self.offered > 1 {
+            tracing::debug!(
+                event = "playback_source_fallback",
+                attempt = self.offered,
+                outcome = "next_source",
+                "Previous playback source did not open; offering the next verified source"
+            );
+        }
+        Ok(Some(grant))
+    }
+
+    fn stop(&mut self, reason: CandidatesEnd) {
+        self.ended = Some(reason);
+        tracing::debug!(
+            event = "playback_source_fallback",
+            attempt = self.offered,
+            outcome = match reason {
+                CandidatesEnd::Exhausted => "exhausted",
+                CandidatesEnd::FallbackOff => "fallback_off",
+                CandidatesEnd::AttemptLimit => "attempt_limit",
+            },
+            "Playback source fallback ended"
+        );
     }
 
     async fn advance(&mut self) -> Result<Option<PlaybackSource>> {
@@ -114,10 +194,14 @@ impl PlaybackCandidates {
         let mut connection = self.playback.store.pool.acquire().await?;
         recording_access(&mut connection, &self.actor, &self.recording).await?;
         while self.remaining > 0 {
-            if !self.local
-                && !self.download
-                && let Some(podcast) = self.podcast.take()
-            {
+            let Some(stage) = self.stages.front().cloned() else {
+                break;
+            };
+            if matches!(stage, Stage::Podcast) {
+                self.stages.pop_front();
+                let Some(podcast) = self.podcast.take() else {
+                    continue;
+                };
                 self.remaining -= 1;
                 drop(connection);
                 match podcast.check().await {
@@ -129,26 +213,8 @@ impl PlaybackCandidates {
                     Err(error) => return Err(error),
                 }
             }
-            let mut query = if self.local || self.download {
-                let mut query = QueryBuilder::new(
-                    "SELECT s.id FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id=",
-                );
-                query.push_bind(self.recording.clone()).push(if self.local {
-                    " AND s.provider='local' AND "
-                } else {
-                    " AND s.provider='download' AND "
-                });
-                push_source_access(
-                    &mut query,
-                    &self.playback.host,
-                    self.actor.id(),
-                    SourceAccess::LocalFile,
-                );
-                if let Some(ceiling) = &self.ceiling {
-                    query.push(" AND s.id<=").push_bind(ceiling.clone());
-                }
-                query
-            } else if let Some(snapshot) = self.providers.front() {
+            let file = !matches!(stage, Stage::Provider(_));
+            let mut query = if let Stage::Provider(snapshot) = &stage {
                 let mut query = QueryBuilder::new(
                     "SELECT ps.source_id FROM provider_items item
                     CROSS JOIN provider_source_state state ON state.binding_id = item.id
@@ -173,13 +239,31 @@ impl PlaybackCandidates {
                 );
                 query
             } else {
-                self.remaining = 0;
-                break;
+                let mut query = QueryBuilder::new(
+                    "SELECT s.id FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id=",
+                );
+                query
+                    .push_bind(self.recording.clone())
+                    .push(if matches!(stage, Stage::Local) {
+                        " AND s.provider='local' AND "
+                    } else {
+                        " AND s.provider='download' AND "
+                    });
+                push_source_access(
+                    &mut query,
+                    &self.playback.host,
+                    self.actor.id(),
+                    SourceAccess::LocalFile,
+                );
+                if let Some(ceiling) = &self.ceiling {
+                    query.push(" AND s.id<=").push_bind(ceiling.clone());
+                }
+                query
             };
             if let Some(after) = &self.after {
                 query.push(" AND s.id>").push_bind(after.clone());
             }
-            query.push(if self.local || self.download {
+            query.push(if file {
                 " ORDER BY s.id LIMIT 1"
             } else {
                 " ORDER BY ps.source_id LIMIT 1"
@@ -189,17 +273,7 @@ impl PlaybackCandidates {
                 .fetch_optional(&mut *connection)
                 .await?;
             let Some(source) = source else {
-                if self.local {
-                    self.local = false;
-                    self.after = None;
-                    continue;
-                }
-                if self.download {
-                    self.download = false;
-                    self.after = None;
-                    continue;
-                }
-                self.providers.pop_front();
+                self.stages.pop_front();
                 self.after = None;
                 continue;
             };
@@ -218,4 +292,22 @@ impl PlaybackCandidates {
         }
         Ok(None)
     }
+}
+
+fn stages(
+    files: bool,
+    podcast: bool,
+    providers: Vec<ProviderSnapshot>,
+    ranking: &SourceRanking,
+) -> VecDeque<Stage> {
+    let mut stages: Vec<Stage> = Vec::new();
+    if files {
+        stages.extend([Stage::Local, Stage::Download]);
+    }
+    if podcast {
+        stages.push(Stage::Podcast);
+    }
+    stages.extend(providers.into_iter().map(Stage::Provider));
+    stages.sort_by_key(|stage| ranking.position(stage.origin()));
+    stages.into()
 }

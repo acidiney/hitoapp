@@ -1,4 +1,4 @@
-use super::Catalog;
+use super::{Catalog, provider_installations, ranking_on};
 use crate::{Actor, Error, Result, Source, community::rankings::SourceOrder};
 use std::{
     collections::HashSet,
@@ -34,6 +34,8 @@ impl Catalog {
                     }
                 }
             }
+            self.apply_preference(actor, recording, &mut sources)
+                .await?;
             tokio::time::timeout(Duration::from_secs(1), actor.check_session(&self.store))
                 .await
                 .unwrap_or(Err(Error::Upstream(
@@ -55,6 +57,19 @@ impl Catalog {
             "Playback sources read completed"
         );
         result
+    }
+
+    async fn apply_preference(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        sources: &mut [Source],
+    ) -> Result<()> {
+        let mut connection = self.store.pool.acquire().await?;
+        let ranking = ranking_on(&mut connection, actor).await?;
+        let installations = provider_installations(&mut connection, actor, recording).await?;
+        ranking.sort_sources(sources, &installations);
+        Ok(())
     }
 
     async fn read_playback_sources(&self, actor: &Actor, recording: &str) -> Result<Vec<Source>> {

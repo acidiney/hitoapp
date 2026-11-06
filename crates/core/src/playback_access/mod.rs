@@ -6,7 +6,7 @@ mod preferred;
 mod provider;
 pub(crate) mod relay;
 
-pub use candidates::PlaybackCandidates;
+pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
 pub use grant::PlaybackSource;
 pub use relay::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 

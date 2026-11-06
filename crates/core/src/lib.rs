@@ -66,8 +66,9 @@ pub use catalog::{
     RecordingCopy, RecordingGroupProof, RecordingLyricsProvider, RecordingLyricsProviders,
     RecordingSplit, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice,
     ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
-    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
-    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreferenceEntry, SourcePreferences,
+    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
+    SourceResolutionOutcome, UpdateSourcePreferences,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -117,8 +118,8 @@ pub use metadata::{
     TextMetadata,
 };
 pub use playback_access::{
-    AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio, PlaybackAccess,
-    PlaybackCandidates, PlaybackSource,
+    AudioContent, AudioRequest, AudioStream, ByteRange, CandidatesEnd, MAX_FALLBACK_ATTEMPTS,
+    OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
