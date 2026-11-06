@@ -210,3 +210,126 @@ async fn a_shutdown_requeue_and_a_provider_retry_are_not_reported_as_missing_dis
     assert!(matches!(retrying.status, DownloadState::Queued));
     assert_eq!(retrying.error.as_deref(), Some("provider_unavailable"));
 }
+
+async fn state(fixture: &AudioLibrary) -> hito_core::DownloadStatus {
+    fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn expired_and_failing_links_retry_three_times_then_fail_with_a_reason_and_stop_asking() {
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    fixture.server.audio_statuses(vec![
+        axum::http::StatusCode::SERVICE_UNAVAILABLE,
+        axum::http::StatusCode::GONE,
+        axum::http::StatusCode::FORBIDDEN,
+        axum::http::StatusCode::SERVICE_UNAVAILABLE,
+    ]);
+    request(&fixture).await;
+    for expected_requests in [1, 2] {
+        assert!(run(&fixture).await);
+        let waiting = state(&fixture).await;
+        assert!(matches!(waiting.status, DownloadState::Queued));
+        assert_eq!(waiting.error.as_deref(), Some("provider_unavailable"));
+        assert_eq!(
+            fixture.server.requests("v1/audio").await.len(),
+            expected_requests
+        );
+        make_due(&fixture).await;
+    }
+    assert!(run(&fixture).await);
+    let failed = state(&fixture).await;
+    assert!(matches!(failed.status, DownloadState::Failed));
+    assert_eq!(failed.error.as_deref(), Some("transfer_failed"));
+    assert!(failed.source_id.is_none());
+    assert_eq!(managed_names(&fixture), Vec::<String>::new());
+
+    make_due(&fixture).await;
+    assert!(
+        !run(&fixture).await,
+        "a failed download must not be retried by itself"
+    );
+    assert_eq!(fixture.server.requests("v1/audio").await.len(), 3);
+
+    fixture
+        .hito
+        .downloads
+        .remove(&fixture.actor, &failed.intent_id)
+        .await
+        .unwrap();
+    fixture.server.audio_statuses(Vec::new());
+    request(&fixture).await;
+    assert!(run(&fixture).await);
+    assert!(matches!(state(&fixture).await.status, DownloadState::Ready));
+    assert_eq!(managed_names(&fixture).len(), 1);
+}
+
+#[tokio::test]
+async fn a_short_burst_of_provider_errors_is_retried_and_the_download_completes() {
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    fixture.server.audio_statuses(vec![
+        axum::http::StatusCode::BAD_GATEWAY,
+        axum::http::StatusCode::GATEWAY_TIMEOUT,
+    ]);
+    request(&fixture).await;
+    for _ in 0..2 {
+        assert!(run(&fixture).await);
+        assert_eq!(
+            state(&fixture).await.error.as_deref(),
+            Some("provider_unavailable")
+        );
+        make_due(&fixture).await;
+    }
+    assert!(run(&fixture).await);
+    let ready = state(&fixture).await;
+    assert!(matches!(ready.status, DownloadState::Ready));
+    assert_eq!(ready.error, None);
+    assert_eq!(ready.bytes_received, fixture.original.len() as u64);
+    assert_eq!(managed_names(&fixture).len(), 1);
+    assert_eq!(fixture.server.requests("v1/audio").await.len(), 3);
+}
+
+#[tokio::test]
+async fn a_silent_provider_requeues_the_download_at_the_header_bound_and_a_later_attempt_completes()
+{
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let gate = fixture.server.hold("v1/audio").await;
+    request(&fixture).await;
+    let started = std::time::Instant::now();
+    assert!(run(&fixture).await);
+    let waited = started.elapsed();
+    assert!(
+        (Duration::from_secs(9)..Duration::from_secs(14)).contains(&waited),
+        "{waited:?}"
+    );
+    let waiting = state(&fixture).await;
+    assert!(matches!(waiting.status, DownloadState::Queued));
+    assert_eq!(waiting.error.as_deref(), Some("provider_unavailable"));
+    assert_eq!(managed_names(&fixture), Vec::<String>::new());
+    gate.open();
+    make_due(&fixture).await;
+    assert!(run(&fixture).await);
+    assert!(matches!(state(&fixture).await.status, DownloadState::Ready));
+}
+
+#[tokio::test]
+async fn a_slowly_trickling_provider_completes_the_download_with_every_byte() {
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    fixture
+        .server
+        .audio_trickle(fixture.original.len() / 6 + 1, Duration::from_millis(900));
+    request(&fixture).await;
+    assert!(run(&fixture).await);
+    let ready = state(&fixture).await;
+    assert!(matches!(ready.status, DownloadState::Ready));
+    assert_eq!(ready.bytes_received, fixture.original.len() as u64);
+    assert_eq!(managed_names(&fixture).len(), 1);
+}
