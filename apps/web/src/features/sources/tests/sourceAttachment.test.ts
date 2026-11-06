@@ -28,6 +28,7 @@ import {
   attachmentReview,
   attachmentSearch,
   attachmentSettings,
+  noRecordingFacts,
   reviewedAttachment,
   savedRecording,
   sourceAttachmentPage,
@@ -260,6 +261,7 @@ test("a delayed review cannot cross an account and recording change or load the 
       },
       selected_observation: bobObservation,
       observations: { items: [bobObservation], next_before: null },
+      ...noRecordingFacts,
     },
   };
   const bobSettings = {

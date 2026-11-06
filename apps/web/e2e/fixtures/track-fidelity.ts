@@ -75,7 +75,11 @@ function localObservation(): Schema<"MetadataObservation"> {
       album: tag(ALBUM),
       album_artist: tag(ARTIST),
       disc: tag("1"),
-      track: tag("3"),
+      track: tag("3/11"),
+      track_total: null,
+      date: tag("2021-05-04"),
+      label: tag("Maré Discos"),
+      audio: { format: "FLAC", bit_depth: 16, sample_rate_hz: 44_100 },
       genre: null,
       isrc: tag("PTLD02100034"),
       musicbrainz_album_id: null,
@@ -156,6 +160,24 @@ export function fidelityDetail(
     musicbrainz_recording_id: MUSICBRAINZ,
     selected_observation: selected,
     observations: { items, next_before: null },
+    audio_format:
+      scenario.audio === "local"
+        ? {
+            format: "FLAC",
+            bit_depth: 16,
+            sample_rate_hz: 44_100,
+            size_bytes: 31_400_000,
+          }
+        : null,
+    release_facts: { year: 2021, track_total: 11, label: "Maré Discos" },
+    last_played: {
+      played_at: Math.floor(Date.now() / 1000) - 2 * 86_400,
+      position_ms: 97_000,
+    },
+    appears_in: [
+      { id: "pl-late-night", kind: "local", name: "Late night" },
+      { id: "pl-road-trip", kind: "local", name: "Road trip" },
+    ],
   };
 }
 

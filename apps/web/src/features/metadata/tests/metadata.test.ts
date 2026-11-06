@@ -10,6 +10,7 @@ import MetadataObservations from "../components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
 import { metadataApi } from "../api/metadataApi";
+import { noRecordingFacts } from "../../sources/fixtures/sourceAttachment";
 
 import type {
   MetadataEditorInput,
@@ -137,6 +138,7 @@ test("a late history response cannot appear after switching accounts", async () 
         operation_id: null,
       },
       observations: { items: [], next_before: 8 },
+      ...noRecordingFacts,
     });
     await pending;
   });
@@ -278,6 +280,7 @@ test("history requests cannot leak between recording and album targets with the 
       },
       selected_observation: null,
       observations: { items: [], next_before: 8 },
+      ...noRecordingFacts,
     });
     await pending;
   });

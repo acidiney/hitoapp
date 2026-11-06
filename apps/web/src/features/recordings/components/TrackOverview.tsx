@@ -3,6 +3,11 @@ import { Link } from "@inertiajs/react";
 import { candidateLength } from "../../sources/model/candidateFacts";
 import { sourceName, type TrackStatus } from "../model/trackStatus";
 import type { TrackAnchor, TrackTab } from "../model/trackTabs";
+import {
+  audioDetail,
+  lastPlayedText,
+  trackPositionText,
+} from "../model/trackFacts";
 import CreditLine from "./CreditLine";
 
 const PROOF: Record<NonNullable<Schema<"RecordingCopy">["proof"]>, string> = {
@@ -84,15 +89,20 @@ export default function TrackOverview({
   const others = copies.copies.filter(
     (copy) => copy.recording_id !== detail.recording_id,
   );
+  const appearances = detail.appears_in;
   const isrc = observation?.tags?.isrc?.value ?? null;
   const identified = detail.musicbrainz_recording_id !== null || isrc !== null;
-  const hasRail = others.length > 0 || identified;
-  const position =
-    observation?.track_number != null
-      ? observation.disc_number != null && observation.disc_number > 1
-        ? `Disc ${observation.disc_number} · Track ${observation.track_number}`
-        : `Track ${observation.track_number}`
-      : null;
+  const hasRail = others.length > 0 || identified || appearances.length > 0;
+  const position = trackPositionText(
+    observation?.track_number ?? null,
+    observation?.disc_number ?? null,
+    detail.release_facts.track_total,
+  );
+  const albumAside = [position, detail.release_facts.label]
+    .filter(Boolean)
+    .join(" · ");
+  const format = audioDetail(detail.audio_format);
+  const lastPlayed = lastPlayedText(detail.last_played);
   return (
     <div className="track-overview" data-rail={hasRail}>
       <div className="track-overview-main">
@@ -128,14 +138,19 @@ export default function TrackOverview({
               ) : (
                 observation.album
               )}
-              {position && (
-                <span className="track-aside">{`· ${position}`}</span>
+              {albumAside && (
+                <span className="track-aside">{`· ${albumAside}`}</span>
               )}
             </Fact>
           )}
           {length && (
             <Fact label="Length">
               <span className="track-mono">{length}</span>
+            </Fact>
+          )}
+          {format && (
+            <Fact label="Format">
+              <span className="track-mono">{format}</span>
             </Fact>
           )}
           <Fact label="Source">
@@ -166,11 +181,29 @@ export default function TrackOverview({
               </>
             )}
           </Fact>
+          {lastPlayed && <Fact label="Last played">{lastPlayed}</Fact>}
         </dl>
         <LyricsPreview lyrics={lyrics} onOpen={() => onSelect("lyrics")} />
       </div>
       {hasRail && (
         <aside className="track-rail" aria-label="Related">
+          {appearances.length > 0 && (
+            <section>
+              <h2>Appears in</h2>
+              <ul>
+                {appearances.map((playlist) => (
+                  <li key={playlist.id}>
+                    <Link
+                      className="track-link"
+                      href={`/playlists/${encodeURIComponent(playlist.id)}`}
+                    >
+                      {playlist.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {others.length > 0 && (
             <section>
               <h2>Copies</h2>

@@ -6,6 +6,7 @@ import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import Button from "../../../shared/ui/Button";
 import { candidateLength } from "../../sources/model/candidateFacts";
+import { audioSummary } from "../model/trackFacts";
 import type { TrackStatus } from "../model/trackStatus";
 import CreditLine from "./CreditLine";
 import TrackActions from "./TrackActions";
@@ -46,6 +47,9 @@ export default function TrackHeader({
     { label: detail.title.value },
   ];
   const back = crumbs[crumbs.length - 2];
+  const year = detail.release_facts.year;
+  const format =
+    status.state === "library" ? audioSummary(detail.audio_format) : null;
   const origin =
     status.state === "catalog" && source && source.provider !== "local"
       ? `From ${source.provider}`
@@ -93,12 +97,13 @@ export default function TrackHeader({
                 )}
               </>
             )}
+            {year !== null && ` · ${year}`}
           </p>
           <p className="track-status">
             <AvailabilityLabel state={status.state} label={status.label} />
-            {(length || origin || status.pinned) && (
+            {(format || length || origin || status.pinned) && (
               <span className="track-mono">
-                {[length, origin, status.pinned ? "Pinned" : null]
+                {[format, length, origin, status.pinned ? "Pinned" : null]
                   .filter(Boolean)
                   .join(" · ")}
               </span>

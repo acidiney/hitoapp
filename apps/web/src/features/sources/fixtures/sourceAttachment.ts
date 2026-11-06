@@ -41,6 +41,16 @@ const primary: Schema<"MetadataObservation"> = {
   tags: null,
 };
 
+export const noRecordingFacts = {
+  audio_format: null,
+  release_facts: { year: null, track_total: null, label: null },
+  last_played: null,
+  appears_in: [],
+} satisfies Pick<
+  Schema<"RecordingMetadata">,
+  "audio_format" | "release_facts" | "last_played" | "appears_in"
+>;
+
 export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
   user: copiedPlaylistPage.user,
   errors: {},
@@ -68,6 +78,7 @@ export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
     credited_artists: [],
     musicbrainz_recording_id: null,
     observations: { items: [primary], next_before: null },
+    ...noRecordingFacts,
   },
 };
 
