@@ -6,7 +6,9 @@ import ArtistGroupPhoto from "../components/ArtistGroupPhoto";
 import ArtistPhoto from "../components/ArtistPhoto";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
-import Pagination from "../../../shared/ui/Pagination";
+import LoadMore from "../../../shared/ui/LoadMore";
+import { useInfinitePage } from "../../../shared/hooks/useInfinitePage";
+import { artistListApi, type ArtistListFilter } from "../api/artistListApi";
 import ArtistMatchingStatus from "../components/ArtistMatchingStatus";
 import ArtistReviewQueue from "../components/ArtistReviewQueue";
 
@@ -26,6 +28,30 @@ export default function ArtistIndexPage({
   const limit = current.get("limit");
   if (limit) filters.set("limit", limit);
   const suffix = filters.size ? `?${filters}` : "";
+  const filter: ArtistListFilter = {
+    query,
+    library: filters.get("library"),
+    limit,
+  };
+  const scope = JSON.stringify(filter);
+  const restart = new URLSearchParams();
+  if (query) restart.set("q", query);
+  filters.forEach((value, key) => restart.set(key, value));
+  const restartHref = restart.size ? `/artists?${restart}` : "/artists";
+  const chosen = useInfinitePage({
+    memory: "artists-chosen",
+    scope,
+    initial: identity_groups,
+    fetchPage: (offset, signal) =>
+      artistListApi.groups(user.id, filter, offset, signal),
+  });
+  const credits = useInfinitePage({
+    memory: "artists-credits",
+    scope,
+    initial: artists,
+    fetchPage: (offset, signal) =>
+      artistListApi.credits(user.id, filter, offset, signal),
+  });
   return (
     <>
       <PageHeading
@@ -41,9 +67,9 @@ export default function ArtistIndexPage({
         <h2 className="discography-heading" id="chosen-artists-title">
           Chosen artists
         </h2>
-        {identity_groups.items.length ? (
+        {chosen.items.length ? (
           <div className="artist-grid">
-            {identity_groups.items.map((group) => (
+            {chosen.items.map((group) => (
               <Link
                 className="artist-card round"
                 key={group.id}
@@ -75,21 +101,25 @@ export default function ArtistIndexPage({
             libraryLink={false}
           />
         )}
-        <Pagination
-          page={identity_groups}
-          query={query}
-          path="/artists"
-          parameter="group_offset"
-          label="Chosen artist pages"
+        {chosen.items.length === 0 && identity_groups.total > 0 && (
+          <Link className="text-link" href={restartHref}>
+            Show the first chosen artists
+          </Link>
+        )}
+        <LoadMore
+          {...chosen}
+          loaded={chosen.items.length}
+          noun="chosen artists"
+          onLoad={() => void chosen.loadMore()}
         />
       </section>
       <section aria-labelledby="library-credits-title">
         <h2 className="discography-heading" id="library-credits-title">
           Library credits
         </h2>
-        {artists.items.length ? (
+        {credits.items.length ? (
           <div className="artist-grid">
-            {artists.items.map((artist) => (
+            {credits.items.map((artist) => (
               <Link
                 className="artist-card round"
                 key={artist.id}
@@ -137,7 +167,17 @@ export default function ArtistIndexPage({
             libraryLink
           />
         )}
-        <Pagination page={artists} query={query} path="/artists" />
+        {credits.items.length === 0 && artists.total > 0 && (
+          <Link className="text-link" href={restartHref}>
+            Show the first artists
+          </Link>
+        )}
+        <LoadMore
+          {...credits}
+          loaded={credits.items.length}
+          noun="artists"
+          onLoad={() => void credits.loadMore()}
+        />
       </section>
     </>
   );

@@ -1,4 +1,4 @@
-import { createElement, type AnchorHTMLAttributes } from "react";
+import { createElement, useState, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
   fireEvent,
@@ -31,6 +31,7 @@ vi.mock("../../../shared/hooks/useMutation", () => ({
 vi.mock("@inertiajs/react", () => ({
   router: navigation,
   usePage: () => ({ url: window.location.pathname + window.location.search }),
+  useRemember: (initial: unknown) => useState(initial),
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
@@ -170,22 +171,13 @@ test("chosen artists stay beside the library credits they leave listed and page 
     `/artist-groups/${group.id}?library=owned-local-library&limit=2`,
     "/artist-groups/other-chosen-group?library=owned-local-library&limit=2",
   ]);
-  fireEvent.click(within(chosen).getByRole("button", { name: "Next" }));
-  expect(navigation.get).toHaveBeenLastCalledWith("/artists", {
-    q: "Saved",
-    library: "owned-local-library",
-    limit: "2",
-    offset: "0",
-    group_offset: 2,
-  });
-  fireEvent.click(within(credits).getByRole("button", { name: "Next" }));
-  expect(navigation.get).toHaveBeenLastCalledWith("/artists", {
-    q: "Saved",
-    library: "owned-local-library",
-    limit: "2",
-    offset: 2,
-    group_offset: "0",
-  });
+  for (const region of [chosen, credits]) {
+    expect(within(region).queryByRole("button", { name: "Next" })).toBeNull();
+    expect(
+      within(region).getByRole("button", { name: "Load more" }),
+    ).toBeTruthy();
+  }
+  expect(navigation.get).not.toHaveBeenCalled();
   expectOnlyMatching(fetch);
   expect(index).toEqual(before);
 });
@@ -292,14 +284,13 @@ test("an emptied chosen-artist page keeps its previous page and the listed libra
       screen.getByRole("region", { name: "Library credits" }),
     ).getAllByRole("link"),
   ).toHaveLength(2);
-  fireEvent.click(within(chosen).getByRole("button", { name: "Previous" }));
-  expect(navigation.get).toHaveBeenLastCalledWith("/artists", {
-    q: "Saved",
-    library: "owned-local-library",
-    limit: "2",
-    offset: "2",
-    group_offset: 2,
-  });
+  expect(
+    within(chosen)
+      .getByRole("link", { name: "Show the first chosen artists" })
+      .getAttribute("href"),
+  ).toBe(
+    `/artists?${new URLSearchParams({ q: index.query, library: "owned-local-library", limit: "2" })}`,
+  );
 });
 
 test("group entry links drop unauthorized filters and all index paging and search", () => {
