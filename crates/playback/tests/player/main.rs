@@ -14,4 +14,5 @@ mod player_queue_capacity;
 mod player_queue_editing;
 mod player_receipts;
 mod provider_input;
+mod provider_input_faults;
 mod source;
