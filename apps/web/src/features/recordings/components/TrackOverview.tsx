@@ -84,7 +84,9 @@ export default function TrackOverview({
   const others = copies.copies.filter(
     (copy) => copy.recording_id !== detail.recording_id,
   );
-  const hasRail = others.length > 0 || detail.musicbrainz_recording_id !== null;
+  const isrc = observation?.tags?.isrc?.value ?? null;
+  const identified = detail.musicbrainz_recording_id !== null || isrc !== null;
+  const hasRail = others.length > 0 || identified;
   const position =
     observation?.track_number != null
       ? observation.disc_number != null && observation.disc_number > 1
@@ -194,22 +196,32 @@ export default function TrackOverview({
               </button>
             </section>
           )}
-          {detail.musicbrainz_recording_id !== null && (
+          {identified && (
             <section>
               <h2>Identifiers</h2>
               <dl>
-                <div>
-                  <dt>MusicBrainz</dt>
-                  <dd>
-                    <a
-                      href={`https://musicbrainz.org/recording/${encodeURIComponent(detail.musicbrainz_recording_id)}`}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      Open
-                    </a>
-                  </dd>
-                </div>
+                {detail.musicbrainz_recording_id !== null && (
+                  <div>
+                    <dt>MusicBrainz</dt>
+                    <dd>
+                      <a
+                        href={`https://musicbrainz.org/recording/${encodeURIComponent(detail.musicbrainz_recording_id)}`}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        Open
+                      </a>
+                    </dd>
+                  </div>
+                )}
+                {isrc !== null && (
+                  <div>
+                    <dt>ISRC</dt>
+                    <dd>
+                      <span className="track-mono track-id">{isrc}</span>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </section>
           )}

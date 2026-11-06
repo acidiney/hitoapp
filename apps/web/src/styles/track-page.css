@@ -507,6 +507,8 @@ p.track-muted {
 }
 .track-id {
   color: var(--ink-soft);
+}
+a.track-id {
   border-bottom: 1px solid var(--line-strong);
 }
 .track-credits .metadata-tag-list,
