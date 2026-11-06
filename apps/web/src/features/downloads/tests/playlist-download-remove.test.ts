@@ -94,7 +94,8 @@ test("removing a playlist download releases only its displayed retention and pre
   const recordingLinks = () =>
     within(table)
       .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
+      .map((link) => link.getAttribute("href"))
+      .filter((href) => href?.startsWith("/recordings/"));
   const originalLinks = [recordingA, recordingB, recordingA].map(
     (recording) => `/recordings/${recording}`,
   );

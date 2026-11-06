@@ -113,7 +113,8 @@ test("retrying failed playlist downloads sends one fresh request and keeps the s
   const recordingLinks = () =>
     within(table)
       .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
+      .map((link) => link.getAttribute("href"))
+      .filter((href) => href?.startsWith("/recordings/"));
   const originalLinks = [recordingA, recordingB, recordingA].map(
     (recording) => `/recordings/${recording}`,
   );

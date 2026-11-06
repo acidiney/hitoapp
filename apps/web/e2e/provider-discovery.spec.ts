@@ -276,7 +276,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
     expect(discoveredArtists).toHaveLength(1);
     const artistId = discoveredArtists[0].id;
     await openLibrarySection(page, "Artists");
-    await page.locator(`a[href="/artists/${artistId}"]`).click();
+    await page.locator(`a[href="/artists/${artistId}"]`).first().click();
     await expect(
       page.getByRole("heading", {
         name: fixture.recording.artist,

@@ -130,9 +130,31 @@ test("the row menu opens from the keyboard, plays next, queues, adds to a playli
     /Play/,
     "Title",
     "Artist",
+    "Album",
     "Time",
     /Actions/,
   ]);
+  await entries
+    .locator("tbody tr")
+    .filter({ hasText: second })
+    .locator('td.album-column a[href^="/albums/"]')
+    .click();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/);
+  await expect(
+    page.getByRole("heading", {
+      name: "Fixture collection 660 Hz",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  const listed = await openLibraryList(page);
+  await listed
+    .locator("tbody tr")
+    .filter({ hasText: second })
+    .locator('td.artist-column a[href^="/artists/"]')
+    .click();
+  await expect(page).toHaveURL(/\/artists\/[^/]+$/);
+  await expect(page.locator("main")).toContainText(second);
 
   const library = await openLibraryList(page);
   const albumLink = library

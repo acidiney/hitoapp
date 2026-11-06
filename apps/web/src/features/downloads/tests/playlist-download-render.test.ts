@@ -140,7 +140,8 @@ test("download polling updates progress without rendering the unchanged playlist
   const recordingLinks = () =>
     within(table)
       .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
+      .map((link) => link.getAttribute("href"))
+      .filter((href) => href?.startsWith("/recordings/"));
   const originalLinks = props.detail.entries.map(
     (entry) => `/recordings/${entry.recording_id}`,
   );
