@@ -8,6 +8,7 @@ mod indexing_identity;
 mod indexing_parallelism;
 mod indexing_processes;
 mod indexing_releases;
+mod indexing_scan_speed;
 mod indexing_shutdown;
 mod indexing_snapshot;
 mod indexing_tools;
