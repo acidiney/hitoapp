@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
+import { openLibrarySection } from "./fixtures/library-sections";
 import type { Schema } from "../src/shared/schema";
 
 type Fixture = Awaited<ReturnType<typeof providerFixture>>;
@@ -152,6 +153,67 @@ test("a provider that keeps failing is asked a bounded number of times, says so,
     await expect
       .poll(() => position(page), { timeout: 20_000 })
       .toBeGreaterThan(0.2);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("buffered audio keeps playing through a server outage and the page recovers in place afterwards", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(90_000);
+  const fixture = await providerFixture("FaultOutage");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  let down = false;
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    const talksToHito =
+      url.pathname === "/health" ||
+      url.pathname.startsWith("/api/v1/") ||
+      route.request().headers()["x-inertia"] !== undefined;
+    return down && talksToHito
+      ? route.abort("connectionrefused")
+      : route.continue();
+  });
+  try {
+    const recording = await savedTrack(page, baseURL!, fixture);
+    await play(page, recording.title);
+    const audio = page.locator("audio[data-hito-player]");
+    await expect
+      .poll(() =>
+        audio.evaluate(
+          (element: HTMLAudioElement) =>
+            element.buffered.length > 0 &&
+            element.buffered.end(element.buffered.length - 1) >=
+              element.duration - 0.5,
+        ),
+      )
+      .toBe(true);
+    const source = await audio.evaluate(
+      (element: HTMLAudioElement) => element.src,
+    );
+    const before = await position(page);
+    down = true;
+    await openLibrarySection(page, "Albums");
+    const notice = page.getByRole("status").filter({ hasText: "Cannot reach" });
+    await expect(notice).toBeVisible();
+    await expect
+      .poll(() => position(page), { timeout: 15_000 })
+      .toBeGreaterThan(before + 3);
+    expect(
+      await audio.evaluate((element: HTMLAudioElement) => element.paused),
+    ).toBe(false);
+    down = false;
+    await expect(notice).toBeHidden({ timeout: 20_000 });
+    expect(
+      await audio.evaluate((element: HTMLAudioElement) => element.src),
+    ).toBe(source);
+    expect(
+      await audio.evaluate((element: HTMLAudioElement) => element.paused),
+    ).toBe(false);
+    expect(errors).toEqual([]);
   } finally {
     await fixture.close();
   }
