@@ -232,7 +232,7 @@ async fn audio(
                 headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
                 return (StatusCode::RANGE_NOT_SATISFIABLE, headers).into_response();
             }
-            let end = (first + maximum).min(total);
+            let end = first.saturating_add(maximum).min(total);
             bytes = bytes[first..end].to_vec();
             status = StatusCode::PARTIAL_CONTENT;
             headers.insert(

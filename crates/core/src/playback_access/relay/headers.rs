@@ -1,3 +1,4 @@
+use super::AudioValidators;
 use crate::{AudioContent, AudioRequest, Error, OpenedAudio, Result};
 use reqwest::{StatusCode, header::HeaderMap};
 
@@ -80,6 +81,7 @@ pub(crate) fn read(response: &reqwest::Response, request: AudioRequest) -> Resul
         total_length,
         range,
         seekable,
+        validators: AudioValidators::read(headers),
         body: None,
     })))
 }

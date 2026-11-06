@@ -10,14 +10,19 @@ use crate::{
 impl Downloads {
     #[tracing::instrument(level = "debug", skip_all,
         fields(job_id = %lease.id, intent_id = %lease.intent_id, account_id = %lease.account_id))]
-    pub(super) async fn open_origin(&self, lease: &Lease) -> Result<OpenedAudio> {
+    pub(super) async fn open_origin(
+        &self,
+        lease: &Lease,
+        request: AudioRequest,
+    ) -> Result<OpenedAudio> {
         match &lease.origin {
             DownloadOrigin::Provider(origin) => {
-                self.plugins.open_download(&lease.account_id, origin).await
+                self.plugins
+                    .open_download(&lease.account_id, origin, request)
+                    .await
             }
             DownloadOrigin::Podcast(origin) => {
                 lease.check(&self.store).await?;
-                let request = AudioRequest::default();
                 let remote = self
                     .remote
                     .audio(&origin.podcast_enclosure_url, request)

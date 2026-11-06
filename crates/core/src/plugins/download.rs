@@ -77,6 +77,7 @@ impl Plugins {
         &self,
         account: &str,
         origin: &ProviderDownloadOrigin,
+        request: AudioRequest,
     ) -> Result<OpenedAudio> {
         let row = sqlx::query("SELECT p.credential,service.base_url FROM plugin_installations p
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1 AND service.revision=?
@@ -113,7 +114,7 @@ impl Plugins {
             .open(
                 row.try_get("base_url")?,
                 token.as_deref().map(String::as_str),
-                AudioRequest::default(),
+                request,
                 authority,
             )
             .await

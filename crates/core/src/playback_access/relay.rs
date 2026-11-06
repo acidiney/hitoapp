@@ -3,10 +3,12 @@ pub(crate) mod pace;
 mod range;
 pub(crate) mod remote;
 mod stream;
+mod validators;
 use crate::{AudioFile, PlaybackSource, Result};
 pub use pace::StreamPace;
 pub use range::ByteRange;
 pub use stream::AudioStream;
+pub use validators::AudioValidators;
 
 #[derive(Default, Clone, Copy)]
 pub struct AudioRequest {
@@ -25,6 +27,7 @@ pub struct AudioContent {
     pub total_length: Option<u64>,
     pub range: Option<std::ops::RangeInclusive<u64>>,
     pub seekable: bool,
+    pub validators: AudioValidators,
     pub body: Option<AudioStream>,
 }
 
@@ -63,6 +66,7 @@ pub(super) async fn open_file_audio(
         total_length: Some(total),
         range,
         seekable: true,
+        validators: AudioValidators::default(),
         body,
     })))
 }

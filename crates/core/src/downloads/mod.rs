@@ -1,4 +1,5 @@
 mod cleanup;
+mod guard;
 mod health;
 mod lease;
 mod managed_origin;
@@ -16,6 +17,7 @@ mod requests;
 mod retention;
 mod retirement;
 mod roots;
+mod transfer;
 mod types;
 mod worker;
 

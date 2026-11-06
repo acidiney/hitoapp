@@ -118,8 +118,9 @@ pub use metadata::{
     TextMetadata,
 };
 pub use playback_access::{
-    AudioContent, AudioRequest, AudioStream, ByteRange, CandidatesEnd, MAX_FALLBACK_ATTEMPTS,
-    OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource, StreamPace,
+    AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, CandidatesEnd,
+    MAX_FALLBACK_ATTEMPTS, OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource,
+    StreamPace,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,

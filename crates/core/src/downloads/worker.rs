@@ -1,12 +1,6 @@
-use super::{Downloads, lease::Lease};
-use crate::{
-    Error, OpenedAudio, Result,
-    library_storage::{MAX_MANAGED_BYTES, ManagedFileLocation},
-};
-use std::{
-    future::Future,
-    time::{Duration, Instant},
-};
+use super::{Downloads, guard::Guard, lease::Lease, transfer::Representation};
+use crate::{AudioRequest, Error, OpenedAudio, Result, library_storage::ManagedFileLocation};
+use std::{future::Future, time::Instant};
 use tokio::sync::watch;
 
 impl Downloads {
@@ -102,43 +96,28 @@ impl Downloads {
     ) -> Result<Option<ManagedFileLocation>> {
         let mut guard = Guard::new(lease, self, stopped);
         lease.check(&self.store).await?;
-        let Some(opened) = guard.wait(self.open_origin(lease)).await? else {
+        let Some(opened) = guard
+            .wait(self.open_origin(lease, AudioRequest::default()))
+            .await?
+        else {
             return Ok(None);
         };
-        let OpenedAudio::Content(mut content) = opened else {
+        let OpenedAudio::Content(content) = opened else {
             return Err(Error::Upstream(
                 "The download service did not return complete audio",
             ));
         };
-        if content.range.is_some()
-            || content
-                .length
-                .is_some_and(|length| length == 0 || length > MAX_MANAGED_BYTES)
-        {
-            return Err(Error::Upstream("The download audio exceeds its size limit"));
-        }
-        guard.total = content.length;
-        let mut body = content
-            .body
-            .take()
-            .ok_or(Error::Upstream("The download service did not return audio"))?;
+        let (body, representation) = Representation::admit(content)?;
+        guard.total = representation.total();
         let Some(mut pending) = guard.wait(self.files.begin(lease.reservation()?)).await? else {
             return Ok(None);
         };
-        loop {
-            let Some(chunk) = guard.wait(body.chunk()).await? else {
-                return Ok(None);
-            };
-            let Some(chunk) = chunk else {
-                break;
-            };
-            if chunk.len() as u64 > MAX_MANAGED_BYTES.saturating_sub(guard.bytes) {
-                return Err(Error::Upstream("The download audio exceeds its size limit"));
-            }
-            if guard.wait(pending.write_chunk(&chunk)).await?.is_none() {
-                return Ok(None);
-            }
-            guard.bytes += chunk.len() as u64;
+        if self
+            .copy_audio(lease, &mut guard, &mut pending, body, representation)
+            .await?
+            .is_none()
+        {
+            return Ok(None);
         }
         if guard.bytes == 0 {
             return Err(Error::Upstream("The download service returned empty audio"));
@@ -154,88 +133,5 @@ impl Downloads {
         lease.check(&self.store).await?;
         let location = guard.publish(self.files.publish(verified)).await?;
         Ok(location)
-    }
-}
-
-struct Guard<'a> {
-    lease: &'a Lease,
-    downloads: &'a Downloads,
-    stopped: &'a mut watch::Receiver<bool>,
-    bytes: u64,
-    total: Option<u64>,
-    checked: Instant,
-    renewed: Instant,
-}
-
-impl<'a> Guard<'a> {
-    fn new(
-        lease: &'a Lease,
-        downloads: &'a Downloads,
-        stopped: &'a mut watch::Receiver<bool>,
-    ) -> Self {
-        Self {
-            lease,
-            downloads,
-            stopped,
-            bytes: 0,
-            total: None,
-            checked: Instant::now(),
-            renewed: Instant::now(),
-        }
-    }
-
-    async fn check(&mut self) -> Result<()> {
-        if self.checked.elapsed() >= Duration::from_millis(250) {
-            self.lease.check(&self.downloads.store).await?;
-            self.checked = Instant::now();
-        }
-        if self.renewed.elapsed() >= Duration::from_secs(1) {
-            tokio::time::timeout(
-                Duration::from_secs(1),
-                self.lease
-                    .heartbeat(&self.downloads.store, self.bytes, self.total),
-            )
-            .await
-            .unwrap_or(Err(Error::Upstream(
-                "Download progress could not be saved in time",
-            )))?;
-            self.renewed = Instant::now();
-        }
-        Ok(())
-    }
-
-    async fn wait<T>(&mut self, pending: impl Future<Output = Result<T>>) -> Result<Option<T>> {
-        if *self.stopped.borrow() {
-            return Ok(None);
-        }
-        self.check().await?;
-        tokio::pin!(pending);
-        loop {
-            tokio::select! {
-                biased;
-                _ = self.stopped.changed() => { if *self.stopped.borrow() { return Ok(None); } },
-                result = &mut pending => { self.check().await?; return result.map(Some); },
-                _ = tokio::time::sleep(Duration::from_millis(250)) => self.check().await?,
-            }
-        }
-    }
-
-    async fn publish<T>(&mut self, pending: impl Future<Output = Result<T>>) -> Result<Option<T>> {
-        let mut withdrawn = false;
-        let mut authority_error = None;
-        tokio::pin!(pending);
-        loop {
-            tokio::select! {
-                result = &mut pending => {
-                    let value = result?;
-                    if let Some(error) = authority_error { return Err(error); }
-                    return Ok((!withdrawn).then_some(value));
-                },
-                _ = self.stopped.changed(), if !withdrawn => { withdrawn = *self.stopped.borrow(); },
-                _ = tokio::time::sleep(Duration::from_millis(250)), if authority_error.is_none() => {
-                    if let Err(error) = self.check().await { authority_error = Some(error); }
-                },
-            }
-        }
     }
 }

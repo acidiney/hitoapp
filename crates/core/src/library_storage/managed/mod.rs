@@ -13,7 +13,7 @@ use lifecycle::{Writer, Writers};
 use publication::sync_directory;
 use std::{
     fs::File,
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -177,6 +177,28 @@ impl VerifiedManagedFile {
 }
 
 impl PendingManagedFile {
+    pub(crate) fn length(&self) -> u64 {
+        self.length
+    }
+
+    pub(crate) async fn rewind(&mut self) -> Result<()> {
+        let file = self.file.clone();
+        let writer = self.writer.clone();
+        blocking::run(self.root.slots.clone(), move |cancelled| {
+            let writer = writer;
+            writer.check()?;
+            blocking::check(cancelled)?;
+            let mut file = file.lock().map_err(|_| unavailable())?;
+            file.set_len(0)
+                .and_then(|()| file.seek(SeekFrom::Start(0)))
+                .map(|_| ())
+                .map_err(|error| storage_failure(&error))
+        })
+        .await?;
+        self.length = 0;
+        Ok(())
+    }
+
     pub(crate) async fn write_chunk(&mut self, bytes: &[u8]) -> Result<()> {
         let length = self
             .length

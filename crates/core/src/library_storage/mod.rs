@@ -34,7 +34,9 @@ pub use directories::SharedDirectory;
 pub use folder_types::{ConnectFolder, DirectoryRef, MusicFolder};
 pub(crate) use inspection::FileInspector;
 pub(crate) use managed::managed_mime;
-pub(crate) use managed::{MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles};
+pub(crate) use managed::{
+    MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles, PendingManagedFile,
+};
 pub use missing::MissingRecordingsRemoval;
 pub(crate) use root::Root;
 pub use types::{Job, JobFailure};

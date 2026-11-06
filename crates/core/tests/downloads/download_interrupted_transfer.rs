@@ -6,7 +6,7 @@ use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use std::{future::pending, time::Duration};
 use uuid::Uuid;
 
-fn managed_names(fixture: &AudioLibrary) -> Vec<String> {
+pub(super) fn managed_names(fixture: &AudioLibrary) -> Vec<String> {
     let mut names: Vec<_> = std::fs::read_dir(fixture.directory.path().join("hito.downloads"))
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
@@ -15,7 +15,7 @@ fn managed_names(fixture: &AudioLibrary) -> Vec<String> {
     names
 }
 
-async fn make_due(fixture: &AudioLibrary) {
+pub(super) async fn make_due(fixture: &AudioLibrary) {
     let mut connection = SqliteConnection::connect_with(
         &SqliteConnectOptions::new().filename(fixture.directory.path().join("hito.db")),
     )
@@ -27,7 +27,7 @@ async fn make_due(fixture: &AudioLibrary) {
         .unwrap();
 }
 
-async fn request(fixture: &AudioLibrary) {
+pub(super) async fn request(fixture: &AudioLibrary) {
     fixture
         .hito
         .downloads
@@ -42,7 +42,7 @@ async fn request(fixture: &AudioLibrary) {
         .unwrap();
 }
 
-async fn run(fixture: &AudioLibrary) -> bool {
+pub(super) async fn run(fixture: &AudioLibrary) -> bool {
     tokio::time::timeout(
         Duration::from_secs(20),
         fixture.hito.downloads.run_next_job_until(pending()),
@@ -211,7 +211,7 @@ async fn a_shutdown_requeue_and_a_provider_retry_are_not_reported_as_missing_dis
     assert_eq!(retrying.error.as_deref(), Some("provider_unavailable"));
 }
 
-async fn state(fixture: &AudioLibrary) -> hito_core::DownloadStatus {
+pub(super) async fn state(fixture: &AudioLibrary) -> hito_core::DownloadStatus {
     fixture
         .hito
         .downloads
