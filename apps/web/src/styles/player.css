@@ -418,6 +418,9 @@
   flex-shrink: 0;
 }
 @media (max-width: 767px) {
+  .player .now-playing .track-actions .action-menu {
+    display: none;
+  }
   .player .now-playing .track-actions .icon-button {
     color: var(--on-ink);
     min-width: 36px;
