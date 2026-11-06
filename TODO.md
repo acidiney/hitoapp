@@ -323,6 +323,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## UI and branding
 
+- [ ] Show real thumbnails and, where the service supplies them, artist and length for unsaved source candidates: the YouTube flat music search returns neither, so candidates show a generated cover. This needs a plugin contract field for candidate artwork and a way to fetch it before the track is saved. Also move the remaining Previous and Next lists (library tracks, discovery, audiobooks) to infinite loading where playback queues allow.
 - [ ] Redesign the web app to the [design system](docs/design-system.md): Início / Pesquisar / Biblioteca shell, new tokens and fonts, shared components, and every screen.
   - [x] Phase 1, foundation: tokens (light and dark), bundled Geist fonts, shared primitives, new sidebar and phone tab bar, restyled player bar and mini player. Pages are restyled, not rebuilt; Início points at Discover until Home exists. See [status](docs/status.md#web-redesign-phase-1).
   - [x] Phase 2, Settings: grouped navigation, deep-linkable sections with legacy aliases, cards built from the shared primitives, fixed status/action columns, an account dialog and a phone list-to-section drill-down. See [status](docs/status.md#web-redesign-phase-2-settings) and the [design system](docs/design-system.md#settings).
