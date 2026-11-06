@@ -200,6 +200,46 @@ fn merged(current: PlayerError, incoming: PlayerError) -> PlayerError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hito_core::{ChooseSource, test_support::provider_audio::AudioLibrary};
+    use uuid::Uuid;
+
+    fn key() -> Key {
+        Key {
+            scope: Uuid::new_v4(),
+            selection: 1,
+            entry: Uuid::new_v4(),
+            start: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn the_next_entry_source_honours_the_manual_choice_and_never_leaves_it() {
+        let library = AudioLibrary::start().await;
+        let alternate = library.save_copy_and_attach_alternate().await;
+        library
+            .hito
+            .catalog
+            .choose_source(
+                &library.actor,
+                &library.source.recording_id,
+                ChooseSource {
+                    request_id: Uuid::new_v4(),
+                    source_id: alternate.second.parse().unwrap(),
+                },
+            )
+            .await
+            .unwrap();
+        let mut sources =
+            Sources::cached(library.hito.catalog.clone(), library.hito.playback.clone());
+        sources.reset(Some(key()));
+        assert!(sources.request(&library.actor, &library.source.recording_id));
+        let grant = sources.next().await.unwrap().unwrap();
+        assert_eq!(grant.source_id(), alternate.second);
+        sources.failed(PlayerError::Playback);
+        assert!(sources.request(&library.actor, &library.source.recording_id));
+        assert!(sources.next().await.is_err());
+        assert!(sources.current().is_none());
+    }
 
     #[test]
     fn a_device_reason_survives_later_lookup_failures_but_not_lost_authorization() {
