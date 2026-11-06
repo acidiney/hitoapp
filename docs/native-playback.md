@@ -6,6 +6,8 @@
 
 `Source::open(grant)` accepts an opaque core grant. It accepts no path, URL, account string, or renderer metadata. Core keeps ownership of SQL, filesystem containment, provider credentials, HTTP protocol checks, and admission limits.
 
+The desktop player reads sources through `PlaybackAccess::playback_candidates`, which follows the same rule order as the browser list: the account's manual choice for the recording, then the saved source preference, then bounded fallback (see [choosing the audio source](source-preference.md)). With a manual choice, the recording's other provider sources and the saved copies that came from them are not offered to that account, and a failed chosen source ends the candidates instead of moving to another provider. The next-entry lookahead and gapless preparation use the same candidate list, so the entry that follows is also limited to the choice. Another account's choices never apply.
+
 ```mermaid
 flowchart LR
   Catalog[Core catalog admission] --> Grant[Opaque PlaybackSource]
