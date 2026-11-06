@@ -1,0 +1,57 @@
+services:
+  bench-library:
+    profiles: [bench]
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+      target: rust-tools
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:ro
+      - library:/music
+    environment:
+      BENCH_TRACKS: ${BENCH_TRACKS:-10000}
+    command: sh scripts/bench/generate-library.sh
+  e2e-server:
+    build:
+      args:
+        HITO_SERVER_CACHE_ID: ${BENCH_SERVER_CACHE_ID:-hito-arch-latency-release}
+    environment:
+      HITO_STORAGE_MANIFEST: /music/storage.json
+      RUST_LOG: info
+    volumes: !override
+      - library:/music:ro
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700
+  browser:
+    shm_size: 1gb
+    volumes:
+      - library:/music:ro
+    environment:
+      BENCH_TRACKS: ${BENCH_TRACKS:-10000}
+      BENCH_SAMPLES: ${BENCH_SAMPLES:-100}
+      BENCH_RTT_MS: ${BENCH_RTT_MS:-40}
+      BENCH_OUT: /workspace/test-results/latency
+    command: npx playwright test -c playwright.latency.config.ts
+  desktop:
+    volumes:
+      - library:/music:ro
+    environment:
+      BENCH_TRACKS: ${BENCH_TRACKS:-10000}
+      BENCH_SAMPLES: ${BENCH_SAMPLES:-100}
+      BENCH_RTT_MS: ${BENCH_RTT_MS:-40}
+      BENCH_OUT: /workspace/test-results/latency
+volumes:
+  library:
+    name: ${BENCH_LIBRARY_VOLUME:-hito-arch-latency_library}
+  cargo-registry:
+    external: true
+    name: hito-arch_cargo-registry
+  cargo-git:
+    external: true
+    name: hito-arch_cargo-git
+  rust-target:
+    name: hito-arch-latency_rust-target
+  node-modules:
+    external: true
+    name: hito-arch_node-modules
