@@ -294,6 +294,11 @@ p.track-muted {
   align-items: center;
   gap: 10px;
 }
+.track-fact dd > a.text-link:first-child {
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--ink);
+}
 .track-lyrics-preview {
   margin: 0;
   padding: 0;
@@ -448,7 +453,7 @@ p.track-muted {
 .track-row-actions > .button:first-child:nth-last-child(3) {
   margin-right: auto;
 }
-.track-metadata .track-linked-artist {
+.track-metadata .rd-card.track-linked-artist {
   display: grid;
   grid-template-columns: var(--label) minmax(0, 1fr) auto;
   column-gap: var(--gap);
@@ -755,7 +760,7 @@ p.track-muted {
 }
 .track-sources .source-availability > h2 + p,
 .track-sources [aria-labelledby="server-copy"] > h2 + p {
-  margin-top: 0;
+  display: none;
 }
 .track-sources .source-attachment:not([data-expanded]) > h2 + p {
   display: none;
@@ -869,6 +874,12 @@ p.track-muted {
 }
 .track-panel .rd-rows {
   gap: 0;
+}
+.track-panel .rd-rows > .rd-row:first-child {
+  border-top: 0;
+}
+.track-panel .rd-actions[hidden] {
+  display: none;
 }
 .rd-choice-state {
   display: inline-flex;
@@ -1134,17 +1145,8 @@ p.track-muted {
     min-height: 44px;
   }
   .track-sources .source-attachment[data-expanded] .pills {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    justify-self: start;
     flex-wrap: wrap;
-  }
-  .track-sources .source-attachment[data-expanded] .discovery-search > label,
-  .track-sources
-    .source-attachment[data-expanded]
-    .discovery-search
-    > .discovery-search-actions {
-    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
   .review-compare[data-aligned] {
     grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr);
