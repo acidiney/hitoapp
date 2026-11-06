@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
+import { artistCounts } from "../model/artistCounts";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import ArtistPhoto from "../components/ArtistPhoto";
@@ -60,30 +61,20 @@ export default function ArtistPage({
         }
         eyebrow="Artist · credit in your library"
         title={artist.name}
-        stats={
-          <>
-            {artist.recording_count > 0 || artist.release_count === 0 ? (
-              <>
-                {artist.recording_count}{" "}
-                {artist.recording_count === 1 ? "track" : "tracks"}
-                {artist.release_count > 0 && " · "}
-              </>
-            ) : null}
-            {artist.release_count > 0 && (
-              <>
-                {artist.release_count}{" "}
-                {artist.release_count === 1 ? "album" : "albums"}
-              </>
-            )}
-          </>
-        }
+        stats={artistCounts(artist.recording_count, artist.release_count)}
         actions={
           tracks.length > 0 ? (
             <PlayShuffle tracks={tracks} listing={listing} />
           ) : undefined
         }
       />
-      <ArtistCreditIdentity account={user.id} artist={artist} />
+      <ArtistCreditIdentity
+        account={user.id}
+        artist={artist}
+        searchRecording={
+          tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
+        }
+      />
       {releases.total > 0 && (
         <section aria-labelledby="artist-albums-title">
           <h2 className="discography-heading" id="artist-albums-title">

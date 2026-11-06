@@ -18,6 +18,7 @@ import { artistGroupTracksListing } from "../api/trackListings";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import ArtistGroupDiscography from "../components/ArtistGroupDiscography";
 import SimilarArtists from "../components/SimilarArtists";
+import { artistCounts } from "../model/artistCounts";
 import ArtistIdentityCorrections from "../components/ArtistIdentityCorrections";
 
 export default function ArtistIdentityGroupPage({
@@ -71,7 +72,7 @@ export default function ArtistIdentityGroupPage({
         }
         eyebrow="Chosen artist"
         title={group.name.value}
-        stats={`${group.recording_count} ${group.recording_count === 1 ? "track" : "tracks"} · ${group.release_count} ${group.release_count === 1 ? "album" : "albums"} · ${group.library_count} ${group.library_count === 1 ? "library" : "libraries"}`}
+        stats={`${artistCounts(group.recording_count, group.release_count)} · ${group.library_count} ${group.library_count === 1 ? "library" : "libraries"}`}
         actions={
           tracks.length > 0 ? (
             <PlayShuffle tracks={tracks} listing={listing} />
