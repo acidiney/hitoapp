@@ -118,7 +118,7 @@ test("an uncertain credit says so and keeps the manual choice behind a button", 
   const paths = serve(suggestions({ undecided_tracks: 106 }), status("idle"));
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
   expect(await screen.findByText("Not identified yet")).toBeTruthy();
-  expect(screen.queryByRole("group", { name: "Choose the artist" })).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
   expect(paths.some((path) => path.includes("artist-identity-groups"))).toBe(
     false,
   );
@@ -132,10 +132,10 @@ test("an uncertain credit says so and keeps the manual choice behind a button", 
   );
   fireEvent.click(screen.getByRole("button", { name: "Choose the artist" }));
   expect(
-    await screen.findByRole("group", { name: "Choose the artist" }),
+    await screen.findByRole("dialog", { name: "Choose the artist" }),
   ).toBeTruthy();
   expect(
-    await screen.findByText(/No reviewed artist matches this credit yet/),
+    await screen.findByText(/No artist you reviewed matches this credit yet/),
   ).toBeTruthy();
 });
 

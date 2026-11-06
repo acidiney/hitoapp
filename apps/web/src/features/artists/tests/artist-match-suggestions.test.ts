@@ -169,7 +169,7 @@ test("a failed or empty suggestion read leaves the manual flow alone", async () 
   fireEvent.click(
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
-  await screen.findByRole("group", { name: "Choose the artist" });
+  await screen.findByRole("dialog", { name: "Choose the artist" });
   expect(
     screen.queryByRole("region", { name: "Suggested artists for this credit" }),
   ).toBeNull();

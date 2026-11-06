@@ -6,6 +6,8 @@ import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
 import { useArtistMatchingStatus } from "../hooks/useArtistMatchingStatus";
 import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
+import { artistSearchHref } from "../model/artistSearchLink";
 import { chosenEvidenceText } from "../model/associationEvidence";
 
 function plural(count: number, one: string, many: string) {
@@ -21,16 +23,22 @@ function provenance(chosen: Schema<"ArtistMatchChosen">) {
 export default function ArtistCreditIdentity({
   account,
   artist,
+  searchRecording,
 }: {
   account: string;
   artist: { id: string; name: string };
+  searchRecording?: string;
 }) {
   const identity = useArtistCreditIdentity(account, artist);
   const suggested = useArtistMatchSuggestions(account, artist.id);
   const { status } = useArtistMatchingStatus(account);
   const [choosing, setChoosing] = useState(false);
   const { refresh } = suggested;
+  const opener = useRef<HTMLButtonElement>(null);
   useEffect(() => setChoosing(false), [artist.id]);
+  useEffect(() => {
+    if (identity.step === "closed" && identity.totals) setChoosing(false);
+  }, [identity.step, identity.totals]);
   useEffect(() => {
     if (identity.totals) void refresh();
   }, [identity.totals, refresh]);
@@ -82,17 +90,29 @@ export default function ArtistCreditIdentity({
           matched yet.
         </p>
       )}
-      {!choosing && (!matched || (read?.undecided_tracks ?? 0) > 0) && (
-        <Button type="button" aria-expanded={false} onClick={open}>
-          Choose the artist
-        </Button>
+      {(!matched || (read?.undecided_tracks ?? 0) > 0) && (
+        <>
+          <p className="muted">
+            Say which artist this credit is, and Hito groups its tracks under
+            that artist.
+          </p>
+          <Button ref={opener} type="button" onClick={open}>
+            Choose the artist
+          </Button>
+        </>
       )}
       {choosing && (
-        <div role="group" aria-label="Choose the artist">
-          <p>
-            Use an artist you already reviewed for another track. Equal names
-            alone never merge artists.
-          </p>
+        <Dialog
+          wide
+          title="Choose the artist"
+          description="Use an artist you already reviewed for another track. Equal names alone never merge artists."
+          busy={busy}
+          returnFocus={opener}
+          onClose={() => {
+            setChoosing(false);
+            identity.cancel();
+          }}
+        >
           {(identity.step === "closed" || identity.step === "choosing") &&
             suggested.suggestions && (
               <ArtistMatchSuggestionList
@@ -104,13 +124,15 @@ export default function ArtistCreditIdentity({
                 onRestore={(group) => void suggested.restore(group)}
               />
             )}
+          {identity.step === "loading" && (
+            <p role="status">Looking for artists you reviewed…</p>
+          )}
           {identity.step === "choosing" && identity.groups.length === 0 && (
-            <p>
-              No reviewed artist matches this credit yet. Review an artist on
-              one of its tracks first.
+            <p className="dialog-empty">
+              No artist you reviewed matches this credit yet.
             </p>
           )}
-          {identity.step === "choosing" && (
+          {identity.step === "choosing" && identity.groups.length > 0 && (
             <ul>
               {identity.groups.map((group) => (
                 <li key={group.id}>
@@ -127,34 +149,54 @@ export default function ArtistCreditIdentity({
               ))}
             </ul>
           )}
-        </div>
-      )}
-      {identity.step === "confirming" && identity.selected && (
-        <div role="group" aria-label="Confirm artist identity">
-          <p>
-            Use {identity.selected.name.value} for every track you can access
-            under the credit {artist.name}? A track keeps its choice when it
-            already has a different reviewed artist, or when a different
-            artist's choice needs review. Tracks never chosen, reset, or needing
-            review for this artist are updated. You can reset any track later.
-          </p>
-          <Button
-            type="button"
-            onClick={() => identity.apply(identity.selected!)}
-          >
-            Confirm
-          </Button>
-          <Button type="button" onClick={identity.cancel}>
-            Cancel
-          </Button>
-        </div>
-      )}
-      {identity.step === "applying" && <p>Applying the artist identity…</p>}
-      {identity.error && <p role="alert">{identity.error}</p>}
-      {identity.retrying && (
-        <Button type="button" disabled={busy} onClick={identity.retry}>
-          Retry the same artist identity request
-        </Button>
+          {identity.step === "confirming" && identity.selected && (
+            <div role="group" aria-label="Confirm artist identity">
+              <p>
+                Use {identity.selected.name.value} for every track you can
+                access under the credit {artist.name}? A track keeps its choice
+                when it already has a different reviewed artist, or when a
+                different artist's choice needs review. Tracks never chosen,
+                reset, or needing review for this artist are updated. You can
+                reset any track later.
+              </p>
+              <Button
+                type="button"
+                onClick={() => identity.apply(identity.selected!)}
+              >
+                Confirm
+              </Button>
+              <Button type="button" onClick={identity.cancel}>
+                Cancel
+              </Button>
+            </div>
+          )}
+          {identity.step === "applying" && <p>Applying the artist identity…</p>}
+          {identity.error && <p role="alert">{identity.error}</p>}
+          {identity.retrying && (
+            <Button type="button" disabled={busy} onClick={identity.retry}>
+              Retry the same artist identity request
+            </Button>
+          )}
+          <footer className="review-actions">
+            {searchRecording && (
+              <Link
+                className="button secondary"
+                href={artistSearchHref(searchRecording)}
+              >
+                Search for {artist.name}
+              </Link>
+            )}
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setChoosing(false);
+                identity.cancel();
+              }}
+            >
+              Close
+            </Button>
+          </footer>
+        </Dialog>
       )}
       {identity.totals && identity.selected && (
         <div role="status">
