@@ -1,4 +1,4 @@
-use crate::metadata::{InspectedTags, ObservedTag, TagLocation};
+use crate::metadata::{InspectedTags, ObservedAudio, ObservedTag, TagLocation};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -71,6 +71,10 @@ impl Probe {
             album_artist: self.observed_tag("album_artist"),
             disc: self.observed_tag("disc"),
             track: self.observed_tag("track"),
+            track_total: self.first_tag(&["tracktotal", "totaltracks"]),
+            date: self.first_tag(&["date", "year"]),
+            label: self.first_tag(&["label", "publisher", "organization"]),
+            audio: self.observed_audio(),
             isrc: self
                 .observed_tag("isrc")
                 .or_else(|| self.observed_tag("tsrc")),
@@ -94,6 +98,41 @@ impl Probe {
                 None
             },
         }
+    }
+
+    fn observed_audio(&self) -> Option<ObservedAudio> {
+        let stream = self.streams.first()?;
+        let codec = stream.codec_name.as_deref()?;
+        let container = self.format.format_name.as_deref()?.split(',').next()?;
+        let (format, lossless) = match (container, codec) {
+            ("flac", _) => ("FLAC", true),
+            ("mp3", _) => ("MP3", false),
+            ("wav", _) => ("WAV", true),
+            ("aiff", _) => ("AIFF", true),
+            ("asf", _) => ("WMA", false),
+            ("aac", _) => ("AAC", false),
+            ("ogg", "vorbis") => ("Ogg Vorbis", false),
+            ("ogg", "opus") => ("Opus", false),
+            ("ogg", "flac") => ("FLAC", true),
+            ("mov", "alac") => ("ALAC", true),
+            ("mov", "aac") => ("AAC", false),
+            _ => return None,
+        };
+        let depth = stream
+            .bits_per_raw_sample
+            .as_deref()
+            .and_then(|value| value.parse::<u32>().ok())
+            .or(stream.bits_per_sample)
+            .filter(|depth| lossless && (1..=64).contains(depth));
+        Some(ObservedAudio {
+            format: format.into(),
+            bit_depth: depth,
+            sample_rate_hz: stream
+                .sample_rate
+                .as_deref()
+                .and_then(|value| value.parse().ok())
+                .filter(|rate| (1..=768_000).contains(rate)),
+        })
     }
 
     fn carries_id3(&self) -> bool {

@@ -10,8 +10,8 @@ use id3::{Frame, Layout, Version, tag_with, write_mp3_around};
 use sqlx::sqlite::SqliteConnectOptions;
 use std::path::Path;
 
-const PRIOR_VERSION: i64 = 7;
-const CURRENT_VERSION: i64 = 8;
+const PRIOR_VERSION: i64 = 8;
+const CURRENT_VERSION: i64 = 9;
 
 async fn represent_prior_version(database: &Path) {
     let pool = sqlx::SqlitePool::connect_with(

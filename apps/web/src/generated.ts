@@ -3439,6 +3439,15 @@ export interface components {
             candidate: components["schemas"]["ProviderCandidate"];
             review_stamp: string;
         };
+        AudioFormat: {
+            /** Format: int32 */
+            bit_depth: number | null;
+            format: string | null;
+            /** Format: int32 */
+            sample_rate_hz: number | null;
+            /** Format: int64 */
+            size_bytes: number;
+        };
         /** Format: binary */
         AudioStream: string;
         AudiobookBookmark: {
@@ -4021,9 +4030,12 @@ export interface components {
             album: components["schemas"]["ObservedTag"] | null;
             album_artist: components["schemas"]["ObservedTag"] | null;
             artist: components["schemas"]["ObservedTag"] | null;
+            audio: components["schemas"]["ObservedAudio"] | null;
+            date: components["schemas"]["ObservedTag"] | null;
             disc: components["schemas"]["ObservedTag"] | null;
             genre: components["schemas"]["ObservedTag"] | null;
             isrc: components["schemas"]["ObservedTag"] | null;
+            label: components["schemas"]["ObservedTag"] | null;
             musicbrainz_album_id: components["schemas"]["ObservedTag"] | null;
             musicbrainz_artist_tags: components["schemas"]["MusicBrainzArtistTag"][] | null;
             musicbrainz_recording_id: components["schemas"]["ObservedTag"] | null;
@@ -4031,6 +4043,7 @@ export interface components {
             musicbrainz_release_track_id: components["schemas"]["ObservedTag"] | null;
             title: components["schemas"]["ObservedTag"] | null;
             track: components["schemas"]["ObservedTag"] | null;
+            track_total: components["schemas"]["ObservedTag"] | null;
         };
         InstallPlugin: {
             accept_manifest_digest?: string | null;
@@ -4052,6 +4065,12 @@ export interface components {
         };
         /** @enum {string} */
         JobFailure: "media_tools_missing";
+        LastPlayed: {
+            /** Format: int64 */
+            played_at: number;
+            /** Format: int64 */
+            position_ms: number;
+        };
         Library: {
             id: string;
             name: string;
@@ -4213,6 +4232,13 @@ export interface components {
             items: components["schemas"]["MetadataObservation"][];
             /** Format: int64 */
             next_before: number | null;
+        };
+        ObservedAudio: {
+            /** Format: int32 */
+            bit_depth: number | null;
+            format: string;
+            /** Format: int32 */
+            sample_rate_hz: number | null;
         };
         ObservedTag: {
             location: components["schemas"]["TagLocation"];
@@ -5100,11 +5126,15 @@ export interface components {
             recording_id: string;
         };
         RecordingMetadata: {
+            appears_in: components["schemas"]["Playlist"][];
             artist: components["schemas"]["TextMetadata"];
+            audio_format: components["schemas"]["AudioFormat"] | null;
             credited_artists: components["schemas"]["CreditedArtistView"][];
+            last_played: components["schemas"]["LastPlayed"] | null;
             musicbrainz_recording_id: string | null;
             observations: components["schemas"]["ObservationPage"];
             recording_id: string;
+            release_facts: components["schemas"]["ReleaseFacts"];
             selected_observation: components["schemas"]["MetadataObservation"] | null;
             title: components["schemas"]["TextMetadata"];
         };
@@ -5175,6 +5205,13 @@ export interface components {
             release: components["schemas"]["Release"];
             saved_edition: components["schemas"]["AlbumEditionChoice"] | null;
             tracks: components["schemas"]["Page_ReleaseTrack"];
+        };
+        ReleaseFacts: {
+            label: string | null;
+            /** Format: int64 */
+            track_total: number | null;
+            /** Format: int32 */
+            year: number | null;
         };
         ReleaseGroupEditionsAvailability: {
             association_id: string;

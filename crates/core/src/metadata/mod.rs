@@ -5,6 +5,7 @@ mod musicbrainz_ids;
 mod projection;
 mod read;
 mod recording_credits;
+mod recording_facts;
 mod recording_fields;
 mod release_fields;
 mod release_read;

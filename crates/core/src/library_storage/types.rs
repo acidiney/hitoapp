@@ -54,4 +54,4 @@ pub(super) struct AudioEvidence {
 }
 
 pub(super) const AUDIO_ALGORITHM: &str = "ffmpeg-pcm-f64-v1";
-pub(super) const METADATA_VERSION: i64 = 8;
+pub(super) const METADATA_VERSION: i64 = 9;

@@ -5,6 +5,8 @@ use tokio::time::Instant;
 
 const ORDINARY_TAGS: &str = concat!(
     "title,artist,album,album_artist,disc,track,isrc,TSRC,genre,",
+    "date,DATE,year,YEAR,label,LABEL,publisher,PUBLISHER,organization,ORGANIZATION,",
+    "tracktotal,TRACKTOTAL,totaltracks,TOTALTRACKS,",
     "MusicBrainz Album Id,MUSICBRAINZ_ALBUMID,",
     "MusicBrainz Release Group Id,MUSICBRAINZ_RELEASEGROUPID,",
     "MusicBrainz Track Id,MUSICBRAINZ_TRACKID,",

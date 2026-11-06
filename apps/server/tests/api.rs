@@ -17,6 +17,8 @@ mod display_name;
 
 #[path = "api/history_privacy.rs"]
 mod history_privacy;
+#[path = "api/recording_details_facts.rs"]
+mod recording_details_facts;
 
 #[path = "api/identity.rs"]
 mod identity;

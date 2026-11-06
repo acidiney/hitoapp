@@ -20605,6 +20605,43 @@
         },
         "additionalProperties": false
       },
+      "AudioFormat": {
+        "type": "object",
+        "required": [
+          "format",
+          "bit_depth",
+          "sample_rate_hz",
+          "size_bytes"
+        ],
+        "properties": {
+          "bit_depth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample_rate_hz": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "AudioStream": {
         "type": "string",
         "format": "binary"
@@ -23010,6 +23047,10 @@
           "album_artist",
           "disc",
           "track",
+          "track_total",
+          "date",
+          "label",
+          "audio",
           "isrc",
           "genre",
           "musicbrainz_album_id",
@@ -23049,6 +23090,26 @@
               }
             ]
           },
+          "audio": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedAudio"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "date": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "disc": {
             "oneOf": [
               {
@@ -23070,6 +23131,16 @@
             ]
           },
           "isrc": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ObservedTag"
@@ -23139,6 +23210,16 @@
             ]
           },
           "track": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "track_total": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ObservedTag"
@@ -23235,6 +23316,23 @@
         "enum": [
           "media_tools_missing"
         ]
+      },
+      "LastPlayed": {
+        "type": "object",
+        "required": [
+          "played_at",
+          "position_ms"
+        ],
+        "properties": {
+          "played_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "position_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "Library": {
         "type": "object",
@@ -23922,6 +24020,35 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "ObservedAudio": {
+        "type": "object",
+        "required": [
+          "format",
+          "bit_depth",
+          "sample_rate_hz"
+        ],
+        "properties": {
+          "bit_depth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "format": {
+            "type": "string"
+          },
+          "sample_rate_hz": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -27461,17 +27588,47 @@
           "selected_observation",
           "credited_artists",
           "musicbrainz_recording_id",
-          "observations"
+          "observations",
+          "audio_format",
+          "release_facts",
+          "last_played",
+          "appears_in"
         ],
         "properties": {
+          "appears_in": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Playlist"
+            }
+          },
           "artist": {
             "$ref": "#/components/schemas/TextMetadata"
+          },
+          "audio_format": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudioFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "credited_artists": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CreditedArtistView"
             }
+          },
+          "last_played": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LastPlayed"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "musicbrainz_recording_id": {
             "type": [
@@ -27484,6 +27641,9 @@
           },
           "recording_id": {
             "type": "string"
+          },
+          "release_facts": {
+            "$ref": "#/components/schemas/ReleaseFacts"
           },
           "selected_observation": {
             "oneOf": [
@@ -27752,6 +27912,36 @@
           },
           "tracks": {
             "$ref": "#/components/schemas/Page_ReleaseTrack"
+          }
+        }
+      },
+      "ReleaseFacts": {
+        "type": "object",
+        "required": [
+          "year",
+          "track_total",
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track_total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -1,4 +1,4 @@
-use super::{MetadataHistoryQuery, RecordingMetadata, TextMetadata, history};
+use super::{MetadataHistoryQuery, RecordingMetadata, TextMetadata, history, recording_facts};
 use crate::{Actor, Catalog, Error, Result};
 use sqlx::Row;
 
@@ -55,6 +55,10 @@ impl Catalog {
         let credited_artists = super::read_credited_artists(&mut tx, actor, &recording_id).await?;
         let observations =
             history::page(&mut tx, history::Target::Recording(&recording_id), page).await?;
+        let local = recording_facts::local_file(&mut tx, &recording_id).await?;
+        let last_played = recording_facts::last_played(&mut tx, actor, &recording_id).await?;
+        let appears_in =
+            recording_facts::playlists_containing(&mut tx, actor, &recording_id).await?;
         tx.commit().await?;
         tracing::debug!(
             count = observations.items.len(),
@@ -68,6 +72,10 @@ impl Catalog {
             credited_artists,
             musicbrainz_recording_id,
             observations,
+            audio_format: local.audio_format,
+            release_facts: local.release,
+            last_played,
+            appears_in,
         })
     }
 }

@@ -20,6 +20,39 @@ pub struct RecordingMetadata {
     #[schema(required = true)]
     pub musicbrainz_recording_id: Option<String>,
     pub observations: ObservationPage,
+    #[schema(required = true)]
+    pub audio_format: Option<AudioFormat>,
+    pub release_facts: ReleaseFacts,
+    #[schema(required = true)]
+    pub last_played: Option<LastPlayed>,
+    pub appears_in: Vec<crate::Playlist>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AudioFormat {
+    #[schema(required = true)]
+    pub format: Option<String>,
+    #[schema(required = true)]
+    pub bit_depth: Option<u32>,
+    #[schema(required = true)]
+    pub sample_rate_hz: Option<u32>,
+    pub size_bytes: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ReleaseFacts {
+    #[schema(required = true)]
+    pub year: Option<i32>,
+    #[schema(required = true)]
+    pub track_total: Option<i64>,
+    #[schema(required = true)]
+    pub label: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct LastPlayed {
+    pub played_at: i64,
+    pub position_ms: i64,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -130,6 +163,18 @@ pub struct InspectedTags {
     pub track: Option<ObservedTag>,
     #[serde(default)]
     #[schema(required = true)]
+    pub track_total: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
+    pub date: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
+    pub label: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
+    pub audio: Option<ObservedAudio>,
+    #[serde(default)]
+    #[schema(required = true)]
     pub isrc: Option<ObservedTag>,
     #[serde(default)]
     #[schema(required = true)]
@@ -164,6 +209,15 @@ pub struct MusicBrainzArtistTag {
 pub enum MusicBrainzArtistRole {
     Artist,
     AlbumArtist,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ObservedAudio {
+    pub format: String,
+    #[schema(required = true)]
+    pub bit_depth: Option<u32>,
+    #[schema(required = true)]
+    pub sample_rate_hz: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]

@@ -13,6 +13,7 @@ mod metadata_musicbrainz_identity;
 mod metadata_musicbrainz_ids;
 mod metadata_observations;
 mod metadata_privacy;
+mod metadata_recording_facts;
 mod metadata_release_history;
 mod metadata_release_reset;
 mod metadata_releases;
