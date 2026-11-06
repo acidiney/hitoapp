@@ -85,7 +85,7 @@ export function useInfinitePage<T extends { id: string }>({
       setState({ loading: false, error: errorMessage(error) });
     } finally {
       log.debug("pagination.load_more", {
-        memory,
+        page: memory,
         reason: outcome,
         index: nextOffset,
         duration_ms: Math.round(performance.now() - started),

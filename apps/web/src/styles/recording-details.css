@@ -522,3 +522,11 @@ footer.review-actions {
     margin: 0;
   }
 }
+.source-attachment .discovery-search {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.source-attachment .discovery-search-actions .button {
+  flex: 1;
+}

@@ -27,15 +27,16 @@ export function useArtistLink(
   account: string,
   track: Pick<Track, "id" | "artist"> | null,
 ) {
-  const key = track ? `${account}/${track.id}` : null;
+  const id = track?.id ?? null;
+  const key = id ? `${account}/${id}` : null;
   const [resolved, setResolved] = useState<{ key: string; href: string }>();
   useEffect(() => {
-    if (!track || !key || remembered.has(key)) return;
+    if (!id || !key || remembered.has(key)) return;
     const controller = new AbortController();
     const started = performance.now();
     let outcome = "unmatched";
     artistIdentityApi
-      .read(account, track.id, controller.signal)
+      .read(account, id, controller.signal)
       .then((choice) => {
         if (controller.signal.aborted) return;
         if (choice.state.status === "selected") {
@@ -55,7 +56,7 @@ export function useArtistLink(
         }),
       );
     return () => controller.abort();
-  }, [account, key, track?.id]);
+  }, [account, id, key]);
   if (!track || !key) return null;
   const matched =
     remembered.get(key) ?? (resolved?.key === key ? resolved.href : null);

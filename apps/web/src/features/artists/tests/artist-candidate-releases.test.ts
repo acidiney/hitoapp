@@ -113,9 +113,11 @@ async function candidates(answer: (artist: string) => unknown) {
   return { fetch, rows: within(list).getAllByRole("listitem") };
 }
 
-function scrollIntoView(row: HTMLElement) {
-  const entry = watched.find(({ element }) => row.contains(element));
-  if (!entry) throw new Error("This candidate is not watched for visibility");
+async function scrollIntoView(row: HTMLElement) {
+  await waitFor(() =>
+    expect(watched.some(({ element }) => row.contains(element))).toBe(true),
+  );
+  const entry = watched.find(({ element }) => row.contains(element))!;
   act(() => entry.fire());
 }
 
@@ -137,7 +139,7 @@ test("a candidate that scrolls into view asks only for its artist and lists at m
         ? ["Morning Light", "Second Wind", "Harbor Lights", "Fourth Tide"]
         : [],
   }));
-  scrollIntoView(rows[0]);
+  await scrollIntoView(rows[0]);
   expect(await within(rows[0]).findByText("Morning Light")).toBeTruthy();
   expect(within(rows[0]).getByText("Second Wind")).toBeTruthy();
   expect(within(rows[0]).getByText("Harbor Lights")).toBeTruthy();
@@ -158,7 +160,7 @@ test("a candidate with no listed releases says so and a failed request can be re
       ? { status: "unavailable" }
       : { status: "available", context: builtinContext, titles: [] },
   );
-  scrollIntoView(rows[0]);
+  await scrollIntoView(rows[0]);
   expect(
     await within(rows[0]).findByText("Releases are unavailable. Try again."),
   ).toBeTruthy();

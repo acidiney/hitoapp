@@ -1,4 +1,4 @@
-import { createElement, type AnchorHTMLAttributes } from "react";
+import { createElement, useState, type AnchorHTMLAttributes } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistIndexPage from "../pages/ArtistIndexPage";
@@ -22,6 +22,7 @@ vi.mock("../../../shared/hooks/useMutation", () => ({
 vi.mock("@inertiajs/react", () => ({
   router: { get: vi.fn() },
   usePage: () => ({ url: window.location.pathname }),
+  useRemember: (initial: unknown) => useState(initial),
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));

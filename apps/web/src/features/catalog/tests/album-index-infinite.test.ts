@@ -64,7 +64,7 @@ test("the albums grid appends the next page when its sentinel scrolls into view 
       disconnect() {}
     },
   );
-  const fetch = vi.fn(async () =>
+  const fetch = vi.fn(async (_path: string) =>
     Response.json({ items: [release("c")], total: 3, offset: 2, limit: 2 }),
   );
   vi.stubGlobal("fetch", fetch);
