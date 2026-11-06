@@ -197,10 +197,13 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
     }
     await openLibrarySection(page, "Artists");
     await expect(
-      page.getByRole("heading", { name: "No chosen artists yet", exact: true }),
-    ).toBeVisible();
+      page.getByRole("heading", { name: "Chosen artists", exact: true }),
+    ).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Library credits", exact: true }),
+      page.getByRole("heading", {
+        name: "Artists in your library",
+        exact: true,
+      }),
     ).toBeVisible();
     const finalGroups = await read<Schema<"ArtistIdentityGroupPage">>(
       "/api/v1/artist-identity-groups",

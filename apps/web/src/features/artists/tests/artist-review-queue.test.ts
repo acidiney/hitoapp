@@ -1,5 +1,11 @@
 import { createElement, type ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const { reload } = vi.hoisted(() => ({ reload: vi.fn() }));
@@ -116,20 +122,58 @@ function show() {
 }
 
 async function open() {
-  const summary = await screen.findByText(/Needs your confirmation/);
-  fireEvent.click(summary);
+  fireEvent.click(await screen.findByRole("button", { name: /need.* review/ }));
+  await screen.findByRole("dialog", { name: "Artists to review" });
+}
+
+async function openDismissed(total: number) {
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: `Dismissed suggestions (${total})`,
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Artists to review",
+  });
+  fireEvent.click(within(dialog).getByText(`Dismissed suggestions (${total})`));
 }
 
 beforeEach(() => reload.mockClear());
 afterEach(() => vi.unstubAllGlobals());
 
-test("a queue with credits shows a collapsed section with the count", async () => {
+test("a queue with credits shows one button with the count and no list until it is opened", async () => {
   serve([() => page([item(), item("credit-2")])], () => new Response(null));
-  const { container } = show();
-  const summary = await screen.findByText("Needs your confirmation (2)");
-  expect(summary).toBeTruthy();
-  const details = container.querySelector("details");
-  expect(details?.open).toBe(false);
+  show();
+  await screen.findByRole("button", { name: "2 artists need review" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Nova Quartet")).toBeNull();
+});
+
+test("a single credit reads in the singular", async () => {
+  serve([() => page([item()])], () => new Response(null));
+  show();
+  await screen.findByRole("button", { name: "1 artist needs review" });
+});
+
+test("the review dialog closes with Close and Escape and gives focus back to its button", async () => {
+  serve([() => page([item()])], () => new Response(null));
+  show();
+  const button = await screen.findByRole("button", {
+    name: "1 artist needs review",
+  });
+  button.focus();
+  fireEvent.click(button);
+  await screen.findByRole("dialog", { name: "Artists to review" });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(button);
+  fireEvent.click(button);
+  const dialog = await screen.findByRole("dialog", {
+    name: "Artists to review",
+  });
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(button);
 });
 
 test("nothing is shown for an empty queue or when the queue cannot be read", async () => {
@@ -191,7 +235,7 @@ test("one click on Confirm applies the artist, removes the row and refreshes the
   expect(posted[0].body.provider_artist_id).toBe(NOVA);
   expect(typeof posted[0].body.request_id).toBe("string");
   await waitFor(() =>
-    expect(screen.queryByText(/Needs your confirmation/)).toBeNull(),
+    expect(screen.queryByRole("button", { name: /need.* review/ })).toBeNull(),
   );
   expect(reload).toHaveBeenCalledWith({
     only: ["artists", "identity_groups"],
@@ -267,7 +311,7 @@ test("None of these dismisses every candidate of the credit and removes the row"
   );
   expect(posted[0].body).toEqual({});
   await waitFor(() =>
-    expect(screen.queryByText(/Needs your confirmation/)).toBeNull(),
+    expect(screen.queryByRole("button", { name: /need.* review/ })).toBeNull(),
   );
   expect(reload).not.toHaveBeenCalled();
 });
@@ -287,7 +331,7 @@ test("a failed confirmation keeps the row and says so", async () => {
 test("the queue is read again when the artist lists change", async () => {
   const calls = serve([() => page([item()])], () => new Response(null));
   const view = show();
-  await screen.findByText("Needs your confirmation (1)");
+  await screen.findByRole("button", { name: "1 artist needs review" });
   const reads = () =>
     vi.mocked(fetch).mock.calls.filter(([path]) => path === QUEUE).length;
   expect(reads()).toBe(1);
@@ -306,12 +350,12 @@ function dismissedItem(id = "credit-1", over: Record<string, unknown> = {}) {
 
 test("dismissed suggestions stay reachable when nothing else needs confirmation", async () => {
   serve([() => page([])], restored, [() => page([dismissedItem()])]);
-  const { container } = show();
-  await screen.findByText("Dismissed suggestions (1)");
-  expect(screen.queryByText(/Needs your confirmation/)).toBeNull();
-  const disclosures = container.querySelectorAll("details");
-  expect(disclosures.length).toBe(1);
-  expect(disclosures[0].open).toBe(false);
+  show();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dismissed suggestions (1)" }),
+  );
+  await screen.findByRole("dialog", { name: "Artists to review" });
+  expect(screen.queryByRole("button", { name: /need.* review/ })).toBeNull();
 });
 
 test("a dismissed candidate is listed with its details and Restore offers it again", async () => {
@@ -320,7 +364,7 @@ test("a dismissed candidate is listed with its details and Restore offers it aga
     () => page([]),
   ]);
   show();
-  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  await openDismissed(1);
   expect(screen.getByText(/Lisbon fado band/)).toBeTruthy();
   expect(screen.getByText("4 tracks")).toBeTruthy();
   fireEvent.click(
@@ -333,7 +377,7 @@ test("a dismissed candidate is listed with its details and Restore offers it aga
     "/api/v1/artist-matching/review-queue/credit-1/restore",
   );
   expect(posted[0].body).toEqual({ provider_artist_id: NOVA });
-  await screen.findByText("Needs your confirmation (1)");
+  await screen.findByRole("button", { name: "1 artist needs review" });
   expect(screen.queryByText(/Dismissed suggestions/)).toBeNull();
   expect(reload).not.toHaveBeenCalled();
 });
@@ -344,7 +388,7 @@ test("a credit with several dismissed candidates can restore them all at once", 
     () => page([]),
   ]);
   show();
-  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  await openDismissed(1);
   fireEvent.click(
     screen.getByRole("button", { name: "Restore all for Nova Quartet" }),
   );
@@ -357,7 +401,7 @@ test("a failed restore keeps the row and says so", async () => {
     () => page([dismissedItem()]),
   ]);
   show();
-  fireEvent.click(await screen.findByText("Dismissed suggestions (1)"));
+  await openDismissed(1);
   fireEvent.click(screen.getAllByRole("button", { name: /^Restore/ })[0]);
   expect((await screen.findByRole("alert")).textContent).toMatch(
     /could not be restored/i,
@@ -370,7 +414,7 @@ test("a dismissed list that cannot be read leaves the confirmation queue working
     () => new Response("{}", { status: 500 }),
   ]);
   show();
-  await screen.findByText("Needs your confirmation (1)");
+  await screen.findByRole("button", { name: "1 artist needs review" });
   expect(screen.queryByText(/Dismissed suggestions \(/)).toBeNull();
   expect(
     screen.getByText("Dismissed suggestions could not be loaded."),
@@ -397,7 +441,7 @@ test("dismissed credits past the first page are reachable with Show more", async
     () => pageOf([dismissedItem("c2", { name: "Second Credit" })], 2, 1),
   ]);
   show();
-  fireEvent.click(await screen.findByText("Dismissed suggestions (2)"));
+  await openDismissed(2);
   expect(screen.queryByText("Second Credit")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Show more dismissed" }));
   await screen.findByText("Second Credit");
@@ -478,7 +522,7 @@ test("a personally edited credit offers the artist the account already chose and
   );
   expect(posted[0].body.provider_artist_id).toBe(NOVA);
   await waitFor(() =>
-    expect(screen.queryByText(/Needs your confirmation/)).toBeNull(),
+    expect(screen.queryByRole("button", { name: /need.* review/ })).toBeNull(),
   );
 });
 

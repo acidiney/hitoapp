@@ -10,6 +10,7 @@ import LoadMore from "../../../shared/ui/LoadMore";
 import { useInfinitePage } from "../../../shared/hooks/useInfinitePage";
 import { artistListApi, type ArtistListFilter } from "../api/artistListApi";
 import ArtistMatchingStatus from "../components/ArtistMatchingStatus";
+import { artistCounts } from "../model/artistCounts";
 import ArtistReviewQueue from "../components/ArtistReviewQueue";
 
 export default function ArtistIndexPage({
@@ -56,70 +57,18 @@ export default function ArtistIndexPage({
     <>
       <PageHeading
         title="Artists"
-        description={`${artists.total} ${artists.total === 1 ? "artist credit" : "artist credits"} · ${identity_groups.total} chosen`}
+        description={`${artists.total} ${artists.total === 1 ? "artist" : "artists"} in your library`}
       />
-      <ArtistMatchingStatus account={user.id} />
-      <ArtistReviewQueue
-        account={user.id}
-        refreshKey={`${artists.total}-${identity_groups.total}`}
-      />
-      <section aria-labelledby="chosen-artists-title">
-        <h2 className="discography-heading" id="chosen-artists-title">
-          Chosen artists
-        </h2>
-        {chosen.items.length ? (
-          <div className="artist-grid">
-            {chosen.items.map((group) => (
-              <Link
-                className="artist-card round"
-                key={group.id}
-                href={`/artist-groups/${encodeURIComponent(group.id)}${suffix}`}
-              >
-                <ArtistGroupPhoto account={user.id} group={group}>
-                  <Artwork
-                    recording={group.name.recording_id}
-                    fallback={{
-                      id: group.id,
-                      title: group.name.value,
-                      kind: "artist",
-                    }}
-                  />
-                </ArtistGroupPhoto>
-                <h2>{group.name.value}</h2>
-                <small>
-                  {group.recording_count}{" "}
-                  {group.recording_count === 1 ? "track" : "tracks"}
-                  {" · "}
-                  {group.library_count}{" "}
-                  {group.library_count === 1 ? "library" : "libraries"}
-                </small>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title={
-              query ? "No matching chosen artists" : "No chosen artists yet"
-            }
-            text="Choose a reviewed artist in recording details to group its selected tracks."
-            libraryLink={false}
-          />
-        )}
-        {chosen.items.length === 0 && identity_groups.total > 0 && (
-          <Link className="text-link" href={restartHref}>
-            Show the first chosen artists
-          </Link>
-        )}
-        <LoadMore
-          {...chosen}
-          loaded={chosen.items.length}
-          noun="chosen artists"
-          onLoad={() => void chosen.loadMore()}
+      <div className="artist-toolbar">
+        <ArtistMatchingStatus account={user.id} />
+        <ArtistReviewQueue
+          account={user.id}
+          refreshKey={`${artists.total}-${identity_groups.total}`}
         />
-      </section>
+      </div>
       <section aria-labelledby="library-credits-title">
         <h2 className="discography-heading" id="library-credits-title">
-          Library credits
+          Artists in your library
         </h2>
         {credits.items.length ? (
           <div className="artist-grid">
@@ -147,19 +96,7 @@ export default function ArtistIndexPage({
                 </ArtistPhoto>
                 <h2>{artist.name}</h2>
                 <small>
-                  {artist.recording_count > 0 || artist.release_count === 0 ? (
-                    <>
-                      {artist.recording_count}{" "}
-                      {artist.recording_count === 1 ? "track" : "tracks"}
-                      {artist.release_count > 0 && " · "}
-                    </>
-                  ) : null}
-                  {artist.release_count > 0 && (
-                    <>
-                      {artist.release_count}{" "}
-                      {artist.release_count === 1 ? "album" : "albums"}
-                    </>
-                  )}
+                  {artistCounts(artist.recording_count, artist.release_count)}
                 </small>
               </Link>
             ))}
@@ -187,6 +124,50 @@ export default function ArtistIndexPage({
           onLoad={() => void credits.loadMore()}
         />
       </section>
+      {(chosen.items.length > 0 || identity_groups.total > 0) && (
+        <section aria-labelledby="chosen-artists-title">
+          <h2 className="discography-heading" id="chosen-artists-title">
+            Chosen artists
+          </h2>
+          {chosen.items.length > 0 && (
+            <div className="artist-grid">
+              {chosen.items.map((group) => (
+                <Link
+                  className="artist-card round"
+                  key={group.id}
+                  href={`/artist-groups/${encodeURIComponent(group.id)}${suffix}`}
+                >
+                  <ArtistGroupPhoto account={user.id} group={group}>
+                    <Artwork
+                      recording={group.name.recording_id}
+                      fallback={{
+                        id: group.id,
+                        title: group.name.value,
+                        kind: "artist",
+                      }}
+                    />
+                  </ArtistGroupPhoto>
+                  <h2>{group.name.value}</h2>
+                  <small>
+                    {artistCounts(group.recording_count, group.release_count)}
+                  </small>
+                </Link>
+              ))}
+            </div>
+          )}
+          {chosen.items.length === 0 && identity_groups.total > 0 && (
+            <Link className="text-link" href={restartHref}>
+              Show the first chosen artists
+            </Link>
+          )}
+          <LoadMore
+            {...chosen}
+            loaded={chosen.items.length}
+            noun="chosen artists"
+            onLoad={() => void chosen.loadMore()}
+          />
+        </section>
+      )}
     </>
   );
 }

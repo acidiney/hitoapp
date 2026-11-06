@@ -50,10 +50,12 @@ test("a library without undecided credits shows no confirmation section", async 
     "total",
   ]);
   expect(queue.total).toBe(0);
-  await expect(page.getByText(/Needs your confirmation/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /need.* review/ })).toHaveCount(
+    0,
+  );
 });
 
-test("one click on Confirm applies the candidate and the row leaves the collapsed section", async ({
+test("one click on Confirm applies the candidate and the review dialog empties and its button goes away", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -87,20 +89,25 @@ test("one click on Confirm applies the candidate and the row leaves the collapse
   );
 
   await page.goto("/artists");
-  const summary = page.getByText("Needs your confirmation (1)");
-  await expect(summary).toBeVisible();
+  const open = page.getByRole("button", { name: "1 artist needs review" });
+  await expect(open).toBeVisible();
   const confirm = page.getByRole("button", {
     name: "Confirm Nova Quartet, Lisbon fado band, for Nova Quartet",
   });
-  await expect(confirm, "collapsed by default").toBeHidden();
+  await expect(confirm, "closed until opened").toBeHidden();
 
-  await page.locator(".review-queue summary").focus();
+  await open.focus();
   await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "Artists to review" }),
+  ).toBeVisible();
   await expect(confirm).toBeVisible();
   await expect(page.getByText(/Brazilian jazz trio/)).toBeVisible();
   await confirm.click();
 
-  await expect(page.getByText(/Needs your confirmation/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /need.* review/ })).toHaveCount(
+    0,
+  );
   expect(posted).toHaveLength(1);
   expect(posted[0].path).toBe(
     "/api/v1/artist-matching/review-queue/credit-one/confirm",
@@ -130,10 +137,12 @@ test("None of these removes the row without choosing an artist", async ({
     },
   );
   await page.goto("/artists");
-  await page.getByText("Needs your confirmation (1)").click();
+  await page.getByRole("button", { name: "1 artist needs review" }).click();
   await page
     .getByRole("button", { name: "None of these for Nova Quartet" })
     .click();
-  await expect(page.getByText(/Needs your confirmation/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /need.* review/ })).toHaveCount(
+    0,
+  );
   expect(dismissed).toEqual([{}]);
 });

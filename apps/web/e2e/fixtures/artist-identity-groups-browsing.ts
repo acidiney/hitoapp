@@ -70,7 +70,7 @@ export async function browseArtistGroups(
     .getByRole("heading", { name: "Chosen artists", exact: true })
     .locator("..");
   const creditsSection = page
-    .getByRole("heading", { name: "Library credits", exact: true })
+    .getByRole("heading", { name: "Artists in your library", exact: true })
     .locator("..");
   checkpoint(5);
   await expect(chosenSection.locator("a.artist-card")).toHaveCount(1);

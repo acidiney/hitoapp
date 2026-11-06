@@ -22,8 +22,8 @@ export default function ArtistMatchingStatus({ account }: { account: string }) {
   const line = busy
     ? `Matching artists… ${matched} matched`
     : status.last_finished_at === null
-      ? "No run yet."
-      : `${status.last_matched} matched · last run ${relativeTime(status.last_finished_at)}`;
+      ? "Artists have not been matched yet"
+      : `Matching finished · ${status.last_matched} matched · ${relativeTime(status.last_finished_at)}`;
   const note = busy ? "" : manualNote(state);
   return (
     <p
@@ -31,26 +31,22 @@ export default function ArtistMatchingStatus({ account }: { account: string }) {
       role="status"
       aria-live="polite"
     >
-      {line}
-      {note && ` ${note}`}{" "}
       <span>
-        Looks up artists on MusicBrainz ·{" "}
-        <Link className="text-link" href="/settings?section=privacy">
-          Settings
-        </Link>
+        {line}
+        {note && ` · ${note}`}
       </span>
       {!busy && (
-        <>
-          {" "}
-          <button
-            type="button"
-            className="text-link"
-            onClick={() => void run()}
-          >
-            Match again
-          </button>
-        </>
+        <button type="button" className="text-link" onClick={() => void run()}>
+          Match again
+        </button>
       )}
+      <Link
+        className="text-link"
+        href="/settings?section=privacy"
+        title="Artist matching looks artists up on MusicBrainz"
+      >
+        Settings
+      </Link>
     </p>
   );
 }

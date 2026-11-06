@@ -102,7 +102,9 @@ afterEach(() => {
 test("an idle server shows how many were matched and when, and the page starts no pass of its own", async () => {
   const calls = serve([() => status()]);
   await open();
-  expect(screen.getByText(/12 matched · last run 5 minutes ago/)).toBeTruthy();
+  expect(
+    screen.getByText(/Matching finished · 12 matched · 5 minutes ago/),
+  ).toBeTruthy();
   expect(calls).toEqual([STATUS]);
   expect(reload).not.toHaveBeenCalled();
   expect(localStorage.length).toBe(0);
@@ -115,8 +117,8 @@ test("an idle server shows how many were matched and when, and the page starts n
 test("a server that never finished a run says so instead of inventing a time", async () => {
   serve([() => status({ last_finished_at: null, last_matched: 0 })]);
   await open();
-  expect(screen.getByText(/No run yet/)).toBeTruthy();
-  expect(screen.queryByText(/last run/)).toBeNull();
+  expect(screen.getByText(/Artists have not been matched yet/)).toBeTruthy();
+  expect(screen.queryByText(/minutes ago/)).toBeNull();
 });
 
 test("a queued or running walk shows the count so far, polls every few seconds and refreshes the lists once when it ends", async () => {
@@ -135,7 +137,7 @@ test("a queued or running walk shows the count so far, polls every few seconds a
   expect(screen.getByText(/Matching artists… 7 matched/)).toBeTruthy();
   expect(reload).not.toHaveBeenCalled();
   await advance(POLL_MS);
-  expect(screen.getByText(/7 matched · last run/)).toBeTruthy();
+  expect(screen.getByText(/Matching finished · 7 matched/)).toBeTruthy();
   expect(reload).toHaveBeenCalledTimes(1);
   expect(reload).toHaveBeenCalledWith({ only: ["artists", "identity_groups"] });
   expect(calls.filter((path) => path === STATUS)).toHaveLength(4);

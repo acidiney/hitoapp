@@ -159,7 +159,9 @@ test("chosen artists stay beside the library credits they leave listed and page 
   render(createElement(ArtistIndexPage, index));
   expect(screen.getByRole("heading", { name: "Chosen artists" })).toBeTruthy();
   const chosen = screen.getByRole("region", { name: "Chosen artists" });
-  const credits = screen.getByRole("region", { name: "Library credits" });
+  const credits = screen.getByRole("region", {
+    name: "Artists in your library",
+  });
   expect(
     within(credits)
       .getAllByRole("link")
@@ -279,11 +281,11 @@ test("an emptied chosen-artist page keeps its previous page and the listed libra
   render(createElement(ArtistIndexPage, index));
   const chosen = screen.getByRole("region", { name: "Chosen artists" });
   expect(
-    within(chosen).getByRole("heading", { name: "No matching chosen artists" }),
-  ).toBeTruthy();
+    within(chosen).queryByRole("heading", { level: 2, name: /No / }),
+  ).toBeNull();
   expect(
     within(
-      screen.getByRole("region", { name: "Library credits" }),
+      screen.getByRole("region", { name: "Artists in your library" }),
     ).getAllByRole("link"),
   ).toHaveLength(2);
   expect(

@@ -112,7 +112,9 @@ function setup() {
   });
   vi.stubGlobal("fetch", fetch);
   render(createElement(ArtistIndexPage, index));
-  const credits = screen.getByRole("region", { name: "Library credits" });
+  const credits = screen.getByRole("region", {
+    name: "Artists in your library",
+  });
   const chosen = screen.getByRole("region", { name: "Chosen artists" });
   return { index, requests, credits, chosen };
 }
@@ -194,7 +196,9 @@ test("coming back to the artists keeps every page already loaded without asking 
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
   render(createElement(ArtistIndexPage, first.index));
-  const credits = screen.getByRole("region", { name: "Library credits" });
+  const credits = screen.getByRole("region", {
+    name: "Artists in your library",
+  });
   expect(within(credits).getAllByRole("link")).toHaveLength(3);
   expect(
     fetch.mock.calls.filter(([path]) => String(path).includes("offset=")),

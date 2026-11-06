@@ -80,7 +80,9 @@ test("the artists grid loads the next pages by scrolling and keeps what it loade
     const total: number = (await first.json()).total;
     expect(total).toBeGreaterThanOrEqual(5);
     await page.goto("/artists?limit=2");
-    const credits = page.getByRole("region", { name: "Library credits" });
+    const credits = page.getByRole("region", {
+      name: "Artists in your library",
+    });
     const cards = credits.getByRole("link");
     await shoot(page, "artists-grid");
     await expect(cards).toHaveCount(total, { timeout: 20000 });
@@ -97,7 +99,9 @@ test("the artists grid loads the next pages by scrolling and keeps what it loade
     const requests = offsets.length;
     await page.goBack();
     await expect(
-      page.getByRole("region", { name: "Library credits" }).getByRole("link"),
+      page
+        .getByRole("region", { name: "Artists in your library" })
+        .getByRole("link"),
     ).toHaveCount(total);
     expect(offsets).toHaveLength(requests);
   } finally {
@@ -117,7 +121,9 @@ test("without a scroll signal the artists grid still loads more with the Load mo
     const first = await page.request.get("/api/v1/artists?limit=2");
     const total: number = (await first.json()).total;
     await page.goto("/artists?limit=2");
-    const credits = page.getByRole("region", { name: "Library credits" });
+    const credits = page.getByRole("region", {
+      name: "Artists in your library",
+    });
     const cards = credits.getByRole("link");
     await expect(cards).toHaveCount(2);
     await expect(
