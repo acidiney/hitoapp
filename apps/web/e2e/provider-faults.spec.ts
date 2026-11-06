@@ -5,6 +5,17 @@ import type { Schema } from "../src/shared/schema";
 
 type Fixture = Awaited<ReturnType<typeof providerFixture>>;
 
+const connected: Schema<"PluginInstallation">[] = [];
+
+test.afterEach(async ({ page, baseURL }) => {
+  const headers = { "x-hito-request": "1", origin: new URL(baseURL!).origin };
+  for (const connection of connected.splice(0))
+    await page.request.delete(`/api/v1/plugins/${connection.id}`, {
+      headers,
+      data: { revision: connection.revision },
+    });
+});
+
 async function savedTrack(page: Page, baseURL: string, fixture: Fixture) {
   await page.goto("/library");
   await expect(
@@ -30,6 +41,7 @@ async function savedTrack(page: Page, baseURL: string, fixture: Fixture) {
   });
   expect(installed.status()).toBe(201);
   const connection: Schema<"PluginInstallation"> = await installed.json();
+  connected.push(connection);
   const adopted = await page.request.post(
     `/api/v1/plugins/${connection.id}/recordings`,
     {
