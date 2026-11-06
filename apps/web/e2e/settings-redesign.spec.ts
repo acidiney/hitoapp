@@ -83,6 +83,7 @@ test("settings search opens a setting in its section and highlights it", async (
   await openSharedAdminSession(page);
   await page.goto("/settings?section=music");
   const search = page.getByRole("combobox", { name: "Search settings" });
+  await expect(search).toBeVisible();
   await page.keyboard.press("/");
   await expect(search).toBeFocused();
   await search.fill("password");
