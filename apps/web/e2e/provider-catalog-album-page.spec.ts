@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { catalogAlbum } from "./fixtures/catalog-album-provider";
 import { connectCatalogArtist } from "./fixtures/catalog-album-setup";
+import { trackTitleLink } from "./fixtures/track-row";
 
 const [opening, interlude] = catalogAlbum.tracks;
 
@@ -74,9 +75,7 @@ test("the artist page lists discography as album cards that open a real album pa
     await expect(
       first.getByRole("button", { name: `Like ${opening}`, exact: true }),
     ).toBeVisible();
-    await first
-      .getByRole("link", { name: `Details for ${opening}`, exact: true })
-      .click();
+    await trackTitleLink(first, opening).click();
     await expect(page).toHaveURL(/\/recordings\/[^/]+$/);
     await expect(
       page.getByRole("heading", { level: 1, name: opening }),

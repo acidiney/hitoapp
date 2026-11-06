@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { Schema } from "../src/shared/schema";
 import { openTrackEditors } from "./fixtures/track-panels";
+import { trackTitleLink } from "./fixtures/track-row";
 
 test("expired seek audio refreshes near its position and unavailable tracks can be checked without interrupting playback", async ({
   page,
@@ -99,9 +100,7 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
     const recovered = await audio.evaluate(
       (element: HTMLAudioElement) => element.src,
     );
-    await page
-      .getByRole("link", { name: `Details for ${saved[1].title}`, exact: true })
-      .click();
+    await trackTitleLink(page.locator("main"), saved[1].title).click();
     await expect(
       page.getByRole("heading", {
         name: saved[1].title,

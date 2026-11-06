@@ -150,10 +150,7 @@ test.describe("isolated provider playlist Resume", () => {
         .locator("tbody")
         .getByRole("row")
         .first()
-        .getByRole("link", {
-          name: `Details for ${fixture.recordings.a.title}`,
-          exact: true,
-        })
+        .getByRole("link", { name: fixture.recordings.a.title, exact: true })
         .click();
       await openMetadataEditors(page);
       const editor = page.getByRole("region", {

@@ -10,6 +10,7 @@ import {
   stopUpstream,
 } from "./fixtures/podcast-download";
 import { openLibrarySection } from "./fixtures/library-sections";
+import { trackTitleLink } from "./fixtures/track-row";
 
 const origin = "http://localhost:8080";
 const feedTitle = "Owned audio feed";
@@ -160,9 +161,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     expect(
       remoteSources[0].provider === "podcast" && remoteSources[0].ready,
     ).toBe(true);
-    await episodes
-      .getByRole("link", { name: `Details for ${episodeTitle}`, exact: true })
-      .click();
+    await trackTitleLink(episodes, episodeTitle).click();
     await expect(page).toHaveURL(`${origin}/recordings/${recording.id}`);
     await page.getByLabel("Track title", { exact: true }).fill(personalTitle);
     await page
@@ -341,9 +340,10 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       stopped.enclosure_requests,
     );
 
-    await page
-      .getByRole("link", { name: `Details for ${personalTitle}`, exact: true })
-      .click();
+    await trackTitleLink(
+      page.getByRole("list", { name: "Episodes", exact: true }),
+      personalTitle,
+    ).click();
     await expect(section.getByRole("status")).toHaveText(
       "Saved on this server",
     );

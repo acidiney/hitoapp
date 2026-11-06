@@ -279,8 +279,8 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       await expect(
         rows
           .nth(index)
-          .getByRole("button", { name: fixture.recording.title, exact: true }),
-      ).toBeEnabled();
+          .getByRole("link", { name: fixture.recording.title, exact: true }),
+      ).toBeVisible();
       await expect(
         rows.nth(index).getByText("Not playable yet", { exact: true }),
       ).toBeVisible();
@@ -335,7 +335,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       [
         ...(await rows.getByRole("button", { name: /^Remove / }).all()),
         ...(await rows.getByRole("button", { name: /^Like / }).all()),
-        ...(await rows.getByRole("link", { name: /^Details for / }).all()),
+        ...(await rows.getByRole("button", { name: /^Actions for / }).all()),
         page.getByRole("button", { name: "More options", exact: true }),
       ],
       targets,
@@ -414,8 +414,8 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await expect(
       rows
         .last()
-        .getByRole("button", { name: fixture.recording.title, exact: true }),
-    ).toBeEnabled();
+        .getByRole("link", { name: fixture.recording.title, exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText(fixture.detail.attribution.label, { exact: true }),
     ).toBeVisible();

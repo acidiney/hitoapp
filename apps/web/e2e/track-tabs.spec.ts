@@ -59,7 +59,7 @@ test("a library track walks through every tab with the mouse and the keyboard an
   ).toBeVisible();
   await header.getByRole("button", { name: "More actions" }).click();
   await expect(
-    header.getByRole("menuitem", { name: "Retry artwork" }),
+    page.getByRole("menuitem", { name: "Retry artwork" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await trackShot(page, "01-overview");

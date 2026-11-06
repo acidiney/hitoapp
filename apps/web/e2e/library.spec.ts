@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { enterAdmin } from "./fixtures/admin-session";
 import { openLibrarySection } from "./fixtures/library-sections";
 import { enterEditMode } from "./fixtures/playlist-edit";
+import { addToPlaylistFromRow, trackTitleLink } from "./fixtures/track-row";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -145,9 +146,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
   await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
-  await page
-    .getByRole("link", { name: "Details for Fixture 440 Hz", exact: true })
-    .click();
+  await trackTitleLink(page.locator(".track-grid"), "Fixture 440 Hz").click();
   await page.getByRole("tab", { name: /^Metadata/ }).click();
   await expect(
     page.getByRole("heading", { name: "Details", exact: true }),
@@ -485,9 +484,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
   ).toBeVisible();
-  await page
-    .getByLabel("Add Fixture 440 Hz to playlist", { exact: true })
-    .selectOption({ label: "Docker favorites" });
+  await addToPlaylistFromRow(
+    page.locator(".track-grid"),
+    "Fixture 440 Hz",
+    "Docker favorites",
+  );
   await page
     .locator(".sidebar-playlists")
     .getByRole("link", { name: "Docker favorites" })

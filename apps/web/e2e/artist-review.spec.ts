@@ -21,6 +21,7 @@ import {
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
 import { openMetadataEditors } from "./fixtures/track-panels";
+import { trackTitleLink } from "./fixtures/track-row";
 
 test.use({
   trace: "off",
@@ -223,12 +224,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     await navigation
       .getByRole("link", { name: "Library", exact: true })
       .click();
-    await page
-      .getByRole("link", {
-        name: `Details for ${saved.privateValues[0]}`,
-        exact: true,
-      })
-      .click();
+    await trackTitleLink(page.locator("main"), saved.privateValues[0]).click();
     await openMetadataEditors(page);
     await page.getByLabel("Track title", { exact: true }).fill(draft);
     const artist = page.getByRole("region", {

@@ -134,10 +134,7 @@ export async function prepareMetadataCopy(
   });
   await expect(table.locator("tbody tr")).toHaveCount(5);
   await table
-    .getByRole("link", {
-      name: `Details for ${owned.recordings[0].title}`,
-      exact: true,
-    })
+    .getByRole("link", { name: owned.recordings[0].title, exact: true })
     .click();
   await openMetadataEditors(page);
   const editor = page.getByRole("region", {

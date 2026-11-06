@@ -149,10 +149,7 @@ export async function browseArtistGroups(
     checkpoint(22);
     await expect(tracks.locator("tbody tr")).toHaveCount(1);
     await expect(
-      tracks.getByRole("link", {
-        name: `Details for ${recording.title}`,
-        exact: true,
-      }),
+      tracks.getByRole("link", { name: recording.title, exact: true }),
     ).toHaveAttribute("href", `/recordings/${recording.id}`);
     checkpoint(23);
     await expect(page.locator(".album-card")).toHaveCount(1);

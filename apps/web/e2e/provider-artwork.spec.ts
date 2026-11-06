@@ -510,7 +510,7 @@ test("existing independent playlist copies automatically retain private provider
           .getByRole("button", { name: `Unlike ${title}`, exact: true }),
         rows
           .first()
-          .getByRole("link", { name: `Details for ${title}`, exact: true }),
+          .getByRole("button", { name: `Actions for ${title}`, exact: true }),
       ])),
     );
     await page.goto("/settings?section=plugins");

@@ -77,10 +77,15 @@ async function seedLibrary(page: Page) {
 
 async function fillPlaylist(page: Page) {
   await page.goto("/library");
-  const adders = page.getByLabel(/^Add .* to playlist$/);
-  await expect(adders.first()).toBeVisible();
+  const menus = page.getByRole("button", { name: /^Actions for / });
+  await expect(menus.first()).toBeVisible();
   for (let index = 0; index < 4; index += 1) {
-    await adders.nth(index).selectOption({ label: "Late night" });
+    await menus.nth(index).click();
+    await page.getByRole("menuitem", { name: "Add to playlist" }).click();
+    await page
+      .getByRole("menu", { name: "Add to playlist" })
+      .getByRole("menuitem", { name: "Late night", exact: true })
+      .click();
     await page.waitForTimeout(400);
   }
   for (let index = 0; index < 3; index += 1) {
