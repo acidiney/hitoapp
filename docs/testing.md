@@ -103,7 +103,25 @@ let mut plugin = FakePlugin::builder(manifest)
 
 A domain fixture, such as `artist_catalog_discography_service` in `hito-core`, wraps a `FakePlugin` with its constants, expected payloads and a few named switches. Put protocol behavior in the builder and test data in the fixture. The builder's own tests are `crates/testkit/tests/fake_plugin.rs`.
 
-Services that are not plugin services keep their own servers: the community service and podcast feed fixtures, the provider content fixture in `content_service` (its audio range, held tail and broken tail behavior depends on one shared state), and the playlist and provider audio fixtures built on it.
+Services that are not plugin services keep their own servers: the community service and podcast feed fixtures, the provider content fixture in `content_service` (its audio range, held tail, broken tail and audio fault behavior depends on one shared state), and the playlist and provider audio fixtures built on it.
+
+## Fault coverage
+
+Provider and server faults are tested with owned loopback fakes, never a real service. The Rust provider fixture (`ProviderServer` in `content_service`) has these audio faults: `audio_statuses(vec)` answers the next requests with the given statuses, `audio_first_byte_delay`, `hold("v1/audio")` for a provider that never answers, `audio_trickle(chunk, interval)`, `audio_ignores_ranges`, `hold_broken_tail(prefix)` (reset after `prefix` bytes), `range_chunks` and a content-length longer than the body. The browser provider fixture (`apps/web/e2e/fixtures/provider.ts`) has `failSource(id, status, times)`, `healSource`, `delayAudio`, `resetAudioAfter` and `ignoreRangeRequests`. These tests assert outcomes and bounds, not timing of internals: how many provider requests were made, that a deadline ended the wait, that a slot was freed, and what the listener sees.
+
+| Fault | Browser | Native | Server relay | Downloads |
+| --- | --- | --- | --- | --- |
+| Slow first byte | `provider-faults.spec.ts` | `player_native_provider_faults`, `provider_input_faults` | `provider_audio_faults` (core, HTTP): ten second header bound | `download_interrupted_transfer`: requeued at the bound |
+| Slow or stalled body | audiobook and lyric deadline tests | `provider_input_faults` trickle | `provider_audio_timing`, `provider_audio_faults`: 15 second read bound, no total limit | trickle download completes |
+| Expired link (403, 410) | `source-recovery.spec.ts`, `playbackRecovery.test.ts` | `player_native_provider_recovery`, `player_native_provider_faults` | `provider_audio_faults`: 502, one provider request each, no leak | three attempts, then `transfer_failed` |
+| Failed seek | `playbackSeekRecovery.test.ts`, `source-recovery.spec.ts` | `player_native_seek_recovery`, `provider_input_faults` | `provider_audio` ranges | not applicable |
+| Range refused or ignored | `provider-faults.spec.ts`: keeps playing | `provider_input_faults`: never decodes the wrong offset | `provider_audio_faults`: answered 200 without a range claim | not applicable |
+| Connection reset mid-body | `provider-faults.spec.ts`: fresh request, plays past the break | `player_native_provider_faults`, `provider_input_faults` | `provider_audio_faults` (core, HTTP) | `download_interrupted_transfer`: nothing published, clean retry |
+| Truncated Content-Length | covered by the reset case | `provider_input_faults` | `provider_audio_bodies` | early end never published |
+| 5xx burst | `provider-faults.spec.ts`: four provider requests, then none | `player_native_failures` | `provider_audio_faults`: no hidden retry | retried with backoff, then fails with a reason |
+| Hito server outage | `server-unavailable.spec.ts`, `provider-faults.spec.ts`: buffered audio continues | not applicable until a synchronization client exists | not applicable | `download_restart`, shutdown requeue tests |
+
+Download retries are bounded at three attempts with a two and four second backoff. A download restarts from the first byte; it does not resume a partial file. The recording page says when Hito is retrying because the music service did not deliver the audio, and gives that reason when the download has failed. Not covered: real provider networks, TLS, bandwidth limits, packet loss, community-service outages during playback and reference hardware.
 
 ## Log privacy
 

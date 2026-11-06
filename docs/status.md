@@ -1,5 +1,14 @@
 # Implementation status
 
+## 2026-11-06 provider and server fault tests
+
+Local development tests with owned loopback fakes, not a release result. The Rust provider fixture and the browser provider fixture gained fault modes (scripted statuses, slow first byte, silent provider, trickle, ignored ranges, reset after N bytes). New tests cover the browser, the native player and its input, the server audio relay (core and HTTP) and downloads. The matrix is in [Fault coverage](testing.md#fault-coverage).
+
+- Measured: an error status on open costs one provider request and answers in under two seconds; a silent provider fails at the ten second header bound and frees its slot; a trickling body completes with no total limit; a reset mid-track recovers from a fresh request in the browser and natively; a provider that keeps failing is asked four times in the browser and then left alone; a download retries three times and then fails with a reason.
+- Found and fixed: the recording page said "Download queued." while a download was retrying after a provider failure and gave no reason once it had failed. It now says the music service did not deliver the audio.
+- Behavior to know: when a provider ignores a seek range, the browser keeps playing but cannot confirm which offset it plays; natively the input rejects the wrong-offset body and playback recovers through another source. Downloads restart from the first byte after an interruption.
+- Not done: a native player against a Hito server outage (there is no synchronization client yet), community-service outages during playback, real networks, TLS, packet loss, and reference hardware.
+
 ## 2026-11-06 library scan speed
 
 Local development measurement and change, not a release result and not deployed. The first scan of the generated 10,000-track library took 948.6 s serially (10.5 files/s, 94.9 ms per file). Profiling showed 64% in the `ffmpeg` decode and hash process and 33% in `ffprobe`, run one file at a time; about 58 ms of the 92 ms per file is process start-up. The scan now keeps up to `MediaTools.parallelism` files in inspection (the CPU count, between 2 and 8 by default) and still indexes them in walk order, one transaction per file. The same library now scans in 146.2 s (68.4 files/s, 6.5x), and a rescan with no changes in 11.0 s (was 18.9 s). Linear extrapolation gives about 24 minutes for 100,000 tracks on this host (was about 2.6 hours); that figure is not measured. Details, the breakdown table and limits are in [Library scan speed](performance.md#library-scan-speed).
