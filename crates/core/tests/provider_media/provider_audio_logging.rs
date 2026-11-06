@@ -58,3 +58,44 @@ async fn a_provider_stream_that_ends_early_logs_one_safe_warning_and_no_error() 
     assert_eq!(loud[0]["fields"]["error_kind"], "upstream");
     assert!(!output.contains("private-audio-token"));
 }
+
+#[tokio::test]
+async fn a_stream_cut_off_for_being_too_slow_logs_one_safe_warning() {
+    let logs = CapturedLogs::default();
+    async {
+        let f = AudioLibrary::start_paced(hito_core::StreamPace {
+            window: std::time::Duration::from_millis(1800),
+            floor_bytes_per_second: 6000,
+            ..hito_core::StreamPace::DEFAULT
+        })
+        .await;
+        f.ready().await;
+        f.server.audio_trickle(
+            f.original.len() / 6 + 1,
+            std::time::Duration::from_millis(900),
+        );
+        let OpenedAudio::Content(mut audio) = f
+            .hito
+            .playback
+            .open_audio(&f.actor, &f.source.id, Default::default())
+            .await
+            .unwrap()
+        else {
+            panic!("audio headers must open")
+        };
+        let body = audio.body.as_mut().unwrap();
+        while body.chunk().await.is_ok_and(|chunk| chunk.is_some()) {}
+    }
+    .with_subscriber(logs.subscriber())
+    .await;
+    let output = logs.text();
+    let loud: Vec<Value> = output
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .filter(|event| matches!(event["level"].as_str(), Some("ERROR" | "WARN")))
+        .collect();
+    assert_eq!(loud.len(), 1, "{loud:#?}");
+    assert_eq!(loud[0]["fields"]["event"], "audio_stream_failed");
+    assert_eq!(loud[0]["fields"]["error_kind"], "stream_too_slow");
+    assert!(!output.contains("private-audio-token"));
+}
