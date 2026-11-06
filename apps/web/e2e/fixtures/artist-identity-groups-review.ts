@@ -22,7 +22,7 @@ export async function reviewGroupMember(
   const path = `/api/v1/recordings/${recording.id}`;
   await page.goto(`/recordings/${recording.id}`);
   const artist = page.getByRole("region", {
-    name: "Artist information",
+    name: "Linked artist",
     exact: true,
   });
   await artist

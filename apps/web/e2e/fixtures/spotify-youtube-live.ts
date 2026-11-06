@@ -303,8 +303,7 @@ export async function searchLiveCandidate(
   },
 ) {
   const panel = page.getByRole("region", {
-    name: "Add an audio source",
-    exact: true,
+    name: /^(Find audio|Add another source)$/,
   });
   await panel
     .getByRole("button", { name: "Find a source", exact: true })

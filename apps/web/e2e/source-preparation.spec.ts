@@ -164,7 +164,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
     const source = before[0].id;
     preparationPath = `${sourcesPath}/${source}/preparation`;
     const downloadPath = `/api/v1/recordings/${recording.id}/download`;
-    await page.goto(`/recordings/${recording.id}`);
+    await page.goto(`/recordings/${recording.id}?tab=sources`);
     const section = page.getByRole("region", {
       name: "Audio availability",
       exact: true,

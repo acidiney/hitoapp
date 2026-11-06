@@ -144,11 +144,13 @@ test("saved recording credits retain ordered creators and immutable history with
     await openSavedRecording(page, first, owned.original.title);
 
     stage = 4;
+    await page.getByRole("tab", { name: /^Metadata/ }).click();
     const selected = page.getByRole("region", {
       name: "Selected metadata credits",
       exact: true,
     });
     await verifyCredits(selected, owned.first);
+    await page.getByRole("tab", { name: /^History/ }).click();
     const history = page.getByRole("region", {
       name: "Source observations",
       exact: true,

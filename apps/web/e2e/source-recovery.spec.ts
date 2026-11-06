@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { Schema } from "../src/shared/schema";
+import { openTrackEditors } from "./fixtures/track-panels";
 
 test("expired seek audio refreshes near its position and unavailable tracks can be checked without interrupting playback", async ({
   page,
@@ -108,6 +109,7 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
         exact: true,
       }),
     ).toBeVisible();
+    await openTrackEditors(page);
     const title = page.getByLabel("Track title", { exact: true });
     await title.fill("Keep this unsaved draft");
     fixture.setSources(fixture.second.id, [

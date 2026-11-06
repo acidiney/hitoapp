@@ -10,6 +10,7 @@ import {
 } from "./release-credits";
 import type { playlistMetadataProvider } from "./playlist-metadata-provider";
 import { openLibrarySection } from "./library-sections";
+import { openMetadataEditors } from "./track-panels";
 
 type Reader = ReturnType<typeof releaseCreditReader>;
 type Provider = Awaited<ReturnType<typeof playlistMetadataProvider>>;
@@ -138,8 +139,9 @@ export async function prepareMetadataCopy(
       exact: true,
     })
     .click();
+  await openMetadataEditors(page);
   const editor = page.getByRole("region", {
-    name: "Your track details",
+    name: "Details",
     exact: true,
   });
   const personal = {

@@ -253,7 +253,7 @@ export async function browseArtistGroups(
     documentStatus = navigation?.status() ?? 0;
     checkpoint(451);
     await page
-      .getByRole("region", { name: "Artist information", exact: true })
+      .getByRole("region", { name: "Linked artist", exact: true })
       .getByRole("button", { name: "Find artist information", exact: true })
       .click();
   } catch (error) {
@@ -275,7 +275,7 @@ export async function browseArtistGroups(
     if (page.isClosed())
       throw new Error("Owned recording page closed during navigation");
     const region = page.getByRole("region", {
-      name: "Artist information",
+      name: "Linked artist",
       exact: true,
     });
     const button = region.getByRole("button", {

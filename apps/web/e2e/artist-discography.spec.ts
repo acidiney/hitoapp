@@ -21,6 +21,7 @@ import {
   savePreferences,
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
+import { openMetadataEditors } from "./fixtures/track-panels";
 
 const editionsEnabled = process.env.HITO_ARTIST_EDITIONS_E2E === "1";
 const expectedProviderRequests = editionsEnabled ? 23 : 17;
@@ -232,12 +233,10 @@ test(
 
       stage = "explicit second namesake search preview and confirmation";
       await page.goto(`/recordings/${saved.ids[0]}`);
-      await expect(
-        page.getByRole("heading", { name: "Your track details", exact: true }),
-      ).toBeVisible();
+      await openMetadataEditors(page);
       await page.getByLabel("Track title", { exact: true }).fill(draft);
       const artist = page.getByRole("region", {
-        name: "Artist information",
+        name: "Linked artist",
         exact: true,
       });
       const associationsPath = `/api/v1/recordings/${saved.ids[0]}/artist-associations`;

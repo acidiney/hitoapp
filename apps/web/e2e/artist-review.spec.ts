@@ -20,6 +20,7 @@ import {
   savePreferences,
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
+import { openMetadataEditors } from "./fixtures/track-panels";
 
 test.use({
   trace: "off",
@@ -228,12 +229,10 @@ test("an account reviews a namesake through its chosen metadata provider without
         exact: true,
       })
       .click();
-    await expect(
-      page.getByRole("heading", { name: "Your track details", exact: true }),
-    ).toBeVisible();
+    await openMetadataEditors(page);
     await page.getByLabel("Track title", { exact: true }).fill(draft);
     const artist = page.getByRole("region", {
-      name: "Artist information",
+      name: "Linked artist",
       exact: true,
     });
     const associationsPath = `/api/v1/recordings/${saved.ids[0]}/artist-associations`;

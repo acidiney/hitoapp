@@ -9,6 +9,7 @@ import {
 import { manualSourceChoiceFixture } from "./fixtures/manual-source-choice";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import type { Schema } from "../src/shared/schema";
+import { openTrackEditors } from "./fixtures/track-panels";
 
 type Fixture = Awaited<ReturnType<typeof manualSourceChoiceFixture>>;
 type Phase =
@@ -546,6 +547,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         JSON.stringify(identity(personal).detail),
     ).toBe(true);
     await page.goto(`/recordings/${recording}`);
+    await openTrackEditors(page);
     const audio = page.locator("audio[data-hito-player]");
     await audio.evaluate((element: HTMLAudioElement) => {
       const observed = { plays: 0 };
@@ -566,7 +568,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
 
     phase = "download_a";
     const download = page.getByRole("region", {
-      name: "Download",
+      name: "Server copy",
       exact: true,
     });
     const first = await clickResponse<Schema<"DownloadReceipt">>(
@@ -617,8 +619,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     phase = "attach_b";
     fixture.showB();
     const attachment = page.getByRole("region", {
-      name: "Add an audio source",
-      exact: true,
+      name: /^(Find audio|Add another source)$/,
     });
     await attachment
       .getByRole("button", { name: "Find a source", exact: true })

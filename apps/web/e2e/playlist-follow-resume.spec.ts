@@ -12,6 +12,7 @@ import {
   setUpSpotifyYouTubeLiveAccount as setUpDisposableFollowAccount,
 } from "./fixtures/spotify-youtube-live";
 import { openLibrarySection } from "./fixtures/library-sections";
+import { openMetadataEditors } from "./fixtures/track-panels";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -154,8 +155,9 @@ test.describe("isolated provider playlist Resume", () => {
           exact: true,
         })
         .click();
+      await openMetadataEditors(page);
       const editor = page.getByRole("region", {
-        name: "Your track details",
+        name: "Details",
         exact: true,
       });
       for (const [field, value] of [

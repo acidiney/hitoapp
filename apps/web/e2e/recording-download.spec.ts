@@ -48,10 +48,10 @@ test.describe("explicit persistent recording download", () => {
     try {
       const library = await prepareDownloadLibrary(page, baseURL, fixture);
       recordingPath = `/api/v1/recordings/${library.recording}/download`;
-      const details = `/recordings/${library.recording}`;
+      const details = `/recordings/${library.recording}?tab=sources`;
       await page.goto(details);
       const section = page.getByRole("region", {
-        name: "Download",
+        name: "Server copy",
         exact: true,
       });
       const download = section.getByRole("button", {
@@ -211,7 +211,7 @@ test.describe("explicit persistent recording download", () => {
       second.on("pageerror", () => pageErrors++);
       await second.goto(details);
       const secondSection = second.getByRole("region", {
-        name: "Download",
+        name: "Server copy",
         exact: true,
       });
       await expect(

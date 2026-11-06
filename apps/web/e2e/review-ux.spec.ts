@@ -206,8 +206,8 @@ test("an artist match opens in a dialog beside the saved credit and returns focu
     const catalog: Schema<"RecordingPage"> = await (
       await page.request.get("/api/v1/recordings?q=Artist")
     ).json();
-    await page.goto(`/recordings/${catalog.items[0].id}`);
-    const artist = page.getByRole("region", { name: "Artist information" });
+    await page.goto(`/recordings/${catalog.items[0].id}?tab=metadata`);
+    const artist = page.getByRole("region", { name: "Linked artist" });
     await artist.getByRole("button", { name: "Change artist" }).click();
     await artist.getByRole("searchbox", { name: "Search artists" }).fill(query);
     await artist.getByRole("button", { name: "Search artists" }).click();

@@ -15,7 +15,7 @@ export async function chooseGroupMember(
   const path = `/api/v1/recordings/${id}/artist-identity`;
   await page.goto(`/recordings/${id}`);
   const artist = page.getByRole("region", {
-    name: "Artist information",
+    name: "Linked artist",
     exact: true,
   });
   await artist
@@ -160,7 +160,7 @@ export async function resetGroupMember(
   const id = chosen.member.recording.id;
   await page.goto(`/recordings/${id}`);
   const artist = page.getByRole("region", {
-    name: "Artist information",
+    name: "Linked artist",
     exact: true,
   });
   await artist

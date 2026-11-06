@@ -148,9 +148,12 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page
     .getByRole("link", { name: "Details for Fixture 440 Hz", exact: true })
     .click();
+  await page.getByRole("tab", { name: /^Metadata/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Your track details", exact: true }),
+    page.getByRole("heading", { name: "Details", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Edit track title" }).click();
+  await page.getByRole("button", { name: "Edit track artist" }).click();
   await page
     .getByLabel("Track title", { exact: true })
     .fill("My fixture title");
@@ -204,9 +207,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(page.locator(".now-playing small")).toHaveText(
     "My fixture performer",
   );
+  await page.getByRole("button", { name: "Edit track artist" }).click();
   await expect(
     page.getByRole("button", { name: "Use source artist", exact: true }),
   ).toBeEnabled();
+  await page.getByRole("tab", { name: /^History/ }).click();
   await page.getByText("Inspected tags", { exact: true }).click();
   await expect(page.locator(".metadata-tag-list")).toBeVisible();
   await page.screenshot({
@@ -224,6 +229,8 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     ),
   ).toBe(false);
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("tab", { name: /^Metadata/ }).click();
+  await page.getByRole("button", { name: "Edit track title" }).click();
   await page
     .getByRole("button", { name: "Use source title", exact: true })
     .click();
@@ -251,6 +258,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     "Hito test fixtures",
   );
   await openLibrarySection(page, "Albums");
+  await expect(page).toHaveURL(/\/albums$/);
   await page
     .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
     .click();

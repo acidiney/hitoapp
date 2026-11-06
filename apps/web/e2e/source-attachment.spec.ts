@@ -10,6 +10,7 @@ import { playlistFixture } from "./fixtures/playlist";
 import { providerFixture } from "./fixtures/provider";
 import { shoot } from "./fixtures/ux-shots";
 import type { Schema } from "../src/shared/schema";
+import { openTrackEditors } from "./fixtures/track-panels";
 
 type CollectionState = {
   playlists: Schema<"Playlist">[];
@@ -369,14 +370,14 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       before.activity.history.find((item) => item.id === recording),
     ).toMatchObject({ position_ms: 4_200, speed: 1.25, liked: true });
     await page.goto(`/recordings/${recording}`);
+    await openTrackEditors(page);
     const draft = page.getByLabel("Track title", { exact: true });
     await draft.fill("Keep this unsaved attachment draft");
     await shoot(page, "track-page", { full: true });
     const audio = page.locator("audio");
     await expect(audio).not.toHaveAttribute("src");
     const panel = page.getByRole("region", {
-      name: "Add an audio source",
-      exact: true,
+      name: /^(Find audio|Add another source)$/,
     });
     await panel
       .getByRole("button", { name: "Find a source", exact: true })
