@@ -378,6 +378,8 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 ## Release verification and distribution
 
 - [ ] Benchmark 100,000 tracks, 10 accounts, and 5 simultaneous listeners on documented hardware/network conditions.
+  - [x] Speed up the first library scan found by the latency run: bounded parallel inspection (`MediaTools.parallelism`, CPU count between 2 and 8) with indexing in walk order. 10,000 tracks went from 948.6 s to 146.2 s (6.5x) and a no-change rescan from 18.9 s to 11.0 s on a development Mac in Docker; 100,000 tracks project to about 24 minutes (extrapolated, not measured). Up to `parallelism` temporary media copies exist at once. See [Library scan speed](docs/performance.md#library-scan-speed).
+  - [ ] Measure a real 100,000-track scan on the reference hardware, cold disk included.
   - [x] Resolve the 100,000-provider-binding development upgrade smoke-test failure while preserving its 15-second deadline, every state assertion and historical SQL/checksums. Compile only bundled SQLite at optimization level 2 in the test profile; the original test reopens in 11.09 seconds and passes. Two diagnostic runs and independent configuration review support the change. Production settings and playback latency benchmarks are unchanged. See [verification and limits](docs/artist-identity-groups.md#verification-and-limits).
   - [ ] Repeat the complete core suite with the qualified SQLite test profile; the directed upgrade pass is not a full-suite result.
 - [x] Measure p95 local start, ready remote start, and available-source recovery against the release targets.

@@ -74,7 +74,7 @@ The provider delay applies to the provider only. Start scenarios apply it for th
 | Network               | Loopback only; server, browser and fake provider share one container network namespace        |
 | Chromium / WebKit     | Chromium 141.0.7390.37 headless on Linux arm64; Playwright WebKit build 2215                  |
 | Native output         | CPAL, ALSA, PulseAudio null sink at 48 kHz stereo, `parec` monitor with 5 ms chunks           |
-| First library scan    | 933 s in the native player (10,000 tracks), 940 s on the server, about 94 ms per file         |
+| First library scan    | 933 s in the native player (10,000 tracks), 940 s on the server, about 94 ms per file (before the parallel scan, see [Library scan speed](#library-scan-speed)) |
 | Code                  | Commit `80d18e80` plus the benchmark files committed afterwards (`a233b901`, `94de8c0d`, `6d421249`) |
 
 ## Results
@@ -167,7 +167,7 @@ No target was missed, so nothing was profiled for a fix. The data does show wher
 ## Findings that stay open
 
 - WebKit AAC starts failed 2 times in 100. The media element reported `playing` with `currentTime` stuck at 0 and no error. A diagnostic repeat of 200 starts on a small library reproduced one stall for one of the same tracks. The failed starts follow a `seeking` and `seeked` pair at the start that the successful ones also show. None of the 800 measured Chromium starts and 900 measured native starts stalled. It may belong to Playwright's Linux WebKit build and was not investigated further. The failed starts count as infinite in the table, so the WebKit M4A p99 reads `fail`.
-- The first scan of 10,000 tracks took about 15.5 minutes. At that rate 100,000 tracks would take about 2.6 hours. That scan time is not a playback target but matters to the 100,000-track load gate.
+- The first scan of 10,000 tracks took about 15.5 minutes. At that rate 100,000 tracks would take about 2.6 hours. That scan time is not a playback target but matters to the 100,000-track load gate. It was profiled and sped up afterwards, see [Library scan speed](#library-scan-speed).
 
 ## Limits
 
@@ -201,3 +201,62 @@ To remove what a run leaves behind, remove the containers of the project, its im
 
 The measurement code is `apps/web/e2e/latency/` (browser and fake provider), `crates/playback/examples/start_latency.rs` (native) and `scripts/bench/` (library, report and chart). None of it runs in the default test suites or ships in release binaries.
 
+
+## Library scan speed
+
+The first scan of the 10,000-track library above took about 15.5 minutes. This section records where that time went, what was changed and the re-measurement. It is a development measurement with the same host as the latency run (Docker on an Apple M5 Pro, 15 CPUs visible), not reference hardware.
+
+### Where the time went
+
+Profile of the serial scan over 1,000 tracks of the same library (92.4 ms per file, release build, in-process, database in memory-backed storage):
+
+| Step per file                                   | Mean ms | Share | What it is                                                                 |
+| ----------------------------------------------- | ------: | ----: | -------------------------------------------------------------------------- |
+| `ffmpeg` decode and audio hash                  |    59.3 |   64% | One process: starts, decodes 20 s of audio to 64-bit float PCM, hashes it  |
+| `ffprobe` tags and stream facts                 |    30.3 |   33% | One process: starts, reads tags, duration and the audio profile            |
+| Private copy, checksum and ID3 normalisation    |     0.8 |    1% | Reads the file once into a private copy and hashes it                      |
+| Second checksum after inspection                |     0.6 |    1% | Proves the file did not change while it was inspected                      |
+| Database write (one transaction)                |     1.0 |    1% | Release, recording, source and observation rows                            |
+| Lookup, walking, other                          |    0.4 |    0% | Cached-inspection lookup, directory walk                                   |
+
+Nearly all the time was two child processes per file, run one after another. Starting either tool costs about 28 to 30 ms on this host (`ffprobe -version` takes 28 ms, `ffmpeg -version` 30 ms), so about 58 ms of the 92 ms is process start-up and loading shared libraries, and about 32 ms is real work. The scan loop inspected one file at a time and the media command limit was two, so only one or two of the 15 CPUs were busy. Hashing, copying and SQLite were not a factor.
+
+What was not changed, on purpose:
+
+- The audio digest is the SHA-256 of FFmpeg's decoded 64-bit float PCM. That is the identity of the audio, so it needs the same decoder; Symphonia would give a different digest. It stays.
+- `ffprobe` and `ffmpeg` stay two processes. The profile decides whether the decode runs at all, and their outputs cannot be merged without changing what is stored.
+- File checksums, the private copy, the second checksum and the one-transaction-per-file write are unchanged. Writes were 1% of the time.
+
+### What changed
+
+The scan now keeps several files in inspection at once, as a short pipeline. The directory walker feeds paths while fewer than `parallelism` files are in flight. Results are indexed strictly in walk order, one transaction each, exactly as before, so duplicate resolution, skipping of bad files, cancellation and lease renewal behave as in the serial loop. Only the child processes overlap.
+
+```mermaid
+flowchart LR
+  Walk[Walker, one thread per folder] --> Window[Window of at most parallelism files]
+  Window --> Copy[Private copy and checksum, two read threads per folder]
+  Copy --> Probe[ffprobe]
+  Probe --> Decode[ffmpeg decode and hash]
+  Decode --> Order[Results in walk order]
+  Order --> Write[One database transaction per file]
+```
+
+- `MediaTools.parallelism` bounds both the files in flight and the number of media processes alive at once (it was a fixed 2). The default is the number of CPUs, at least 2 and at most 8. Setting 1 gives the old serial behaviour.
+- The per-folder limits still hold: two read threads per folder, one walker, and the stall deadlines and cancellation of each read and command.
+- Every file in flight holds one private copy of its media file in the temporary directory until it is inspected. The temporary space needed is therefore up to `parallelism` times the largest file instead of once. There is no total byte budget for the copies.
+- The scan logs `parallelism`, the files read and skipped, and the elapsed milliseconds of the inspection phase. No path or title is logged.
+
+### Re-measurement
+
+Run with `cargo test --release -p hito-core --test indexing scan_speed_over -- --ignored --nocapture` and `BENCH_LIBRARY` set to the generated library; `BENCH_PARALLELISM` overrides the limit. It opens core with a database in `/dev/shm`, runs the first scan and then a rescan with no changes through the ordinary scan job. The before row is the same code with `parallelism` 1, which is the previous serial loop.
+
+| 10,000 tracks (3.0 GB)       | Parallelism | First scan | Files/s | Speed-up | Rescan, no changes | Files/s |
+| ---------------------------- | ----------: | ---------: | ------: | -------: | -----------------: | ------: |
+| Before (serial)              |           1 |      948.6 s |   10.5 |     1.0x |             18.9 s |     529 |
+| After, default on this host  |           8 |      146.2 s |   68.4 |     6.5x |             11.0 s |     912 |
+
+Scaling on 1,000 tracks (first scan): parallelism 1 took 92.4 s, 4 took 25.5 s (3.6x), 8 took 14.9 s (6.2x) and 15 took 10.3 s (9.0x). The work is processor-bound, so the gain follows the CPUs available to the scan. A host with 2 CPUs gets at most about 2x.
+
+Projection for 100,000 tracks, extending the 10,000-track rates linearly (not measured): the serial scan would take about 2.6 hours; the parallel scan about 24 minutes on this host with 8 slots, and a rescan with no changes about 2 minutes. Larger libraries add database size and directory depth, which were not measured. A cold disk was not measured either; the library was warm in the operating system cache.
+
+The first scan is still processor-bound by the two child processes. Raising the cap above 8 would help this host (9.0x at 15) but takes processor time from playback and requests on a small server, so the default stops at 8.

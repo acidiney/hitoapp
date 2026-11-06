@@ -1,5 +1,15 @@
 # Implementation status
 
+## 2026-11-06 library scan speed
+
+Local development measurement and change, not a release result and not deployed. The first scan of the generated 10,000-track library took 948.6 s serially (10.5 files/s, 94.9 ms per file). Profiling showed 64% in the `ffmpeg` decode and hash process and 33% in `ffprobe`, run one file at a time; about 58 ms of the 92 ms per file is process start-up. The scan now keeps up to `MediaTools.parallelism` files in inspection (the CPU count, between 2 and 8 by default) and still indexes them in walk order, one transaction per file. The same library now scans in 146.2 s (68.4 files/s, 6.5x), and a rescan with no changes in 11.0 s (was 18.9 s). Linear extrapolation gives about 24 minutes for 100,000 tracks on this host (was about 2.6 hours); that figure is not measured. Details, the breakdown table and limits are in [Library scan speed](performance.md#library-scan-speed).
+
+- Unchanged: audio digest (FFmpeg decode), checksums, the private copy, the second checksum, the per-folder read and walk limits, cancellation and lease renewal.
+- Costs: up to `parallelism` private media copies exist at once in the temporary directory (no total byte budget), and the scan uses up to `parallelism` CPUs while it runs.
+- Tests: `indexing_parallelism.rs` (bounded overlap of 3 to 4 at a limit of 4, exactly 1 at a limit of 1; RED before the change with a peak of 1). The opt-in `indexing_scan_speed.rs` measurement is ignored by default.
+- Gates: strict all-target Clippy and formatting are clean; the core and server Rust batch passed (1,576 tests across 104 result lines, 0 failures, 4 ignored); `scripts/check-desktop.sh` passed, including the desktop smoke that scans a folder.
+- Not done: reference hardware, a measured 100,000-track scan, cold-disk scans, hosts with few CPUs, and a server setting for the limit (it is set in `MediaTools`, no environment variable).
+
 ## 2026-11-06 playback latency measurement
 
 Local development measurement, not a release result and not deployed. `scripts/bench-playback.sh` (also `make bench-playback`) measures local start, ready remote start and available-source recovery with 100 samples per series, in the browser (Chromium, plus WebKit for AAC) and in the native player, against a generated 10,000-track library and an owned loopback provider with a settable 0 or 40 ms delay. The method, hardware, tables, chart and limits are in [Playback latency](performance.md).
