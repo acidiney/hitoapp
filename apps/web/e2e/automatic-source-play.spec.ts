@@ -448,7 +448,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
     );
     expect(pageErrors + privateLogs + callbackFailures).toBe(0);
     await expect(
-      page.getByRole("region", { name: "Review source match", exact: true }),
+      page.getByRole("dialog", { name: "Review source match", exact: true }),
     ).toHaveCount(0);
   } catch {
     failedPhase = phase;

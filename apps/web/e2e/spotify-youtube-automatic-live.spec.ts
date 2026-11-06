@@ -499,7 +499,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
         counts.manual + counts.downloads + counts.external === 0,
     ).toBe(true);
     await expect(
-      page.getByRole("region", { name: "Review source match", exact: true }),
+      page.getByRole("dialog", { name: "Review source match", exact: true }),
     ).toHaveCount(0);
   } catch {
     failed = phase;

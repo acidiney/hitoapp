@@ -110,6 +110,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(page.locator(".track-table tbody tr")).toHaveCount(1);
   await page.screenshot({ path: "/workspace/test-results/album-desktop.png" });
   await page
+    .locator("#main")
     .getByRole("link", { name: "Hito test fixtures", exact: true })
     .click();
   await expect(

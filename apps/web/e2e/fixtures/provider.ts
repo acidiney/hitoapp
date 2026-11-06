@@ -6,6 +6,7 @@ export async function providerFixture(
   prefix = "Relay",
   expanded = false,
   preparation = false,
+  distinctArtists = false,
 ) {
   const audio = await readFile(
     "/workspace/fixtures/e2e-generated/Music/Fixture 440 Hz.wav",
@@ -29,6 +30,7 @@ export async function providerFixture(
         ...recording,
         id: `provider/private/catalog-${index}`,
         title: `${prefix} catalog fixture ${index + 1}`,
+        ...(distinctArtists ? { artist: `${prefix} artist ${index + 1}` } : {}),
       }))
     : [];
   const records = new Map(

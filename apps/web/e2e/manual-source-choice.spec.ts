@@ -641,7 +641,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       `${sourcesPath}/review`,
     );
     expect(review.candidate.id === fixture.recordings.b.id).toBe(true);
-    const comparison = attachment.getByRole("region", {
+    const comparison = attachment.getByRole("dialog", {
       name: "Review source match",
       exact: true,
     });

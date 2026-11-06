@@ -333,7 +333,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toBe(true);
     await expect(
       artist
-        .getByRole("region", { name: "Review artist", exact: true })
+        .getByRole("dialog", { name: "Review artist", exact: true })
         .getByText(owned.profile.disambiguation, { exact: true }),
     ).toBeVisible();
     expect(

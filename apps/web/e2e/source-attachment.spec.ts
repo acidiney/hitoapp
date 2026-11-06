@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
 import { providerFixture } from "./fixtures/provider";
+import { shoot } from "./fixtures/ux-shots";
 import type { Schema } from "../src/shared/schema";
 
 type CollectionState = {
@@ -95,6 +96,9 @@ async function layouts(
       const dock = await page
         .getByRole("contentinfo", { name: "Audio player" })
         .boundingBox();
+      const modal = await control.evaluate(
+        (element) => element.closest("dialog") !== null,
+      );
       const label =
         (await control.getAttribute("aria-label")) ??
         (await control.innerText());
@@ -103,7 +107,7 @@ async function layouts(
           dock &&
           bounds.x >= 0 &&
           bounds.x + bounds.width <= viewport.width &&
-          bounds.y + bounds.height <= dock.y,
+          bounds.y + bounds.height <= (modal ? viewport.height : dock.y),
         `${stage} ${viewport.width}px ${label} bounds`,
       ).toBe(true);
       expect(
@@ -367,6 +371,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     await page.goto(`/recordings/${recording}`);
     const draft = page.getByLabel("Track title", { exact: true });
     await draft.fill("Keep this unsaved attachment draft");
+    await shoot(page, "track-page", { full: true });
     const audio = page.locator("audio");
     await expect(audio).not.toHaveAttribute("src");
     const panel = page.getByRole("region", {
@@ -399,6 +404,20 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
           exact: true,
         }),
       ).toBeVisible();
+      const candidateRow = panel
+        .getByRole("list", { name: "Source search results" })
+        .getByRole("listitem")
+        .first();
+      await expect(
+        candidateRow.getByText(provider.recording.artist, { exact: true }),
+      ).toBeVisible();
+      await expect(candidateRow).toContainText("1:30");
+      await expect(candidateRow).toContainText(`${playlist.prefix} source`);
+      await expect(candidateRow).not.toContainText("Unknown");
+      if (index === 0)
+        await shoot(page, "source-candidates", {
+          focus: panel.getByRole("list", { name: "Source search results" }),
+        });
       expect(attachments).toHaveLength(index);
       expect(adoptions).toBe(0);
       const reviewResponse = page.waitForResponse(
@@ -415,10 +434,11 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       const reviewed = await reviewResponse;
       expect(reviewed.status()).toBe(200);
       const review: Schema<"ProviderSourceReview"> = await reviewed.json();
-      const comparison = panel.getByRole("region", {
+      const comparison = page.getByRole("dialog", {
         name: "Review source match",
         exact: true,
       });
+      await expect(comparison).toBeVisible();
       await expect(comparison.getByText(title, { exact: true })).toBeVisible();
       await expect(comparison.getByText(artist, { exact: true })).toBeVisible();
       await expect(comparison.getByText("2:03", { exact: true })).toBeVisible();
@@ -426,6 +446,11 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
         comparison.getByText(review.candidate.title, { exact: true }),
       ).toBeVisible();
       await expect(comparison.getByText("1:30", { exact: true })).toBeVisible();
+      await expect(
+        comparison.getByText(/longer|shorter|lengths match/),
+      ).toBeVisible();
+      if (index === 0)
+        await shoot(page, "source-review", { focus: comparison });
       expect(attachments).toHaveLength(index);
       expect(
         retainedCollection(await collection(page, copied), recording),
@@ -445,7 +470,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
         exact: true,
       });
       if (index === 0)
-        await layouts(page, info, "attachment-review", [reviewButton, confirm]);
+        await layouts(page, info, "attachment-review", [confirm]);
       const attachedResponse = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname ===

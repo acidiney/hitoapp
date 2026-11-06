@@ -256,7 +256,7 @@ export async function reviewLiveCandidate(
   const review: Schema<"ProviderSourceReview"> = await reviewed.json();
   expect(review.candidate.id === selection.candidate.id).toBe(true);
   conservativeCandidate(original, [review.candidate]);
-  const comparison = panel.getByRole("region", {
+  const comparison = panel.getByRole("dialog", {
     name: "Review source match",
     exact: true,
   });
@@ -271,8 +271,7 @@ export async function reviewLiveCandidate(
   ).toBeVisible();
   expect(
     await comparison
-      .locator(":scope > div")
-      .nth(0)
+      .getByRole("group", { name: "Saved track", exact: true })
       .evaluate(
         (element, saved) =>
           element.textContent?.includes(saved.title) &&
@@ -282,8 +281,7 @@ export async function reviewLiveCandidate(
   ).toBe(true);
   expect(
     await comparison
-      .locator(":scope > div")
-      .nth(1)
+      .getByRole("group", { name: "Candidate source", exact: true })
       .evaluate(
         (element, candidate) =>
           element.textContent?.includes(candidate.title) &&
