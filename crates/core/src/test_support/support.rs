@@ -18,7 +18,10 @@ async fn migrated_database() -> &'static [u8] {
                 .await
                 .map(|row: (i64, i64, i64)| (row.0,))
                 .unwrap();
-            assert!(busy == 0, "the migrated template must be fully checkpointed");
+            assert!(
+                busy == 0,
+                "the migrated template must be fully checkpointed"
+            );
             store.pool.close().await;
             std::fs::read(&path).unwrap()
         })
