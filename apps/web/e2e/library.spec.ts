@@ -478,11 +478,12 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Library", exact: true })
     .click();
-  await page
+  const main = page.locator("#main");
+  await main
     .getByRole("button", { name: "Like Fixture 440 Hz", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
+    main.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
   ).toBeVisible();
   await addToPlaylistFromRow(
     page.locator(".track-grid"),
