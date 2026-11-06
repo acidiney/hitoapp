@@ -45,7 +45,10 @@ export async function providerFixture(
     string,
     { id: string; label: string; ready: boolean }[]
   >();
-  const failures = new Map<string, number>();
+  const failures = new Map<string, { status: number; remaining: number }>();
+  const resets = new Map<string, { after: number; remaining: number }>();
+  let audioDelayMs = 0;
+  let ignoreRanges = false;
   const prepared = new Set<string>();
   const preparations = { begin: 0, status: 0 };
   const sourceRequests: string[] = [];
@@ -74,10 +77,13 @@ export async function providerFixture(
       });
       const sourceId = url.searchParams.get("source_id") ?? "";
       const failure = failures.get(sourceId);
-      if (failure) {
-        response.writeHead(failure).end();
+      if (failure && failure.remaining > 0) {
+        failure.remaining--;
+        response.writeHead(failure.status).end();
         return;
       }
+      if (audioDelayMs > 0)
+        await new Promise((resolve) => setTimeout(resolve, audioDelayMs));
       if (!sources.has(url.searchParams.get("source_id") ?? "")) {
         response.writeHead(404).end();
         return;
@@ -85,7 +91,9 @@ export async function providerFixture(
       let first = 0;
       let last = audio.length - 1;
       const range =
-        request.method !== "HEAD" ? request.headers.range : undefined;
+        request.method !== "HEAD" && !ignoreRanges
+          ? request.headers.range
+          : undefined;
       if (range) {
         const match = /^bytes=(\d+)-(\d*)$/.exec(range);
         if (!match || Number(match[1]) >= audio.length) {
@@ -105,6 +113,13 @@ export async function providerFixture(
           ? { "content-range": `bytes ${first}-${last}/${audio.length}` }
           : {}),
       });
+      const reset = resets.get(sourceId);
+      if (reset && reset.remaining > 0 && request.method !== "HEAD") {
+        reset.remaining--;
+        response.write(audio.subarray(first, first + reset.after));
+        setTimeout(() => response.socket?.destroy(), 50);
+        return;
+      }
       const tail = gates.get(`audio:${sourceId}`);
       if (tail && last - first + 1 > 320000 && request.method !== "HEAD") {
         const cutoff = first + 320000;
@@ -273,8 +288,20 @@ export async function providerFixture(
         ),
       );
     },
-    failSource: (id: string, status = 410) => {
-      failures.set(id, status);
+    failSource: (id: string, status = 410, times = Infinity) => {
+      failures.set(id, { status, remaining: times });
+    },
+    healSource: (id: string) => {
+      failures.delete(id);
+    },
+    delayAudio: (milliseconds: number) => {
+      audioDelayMs = milliseconds;
+    },
+    resetAudioAfter: (id: string, bytes: number, times = 1) => {
+      resets.set(id, { after: bytes, remaining: times });
+    },
+    ignoreRangeRequests: () => {
+      ignoreRanges = true;
     },
     holdAudioTail: (id: string) => hold(`audio:${id}`),
     holdSources: (id: string) => hold(`sources:${id}`),
