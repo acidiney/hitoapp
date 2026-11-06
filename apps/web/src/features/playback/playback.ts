@@ -82,6 +82,7 @@ export class Playback implements Player {
   private durationChanged: (() => void) | null = null;
   private serverBound: number | null = null;
   private entryEnded = false;
+  private restored = false;
   private formatProbe: Promise<boolean> = Promise.resolve(false);
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
   private lookahead: BrowserLookahead | null;
@@ -396,6 +397,40 @@ export class Playback implements Player {
     });
   }
 
+  setRecordingLiked(recording: string, liked: boolean) {
+    const update = (track: Track): Track =>
+      track.id === recording ? { ...track, liked } : track;
+    log.info("playback.metadata_updated", {
+      recording_id: recording,
+      action: "liked",
+    });
+    this.queue.updateRecording(update);
+    this.update({
+      queueChanged: true,
+      current: this.state.current ? update(this.state.current) : null,
+    });
+  }
+
+  restoreQueue(queue: PlaybackQueueInput[], index: number, position: number) {
+    if (this.queue.length > 0 || !queue[index]) return false;
+    this.queue.replace(queue);
+    this.traversal.reset(this.queue.serials(), this.queue.serialAt(index));
+    const current = this.queue.at(index).recording;
+    this.restored = true;
+    log.info("queue.restored", { count: queue.length, index });
+    this.update({
+      queueChanged: true,
+      current,
+      index,
+      position,
+      duration: current.duration_ms / 1000,
+      playing: false,
+      loading: false,
+      error: "",
+    });
+    return true;
+  }
+
   async playQueue(
     queue: PlaybackQueueInput[],
     index = 0,
@@ -479,6 +514,7 @@ export class Playback implements Player {
       this.cancelAudiobook();
       if (!this.persist()) return;
     }
+    this.restored = false;
     this.selection++;
     this.observation.retire();
     this.community?.retire();
@@ -745,6 +781,10 @@ export class Playback implements Player {
   async setPlaying(playing: boolean) {
     this.cancelAudiobook();
     if (this.state.loading) return;
+    if (this.restored) {
+      if (playing) await this.open(this.state.index, this.state.position);
+      return;
+    }
     log.info("playback.playing_set", {
       recording_id: this.state.current?.id,
       enabled: playing,
@@ -771,6 +811,10 @@ export class Playback implements Player {
       0,
       Math.min(seconds, this.state.duration || seconds),
     );
+    if (this.restored) {
+      this.update({ position });
+      return;
+    }
     const awaitingMetadata =
       this.activeSource !== null && (this.media.readyState ?? 1) < 1;
     if ((this.state.loading && !this.activeSource) || awaitingMetadata)
@@ -887,6 +931,7 @@ export class Playback implements Player {
     if (!this.persist()) return;
     this.observation.retire();
     this.community?.retire();
+    this.restored = false;
     this.openingEntry = null;
     this.durationChanged = null;
     this.endGuard.cancel();

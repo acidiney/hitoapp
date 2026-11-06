@@ -331,6 +331,11 @@ export class NativePlayback implements Player {
     this.loadCurrent();
     this.listeners.forEach((listener) => listener());
   }
+  setRecordingLiked(recording: string, liked: boolean) {
+    const current = this.view.current;
+    if (current?.id === recording)
+      this.update({ current: { ...current, liked } });
+  }
   private updatePosition(value: PlaybackPosition) {
     this.position = value;
     this.positionListeners.forEach((listener) => listener());

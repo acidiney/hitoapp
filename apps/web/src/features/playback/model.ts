@@ -10,6 +10,8 @@ export type Track = Pick<
       | "inherited_title"
       | "inherited_artist"
       | "release_id"
+      | "artist_id"
+      | "liked"
       | "plays_from_services"
     >
   >;
@@ -119,6 +121,7 @@ export interface Player {
     personal: string | null,
     inherited: string,
   ): void;
+  setRecordingLiked?(recording: string, liked: boolean): void;
   reconnect?(): Promise<void>;
   retrySaved?(): Promise<void>;
 }
