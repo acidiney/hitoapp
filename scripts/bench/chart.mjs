@@ -19,21 +19,23 @@ let body = "";
 for (const [scenario, title, target] of scenarios) {
   const members = series.filter((item) => item.scenario === scenario && item.variant !== "all formats");
   if (members.length === 0) continue;
-  const maximum = Math.max(target * 1.15, ...members.map((item) => item.max || 0)) * 1.04;
+  const step = target / 5;
+  const widest = Math.max(target * 1.1, ...members.map((item) => Math.max(0, ...item.samples)));
+  const ticks = Math.ceil(widest / step);
+  const maximum = ticks * step;
   const x = (value) => left + (value / maximum) * (width - left - right);
   const height = members.length * rowHeight + 56;
   body += `<text x="20" y="${top + 4}" font-size="16" font-weight="600" fill="#1a202c">${title} (p95 target ${target} ms)</text>`;
   const axis = top + 20;
-  const ticks = 6;
   for (let tick = 0; tick <= ticks; tick++) {
-    const value = (maximum / ticks) * tick;
+    const value = step * tick;
     body += `<line x1="${x(value)}" y1="${axis}" x2="${x(value)}" y2="${axis + members.length * rowHeight + 4}" stroke="#e2e8f0"/>`;
     body += `<text x="${x(value)}" y="${axis + members.length * rowHeight + 20}" font-size="11" text-anchor="middle" fill="#4a5568">${Math.round(value)} ms</text>`;
   }
   body += `<line x1="${x(target)}" y1="${axis}" x2="${x(target)}" y2="${axis + members.length * rowHeight + 4}" stroke="#c53030" stroke-width="2" stroke-dasharray="6 4"/>`;
   members.forEach((item, index) => {
     const y = axis + index * rowHeight + rowHeight / 2;
-    const label = `${item.surface} ${item.variant}${item.rtt ? ` @${item.rtt} ms RTT` : ""} (n=${item.ok})`;
+    const label = `${item.surface} ${item.variant}${item.rtt ? ` @${item.rtt} ms RTT` : ""} (n=${item.ok}${item.failures ? `, ${item.failures} failed` : ""})`;
     body += `<text x="${left - 10}" y="${y + 4}" font-size="12" text-anchor="end" fill="#2d3748">${label}</text>`;
     const colour = palette[item.surface];
     item.samples.forEach((value, sample) => {
@@ -41,7 +43,8 @@ for (const [scenario, title, target] of scenarios) {
       body += `<circle cx="${x(value)}" cy="${y + jitter}" r="2" fill="${colour}" fill-opacity="0.45"/>`;
     });
     body += `<line x1="${x(item.p50)}" y1="${y - 11}" x2="${x(item.p50)}" y2="${y + 11}" stroke="#1a202c" stroke-width="2"/>`;
-    body += `<line x1="${x(item.p95)}" y1="${y - 11}" x2="${x(item.p95)}" y2="${y + 11}" stroke="${colour}" stroke-width="3"/>`;
+    if (item.p95 !== null)
+      body += `<line x1="${x(item.p95)}" y1="${y - 11}" x2="${x(item.p95)}" y2="${y + 11}" stroke="${colour}" stroke-width="3"/>`;
   });
   top += height + 20;
 }

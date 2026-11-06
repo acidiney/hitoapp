@@ -25,8 +25,12 @@ export function percentile(sorted, p) {
 }
 
 function summarize(rows, key) {
-  const ok = rows.filter((row) => row.ok === "1");
-  const values = ok.map((row) => Number(row[key])).sort((a, b) => a - b);
+  const ok = rows.filter((row) => row.ok === "1" && row[key] !== "");
+  const failed = rows.length - ok.length;
+  const values = [
+    ...ok.map((row) => Number(row[key])).sort((a, b) => a - b),
+    ...Array(failed).fill(Infinity),
+  ];
   return {
     n: rows.length,
     ok: ok.length,
@@ -69,6 +73,7 @@ const series = [...groups.entries()]
       gap: summarize(members, "gap_ms"),
       playing: summarize(members, "playing_ms"),
       samples: members.filter((row) => row.ok === "1").map((row) => Number(row.latency_ms)),
+      failures: members.filter((row) => row.ok !== "1").length,
     };
   })
   .sort(
@@ -78,9 +83,13 @@ const series = [...groups.entries()]
       a.rtt - b.rtt ||
       a.variant.localeCompare(b.variant),
   );
-for (const item of series) item.verdict = item.ok >= 100 && item.p95 <= item.target ? "meets" : item.ok < 100 ? "too few samples" : "misses";
+for (const item of series) {
+  const failed = item.n - item.ok;
+  const base = item.n < 100 ? "too few samples" : item.p95 <= item.target ? "meets" : "misses";
+  item.verdict = failed > 0 ? `${base}, ${failed} failed ${failed === 1 ? "start" : "starts"}` : base;
+}
 
-const f = (value) => (Number.isFinite(value) ? value.toFixed(1) : "n/a");
+const f = (value) => (value === Infinity ? "fail" : Number.isFinite(value) ? value.toFixed(1) : "n/a");
 const lines = [];
 for (const scenario of order) {
   const members = series.filter((item) => item.scenario === scenario);
