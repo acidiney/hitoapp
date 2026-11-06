@@ -6,34 +6,44 @@ import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import { sectionHref } from "../model/sections";
 import { setting } from "../model/settingsCatalog";
+import SourcePreferences from "../../sources/components/SourcePreferences";
 
-export function PlaybackSection({ native }: { native: boolean }) {
+export function PlaybackSection({
+  native,
+  account,
+}: {
+  native: boolean;
+  account: string;
+}) {
   return (
-    <SettingsCard setting={setting("playback-engine")}>
-      <SettingRow
-        title="Playback"
-        hint={
-          native
-            ? "Music plays through the desktop app on this computer."
-            : "Music plays in this browser."
-        }
-        status={
-          <HealthDot
-            tone="success"
-            label={native ? "Desktop app" : "This browser"}
-          />
-        }
-      />
-      <SettingRow
-        title="Source rankings"
-        hint="Choose whether community results help pick between sources."
-        action={
-          <Link className="button" href={sectionHref("privacy")}>
-            Privacy & lock
-          </Link>
-        }
-      />
-    </SettingsCard>
+    <>
+      <SettingsCard setting={setting("playback-engine")}>
+        <SettingRow
+          title="Playback"
+          hint={
+            native
+              ? "Music plays through the desktop app on this computer."
+              : "Music plays in this browser."
+          }
+          status={
+            <HealthDot
+              tone="success"
+              label={native ? "Desktop app" : "This browser"}
+            />
+          }
+        />
+        <SettingRow
+          title="Source rankings"
+          hint="Choose whether community results help pick between sources."
+          action={
+            <Link className="button" href={sectionHref("privacy")}>
+              Privacy & lock
+            </Link>
+          }
+        />
+      </SettingsCard>
+      <SourcePreferences account={account} />
+    </>
   );
 }
 

@@ -29,6 +29,7 @@ export class BrowserLookahead {
     private resolve: SourceResolver,
     private owner: BrowserMediaOwner,
     private preparer?: SourcePreparer,
+    private fallbackAllowed?: () => Promise<boolean>,
   ) {}
 
   cancel() {
@@ -68,6 +69,7 @@ export class BrowserLookahead {
         get: (source) => states.get(source),
         set: (source, state) => states.set(source, state),
       },
+      this.fallbackAllowed,
     );
   }
 

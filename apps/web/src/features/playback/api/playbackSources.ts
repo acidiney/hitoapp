@@ -3,6 +3,7 @@ import { createUuid } from "../../../shared/uuid";
 
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { MAX_FALLBACK_ATTEMPTS } from "../../sources/model/sourceFallback";
 
 export type Source = Pick<Schema<"Source">, "id" | "ready"> &
   Partial<Pick<Schema<"Source">, "can_prepare">>;
@@ -42,6 +43,7 @@ export class PlaybackSources {
     private recording: string,
     private resolve: SourceResolver,
     seed?: Source,
+    private fallbackAllowed?: () => Promise<boolean>,
   ) {
     if (seed?.ready) {
       this.loaded = true;
@@ -67,6 +69,17 @@ export class PlaybackSources {
 
   async next(): Promise<Source | undefined> {
     if (this.controller.signal.aborted) return;
+    if (
+      this.attempted.size > 0 &&
+      this.fallbackAllowed &&
+      !(await this.fallbackAllowed())
+    ) {
+      log.info("playback.source_fallback_off", {
+        recording_id: this.recording,
+        count: this.attempted.size,
+      });
+      return;
+    }
     if (!this.loaded) {
       this.loaded = true;
       await this.load({ purpose: "cached" });
@@ -96,8 +109,24 @@ export class PlaybackSources {
       await this.findSource();
     }
     if (!this.controller.signal.aborted) {
+      if (this.attempted.size >= MAX_FALLBACK_ATTEMPTS) {
+        log.warn("playback.source_fallback_limit", {
+          recording_id: this.recording,
+          count: this.attempted.size,
+        });
+        return;
+      }
       const source = this.candidates.shift();
-      if (source) this.attempted.add(source.id);
+      if (source) {
+        if (this.attempted.size > 0)
+          log.info("playback.source_fallback", {
+            recording_id: this.recording,
+            source_id: source.id,
+            index: this.attempted.size,
+            reason: "previous_source_failed",
+          });
+        this.attempted.add(source.id);
+      }
       return source;
     }
   }

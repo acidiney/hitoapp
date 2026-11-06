@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { sourcesApi } from "../../sources/api/sourcesApi";
+import { sourcePreferenceApi } from "../../sources/api/sourcePreferenceApi";
 import { useNotice } from "../../../shared/ui/Notices";
 import { Playback } from "../playback";
 import type { MediaPort, Player } from "../model";
@@ -125,6 +126,7 @@ function BrowserAccountPlayback({
         status: (recording, source, signal) =>
           sourcePreparationApi.status(account, recording, source, signal),
       },
+      () => sourcePreferenceApi.fallbackEnabled(account),
     );
     return { audio, media, player, community };
   });

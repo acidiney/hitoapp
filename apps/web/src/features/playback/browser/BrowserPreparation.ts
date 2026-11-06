@@ -63,8 +63,14 @@ export class BrowserPreparation {
     seed?: Source,
     private preparer?: SourcePreparer,
     private ledger?: SubmissionLedger,
+    fallbackAllowed?: () => Promise<boolean>,
   ) {
-    this.sources = new PlaybackSources(target.recording, resolve, seed);
+    this.sources = new PlaybackSources(
+      target.recording,
+      resolve,
+      seed,
+      fallbackAllowed,
+    );
     this.stopped = new Promise<null>((resolve) => {
       this.cancelled = resolve;
     });

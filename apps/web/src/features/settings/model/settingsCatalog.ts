@@ -19,6 +19,7 @@ export type SettingId =
   | "connect-service"
   | "plugin-services"
   | "playback-engine"
+  | "source-preference"
   | "downloads-storage"
   | "accounts-access"
   | "shared-corrections"
@@ -168,6 +169,15 @@ const ENTRIES: SettingEntry[] = [
     section: "playback",
     label: "Playback engine",
     keywords: "desktop app browser output audio source rankings",
+  },
+  {
+    id: "source-preference",
+    section: "playback",
+    label: "Source preference",
+    description:
+      "Which source plays first when a track has several. A source you choose for one track always wins.",
+    keywords:
+      "source order priority provider local files saved copies fallback next source fails",
   },
   {
     id: "downloads-storage",

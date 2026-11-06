@@ -106,6 +106,7 @@ export class Playback implements Player {
     prepareAudiobook?: AudiobookPreparer,
     onSuccess?: (source: string, claim: Schema<"SuccessfulPlayback">) => void,
     sourcePreparer?: SourcePreparer,
+    private fallbackAllowed?: () => Promise<boolean>,
   ) {
     this.community = onSuccess
       ? new BrowserCommunityObservation(onSuccess)
@@ -130,7 +131,12 @@ export class Playback implements Player {
       (message) => this.update({ error: message }),
     );
     this.lookahead = mediaOwner
-      ? new BrowserLookahead(resolve, mediaOwner, sourcePreparer)
+      ? new BrowserLookahead(
+          resolve,
+          mediaOwner,
+          sourcePreparer,
+          fallbackAllowed,
+        )
       : null;
     this.audiobook = new BrowserAudiobookRun(
       {
@@ -471,7 +477,14 @@ export class Playback implements Player {
     this.sources?.close();
     this.sources =
       prepared?.sources ??
-      (current ? new PlaybackSources(current.id, this.resolve) : null);
+      (current
+        ? new PlaybackSources(
+            current.id,
+            this.resolve,
+            undefined,
+            this.fallbackAllowed,
+          )
+        : null);
     if (!continuation) this.media.pause();
     this.activeSource = null;
     this.formatProbe = Promise.resolve(false);
@@ -540,7 +553,13 @@ export class Playback implements Player {
             await this.playSource(generation, ++this.sourceAttempt);
             return;
           }
-        } else this.sources = new PlaybackSources(current.id, this.resolve);
+        } else
+          this.sources = new PlaybackSources(
+            current.id,
+            this.resolve,
+            undefined,
+            this.fallbackAllowed,
+          );
       }
       await this.useNextSource(position);
     } catch {

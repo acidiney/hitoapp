@@ -26,6 +26,10 @@ test("browser audio recovery sends the playback refresh purpose and releases acc
     async (input: RequestInfo | URL, _options?: RequestInit) => {
       if (input === "/api/v1/recordings/saved/playback-sources")
         return new Response(JSON.stringify([source("expired")]));
+      if (input === "/api/v1/source-preferences")
+        return new Response(
+          JSON.stringify({ revision: 0, fallback: true, entries: [] }),
+        );
       if (input === "/api/v1/recordings/saved/sources/refresh")
         return new Response(JSON.stringify([source("replacement")]));
       throw new Error("Unexpected owned playback request");
@@ -62,9 +66,14 @@ test("browser audio recovery sends the playback refresh purpose and releases acc
   expect(document.querySelector("audio")?.src).toContain("/replacement/audio");
   expect(player.snapshot().current?.id).toBe("saved");
   expect(player.snapshot().playing).toBe(true);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch.mock.calls.map(([input]) => input)).toEqual([
+    "/api/v1/recordings/saved/playback-sources",
+    "/api/v1/source-preferences",
+    "/api/v1/recordings/saved/sources/refresh",
+  ]);
   const cached = fetch.mock.calls[0][1];
-  const recovery = fetch.mock.calls[1][1];
+  const recovery = fetch.mock.calls[2][1];
   expect(cached).toEqual(
     expect.objectContaining({ method: "GET", body: undefined }),
   );

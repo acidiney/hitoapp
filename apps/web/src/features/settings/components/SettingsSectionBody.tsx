@@ -33,7 +33,12 @@ export default function SettingsSectionBody({
         />
       );
     case "playback":
-      return <PlaybackSection native={props.native_playback} />;
+      return (
+        <PlaybackSection
+          native={props.native_playback}
+          account={props.user.id}
+        />
+      );
     case "downloads":
       return <DownloadsSection admin={props.user.admin} />;
     case "accounts":
