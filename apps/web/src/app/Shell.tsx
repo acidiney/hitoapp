@@ -23,6 +23,7 @@ const OWN_SEARCH = new Set([
   "SettingsPage",
   "QueuePage",
 ]);
+const DETAIL_PAGES = new Set(["RecordingDetailsPage"]);
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<Schema<"SharedPageProps"> & PageProps>();
@@ -50,19 +51,22 @@ export default function Shell({ children }: { children: ReactNode }) {
             <Sidebar playlists={playlists} path={url.pathname} />
             <div className="workspace">
               <AccountMenu user={user} lock={lock} path={url.pathname} />
-              {!OWN_SEARCH.has(page.component) && (
-                <LibrarySearch
-                  query={url.searchParams.get("q") ?? ""}
-                  target={
-                    page.component === "AlbumIndexPage"
-                      ? "albums"
-                      : page.component === "ArtistIndexPage"
-                        ? "artists"
-                        : "library"
-                  }
-                />
+              {!OWN_SEARCH.has(page.component) &&
+                !DETAIL_PAGES.has(page.component) && (
+                  <LibrarySearch
+                    query={url.searchParams.get("q") ?? ""}
+                    target={
+                      page.component === "AlbumIndexPage"
+                        ? "albums"
+                        : page.component === "ArtistIndexPage"
+                          ? "artists"
+                          : "library"
+                    }
+                  />
+                )}
+              {!DETAIL_PAGES.has(page.component) && (
+                <LibrarySections path={url.pathname} />
               )}
-              <LibrarySections path={url.pathname} />
               <ConnectionNotice />
               <NoticeBanner />
               <main id="main" tabIndex={-1}>
