@@ -13,14 +13,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await enterAdmin(page);
-  await expect(
-    page.getByRole("heading", { name: "Bring your music along" }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: /scan music/i })).toHaveCount(
-    0,
-  );
-  await page.getByRole("link", { name: "Add a music folder" }).click();
-  await expect(page).toHaveURL(/\/settings\?section=music$/);
+  await page
+    .getByRole("link", { name: "Account and settings", exact: true })
+    .click();
   for (const folder of ["Music", "Archive"]) {
     await page.getByRole("button", { name: "Add music folder" }).click();
     const picker = page.getByRole("dialog", { name: "Add a music folder" });
@@ -144,9 +139,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     )
     .toBeGreaterThan(before);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Library spotlight" }),
-  ).toBeVisible();
+  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await expect(page.getByText("Made by you")).toHaveCount(0);
+  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "List view", exact: true }).click();
   await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
@@ -636,6 +631,15 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("0 tracks", { exact: true })).toBeVisible();
+  const emptyLibrary = page.locator(".empty");
+  await expect(
+    emptyLibrary.getByRole("heading", { name: "Your library is waiting" }),
+  ).toBeVisible();
+  await expect(emptyLibrary).toContainText("An administrator adds");
+  await expect(emptyLibrary.getByRole("link")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /scan music/i })).toHaveCount(
+    0,
+  );
   releaseAsset();
   await expect(delayedTab.locator(".account")).toContainText("listener");
   await expect(
