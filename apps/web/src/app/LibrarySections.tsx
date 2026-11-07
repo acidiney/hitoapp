@@ -1,12 +1,14 @@
+import { useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { LIBRARY_SECTIONS, currentSection } from "./destinations";
 import { log } from "../shared/log";
+import { useScrollFade } from "../shared/hooks/useScrollFade";
 
-export default function LibrarySections({ path }: { path: string }) {
-  const current = currentSection(path);
-  if (!current) return null;
+function SectionStrip({ current }: { current: string }) {
+  const strip = useRef<HTMLElement>(null);
+  useScrollFade(strip);
   return (
-    <nav className="library-sections" aria-label="Library sections">
+    <nav ref={strip} className="library-sections" aria-label="Library sections">
       {LIBRARY_SECTIONS.map(({ href, label }) => (
         <Link
           key={href}
@@ -19,4 +21,9 @@ export default function LibrarySections({ path }: { path: string }) {
       ))}
     </nav>
   );
+}
+
+export default function LibrarySections({ path }: { path: string }) {
+  const current = currentSection(path);
+  return current ? <SectionStrip current={current} /> : null;
 }
