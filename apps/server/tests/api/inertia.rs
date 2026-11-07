@@ -155,6 +155,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             "CatalogPage",
             vec![
                 "errors",
+                "files",
                 "libraries",
                 "lock",
                 "native_playback",

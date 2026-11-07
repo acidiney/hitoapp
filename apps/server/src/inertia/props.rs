@@ -135,6 +135,9 @@ pub struct CatalogPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub recordings: Option<RecordingPage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub files: Option<i64>,
 }
 
 #[derive(Serialize, ToSchema)]

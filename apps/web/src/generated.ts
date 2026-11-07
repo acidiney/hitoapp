@@ -3591,6 +3591,8 @@ export interface components {
             title: string;
         };
         CatalogPageProps: components["schemas"]["SharedPageProps"] & {
+            /** Format: int64 */
+            files: number;
             query: string;
             recordings: components["schemas"]["RecordingPage"];
         };

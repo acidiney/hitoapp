@@ -6,6 +6,7 @@ mod artwork_fetch_kinds;
 mod catalog_artists;
 mod catalog_artwork;
 mod catalog_artwork_compressed;
+mod catalog_file_count;
 mod catalog_genres;
 mod catalog_history;
 mod catalog_likes;

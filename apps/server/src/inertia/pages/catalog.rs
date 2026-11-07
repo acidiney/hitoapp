@@ -18,7 +18,8 @@ pub(super) async fn likes(request: PageRequest<'_>) -> ApiResult<PageProps> {
 async fn recording_list(request: PageRequest<'_>, liked: bool) -> ApiResult<CatalogPageProps> {
     let query = request.query();
     let catalog = &request.services.catalog;
-    let recordings = if request.requested("recordings") {
+    let wanted = request.requested("recordings");
+    let recordings = if wanted {
         let page = if liked {
             catalog
                 .liked_recordings(request.actor, request.search)
@@ -30,10 +31,16 @@ async fn recording_list(request: PageRequest<'_>, liked: bool) -> ApiResult<Cata
     } else {
         None
     };
+    let files = if liked || !wanted {
+        None
+    } else {
+        Some(catalog.local_file_count(request.actor).await?)
+    };
     Ok(CatalogPageProps {
         shared: request.shared,
         query,
         recordings,
+        files,
     })
 }
 

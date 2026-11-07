@@ -31,6 +31,18 @@ impl Catalog {
         .await?)
     }
 
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn local_file_count(&self, actor: &Actor) -> Result<i64> {
+        Ok(sqlx::query_scalar(
+            "SELECT count(*) FROM local_files f
+             JOIN library_members m ON m.library_id = f.library_id
+             WHERE m.user_id = ?",
+        )
+        .bind(actor.id())
+        .fetch_one(&self.store.pool)
+        .await?)
+    }
+
     pub async fn liked_recordings(&self, actor: &Actor, search: Search) -> Result<Page<Recording>> {
         self.recordings(
             actor,

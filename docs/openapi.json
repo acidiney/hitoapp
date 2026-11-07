@@ -21343,9 +21343,14 @@
             "type": "object",
             "required": [
               "query",
-              "recordings"
+              "recordings",
+              "files"
             ],
             "properties": {
+              "files": {
+                "type": "integer",
+                "format": "int64"
+              },
               "query": {
                 "type": "string"
               },
