@@ -5,35 +5,38 @@ import { FolderPlus, FolderSync } from "lucide-react";
 import { useScanJob } from "../../library/hooks/useScanJob";
 import CatalogResults from "../components/CatalogResults";
 import PageHeading from "../../../shared/ui/PageHeading";
-import LibrarySpotlight from "../components/LibrarySpotlight";
 import Button from "../../../shared/ui/Button";
+import { libraryDescription } from "../model/libraryCounts";
 
 export default function CatalogPage(props: Schema<"CatalogPageProps">) {
   const { scan, scanning } = useScanJob(props.user.id, props.libraries[0]?.id);
-  const description = `${props.recordings.total.toLocaleString()} ${props.recordings.total === 1 ? "track" : "tracks"}${props.query ? ` matching “${props.query}”` : ""}`;
+  const scanLabel = scanning ? "Scanning music…" : "Scan music";
+  const canScan =
+    props.user.admin &&
+    props.libraries.length > 0 &&
+    (props.recordings.total > 0 || Boolean(props.query));
   return (
     <>
-      <PageHeading title="Your library" description={description}>
-        {props.user.admin &&
-          props.libraries.length > 0 &&
-          (props.recordings.total === 0 && !props.query ? (
-            <Link className="button primary" href="/settings">
-              <FolderPlus size={17} />
-              Add music folder
-            </Link>
-          ) : (
-            <Button disabled={scanning} onClick={() => void scan()}>
-              <FolderSync size={17} />
-              {scanning ? "Scanning music…" : "Scan music"}
-            </Button>
-          ))}
+      <PageHeading
+        title="Your library"
+        description={libraryDescription({
+          total: props.recordings.total,
+          files: props.files,
+          query: props.query,
+        })}
+      >
+        {canScan && (
+          <Button
+            className="heading-action"
+            aria-label={scanLabel}
+            disabled={scanning}
+            onClick={() => void scan()}
+          >
+            <FolderSync size={17} />
+            <span className="button-label">{scanLabel}</span>
+          </Button>
+        )}
       </PageHeading>
-      {!props.query && props.recordings.offset === 0 && (
-        <LibrarySpotlight
-          tracks={props.recordings.items}
-          playlists={props.playlists}
-        />
-      )}
       <CatalogResults
         {...props}
         path="/library"
@@ -45,8 +48,16 @@ export default function CatalogPage(props: Schema<"CatalogPageProps">) {
         }
         emptyText={
           props.user.admin
-            ? "Add your music folders in Settings. Hito will scan them to fill your library."
-            : "Ask your administrator to give you access to a music library."
+            ? "Hito reads the music in the folders you add and fills your library with it."
+            : "An administrator adds the music folders. Your library fills in once they have."
+        }
+        emptyAction={
+          props.user.admin && (
+            <Link className="button primary" href="/settings?section=music">
+              <FolderPlus size={17} />
+              Add a music folder
+            </Link>
+          )
         }
       />
     </>

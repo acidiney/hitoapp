@@ -13,9 +13,14 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await enterAdmin(page);
-  await page
-    .getByRole("link", { name: "Account and settings", exact: true })
-    .click();
+  await expect(
+    page.getByRole("heading", { name: "Bring your music along" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /scan music/i })).toHaveCount(
+    0,
+  );
+  await page.getByRole("link", { name: "Add a music folder" }).click();
+  await expect(page).toHaveURL(/\/settings\?section=music$/);
   for (const folder of ["Music", "Archive"]) {
     await page.getByRole("button", { name: "Add music folder" }).click();
     const picker = page.getByRole("dialog", { name: "Add a music folder" });

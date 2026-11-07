@@ -7,7 +7,7 @@ import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
 import TrackToolbar from "../../playback/components/TrackToolbar";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Grid2X2, List } from "lucide-react";
 import TrackGrid from "../../playback/components/TrackGrid";
 import { log } from "../../../shared/log";
@@ -21,6 +21,7 @@ export default function CatalogResults({
   path,
   emptyTitle,
   emptyText,
+  emptyAction,
   browse = false,
 }: Pick<
   Schema<"CatalogPageProps">,
@@ -29,6 +30,7 @@ export default function CatalogResults({
   path: string;
   emptyTitle: string;
   emptyText: string;
+  emptyAction?: ReactNode;
   browse?: boolean;
 }) {
   const { mutate } = useMutation(user.id);
@@ -104,7 +106,9 @@ export default function CatalogResults({
           title={query ? "No matching tracks" : emptyTitle}
           text={query ? "Try another title or artist." : emptyText}
           libraryLink={path !== "/library"}
-        />
+        >
+          {!query && emptyAction}
+        </EmptyState>
       )}
       <Pagination page={recordings} query={query} path={path} />
     </>
