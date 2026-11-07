@@ -72,7 +72,7 @@ Browse **Albums** and **Artists** from the sidebar. Albums retain their own cove
 
 Open a track's information link to inspect source metadata and save a personal title. **Use source title** restores inheritance. Corrections stay private to the account, and source observations remain available. See [metadata behavior and limits](docs/metadata.md).
 
-The library has artwork cards and a list view, a recording spotlight, personal playlists, and a persistent player with an expanded queue. Covers come from embedded tags or neighboring cover files; files without covers use a neutral placeholder. Settings groups library scans, privacy information, and account administration into separate tabs.
+The library has artwork cards and a list view, personal playlists, and a persistent player with an expanded queue. Covers come from embedded tags or neighboring cover files; files without covers use a neutral placeholder. Settings groups library scans, privacy information, and account administration into separate tabs.
 
 ## Develop and verify
 

@@ -471,7 +471,7 @@ Inertia page assembly lives in `apps/server/src/inertia/pages/`, one module per 
 
 ## Artwork and composition
 
-The library page composes a recording spotlight, personal playlist shortcuts, and switchable grid/list results. The persistent shell owns the listening sidebar and player. Expanded playback uses a native modal dialog with an independent queue and transport controls; loading and failure status remain visible inside it. Closing restores the actual opener, or the queue button if that opener became disabled or hidden. Settings tabs mount only the selected account or library workflow.
+The library page leads with its tracks in switchable grid/list results; playlist shortcuts and shelves live on Home. Its heading counts tracks and, when files share a recording, says how many files they come from (copies of one recording count once, so the track total can be lower than the file count in Settings and the sum of album track counts). An empty library shows one primary button inside its card for administrators and plain text for members. The persistent shell owns the listening sidebar and player. Expanded playback uses a native modal dialog with an independent queue and transport controls; loading and failure status remain visible inside it. Closing restores the actual opener, or the queue button if that opener became disabled or hidden. Settings tabs mount only the selected account or library workflow.
 
 ```mermaid
 flowchart LR
