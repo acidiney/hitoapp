@@ -1,15 +1,12 @@
 import type { Schema } from "../../shared/schema";
-import { relativeTime } from "../../shared/format";
+import { dateAndTime, relativeTime } from "../../shared/format";
 
 export function sessionClient(session: Schema<"SessionInfo">) {
   return session.client ?? "Unknown browser";
 }
 
 export function signedIn(session: Schema<"SessionInfo">) {
-  return new Date(session.created_at * 1000).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return dateAndTime(new Date(session.created_at * 1000));
 }
 
 export function sessionDetail(

@@ -4,19 +4,10 @@ import { useMetadataHistory } from "../hooks/useMetadataHistory";
 import type { MetadataTarget } from "../model/metadata";
 import RecordingCredits from "./RecordingCredits";
 import Button from "../../../shared/ui/Button";
+import { dateAndTime } from "../../../shared/format";
 
 function observedAt(seconds: number) {
-  const date = new Date(seconds * 1000);
-  const day = date.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const clock = date.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${day} · ${clock}`;
+  return dateAndTime(new Date(seconds * 1000));
 }
 
 const tagLabels = {

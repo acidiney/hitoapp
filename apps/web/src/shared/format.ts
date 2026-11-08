@@ -69,3 +69,14 @@ export function relativeTime(
       return formatter.format(-Math.trunc(elapsed / size), unit);
   return "just now";
 }
+
+export function dateAndTime(date: Date, locale?: string) {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+export function dateOnly(date: Date, locale?: string) {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+}

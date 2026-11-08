@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
+import { dateOnly } from "../../../shared/format";
 import ArtistReview from "../../artists/components/ArtistReview";
 import { opensArtistSearch } from "../../artists/model/artistSearchLink";
 import MetadataDetails from "../../metadata/components/MetadataDetails";
@@ -57,11 +58,7 @@ export default function TrackMetadata({
                 {source.provider === "local" ? "Local file" : source.provider}
                 {source.observed_at !== null && (
                   <span className="track-aside">
-                    · inspected{" "}
-                    {new Date(source.observed_at * 1000).toLocaleDateString(
-                      "en-GB",
-                      { day: "numeric", month: "short", year: "numeric" },
-                    )}
+                    · inspected {dateOnly(new Date(source.observed_at * 1000))}
                   </span>
                 )}
               </dd>

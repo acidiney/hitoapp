@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import { friendlyTime } from "../../../shared/format";
 import Button from "../../../shared/ui/Button";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import PodcastSubscribe from "../components/PodcastSubscribe";
@@ -13,7 +14,7 @@ function status(subscription: Schema<"PodcastSubscription">) {
   return (
     <>
       Last checked{" "}
-      <time dateTime={checked.toISOString()}>{checked.toLocaleString()}</time>
+      <time dateTime={checked.toISOString()}>{friendlyTime(checked)}</time>
     </>
   );
 }

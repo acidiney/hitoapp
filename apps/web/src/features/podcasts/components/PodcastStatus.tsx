@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { friendlyTime } from "../../../shared/format";
 
 export function checkedAt(
   subscription: Schema<"PodcastSubscription">,
@@ -26,9 +27,7 @@ export default function PodcastStatus({
       {checked ? (
         <p className="media-mono">
           Last checked{" "}
-          <time dateTime={checked.toISOString()}>
-            {checked.toLocaleString()}
-          </time>
+          <time dateTime={checked.toISOString()}>{friendlyTime(checked)}</time>
         </p>
       ) : (
         !subscription.refresh_pending && (

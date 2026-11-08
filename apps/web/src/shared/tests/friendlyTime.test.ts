@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { friendlyTime } from "../format";
+import { dateAndTime, dateOnly, friendlyTime } from "../format";
 
 const now = new Date(2026, 9, 29, 15, 0, 0);
 
@@ -30,4 +30,13 @@ test("midnight rollover compares calendar days, not 24 hour spans", () => {
   expect(friendlyTime(new Date(2026, 9, 30, 0, 1), lateNow, "en-GB")).toBe(
     "Tomorrow, 00:01",
   );
+});
+
+test("dates and times follow the locale instead of a fixed language", () => {
+  const date = new Date(2026, 10, 6, 11, 22, 51);
+  expect(dateAndTime(date, "en-GB")).toBe("6 Nov 2026, 11:22");
+  expect(dateAndTime(date, "en-US")).toMatch(/^Nov 6, 2026, 11:22/);
+  expect(dateAndTime(date, "pt-PT")).toMatch(/^06\/11\/2026/);
+  expect(dateOnly(date, "en-GB")).toBe("6 Nov 2026");
+  expect(dateAndTime(date, "en-US")).not.toMatch(/\d\/\d/);
 });
