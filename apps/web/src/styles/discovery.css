@@ -300,7 +300,7 @@
   flex-direction: column;
   justify-content: flex-end;
   gap: 2px;
-  min-height: 88px;
+  aspect-ratio: 1;
   padding: 14px;
   border-radius: 12px;
   background: var(--surface);
