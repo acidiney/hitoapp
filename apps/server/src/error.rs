@@ -11,6 +11,8 @@ pub struct ErrorResponse {
     pub error: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code: Option<ErrorCode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recording_id: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -19,6 +21,7 @@ pub enum ErrorCode {
     OperationRejected,
     Locked,
     WrongPassword,
+    AlreadyBound,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -43,6 +46,7 @@ impl IntoResponse for ApiError {
             Error::Conflict(_)
             | Error::ProviderBusy(_)
             | Error::AuthorizationRequired(_)
+            | Error::AlreadyBound(_)
             | Error::OperationRejected(_) => StatusCode::CONFLICT,
             Error::Upstream(_) | Error::UpstreamNotice(_) | Error::StreamTooSlow => {
                 StatusCode::BAD_GATEWAY
@@ -54,6 +58,7 @@ impl IntoResponse for ApiError {
             Error::OperationRejected(_) => Some(ErrorCode::OperationRejected),
             Error::Locked => Some(ErrorCode::Locked),
             Error::WrongPassword => Some(ErrorCode::WrongPassword),
+            Error::AlreadyBound(_) => Some(ErrorCode::AlreadyBound),
             _ => None,
         };
         let error = if matches!(
@@ -92,7 +97,20 @@ impl IntoResponse for ApiError {
             Error::RateLimited(seconds) => Some([("retry-after", seconds.to_string())]),
             _ => None,
         };
-        (status, retry_after, Json(ErrorResponse { error, code })).into_response()
+        let recording_id = match &self.0 {
+            Error::AlreadyBound(recording) => recording.clone(),
+            _ => None,
+        };
+        (
+            status,
+            retry_after,
+            Json(ErrorResponse {
+                error,
+                code,
+                recording_id,
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -102,6 +120,7 @@ pub fn response(status: StatusCode, message: &str) -> Response {
         Json(ErrorResponse {
             error: message.into(),
             code: None,
+            recording_id: None,
         }),
     )
         .into_response()

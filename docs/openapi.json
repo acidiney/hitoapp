@@ -22328,7 +22328,8 @@
         "enum": [
           "operation_rejected",
           "locked",
-          "wrong_password"
+          "wrong_password",
+          "already_bound"
         ]
       },
       "ErrorResponse": {
@@ -22349,6 +22350,12 @@
           },
           "error": {
             "type": "string"
+          },
+          "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

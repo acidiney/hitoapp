@@ -31,6 +31,7 @@ impl IntoResponse for Error {
             Json(ErrorResponse {
                 error: self.0.to_string(),
                 code: None,
+                recording_id: None,
             }),
         )
             .into_response();

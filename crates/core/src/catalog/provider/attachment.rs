@@ -87,18 +87,13 @@ impl Catalog {
                 "The recording changed during review. Review it again.".into(),
             ));
         }
-        if bindings::current(
+        bindings::ensure_unbound(
             &mut tx,
+            actor.id(),
             &candidate.installation_id,
             &candidate.provider_recording_id,
         )
-        .await?
-        .is_some()
-        {
-            return Err(Error::Conflict(
-                "This provider recording is already bound. Review its existing recording.".into(),
-            ));
-        }
+        .await?;
         let review_stamp = stamp(actor, recording, &before, &candidate, &operation, &details)?;
         tx.commit().await?;
         tracing::info!(
@@ -140,6 +135,13 @@ impl Catalog {
                 "The recording or provider candidate changed. Review it again.".into(),
             ));
         }
+        bindings::ensure_unbound(
+            &mut tx,
+            actor.id(),
+            &request.candidate.installation_id,
+            &details.id,
+        )
+        .await?;
         let binding = bindings::attach(
             &mut tx,
             &request.candidate.installation_id,

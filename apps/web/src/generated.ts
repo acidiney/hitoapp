@@ -3837,10 +3837,11 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked" | "wrong_password";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
+            recording_id?: string | null;
         };
         FeaturedEntry: {
             artwork_id?: string | null;

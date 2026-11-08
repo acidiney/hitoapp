@@ -22,6 +22,25 @@ pub(super) async fn current(
         .bind(installation).bind(provider_recording).fetch_optional(&mut **tx).await?)
 }
 
+pub(super) async fn ensure_unbound(
+    tx: &mut Transaction<'_, Sqlite>,
+    owner: &str,
+    installation: &str,
+    provider_recording: &str,
+) -> Result<()> {
+    let Some(binding) = current(tx, installation, provider_recording).await? else {
+        return Ok(());
+    };
+    let visible: Option<String> = sqlx::query_scalar(
+        "SELECT r.id FROM recordings r JOIN libraries l ON l.id = r.library_id AND l.owner_id = ? WHERE r.id = ?",
+    )
+    .bind(owner)
+    .bind(&binding.recording_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Err(Error::AlreadyBound(visible))
+}
+
 pub(super) async fn adopt(
     tx: &mut Transaction<'_, Sqlite>,
     library: &str,
@@ -61,9 +80,7 @@ pub(super) async fn attach(
         .await?
         .is_some()
     {
-        return Err(Error::Conflict(
-            "This provider recording is already bound. Review its existing recording.".into(),
-        ));
+        return Err(Error::AlreadyBound(None));
     }
     insert(
         tx,

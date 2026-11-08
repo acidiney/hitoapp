@@ -37,6 +37,8 @@ mod provider_refresh_input;
 
 #[path = "api/provider_attachment.rs"]
 mod provider_attachment;
+#[path = "api/provider_attachment_bound.rs"]
+mod provider_attachment_bound;
 
 #[path = "api/catalog.rs"]
 mod catalog;

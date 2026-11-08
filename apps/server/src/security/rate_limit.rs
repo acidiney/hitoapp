@@ -51,6 +51,7 @@ pub fn response() -> Response {
         Json(ErrorResponse {
             error: "Too many attempts. Try again in a minute.".into(),
             code: None,
+            recording_id: None,
         }),
     )
         .into_response()

@@ -16,6 +16,8 @@ pub enum Error {
     RateLimited(u64),
     #[error("{0}")]
     Conflict(String),
+    #[error("This source is already used by another track")]
+    AlreadyBound(Option<String>),
     #[error("{0}")]
     ProviderBusy(&'static str),
     #[error("{0}")]
@@ -61,6 +63,7 @@ impl Error {
             Self::WrongPassword => "wrong_password",
             Self::RateLimited(_) => "rate_limited",
             Self::Conflict(_) => "conflict",
+            Self::AlreadyBound(_) => "already_bound",
             Self::ProviderBusy(_) => "provider_busy",
             Self::AuthorizationRequired(_) => "authorization_required",
             Self::OperationRejected(_) => "operation_rejected",

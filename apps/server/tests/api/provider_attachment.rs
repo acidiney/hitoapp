@@ -234,7 +234,7 @@ async fn reviewed_http_attachment_preserves_saved_identity_and_relays_its_owned_
     }
 }
 
-async fn connect(app: &Router, owner: &str, provider: &ProviderServer) -> Value {
+pub(super) async fn connect(app: &Router, owner: &str, provider: &ProviderServer) -> Value {
     let (status, service) = call(
         app,
         "POST",

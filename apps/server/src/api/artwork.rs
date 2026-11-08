@@ -131,6 +131,7 @@ pub async fn cover_art(
             Json(ErrorResponse {
                 error: "The cover is being retrieved".into(),
                 code: None,
+                recording_id: None,
             }),
         )
             .into_response()),
