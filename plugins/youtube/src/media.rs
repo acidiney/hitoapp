@@ -4,7 +4,10 @@ mod stream;
 mod transport;
 pub(crate) use transport::Client;
 
-use crate::{Error, recording::Catalog};
+use crate::{
+    Error,
+    recording::{Catalog, Descriptor},
+};
 use axum::{
     body::Body,
     http::{HeaderMap, Method, StatusCode},
@@ -64,21 +67,12 @@ impl Relay {
         };
         let mut permit = Some(permit);
         let operation = async {
-            let descriptor = self.catalog.source(source).await?;
             let head = method == Method::HEAD;
-            let selected = match range::read(&headers, head, descriptor.length) {
-                Ok(selected) => selected,
-                Err(()) => return Ok(unsatisfiable(descriptor.length)),
-            };
-            let client = self.client.as_ref().map_err(|error| *error)?;
-            let upstream = client
-                .request(
-                    descriptor.endpoint()?,
-                    if head { Method::HEAD } else { Method::GET },
-                    selected,
-                )
-                .await?;
-            let length = headers::verify(&upstream, &descriptor, selected)?;
+            let (descriptor, selected, upstream, length) =
+                match self.fetch(source, head, &headers).await? {
+                    Fetched::Unsatisfiable(length) => return Ok(unsatisfiable(length)),
+                    Fetched::Ready(ready) => *ready,
+                };
             let mut response = Response::builder()
                 .status(if selected.is_some() {
                     StatusCode::PARTIAL_CONTENT
@@ -141,6 +135,46 @@ impl Relay {
         result
     }
 
+    async fn fetch(&self, source: &str, head: bool, headers: &HeaderMap) -> Result<Fetched, Error> {
+        match self.attempt(source, head, headers).await {
+            Err(reason @ (Error::UpstreamRejected | Error::ValidatorChanged)) => {
+                tracing::info!(
+                    event = "youtube_audio_reextracted",
+                    outcome = reason.outcome(),
+                    recovery = "reextracted"
+                );
+                self.catalog.forget(source);
+                self.attempt(source, head, headers).await
+            }
+            result => result,
+        }
+    }
+
+    async fn attempt(
+        &self,
+        source: &str,
+        head: bool,
+        headers: &HeaderMap,
+    ) -> Result<Fetched, Error> {
+        let descriptor = self.catalog.source(source).await?;
+        let selected = match range::read(headers, head, descriptor.length) {
+            Ok(selected) => selected,
+            Err(()) => return Ok(Fetched::Unsatisfiable(descriptor.length)),
+        };
+        let client = self.client.as_ref().map_err(|error| *error)?;
+        let upstream = client
+            .request(
+                descriptor.endpoint()?,
+                if head { Method::HEAD } else { Method::GET },
+                selected,
+            )
+            .await?;
+        let length = headers::verify(&upstream, &descriptor, selected)?;
+        Ok(Fetched::Ready(Box::new((
+            descriptor, selected, upstream, length,
+        ))))
+    }
+
     pub(crate) async fn shutdown(&self) {
         let started = Instant::now();
         {
@@ -165,6 +199,18 @@ impl Relay {
             elapsed_ms = started.elapsed().as_millis() as u64
         );
     }
+}
+
+type Ready = (
+    Descriptor,
+    Option<range::Selection>,
+    axum::http::Response<transport::Body>,
+    u64,
+);
+
+enum Fetched {
+    Unsatisfiable(u64),
+    Ready(Box<Ready>),
 }
 
 fn unsatisfiable(length: u64) -> Response {

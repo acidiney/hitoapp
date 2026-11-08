@@ -266,6 +266,8 @@ pub(crate) enum Error {
     InvalidAudioRequest,
     InvalidArtworkRequest,
     InvalidMedia,
+    UpstreamRejected,
+    ValidatorChanged,
     NotFound,
     Busy,
     Unavailable,
@@ -283,6 +285,8 @@ impl Error {
             | Self::InvalidAudioRequest
             | Self::InvalidArtworkRequest => "invalid_request",
             Self::InvalidMedia => "invalid_response",
+            Self::UpstreamRejected => "upstream_rejected",
+            Self::ValidatorChanged => "validator_changed",
             Self::NotFound => "not_found",
             Self::Busy => "capacity",
             Self::Unavailable => "unavailable",
@@ -305,7 +309,7 @@ impl IntoResponse for Error {
             Self::InvalidArtworkRequest => {
                 (StatusCode::BAD_REQUEST, "The artwork request is invalid")
             }
-            Self::InvalidMedia => (
+            Self::InvalidMedia | Self::UpstreamRejected | Self::ValidatorChanged => (
                 StatusCode::BAD_GATEWAY,
                 "The YouTube audio response is invalid",
             ),

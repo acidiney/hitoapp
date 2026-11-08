@@ -2,6 +2,7 @@ mod backpressure;
 mod https;
 mod identity;
 mod large;
+mod recovery;
 #[cfg(target_os = "linux")]
 mod shutdown;
 mod socket;

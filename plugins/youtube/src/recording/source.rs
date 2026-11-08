@@ -89,12 +89,6 @@ impl Descriptor {
         Ok(&self.url)
     }
 
-    pub(super) fn renew(&mut self, previous: &Self) {
-        if self.id == previous.id {
-            self.validator = previous.validator.clone();
-        }
-    }
-
     pub(crate) fn verify_validator(&self, received: Option<&str>) -> Result<(), Error> {
         if received.is_some_and(|value| {
             value.len() > 128
@@ -111,7 +105,7 @@ impl Descriptor {
             .unwrap_or_else(|error| error.into_inner());
         match (&*pinned, received) {
             (Some(before), Some(after)) if before == after => Ok(()),
-            (Some(_), _) => Err(Error::InvalidMedia),
+            (Some(_), _) => Err(Error::ValidatorChanged),
             (None, Some(after)) => {
                 *pinned = Some(after.to_owned());
                 Ok(())

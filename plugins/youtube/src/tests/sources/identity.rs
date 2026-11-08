@@ -131,7 +131,7 @@ async fn bounded_source_cache_reextracts_an_evicted_representation_for_audio() {
     cdn.shutdown().await;
 }
 
-fn executable(directory: &Path) -> PathBuf {
+pub(super) fn executable(directory: &Path) -> PathBuf {
     fs::create_dir(directory.join("recordings")).unwrap();
     let executable = directory.join("owned-canonical-extractor");
     fs::write(
@@ -143,7 +143,7 @@ fn executable(directory: &Path) -> PathBuf {
     executable
 }
 
-fn recording(directory: &Path, owner: &str, length: usize, url: &str) {
+pub(super) fn recording(directory: &Path, owner: &str, length: usize, url: &str) {
     assert_eq!(owner.len(), 11);
     assert!(
         owner
@@ -162,7 +162,7 @@ fn recording(directory: &Path, owner: &str, length: usize, url: &str) {
     .unwrap();
 }
 
-async fn source(
+pub(super) async fn source(
     app: &Router,
     dispatch: &tracing::Dispatch,
     owner: &str,
@@ -187,13 +187,13 @@ async fn source(
     page.items.into_iter().next().unwrap().id
 }
 
-fn audio(source: &str) -> String {
+pub(super) fn audio(source: &str) -> String {
     let mut url = reqwest::Url::parse("http://owned.invalid/v1/audio").unwrap();
     url.query_pairs_mut().append_pair("source_id", source);
     format!("{}?{}", url.path(), url.query().unwrap())
 }
 
-fn calls(directory: &Path) -> Vec<String> {
+pub(super) fn calls(directory: &Path) -> Vec<String> {
     String::from_utf8(bounded_file(&directory.join("calls")))
         .unwrap()
         .lines()
@@ -201,7 +201,7 @@ fn calls(directory: &Path) -> Vec<String> {
         .collect()
 }
 
-async fn shutdown(service: &Service) {
+pub(super) async fn shutdown(service: &Service) {
     tokio::time::timeout(Duration::from_secs(3), service.shutdown())
         .await
         .unwrap()

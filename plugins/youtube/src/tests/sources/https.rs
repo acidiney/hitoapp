@@ -32,6 +32,8 @@ struct State {
     received: Mutex<Vec<Received>>,
     held: AtomicUsize,
     close_timeout: AtomicBool,
+    rejections: Mutex<(u16, usize)>,
+    etag: Mutex<String>,
     closed: Semaphore,
     written: Semaphore,
     stopped: CancellationToken,
@@ -65,6 +67,8 @@ impl Fixture {
             received: Mutex::new(Vec::new()),
             held: AtomicUsize::new(0),
             close_timeout: AtomicBool::new(true),
+            rejections: Mutex::new((0, 0)),
+            etag: Mutex::new("\"owned-aac-v1\"".to_owned()),
             closed: Semaphore::new(0),
             written: Semaphore::new(0),
             stopped: CancellationToken::new(),
@@ -122,6 +126,14 @@ impl Fixture {
         format!(
             "https://{HOST}/videoplayback?expire={expires}&lmt=1730000000000000&sig=private-signed-url-sentinel"
         )
+    }
+
+    pub fn reject(&self, status: u16, count: usize) {
+        *self.state.rejections.lock().unwrap() = (status, count);
+    }
+
+    pub fn change_etag(&self, etag: &str) {
+        *self.state.etag.lock().unwrap() = format!("\"{etag}\"");
     }
 
     pub fn hold(&self, count: usize) {
@@ -182,6 +194,25 @@ async fn serve(mut stream: TlsStream<tokio::net::TcpStream>, state: Arc<State>) 
         received.push(request.clone());
     }
     assert!(request.target.starts_with("/videoplayback?"));
+    let rejection = {
+        let mut rejections = state.rejections.lock().unwrap();
+        (rejections.1 > 0).then(|| {
+            rejections.1 -= 1;
+            rejections.0
+        })
+    };
+    if let Some(status) = rejection {
+        stream
+            .write_all(
+                format!(
+                    "HTTP/1.1 {status} Rejected\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+                .as_bytes(),
+            )
+            .await?;
+        let _ = stream.shutdown().await;
+        return Ok(());
+    }
     let total = state.audio.len();
     let range = request.headers.get("range");
     let selected = range.map(|value| {
@@ -212,8 +243,9 @@ async fn serve(mut stream: TlsStream<tokio::net::TcpStream>, state: Arc<State>) 
         "200 OK"
     };
     let mut headers = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: audio/mp4\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nETag: \"owned-aac-v1\"\r\nConnection: close\r\n",
+        "HTTP/1.1 {status}\r\nContent-Type: audio/mp4\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nETag: {}\r\nConnection: close\r\n",
         last - first + 1,
+        state.etag.lock().unwrap(),
     );
     if selected.is_some() {
         headers.push_str(&format!("Content-Range: bytes {first}-{last}/{total}\r\n"));

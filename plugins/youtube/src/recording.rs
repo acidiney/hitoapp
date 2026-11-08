@@ -52,7 +52,7 @@ impl Catalog {
                 }
             }
         }
-        let mut resolved = self.extractor.recording(id.to_owned()).await?;
+        let resolved = self.extractor.recording(id.to_owned()).await?;
         if !self.extractor.available() {
             return Err(Error::Unavailable);
         }
@@ -61,8 +61,7 @@ impl Catalog {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         if let Some(index) = records.iter().position(|cached| cached.recording.id == id) {
-            let previous = records.remove(index).ok_or(Error::Unavailable)?;
-            resolved.source.renew(&previous.source);
+            records.remove(index);
         }
         let resolved = Arc::new(resolved);
         if records.len() >= 128 {
@@ -70,6 +69,16 @@ impl Catalog {
         }
         records.push_back(resolved.clone());
         Ok(resolved)
+    }
+
+    pub(crate) fn forget(&self, source: &str) {
+        let Ok(identity) = identity::Identity::parse(source) else {
+            return;
+        };
+        self.records
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .retain(|cached| cached.recording.id != identity.owner());
     }
 
     pub(crate) async fn source(&self, id: &str) -> Result<Descriptor, Error> {

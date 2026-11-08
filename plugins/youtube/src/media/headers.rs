@@ -7,6 +7,9 @@ pub(super) fn verify(
     source: &Descriptor,
     selected: Option<Selection>,
 ) -> Result<u64, Error> {
+    if !response.status().is_success() {
+        return Err(Error::UpstreamRejected);
+    }
     let headers = response.headers();
     if headers.len() > 32
         || headers.contains_key("transfer-encoding")
