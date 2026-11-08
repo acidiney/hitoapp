@@ -1,12 +1,12 @@
 use crate::{Error, process, recordings};
-use hito_plugin_sdk::{SearchPage, SearchRequest};
+use hito_plugin_sdk::{FailureTracker, HealthReason, SearchPage, SearchRequest};
 use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::sync::{Semaphore, oneshot};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -19,7 +19,11 @@ pub(crate) struct Extractor {
     workers: TaskTracker,
     stopped: CancellationToken,
     failed: Arc<AtomicBool>,
+    health: Arc<FailureTracker>,
 }
+
+const HEALTH_FAILURES: usize = 3;
+const HEALTH_WINDOW: Duration = Duration::from_secs(120);
 
 impl Extractor {
     pub(crate) fn new(executable: PathBuf) -> Self {
@@ -30,7 +34,12 @@ impl Extractor {
             workers: TaskTracker::new(),
             stopped: CancellationToken::new(),
             failed: Arc::new(AtomicBool::new(false)),
+            health: Arc::new(FailureTracker::new(HEALTH_FAILURES, HEALTH_WINDOW)),
         }
+    }
+
+    pub(crate) fn health(&self) -> &FailureTracker {
+        &self.health
     }
 
     pub(crate) async fn search(&self, request: SearchRequest) -> Result<SearchPage, Error> {
@@ -82,6 +91,7 @@ impl Extractor {
             let executable = self.executable.clone();
             let stopped = self.stopped.clone();
             let failed = self.failed.clone();
+            let health = self.health.clone();
             let (mut sender, receiver) = oneshot::channel();
             let dispatch = tracing::dispatcher::get_default(Clone::clone);
             self.workers.spawn(
@@ -95,9 +105,14 @@ impl Extractor {
                             _ = sender.closed() => {},
                         }
                     };
-                    let result = process::run(executable, intent, canceled)
-                        .await
-                        .and_then(normalize);
+                    let extracted = process::run(executable, intent, canceled).await;
+                    match &extracted {
+                        Ok(_) => health.record_success(),
+                        Err(Error::Network) => health.record_failure(HealthReason::Network),
+                        Err(Error::Refused) => health.record_failure(HealthReason::Refused),
+                        Err(_) => {}
+                    }
+                    let result = extracted.and_then(normalize);
                     if matches!(result, Err(Error::CleanupFailed)) {
                         failed.store(true, Ordering::Release);
                         stopped.cancel();

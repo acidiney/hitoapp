@@ -13,7 +13,7 @@ use axum::{
         DefaultBodyLimit, Query, Request, State,
         rejection::{JsonRejection, QueryRejection},
     },
-    http::{HeaderMap, Method, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -94,6 +94,7 @@ impl Service {
     pub fn router(&self) -> Router {
         let router = Router::new()
             .route("/v1/manifest", get(manifest))
+            .route("/v1/health", get(health))
             .route("/v1/search", post(search))
             .route("/v1/recordings/detail", post(detail))
             .route("/v1/recordings/metadata", post(metadata))
@@ -142,6 +143,15 @@ async fn manifest(State(state): State<Arc<HttpState>>) -> Json<Manifest> {
         authorization: None,
         content_policy: None,
     })
+}
+
+async fn health(State(state): State<Arc<HttpState>>) -> Response {
+    let mut response = Json(state.extractor.health().report()).into_response();
+    response.headers_mut().insert(
+        "cache-control",
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
 }
 
 async fn search(
@@ -238,6 +248,7 @@ async fn observe(request: Request, next: Next) -> Response {
     let request_id = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let operation = match request.uri().path() {
         "/v1/manifest" => "manifest",
+        "/v1/health" => "health",
         "/v1/search" => "search",
         "/v1/recordings/detail" => "detail",
         "/v1/recordings/metadata" => "metadata",

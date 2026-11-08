@@ -9,6 +9,7 @@ mod curated;
 mod encoded_size;
 mod feature_clause;
 mod featured;
+mod health;
 mod isrc;
 mod lyrics;
 mod metadata;
@@ -60,6 +61,9 @@ pub use feature_clause::{bracketed_feature_names, credit_feature_names};
 pub use featured::{
     FEATURED_PATH, FeaturedItem, FeaturedKind, FeaturedPage, FeaturedRequest, MAX_FEATURED_BYTES,
     MAX_FEATURED_ITEMS,
+};
+pub use health::{
+    FailureTracker, HEALTH_PATH, HealthReason, HealthReport, HealthState, MAX_HEALTH_BYTES,
 };
 pub use isrc::normalize_isrc;
 pub use lyrics::{
