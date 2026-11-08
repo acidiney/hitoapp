@@ -21,7 +21,7 @@ pub struct ArtistPage(pub Page<Artist>);
 
 #[utoipa::path(get, path = "/api/v1/releases", params(
     ("q" = Option<String>, Query), ("library" = Option<String>, Query), ("artist" = Option<String>, Query),
-    ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
+    ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query), ("sort" = Option<hito_core::CatalogSort>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = ReleasePage), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),
@@ -55,7 +55,7 @@ pub async fn release(
 
 #[utoipa::path(get, path = "/api/v1/artists", params(
     ("q" = Option<String>, Query), ("library" = Option<String>, Query),
-    ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
+    ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query), ("sort" = Option<hito_core::CatalogSort>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = ArtistPage), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),

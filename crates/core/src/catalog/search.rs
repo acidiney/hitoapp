@@ -1,5 +1,6 @@
 use super::{
-    Catalog, Page, Recording, Search, push_available, push_plays_from_services, push_primary_artist,
+    Catalog, CatalogSort, Page, Recording, Search, push_available, push_plays_from_services,
+    push_primary_artist,
 };
 use crate::{Actor, Error, Library, Result, identity::recording_access};
 use sqlx::{QueryBuilder, Sqlite};
@@ -56,6 +57,14 @@ impl Catalog {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
     pub async fn recordings(&self, actor: &Actor, search: Search) -> Result<Page<Recording>> {
+        let order = match search.sort.unwrap_or_default() {
+            CatalogSort::Title => "title COLLATE NOCASE, r.id",
+            CatalogSort::Recent => "added_rank DESC, r.id",
+            CatalogSort::Artist => "artist COLLATE NOCASE, title COLLATE NOCASE, r.id",
+            CatalogSort::Year => {
+                return Err(Error::Invalid("Tracks cannot be sorted by year".into()));
+            }
+        };
         let offset = search.offset.unwrap_or(0).max(0);
         let limit = search.limit.unwrap_or(100).clamp(1, 200);
         let terms = search_terms(search.q.as_deref().unwrap_or_default())?;
@@ -87,11 +96,15 @@ impl Catalog {
             push_primary_artist(&mut query, actor.id());
             query.push(" AS artist_id, ");
             push_plays_from_services(&mut query, actor.id());
-            query.push(" AS plays_from_services, COALESCE(l.liked, 0) AS liked");
+            query.push(
+                " AS plays_from_services, COALESCE(l.liked, 0) AS liked, r.rowid AS added_rank",
+            );
             filters(&mut query, actor, &search, &terms, personal, true);
         }
         query
-            .push(" ORDER BY title COLLATE NOCASE, r.id LIMIT ")
+            .push(" ORDER BY ")
+            .push(order)
+            .push(" LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);

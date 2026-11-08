@@ -3610,6 +3610,8 @@ export interface components {
         /** @enum {string} */
         CatalogReleaseTypeFilter: "album" | "ep" | "single" | "other";
         /** @enum {string} */
+        CatalogSort: "title" | "recent" | "artist" | "year";
+        /** @enum {string} */
         CatalogTrackKind: "audio" | "pregap" | "data";
         CatalogTrackMatch: {
             occurrence_id: string;
@@ -4412,6 +4414,8 @@ export interface components {
                 title: string;
                 /** Format: int64 */
                 track_count: number;
+                /** Format: int32 */
+                year: number | null;
             }[];
             /** Format: int64 */
             limit: number;
@@ -5215,6 +5219,8 @@ export interface components {
             title: string;
             /** Format: int64 */
             track_count: number;
+            /** Format: int32 */
+            year: number | null;
         };
         ReleaseArtworkFetch: {
             /** Format: int32 */
@@ -8530,6 +8536,7 @@ export interface operations {
                 library?: string;
                 offset?: number;
                 limit?: number;
+                sort?: components["schemas"]["CatalogSort"];
             };
             header?: never;
             path?: never;
@@ -14293,6 +14300,7 @@ export interface operations {
                 offset?: number;
                 limit?: number;
                 library?: string;
+                sort?: components["schemas"]["CatalogSort"];
             };
             header?: never;
             path?: never;
@@ -18003,6 +18011,7 @@ export interface operations {
                 artist?: string;
                 offset?: number;
                 limit?: number;
+                sort?: components["schemas"]["CatalogSort"];
             };
             header?: never;
             path?: never;

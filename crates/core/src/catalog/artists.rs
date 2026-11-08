@@ -1,4 +1,4 @@
-use super::{Browse, Catalog, Page, Recording, Release, Search};
+use super::{Browse, Catalog, CatalogSort, Page, Recording, Release, Search};
 use crate::artist_catalog::identity::{ChosenRecordings, CreditAlias};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
@@ -27,7 +27,7 @@ const SUMMARY_HEAD: &str = "), associations AS (
     SELECT c.user_id, c.id AS artist_id, appearance.release_id FROM selected c
     CROSS JOIN account_artist_releases appearance ON appearance.user_id = c.user_id AND appearance.artist_id = c.id
 ), counts AS (
-    SELECT c.user_id, c.id, c.library_id, c.name, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
+    SELECT c.user_id, c.id, c.library_id, c.name, c.added_rank, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
     FROM selected c LEFT JOIN associations ar ON ar.user_id = c.user_id AND ar.artist_id = c.id GROUP BY c.id
 ) SELECT c.id, c.library_id, c.name, c.release_count,
     (SELECT count(*) FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id) AS recording_count,
@@ -39,7 +39,7 @@ const SUMMARY_HEAD: &str = "), associations AS (
     ";
 
 const SUMMARY_TAIL: &str = " AS provider_photo
-    FROM counts c ORDER BY c.name COLLATE NOCASE, c.id";
+    FROM counts c ORDER BY ";
 
 const ACCOUNT_ARTIST: CreditAlias = CreditAlias::new("c");
 
@@ -123,8 +123,12 @@ fn selected(
     id: Option<&str>,
     photos: bool,
 ) -> Result<ChosenRecordings> {
+    let sort = browse.sort.unwrap_or_default();
+    if sort == CatalogSort::Year {
+        return Err(Error::Invalid("Artists cannot be sorted by year".into()));
+    }
     let mut query = ChosenRecordings::new(actor);
-    query.push(", selected AS (SELECT c.* FROM account_artists c");
+    query.push(", selected AS (SELECT c.*, c.rowid AS added_rank FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;
     query.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
     if let Some(id) = id {
@@ -133,7 +137,12 @@ fn selected(
         query.exclude_represented(ACCOUNT_ARTIST);
         let (offset, limit) = browse.bounds();
         query
-            .push(" ORDER BY c.name COLLATE NOCASE, c.id LIMIT ")
+            .push(" ORDER BY ")
+            .push(match sort {
+                CatalogSort::Recent => "c.rowid DESC, c.id",
+                _ => "c.name COLLATE NOCASE, c.id",
+            })
+            .push(" LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
@@ -145,5 +154,9 @@ fn selected(
         query.push("0");
     }
     query.push(SUMMARY_TAIL);
+    query.push(match sort {
+        CatalogSort::Recent => "c.added_rank DESC, c.id",
+        _ => "c.name COLLATE NOCASE, c.id",
+    });
     Ok(query)
 }

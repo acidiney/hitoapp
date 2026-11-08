@@ -3,7 +3,7 @@ use crate::api::artist_identity_groups::ArtistIdentityGroupPage;
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::inertia::props::*;
 use crate::{api::catalog::RecordingPage, error::ApiResult};
-use hito_core::{ArtistIdentityGroupBrowse, ArtistIdentityGroupQuery, Browse, Search};
+use hito_core::{ArtistIdentityGroupBrowse, ArtistIdentityGroupQuery, Browse, CatalogSort, Search};
 
 pub(super) async fn recordings(request: PageRequest<'_>) -> ApiResult<PageProps> {
     let props = recording_list(request, false).await?;
@@ -15,17 +15,27 @@ pub(super) async fn likes(request: PageRequest<'_>) -> ApiResult<PageProps> {
     Ok(PageProps::Likes(props))
 }
 
+fn recent_by_default(search: &Search) -> Search {
+    Search {
+        sort: Some(search.sort.unwrap_or(CatalogSort::Recent)),
+        ..search.clone()
+    }
+}
+
 async fn recording_list(request: PageRequest<'_>, liked: bool) -> ApiResult<CatalogPageProps> {
     let query = request.query();
+    let search = if liked {
+        request.search.clone()
+    } else {
+        recent_by_default(&request.search)
+    };
     let catalog = &request.services.catalog;
     let wanted = request.requested("recordings");
     let recordings = if wanted {
         let page = if liked {
-            catalog
-                .liked_recordings(request.actor, request.search)
-                .await?
+            catalog.liked_recordings(request.actor, search).await?
         } else {
-            catalog.recordings(request.actor, request.search).await?
+            catalog.recordings(request.actor, search).await?
         };
         Some(RecordingPage(page))
     } else {
@@ -84,13 +94,14 @@ pub(super) async fn recording_details(request: PageRequest<'_>, id: &str) -> Api
 
 pub(super) async fn album_index(request: PageRequest<'_>) -> ApiResult<PageProps> {
     let query = request.query();
+    let search = recent_by_default(&request.search);
     let releases = request
         .when("releases", async {
             Ok(ReleasePage(
                 request
                     .services
                     .catalog
-                    .releases(request.actor, browse(request.search.clone()))
+                    .releases(request.actor, browse(search.clone()))
                     .await?,
             ))
         })
@@ -138,6 +149,7 @@ pub(super) async fn artist_index(request: PageRequest<'_>) -> ApiResult<PageProp
     let catalog = &request.services.catalog;
     let artist_catalog = &request.services.artist_catalog;
     let query = request.query();
+    let search = recent_by_default(&request.search);
     let identity_groups = request
         .when("identity_groups", async {
             Ok(ArtistIdentityGroupPage(
@@ -159,7 +171,7 @@ pub(super) async fn artist_index(request: PageRequest<'_>) -> ApiResult<PageProp
         .when("artists", async {
             Ok(ArtistPage(
                 catalog
-                    .artists(request.actor, browse(request.search.clone()))
+                    .artists(request.actor, browse(search.clone()))
                     .await?,
             ))
         })
@@ -249,6 +261,7 @@ pub(super) async fn artist_identity_group(
 
 pub(super) fn browse(search: Search) -> Browse {
     Browse {
+        sort: search.sort,
         q: search.q,
         library: search.library,
         offset: search.offset,

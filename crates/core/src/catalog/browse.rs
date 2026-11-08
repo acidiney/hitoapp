@@ -1,3 +1,4 @@
+use super::CatalogSort;
 use super::search::{scoped_terms, search_terms};
 use crate::{Actor, Result};
 use serde::Deserialize;
@@ -6,6 +7,7 @@ use utoipa::ToSchema;
 
 #[derive(Default, Deserialize, ToSchema)]
 pub struct Browse {
+    pub sort: Option<CatalogSort>,
     pub q: Option<String>,
     pub library: Option<String>,
     pub artist: Option<String>,

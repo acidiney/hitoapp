@@ -3684,6 +3684,14 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CatalogSort"
+            }
           }
         ],
         "responses": {
@@ -11133,6 +11141,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CatalogSort"
+            }
           }
         ],
         "responses": {
@@ -16059,6 +16075,14 @@
             "schema": {
               "type": "integer",
               "format": "int64"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CatalogSort"
             }
           }
         ],
@@ -21434,6 +21458,15 @@
           "other"
         ]
       },
+      "CatalogSort": {
+        "type": "string",
+        "enum": [
+          "title",
+          "recent",
+          "artist",
+          "year"
+        ]
+      },
       "CatalogTrackKind": {
         "type": "string",
         "enum": [
@@ -24720,7 +24753,8 @@
                 "artist_id",
                 "track_count",
                 "duration_ms",
-                "inferred_artist"
+                "inferred_artist",
+                "year"
               ],
               "properties": {
                 "artist": {
@@ -24767,6 +24801,13 @@
                 "track_count": {
                   "type": "integer",
                   "format": "int64"
+                },
+                "year": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int32"
                 }
               }
             }
@@ -27961,7 +28002,8 @@
           "artist_id",
           "track_count",
           "duration_ms",
-          "inferred_artist"
+          "inferred_artist",
+          "year"
         ],
         "properties": {
           "artist": {
@@ -28008,6 +28050,13 @@
           "track_count": {
             "type": "integer",
             "format": "int64"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },

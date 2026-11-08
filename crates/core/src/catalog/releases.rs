@@ -1,6 +1,6 @@
 use super::{
-    Browse, Catalog, Page, Recording, SourceAccess, push_plays_from_services, push_primary_artist,
-    push_source_access, release_availability::WantedRecording,
+    Browse, Catalog, CatalogSort, Page, Recording, SourceAccess, push_plays_from_services,
+    push_primary_artist, push_source_access, release_availability::WantedRecording,
 };
 use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
 use serde::Serialize;
@@ -21,6 +21,8 @@ pub struct Release {
     pub artwork_recording_id: Option<String>,
     #[schema(required = true)]
     pub inferred_artist: Option<AlbumArtistInference>,
+    #[schema(required = true)]
+    pub year: Option<i32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize, ToSchema)]
@@ -97,15 +99,28 @@ const ENTRIES: &str = "), source_entries AS (
             AND m.disc_number IS appearance.disc_number AND m.track_number IS appearance.track_number
     )
 ) ";
-const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist, a.artist_id,
+macro_rules! release_year {
+    () => {
+        "(SELECT min(CAST(substr(json_extract(o.tags, '$.date.value'), 1, 4) AS INTEGER))
+    FROM source_metadata sm JOIN metadata_observations o ON o.id = sm.observation_id
+    WHERE sm.release_id = a.id AND json_valid(o.tags)
+        AND substr(json_extract(o.tags, '$.date.value'), 1, 4) GLOB '[12][0-9][0-9][0-9]')"
+    };
+}
+const SUMMARY: &str = concat!(
+    "SELECT a.id, a.library_id, a.title, a.artist, a.artist_id,
     count(*) AS track_count, sum(m.duration_ms) AS duration_ms,
     min(m.recording_id) AS artwork_recording_id,
     CASE WHEN a.artist IS NOT NULL OR count(NULLIF(trim(coalesce(m.artist,'')),'')) = 0 THEN NULL
         WHEN count(NULLIF(trim(coalesce(m.artist,'')),'')) = count(*)
             AND count(DISTINCT lower(NULLIF(trim(coalesce(m.artist,'')),''))) = 1
             THEN json_object('kind','named','name',min(NULLIF(trim(coalesce(m.artist,'')),'')))
-        ELSE json_object('kind','various') END AS inferred_artist
-    FROM selected a JOIN entries m ON m.release_id = a.id";
+        ELSE json_object('kind','various') END AS inferred_artist,
+    ",
+    release_year!(),
+    " AS year
+    FROM selected a JOIN entries m ON m.release_id = a.id"
+);
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -127,7 +142,9 @@ impl Catalog {
             .await?;
         let mut query = selected(actor, &browse, None)?;
         query.push(SUMMARY);
-        query.push(" GROUP BY a.id ORDER BY a.title COLLATE NOCASE, a.id");
+        query
+            .push(" GROUP BY a.id ORDER BY ")
+            .push(summary_order(browse.sort.unwrap_or_default()));
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         tracing::debug!(total, offset, limit, "Album page loaded");
         Ok(Page {
@@ -239,6 +256,31 @@ pub(crate) async fn release_contains(
         .is_some())
 }
 
+fn selection_order(sort: CatalogSort) -> String {
+    match sort {
+        CatalogSort::Title => "a.title COLLATE NOCASE, a.id".into(),
+        CatalogSort::Recent => "a.rowid DESC, a.id".into(),
+        CatalogSort::Artist => {
+            "a.artist IS NULL, a.artist COLLATE NOCASE, a.title COLLATE NOCASE, a.id".into()
+        }
+        CatalogSort::Year => format!(
+            "{year} IS NULL, {year} DESC, a.title COLLATE NOCASE, a.id",
+            year = release_year!()
+        ),
+    }
+}
+
+fn summary_order(sort: CatalogSort) -> &'static str {
+    match sort {
+        CatalogSort::Title => "a.title COLLATE NOCASE, a.id",
+        CatalogSort::Recent => "a.added_rank DESC, a.id",
+        CatalogSort::Artist => {
+            "a.artist IS NULL, a.artist COLLATE NOCASE, a.title COLLATE NOCASE, a.id"
+        }
+        CatalogSort::Year => "year IS NULL, year DESC, a.title COLLATE NOCASE, a.id",
+    }
+}
+
 fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {
     if let Some(artist) = &browse.artist {
         query.push(" AND EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = a.user_id AND ar.release_id = a.id AND ar.artist_id = ").push_bind(artist.clone()).push(")");
@@ -315,7 +357,9 @@ pub(crate) fn selected(
     browse: &Browse,
     id: Option<&str>,
 ) -> Result<QueryBuilder<'static, Sqlite>> {
-    let mut query = QueryBuilder::new("WITH selected AS (SELECT a.* FROM account_releases a");
+    let mut query = QueryBuilder::new(
+        "WITH selected AS (SELECT a.*, a.rowid AS added_rank FROM account_releases a",
+    );
     browse.filter(
         &mut query,
         actor,
@@ -330,7 +374,9 @@ pub(crate) fn selected(
     } else {
         let (offset, limit) = browse.bounds();
         query
-            .push(" ORDER BY a.title COLLATE NOCASE, a.id LIMIT ")
+            .push(" ORDER BY ")
+            .push(selection_order(browse.sort.unwrap_or_default()))
+            .push(" LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);

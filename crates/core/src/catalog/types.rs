@@ -18,8 +18,19 @@ pub struct Recording {
     pub liked: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogSort {
+    #[default]
+    Title,
+    Recent,
+    Artist,
+    Year,
+}
+
 #[derive(Clone, Deserialize, Default, ToSchema)]
 pub struct Search {
+    pub sort: Option<CatalogSort>,
     pub artist: Option<String>,
     pub q: Option<String>,
     pub liked: Option<bool>,

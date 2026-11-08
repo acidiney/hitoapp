@@ -43,6 +43,9 @@ mod provider_attachment_bound;
 #[path = "api/catalog.rs"]
 mod catalog;
 
+#[path = "api/catalog_sort.rs"]
+mod catalog_sort;
+
 #[path = "api/recording_groups.rs"]
 mod recording_groups;
 
