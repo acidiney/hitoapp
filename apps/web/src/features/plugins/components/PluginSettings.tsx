@@ -1,5 +1,4 @@
 import { useRef } from "react";
-import { Link } from "@inertiajs/react";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -27,6 +26,7 @@ function PluginPanel({
 }) {
   const actions = usePlugins(account);
   const heading = useRef<HTMLHeadingElement>(null);
+  const connectHeading = useRef<HTMLHeadingElement>(null);
   const restoreFocus = () => heading.current?.focus();
   const { data, error, pending } = actions;
   const available =
@@ -41,9 +41,16 @@ function PluginPanel({
         headingRef={heading}
         busy={pending}
         action={
-          <Link className="button" href="/discover">
-            Discover
-          </Link>
+          available.length > 0 && (
+            <Button
+              onClick={() => {
+                connectHeading.current?.scrollIntoView?.({ block: "start" });
+                connectHeading.current?.focus({ preventScroll: true });
+              }}
+            >
+              Connect a service
+            </Button>
+          )
         }
       >
         {pending && <p role="status">Working on plugin connection…</p>}
@@ -77,7 +84,12 @@ function PluginPanel({
               ))}
             </ul>
             {!data.installations.length && (
-              <p>No plugins connected to this account.</p>
+              <p>
+                No plugins connected to this account.
+                {!data.services.length &&
+                  !admin &&
+                  " Your administrator has not offered any services yet."}
+              </p>
             )}
           </>
         )}
@@ -88,14 +100,8 @@ function PluginPanel({
             services={available}
             actions={actions}
             storageReady={data.credential_storage_ready}
+            headingRef={connectHeading}
           />
-          {!data.services.length && (
-            <p className="muted">
-              {admin
-                ? "Offer a service below to make it available to accounts on this server."
-                : "Your administrator has not offered any services yet."}
-            </p>
-          )}
           {admin && (
             <PluginServices
               services={data.services}

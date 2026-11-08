@@ -144,7 +144,7 @@ const ENTRIES: SettingEntry[] = [
     section: "plugins",
     label: "Your plugins",
     description:
-      "Connect to services offered by your administrator. Each account keeps its own connections and credentials. Search connected music services in Discover.",
+      "Credentials stay private to your account. Search connected music services in Discover.",
     keywords: "installed connection remove check",
   },
   {

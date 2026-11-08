@@ -32,7 +32,14 @@ export default function PluginServices({
     }
   }
   return (
-    <SettingsCard setting={setting("plugin-services")}>
+    <SettingsCard
+      setting={setting("plugin-services")}
+      description={
+        services.length
+          ? undefined
+          : "Nothing is offered yet. Add a service address so accounts on this server can connect to it."
+      }
+    >
       <form className="plugin-form" onSubmit={offer}>
         <label>
           Service address

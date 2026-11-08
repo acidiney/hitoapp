@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import type { Schema } from "../../../shared/schema";
 
 import type { PluginActions } from "../hooks/usePlugins";
@@ -12,17 +13,23 @@ export default function ConnectPlugin({
   services,
   actions,
   storageReady,
+  headingRef,
 }: {
   services: Schema<"PluginService">[];
   actions: PluginActions;
   storageReady: boolean;
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const workflow = usePluginInstallation(services, actions);
   const { service, token } = workflow;
   const pending = actions.pending || workflow.pending;
   if (!service) return null;
   return (
-    <SettingsCard setting={setting("connect-service")} busy={pending}>
+    <SettingsCard
+      setting={setting("connect-service")}
+      headingRef={headingRef}
+      busy={pending}
+    >
       <form
         className="plugin-form"
         onSubmit={(event) => {

@@ -158,9 +158,7 @@ test("ordinary accounts connect offered services and retain failed token drafts"
     .mockRejectedValueOnce(new Error("Plugin unavailable"))
     .mockResolvedValue(plugin);
   render(settingsPage("bob", false));
-  expect(
-    screen.getByRole("link", { name: "Discover" }).getAttribute("href"),
-  ).toBe("/discover");
+  expect(screen.queryByRole("link", { name: "Discover" })).toBeNull();
   expect(
     screen.queryByText("Provider content is not available in Hito yet."),
   ).toBeNull();
@@ -183,6 +181,38 @@ test("ordinary accounts connect offered services and retain failed token drafts"
     expect.any(AbortSignal),
   );
   expect(screen.queryByLabelText("Bearer token (optional)")).toBeNull();
+});
+
+test("the Your plugins action stays in Settings and moves to Connect a service", async () => {
+  render(settingsPage("bob", false));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect a service" }),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("heading", { name: "Connect a service" }),
+  );
+});
+
+test("the card does not repeat the section intro and no sentence floats between cards", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    services: [],
+  });
+  const view = render(settingsPage("admin", true));
+  const offered = await screen.findByRole("region", {
+    name: "Services for this server",
+  });
+  expect(within(offered).getByText(/Nothing is offered yet/)).toBeTruthy();
+  expect(view.container.textContent).not.toMatch(/Offer a service below/);
+  expect(view.container.textContent).not.toMatch(
+    /Connect to services offered by your administrator/,
+  );
+  view.unmount();
+  render(settingsPage("bob", false));
+  const mine = await screen.findByRole("region", { name: "Your plugins" });
+  expect(
+    within(mine).getByText(/Your administrator has not offered any services/),
+  ).toBeTruthy();
 });
 
 test("manifest changes are reviewed before accepting new capabilities", async () => {
