@@ -37,7 +37,10 @@ async fn exercise(library: &Library) {
         );
         assert_eq!(
             index["props"]["artists"],
-            library.peer.get(&library.app, "/api/v1/artists").await
+            library
+                .peer
+                .get(&library.app, "/api/v1/artists?sort=recent")
+                .await
         );
     }
     for route in ["/artists", path.as_str()] {
