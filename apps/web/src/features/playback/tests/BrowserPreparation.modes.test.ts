@@ -38,11 +38,11 @@ test("shuffle cancels the canonical buffer and adopts the shuffled successor on 
     expect(initial.paused).toBe(false);
     prepared.ready();
     initial.complete();
-    await prepared.playing;
 
-    expect(fixture.activated).toEqual([prepared]);
-    expect(prepared.loads).toEqual([audioPath("shuffled-audio")]);
-    expect(prepared.played).toEqual([audioPath("shuffled-audio")]);
+    expect(initial.src).toBe(audioPath("shuffled-audio"));
+    expect(initial.played.at(-1)).toBe(audioPath("shuffled-audio"));
+    expect(prepared.played).toEqual([]);
+    expect(fixture.released).toContain(prepared);
     expect(player.snapshot().current?.id).toBe("shuffled");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[2].id);
@@ -72,12 +72,12 @@ test("repeat one prepares the current occurrence and adopts it when its audio na
     expect(prepared.played).toEqual([]);
     prepared.ready();
     initial.complete();
-    await prepared.playing;
 
-    expect(fixture.activated).toEqual([prepared]);
-    expect(prepared.loads).toEqual([audioPath("first-audio")]);
-    expect(prepared.played).toEqual([audioPath("first-audio")]);
-    expect(prepared.currentTime).toBe(0);
+    expect(initial.src).toBe(audioPath("first-audio"));
+    expect(initial.played.at(-1)).toBe(audioPath("first-audio"));
+    expect(prepared.played).toEqual([]);
+    expect(fixture.released).toContain(prepared);
+    expect(initial.currentTime).toBe(0);
     expect(player.snapshot().current?.id).toBe("first");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
@@ -86,7 +86,7 @@ test("repeat one prepares the current occurrence and adopts it when its audio na
       fixture.requests.map(
         ({ recording, purpose }) => `${recording}:${purpose}`,
       ),
-    ).toEqual(["first:cached", "first:cached"]);
+    ).toEqual(["first:cached"]);
     const following = await fixture.buffer("first-audio");
     expect(following).not.toBe(prepared);
     expect(following.paused).toBe(true);
@@ -113,11 +113,11 @@ test("repeat all prepares the first occurrence and adopts it after the last audi
     expect(initial.src).toBe(audioPath("last-audio"));
     prepared.ready();
     initial.complete();
-    await prepared.playing;
 
-    expect(fixture.activated).toEqual([prepared]);
-    expect(prepared.loads).toEqual([audioPath("first-audio")]);
-    expect(prepared.played).toEqual([audioPath("first-audio")]);
+    expect(initial.src).toBe(audioPath("first-audio"));
+    expect(initial.played.at(-1)).toBe(audioPath("first-audio"));
+    expect(prepared.played).toEqual([]);
+    expect(fixture.released).toContain(prepared);
     expect(player.snapshot().current?.id).toBe("first");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
@@ -153,12 +153,15 @@ test("duplicate occurrences keep their IDs while adopting the same audio without
     expect(prepared.played).toEqual([]);
     prepared.ready();
     initial.complete();
-    await prepared.playing;
 
-    expect(fixture.activated).toEqual([prepared]);
-    expect(prepared.loads).toEqual([audioPath("same-audio")]);
-    expect(prepared.played).toEqual([audioPath("same-audio")]);
-    expect(initial.played).toEqual([audioPath("same-audio")]);
+    expect(initial.src).toBe(audioPath("same-audio"));
+    expect(initial.played.at(-1)).toBe(audioPath("same-audio"));
+    expect(prepared.played).toEqual([]);
+    expect(fixture.released).toContain(prepared);
+    expect(initial.played).toEqual([
+      audioPath("same-audio"),
+      audioPath("same-audio"),
+    ]);
     expect(player.snapshot().current?.id).toBe("same");
     expect(player.snapshot().playing).toBe(true);
     expect(player.queueSnapshot().currentEntry).toBe(entries[1].id);
@@ -167,7 +170,6 @@ test("duplicate occurrences keep their IDs while adopting the same audio without
       "cached",
       "refresh",
       "resolve",
-      "cached",
     ]);
     expect(fixture.owned.size).toBe(1);
   } finally {

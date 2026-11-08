@@ -256,20 +256,24 @@ test("an adopted next buffer is released on account change and late media and pr
     });
     unsubscribe();
     const following = await media.loadedSource(afterSource.id);
-    expect(document.querySelector("audio[data-hito-player]")).toBe(buffered);
+    expect(document.querySelector("audio[data-hito-player]")).toBe(initial);
     expect(document.querySelector("audio[data-hito-preload]")).toBe(following);
-    expect(initial.isConnected).toBe(false);
-    expect(initial.paused).toBe(true);
-    expect(initial.getAttribute("src")).toBeNull();
-    expect(media.played.map((play) => play.media)).toEqual([initial, buffered]);
+    expect(initial.getAttribute("src")).toBe(audioPath(nextSource.id));
+    expect(buffered.isConnected).toBe(false);
+    expect(buffered.paused).toBe(true);
+    expect(buffered.getAttribute("src")).toBeNull();
+    expect(media.played.map((play) => play.media)).toEqual([initial, initial]);
     expect(
-      media.loaded.filter((load) => load.media === buffered && load.source),
+      media.loaded.filter(
+        (load) =>
+          load.media === initial && load.source === audioPath(nextSource.id),
+      ),
     ).toHaveLength(1);
     expect(alice.queueSnapshot().currentEntry).toBe(entries[1].id);
     expect((await alice.queuePage(0, 10)).entries).toEqual(entries);
     act(() => {
-      buffered.currentTime = 11;
-      buffered.dispatchEvent(new Event("timeupdate"));
+      initial.currentTime = 11;
+      initial.dispatchEvent(new Event("timeupdate"));
     });
     const pendingProgress = await progress.promise;
     expect(pendingProgress.signal.aborted).toBe(false);
@@ -346,7 +350,6 @@ test("an adopted next buffer is released on account change and late media and pr
       `GET ${cachedSourcesPath(first)}`,
       `GET ${cachedSourcesPath(next)}`,
       "POST /api/v1/sync",
-      `GET ${cachedSourcesPath(next)}`,
       `GET ${cachedSourcesPath(after)}`,
       "POST /api/v1/sync",
     ]);
@@ -371,7 +374,7 @@ test("an adopted next buffer is released on account change and late media and pr
       },
     ]);
     expect(media.created).toHaveLength(4);
-    expect(media.played.map((play) => play.media)).toEqual([initial, buffered]);
+    expect(media.played.map((play) => play.media)).toEqual([initial, initial]);
     expect(screen.queryByText("Old account progress failed")).toBeNull();
     await expectEmptyAccount(bob);
     expect(media.peakOwned()).toBe(2);

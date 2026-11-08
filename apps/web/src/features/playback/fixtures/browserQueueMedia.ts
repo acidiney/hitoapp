@@ -56,7 +56,6 @@ export function queueMediaOwner(initial: QueueMedia) {
       owned.add(media);
       return media;
     }),
-    activate: (media) => expect(owned.has(media)).toBe(true),
     release: (media) => {
       owned.delete(media);
     },

@@ -38,6 +38,10 @@ export class BrowserLookahead {
     this.prepared = null;
   }
 
+  recheck(changed: () => void) {
+    this.prepared?.recheck(changed);
+  }
+
   prepare(occurrence: PlaybackOccurrence | undefined, following: Following) {
     const entry = occurrence?.id;
     const recording = occurrence?.recording;

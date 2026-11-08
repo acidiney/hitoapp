@@ -91,15 +91,6 @@ function BrowserAccountPlayback({
           document.body.append(next);
           return next;
         },
-        activate: (current) => {
-          for (const element of media.values())
-            element.removeAttribute("data-hito-player");
-          const element = media.get(current);
-          if (element) {
-            element.removeAttribute("data-hito-preload");
-            element.dataset.hitoPlayer = "";
-          }
-        },
         release: (current) => {
           media.get(current)?.remove();
           media.delete(current);

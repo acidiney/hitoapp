@@ -18,7 +18,6 @@ const BOUNDARY_WAIT_MS = 10_000;
 
 export type BrowserMediaOwner = {
   create(): MediaPort;
-  activate(media: MediaPort): void;
   release(media: MediaPort): void;
 };
 
@@ -34,11 +33,12 @@ export type PreparationTarget = {
   recording: string;
 };
 
-type Prepared = {
+export type Prepared = {
   sources: PlaybackSources;
-  media?: MediaPort;
   source?: Source;
 };
+
+type Buffering = "buffered" | "failed" | "timeout";
 
 export class BrowserPreparation {
   readonly id = createUuid();
@@ -47,6 +47,8 @@ export class BrowserPreparation {
   private transferred = false;
   private media: MediaPort | null = null;
   private cancelBuffer: (() => void) | null = null;
+  private found: Prepared | null = null;
+  private rechecked = false;
   private cancelled!: (result: null) => void;
   private stopped: Promise<null>;
   private timer: ReturnType<typeof setTimeout>;
@@ -96,33 +98,42 @@ export class BrowserPreparation {
       }
       this.finding = false;
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.close("deadline"), ACQUISITION_MS);
+      const prepared: Prepared = { sources: this.sources, source };
+      this.found = prepared;
       const media = this.owner.create();
       this.media = media;
-      const buffered = await new Promise<boolean>((resolve) => {
-        const finish = (ready: boolean) => {
+      const outcome = await new Promise<Buffering>((resolve) => {
+        const finish = (result: Buffering) => {
           media.removeEventListener("canplay", readyEvent);
           media.removeEventListener("error", failedEvent);
           this.cancelBuffer = null;
-          resolve(ready);
+          resolve(result);
         };
-        const readyEvent = () => finish(true);
-        const failedEvent = () => finish(false);
+        const readyEvent = () => finish("buffered");
+        const failedEvent = () => finish("failed");
         this.cancelBuffer = failedEvent;
+        this.timer = setTimeout(() => finish("timeout"), ACQUISITION_MS);
         media.addEventListener("canplay", readyEvent, { once: true });
         media.addEventListener("error", failedEvent, { once: true });
         media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
         media.load();
       });
       if (this.closed) return null;
+      if (this.transferred) return this.found;
       clearTimeout(this.timer);
-      if (!buffered) {
+      if (outcome === "failed") {
+        this.found = null;
         this.releaseMedia();
         this.finished("audio_unavailable");
         return { sources: this.sources };
       }
+      if (outcome === "timeout") {
+        this.releaseMedia();
+        this.finished("buffer_timeout");
+        return this.found;
+      }
       this.finished("buffered");
-      return { sources: this.sources, media, source };
+      return this.found;
     } catch {
       if (this.closed) return null;
       clearTimeout(this.timer);
@@ -206,11 +217,30 @@ export class BrowserPreparation {
     return this.ready;
   }
 
+  readyNow(): Prepared | null {
+    return this.closed || this.transferred ? null : this.found;
+  }
+
+  recheck(changed: () => void) {
+    const source = this.found?.source;
+    if (!source || this.rechecked || this.closed || this.transferred) return;
+    this.rechecked = true;
+    this.sources.revalidate(source.id).then(
+      (retained) => {
+        if (this.closed || this.transferred || retained) return;
+        this.found = null;
+        changed();
+      },
+      () => {},
+    );
+  }
+
   transfer() {
     if (this.closed) return false;
     this.transferred = true;
-    this.media = null;
     clearTimeout(this.timer);
+    this.cancelBuffer?.();
+    this.releaseMedia();
     return true;
   }
 

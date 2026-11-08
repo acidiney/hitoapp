@@ -178,8 +178,11 @@ test.each(["request", "acknowledgement body"] as const)(
         media.ready(next);
         media.end(first);
       });
-      expect(media.current()).toBe(next);
-      await act(async () => media.observePlaying(next));
+      expect(media.current()).toBe(first);
+      await act(async () => {
+        media.ready(first);
+        media.observePlaying(first);
+      });
       expect(player.queueSnapshot().currentIndex).toBe(1);
       expect(player.snapshot().playing).toBe(true);
       expect(submitted).toHaveLength(1);

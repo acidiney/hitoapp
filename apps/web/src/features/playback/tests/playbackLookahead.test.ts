@@ -76,9 +76,6 @@ function mediaOwner(
       media.addEventListener("loadstart", () => loaded(media));
       return media;
     }),
-    activate: (media) => {
-      expect(owned.has(media)).toBe(true);
-    },
     release: (media) => {
       expect(media.paused).toBe(true);
       expect(media.src).toBe("");
@@ -88,13 +85,15 @@ function mediaOwner(
   return { ports, owned, owner, unexpectedNetwork };
 }
 
-test("a changed authorized source retires a buffered choice before queue handoff without matching again", async () => {
+test("a changed authorized source retires a buffered choice shortly before the end and the replacement is ready at the boundary", async () => {
   const initial = new Media();
   const buffered = deferred<Media>();
+  const rebuffered = deferred<Media>();
   const { ports, owned, owner, unexpectedNetwork } = mediaOwner(
     initial,
     (media) => {
       if (media.src === path("previous-choice")) buffered.resolve(media);
+      if (media.src === path("current-choice")) rebuffered.resolve(media);
     },
   );
   const nextSources = deferred<Source[]>();
@@ -152,28 +151,29 @@ test("a changed authorized source retires a buffered choice before queue handoff
     expect(player.positionSnapshot().position).toBe(5);
     expect(player.snapshot().playing).toBe(true);
 
-    initial.currentTime = initial.duration;
-    initial.ended = true;
-    initial.paused = true;
-    transition = player.next(true);
-    await vi.waitFor(() =>
-      expect(
-        nextReads === 2 || played().includes(path("previous-choice")),
-      ).toBe(true),
-    );
-    expect(played()).not.toContain(path("previous-choice"));
-    expect(nextReads).toBe(2);
-    expect(played()).toEqual([path("first-audio")]);
     currentSources.resolve([
       { id: "previous-choice", ready: false },
       { id: "current-choice", ready: true },
     ]);
+    initial.currentTime = 80;
+    initial.dispatchEvent(new Event("timeupdate"));
+    const replacement = await rebuffered.promise;
+    expect(owned.has(pending)).toBe(false);
+    expect(pending.src).toBe("");
+    replacement.dispatchEvent(new Event("loadedmetadata"));
+    replacement.dispatchEvent(new Event("canplay"));
+    expect(nextReads).toBe(3);
+
+    initial.currentTime = initial.duration;
+    initial.ended = true;
+    initial.paused = true;
+    transition = player.next(true);
+    expect(played()).toEqual([path("first-audio"), path("current-choice")]);
     await transition;
 
-    expect(played()).toEqual([path("first-audio"), path("current-choice")]);
     expect(pending.played).toEqual([]);
-    expect(pending.src).toBe("");
-    expect(owned.has(pending)).toBe(false);
+    expect(replacement.played).toEqual([]);
+    expect(owned.has(replacement)).toBe(false);
     expect(player.snapshot().current?.id).toBe("next");
     expect(player.snapshot().playing).toBe(true);
     expect(player.snapshot().error).toBe("");
@@ -181,7 +181,7 @@ test("a changed authorized source retires a buffered choice before queue handoff
     expect((await player.queuePage(0, 10)).entries).toEqual(entries.entries);
     expect(
       requests.map(({ recording, purpose }) => `${recording}:${purpose}`),
-    ).toEqual(["first:cached", "next:cached", "next:cached"]);
+    ).toEqual(["first:cached", "next:cached", "next:cached", "next:cached"]);
     expect(unexpectedNetwork).not.toHaveBeenCalled();
   } finally {
     nextSources.resolve([]);
@@ -377,12 +377,7 @@ test("removing a buffered next occurrence prepares its actual successor without 
     ]);
     expect(
       requests.map(({ recording, purpose }) => `${recording}:${purpose}`),
-    ).toEqual([
-      "first:cached",
-      "removed:cached",
-      "successor:cached",
-      "successor:cached",
-    ]);
+    ).toEqual(["first:cached", "removed:cached", "successor:cached"]);
     expect(unexpectedNetwork).not.toHaveBeenCalled();
   } finally {
     bSources.resolve([]);
@@ -493,7 +488,7 @@ test("an exhausted next-entry attempt uses newly ready authorized audio at compl
   }
 });
 
-test("a failed pending seek during buffered handoff recovers through authorized backup audio without playing the failed source", async () => {
+test("a failed seek right after the synchronous handoff recovers through authorized backup audio on the same element", async () => {
   class FailedSeekMedia extends Media {
     failedPositions: number[] = [];
     override get currentTime() {
@@ -510,21 +505,14 @@ test("a failed pending seek during buffered handoff recovers through authorized 
       super.currentTime = value;
     }
   }
-  const initial = new Media();
-  const buffered = deferred<FailedSeekMedia>();
+  const initial = new FailedSeekMedia();
+  const buffered = deferred<Media>();
   const { ports, owned, owner, unexpectedNetwork } = mediaOwner(
     initial,
     (media) => {
-      if (
-        media instanceof FailedSeekMedia &&
-        media.src === path("prepared-audio")
-      )
-        buffered.resolve(media);
+      if (media.src === path("prepared-audio")) buffered.resolve(media);
     },
-    () => new FailedSeekMedia(),
   );
-  const checking = deferred<void>();
-  const authority = deferred<Source[]>();
   const requests: {
     recording: string;
     purpose: string;
@@ -546,9 +534,7 @@ test("a failed pending seek during buffered handoff recovers through authorized 
     if (recording === "first") return [{ id: "first-audio", ready: true }];
     if (recording !== "next") throw new Error("Unexpected queue recording");
     nextReads++;
-    if (nextReads === 1) return ready;
-    checking.resolve();
-    return authority.promise;
+    return ready;
   };
   const player = new Playback(initial, resolve, undefined, owner);
   let transition: Promise<void> | undefined;
@@ -566,32 +552,26 @@ test("a failed pending seek during buffered handoff recovers through authorized 
     initial.ended = true;
     initial.paused = true;
     transition = player.next(true);
-    await checking.promise;
-    player.seek(30);
-    expect(player.snapshot().current?.id).toBe("next");
-    expect(player.snapshot().loading).toBe(true);
-    expect(player.positionSnapshot().position).toBe(30);
-    expect(b.failedPositions).toEqual([]);
-    expect(ports.flatMap((media) => media.played)).toEqual([
+    expect(initial.played).toEqual([
       path("first-audio"),
+      path("prepared-audio"),
     ]);
-
-    authority.resolve(ready);
+    expect(player.snapshot().current?.id).toBe("next");
+    player.seek(30);
     await transition;
     await flushTasks();
-    expect(b.failedPositions).toEqual([30]);
-    expect(b.played).not.toContain(path("prepared-audio"));
+    expect(initial.failedPositions).toEqual([30]);
     await vi.waitFor(() =>
-      expect(ports.flatMap((media) => media.played)).toEqual([
+      expect(initial.played).toEqual([
         path("first-audio"),
+        path("prepared-audio"),
         path("backup-audio"),
       ]),
     );
-    const backup = ports.find((media) => media.src === path("backup-audio"));
-    expect(backup).toBeDefined();
-    backup!.dispatchEvent(new Event("loadedmetadata"));
-    expect(backup!.currentTime).toBe(30);
+    initial.dispatchEvent(new Event("loadedmetadata"));
+    expect(initial.currentTime).toBe(30);
     expect(player.positionSnapshot().position).toBe(30);
+    expect(b.played).toEqual([]);
     expect(player.snapshot().current?.id).toBe("next");
     expect(player.snapshot().playing).toBe(true);
     expect(player.snapshot().error).toBe("");
@@ -599,10 +579,9 @@ test("a failed pending seek during buffered handoff recovers through authorized 
     expect((await player.queuePage(0, 10)).entries).toEqual(entries.entries);
     expect(
       requests.map(({ recording, purpose }) => `${recording}:${purpose}`),
-    ).toEqual(["first:cached", "next:cached", "next:cached"]);
+    ).toEqual(["first:cached", "next:cached"]);
     expect(unexpectedNetwork).not.toHaveBeenCalled();
   } finally {
-    authority.resolve([]);
     player.clear();
     await transition?.catch(() => {});
     await flushTasks();

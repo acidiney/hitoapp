@@ -198,9 +198,12 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     await waitFor(() => {
       expect(player.queueSnapshot().currentIndex).toBe(1);
       expect(player.snapshot().playing).toBe(true);
-      expect(media.current()).toBe(middleAudio);
+      expect(media.current()).toBe(firstAudio);
     });
-    await act(async () => media.observePlaying(middleAudio));
+    await act(async () => {
+      media.ready(firstAudio);
+      media.observePlaying(firstAudio);
+    });
     expect(submitted).toHaveLength(1);
 
     await act(async () => {
@@ -215,14 +218,17 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     const lastAudio = media.prepared(sourceA.id)!;
     await act(async () => {
       media.ready(lastAudio);
-      media.end(middleAudio);
+      media.end(firstAudio);
     });
     await waitFor(() => {
       expect(player.queueSnapshot().currentIndex).toBe(2);
       expect(player.snapshot().playing).toBe(true);
-      expect(media.current()).toBe(lastAudio);
+      expect(media.current()).toBe(firstAudio);
     });
-    await act(async () => media.observePlaying(lastAudio));
+    await act(async () => {
+      media.ready(firstAudio);
+      media.observePlaying(firstAudio);
+    });
     await waitFor(() => expect(progress()).toHaveLength(5));
     expect(submitted[4].batch.operations.map(({ action }) => action)).toEqual(
       checkpoint(last),
@@ -265,8 +271,6 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
       bookPath,
       sourcesPath(sourceA.recording_id),
       sourcesPath(sourceB.recording_id),
-      sourcesPath(sourceB.recording_id),
-      sourcesPath(sourceA.recording_id),
       sourcesPath(sourceA.recording_id),
     ]);
     expect(
@@ -274,6 +278,8 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     ).toEqual([
       chapterAudioPath(sourceA.id),
       chapterAudioPath(sourceB.id),
+      chapterAudioPath(sourceB.id),
+      chapterAudioPath(sourceA.id),
       chapterAudioPath(sourceA.id),
     ]);
     expect(media.played.map(({ source }) => source)).toEqual([
@@ -281,7 +287,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
       chapterAudioPath(sourceB.id),
       chapterAudioPath(sourceA.id),
     ]);
-    expect(new Set(media.played.map(({ media: audio }) => audio)).size).toBe(3);
+    expect(new Set(media.played.map(({ media: audio }) => audio)).size).toBe(1);
   } finally {
     await act(async () => {
       releaseFirst?.();

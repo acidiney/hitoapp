@@ -85,7 +85,6 @@ export function browserPreparationModes(
   const initial = new Media();
   const ports = [initial];
   const owned = new Set<MediaPort>(ports);
-  const activated: MediaPort[] = [];
   const released: MediaPort[] = [];
   const waiting: { path: string; resolve: (media: Media) => void }[] = [];
   const requests: {
@@ -93,7 +92,6 @@ export function browserPreparationModes(
     purpose: Parameters<SourceResolver>[1]["purpose"];
     signal: AbortSignal;
   }[] = [];
-  let active: MediaPort = initial;
   let peakOwned = 1;
   const unexpectedNetwork = vi.fn(async () => {
     throw new Error("Playback must not create downloads or other HTTP work");
@@ -111,11 +109,6 @@ export function browserPreparationModes(
       peakOwned = Math.max(peakOwned, owned.size);
       expect(owned.size).toBeLessThanOrEqual(2);
       return media;
-    },
-    activate: (media) => {
-      expect(owned.has(media)).toBe(true);
-      active = media;
-      activated.push(media);
     },
     release: (media) => {
       expect(media.paused).toBe(true);
@@ -142,7 +135,6 @@ export function browserPreparationModes(
     player,
     initial,
     owned,
-    activated,
     released,
     requests,
     async buffer(source: string) {
@@ -161,12 +153,12 @@ export function browserPreparationModes(
       await flushTasks();
       expect(requests.every(({ signal }) => signal.aborted)).toBe(true);
       expect(peakOwned).toBeLessThanOrEqual(2);
-      expect([...owned]).toEqual([active]);
+      expect([...owned]).toEqual([initial]);
       expect(ports.every((media) => media.paused && media.src === "")).toBe(
         true,
       );
       expect(new Set(released)).toEqual(
-        new Set(ports.filter((media) => media !== active)),
+        new Set(ports.filter((media) => media !== initial)),
       );
       expect(unexpectedNetwork).not.toHaveBeenCalled();
     },

@@ -59,6 +59,9 @@ import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
 export type { Source } from "./api/playbackSources";
 
+const NEXT_RECHECK_SECONDS = 20;
+const RETRY_RESET_SECONDS = 10;
+
 export class Playback implements Player {
   readonly mode = "browser";
   readonly supports = {
@@ -82,6 +85,8 @@ export class Playback implements Player {
   private durationChanged: (() => void) | null = null;
   private serverBound: number | null = null;
   private entryEnded = false;
+  private hiddenRetries = 0;
+  private retryPosition = 0;
   private restored = false;
   private formatProbe: Promise<boolean> = Promise.resolve(false);
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
@@ -195,6 +200,12 @@ export class Playback implements Player {
         if (this.activeSource && !media.paused && media.currentTime > 0) {
           this.traversal.resetFailures();
           this.prepareNext();
+          this.recheckNext();
+          if (
+            this.hiddenRetries > 0 &&
+            media.currentTime > this.retryPosition + RETRY_RESET_SECONDS
+          )
+            this.hiddenRetries = 0;
         }
         this.update({ position: this.pendingSeek || media.currentTime });
         this.progress.observe();
@@ -232,8 +243,11 @@ export class Playback implements Player {
         });
         if (this.activeSource) {
           if (rejected) this.probeFormat(this.activeSource);
-          void this.recover();
+          if (rejected || !this.retryInPlace()) void this.recover();
         }
+      },
+      stalled: () => {
+        if (!media.paused && (media.readyState ?? 4) < 3) this.retryInPlace();
       },
       ended: () => {
         if (!this.activeSource || this.entryEnded) return;
@@ -272,6 +286,37 @@ export class Playback implements Player {
       recording_id: this.state.current?.id,
     });
     void this.next(true);
+  }
+
+  private retryInPlace() {
+    const source = this.activeSource;
+    if (
+      !source ||
+      document.visibilityState !== "hidden" ||
+      this.hiddenRetries >= 1
+    )
+      return false;
+    this.hiddenRetries++;
+    const position =
+      this.media.currentTime > 0 ? this.media.currentTime : this.state.position;
+    this.retryPosition = position;
+    this.pendingSeek = position;
+    log.warn("playback.recovering_in_place", {
+      recording_id: this.state.current?.id,
+    });
+    this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
+    this.media.load();
+    void this.playSource(this.generation, ++this.sourceAttempt);
+    return true;
+  }
+
+  private recheckNext() {
+    const remaining = this.state.duration - this.media.currentTime;
+    if (this.state.duration > 0 && remaining <= NEXT_RECHECK_SECONDS)
+      this.lookahead?.recheck(() => {
+        this.cancelLookahead();
+        this.prepareNext();
+      });
   }
 
   private cancelLookahead() {
@@ -509,6 +554,7 @@ export class Playback implements Player {
     index: number,
     position = 0,
     continuation?: AudiobookSelection,
+    natural = false,
   ) {
     if (!continuation) {
       this.cancelAudiobook();
@@ -530,7 +576,10 @@ export class Playback implements Player {
     this.openingEntry = occurrence ?? null;
     const current = occurrence?.recording;
     const prepared = this.lookahead?.claim(occurrence, this.generation) ?? null;
+    const instant =
+      natural && !continuation ? (prepared?.readyNow() ?? null) : null;
     const generation = ++this.generation;
+    this.hiddenRetries = 0;
     log.info("playback.resolving", { recording_id: current?.id, index });
     this.sources?.close();
     this.sources =
@@ -543,11 +592,13 @@ export class Playback implements Player {
             this.fallbackAllowed,
           )
         : null);
-    if (!continuation) this.media.pause();
+    if (!continuation && !instant) this.media.pause();
     this.activeSource = null;
     this.formatProbe = Promise.resolve(false);
-    this.media.removeAttribute("src");
-    this.media.load();
+    if (!instant) {
+      this.media.removeAttribute("src");
+      this.media.load();
+    }
     if (continuation) this.applySpeed(continuation.speed);
     this.pendingSeek = position;
     this.update({
@@ -571,7 +622,7 @@ export class Playback implements Player {
     }
     try {
       if (prepared) {
-        const buffered = await prepared.read();
+        const buffered = instant ?? (await prepared.read());
         if (
           generation !== this.generation ||
           !this.lookahead?.isOpening(prepared)
@@ -581,33 +632,8 @@ export class Playback implements Player {
         }
         this.lookahead?.settleOpening();
         if (buffered && prepared.transfer()) {
-          if (buffered.media && buffered.source) {
-            const previous = this.media;
-            this.stopListening();
-            this.media = buffered.media;
-            this.listenMedia();
-            this.mediaOwner?.activate(this.media);
-            this.mediaOwner?.release(previous);
-            this.media.volume = this.state.volume;
-            this.applySpeed(this.state.speed);
-            this.activeSource = { ...buffered.source };
-            this.observeSource(occurrence, buffered.source);
-            this.entryEnded = false;
-            this.update({
-              duration: Number.isFinite(this.media.duration)
-                ? this.reconcile(this.media).seconds
-                : (current.duration_ms ?? 0) / 1000,
-            });
-            const seek = this.pendingSeek ?? position;
-            if (seek > 0) {
-              this.seek(seek);
-              if (!this.activeSource) return;
-            } else this.pendingSeek = null;
-            log.debug("playback.next_preparation_adopted", {
-              recording_id: current.id,
-              operation_id: prepared.id,
-              source_id: buffered.source.id,
-            });
+          if (buffered.source) {
+            this.startPrepared(occurrence, buffered.source, prepared.id);
             await this.playSource(generation, ++this.sourceAttempt);
             return;
           }
@@ -624,6 +650,24 @@ export class Playback implements Player {
       log.warn("playback.resolution_failed", { recording_id: current.id });
       if (generation === this.generation) await this.skipFailed();
     }
+  }
+
+  private startPrepared(
+    occurrence: PlaybackOccurrence,
+    source: Source,
+    operation: string,
+  ) {
+    this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
+    this.media.load();
+    this.activeSource = { ...source };
+    this.observeSource(occurrence, source);
+    this.entryEnded = false;
+    if (!this.pendingSeek) this.pendingSeek = null;
+    log.debug("playback.next_preparation_adopted", {
+      recording_id: occurrence.recording.id,
+      operation_id: operation,
+      source_id: source.id,
+    });
   }
 
   private async useNextSource(position: number) {
@@ -896,7 +940,7 @@ export class Playback implements Player {
       this.state.repeat,
       ended ? "completed" : "requested",
     );
-    await this.open(index ?? this.queue.length);
+    await this.open(index ?? this.queue.length, 0, undefined, ended);
   }
   remove(index: number) {
     this.cancelAudiobook();

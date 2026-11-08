@@ -166,9 +166,12 @@ test("a next entry waiting for provider preparation is prepared and buffered dur
       await adopted.promise;
     });
     stop();
-    expect(media.played.map((play) => play.media)).toEqual([current, buffered]);
+    expect(media.played.map((play) => play.media)).toEqual([current, current]);
     expect(
-      media.loaded.filter((load) => load.media === buffered && load.source),
+      media.loaded.filter(
+        (load) =>
+          load.media === current && load.source === audioPath(nextSource.id),
+      ),
     ).toHaveLength(1);
     expect(
       requests
@@ -460,6 +463,14 @@ test("a manual choice made while preparation ran is used at the boundary instead
       media.canPlay(buffered);
     });
     phase = "chosen";
+    act(() => {
+      current.currentTime = 80;
+      current.dispatchEvent(new Event("timeupdate"));
+    });
+    const replacement = await media.loadedSource(chosenSource.id);
+    await act(async () => {
+      media.canPlay(replacement);
+    });
     await act(async () => {
       media.end(current);
     });

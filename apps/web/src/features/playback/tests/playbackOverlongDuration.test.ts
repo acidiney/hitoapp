@@ -240,7 +240,6 @@ test("prepared media applies the server duration and end guard after handoff", a
       created();
       return prepared;
     },
-    activate: vi.fn(),
     release: vi.fn(),
   };
   const player = new Playback(
@@ -255,9 +254,11 @@ test("prepared media applies the server duration and end guard after handoff", a
   prepared.metadata();
   prepared.dispatchEvent(new Event("canplay"));
   await player.next();
-  expect(owner.activate).toHaveBeenCalledWith(prepared);
+  expect(owner.release).toHaveBeenCalledWith(prepared);
+  initial.duration = 440;
+  initial.metadata();
   expect(player.positionSnapshot().duration).toBe(220);
-  prepared.tick(220);
+  initial.tick(220);
   await vi.waitFor(() => expect(player.snapshot().current).toBeNull());
   player.retire();
 });
