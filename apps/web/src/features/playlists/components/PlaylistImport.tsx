@@ -49,11 +49,15 @@ export default function PlaylistImport({
 
   return (
     <section className="playlist-import" aria-label="Import a playlist">
-      <h2>Import a playlist</h2>
-      <p className="muted import-explain">
+      <p>
         {mode === "copy"
-          ? "Create an editable copy. Changes at the provider will not update it. Copying a playlist adds its track details, without downloading audio. Tracks need an available source to play."
-          : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order. Following adds track details, without downloading audio. Tracks need an available source to play."}
+          ? "Create an editable copy. Changes at the provider will not update it."
+          : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order."}
+      </p>
+      <p className="muted">
+        {mode === "copy"
+          ? "Hito adds track details, without downloading audio. Tracks need an available source to play."
+          : "Following adds track details, without downloading audio. Tracks need an available source to play."}
       </p>
       {selected ? (
         <form className="playlist-import-form" onSubmit={submit}>
@@ -143,7 +147,7 @@ export default function PlaylistImport({
           )}
         </form>
       ) : (
-        <div>
+        <div className="playlist-import-empty">
           <p className="muted">
             {connections.length
               ? "Your connected services do not offer playlist imports. Connect another service in Settings."

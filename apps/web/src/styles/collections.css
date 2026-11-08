@@ -1,29 +1,37 @@
-.inline-form {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 22px;
-  margin-bottom: 32px;
-  background: var(--surface);
-  border-radius: 12px;
-}
-.inline-form label {
-  font-size: 13px;
-}
-.inline-form input {
-  flex: 1;
-  max-width: 380px;
-}
 .playlist-import {
-  margin-bottom: 32px;
-}
-.playlist-import h2 {
-  font-size: 18px;
-  margin-bottom: 8px;
+  display: grid;
+  gap: 8px;
 }
 .playlist-import p {
   max-width: 65ch;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.5;
+}
+.playlist-import-empty {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+.dialog .playlist-import-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+.dialog .playlist-import-form .button {
+  justify-self: start;
+}
+.page-heading-actions,
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.empty-actions {
+  justify-content: center;
+}
+.name-warning {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 .playlist-import-form {
   display: grid;

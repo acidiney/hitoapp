@@ -11,6 +11,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "../pages/PlaylistIndexPage";
+import { openImport } from "../../../test/playlistDialogs";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
   playlistConnection as connection,
@@ -35,6 +36,7 @@ test("Playlists follows a provider playlist daily and navigates only after its r
   render(createElement(PlaylistIndexPage, props), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
+  openImport();
   const form = within(
     screen.getByRole("region", { name: "Import a playlist" }),
   );
@@ -100,7 +102,7 @@ test("Playlists follows a provider playlist daily and navigates only after its r
     ),
   );
   expect(fetch).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("button", { name: "Create playlist" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "New playlist" })).toBeTruthy();
 });
 
 test("a lost daily Follow retries its original operation after the draft and connection revision change", async () => {
@@ -116,6 +118,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   const view = render(createElement(PlaylistIndexPage, props), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
+  openImport();
   const form = within(
     screen.getByRole("region", { name: "Import a playlist" }),
   );

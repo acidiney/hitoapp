@@ -16,6 +16,7 @@ import { change } from "../../shared/sync";
 import { libraryApi } from "../../features/library/api/libraryApi";
 import { NoticeBanner, NoticeProvider } from "../../shared/ui/Notices";
 import PlaylistIndexPage from "../../features/playlists/pages/PlaylistIndexPage";
+import { openCreate } from "../../test/playlistDialogs";
 import PlaylistPage from "../../features/playlists/pages/PlaylistPage";
 import { useMutation } from "../../shared/hooks/useMutation";
 import { useScanJob } from "../../features/library/hooks/useScanJob";
@@ -62,7 +63,10 @@ beforeEach(() => vi.clearAllMocks());
 test("failed playlist creation preserves its form and does not reload", async () => {
   vi.mocked(change).mockRejectedValueOnce(new Error("Server unavailable"));
   render(createElement(PlaylistIndexPage, shared), { wrapper });
-  const input = screen.getByLabelText("New playlist") as HTMLInputElement;
+  openCreate();
+  const input = screen.getByRole("textbox", {
+    name: "Name",
+  }) as HTMLInputElement;
   fireEvent.change(input, { target: { value: "Keep this name" } });
   fireEvent.click(screen.getByRole("button", { name: "Create playlist" }));
   await screen.findByText("Server unavailable");
@@ -89,14 +93,16 @@ test("failed playlist deletion stays on the current page", async () => {
   expect(screen.getByRole("heading", { name: "Keep me" })).toBeTruthy();
 });
 
-test("only an accepted playlist creation clears its form", async () => {
+test("only an accepted playlist creation closes its dialog", async () => {
   vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
   render(createElement(PlaylistIndexPage, shared), { wrapper });
-  const input = screen.getByLabelText("New playlist") as HTMLInputElement;
-  fireEvent.change(input, { target: { value: "Saved name" } });
+  openCreate();
+  fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+    target: { value: "Saved name" },
+  });
   fireEvent.click(screen.getByRole("button", { name: "Create playlist" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
-  expect(input.value).toBe("");
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 test("an old account mutation cannot show an error or clear the new account's pending state", async () => {

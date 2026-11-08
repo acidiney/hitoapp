@@ -291,19 +291,6 @@
   .queue-virtual > li {
     gap: 6px;
   }
-  .inline-form {
-    flex-wrap: wrap;
-    padding: 18px;
-  }
-  .inline-form label {
-    width: 100%;
-  }
-  .inline-form input {
-    width: 100px;
-  }
-  .inline-form .button {
-    font-size: 11px;
-  }
   .playlist-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px 16px;

@@ -10,6 +10,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "../pages/PlaylistIndexPage";
+import { openImport } from "../../../test/playlistDialogs";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
   otherPlaylistConnection,
@@ -35,10 +36,12 @@ const props: Schema<"PlaylistIndexPageProps"> = {
 };
 
 function renderPage(page: Schema<"PlaylistIndexPageProps">) {
-  return render(createElement(PlaylistIndexPage, page), {
+  const view = render(createElement(PlaylistIndexPage, page), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
     reactStrictMode: true,
   });
+  openImport();
+  return view;
 }
 
 function submitTwice(reference: string) {

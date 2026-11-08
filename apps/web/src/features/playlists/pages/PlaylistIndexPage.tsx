@@ -1,15 +1,17 @@
 import type { Schema } from "../../../shared/schema";
-import { createUuid } from "../../../shared/uuid";
-import { useState, type FormEvent } from "react";
-import { Link, router } from "@inertiajs/react";
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { Link } from "@inertiajs/react";
+import { Link2, Plus } from "lucide-react";
 
-import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import PageHeading from "../../../shared/ui/PageHeading";
-import Artwork from "../../artwork/components/Artwork";
-import PlaylistImport from "../components/PlaylistImport";
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
+import Artwork from "../../artwork/components/Artwork";
+import PlaylistCreateDialog from "../components/PlaylistCreateDialog";
+import PlaylistImport from "../components/PlaylistImport";
+
+type Panel = "create" | "import" | null;
 
 export default function PlaylistIndexPage({
   user,
@@ -17,49 +19,36 @@ export default function PlaylistIndexPage({
   connections,
   service_names,
 }: Schema<"PlaylistIndexPageProps">) {
-  const [name, setName] = useState("");
-  const { mutate, pending } = useMutation(user.id);
-  async function create(event: FormEvent) {
-    event.preventDefault();
-    if (!name.trim() || pending) return;
-    const result = await mutate({
-      kind: "playlist_create",
-      playlist_id: createUuid(),
-      name,
-    });
-    if (result.ok) {
-      setName("");
-      router.reload();
-    }
-  }
+  const [panel, setPanel] = useState<Panel>(() =>
+    window.location.hash === "#new-playlist" ? "create" : null,
+  );
+  const actions = (
+    <>
+      <Button
+        variant="primary"
+        aria-haspopup="dialog"
+        onClick={() => setPanel("create")}
+      >
+        <Plus size={17} aria-hidden="true" />
+        New playlist
+      </Button>
+      <Button aria-haspopup="dialog" onClick={() => setPanel("import")}>
+        <Link2 size={17} aria-hidden="true" />
+        Import from a link
+      </Button>
+    </>
+  );
   return (
     <>
       <PageHeading
         title="Playlists"
         description={`${playlists.length} ${playlists.length === 1 ? "playlist" : "playlists"}`}
-      />
-      <form className="inline-form" id="new-playlist" onSubmit={create}>
-        <label htmlFor="playlist-name">New playlist</label>
-        <input
-          id="playlist-name"
-          value={name}
-          maxLength={256}
-          placeholder="Give it a name"
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-        <Button variant="primary" type="submit" disabled={pending}>
-          <Plus size={17} />
-          Create playlist
-        </Button>
-      </form>
-      <PlaylistImport
-        key={user.id}
-        account={user.id}
-        connections={connections}
-        names={service_names}
-      />
-      {playlists.length > 0 && (
+      >
+        {playlists.length > 0 && (
+          <div className="page-heading-actions">{actions}</div>
+        )}
+      </PageHeading>
+      {playlists.length > 0 ? (
         <div className="playlist-list">
           {playlists.map((playlist) => (
             <Link href={`/playlists/${playlist.id}`} key={playlist.id}>
@@ -84,12 +73,34 @@ export default function PlaylistIndexPage({
             </Link>
           ))}
         </div>
-      )}
-      {playlists.length === 0 && (
+      ) : (
         <EmptyState
-          title="A home for your favorites"
-          text="Create a playlist, then add tracks from your library."
+          title="No playlists yet"
+          text="Make a playlist and add tracks from your library, or bring one over from a link."
+          libraryLink={false}
+        >
+          <div className="empty-actions">{actions}</div>
+        </EmptyState>
+      )}
+      {panel === "create" && (
+        <PlaylistCreateDialog
+          account={user.id}
+          playlists={playlists}
+          onClose={() => setPanel(null)}
         />
+      )}
+      {panel === "import" && (
+        <Dialog title="Import a playlist" wide onClose={() => setPanel(null)}>
+          <PlaylistImport
+            key={user.id}
+            account={user.id}
+            connections={connections}
+            names={service_names}
+          />
+          <div className="dialog-actions">
+            <Button onClick={() => setPanel(null)}>Close</Button>
+          </div>
+        </Dialog>
       )}
     </>
   );
