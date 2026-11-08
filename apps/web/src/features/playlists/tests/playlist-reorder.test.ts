@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { reorderMoves } from "../model/reorder";
+import { applyMoveSteps, reorderMoves } from "../model/reorder";
 
 const entries = (positions: number[]) =>
   positions.map((position, index) => ({ entry_id: `e${index}`, position }));
@@ -60,4 +60,55 @@ test("a tie in a spaced playlist stays local", () => {
 test("a tie that would shift thousands of entries is refused", () => {
   const list = large((index) => (index <= 2500 ? index : index - 1));
   expect(reorderMoves(list, "e2500", 1)).toBeNull();
+});
+
+test("a sequence of moves yields the final order and only the net position changes", () => {
+  const result = applyMoveSteps(entries([0, 1, 2]), [
+    { entry_id: "e0", delta: 1 },
+    { entry_id: "e0", delta: 1 },
+  ])!;
+  expect(result.entries.map((entry) => entry.entry_id)).toEqual([
+    "e1",
+    "e2",
+    "e0",
+  ]);
+  expect(result.moves).toEqual([
+    { entry_id: "e1", position: 0 },
+    { entry_id: "e2", position: 1 },
+    { entry_id: "e0", position: 2 },
+  ]);
+});
+
+test("moving an entry and moving it back leaves nothing to save", () => {
+  const result = applyMoveSteps(entries([0, 1, 2]), [
+    { entry_id: "e1", delta: -1 },
+    { entry_id: "e1", delta: 1 },
+  ])!;
+  expect(result.entries.map((entry) => entry.entry_id)).toEqual([
+    "e0",
+    "e1",
+    "e2",
+  ]);
+  expect(result.moves).toEqual([]);
+});
+
+test("moves over tied positions keep the order they show", () => {
+  const result = applyMoveSteps(entries([5, 5, 5]), [
+    { entry_id: "e0", delta: 1 },
+  ])!;
+  expect(result.entries.map((entry) => entry.entry_id)).toEqual([
+    "e1",
+    "e0",
+    "e2",
+  ]);
+  const positions = new Map(
+    result.entries.map((entry) => [entry.entry_id, entry.position]),
+  );
+  expect(positions.get("e1")!).toBeLessThan(positions.get("e0")!);
+  expect(positions.get("e0")!).toBeLessThan(positions.get("e2")!);
+});
+
+test("a sequence that would shift thousands of entries is refused", () => {
+  const list = large((index) => (index <= 2500 ? index : index - 1));
+  expect(applyMoveSteps(list, [{ entry_id: "e2500", delta: 1 }])).toBeNull();
 });

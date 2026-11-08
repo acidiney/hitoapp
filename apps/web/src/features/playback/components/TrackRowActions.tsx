@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Heart } from "lucide-react";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import { usePlayer } from "./PlaybackProvider";
-import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import TrackRowMenu from "./TrackRowMenu";
 import type { TrackRow } from "./TrackTable";
 
@@ -14,12 +13,12 @@ export default function TrackRowActions({
   playlist,
   mutate,
   onMutationAccepted,
-  editing = false,
+  replaceMenu,
   queueActions = true,
   onNavigate,
   children,
 }: {
-  editing?: boolean;
+  replaceMenu?: ReactNode;
   queueActions?: boolean;
   onNavigate?: () => void;
   children?: ReactNode;
@@ -30,7 +29,6 @@ export default function TrackRowActions({
   onMutationAccepted?: (action: Schema<"Action">) => void;
 }) {
   const player = usePlayer();
-  const entryId = track.entry_id;
   async function toggleLike() {
     const action: Schema<"Action"> = {
       kind: "like_set",
@@ -53,14 +51,7 @@ export default function TrackRowActions({
         <Heart size={17} fill={track.liked ? "currentColor" : "none"} />
       </button>
       {children}
-      {editing && playlist && entryId ? (
-        <PlaylistEntryRemove
-          entryId={entryId}
-          title={track.title}
-          playlist={playlist}
-          mutate={mutate}
-        />
-      ) : (
+      {replaceMenu ?? (
         <TrackRowMenu
           track={track}
           playlists={playlists}

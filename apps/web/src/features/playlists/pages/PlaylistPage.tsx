@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { useState } from "react";
 import { router } from "@inertiajs/react";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
@@ -7,10 +8,12 @@ import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import { headerCoverId, tintFor } from "../../../shared/ui/collectionTint";
 import PlayShuffle from "../../playback/components/PlayShuffle";
-import PlaylistRename from "../components/PlaylistRename";
+import PlaylistEditPanel from "../components/PlaylistEditPanel";
+import DiscardEditsDialog from "../components/DiscardEditsDialog";
 import { usePlaylistEdit } from "../hooks/usePlaylistEdit";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
+import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
@@ -27,6 +30,26 @@ import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
 import Button from "../../../shared/ui/Button";
+
+function rowsFor(entries: Schema<"PlaylistEntry">[]): TrackTableRow[] {
+  return entries.map<TrackTableRow>((entry) => {
+    const { recording_id, ...metadata } = entry;
+    return recording_id == null
+      ? {
+          kind: "retained",
+          entry: {
+            entry_id: entry.entry_id,
+            title: entry.title,
+            artist: entry.artist,
+            origin: entry.origin,
+          },
+        }
+      : {
+          kind: "recording",
+          track: { ...metadata, id: recording_id, row_id: entry.entry_id },
+        };
+  });
+}
 
 export default function PlaylistPage({
   user,
@@ -53,24 +76,17 @@ export default function PlaylistPage({
     follow.follow,
     follow.retryStatus,
   );
-  const rows = detail.entries.map<TrackTableRow>((entry) => {
-    const { recording_id, ...metadata } = entry;
-    return recording_id == null
-      ? {
-          kind: "retained",
-          entry: {
-            entry_id: entry.entry_id,
-            title: entry.title,
-            artist: entry.artist,
-            origin: entry.origin,
-          },
-        }
-      : {
-          kind: "recording",
-          track: { ...metadata, id: recording_id, row_id: entry.entry_id },
-        };
-  });
-  const tracks = rows.flatMap((row) =>
+  const edit = usePlaylistEdit(
+    user.id,
+    detail.playlist.id,
+    detail.playlist.name,
+    detail.entries,
+  );
+  const [discarding, setDiscarding] = useState(false);
+  const artworkRetry = useArtworkRetryItem({ playlistId: detail.playlist.id });
+  const savedRows = rowsFor(detail.entries);
+  const rows = edit.editing ? rowsFor(edit.entries) : savedRows;
+  const tracks = savedRows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
   const entryCount = detail.entries.length;
@@ -83,7 +99,6 @@ export default function PlaylistPage({
   }
   const readOnlyNotice =
     "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play.";
-  const edit = usePlaylistEdit(user.id, detail.playlist.id, detail.entries);
   const editable = detail.playlist.kind === "local";
   const ready = detail.entries.filter(
     (entry) => entry.recording_id != null && entry.available,
@@ -129,21 +144,41 @@ export default function PlaylistPage({
         actions={
           <>
             <PlayShuffle tracks={tracks} label="playlist" />
-            {editable && (
+            {editable && !edit.editing && (
               <Button
                 className="tint-secondary"
                 type="button"
-                pressed={edit.editing}
-                onClick={() => edit.setEditing(!edit.editing)}
+                onClick={edit.begin}
               >
-                {edit.editing ? "Done" : "Edit"}
+                Edit
               </Button>
+            )}
+            {editable && edit.editing && (
+              <>
+                <Button
+                  variant="primary"
+                  disabled={edit.pending || edit.name.trim() === ""}
+                  onClick={() => void edit.done()}
+                >
+                  Done
+                </Button>
+                <Button
+                  className="tint-secondary"
+                  disabled={edit.pending}
+                  onClick={() =>
+                    edit.dirty ? setDiscarding(true) : edit.cancel()
+                  }
+                >
+                  Cancel
+                </Button>
+              </>
             )}
             <PlaylistDownloadButton />
             <ActionMenu
               label="More options"
               triggerClassName="tint-secondary"
               items={[
+                ...(artworkRetry ? [artworkRetry] : []),
                 {
                   label: "Delete playlist",
                   destructive: true,
@@ -166,11 +201,22 @@ export default function PlaylistPage({
         </p>
       )}
       {edit.editing && editable && (
-        <PlaylistRename
-          key={detail.playlist.name}
-          name={detail.playlist.name}
-          pending={edit.pending}
-          save={edit.rename}
+        <PlaylistEditPanel
+          playlistId={detail.playlist.id}
+          playlists={playlists}
+          name={edit.name}
+          dirty={edit.dirty}
+          disabled={edit.pending}
+          onName={edit.setName}
+        />
+      )}
+      {discarding && (
+        <DiscardEditsDialog
+          onKeep={() => setDiscarding(false)}
+          onDiscard={() => {
+            setDiscarding(false);
+            edit.cancel();
+          }}
         />
       )}
       {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
@@ -196,7 +242,9 @@ export default function PlaylistPage({
             edit={{
               active: edit.editing && editable,
               busy: edit.pending,
-              move: (id, delta) => void edit.move(id, delta),
+              removed: edit.removed,
+              move: edit.move,
+              toggleRemove: edit.toggleRemove,
             }}
           />
         </>

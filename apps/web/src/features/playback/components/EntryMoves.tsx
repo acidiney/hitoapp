@@ -6,12 +6,14 @@ export default function EntryMoves({
   title,
   first,
   last,
+  removed,
   edit,
 }: {
   entryId: string;
   title: string;
   first: boolean;
   last: boolean;
+  removed: boolean;
   edit: PlaylistEdit;
 }) {
   return (
@@ -20,7 +22,7 @@ export default function EntryMoves({
         type="button"
         className="icon-button"
         aria-label={`Move ${title} up`}
-        disabled={first || edit.busy}
+        disabled={first || edit.busy || removed}
         onClick={() => edit.move(entryId, -1)}
       >
         <ArrowUp size={16} />
@@ -29,7 +31,7 @@ export default function EntryMoves({
         type="button"
         className="icon-button"
         aria-label={`Move ${title} down`}
-        disabled={last || edit.busy}
+        disabled={last || edit.busy || removed}
         onClick={() => edit.move(entryId, 1)}
       >
         <ArrowDown size={16} />

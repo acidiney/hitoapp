@@ -123,6 +123,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
       name: "Remove Unknown provider item from playlist",
     }),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   const mutation = fetch.mock.calls.find(([path]) => path === "/api/v1/sync");
   expect(mutation).toBeDefined();

@@ -63,7 +63,9 @@ export type TrackTableRow =
 export type PlaylistEdit = {
   active: boolean;
   busy: boolean;
+  removed: ReadonlySet<string>;
   move(entryId: string, delta: -1 | 1): void;
+  toggleRemove(entryId: string): void;
 };
 
 export type TrackColumn = "artist" | "album";
@@ -128,7 +130,6 @@ export default function TrackTable({
   );
   const showArtist = !without.includes("artist");
   const showAlbum = !without.includes("album") && anyAlbum;
-  const editing = edit?.active ?? false;
   return (
     <div className="table-scroll">
       <table
@@ -182,9 +183,12 @@ export default function TrackTable({
             return (
               <tr
                 key={rowId}
-                className={
-                  track !== null && currentId === track.id ? "playing-row" : ""
-                }
+                className={[
+                  track !== null && currentId === track.id ? "playing-row" : "",
+                  edit?.removed.has(rowId) ? "removed-row" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
                 <td className="number-column">
                   {view && catalog ? (
@@ -281,9 +285,18 @@ export default function TrackTable({
                       track={track}
                       playlists={playlists}
                       playlist={playlist}
-                      editing={editing}
                       mutate={mutate}
                       onMutationAccepted={catalog?.mutated}
+                      replaceMenu={
+                        edit?.active && playlist?.kind === "local" ? (
+                          <PlaylistEntryRemove
+                            title={track.title}
+                            removed={edit.removed.has(rowId)}
+                            disabled={edit.busy}
+                            onToggle={() => edit.toggleRemove(rowId)}
+                          />
+                        ) : undefined
+                      }
                     >
                       {edit?.active && (
                         <EntryMoves
@@ -291,6 +304,7 @@ export default function TrackTable({
                           title={track.title}
                           first={index === 0}
                           last={index === rows.length - 1}
+                          removed={edit.removed.has(rowId)}
                           edit={edit}
                         />
                       )}
@@ -302,14 +316,17 @@ export default function TrackTable({
                         title={row.entry.title}
                         first={index === 0}
                         last={index === rows.length - 1}
+                        removed={edit.removed.has(rowId)}
                         edit={edit}
                       />
-                      <PlaylistEntryRemove
-                        entryId={row.entry.entry_id}
-                        title={row.entry.title}
-                        playlist={playlist}
-                        mutate={mutate}
-                      />
+                      {playlist.kind === "local" && (
+                        <PlaylistEntryRemove
+                          title={row.entry.title}
+                          removed={edit.removed.has(rowId)}
+                          disabled={edit.busy}
+                          onToggle={() => edit.toggleRemove(rowId)}
+                        />
+                      )}
                     </div>
                   ) : null}
                 </td>

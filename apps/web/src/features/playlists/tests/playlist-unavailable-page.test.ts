@@ -220,6 +220,7 @@ test("retained playlists remain editable and known recordings resolve audio only
         name: `Remove ${removed.title} from playlist`,
       }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
     expect(fetch).toHaveBeenCalledTimes(beforeRemoval + 1);
     expect(fetch.mock.calls[beforeRemoval][0]).toBe("/api/v1/sync");

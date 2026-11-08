@@ -1,35 +1,27 @@
-import type { Schema } from "../../../shared/schema";
-import { router } from "@inertiajs/react";
-import { X } from "lucide-react";
-import type { Mutate } from "../../../shared/hooks/useMutation";
+import { Undo2, X } from "lucide-react";
 
 export default function PlaylistEntryRemove({
-  entryId,
   title,
-  playlist,
-  mutate,
+  removed,
+  disabled,
+  onToggle,
 }: {
-  entryId: string;
   title: string;
-  playlist: Schema<"Playlist">;
-  mutate: Mutate;
+  removed: boolean;
+  disabled: boolean;
+  onToggle: () => void;
 }) {
-  if (playlist.kind !== "local") return null;
-  async function remove() {
-    const result = await mutate({
-      kind: "entry_remove",
-      playlist_id: playlist.id,
-      entry_id: entryId,
-    });
-    if (result.ok) router.reload();
-  }
   return (
     <button
+      type="button"
       className="icon-button"
-      aria-label={`Remove ${title} from playlist`}
-      onClick={() => void remove()}
+      aria-label={
+        removed ? `Keep ${title} in playlist` : `Remove ${title} from playlist`
+      }
+      disabled={disabled}
+      onClick={onToggle}
     >
-      <X size={16} />
+      {removed ? <Undo2 size={16} /> : <X size={16} />}
     </button>
   );
 }

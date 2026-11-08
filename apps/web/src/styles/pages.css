@@ -203,29 +203,38 @@
   font-size: 13px;
   color: var(--ink-soft);
 }
-.rename-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 12px;
+.edit-panel {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
   margin-bottom: 18px;
 }
-.rename-form label {
-  display: flex;
-  flex-direction: column;
+.edit-panel label {
+  display: grid;
   gap: 4px;
-  flex: 1 1 260px;
-  max-width: 420px;
   font-size: 13px;
   font-weight: 700;
 }
-.rename-form input {
+.edit-panel input {
   min-height: 44px;
   font-weight: 400;
 }
-.rename-form .muted {
-  flex: 1 1 100%;
+.edit-panel .muted {
+  margin: 0;
   font-size: 13px;
+}
+.edit-dirty {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.removed-row > td:not(.actions-column) {
+  opacity: 0.5;
+}
+.removed-row .track-title,
+.removed-row .retained-title {
+  text-decoration: line-through;
 }
 
 .album-header {

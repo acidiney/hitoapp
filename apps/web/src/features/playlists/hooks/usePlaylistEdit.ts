@@ -1,55 +1,132 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { useNotice } from "../../../shared/ui/Notices";
 
-import { reorderMoves } from "../model/reorder";
+import { applyMoveSteps, type MoveStep } from "../model/reorder";
 import { log } from "../../../shared/log";
+
+const MAX_CHANGES = 100;
+
+type Draft = { name: string; steps: MoveStep[]; removed: ReadonlySet<string> };
 
 export function usePlaylistEdit(
   account: string,
   playlist: string,
+  savedName: string,
   entries: Schema<"PlaylistEntry">[],
 ) {
-  const { mutate, mutateMany, pending } = useMutation(account);
+  const { mutateMany, pending } = useMutation(account);
   const notice = useNotice();
   const [editing, setEditing] = useState(false);
   const [reloading, setReloading] = useState(false);
-  function reload() {
-    setReloading(true);
-    router.reload({ onFinish: () => setReloading(false) });
+  const [draft, setDraft] = useState<Draft>({
+    name: savedName,
+    steps: [],
+    removed: new Set(),
+  });
+  const ordered = useMemo(
+    () => applyMoveSteps(entries, draft.steps) ?? { entries, moves: [] },
+    [entries, draft.steps],
+  );
+  const name = draft.name.trim();
+  const renamed = name !== "" && name !== savedName;
+  const dirty =
+    renamed ||
+    draft.name !== savedName ||
+    draft.steps.length > 0 ||
+    draft.removed.size > 0;
+  const busy = pending || reloading;
+
+  function begin() {
+    setDraft({ name: savedName, steps: [], removed: new Set() });
+    setEditing(true);
   }
-  async function move(entryId: string, delta: -1 | 1) {
-    if (pending || reloading) return;
-    const moves = reorderMoves(entries, entryId, delta);
-    if (moves === null) {
+  function cancel() {
+    setDraft({ name: savedName, steps: [], removed: new Set() });
+    setEditing(false);
+  }
+  function setName(next: string) {
+    setDraft((current) => ({ ...current, name: next }));
+  }
+  function move(entryId: string, delta: -1 | 1) {
+    if (busy) return;
+    const steps = [...draft.steps, { entry_id: entryId, delta }];
+    if (applyMoveSteps(entries, steps) === null) {
       notice("This playlist's order cannot be changed here. Try again later.");
       return;
     }
-    if (moves.length === 0) return;
-    log.info("playlist.reorder", { playlist_id: playlist });
-    await mutateMany(
-      moves.map((step) => ({
-        kind: "entry_move" as const,
-        playlist_id: playlist,
-        entry_id: step.entry_id,
-        position: step.position,
-      })),
-    );
-    reload();
+    setDraft((current) => ({ ...current, steps }));
   }
-  async function rename(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed || pending || reloading) return false;
-    log.info("playlist.rename", { playlist_id: playlist });
-    const result = await mutate({
-      kind: "playlist_rename",
-      playlist_id: playlist,
-      name: trimmed,
+  function toggleRemove(entryId: string) {
+    setDraft((current) => {
+      const removed = new Set(current.removed);
+      if (!removed.delete(entryId)) removed.add(entryId);
+      return { ...current, removed };
     });
-    if (result.ok) reload();
-    return result.ok;
   }
-  return { editing, setEditing, move, rename, pending: pending || reloading };
+  async function done() {
+    if (busy) return;
+    if (!dirty) return setEditing(false);
+    if (name === "") return;
+    const actions: Schema<"Action">[] = [
+      ...(renamed
+        ? [
+            {
+              kind: "playlist_rename" as const,
+              playlist_id: playlist,
+              name,
+            },
+          ]
+        : []),
+      ...[...draft.removed].map((entryId) => ({
+        kind: "entry_remove" as const,
+        playlist_id: playlist,
+        entry_id: entryId,
+      })),
+      ...ordered.moves
+        .filter((step) => !draft.removed.has(step.entry_id))
+        .map((step) => ({
+          kind: "entry_move" as const,
+          playlist_id: playlist,
+          entry_id: step.entry_id,
+          position: step.position,
+        })),
+    ];
+    if (actions.length > MAX_CHANGES) {
+      notice(
+        "That is too many changes to save at once. Cancel and make them in smaller steps.",
+      );
+      return;
+    }
+    log.info("playlist.edit_saved", {
+      playlist_id: playlist,
+      count: actions.length,
+    });
+    const result = await mutateMany(actions);
+    if (!result.ok) return;
+    setReloading(true);
+    router.reload({
+      onFinish: () => {
+        setReloading(false);
+        setDraft({ name: savedName, steps: [], removed: new Set() });
+        setEditing(false);
+      },
+    });
+  }
+  return {
+    editing,
+    begin,
+    cancel,
+    done,
+    dirty,
+    name: draft.name,
+    setName,
+    entries: ordered.entries,
+    removed: draft.removed,
+    move,
+    toggleRemove,
+    pending: busy,
+  };
 }

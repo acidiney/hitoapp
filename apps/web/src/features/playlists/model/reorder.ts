@@ -48,3 +48,40 @@ export function reorderMoves(
     .filter((move) => current.get(move.entry_id) !== move.position);
   return moves.length > MAX_REORDER_MOVES ? null : moves;
 }
+
+export type MoveStep = { entry_id: string; delta: -1 | 1 };
+
+export function applyMoveSteps<T extends OrderedEntry>(
+  entries: T[],
+  steps: MoveStep[],
+): { entries: T[]; moves: EntryMove[] } | null {
+  let working = entries;
+  for (const step of steps) {
+    const moves = reorderMoves(working, step.entry_id, step.delta);
+    if (moves === null) return null;
+    if (moves.length === 0) continue;
+    const from = working.findIndex((entry) => entry.entry_id === step.entry_id);
+    const order = [...working];
+    [order[from], order[from + step.delta]] = [
+      order[from + step.delta],
+      order[from],
+    ];
+    const positions = new Map(
+      moves.map((move) => [move.entry_id, move.position]),
+    );
+    working = order.map((entry) =>
+      positions.has(entry.entry_id)
+        ? { ...entry, position: positions.get(entry.entry_id)! }
+        : entry,
+    );
+  }
+  const original = new Map(
+    entries.map((entry) => [entry.entry_id, entry.position]),
+  );
+  return {
+    entries: working,
+    moves: working
+      .filter((entry) => original.get(entry.entry_id) !== entry.position)
+      .map((entry) => ({ entry_id: entry.entry_id, position: entry.position })),
+  };
+}
