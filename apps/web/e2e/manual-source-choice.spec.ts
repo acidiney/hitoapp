@@ -1,3 +1,4 @@
+import { chooseMusicService } from "./fixtures/music-service";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
@@ -626,9 +627,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     await attachment
       .getByRole("button", { name: "Find a source", exact: true })
       .click();
-    await attachment
-      .getByRole("combobox", { name: "Music service", exact: true })
-      .selectOption(connections[2].id);
+    await chooseMusicService(page, attachment, connections[2].id);
     await attachment
       .getByRole("searchbox", { name: "Search music", exact: true })
       .fill(fixture.original.title);

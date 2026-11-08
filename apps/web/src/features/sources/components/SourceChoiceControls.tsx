@@ -34,6 +34,18 @@ function bestGuessReason(source: Schema<"Source">) {
   return `Chosen from ${provider}'s top result because no exact match was found.`;
 }
 
+function sourceLabels(source: Schema<"Source">) {
+  if (source.provider === "local")
+    return { primary: source.label, secondary: "Music folder" };
+  const service = source.provider_label?.trim();
+  if (service)
+    return {
+      primary: service,
+      secondary: source.label.replaceAll(" / ", " · "),
+    };
+  return { primary: source.label, secondary: "Music service" };
+}
+
 function savedSelection(choice: Schema<"SourceChoice">, source: string) {
   return choice.sources.some(
     (entry) => entry.selected && entry.source.id === source,
@@ -95,62 +107,61 @@ export default function SourceChoiceControls({
       {choice && (
         <>
           <ul className="rd-rows rd-choices">
-            {choice.sources.map((entry) => (
-              <li className="rd-row rd-choice" key={entry.source.id}>
-                <label>
-                  <input
-                    type="radio"
-                    name={`playback-source-${heading}`}
-                    checked={selectedSource === entry.source.id}
-                    disabled={blocked || !entry.selectable}
-                    onChange={() => stage(entry.source.id)}
-                  />{" "}
-                  {entry.source.label}
-                </label>
-                <span className="rd-choice-origin">
-                  {entry.source.provider === "local"
-                    ? "Music folder"
-                    : entry.source.provider}
-                </span>
-                <span className="rd-choice-state">
-                  <span
-                    className="track-chip"
-                    data-tone={
-                      entry.source.device_id
-                        ? "action"
+            {choice.sources.map((entry) => {
+              const labels = sourceLabels(entry.source);
+              return (
+                <li className="rd-row rd-choice" key={entry.source.id}>
+                  <label>
+                    <input
+                      type="radio"
+                      name={`playback-source-${heading}`}
+                      checked={selectedSource === entry.source.id}
+                      disabled={blocked || !entry.selectable}
+                      onChange={() => stage(entry.source.id)}
+                    />{" "}
+                    {labels.primary}
+                  </label>
+                  <span className="rd-choice-origin">{labels.secondary}</span>
+                  <span className="rd-choice-state">
+                    <span
+                      className="track-chip"
+                      data-tone={
+                        entry.source.device_id
+                          ? "action"
+                          : entry.source.ready
+                            ? "success"
+                            : "warning"
+                      }
+                    >
+                      {entry.source.device_id
+                        ? "On this device"
                         : entry.source.ready
-                          ? "success"
-                          : "warning"
-                    }
-                  >
-                    {entry.source.device_id
-                      ? "On this device"
-                      : entry.source.ready
-                        ? "Ready"
-                        : "Not prepared"}
-                  </span>
-                  {choice.mode === "manual" && entry.selected && (
-                    <span className="track-chip" data-tone="action">
-                      Pinned
+                          ? "Ready"
+                          : "Not prepared"}
                     </span>
-                  )}
-                  {entry.source.match_kind === "best_guess" && (
-                    <>
-                      <span
-                        className="track-chip"
-                        data-tone="warning"
-                        title={bestGuessReason(entry.source)}
-                      >
-                        Best guess
+                    {choice.mode === "manual" && entry.selected && (
+                      <span className="track-chip" data-tone="action">
+                        Pinned
                       </span>
-                      <Button variant="secondary" onClick={fixSource}>
-                        Fix source
-                      </Button>
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
+                    )}
+                    {entry.source.match_kind === "best_guess" && (
+                      <>
+                        <span
+                          className="track-chip"
+                          data-tone="warning"
+                          title={bestGuessReason(entry.source)}
+                        >
+                          Best guess
+                        </span>
+                        <Button variant="secondary" onClick={fixSource}>
+                          Fix source
+                        </Button>
+                      </>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
           <div
             className="rd-actions"

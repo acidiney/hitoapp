@@ -137,7 +137,7 @@ test("attaching a reviewed source refreshes sibling choices and fences an older 
   const service = await add().findByRole("combobox", {
     name: "Music service",
   });
-  expect(service).toHaveProperty("value", "video-connection");
+  expect(service.textContent).toContain("Video archive");
   expectOwnedRequest(requests("/api/v1/plugins", "GET")[0][1]);
   fireEvent.change(add().getByRole("searchbox", { name: "Search music" }), {
     target: { value: query },

@@ -1,3 +1,4 @@
+import { chooseMusicService } from "./music-service";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
@@ -68,9 +69,7 @@ export async function discoverRecording(
   expected: Schema<"ProviderRecording">,
 ) {
   await page.goto("/discover");
-  await page
-    .getByRole("combobox", { name: "Music service", exact: true })
-    .selectOption(connection.id);
+  await chooseMusicService(page, page, connection.id);
   await page.getByLabel("Search music", { exact: true }).fill(query);
   const searched = await preferencesAction<Schema<"SearchPage">>(
     page,

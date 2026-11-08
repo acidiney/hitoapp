@@ -118,13 +118,15 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   const service = await screen.findByRole("combobox", {
     name: "Music service",
   });
-  expect((service as HTMLSelectElement).value).toBe("video-connection");
+  expect(service.textContent).toContain("Video archive");
+  fireEvent.click(service);
   expect(screen.getByRole("option", { name: /Video archive/ })).toBeTruthy();
   expect(
     screen.queryByRole("option", {
       name: /Search catalogue|Metadata catalogue/,
     }),
   ).toBeNull();
+  fireEvent.click(service);
   expect(requests()).toHaveLength(1);
   expect(requests()[0][0]).toBe("/api/v1/plugins");
   const search = screen.getByRole("searchbox", { name: "Search music" });
@@ -380,7 +382,7 @@ test("a delayed review cannot cross an account and recording change or load the 
   const service = await screen.findByRole("combobox", {
     name: "Music service",
   });
-  expect((service as HTMLSelectElement).value).toBe("bob-video-connection");
+  expect(service.textContent).toContain("Video archive");
   expect(requests()).toHaveLength(4);
   expect(requests()[3][0]).toBe("/api/v1/plugins");
   expect(requests()[3][1]?.headers).toEqual(

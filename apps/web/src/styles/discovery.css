@@ -21,12 +21,8 @@
 .discovery-search[data-pills] > .pills {
   grid-column: 1 / -1;
 }
-.discovery-service select {
-  width: 100%;
+.discovery-service {
   min-width: 0;
-  min-height: 46px;
-  padding: 10px 12px;
-  color: var(--ink);
 }
 .discovery-query {
   display: flex;

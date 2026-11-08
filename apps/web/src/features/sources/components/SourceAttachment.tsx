@@ -75,7 +75,21 @@ export default function SourceAttachment({
             : "Find a source"}
         </Button>
       )}
-      {workflow.error && <p role="alert">{workflow.error}</p>}
+      {workflow.error && (
+        <p role="alert">
+          {workflow.error}
+          {workflow.existing && workflow.existing !== detail.recording_id && (
+            <>
+              {" "}
+              <Link
+                href={`/recordings/${encodeURIComponent(workflow.existing)}`}
+              >
+                Open that track
+              </Link>
+            </>
+          )}
+        </p>
+      )}
       {workflow.loaded && !workflow.connection && (
         <p>
           No connected service offers both music search and audio sources.{" "}

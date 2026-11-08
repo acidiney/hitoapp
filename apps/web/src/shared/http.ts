@@ -37,6 +37,7 @@ export class HttpError extends Error {
     message: string,
     readonly code?: string,
     readonly retryAfter?: number,
+    readonly recordingId?: string,
   ) {
     super(message);
     this.name = "HttpError";
@@ -159,6 +160,13 @@ export async function request(path: string, options: RequestOptions) {
     typeof data.code === "string"
       ? data.code
       : undefined;
+  const recordingId =
+    data !== null &&
+    typeof data === "object" &&
+    "recording_id" in data &&
+    typeof data.recording_id === "string"
+      ? data.recording_id
+      : undefined;
   const gateway =
     [502, 503, 504].includes(response.status) &&
     options.errorBody !== false &&
@@ -174,6 +182,7 @@ export async function request(path: string, options: RequestOptions) {
     message,
     code,
     Number.isFinite(wait) && wait >= 0 ? wait : undefined,
+    recordingId,
   );
 }
 

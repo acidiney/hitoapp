@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 
 import Button from "../../../shared/ui/Button";
 import FilterPills from "../../../shared/ui/FilterPills";
+import Listbox from "../../../shared/ui/Listbox";
 
 export default function DiscoverySearch({
   connections,
@@ -54,19 +55,17 @@ export default function DiscoverySearch({
           onChange={onChoose}
         />
       ) : (
-        <label className="discovery-service">
-          Music service
-          <select
+        <div className="discovery-service">
+          <Listbox
+            label="Music service"
+            options={connections.map((connection) => ({
+              value: connection.id,
+              label: label(connection),
+            }))}
             value={selected}
-            onChange={(event) => onChoose(event.target.value)}
-          >
-            {connections.map((connection) => (
-              <option key={connection.id} value={connection.id}>
-                {label(connection)}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={onChoose}
+          />
+        </div>
       )}
       <label>
         Search music

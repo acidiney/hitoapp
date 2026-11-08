@@ -1,3 +1,4 @@
+import { chooseMusicService } from "./fixtures/music-service";
 import { expect, test } from "@playwright/test";
 import { chooseOption } from "./fixtures/listbox";
 import type { Schema } from "../src/shared/schema";
@@ -185,9 +186,7 @@ test.describe("isolated packaged YouTube", () => {
         .getByRole("navigation", { name: "Main navigation" })
         .getByRole("link", { name: "Home", exact: true })
         .click();
-      await page
-        .getByRole("combobox", { name: "Music service", exact: true })
-        .selectOption(connection.id);
+      await chooseMusicService(page, page, connection.id);
       await page
         .getByRole("searchbox", { name: "Search music", exact: true })
         .fill(configuration.video);

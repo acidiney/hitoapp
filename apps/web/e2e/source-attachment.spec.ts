@@ -1,3 +1,4 @@
+import { chooseMusicService } from "./fixtures/music-service";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
@@ -392,7 +393,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     });
     let firstSources: Schema<"Source">[] = [];
     for (const [index, provider] of providers.entries()) {
-      await selector.selectOption(candidates[index].id);
+      await chooseMusicService(page, panel, candidates[index].id);
       await search.fill(provider.recording.title);
       if (index === 0)
         await layouts(page, info, "attachment-search", [

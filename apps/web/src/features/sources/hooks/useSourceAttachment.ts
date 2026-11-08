@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
+import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { sourceBindingsApi } from "../api/sourceBindingsApi";
@@ -27,8 +28,20 @@ type State = {
   attached: boolean;
   pending: Phase | null;
   error: string;
+  existing: string | null;
 };
 type Snapshot = State & { owner: Work };
+
+const alreadyUsedMessage = "This video is already the source of another track.";
+
+function failure(error: unknown) {
+  if (error instanceof HttpError && error.code === "already_bound")
+    return {
+      error: alreadyUsedMessage,
+      existing: error.recordingId ?? null,
+    };
+  return { error: errorMessage(error), existing: null };
+}
 
 function empty(owner: Work): Snapshot {
   return {
@@ -43,6 +56,7 @@ function empty(owner: Work): Snapshot {
     attached: false,
     pending: null,
     error: "",
+    existing: null,
   };
 }
 
@@ -86,7 +100,14 @@ export function useSourceAttachment(
       request.active() && owner.generation === generation && !signal.aborted;
     const started = performance.now();
     let reason = "cancelled";
-    setSnapshot({ ...current, ...initial, owner, pending: phase, error: "" });
+    setSnapshot({
+      ...current,
+      ...initial,
+      owner,
+      pending: phase,
+      error: "",
+      existing: null,
+    });
     log.debug("source_attachment.started", {
       account_id: account,
       recording_id: recording,
@@ -107,7 +128,7 @@ export function useSourceAttachment(
         reason = "failed";
         setSnapshot((value) =>
           active() && value.owner === owner
-            ? { ...value, error: errorMessage(error) }
+            ? { ...value, ...failure(error) }
             : value,
         );
       }
@@ -181,6 +202,7 @@ export function useSourceAttachment(
       attached: false,
       pending: null,
       error: "",
+      existing: null,
     });
   }
 
@@ -198,6 +220,7 @@ export function useSourceAttachment(
         attached: false,
         pending: null,
         error: "",
+        existing: null,
       });
       return true;
     }
@@ -291,6 +314,7 @@ export function useSourceAttachment(
     attached: current.attached,
     pending: current.pending,
     error: current.error,
+    existing: current.existing,
     connection,
     open,
     choose,

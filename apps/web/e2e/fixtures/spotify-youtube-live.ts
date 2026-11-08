@@ -1,3 +1,4 @@
+import { chooseMusicService } from "./music-service";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import { reviewPluginInstallation } from "./plugin-installation-review";
@@ -308,9 +309,7 @@ export async function searchLiveCandidate(
   await panel
     .getByRole("button", { name: "Find a source", exact: true })
     .click();
-  await panel
-    .getByRole("combobox", { name: "Music service", exact: true })
-    .selectOption(youtube.id);
+  await chooseMusicService(page, panel, youtube.id);
   const query = `${original.title} ${original.artist}`.trim();
   if (query.length > 512)
     throw new SpotifyYouTubeLiveFailure(
