@@ -6,6 +6,7 @@ export type CoverArtKind =
   | "playlist"
   | "podcast"
   | "audiobook"
+  | "genre"
   | "track";
 
 type PaintKind = Exclude<CoverArtKind, "track">;
@@ -13,6 +14,8 @@ type PaintKind = Exclude<CoverArtKind, "track">;
 export const COVER_HUES = [
   18, 36, 58, 88, 130, 165, 195, 215, 240, 268, 300, 335,
 ] as const;
+
+export const GENRE_HUES = [130, 165, 195, 215, 240, 268, 300] as const;
 
 const ACCENT_OFFSETS = [70, 120, 160] as const;
 const LIGHTNESS_TIERS = [0.46, 0.56] as const;
@@ -25,6 +28,7 @@ export type CoverPaint = {
   key: string;
   kind: PaintKind;
   hue: number;
+  accentHue: number;
   tier: 0 | 1;
   base: string;
   deep: string;
@@ -76,7 +80,9 @@ function takeDigit(state: { rest: number }, radix: number): number {
 function buildPaint(kind: PaintKind, id: string): CoverPaint {
   const key = `${kind}:${id}`;
   const state = { rest: avalanche(fnv1a(key)) };
-  const hue = COVER_HUES[takeDigit(state, COVER_HUES.length)];
+  const hues = kind === "genre" ? GENRE_HUES : COVER_HUES;
+  const hueIndex = takeDigit(state, hues.length);
+  const hue = hues[hueIndex];
   const offset = ACCENT_OFFSETS[takeDigit(state, ACCENT_OFFSETS.length)];
   const tier = takeDigit(state, LIGHTNESS_TIERS.length) as 0 | 1;
   const motif = takeDigit(state, MOTIFS_PER_KIND);
@@ -85,11 +91,17 @@ function buildPaint(kind: PaintKind, id: string): CoverPaint {
   const warm = hue <= 60 || hue >= 330;
   const chroma = warm ? 0.14 : 0.11;
   const lightness = LIGHTNESS_TIERS[tier];
-  const accentHue = (hue + offset) % 360;
+  const accentHue =
+    kind === "genre"
+      ? GENRE_HUES[
+          (hueIndex + 1 + ACCENT_OFFSETS.indexOf(offset)) % hues.length
+        ]
+      : (hue + offset) % 360;
   return {
     key,
     kind,
     hue,
+    accentHue,
     tier,
     base: oklchToHex(lightness, chroma, hue),
     deep: oklchToHex(lightness - 0.16, chroma * 0.75, hue),

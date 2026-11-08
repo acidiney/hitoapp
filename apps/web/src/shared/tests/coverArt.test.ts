@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   COVER_HUES,
+  GENRE_HUES,
   coverArt,
   coverMonogram,
   type CoverArtKind,
@@ -13,6 +14,7 @@ const kinds: CoverArtKind[] = [
   "playlist",
   "podcast",
   "audiobook",
+  "genre",
   "track",
 ];
 
@@ -155,4 +157,19 @@ test("the monogram keeps emoji, CJK and combining marks whole", () => {
   expect(coverMonogram("étoile")).toBe("É");
   expect(coverMonogram("ßeta")).toBe("ß");
   expect(coverMonogram("́oops")).toBe("O");
+});
+
+test("genre art stays in calm hues for the base and the accent, never red or orange", () => {
+  const seen = new Set<number>();
+  for (let index = 0; index < 400; index += 1) {
+    const { paint } = coverArt("genre", `genre-${index}`, "Fado", null);
+    seen.add(paint.hue);
+    expect(GENRE_HUES).toContain(paint.hue);
+    expect(GENRE_HUES).toContain(paint.accentHue);
+  }
+  expect(seen.size).toBe(GENRE_HUES.length);
+  for (const hue of GENRE_HUES) {
+    expect(hue).toBeGreaterThanOrEqual(120);
+    expect(hue).toBeLessThanOrEqual(300);
+  }
 });

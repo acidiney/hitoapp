@@ -57,19 +57,11 @@ export default function ProviderSearch({
       </div>
       {!selected ? (
         <div className="discovery-empty">
-          <EmptyState
-            title={
-              connections.length
-                ? "No searchable music services"
-                : "Your next listen starts here"
-            }
-            text={
-              connections.length
-                ? "These services don’t offer music search. Connect another service in Settings."
-                : "Connect a music service, then explore its collection here."
-            }
-            libraryLink={false}
-          />
+          <p>
+            {connections.length
+              ? "These services don’t offer music search. Connect another service to search its catalogue here."
+              : "Connect a music service to search its catalogue here."}
+          </p>
           <Link className="button primary" href="/settings?section=plugins">
             Connect a music service
           </Link>

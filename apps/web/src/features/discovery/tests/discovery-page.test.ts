@@ -12,8 +12,8 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => player,
 }));
 vi.mock("@inertiajs/react", () => ({
-  Link: ({ href, children }: { href: string; children: ReactNode }) =>
-    createElement("a", { href }, children),
+  Link: ({ href, children, ...rest }: { href: string; children: ReactNode }) =>
+    createElement("a", { href, ...rest }, children),
 }));
 const connection: Schema<"PluginInstallation"> = {
   id: "connection",
@@ -90,6 +90,28 @@ test("empty discovery leads directly to music-service settings", () => {
       .getAttribute("href"),
   ).toBe("/settings?section=plugins");
   expect(screen.queryByRole("searchbox")).toBeNull();
+});
+
+test("the empty provider search is one compact row with a real button", () => {
+  const { container } = render(
+    createElement(DiscoverPage, { ...props, connections: [] }),
+  );
+  const block = container.querySelector(".discovery-empty") as HTMLElement;
+  expect(block.querySelector(".empty")).toBeNull();
+  expect(block.textContent).toContain(
+    "Connect a music service to search its catalogue here.",
+  );
+  const action = within(block).getByRole("link", {
+    name: "Connect a music service",
+  });
+  expect(action.className).toContain("button");
+  expect(action.className).toContain("primary");
+});
+
+test("the intro is plain and does not announce a side effect before it happens", () => {
+  render(createElement(DiscoverPage, { ...props, connections: [] }));
+  expect(screen.queryByText(/adds a copy/i)).toBeNull();
+  expect(screen.getByText(/Start from what you already own/)).toBeTruthy();
 });
 
 test("switching named services clears results and preserves the search draft", async () => {

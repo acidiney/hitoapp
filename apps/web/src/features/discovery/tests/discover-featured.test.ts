@@ -121,6 +121,19 @@ afterEach(() => {
 const shelfOf = (...items: Schema<"FeaturedEntry">[]) =>
   ({ status: "available", items }) as Schema<"FeaturedShelf">;
 
+test("the shelf says next to the cards, not in the page intro, that playing or opening saves a playlist", async () => {
+  stub(shelfOf(entry("a")));
+  render(createElement(DiscoverPage, props));
+  const region = await screen.findByRole("region", {
+    name: "From your services",
+  });
+  expect(
+    within(region).getByText(
+      "Playing or opening a card saves it to your Playlists.",
+    ),
+  ).toBeTruthy();
+});
+
 test("the shelf lists provider items with kind, count and a cover from the approved connection", async () => {
   stub(
     shelfOf(
@@ -347,8 +360,8 @@ test("a cover that fails to load is asked for once more before the generated cov
   }
 });
 
-test("the page says that playing a card adds a playlist copy", async () => {
+test("the page intro stays free of the playlist copy sentence", async () => {
   stub({ status: "unsupported" });
   render(createElement(DiscoverPage, props));
-  expect(screen.getByText(/adds a copy to your Playlists/)).toBeTruthy();
+  expect(screen.queryByText(/adds a copy/)).toBeNull();
 });

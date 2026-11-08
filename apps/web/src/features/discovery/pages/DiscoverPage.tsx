@@ -25,7 +25,7 @@ export default function DiscoverPage({
     <div className="discovery-page">
       <PageHeading
         title="Discover"
-        description="Start from what you already own or what your services feature. Playing a featured card adds a copy to your Playlists; other music from your services stays outside your library until you add it."
+        description="Start from what you already own or what your services feature. Music from your services stays outside your library until you add it."
       />
       <FeaturedShelf
         items={featured}

@@ -185,6 +185,7 @@ function audiobookMotif(p: CoverPaint): ReactNode {
 
 const MOTIFS: Record<CoverPaint["kind"], (paint: CoverPaint) => ReactNode> = {
   album: (p) => ALBUM_MOTIFS[p.motif](p),
+  genre: (p) => ALBUM_MOTIFS[p.motif](p),
   artist: artistMotif,
   playlist: playlistMotif,
   podcast: podcastMotif,

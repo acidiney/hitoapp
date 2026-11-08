@@ -61,6 +61,9 @@ export default function FeaturedShelf({
   return (
     <section className="discover-section" aria-labelledby="discover-featured">
       <h2 id="discover-featured">From your services</h2>
+      <p className="discover-caption">
+        Playing or opening a card saves it to your Playlists.
+      </p>
       <ul className="shelf-row">
         {items.map((entry) => {
           const key = featuredKey(entry);

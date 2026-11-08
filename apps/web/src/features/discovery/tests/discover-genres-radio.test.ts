@@ -103,6 +103,22 @@ test("genre tiles come from the library and open their genre page without any re
   expect(fetch).not.toHaveBeenCalled();
 });
 
+test("genre tiles are drawn with generated cover art in calm colours and no inline colour", () => {
+  vi.stubGlobal("fetch", skippingFeatured(vi.fn()));
+  render(createElement(DiscoverPage, props()));
+  const tiles = within(
+    screen.getByRole("region", { name: "By genre" }),
+  ).getAllByRole("link");
+  for (const tile of tiles) {
+    expect(tile.querySelector("svg.cover-art")).toBeTruthy();
+    expect(tile.getAttribute("style")).toBeNull();
+  }
+  const bases = tiles.map((tile) =>
+    tile.querySelector("svg.cover-art stop")?.getAttribute("stop-color"),
+  );
+  expect(new Set(bases).size).toBeGreaterThan(1);
+});
+
 test("sections with nothing to show are left out and the provider search stays", () => {
   render(
     createElement(

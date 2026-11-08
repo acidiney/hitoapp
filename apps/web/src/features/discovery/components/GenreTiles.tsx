@@ -1,7 +1,7 @@
 import type { Schema } from "../../../shared/schema";
-import type { CSSProperties } from "react";
 import { Link } from "@inertiajs/react";
-import { coverStyle } from "../../../shared/ui/coverPalette";
+import CoverArtSvg from "../../../shared/ui/CoverArtSvg";
+import { coverArt } from "../../../shared/ui/coverArt";
 import { genreCount } from "../model/genreCount";
 import { genreTitle } from "../model/genreTitle";
 
@@ -15,22 +15,12 @@ export default function GenreTiles({ genres }: { genres: Schema<"Genre">[] }) {
       <h2 id="discover-genres">By genre</h2>
       <ul className="genre-tiles">
         {genres.map((genre) => {
-          const colors = coverStyle(genre.key);
+          const name = genreTitle(genre.label);
           return (
             <li key={genre.key}>
-              <Link
-                className="genre-tile"
-                href={genrePath(genre.key)}
-                style={
-                  {
-                    "--tile": colors.background,
-                    "--tile-ink": colors.foreground,
-                  } as CSSProperties
-                }
-              >
-                <span className="genre-tile-name">
-                  {genreTitle(genre.label)}
-                </span>
+              <Link className="genre-tile" href={genrePath(genre.key)}>
+                <CoverArtSvg art={coverArt("genre", genre.key, name, null)} />
+                <span className="genre-tile-name">{name}</span>
                 <span className="genre-tile-count">
                   {genreCount(genre.track_count)}{" "}
                   {genre.track_count === 1 ? "track" : "tracks"}
