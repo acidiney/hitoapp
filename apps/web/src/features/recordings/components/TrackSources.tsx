@@ -44,6 +44,7 @@ export default function TrackSources({
   active: tabActive,
   download,
   nativePlayback,
+  onFixSource,
 }: {
   account: string;
   detail: Schema<"RecordingMetadata">;
@@ -52,6 +53,7 @@ export default function TrackSources({
   active: boolean;
   download: ReturnType<typeof useRecordingDownload>;
   nativePlayback: boolean;
+  onFixSource(): void;
 }) {
   const source = detail.selected_observation;
   const sources = choice.choice?.sources ?? [];
@@ -88,7 +90,9 @@ export default function TrackSources({
     <div className="track-sources">
       {providerTrack && noAudio && attachment(true)}
       {localFile && !hasSources && <LocalFileSource />}
-      {!hideChoice && <SourceChoiceControls {...choice} />}
+      {!hideChoice && (
+        <SourceChoiceControls {...choice} fixSource={onFixSource} />
+      )}
       {showCopy && (
         <RecordingDownload
           {...download}

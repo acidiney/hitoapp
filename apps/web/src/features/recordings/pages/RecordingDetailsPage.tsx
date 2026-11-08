@@ -144,6 +144,7 @@ function TrackTabs({
               active={tab === "sources"}
               download={download}
               nativePlayback={native_playback}
+              onFixSource={() => reveal("find-audio")}
             />
           )}
           {entry === "metadata" && (

@@ -50,6 +50,7 @@ export async function audiobookPlaybackGateFixture(
       ready: true,
       label: "Owned playback gate audio",
       can_prepare: false,
+      match_kind: "verified",
     } satisfies Schema<"Source">,
   ]);
   const book: Schema<"AudiobookDetail"> = {

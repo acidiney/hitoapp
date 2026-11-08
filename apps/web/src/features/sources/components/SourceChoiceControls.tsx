@@ -26,7 +26,13 @@ type Props = {
   reset(): Promise<void>;
   retry(): Promise<void>;
   check(): Promise<void>;
+  fixSource(): void;
 };
+
+function bestGuessReason(source: Schema<"Source">) {
+  const provider = source.provider_label?.trim() || "the music service";
+  return `Chosen from ${provider}'s top result because no exact match was found.`;
+}
 
 function savedSelection(choice: Schema<"SourceChoice">, source: string) {
   return choice.sources.some(
@@ -51,6 +57,7 @@ export default function SourceChoiceControls({
   reset,
   retry,
   check,
+  fixSource,
 }: Props) {
   const heading = useId();
   const selectedSource =
@@ -126,6 +133,20 @@ export default function SourceChoiceControls({
                     <span className="track-chip" data-tone="action">
                       Pinned
                     </span>
+                  )}
+                  {entry.source.match_kind === "best_guess" && (
+                    <>
+                      <span
+                        className="track-chip"
+                        data-tone="warning"
+                        title={bestGuessReason(entry.source)}
+                      >
+                        Best guess
+                      </span>
+                      <Button variant="secondary" onClick={fixSource}>
+                        Fix source
+                      </Button>
+                    </>
                   )}
                 </span>
               </li>
