@@ -1,20 +1,24 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
-export function useScrollFade(ref: RefObject<HTMLElement | null>) {
+export type ScrollEdges = { start: boolean; end: boolean };
+
+export function useScrollFade(
+  ref: RefObject<HTMLElement | null>,
+  onChange?: (edges: ScrollEdges) => void,
+) {
+  const latest = useRef(onChange);
+  latest.current = onChange;
   useEffect(() => {
     const strip = ref.current;
     if (!strip) return;
     function update() {
       if (!strip) return;
       const hidden = strip.scrollWidth - strip.clientWidth;
-      strip.toggleAttribute(
-        "data-fade-start",
-        hidden > 1 && strip.scrollLeft > 1,
-      );
-      strip.toggleAttribute(
-        "data-fade-end",
-        hidden > 1 && strip.scrollLeft < hidden - 1,
-      );
+      const start = hidden > 1 && strip.scrollLeft > 1;
+      const end = hidden > 1 && strip.scrollLeft < hidden - 1;
+      strip.toggleAttribute("data-fade-start", start);
+      strip.toggleAttribute("data-fade-end", end);
+      latest.current?.({ start, end });
     }
     update();
     strip.addEventListener("scroll", update, { passive: true });

@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import ShelfRow from "../../../shared/ui/ShelfRow";
 import MediaCard from "../../../shared/ui/MediaCard";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { useArtworkRetry } from "../../../shared/hooks/useArtworkRetry";
@@ -64,7 +65,7 @@ export default function FeaturedShelf({
       <p className="discover-caption">
         Playing or opening a card saves it to your Playlists.
       </p>
-      <ul className="shelf-row">
+      <ShelfRow label="From your services">
         {items.map((entry) => {
           const key = featuredKey(entry);
           const busy = playback.pending === key;
@@ -86,7 +87,7 @@ export default function FeaturedShelf({
             </li>
           );
         })}
-      </ul>
+      </ShelfRow>
       {playback.notice &&
         (playback.notice.tone === "error" ? (
           <p className="radio-notice" role="alert" data-tone="error">

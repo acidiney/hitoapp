@@ -251,9 +251,44 @@ test("home shows recently played, recently added and chosen artists as shelves",
   ).toBe("/discover");
 });
 
+test("an account that has played nothing still sees a Recently played heading that explains the gap", () => {
+  render(createElement(HomePage, props({ liked_count: 2 })));
+  const played = screen.getByRole("region", { name: "Recently played" });
+  expect(
+    within(played).getByRole("heading", { level: 2, name: "Recently played" }),
+  ).toBeTruthy();
+  expect(
+    within(played).getByText("Play something and it will show up here."),
+  ).toBeTruthy();
+  expect(
+    within(played)
+      .getByRole("link", { name: "Open your library" })
+      .getAttribute("href"),
+  ).toBe("/library");
+  expect(within(played).queryByRole("list")).toBeNull();
+});
+
 test("shelves with nothing to show are left out", () => {
   render(createElement(HomePage, props({ liked_count: 2 })));
-  expect(screen.queryByRole("region", { name: "Recently played" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Recently added" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Your artists" })).toBeNull();
+});
+
+test("a shelf that has albums scrolls through the shared shelf row with buttons", () => {
+  render(
+    createElement(
+      HomePage,
+      props({
+        recently_added: Array.from({ length: 6 }, (_, index) => ({
+          id: `new-${index}`,
+          title: `Fresh ${index}`,
+          artist: "Shore",
+          inferred_artist: null,
+        })),
+      }),
+    ),
+  );
+  const added = screen.getByRole("region", { name: "Recently added" });
+  expect(added.querySelector(".shelf")).toBeTruthy();
+  expect(added.querySelector("ul.shelf-row")).toBeTruthy();
 });

@@ -267,7 +267,8 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-.library-sections[data-fade-end] {
+.library-sections[data-fade-end],
+.shelf-row[data-fade-end] {
   -webkit-mask-image: linear-gradient(
     to right,
     #000 calc(100% - 40px),
@@ -275,7 +276,8 @@
   );
   mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
 }
-.library-sections[data-fade-start] {
+.library-sections[data-fade-start],
+.shelf-row[data-fade-start] {
   -webkit-mask-image: linear-gradient(
     to left,
     #000 calc(100% - 40px),
@@ -283,7 +285,8 @@
   );
   mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
 }
-.library-sections[data-fade-start][data-fade-end] {
+.library-sections[data-fade-start][data-fade-end],
+.shelf-row[data-fade-start][data-fade-end] {
   -webkit-mask-image: linear-gradient(
     to right,
     transparent,

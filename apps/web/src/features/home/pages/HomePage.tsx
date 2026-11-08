@@ -48,23 +48,20 @@ export default function HomePage({
         <HomeEmpty admin={user.admin} />
       ) : (
         <>
-          {tiles.length > 0 ? (
-            <QuickAccess tiles={tiles} />
-          ) : (
-            <p className="home-hint">
-              Play something and it will show up here.{" "}
-              <Link className="text-link" href="/library">
-                Open your library
-              </Link>
-            </p>
-          )}
-          {home.recent_albums.length > 0 && (
-            <HomeShelf
-              id="home-played"
-              title="Recently played"
-              cards={playedShelf(home.recent_albums)}
-            />
-          )}
+          {tiles.length > 0 && <QuickAccess tiles={tiles} />}
+          <HomeShelf
+            id="home-played"
+            title="Recently played"
+            cards={playedShelf(home.recent_albums)}
+            empty={
+              <>
+                Play something and it will show up here.{" "}
+                <Link className="text-link" href="/library">
+                  Open your library
+                </Link>
+              </>
+            }
+          />
           {home.unheard.length > 0 && (
             <UnheardNearby albums={home.unheard} onListen={listen} />
           )}

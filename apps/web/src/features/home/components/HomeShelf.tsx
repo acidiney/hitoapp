@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
+import ShelfRow from "../../../shared/ui/ShelfRow";
 import MediaCard from "../../../shared/ui/MediaCard";
 import type { ShelfCard } from "../model/homeShelves";
 
@@ -25,11 +27,13 @@ export default function HomeShelf({
   title,
   cards,
   more,
+  empty,
 }: {
   id: string;
   title: string;
   cards: ShelfCard[];
   more?: { href: string; label: string };
+  empty?: ReactNode;
 }) {
   return (
     <section className="home-shelf" aria-labelledby={id}>
@@ -41,19 +45,23 @@ export default function HomeShelf({
           </Link>
         )}
       </div>
-      <ul className="shelf-row">
-        {cards.map((card) => (
-          <li key={card.key}>
-            <MediaCard
-              title={card.title}
-              subtitle={card.subtitle || undefined}
-              href={card.href}
-              round={card.cover.kind === "artist"}
-              cover={<ShelfCover card={card} />}
-            />
-          </li>
-        ))}
-      </ul>
+      {cards.length === 0 && empty ? (
+        <p className="home-hint">{empty}</p>
+      ) : (
+        <ShelfRow label={title}>
+          {cards.map((card) => (
+            <li key={card.key}>
+              <MediaCard
+                title={card.title}
+                subtitle={card.subtitle || undefined}
+                href={card.href}
+                round={card.cover.kind === "artist"}
+                cover={<ShelfCover card={card} />}
+              />
+            </li>
+          ))}
+        </ShelfRow>
+      )}
     </section>
   );
 }
