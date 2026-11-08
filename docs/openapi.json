@@ -28950,7 +28950,8 @@
           "provider",
           "label",
           "ready",
-          "can_prepare"
+          "can_prepare",
+          "match_kind"
         ],
         "properties": {
           "can_prepare": {
@@ -28968,8 +28969,17 @@
           "label": {
             "type": "string"
           },
+          "match_kind": {
+            "$ref": "#/components/schemas/SourceMatchKind"
+          },
           "provider": {
             "type": "string"
+          },
+          "provider_label": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "ready": {
             "type": "boolean"
@@ -29079,6 +29089,13 @@
             "format": "int64"
           }
         }
+      },
+      "SourceMatchKind": {
+        "type": "string",
+        "enum": [
+          "verified",
+          "best_guess"
+        ]
       },
       "SourcePersistence": {
         "type": "string",

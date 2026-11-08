@@ -1,5 +1,6 @@
 use super::{
     SourceResolutionOutcome, authority,
+    fallback::Basis,
     provider::Candidate,
     receipts::{self, Attempt},
 };
@@ -22,6 +23,7 @@ impl Catalog {
         recording: &str,
         attempt: &Attempt,
         candidate: Option<Candidate>,
+        basis: Basis,
         provider_unavailable: bool,
     ) -> Result<Publication> {
         tracing::debug!(
@@ -40,7 +42,7 @@ impl Catalog {
             SourceResolutionOutcome::Cancelled
         } else if let Some(candidate) = candidate {
             candidate.operation.recheck(&mut tx).await?;
-            if !candidate.accepts(&current.musical) {
+            if !candidate.acceptable(&current.musical, basis) {
                 return Err(Error::Conflict(
                     "The source candidate no longer matches this recording".into(),
                 ));
@@ -115,7 +117,7 @@ impl Catalog {
             let candidate_digest = candidate.digest()?;
             let musical_metadata = candidate.musical_metadata()?;
             sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision,musical_metadata) VALUES (?,?,?,?,?,?,?,?)")
-                .bind(&attempt.id).bind(&binding.id).bind(candidate.policy()).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
+                .bind(&attempt.id).bind(&binding.id).bind(candidate.policy(basis)).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
             SourceResolutionOutcome::Ready
         } else if provider_unavailable {
             SourceResolutionOutcome::ProviderUnavailable
@@ -128,6 +130,8 @@ impl Catalog {
             event = "source_resolution_committed",
             resolution_id = attempt.id,
             outcome = outcome.as_str(),
+            basis = basis.as_str(),
+            candidate_rank = basis.rank_index(),
             "Source resolution committed"
         );
         Ok(Publication::Settled(outcome))

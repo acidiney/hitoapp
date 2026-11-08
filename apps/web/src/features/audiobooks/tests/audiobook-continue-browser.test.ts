@@ -49,6 +49,7 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
     device_id: null,
     ready: true,
     can_prepare: false,
+    match_kind: "verified",
     label: "Owned fixture source",
   }));
   const requests: string[] = [];

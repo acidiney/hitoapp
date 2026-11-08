@@ -93,6 +93,7 @@ export const ownedSource = (track: Track, id: string): Schema<"Source"> => ({
   ready: true,
   label: "Owned audio service",
   can_prepare: false,
+  match_kind: "verified",
 });
 export function unavailableResponse(
   request: OwnedPlaybackRequest,

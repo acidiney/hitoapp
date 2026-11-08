@@ -46,6 +46,7 @@ test("local metadata provenance does not hide an eligible plugin audio source", 
     label: "Approved remote audio",
     ready: false,
     can_prepare: true,
+    match_kind: "verified",
   };
   const fetch = vi.fn(async (url: string, options?: RequestInit) => {
     if (url === sourceChoice && options?.method === "GET")

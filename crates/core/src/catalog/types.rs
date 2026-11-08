@@ -42,7 +42,17 @@ pub struct Source {
     pub recording_id: String,
     pub provider: String,
     pub label: String,
+    pub provider_label: Option<String>,
     pub device_id: Option<String>,
     pub ready: bool,
     pub can_prepare: bool,
+    pub match_kind: SourceMatchKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, sqlx::Type, ToSchema)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
+pub enum SourceMatchKind {
+    Verified,
+    BestGuess,
 }

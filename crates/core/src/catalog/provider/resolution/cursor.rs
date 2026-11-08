@@ -7,7 +7,7 @@ use crate::{
     Actor, Catalog, Error, Result,
     catalog::{Origin, ranking_on},
 };
-use std::vec::IntoIter;
+use std::{collections::VecDeque, vec::IntoIter};
 
 const MAX_CONNECTIONS: usize = 4;
 
@@ -24,6 +24,7 @@ pub(super) struct Candidates {
     query: String,
     connections: IntoIter<Connection>,
     page: Option<Page>,
+    finished: VecDeque<Page>,
 }
 
 impl Candidates {
@@ -54,7 +55,40 @@ impl Candidates {
             query,
             connections: connections.into_iter(),
             page: None,
+            finished: VecDeque::new(),
         })
+    }
+
+    pub(super) async fn next_by_provider_rank(
+        &mut self,
+        catalog: &Catalog,
+        actor: &Actor,
+        subject: &Subject<'_>,
+    ) -> Result<Option<(usize, Candidate)>> {
+        while let Some(page) = self.finished.front_mut() {
+            {
+                let mut connection = catalog.store.pool.acquire().await?;
+                authority::check(&mut connection, actor, subject.recording).await?;
+            }
+            let ranked = page.next_by_provider_rank(catalog, actor, subject).await;
+            self.provider_unavailable |= page.provider_unavailable;
+            match ranked {
+                Ok(Some(found)) => return Ok(Some(found)),
+                Err(Error::Unauthorized) => return Err(Error::Unauthorized),
+                Err(error) => {
+                    self.provider_unavailable |=
+                        matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                    tracing::debug!(
+                        event = "source_resolution_provider_failed",
+                        error_kind = error.code(),
+                        "Source resolution provider exchange failed"
+                    );
+                }
+                Ok(None) => {}
+            }
+            self.finished.pop_front();
+        }
+        Ok(None)
     }
 
     pub(super) async fn next(
@@ -85,7 +119,7 @@ impl Candidates {
                     }
                     Ok(None) => {}
                 }
-                self.page = None;
+                self.finished.extend(self.page.take());
                 continue;
             }
             let Some(connection) = self.connections.next() else {

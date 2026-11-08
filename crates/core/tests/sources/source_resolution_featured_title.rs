@@ -5,42 +5,42 @@ mod fixture;
 use hito_core::test_support::support;
 
 use futures_util::FutureExt;
-use hito_core::{ResolveSource, SourceResolutionOutcome};
+use hito_core::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 use serde_json::json;
 use std::panic::AssertUnwindSafe;
 use uuid::Uuid;
 
 #[tokio::test]
 async fn featured_artist_qualifier_resolves_the_plain_titled_candidate() {
-    let outcome = resolve_featured_target("Owned song (feat. Guest & Other)", "Owned song").await;
+    let resolution =
+        resolve_featured_target("Owned song (feat. Guest & Other)", "Owned song").await;
     assert!(
-        matches!(outcome, SourceResolutionOutcome::Ready),
+        verified(&resolution),
         "a saved title that only adds a featured-artist qualifier must resolve the same song"
     );
 }
 
 #[tokio::test]
 async fn trailing_featured_artist_without_brackets_resolves_the_plain_titled_candidate() {
-    let outcome = resolve_featured_target("Owned song ft. Guest", "Owned song").await;
+    let resolution = resolve_featured_target("Owned song ft. Guest", "Owned song").await;
     assert!(
-        matches!(outcome, SourceResolutionOutcome::Ready),
+        verified(&resolution),
         "a trailing ft. credit must not count as a different musical title"
     );
 }
 
 #[tokio::test]
 async fn featured_artist_qualifier_does_not_hide_a_different_title() {
-    let outcome = resolve_featured_target("Owned song (feat. Guest)", "Other song").await;
+    let resolution = resolve_featured_target("Owned song (feat. Guest)", "Other song").await;
     assert!(
-        matches!(outcome, SourceResolutionOutcome::NoSuitableSource),
-        "removing a featured-artist qualifier must still reject a different musical title"
+        matches!(resolution.outcome, SourceResolutionOutcome::Ready)
+            && resolution.sources.len() == 1
+            && serde_json::to_value(&resolution.sources[0]).unwrap()["match_kind"] == "best_guess",
+        "removing a featured-artist qualifier must still not verify a different musical title"
     );
 }
 
-async fn resolve_featured_target(
-    target_title: &str,
-    candidate_title: &str,
-) -> SourceResolutionOutcome {
+async fn resolve_featured_target(target_title: &str, candidate_title: &str) -> SourceResolution {
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
@@ -70,7 +70,7 @@ async fn resolve_featured_target(
                     panic!("featured-title resolution must return a typed outcome")
                 });
             owned.assert_preserved().await;
-            resolution.outcome
+            resolution
         })
         .catch_unwind(),
     )
@@ -78,7 +78,7 @@ async fn resolve_featured_target(
     spotify.shutdown().await;
     youtube.shutdown().await;
     match result {
-        Ok(Ok(outcome)) => outcome,
+        Ok(Ok(resolution)) => resolution,
         Ok(Err(panic)) => std::panic::resume_unwind(panic),
         Err(_) => panic!("the featured-title exercise must settle within its test deadline"),
     }
@@ -108,4 +108,10 @@ async fn configure_candidate(server: &fixture::ProviderServer, title: &str) {
             json!({"items": [{"id": "youtube/owned-audio", "label": "Owned audio", "ready": true}]}),
         )
         .await;
+}
+
+fn verified(resolution: &SourceResolution) -> bool {
+    matches!(resolution.outcome, SourceResolutionOutcome::Ready)
+        && resolution.sources.len() == 1
+        && serde_json::to_value(&resolution.sources[0]).unwrap()["match_kind"] == "verified"
 }

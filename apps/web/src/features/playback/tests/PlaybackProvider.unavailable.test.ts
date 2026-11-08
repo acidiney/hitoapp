@@ -34,6 +34,7 @@ test("an accepted service outage is shown once and selecting Play again makes a 
     ready: true,
     label: "Private source label canary",
     can_prepare: false,
+    match_kind: "verified",
   };
   const cachedPath = `/api/v1/recordings/${recording}/playback-sources`;
   const sourcePath = `/api/v1/recordings/${recording}/sources`;

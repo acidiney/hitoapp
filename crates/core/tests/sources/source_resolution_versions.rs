@@ -127,14 +127,14 @@ async fn automatic_matching_distinguishes_a_live_album_from_a_song_named_live() 
             assert_eq!(server.requests("v1/audio").await.len(), 1);
             for (studio, live) in outcomes {
                 assert!(
-                    matches!(studio.outcome, SourceResolutionOutcome::NoSuitableSource)
-                        && studio.sources.is_empty(),
-                    "a studio recording must reject an otherwise exact ready candidate with declared live album context"
+                    matches!(studio.outcome, SourceResolutionOutcome::Ready)
+                        && only_best_guess(&studio),
+                    "a studio recording must not verify an otherwise exact ready candidate with declared live album context"
                 );
                 assert!(
-                    matches!(live.outcome, SourceResolutionOutcome::NoSuitableSource)
-                        && live.sources.is_empty(),
-                    "a recording with declared live album context must reject an otherwise exact ready studio candidate"
+                    matches!(live.outcome, SourceResolutionOutcome::Ready)
+                        && only_best_guess(&live),
+                    "a recording with declared live album context must not verify an otherwise exact ready studio candidate"
                 );
             }
         })
@@ -252,4 +252,9 @@ fn provider_recording(id: &str, title: &str, album: &str) -> serde_json::Value {
         "duration_ms": 1000,
         "release": {"id": format!("{id}/release"), "title": album, "artist": "Owned performer"}
     })
+}
+
+fn only_best_guess(resolution: &SourceResolution) -> bool {
+    resolution.sources.len() == 1
+        && serde_json::to_value(&resolution.sources[0]).unwrap()["match_kind"] == "best_guess"
 }

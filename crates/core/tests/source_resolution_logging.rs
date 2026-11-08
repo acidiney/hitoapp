@@ -88,13 +88,13 @@ async fn rejected_musical_candidate_logs_safe_search_counts_and_missing_title_re
                 ResolveSource { request_id },
                 std::future::pending(),
             ).await.unwrap();
-            assert!(matches!(resolution.outcome, SourceResolutionOutcome::NoSuitableSource));
-            assert!(resolution.sources.is_empty());
+            assert!(matches!(resolution.outcome, SourceResolutionOutcome::Ready));
+            assert!(resolution.sources.len() == 1);
             owned.assert_preserved().await;
             let after = owned.hito.catalog.recording_metadata(
                 &owned.actor, &owned.recording, Default::default(),
             ).await.unwrap();
-            assert!(fixture::encoded(&before) == fixture::encoded(&after));
+            assert!(fixture::encoded(&before.selected_observation) == fixture::encoded(&after.selected_observation));
             assert!(youtube.requests("v1/recordings/metadata").await.len() == 1);
             assert!(youtube.requests("v1/audio").await.is_empty());
             let captured = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
@@ -123,7 +123,15 @@ async fn rejected_musical_candidate_logs_safe_search_counts_and_missing_title_re
             }).expect("source resolution must log a static candidate rejection reason");
             assert!(rejected["level"] == "DEBUG");
             assert!(rejected["fields"]["reason"] == "missing_musical_title");
-            for event in [search, rejected] {
+            let fallback = events.iter().find(|event| {
+                event["fields"]["event"] == "source_resolution_provider_rank_fallback"
+            }).expect("the provider-rank fallback must be logged");
+            assert!(fallback["level"] == "INFO");
+            assert!(fallback["fields"]["outcome"] == "ready");
+            assert!(fallback["fields"]["candidate_rank"] == 0);
+            assert!(fallback["fields"]["examined"] == 1);
+            assert!(fallback["fields"]["elapsed_ms"].is_u64());
+            for event in [search, rejected, fallback] {
                 assert!(event["span"]["request_id"] == request_id.to_string(),
                     "candidate diagnostics must retain the source resolution correlation identity");
             }

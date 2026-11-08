@@ -76,6 +76,7 @@ test("account playback aborts progress and replaces its account-bound resources"
     ready: true,
     label: "Owned local audio",
     can_prepare: false,
+    match_kind: "verified",
   });
   const requests: {
     path: string;

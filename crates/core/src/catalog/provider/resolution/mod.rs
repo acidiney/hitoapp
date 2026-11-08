@@ -2,6 +2,7 @@ mod admission;
 mod authority;
 mod catalog_match;
 mod cursor;
+mod fallback;
 mod matching;
 mod provider;
 mod publication;
@@ -13,6 +14,8 @@ use admission::Caller;
 pub(crate) use admission::CallerAdmission;
 pub(crate) use catalog_match::{AudioPermit, CatalogAudio, CatalogTrack};
 use cursor::Candidates;
+use fallback::Basis;
+pub(crate) use fallback::FALLBACK_POLICY;
 use provider::Subject;
 use publication::Publication;
 use receipts::{Admission, Attempt, Lease};
@@ -237,24 +240,31 @@ impl Catalog {
             binding: Some(&attempt.target.binding_id),
         };
         loop {
-            let candidate = tokio::select! {
-                biased;
-                _ = cancelled.as_mut() => return Ok(None),
-                _ = tokio::time::sleep_until(deadline) => return Ok(None),
-                result = candidates.next(self, actor, &subject) => result?,
+            let Some(next) = bounded(
+                cancelled.as_mut(),
+                deadline,
+                candidates.next(self, actor, &subject),
+            )
+            .await
+            else {
+                return Ok(None);
             };
-            tokio::select! {
-                biased;
-                _ = cancelled.as_mut() => return Ok(None),
-                _ = tokio::time::sleep_until(deadline) => return Ok(None),
-                _ = std::future::ready(()) => {},
+            let Some(candidate) = next? else {
+                break;
+            };
+            if bounded(cancelled.as_mut(), deadline, std::future::ready(()))
+                .await
+                .is_none()
+            {
+                return Ok(None);
             }
             match self
                 .complete_resolution(
                     actor,
                     recording,
                     attempt,
-                    candidate,
+                    Some(candidate),
+                    Basis::Matched,
                     candidates.provider_unavailable,
                 )
                 .await?
@@ -263,6 +273,93 @@ impl Catalog {
                 Publication::CandidateOccupied => {}
             }
         }
+        let started = Instant::now();
+        let mut examined = 0usize;
+        loop {
+            let Some(next) = bounded(
+                cancelled.as_mut(),
+                deadline,
+                candidates.next_by_provider_rank(self, actor, &subject),
+            )
+            .await
+            else {
+                return Ok(None);
+            };
+            let Some((index, candidate)) = next? else {
+                tracing::debug!(
+                    event = "source_resolution_provider_rank_exhausted",
+                    examined,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "No provider-ranked candidate was usable"
+                );
+                if bounded(cancelled.as_mut(), deadline, std::future::ready(()))
+                    .await
+                    .is_none()
+                {
+                    return Ok(None);
+                }
+                return match self
+                    .complete_resolution(
+                        actor,
+                        recording,
+                        attempt,
+                        None,
+                        Basis::Matched,
+                        candidates.provider_unavailable,
+                    )
+                    .await?
+                {
+                    Publication::Settled(outcome) => Ok(Some(outcome)),
+                    Publication::CandidateOccupied => Err(Error::Internal(
+                        "Source resolution settled without a candidate".into(),
+                    )),
+                };
+            };
+            examined += 1;
+            if bounded(cancelled.as_mut(), deadline, std::future::ready(()))
+                .await
+                .is_none()
+            {
+                return Ok(None);
+            }
+            match self
+                .complete_resolution(
+                    actor,
+                    recording,
+                    attempt,
+                    Some(candidate),
+                    Basis::ProviderRank { index },
+                    candidates.provider_unavailable,
+                )
+                .await?
+            {
+                Publication::Settled(outcome) => {
+                    tracing::info!(
+                        event = "source_resolution_provider_rank_fallback",
+                        outcome = outcome.as_str(),
+                        candidate_rank = index,
+                        examined,
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        "Source resolution used the provider ranking"
+                    );
+                    return Ok(Some(outcome));
+                }
+                Publication::CandidateOccupied => {}
+            }
+        }
+    }
+}
+
+async fn bounded<T>(
+    mut cancelled: Pin<&mut (impl Future<Output = ()> + Send)>,
+    deadline: Instant,
+    work: impl Future<Output = T>,
+) -> Option<T> {
+    tokio::select! {
+        biased;
+        _ = cancelled.as_mut() => None,
+        _ = tokio::time::sleep_until(deadline) => None,
+        result = work => Some(result),
     }
 }
 

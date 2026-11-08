@@ -33,6 +33,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
     ready: true,
     label: "Owned audio service",
     can_prepare: false,
+    match_kind: "verified",
   }));
   const privateError =
     "Private removed title at https://private.invalid/audio?token=secret";

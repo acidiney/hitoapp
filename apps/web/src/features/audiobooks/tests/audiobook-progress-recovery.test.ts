@@ -35,6 +35,7 @@ test.each(["request", "acknowledgement body"] as const)(
       ready: true,
       label: "Owned audio service",
       can_prepare: false,
+      match_kind: "verified",
     }));
     const submitted: {
       raw: string;

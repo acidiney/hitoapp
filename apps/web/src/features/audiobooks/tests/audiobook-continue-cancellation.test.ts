@@ -30,6 +30,7 @@ test("newer browser Pause retires Continue while its heard prefix waits for ackn
     device_id: null,
     ready: true,
     can_prepare: false,
+    match_kind: "verified",
     label: "Owned fixture source",
   };
   const submitted: components["schemas"]["SyncBatch"][] = [];

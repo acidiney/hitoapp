@@ -71,6 +71,7 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
               ready: true,
               label: "Owned audio service",
               can_prepare: false,
+              match_kind: "verified",
             },
           ],
         };

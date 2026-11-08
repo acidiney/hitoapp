@@ -12,12 +12,14 @@ use std::sync::{
 use tokio::sync::oneshot;
 
 pub const TARGET: &str = "owned-metadata-recording";
+pub const REMIX: &str = "owned-remix-recording";
 pub const CHOSEN: &str = "owned-studio-recording";
 pub const TITLE: &str = "Owned recording";
 pub const ARTIST: &str = "Owned performer";
 
 #[derive(Default)]
 struct StateData {
+    without_exact_match: bool,
     searches: AtomicUsize,
     details: AtomicUsize,
     unexpected: AtomicUsize,
@@ -32,7 +34,19 @@ pub struct Provider {
 
 impl Provider {
     pub async fn start() -> Self {
-        let state = Arc::new(StateData::default());
+        Self::start_with(StateData::default()).await
+    }
+
+    pub async fn start_without_exact_match() -> Self {
+        Self::start_with(StateData {
+            without_exact_match: true,
+            ..StateData::default()
+        })
+        .await
+    }
+
+    async fn start_with(data: StateData) -> Self {
+        let state = Arc::new(data);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}/", listener.local_addr().unwrap());
         let router = Router::new().fallback(exchange).with_state(state.clone());
@@ -98,7 +112,7 @@ fn recording(id: &str) -> Value {
                 json!({"id": "owned-live-release", "title": "Live at Owned Hall", "artist": ARTIST})
         }
         "owned-other-performer" => item["artist"] = json!("Another performer"),
-        "owned-remix-recording" => item["title"] = json!("Owned recording (Remix)"),
+        REMIX => item["title"] = json!("Owned recording (Remix)"),
         "owned-long-recording" => item["duration_ms"] = json!(90000),
         _ => {}
     }
@@ -129,13 +143,16 @@ async fn exchange(State(state): State<Arc<StateData>>, request: Request) -> Resp
             json!({"id": "org.hito.owned-resolution", "name": "Owned resolver", "protocol_version": 1, "capabilities": ["search", "sources"]})
         }
         (Method::POST, "/v1/recordings/detail")
-            if [TARGET, CHOSEN].contains(&body["recording_id"].as_str().unwrap_or("")) =>
+            if [TARGET, CHOSEN, REMIX].contains(&body["recording_id"].as_str().unwrap_or("")) =>
         {
             state.details.fetch_add(1, Ordering::SeqCst);
             recording(body["recording_id"].as_str().unwrap())
         }
         (Method::POST, "/v1/sources") if body == json!({"recording_id": TARGET}) => {
             json!({"items": []})
+        }
+        (Method::POST, "/v1/sources") if body == json!({"recording_id": REMIX}) => {
+            json!({"items": [{"id": "owned-remix-audio", "label": "Owned remix audio", "ready": true}]})
         }
         (Method::POST, "/v1/sources") if body == json!({"recording_id": CHOSEN}) => {
             json!({"items": [{"id": "owned-studio-audio", "label": "Owned studio audio", "ready": true}]})
@@ -145,6 +162,9 @@ async fn exchange(State(state): State<Arc<StateData>>, request: Request) -> Resp
                 == json!({"query": format!("{ARTIST} {TITLE}"), "cursor": null, "limit": 20}) =>
         {
             state.searches.fetch_add(1, Ordering::SeqCst);
+            if state.without_exact_match {
+                return Json(json!({"items": [recording(REMIX), recording("owned-live-recording")], "next_cursor": null})).into_response();
+            }
             json!({"items": [recording("owned-live-recording"), recording("owned-other-performer"), recording("owned-remix-recording"), recording("owned-long-recording"), recording(CHOSEN)], "next_cursor": null})
         }
         _ => {

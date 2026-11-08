@@ -36,9 +36,6 @@ async fn exercise_canonical_live(target_album: &str, expected: Expected) {
             let owned = fixture::SavedRecording::prepare_named_target(
                 &spotify, &youtube, "Live", target_album,
             ).await;
-            let before = owned.hito.catalog.recording_metadata(
-                &owned.actor, &owned.recording, Default::default(),
-            ).await.unwrap_or_else(|_| panic!("the named target metadata must be readable before resolution"));
             configure_studio_candidate(&youtube).await;
             let request_id = Uuid::new_v4();
             let resolution = owned.hito.catalog.resolve_source_until(
@@ -61,13 +58,10 @@ async fn exercise_canonical_live(target_album: &str, expected: Expected) {
                 "canonical-title resolution must preserve the request and target identities"
             );
             match (expected, resolution.outcome) {
-                (Expected::Rejected, SourceResolutionOutcome::NoSuitableSource)
+                (Expected::Rejected, SourceResolutionOutcome::Ready)
                     | (Expected::Ready, SourceResolutionOutcome::Ready) => {}
-                (Expected::Rejected, SourceResolutionOutcome::Ready) => panic!(
-                    "a studio song named Live must yield NoSuitableSource for a live album, received typed Ready"
-                ),
-                (Expected::Ready, SourceResolutionOutcome::NoSuitableSource) => panic!(
-                    "a studio song named Live must yield Ready for its studio target, received typed NoSuitableSource"
+                (_, SourceResolutionOutcome::NoSuitableSource) => panic!(
+                    "a technically valid candidate must yield Ready, received typed NoSuitableSource"
                 ),
                 _ => panic!("canonical-title resolution must return the expected typed outcome"),
             }
@@ -91,15 +85,9 @@ async fn exercise_canonical_live(target_album: &str, expected: Expected) {
             match expected {
                 Expected::Rejected => {
                     assert!(
-                        stored.is_empty(),
-                        "the live-album target must receive no studio provider source"
-                    );
-                    let after = owned.hito.catalog.recording_metadata(
-                        &owned.actor, &owned.recording, Default::default(),
-                    ).await.unwrap_or_else(|_| panic!("the rejected target metadata must remain readable"));
-                    assert!(
-                        fixture::encoded(&after) == fixture::encoded(&before),
-                        "studio-source rejection must publish no observation or metadata change"
+                        stored.len() == 1
+                            && serde_json::to_value(&stored[0]).unwrap()["match_kind"] == "best_guess",
+                        "the live-album target must only receive the studio source as a best guess"
                     );
                 }
                 Expected::Ready => assert_studio_playback(&owned, &youtube, &resolution).await,
@@ -120,6 +108,10 @@ async fn assert_studio_playback(
     server: &fixture::ProviderServer,
     resolution: &SourceResolution,
 ) {
+    assert!(
+        serde_json::to_value(&resolution.sources[0]).unwrap()["match_kind"] == "verified",
+        "the exact studio match must be verified"
+    );
     assert!(
         resolution.sources.len() == 1
             && resolution.sources[0].ready

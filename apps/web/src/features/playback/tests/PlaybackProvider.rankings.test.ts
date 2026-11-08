@@ -20,6 +20,7 @@ test("ordinary browser Play consumes the authenticated playback-source order whi
       ready: true,
       label: "Owned first source",
       can_prepare: false,
+      match_kind: "verified",
     },
     {
       id: "70dc49bc-eccd-47fe-b38c-8e79cf48df6f",
@@ -29,6 +30,7 @@ test("ordinary browser Play consumes the authenticated playback-source order whi
       ready: true,
       label: "Owned preferred source",
       can_prepare: false,
+      match_kind: "verified",
     },
   ];
   const ranked = [...baseline].reverse();

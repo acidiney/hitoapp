@@ -22,6 +22,7 @@ pub use preparation::{
     PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
 };
 pub(crate) use resolution::CallerAdmission;
+pub(crate) use resolution::FALLBACK_POLICY;
 pub(crate) use resolution::{AudioPermit, CatalogAudio, CatalogTrack};
 pub use resolution::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 pub use search::ProviderSearch;

@@ -83,9 +83,11 @@ mod tests {
             recording_id: "recording".into(),
             provider: provider.into(),
             label: id.into(),
+            provider_label: None,
             device_id: None,
             ready: true,
             can_prepare: false,
+            match_kind: crate::SourceMatchKind::Verified,
         }
     }
 

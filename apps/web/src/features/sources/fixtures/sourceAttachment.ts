@@ -194,6 +194,7 @@ export const attachedSources: Schema<"Source">[] = [
     ready: true,
     label: "Owned video audio",
     can_prepare: false,
+    match_kind: "verified",
   },
 ];
 

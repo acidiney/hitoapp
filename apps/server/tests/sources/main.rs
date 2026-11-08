@@ -13,5 +13,6 @@ mod source_preparation_resume;
 mod source_preparation_uncertainty;
 mod source_resolution;
 mod source_resolution_disconnect;
+mod source_resolution_fallback;
 mod source_resolution_handoff;
 mod source_resolution_publication;

@@ -123,6 +123,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
     ready: true,
     label: "Owned chapter audio",
     can_prepare: false,
+    match_kind: "verified",
   };
   const submitted: Schema<"SyncBatch">[] = [];
   const unexpected: string[] = [];

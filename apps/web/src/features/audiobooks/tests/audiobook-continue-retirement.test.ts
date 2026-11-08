@@ -183,6 +183,7 @@ async function playingBook() {
           ready: true,
           can_prepare: false,
           label: "Owned fixture source",
+          match_kind: "verified",
         } satisfies Schema<"Source">,
       ]);
     }),

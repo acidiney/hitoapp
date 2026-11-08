@@ -66,9 +66,9 @@ pub use catalog::{
     RecordingCopy, RecordingGroupProof, RecordingLyricsProvider, RecordingLyricsProviders,
     RecordingSplit, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice,
     ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
-    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreferenceEntry, SourcePreferences,
-    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
-    SourceResolutionOutcome, UpdateSourcePreferences,
+    SourceChoiceReceipt, SourceChoiceResetReceipt, SourceMatchKind, SourcePreferenceEntry,
+    SourcePreferences, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
+    SourceResolution, SourceResolutionOutcome, UpdateSourcePreferences,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

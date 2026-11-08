@@ -5452,7 +5452,9 @@ export interface components {
             device_id?: string | null;
             id: string;
             label: string;
+            match_kind: components["schemas"]["SourceMatchKind"];
             provider: string;
+            provider_label?: string | null;
             ready: boolean;
             recording_id: string;
         };
@@ -5486,6 +5488,8 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        /** @enum {string} */
+        SourceMatchKind: "verified" | "best_guess";
         /** @enum {string} */
         SourcePersistence: "explicit_download" | "playback_only";
         SourcePreferenceEntry: {

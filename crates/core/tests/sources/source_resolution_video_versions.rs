@@ -38,14 +38,6 @@ async fn assert_wrapped_live_video_is_rejected(title: &str) {
         HANG_CEILING,
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
-            let before = owned
-                .hito
-                .catalog
-                .recording_metadata(&owned.actor, &owned.recording, Default::default())
-                .await
-                .unwrap_or_else(|_| {
-                    panic!("the studio target metadata must be readable before resolution")
-                });
             configure_live_candidate(&youtube, title).await;
             let request_id = Uuid::new_v4();
             let resolution = owned
@@ -79,30 +71,14 @@ async fn assert_wrapped_live_video_is_rejected(title: &str) {
                 resolution.request_id == request_id && resolution.recording_id == owned.recording,
                 "version rejection must preserve the request and target identities"
             );
-            match resolution.outcome {
-                SourceResolutionOutcome::NoSuitableSource => {}
-                SourceResolutionOutcome::Ready => panic!(
-                    "wrapped live-video evidence must yield NoSuitableSource, received typed Ready"
-                ),
-                _ => panic!("wrapped live-video evidence must yield NoSuitableSource"),
-            }
             assert!(
-                resolution.sources.is_empty(),
-                "live-video rejection must return no provider sources"
+                matches!(resolution.outcome, SourceResolutionOutcome::Ready)
+                    && resolution.sources.len() == 1
+                    && serde_json::to_value(&resolution.sources[0]).unwrap()["match_kind"]
+                        == "best_guess",
+                "wrapped live-video evidence must never be verified, only offered as a best guess"
             );
             owned.assert_preserved().await;
-            let after = owned
-                .hito
-                .catalog
-                .recording_metadata(&owned.actor, &owned.recording, Default::default())
-                .await
-                .unwrap_or_else(|_| {
-                    panic!("the studio target metadata must remain readable after rejection")
-                });
-            assert!(
-                fixture::encoded(&after) == fixture::encoded(&before),
-                "live-video rejection must publish no observation or metadata change"
-            );
             assert!(
                 owned
                     .hito
@@ -110,12 +86,13 @@ async fn assert_wrapped_live_video_is_rejected(title: &str) {
                     .sources(&owned.actor, &owned.recording)
                     .await
                     .unwrap_or_else(|_| panic!("the studio target sources must remain readable"))
-                    .is_empty(),
-                "live-video rejection must publish no provider source"
+                    .len()
+                    == 1,
+                "the best guess must be the only provider source"
             );
             assert!(
                 youtube.requests("v1/audio").await.is_empty(),
-                "live-video rejection must never request provider audio"
+                "a best guess must never request provider audio before playback"
             );
             for path in [
                 "v1/search",

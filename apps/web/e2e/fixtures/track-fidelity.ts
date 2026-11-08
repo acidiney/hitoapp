@@ -2,7 +2,7 @@ import type { Page, Route } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 
 export type Scenario = {
-  audio: "local" | "none" | "spotify" | "manual" | "failing";
+  audio: "local" | "none" | "spotify" | "manual" | "guess" | "failing";
   lyrics?: Schema<"TimedLyrics"> | null;
   downloading?: boolean;
 };
@@ -229,6 +229,7 @@ function source(
     device_id: null,
     ready,
     can_prepare: false,
+    match_kind: "verified",
   };
 }
 
@@ -262,6 +263,22 @@ export function fidelityChoice(
       revision: 3,
       mode: "automatic",
       sources: [entry(spotify, true)],
+    };
+  if (scenario.audio === "guess")
+    return {
+      recording_id: recording,
+      revision: 3,
+      mode: "automatic",
+      sources: [
+        entry(
+          {
+            ...spotify,
+            match_kind: "best_guess",
+            provider_label: "Jamendo",
+          },
+          true,
+        ),
+      ],
     };
   if (scenario.audio === "manual")
     return {

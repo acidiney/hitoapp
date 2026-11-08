@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "../fixtures/source_resolution.rs"]
 mod fixture;
 #[path = "../fixtures/download_host.rs"]
@@ -80,6 +81,7 @@ async fn exercise(address: SocketAddr, provider: &fixture::Provider) {
     assert_eq!(sources.len(), 1);
     assert_eq!(sources[0]["recording_id"], recording);
     assert_eq!(sources[0]["ready"], true);
+    assert_eq!(sources[0]["match_kind"], "verified");
     assert!(sources[0]["label"].as_str() == Some("Owned studio audio"));
     assert_eq!(
         provider.counts(),

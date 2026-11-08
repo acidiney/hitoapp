@@ -15,6 +15,7 @@ const source: Schema<"Source"> = {
   label: "Owned audio",
   ready: false,
   can_prepare: true,
+  match_kind: "verified",
 };
 const preparation = "fdd0f89b-a58c-4c08-a63a-16139c9af31a";
 const other = "60055886-325b-49e5-8326-9f237c6111ef";

@@ -306,7 +306,9 @@ fn assert_source(source: &Value, label: &str, can_prepare: bool) {
             "device_id",
             "id",
             "label",
+            "match_kind",
             "provider",
+            "provider_label",
             "ready",
             "recording_id"
         ]

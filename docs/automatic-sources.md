@@ -41,6 +41,23 @@ Both paths reject unknown or channel-only musical artists and compare visible li
 
 Each attempt considers at most four approved personal connections, twenty search results per connection and three detailed candidates per connection. Eligible summaries retain the provider's search order. Opaque identifiers and duration differences no longer reorder candidates before the detail limit. Exchanges are sequential within an attempt.
 
+## Best-guess fallback
+
+Core first runs the matching policy above. Only when no examined candidate passes it does a second pass trust the provider's own search order and take the first candidate, in that order, whose details, sources and metadata hydrate into valid evidence with at least one ready source. This pass applies no further matching rules. Candidates already hydrated by the first pass are reused, so a failed match adds no provider requests. A top result the first pass filtered out before hydration is hydrated once, and each connection's first three results are the most that can be examined.
+
+```mermaid
+flowchart LR
+  Search[Provider search order] --> Strict[Matching policy on hydrated candidates]
+  Strict -->|A candidate passes| Verified[Source marked verified]
+  Strict -->|None passes| Rank[First ranked candidate with valid evidence and a ready source]
+  Rank -->|Found| Guess[Source marked best guess]
+  Rank -->|None| None[No suitable source]
+```
+
+A fallback source is published like any automatic source on the same Hito recording and records policy `hito.provider-rank-fallback.v1` in its immutable decision, so no migration is needed. Source listings expose `match_kind` as `verified` or `best_guess`, with `provider_label` naming the connected service. The track page marks a best guess with a **Best guess** badge, explains it in plain language and offers **Fix source**, which opens the existing source search. Choosing any source yourself, including the best guess, makes it verified and protects it from later automatic resolution.
+
+A best-guess source already counts as a ready source, so a later Play or Find audio does not search again and a later exact match does not replace it. Replacing it with a verified source currently takes the manual choice above. Core logs the fallback with its outcome, the examined count, the chosen rank index and timing, never titles, artists or provider identifiers.
+
 The YouTube plugin searches the YouTube Music songs catalog. Its flat results can contain only a video identity and title, so the summary keeps an unknown artist and missing duration. Core still requires independently hydrated musical title, known artist, duration, version context and complete source witnesses before accepting audio. A search result alone cannot supply that evidence.
 
 Caller admission reserves at most two active account slots across cloned catalog handles. A running account rejects excess callers with a controlled conflict before SQLite. In the verified development source, a cancelling owner can reserve one successor in that same slot, with at most two successors globally. Further callers receive Busy before SQLite and create no receipt aliases. Waiting consumes the original ten-second budget; cancelling a waiting successor releases only its exact reservation. Durable pending resolutions retain their account/global limits.

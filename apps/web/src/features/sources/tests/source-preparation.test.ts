@@ -32,6 +32,7 @@ const source: Schema<"Source"> = {
   ready: false,
   label: "Owned exact audio",
   can_prepare: true,
+  match_kind: "verified",
 };
 
 function status(

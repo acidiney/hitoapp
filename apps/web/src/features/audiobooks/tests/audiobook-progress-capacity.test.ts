@@ -38,6 +38,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
     ready: true,
     label: "Owned audio service",
     can_prepare: false,
+    match_kind: "verified",
   };
   const submitted: { raw: string; batch: Schema<"SyncBatch"> }[] = [];
   const requests: string[] = [];

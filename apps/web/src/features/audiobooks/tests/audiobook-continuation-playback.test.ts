@@ -58,6 +58,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     ready: true,
     label: "Owned audio service",
     can_prepare: false,
+    match_kind: "verified",
   });
   const sourceA = source(
     first.recording_id!,

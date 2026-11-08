@@ -1,12 +1,18 @@
 use super::{
     authority,
+    fallback::{Basis, FALLBACK_POLICY},
     matching::{METADATA_POLICY, MusicalRecording, POLICY},
 };
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_plugin_sdk::{
     Capability, ProviderRecording, RecordingMetadata, RecordingRequest, SearchRequest, SourcePage,
 };
-use std::{collections::BTreeSet, iter::Take, sync::Arc, vec::IntoIter};
+use std::{
+    collections::{BTreeSet, HashMap},
+    iter::Take,
+    sync::Arc,
+    vec::IntoIter,
+};
 
 const DETAIL_LIMIT: usize = 3;
 
@@ -31,11 +37,19 @@ pub(super) struct Candidate {
 }
 
 impl Candidate {
-    pub(super) fn accepts(&self, target: &MusicalRecording) -> bool {
-        self.rejection(target).is_none()
+    pub(super) fn acceptable(&self, target: &MusicalRecording, basis: Basis) -> bool {
+        match basis {
+            Basis::Matched => self.rejection(target).is_none(),
+            Basis::ProviderRank { .. } => self.technical_rejection().is_none(),
+        }
     }
 
     fn rejection(&self, target: &MusicalRecording) -> Option<&'static str> {
+        self.technical_rejection()
+            .or_else(|| self.matching_rejection(target))
+    }
+
+    fn technical_rejection(&self) -> Option<&'static str> {
         if self.details.validate().is_err() {
             return Some("invalid_details");
         }
@@ -46,15 +60,10 @@ impl Candidate {
             return Some("no_ready_source");
         }
         match &self.evidence {
-            CandidateEvidence::Legacy => {
-                if self.operation.metadata_approved() {
-                    Some("metadata_evidence_required")
-                } else if !target.accepts(&self.details) {
-                    Some("legacy_musical_mismatch")
-                } else {
-                    None
-                }
-            }
+            CandidateEvidence::Legacy => self
+                .operation
+                .metadata_approved()
+                .then_some("metadata_evidence_required"),
             CandidateEvidence::Musical(metadata) => {
                 let Some(witnesses) = metadata.source_ids.as_ref() else {
                     return Some("missing_source_witnesses");
@@ -78,15 +87,32 @@ impl Candidate {
                 {
                     return Some("source_witness_mismatch");
                 }
-                target.metadata_rejection(metadata)
+                None
             }
         }
     }
 
-    pub(super) fn policy(&self) -> &'static str {
+    fn technical_rejection_for(&self, summary: &str) -> Option<&'static str> {
+        if self.details.id != summary {
+            return Some("detail_identity_mismatch");
+        }
+        self.technical_rejection()
+    }
+
+    fn matching_rejection(&self, target: &MusicalRecording) -> Option<&'static str> {
         match &self.evidence {
-            CandidateEvidence::Legacy => POLICY,
-            CandidateEvidence::Musical(_) => METADATA_POLICY,
+            CandidateEvidence::Legacy => {
+                (!target.accepts(&self.details)).then_some("legacy_musical_mismatch")
+            }
+            CandidateEvidence::Musical(metadata) => target.metadata_rejection(metadata),
+        }
+    }
+
+    pub(super) fn policy(&self, basis: Basis) -> &'static str {
+        match (basis, &self.evidence) {
+            (Basis::ProviderRank { .. }, _) => FALLBACK_POLICY,
+            (Basis::Matched, CandidateEvidence::Legacy) => POLICY,
+            (Basis::Matched, CandidateEvidence::Musical(_)) => METADATA_POLICY,
         }
     }
 
@@ -117,6 +143,8 @@ pub(super) struct Page {
     revision: i64,
     operation: Arc<Operation>,
     summaries: Take<IntoIter<ProviderRecording>>,
+    ranked: IntoIter<(usize, ProviderRecording)>,
+    hydrated: HashMap<String, Option<Candidate>>,
 }
 
 impl Catalog {
@@ -150,6 +178,13 @@ impl Catalog {
             operation.recheck(&mut connection).await?;
         }
         let returned_count = page.items.len();
+        let ranked = page
+            .items
+            .iter()
+            .take(DETAIL_LIMIT)
+            .cloned()
+            .enumerate()
+            .collect::<Vec<_>>();
         page.items.retain(|candidate| {
             if operation.metadata_approved() {
                 musical.plausible_metadata_summary(candidate)
@@ -170,6 +205,8 @@ impl Catalog {
             revision,
             operation: Arc::new(operation),
             summaries: page.items.into_iter().take(DETAIL_LIMIT),
+            ranked: ranked.into_iter(),
+            hydrated: HashMap::new(),
         })
     }
 }
@@ -186,17 +223,7 @@ impl Page {
             let Some(summary) = self.summaries.next() else {
                 return Ok(None);
             };
-            let occupied = {
-                let mut connection = catalog.store.pool.acquire().await?;
-                authority::check(&mut connection, actor, recording).await?;
-                self.operation.recheck(&mut connection).await?;
-                sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM provider_items candidate
-                    JOIN provider_items primary_item ON primary_item.id = ?
-                    WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
-                        AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)")
-                    .bind(subject.binding).bind(&self.installation).bind(&summary.id)
-                    .fetch_one(&mut *connection).await?
-            };
+            let occupied = self.occupied(catalog, actor, subject, &summary).await?;
             if occupied {
                 tracing::debug!(
                     event = "source_resolution_candidate_skipped",
@@ -219,24 +246,95 @@ impl Page {
                         error_kind = error.code(),
                         "Source resolution candidate exchange failed"
                     );
+                    self.hydrated.insert(summary.id.clone(), None);
                     continue;
                 }
             };
-            let rejection = if candidate.details.id != summary.id {
-                Some("detail_identity_mismatch")
-            } else {
-                candidate.rejection(musical)
-            };
+            let technical = candidate.technical_rejection_for(&summary.id);
+            let rejection = technical.or_else(|| candidate.matching_rejection(musical));
             if let Some(reason) = rejection {
                 tracing::debug!(
                     event = "source_resolution_candidate_rejected",
                     reason,
                     "Source resolution candidate rejected"
                 );
+                self.hydrated
+                    .insert(summary.id.clone(), technical.is_none().then_some(candidate));
                 continue;
             }
             return Ok(Some(candidate));
         }
+    }
+
+    pub(super) async fn next_by_provider_rank(
+        &mut self,
+        catalog: &Catalog,
+        actor: &Actor,
+        subject: &Subject<'_>,
+    ) -> Result<Option<(usize, Candidate)>> {
+        loop {
+            let Some((rank, summary)) = self.ranked.next() else {
+                return Ok(None);
+            };
+            if self.occupied(catalog, actor, subject, &summary).await? {
+                continue;
+            }
+            let candidate = match self.hydrated.remove(&summary.id) {
+                Some(Some(candidate)) => candidate,
+                Some(None) => continue,
+                None => {
+                    let request = RecordingRequest {
+                        recording_id: summary.id.clone(),
+                    };
+                    match self
+                        .hydrate(catalog, actor, subject.recording, &request)
+                        .await
+                    {
+                        Ok(candidate)
+                            if candidate.technical_rejection_for(&summary.id).is_none() =>
+                        {
+                            candidate
+                        }
+                        Ok(_) => continue,
+                        Err(Error::Unauthorized) => return Err(Error::Unauthorized),
+                        Err(error) => {
+                            self.provider_unavailable |=
+                                matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                            tracing::debug!(
+                                event = "source_resolution_candidate_failed",
+                                error_kind = error.code(),
+                                "Source resolution candidate exchange failed"
+                            );
+                            continue;
+                        }
+                    }
+                }
+            };
+            return Ok(Some((rank, candidate)));
+        }
+    }
+
+    async fn occupied(
+        &self,
+        catalog: &Catalog,
+        actor: &Actor,
+        subject: &Subject<'_>,
+        summary: &ProviderRecording,
+    ) -> Result<bool> {
+        let mut connection = catalog.store.pool.acquire().await?;
+        authority::check(&mut connection, actor, subject.recording).await?;
+        self.operation.recheck(&mut connection).await?;
+        Ok(sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM provider_items candidate
+            JOIN provider_items primary_item ON primary_item.id = ?
+            WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
+                AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)",
+        )
+        .bind(subject.binding)
+        .bind(&self.installation)
+        .bind(&summary.id)
+        .fetch_one(&mut *connection)
+        .await?)
     }
 
     async fn hydrate(
