@@ -67,8 +67,11 @@ impl MusicalRecording {
             metadata.album_title.as_deref(),
             None,
         ));
-        if versions(&without_featured_artists(&self.title), self.album.as_deref(), None)
-            != candidate_versions
+        if versions(
+            &without_featured_artists(&self.title),
+            self.album.as_deref(),
+            None,
+        ) != candidate_versions
         {
             return Some("version_mismatch");
         }
@@ -136,7 +139,11 @@ fn without_featured_artists(title: &str) -> String {
     let mut kept = String::with_capacity(title.len());
     let mut rest = title;
     while let Some(open) = rest.find(['(', '[']) {
-        let close = if rest[open..].starts_with('(') { ')' } else { ']' };
+        let close = if rest[open..].starts_with('(') {
+            ')'
+        } else {
+            ']'
+        };
         let Some(length) = rest[open + 1..].find(close) else {
             break;
         };

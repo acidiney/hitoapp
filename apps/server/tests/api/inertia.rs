@@ -62,7 +62,7 @@ async fn inertia_serves_html_json_partial_props_and_asset_version_conflicts() {
             .keys()
             .cloned()
             .collect::<Vec<_>>(),
-        vec!["errors", "recordings"]
+        vec!["errors", "files", "recordings"]
     );
     let response = app
         .clone()
