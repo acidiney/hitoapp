@@ -1,11 +1,19 @@
-import { trackTabHref } from "../../recordings/model/trackTabs";
+import { findAudioHref } from "../../recordings/model/trackTabs";
+import type { Schema } from "../../../shared/schema";
+import {
+  bestGuessReason,
+  sourceLabels,
+  sourceState,
+} from "../../sources/model/sourceLabels";
+import { usePlayingSource } from "../hooks/usePlayingSource";
+import Button from "../../../shared/ui/Button";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import { useQueuePage } from "../hooks/useQueuePage";
 import Artwork from "../../artwork/components/Artwork";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
-import RouteLink from "../../../shared/ui/RouteLink";
+import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { time } from "../../../shared/format";
 import { SPEED_CHOICES } from "./SpeedControl";
 import type { Track } from "../model";
@@ -71,14 +79,54 @@ export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
 const SPEED_SETTLE_MS = 250;
 const label = (speed: number) => `${speed}×`;
 
+function PlayingSource({
+  track,
+  source,
+  loading,
+}: {
+  track: Track | null;
+  source: Schema<"Source"> | null;
+  loading: boolean;
+}) {
+  if (!track) return <p className="muted">Nothing is playing.</p>;
+  if (loading) return <p role="status">Checking the source…</p>;
+  if (!source)
+    return <p className="muted">This track has no playable source yet.</p>;
+  const labels = sourceLabels(source);
+  const state = sourceState(source);
+  return (
+    <div className="np-source-info">
+      <strong>{labels.primary}</strong>
+      <span className="np-source-detail">{labels.secondary}</span>
+      <span className="np-source-chips">
+        <span className="track-chip" data-tone={state.tone}>
+          {state.label}
+        </span>
+        {source.match_kind === "best_guess" && (
+          <span
+            className="track-chip"
+            data-tone="warning"
+            title={bestGuessReason(source)}
+          >
+            Best guess
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function SourcePanel({
+  account,
   track,
   leave,
 }: {
+  account: string;
   track: Track | null;
   leave: () => void;
 }) {
   const player = usePlayer();
+  const playing = usePlayingSource(account, track?.id ?? null);
   const speed = useSyncExternalStore(
     player.subscribe,
     () => player.snapshot().speed,
@@ -129,28 +177,21 @@ export function SourcePanel({
     <div className="np-source">
       <section className="np-card" aria-label="This source">
         <h2>This source</h2>
-        <dl>
-          <dt>player</dt>
-          <dd>
-            {player.mode === "native" ? "Desktop player" : "This browser"}
-          </dd>
-          <dt>plays at</dt>
-          <dd>{label(effective)}</dd>
-          {range && (
-            <>
-              <dt>speeds</dt>
-              <dd>{`${range.min}–${range.max}×`}</dd>
-            </>
-          )}
-        </dl>
+        <PlayingSource
+          track={track}
+          source={playing.source}
+          loading={playing.loading}
+        />
         {track && (
           <p className="np-card-foot">
-            <RouteLink
-              href={trackTabHref(track.id, "sources")}
-              onNavigate={leave}
+            <Button
+              onClick={() => {
+                leave();
+                visitFromPlayer(findAudioHref(track.id));
+              }}
             >
-              Choose another source in track details
-            </RouteLink>
+              Change source
+            </Button>
           </p>
         )}
       </section>
@@ -166,6 +207,11 @@ export function SourcePanel({
           disabled={!player.supports.speed || !ready}
           onChange={(value) => choose(+value)}
         />
+        {chosen === null && effective !== speed && (
+          <p className="np-speed-note">
+            {`This source is playing at ${label(effective)}.`}
+          </p>
+        )}
       </section>
     </div>
   );

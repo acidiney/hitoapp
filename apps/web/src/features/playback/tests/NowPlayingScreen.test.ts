@@ -17,13 +17,16 @@ import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
 let player: Playback;
 let media: QueueMedia;
 const close = vi.fn();
+let playbackSources: unknown[] = [];
 const fetch = vi.fn(async (path: string) =>
-  path.endsWith("/lyrics/providers")
-    ? Response.json({ recording_id: "r0", items: [] })
-    : Response.json({
-        installations: [{ manifest: { capabilities: ["lyrics"] } }],
-        services: [],
-      }),
+  path.endsWith("/playback-sources")
+    ? Response.json(playbackSources)
+    : path.endsWith("/lyrics/providers")
+      ? Response.json({ recording_id: "r0", items: [] })
+      : Response.json({
+          installations: [{ manifest: { capabilities: ["lyrics"] } }],
+          services: [],
+        }),
 );
 const openQueue = vi.fn();
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
@@ -33,6 +36,18 @@ vi.mock("../../artwork/components/Artwork", () => ({
 }));
 
 beforeEach(async () => {
+  playbackSources = [
+    {
+      id: "s0",
+      recording_id: "r0",
+      provider: "youtube",
+      provider_label: "YouTube Music",
+      label: "Opus 128 kbps",
+      match_kind: "verified",
+      ready: true,
+      can_prepare: true,
+    },
+  ];
   vi.stubGlobal("fetch", fetch);
   HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
     this.open = true;
@@ -117,6 +132,40 @@ test("Source shows the speed the source plays at and sets the speed", () => {
   act(() => vi.advanceTimersByTime(400));
   vi.useRealTimers();
   expect(media.playbackRate).toBe(1.5);
+});
+
+test("Source names the service and its state in plain words", async () => {
+  const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
+  const card = within(dialog).getByRole("region", { name: "This source" });
+  expect(await within(card).findByText("YouTube Music")).toBeTruthy();
+  expect(within(card).getByText("Ready")).toBeTruthy();
+  expect(within(card).queryByText("Best guess")).toBeNull();
+  expect(card.textContent).not.toMatch(/player|This browser|speeds/);
+});
+
+test("Source marks a best guess", async () => {
+  playbackSources = [
+    {
+      ...(playbackSources[0] as object),
+      match_kind: "best_guess",
+    },
+  ];
+  const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
+  expect(await within(dialog).findByText("Best guess")).toBeTruthy();
+});
+
+test("Change source opens the Sources tab of the track and closes the player", async () => {
+  const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Change source" }),
+  );
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(router.visit).mock.calls.at(-1)?.[0]).toBe(
+    "/recordings/r0?tab=sources#find-audio",
+  );
 });
 
 test("rapid speed choices coalesce into one command", () => {

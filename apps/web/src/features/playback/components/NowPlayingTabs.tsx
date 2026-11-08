@@ -68,7 +68,9 @@ export default function NowPlayingTabs({
         {active === "Lyrics" && (
           <LyricsPanel account={account} track={track} leave={leave} />
         )}
-        {active === "Source" && <SourcePanel track={track} leave={leave} />}
+        {active === "Source" && (
+          <SourcePanel account={account} track={track} leave={leave} />
+        )}
       </div>
     </>
   );

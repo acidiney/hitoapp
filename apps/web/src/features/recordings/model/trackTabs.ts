@@ -43,6 +43,10 @@ export function trackTabHref(recording: string, tab: TrackTab): string {
   return tab === "overview" ? base : `${base}?tab=${tab}`;
 }
 
+export function findAudioHref(recording: string): string {
+  return `${trackTabHref(recording, "sources")}#find-audio`;
+}
+
 export function trackTabForShortcut(key: string): TrackTab | null {
   const index = Number(key) - 1;
   return Number.isInteger(index) ? (trackTabs[index] ?? null) : null;

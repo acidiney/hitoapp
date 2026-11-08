@@ -252,19 +252,25 @@
   font-weight: 700;
   letter-spacing: 0;
 }
-.np-card dl {
+.np-source-info {
   display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 8px 12px;
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
+  gap: 4px;
 }
-.np-card dt {
+.np-source-info strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.np-source-detail,
+.np-speed-note {
+  margin: 0;
+  font-size: 13px;
   color: var(--muted);
 }
-.np-card dd {
-  margin: 0;
+.np-source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
 }
 .np-card-foot {
   padding-top: 12px;

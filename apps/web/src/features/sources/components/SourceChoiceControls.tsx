@@ -2,6 +2,11 @@ import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
 
 import Button from "../../../shared/ui/Button";
+import {
+  bestGuessReason,
+  sourceLabels,
+  sourceState,
+} from "../model/sourceLabels";
 
 const modes: Record<Schema<"SourceChoice">["mode"], string> = {
   automatic: "Automatic source selection",
@@ -28,23 +33,6 @@ type Props = {
   check(): Promise<void>;
   fixSource(): void;
 };
-
-function bestGuessReason(source: Schema<"Source">) {
-  const provider = source.provider_label?.trim() || "the music service";
-  return `Chosen from ${provider}'s top result because no exact match was found.`;
-}
-
-function sourceLabels(source: Schema<"Source">) {
-  if (source.provider === "local")
-    return { primary: source.label, secondary: "Music folder" };
-  const service = source.provider_label?.trim();
-  if (service)
-    return {
-      primary: service,
-      secondary: source.label.replaceAll(" / ", " · "),
-    };
-  return { primary: source.label, secondary: "Music service" };
-}
 
 function savedSelection(choice: Schema<"SourceChoice">, source: string) {
   return choice.sources.some(
@@ -125,19 +113,9 @@ export default function SourceChoiceControls({
                   <span className="rd-choice-state">
                     <span
                       className="track-chip"
-                      data-tone={
-                        entry.source.device_id
-                          ? "action"
-                          : entry.source.ready
-                            ? "success"
-                            : "warning"
-                      }
+                      data-tone={sourceState(entry.source).tone}
                     >
-                      {entry.source.device_id
-                        ? "On this device"
-                        : entry.source.ready
-                          ? "Ready"
-                          : "Not prepared"}
+                      {sourceState(entry.source).label}
                     </span>
                     {choice.mode === "manual" && entry.selected && (
                       <span className="track-chip" data-tone="action">

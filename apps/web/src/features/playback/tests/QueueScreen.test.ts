@@ -86,6 +86,18 @@ test("Clear asks first and then empties the queue", async () => {
   expect(screen.getByText(/Choose a track to start listening/)).toBeTruthy();
 });
 
+test("cancelling Clear keeps the queue and returns focus to the Clear button", async () => {
+  const clear = screen.getByRole("button", { name: "Clear" });
+  clear.focus();
+  fireEvent.click(clear);
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(player.queueSnapshot().total).toBe(5);
+  expect(document.activeElement).toBe(clear);
+});
+
 test("played tracks stay reachable in a collapsed section and can be removed", async () => {
   const played = screen.getByText("Played (1)").closest("details")!;
   expect(played.open).toBe(false);
