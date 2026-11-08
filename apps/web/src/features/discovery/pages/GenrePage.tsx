@@ -4,7 +4,8 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import AlbumGrid from "../../catalog/components/AlbumGrid";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
-import { tintFor } from "../../../shared/ui/collectionTint";
+import FallbackCover from "../../../shared/ui/FallbackCover";
+import { coverPaint } from "../../../shared/ui/coverArt";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import { genreCount } from "../model/genreCount";
 import { genreTitle } from "../model/genreTitle";
@@ -27,7 +28,12 @@ export default function GenrePage({
   return (
     <>
       <CollectionHeader
-        tint={tintFor(genre.key)}
+        tint={coverPaint("genre", genre.key).base}
+        cover={
+          <div className="artwork">
+            <FallbackCover kind="genre" id={genre.key} title={name} />
+          </div>
+        }
         size="playlist"
         crumbs={
           <Breadcrumbs

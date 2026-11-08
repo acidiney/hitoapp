@@ -4,6 +4,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import GenrePage from "../pages/GenrePage";
+import { GENRE_HUES, coverPaint } from "../../../shared/ui/coverArt";
 
 const { player } = vi.hoisted(() => ({
   player: {
@@ -55,6 +56,7 @@ const props = (count: number): Schema<"GenrePageProps"> => ({
         duration_ms: 120000,
         artwork_recording_id: "t1",
         inferred_artist: null,
+        year: null,
       },
     ],
     tracks: [track("t1", "Song 1"), track("t2", "Song 2")],
@@ -119,4 +121,17 @@ test("a genre at the server's count cap reads 1,000+", () => {
   );
   expect(screen.getByText("1,000+ tracks in your library")).toBeTruthy();
   expect(screen.getByText("Showing 2 of 1,000+ tracks.")).toBeTruthy();
+});
+
+test("the genre header uses the same generated cover and hue as the Discover tile", () => {
+  const { container } = render(
+    createElement(NoticeProvider, null, createElement(GenrePage, props(2))),
+  );
+  const paint = coverPaint("genre", "fado");
+  const header = container.querySelector<HTMLElement>(".tinted-header");
+  expect(header?.style.getPropertyValue("--tint")).toBe(paint.base);
+  expect(
+    within(header as HTMLElement).getByRole("img", { name: "Cover of Fado" }),
+  ).toBeTruthy();
+  expect(GENRE_HUES).toContain(paint.hue);
 });
