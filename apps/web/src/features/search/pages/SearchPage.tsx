@@ -8,11 +8,11 @@ import Button from "../../../shared/ui/Button";
 import EmptyState from "../../../shared/ui/EmptyState";
 import FilterPills from "../../../shared/ui/FilterPills";
 import SearchField from "../../../shared/ui/SearchField";
+import { SHELL_SEARCH_ID } from "../../../app/searchShortcut";
 import {
-  isApplePlatform,
-  SHELL_SEARCH_ID,
-  shortcutLabel,
-} from "../../../app/searchShortcut";
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import {
   AlbumResults,
   ArtistResults,
@@ -41,6 +41,7 @@ export default function SearchPage({
 }: Schema<"SearchPageProps">) {
   const player = usePlayer();
   const { mutate } = useMutation(user.id);
+  const phone = useMediaQuery(PHONE_QUERY);
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
   const [asked, setAsked] = useState<string | null>(null);
@@ -104,15 +105,16 @@ export default function SearchPage({
     <div className="search-page">
       <header className="search-header">
         <h1>Search</h1>
-        <SearchField
-          id={SHELL_SEARCH_ID}
-          label="Search"
-          placeholder="Artist, album or track"
-          value={draft}
-          hint={shortcutLabel(isApplePlatform()).text}
-          onChange={setDraft}
-          onSubmit={(value) => router.get("/search", { q: value })}
-        />
+        {phone && (
+          <SearchField
+            id={SHELL_SEARCH_ID}
+            label="Search"
+            placeholder="Artist, album or track"
+            value={draft}
+            onChange={setDraft}
+            onSubmit={(value) => router.get("/search", { q: value })}
+          />
+        )}
         {automatic && scope !== "library" && connections.length > 0 && (
           <p className="muted">
             With few matches in your library, your search is sent to your

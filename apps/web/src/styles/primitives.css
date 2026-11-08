@@ -383,6 +383,7 @@
   list-style: none;
   overflow-x: auto;
   scroll-snap-type: x proximity;
+  scroll-padding-inline: 2px;
 }
 .shelf-row > li {
   min-width: 0;

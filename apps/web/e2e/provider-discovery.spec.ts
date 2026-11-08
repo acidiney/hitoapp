@@ -3,6 +3,9 @@ import { providerFixture } from "./fixtures/provider";
 import type { Schema } from "../src/shared/schema";
 import { openLibrarySection } from "./fixtures/library-sections";
 
+const musicSearch = (page: Page) =>
+  page.getByRole("search", { name: "Music service search" });
+
 async function signIn(page: Page, username: string, password: string) {
   await page.goto("/discover");
   await page.getByLabel("Username", { exact: true }).fill(username);
@@ -59,7 +62,9 @@ test("provider discovery saves, pages and plays privately with stale selection p
     const search = page.getByRole("searchbox", { name: "Search music" });
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await search.fill("Discovery");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await musicSearch(page)
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.recording.title}`,
@@ -72,7 +77,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
       path: "/workspace/test-results/discovery-desktop.png",
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    const searchButton = page.getByRole("button", {
+    const searchButton = musicSearch(page).getByRole("button", {
       name: "Search",
       exact: true,
     });
@@ -150,13 +155,17 @@ test("provider discovery saves, pages and plays privately with stale selection p
     );
     expect(refreshed.status()).toBe(200);
     connection = (await refreshed.json()).installation;
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await musicSearch(page)
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await expect(page.getByRole("alert")).toContainText("changed");
     await page
       .getByRole("link", { name: "Refresh services", exact: true })
       .click();
     await expect(search).toHaveValue("Discovery");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await musicSearch(page)
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.recording.title}`,
@@ -185,7 +194,9 @@ test("provider discovery saves, pages and plays privately with stale selection p
       .getByRole("link", { name: "Refresh services", exact: true })
       .click();
     await expect(search).toHaveValue("Discovery");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await musicSearch(page)
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await page
       .getByRole("button", {
         name: `Play ${fixture.recording.title}`,

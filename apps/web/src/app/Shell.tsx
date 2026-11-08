@@ -8,6 +8,8 @@ import AccountMenu from "./AccountMenu";
 import LibrarySearch from "./LibrarySearch";
 import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
 import LibrarySections from "./LibrarySections";
+import { searchPlacement } from "./searchPlacement";
+import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import Sidebar from "./Sidebar";
 import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
@@ -16,20 +18,18 @@ import { TrackActionsProvider } from "../features/playback/components/TrackActio
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
-const OWN_SEARCH = new Set([
-  "HomePage",
-  "SearchPage",
-  "DiscoverPage",
-  "GenrePage",
-  "SettingsPage",
-  "QueuePage",
-]);
 const DETAIL_PAGES = new Set(["RecordingDetailsPage"]);
+
+function libraryTarget(component: string): "albums" | "artists" | "library" {
+  if (component === "AlbumIndexPage") return "albums";
+  return component === "ArtistIndexPage" ? "artists" : "library";
+}
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<Schema<"SharedPageProps"> & PageProps>();
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
+  const placement = searchPlacement(page.component, useMediaQuery(PHONE_QUERY));
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
@@ -53,19 +53,22 @@ export default function Shell({ children }: { children: ReactNode }) {
               <Sidebar playlists={playlists} path={url.pathname} />
               <div className="workspace">
                 <AccountMenu user={user} lock={lock} path={url.pathname} />
-                {!OWN_SEARCH.has(page.component) &&
-                  !DETAIL_PAGES.has(page.component) && (
-                    <LibrarySearch
-                      query={url.searchParams.get("q") ?? ""}
-                      target={
-                        page.component === "AlbumIndexPage"
-                          ? "albums"
-                          : page.component === "ArtistIndexPage"
-                            ? "artists"
-                            : "library"
-                      }
-                    />
-                  )}
+                {placement === "global" && (
+                  <LibrarySearch
+                    query={
+                      page.component === "SearchPage"
+                        ? (url.searchParams.get("q") ?? "")
+                        : ""
+                    }
+                    target="search"
+                  />
+                )}
+                {placement === "library" && (
+                  <LibrarySearch
+                    query={url.searchParams.get("q") ?? ""}
+                    target={libraryTarget(page.component)}
+                  />
+                )}
                 {!DETAIL_PAGES.has(page.component) && (
                   <LibrarySections path={url.pathname} />
                 )}

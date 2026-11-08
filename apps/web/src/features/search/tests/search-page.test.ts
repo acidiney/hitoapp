@@ -432,13 +432,31 @@ test("an empty query asks for a search and no match says so", () => {
   ).toBeTruthy();
 });
 
-test("submitting the field searches again", () => {
+function phoneScreen() {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches: query === "(max-width: 767px)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+}
+
+test("on a phone the page owns the field and submitting it searches again", () => {
+  phoneScreen();
   render(createElement(SearchPage, props()));
   const field = screen.getByRole("searchbox", { name: "Search" });
+  expect(field.id).toBe("shell-search");
   expect((field as HTMLInputElement).value).toBe("tide");
   fireEvent.change(field, { target: { value: "glass" } });
   fireEvent.submit(field.closest("form") as HTMLFormElement);
   expect(router.get).toHaveBeenCalledWith("/search", { q: "glass" });
+});
+
+test("on a desktop the field lives in the top bar, so the page adds none", () => {
+  render(createElement(SearchPage, props()));
+  expect(screen.queryByRole("searchbox")).toBeNull();
 });
 
 const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({

@@ -48,10 +48,14 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
     }),
   ).toBeVisible();
   await page.screenshot({ path: "/workspace/test-results/home-desktop.png" });
-  const homeSearch = page.getByRole("searchbox", {
+  const homeSearch = page.getByRole("textbox", {
     name: "Search",
     exact: true,
   });
+  await expect(homeSearch).toHaveAttribute(
+    "placeholder",
+    "Search artists, albums and tracks",
+  );
   await page.keyboard.press("Control+K");
   await expect(homeSearch).toBeFocused();
 
@@ -72,8 +76,53 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
     path: "/workspace/test-results/discover-desktop.png",
   });
   await page.keyboard.press("Control+K");
-  await expect(page).toHaveURL(/\/search$/);
+  await expect(page).toHaveURL(/\/discover$/);
   await expect(homeSearch).toBeFocused();
+});
+
+test("on a desktop the search field sits in the same place on Home, Search, Discover, Queue and Settings", async ({
+  page,
+}) => {
+  await openSharedAdminSession(page);
+  const places: { x: number; y: number; width: number; height: number }[] = [];
+  for (const path of ["/home", "/search", "/discover", "/queue", "/settings"]) {
+    await page.goto(path);
+    const field = page.getByRole("textbox", { name: "Search", exact: true });
+    await expect(field).toBeVisible();
+    await expect(page.getByRole("searchbox")).toHaveCount(0);
+    places.push((await field.boundingBox())!);
+  }
+  for (const place of places) {
+    expect(place.x).toBeCloseTo(places[0].x, 0);
+    expect(place.y).toBeCloseTo(places[0].y, 0);
+    expect(place.height).toBeCloseTo(places[0].height, 0);
+  }
+  await page.goto("/library");
+  const library = (await page
+    .getByRole("textbox", { name: "Search library", exact: true })
+    .boundingBox())!;
+  expect(library.x).toBeCloseTo(places[0].x, 0);
+  expect(library.y).toBeCloseTo(places[0].y, 0);
+  expect(library.height).toBeCloseTo(places[0].height, 0);
+});
+
+test("on a phone only the Search page and the library pages show a search field", async ({
+  page,
+}) => {
+  await openSharedAdminSession(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ["/home", "/discover", "/queue", "/settings"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+    await expect(page.locator("#shell-search")).toHaveCount(0);
+  }
+  await page.goto("/search");
+  await expect(page.locator("#shell-search")).toHaveCount(1);
+  await expect(page.getByRole("searchbox", { name: "Search" })).toBeVisible();
+  await page.goto("/library");
+  await expect(
+    page.getByRole("textbox", { name: "Search library", exact: true }),
+  ).toBeVisible();
 });
 
 test("a phone shows a four-tab bar with the mini player above it", async ({

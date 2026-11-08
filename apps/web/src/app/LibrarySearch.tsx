@@ -9,7 +9,7 @@ export default function LibrarySearch({
   target = "library",
 }: {
   query: string;
-  target?: "library" | "albums" | "artists";
+  target?: "library" | "albums" | "artists" | "search";
 }) {
   const [search, setSearch] = useState(query);
   useEffect(() => setSearch(query), [query]);
@@ -18,14 +18,19 @@ export default function LibrarySearch({
     log.info("navigation.search", { enabled: Boolean(search) });
     router.get(`/${target}`, search ? { q: search } : {});
   }
+  const global = target === "search";
   return (
     <header className="topbar">
       <form className="search" onSubmit={submit}>
         <Search size={19} />
         <input
           id={SHELL_SEARCH_ID}
-          aria-label={`Search ${target}`}
-          placeholder={`Search your ${target}`}
+          aria-label={global ? "Search" : `Search ${target}`}
+          placeholder={
+            global
+              ? "Search artists, albums and tracks"
+              : `Search your ${target}`
+          }
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />

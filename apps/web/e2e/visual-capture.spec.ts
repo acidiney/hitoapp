@@ -407,7 +407,7 @@ test("capture every redesigned surface at desktop and phone width", async ({
     await tabs.getByRole("link", { name: /^Search/ }).click();
     await expect(page).toHaveURL(/\/search$/);
     await shoot(page, "search", size.name);
-    await page.getByRole("searchbox").first().fill("Lume");
+    await page.locator("#shell-search").fill("Lume");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(800);
     await shoot(page, "search-results", size.name);

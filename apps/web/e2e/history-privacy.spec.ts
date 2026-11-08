@@ -172,9 +172,11 @@ test("pausing listening history stops new entries and deleting it empties Histor
     page.getByRole("heading", { name: "Listening history is paused" }),
   ).toBeVisible();
   await page.goto("/home");
+  const recentlyPlayed = page.getByRole("region", { name: "Recently played" });
   await expect(
-    page.getByRole("heading", { name: "Recently played" }),
+    recentlyPlayed.getByRole("link", { name: /Fixture/ }),
   ).toHaveCount(0);
+  await expect(recentlyPlayed.getByRole("list")).toHaveCount(0);
 
   await page.goto("/settings?section=privacy");
   const resumed = page

@@ -69,13 +69,9 @@ test("the greeting names the account and follows the time of day", () => {
   ).toBeTruthy();
 });
 
-test("the search field sends the query to the Search page", () => {
+test("home has no search field of its own, the top bar and Search tab lead to Search", () => {
   render(createElement(HomePage, props()));
-  const field = screen.getByRole("searchbox", { name: "Search" });
-  expect(field.id).toBe("shell-search");
-  fireEvent.change(field, { target: { value: "tide" } });
-  fireEvent.submit(field.closest("form") as HTMLFormElement);
-  expect(router.get).toHaveBeenCalledWith("/search", { q: "tide" });
+  expect(screen.queryByRole("searchbox")).toBeNull();
 });
 
 test("quick access shows only real listening: recent albums, likes and playlists, at most six", () => {

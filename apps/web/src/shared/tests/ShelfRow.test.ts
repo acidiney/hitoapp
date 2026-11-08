@@ -7,12 +7,13 @@ afterEach(cleanup);
 
 function shelf() {
   render(
-    createElement(
-      ShelfRow,
-      { label: "Recently added" },
-      createElement("li", { key: "a" }, "A"),
-      createElement("li", { key: "b" }, "B"),
-    ),
+    createElement(ShelfRow, {
+      label: "Recently added",
+      children: [
+        createElement("li", { key: "a" }, "A"),
+        createElement("li", { key: "b" }, "B"),
+      ],
+    }),
   );
   return document.querySelector("ul.shelf-row") as HTMLElement;
 }
