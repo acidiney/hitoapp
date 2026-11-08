@@ -20,7 +20,7 @@ export default function EmptyState({
       <p>{text}</p>
       {children}
       {libraryLink && (
-        <Link className="text-link" href="/library">
+        <Link className="button" href="/library">
           Go to library
         </Link>
       )}

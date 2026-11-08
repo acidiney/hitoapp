@@ -67,7 +67,7 @@ export default function HistoryPage({
           libraryLink={false}
         >
           <Link
-            className="text-link"
+            className="button"
             href={settingHref(setting("listening-history"))}
           >
             Open listening history settings
