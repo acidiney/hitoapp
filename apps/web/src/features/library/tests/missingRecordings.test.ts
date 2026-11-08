@@ -1,6 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "../components/LibrarySettings";
 import { NoticeProvider } from "../../../shared/ui/Notices";
@@ -36,6 +42,13 @@ function renderSettings() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.open = false;
+    this.dispatchEvent(new Event("close"));
+  };
   vi.mocked(storageApi.folders).mockResolvedValue([]);
   vi.mocked(storageApi.hostOffer).mockResolvedValue({
     picker: false,
@@ -50,18 +63,26 @@ test("removing missing tracks asks first and reports what was removed and what s
     more: false,
   });
   renderSettings();
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Remove missing tracks now" }),
-  );
+  const opener = await screen.findByRole("button", {
+    name: "Remove missing tracks now",
+  });
+  opener.focus();
+  fireEvent.click(opener);
   expect(storageApi.removeMissingRecordings).not.toHaveBeenCalled();
-  expect(screen.getByText(/Your files are not touched/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Keep them for now" }));
-  expect(screen.queryByText(/Your files are not touched/)).toBeNull();
+  const dialog = screen.getByRole("dialog", {
+    name: "Remove missing tracks now?",
+  });
+  expect(within(dialog).getByText(/Your files are not touched/)).toBeTruthy();
   fireEvent.click(
-    screen.getByRole("button", { name: "Remove missing tracks now" }),
+    within(dialog).getByRole("button", { name: "Keep them for now" }),
   );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+  fireEvent.click(opener);
   fireEvent.click(
-    screen.getByRole("button", { name: "Remove missing tracks" }),
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Remove missing tracks",
+    }),
   );
   await waitFor(() =>
     expect(storageApi.removeMissingRecordings).toHaveBeenCalledWith(
@@ -73,7 +94,7 @@ test("removing missing tracks asks first and reports what was removed and what s
   const outcome = await screen.findByText(/Removed 3 tracks/);
   expect(outcome.textContent).toContain("2 stay because");
   expect(outcome.closest("[role=status]")).toBeTruthy();
-  expect(screen.queryByText(/Your files are not touched/)).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 test("a large cleanup says when more tracks remain and a failure can be retried", async () => {
@@ -86,7 +107,9 @@ test("a large cleanup says when more tracks remain and a failure can be retried"
       await screen.findByRole("button", { name: "Remove missing tracks now" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Remove missing tracks" }),
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Remove missing tracks",
+      }),
     );
   };
   await open();
@@ -111,7 +134,9 @@ test("nothing to remove is reported plainly", async () => {
     await screen.findByRole("button", { name: "Remove missing tracks now" }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: "Remove missing tracks" }),
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Remove missing tracks",
+    }),
   );
   expect(await screen.findByText("No missing tracks to remove.")).toBeTruthy();
 });

@@ -107,6 +107,7 @@ export default function MusicFolders({
               busy={busy}
               pending={folders.pending === folder.id}
               removing={removing === folder.id}
+              error={removing === folder.id ? folders.error : ""}
               onScan={() => void folders.scan(folder)}
               onAskRemove={() => remove(folder.id)}
               onCancelRemove={() => remove(null)}
@@ -117,7 +118,7 @@ export default function MusicFolders({
           </li>
         ))}
       </ul>
-      {folders.error && !picking && (
+      {folders.error && !picking && removing === null && (
         <SectionWarning tone="error" title={folders.error}>
           <button className="text-link" onClick={folders.retry}>
             Refresh folders

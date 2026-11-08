@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
 import SettingRow from "../../../shared/ui/SettingRow";
 import { useMissingRecordings } from "../hooks/useMissingRecordings";
 
@@ -55,16 +56,19 @@ export default function MissingRecordings({
         </p>
       )}
       {asking && (
-        <div className="folder-remove-confirm">
-          <h4>Remove missing tracks now?</h4>
-          <p>
+        <Dialog
+          title="Remove missing tracks now?"
+          busy={missing.removing}
+          onClose={() => ask(false)}
+        >
+          <p className="muted">
             Missing tracks that nothing uses are removed from your library
             without waiting. Your files are not touched. Tracks in a playlist,
             liked, with progress, downloads, or your own title or artist edits
             stay. Every music folder must be connected and finished scanning, or
             Hito will not remove anything.
           </p>
-          <div>
+          <div className="dialog-actions">
             <Button disabled={missing.removing} onClick={() => ask(false)}>
               Keep them for now
             </Button>
@@ -79,7 +83,7 @@ export default function MissingRecordings({
               {missing.removing ? "Removing…" : "Remove missing tracks"}
             </Button>
           </div>
-        </div>
+        </Dialog>
       )}
     </SettingRow>
   );

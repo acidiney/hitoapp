@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
 import HealthDot, { type HealthTone } from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 
@@ -45,6 +46,7 @@ export default function FolderRow({
   busy,
   pending,
   removing,
+  error = "",
   onScan,
   onAskRemove,
   onCancelRemove,
@@ -54,6 +56,7 @@ export default function FolderRow({
   busy: boolean;
   pending: boolean;
   removing: boolean;
+  error?: string;
   onScan: () => void;
   onAskRemove: () => void;
   onCancelRemove: () => void;
@@ -85,7 +88,7 @@ export default function FolderRow({
             disabled={busy || !folder.available || scanning}
             onClick={onScan}
           >
-            Scan
+            Scan folder
           </Button>
           <Button
             variant="destructive"
@@ -99,21 +102,29 @@ export default function FolderRow({
       }
     >
       {removing && (
-        <div className="folder-remove-confirm">
-          <h4>Remove {folder.name}?</h4>
-          <p>
+        <Dialog
+          title={`Remove ${folder.name}?`}
+          busy={pending}
+          onClose={onCancelRemove}
+        >
+          <p className="muted">
             Your files stay on disk. Playlists, likes, and library records are
             kept. Music available only in this folder will become unavailable.
           </p>
-          <div>
-            <Button disabled={busy} onClick={onCancelRemove}>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="dialog-actions">
+            <Button disabled={pending} onClick={onCancelRemove}>
               Keep folder
             </Button>
             <Button variant="destructive" disabled={busy} onClick={onRemove}>
               {pending ? "Removing…" : "Remove folder"}
             </Button>
           </div>
-        </div>
+        </Dialog>
       )}
     </SettingRow>
   );
