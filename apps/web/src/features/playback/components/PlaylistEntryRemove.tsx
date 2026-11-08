@@ -11,13 +11,15 @@ export default function PlaylistEntryRemove({
   disabled: boolean;
   onToggle: () => void;
 }) {
+  const label = removed
+    ? `Keep ${title} in playlist`
+    : `Remove ${title} from playlist`;
   return (
     <button
       type="button"
       className="icon-button"
-      aria-label={
-        removed ? `Keep ${title} in playlist` : `Remove ${title} from playlist`
-      }
+      aria-label={label}
+      title={label}
       disabled={disabled}
       onClick={onToggle}
     >

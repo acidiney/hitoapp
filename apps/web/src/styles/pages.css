@@ -232,6 +232,9 @@
 .removed-row > td:not(.actions-column) {
   opacity: 0.5;
 }
+.track-table .removed-row:hover > td {
+  background: transparent;
+}
 .removed-row .track-title,
 .removed-row .retained-title {
   text-decoration: line-through;
