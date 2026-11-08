@@ -1,18 +1,26 @@
 import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
+import type { CatalogSort } from "../../../shared/hooks/useCatalogSort";
 
 export type ArtistListFilter = {
   query: string;
   library: string | null;
   limit: string | null;
+  sort: CatalogSort;
 };
 
-function path(base: string, filter: ArtistListFilter, offset: number) {
+function path(
+  base: string,
+  filter: ArtistListFilter,
+  offset: number,
+  sorted: boolean,
+) {
   const parameters = new URLSearchParams();
   if (filter.query) parameters.set("q", filter.query);
   if (filter.library) parameters.set("library", filter.library);
   if (filter.limit) parameters.set("limit", filter.limit);
   parameters.set("offset", String(offset));
+  if (sorted) parameters.set("sort", filter.sort);
   return `${base}?${parameters}`;
 }
 
@@ -38,7 +46,7 @@ export const artistListApi = {
     signal: AbortSignal,
   ) {
     return read<Schema<"ArtistPage">>(
-      path("/artists", filter, offset),
+      path("/artists", filter, offset, true),
       "artists.list",
       account,
       signal,
@@ -51,7 +59,7 @@ export const artistListApi = {
     signal: AbortSignal,
   ) {
     return read<Schema<"ArtistIdentityGroupPage">>(
-      path("/artist-identity-groups", filter, offset),
+      path("/artist-identity-groups", filter, offset, false),
       "artist_groups.list",
       account,
       signal,

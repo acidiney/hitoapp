@@ -16,7 +16,11 @@ export default function LibrarySearch({
   function submit(event: FormEvent) {
     event.preventDefault();
     log.info("navigation.search", { enabled: Boolean(search) });
-    router.get(`/${target}`, search ? { q: search } : {});
+    const parameters: Record<string, string> = {};
+    if (search) parameters.q = search;
+    const sort = new URLSearchParams(window.location.search).get("sort");
+    if (sort && target !== "search") parameters.sort = sort;
+    router.get(`/${target}`, parameters);
   }
   const global = target === "search";
   return (

@@ -99,8 +99,8 @@ test("Play on a paged library queues every page, fetched one after another with 
   fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
   await vi.waitFor(() => expect(player.queueSnapshot().total).toBe(450));
   expect(requested).toEqual([
-    "/api/v1/recordings?q=blue&library=main&offset=200&limit=200",
-    "/api/v1/recordings?q=blue&library=main&offset=400&limit=200",
+    "/api/v1/recordings?q=blue&sort=recent&library=main&offset=200&limit=200",
+    "/api/v1/recordings?q=blue&sort=recent&library=main&offset=400&limit=200",
   ]);
   expect(player.queueSnapshot().pending).toBe(0);
   expect((await player.queuePage(449, 1)).entries[0].recording.title).toBe(
@@ -123,7 +123,9 @@ test("Play from the second page starts at the beginning of the whole result", as
   render(library(450, 200));
   fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
   await vi.waitFor(() => expect(player.queueSnapshot().total).toBe(450));
-  expect(requested[0]).toBe("/api/v1/recordings?offset=0&limit=200");
+  expect(requested[0]).toBe(
+    "/api/v1/recordings?sort=recent&offset=0&limit=200",
+  );
   expect((await player.queuePage(0, 1)).entries[0].recording.title).toBe(
     "Track 0",
   );
@@ -135,7 +137,9 @@ test("a row click plays from that row and keeps loading the later pages", async 
   render(library(450, 200));
   fireEvent.click(screen.getByRole("button", { name: "Play Track 205" }));
   await vi.waitFor(() => expect(player.queueSnapshot().total).toBe(250));
-  expect(requested).toEqual(["/api/v1/recordings?offset=400&limit=200"]);
+  expect(requested).toEqual([
+    "/api/v1/recordings?sort=recent&offset=400&limit=200",
+  ]);
   expect(player.snapshot().current?.title).toBe("Track 205");
 });
 

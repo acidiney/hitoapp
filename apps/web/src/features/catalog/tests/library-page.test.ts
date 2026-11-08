@@ -1,6 +1,13 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { router } from "@inertiajs/react";
 import { afterEach, expect, test, vi } from "vitest";
 import CatalogPage from "../pages/CatalogPage";
 import { libraryDescription } from "../model/libraryCounts";
@@ -168,4 +175,24 @@ test("library descriptions", () => {
   expect(libraryDescription({ total: 0, files: 0, query: "" })).toBe(
     "0 tracks",
   );
+});
+
+test("library tracks offer a sort control that defaults to recently added and writes the choice to the address", () => {
+  window.history.replaceState(null, "", "/library?q=blue");
+  page(props());
+  const control = screen.getByRole("combobox", { name: "Sort by" });
+  expect(control.textContent).toBe("Recently added");
+  fireEvent.click(control);
+  fireEvent.click(screen.getByRole("option", { name: "Artist A–Z" }));
+  expect(router.get).toHaveBeenCalledWith(
+    "/library",
+    { q: "blue", sort: "artist" },
+    { preserveScroll: true, replace: true },
+  );
+  window.history.replaceState(null, "", "/");
+});
+
+test("an empty library shows no sort control", () => {
+  page(props({ tracks: 0 }));
+  expect(screen.queryByRole("combobox", { name: "Sort by" })).toBeNull();
 });

@@ -70,6 +70,7 @@ export const albumDetail = {
     artist: "Performer",
     artist_id: "artist",
     inferred_artist: null,
+    year: null,
     track_count: 2,
     duration_ms: 2000,
     artwork_recording_id: firstLibraryRecording.id,

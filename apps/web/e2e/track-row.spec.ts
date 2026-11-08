@@ -12,7 +12,7 @@ const second = "Fixture 660 Hz";
 const playlistName = "Row menu list";
 
 async function openLibraryList(page: Page) {
-  await page.goto("/library?q=Hz");
+  await page.goto("/library?q=Hz&sort=title");
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();

@@ -57,6 +57,7 @@ function page(): Schema<"AlbumPageProps"> {
         artist: "Performer",
         artist_id: "artist",
         inferred_artist: null,
+        year: null,
         track_count: 3,
         duration_ms: 3000,
         artwork_recording_id: "recording",

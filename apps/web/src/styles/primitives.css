@@ -598,3 +598,51 @@
   flex: 0 0 auto;
   color: var(--action);
 }
+.sort-control {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.sort-control .listbox {
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 10px;
+}
+.sort-control .listbox-label {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sort-control .listbox-control {
+  min-width: 190px;
+}
+.sort-control .listbox-options {
+  inset-inline: auto 0;
+  width: max-content;
+  min-width: 100%;
+}
+.sort-control .listbox-options li {
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .sort-control .listbox-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .sort-control .listbox-control {
+    min-width: 0;
+    max-width: 156px;
+    min-height: 44px;
+  }
+  .list-toolbar {
+    flex-wrap: wrap;
+  }
+}
+.list-toolbar > .sort-control {
+  margin-left: auto;
+}
+.list-toolbar > .sort-control + .view-toggle {
+  margin-left: 0;
+}

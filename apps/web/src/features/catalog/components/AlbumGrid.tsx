@@ -47,6 +47,7 @@ export default function AlbumGrid({
             <CreditText release={release} />
           )}
           <small>
+            {release.year !== null && `${release.year} · `}
             {release.track_count}{" "}
             {release.track_count === 1 ? "track" : "tracks"}
           </small>

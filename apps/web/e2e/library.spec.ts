@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { enterAdmin } from "./fixtures/admin-session";
+import { chooseOption } from "./fixtures/listbox";
 import { openLibrarySection } from "./fixtures/library-sections";
 import { enterEditMode } from "./fixtures/playlist-edit";
 import { addToPlaylistFromRow, trackTitleLink } from "./fixtures/track-row";
@@ -77,6 +78,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
   await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
+  await chooseOption(
+    page.getByRole("combobox", { name: "Sort by" }),
+    "Title A–Z",
+  );
+  await expect(page).toHaveURL(/\/library\?sort=title$/);
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
     .click();

@@ -10,7 +10,7 @@ function dock(page: Page) {
 }
 
 async function startQueue(page: Page) {
-  await page.goto("/library?q=Hz");
+  await page.goto("/library?q=Hz&sort=title");
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();

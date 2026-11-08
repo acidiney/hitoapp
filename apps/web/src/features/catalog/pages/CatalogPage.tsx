@@ -7,8 +7,13 @@ import CatalogResults from "../components/CatalogResults";
 import PageHeading from "../../../shared/ui/PageHeading";
 import Button from "../../../shared/ui/Button";
 import { libraryDescription } from "../model/libraryCounts";
+import {
+  TRACK_SORTS,
+  useCatalogSort,
+} from "../../../shared/hooks/useCatalogSort";
 
 export default function CatalogPage(props: Schema<"CatalogPageProps">) {
+  const order = useCatalogSort("/library", TRACK_SORTS);
   const { scan, scanning } = useScanJob(props.user.id, props.libraries[0]?.id);
   const scanLabel = scanning ? "Scanning music…" : "Scan music";
   const canScan =
@@ -41,6 +46,11 @@ export default function CatalogPage(props: Schema<"CatalogPageProps">) {
         {...props}
         path="/library"
         browse
+        sort={{
+          value: order.sort,
+          options: order.options,
+          onChange: order.change,
+        }}
         emptyTitle={
           props.user.admin
             ? "Bring your music along"

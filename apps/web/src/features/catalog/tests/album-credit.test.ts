@@ -46,6 +46,7 @@ const release = (
 ): Pick<Schema<"Release">, "artist" | "inferred_artist"> => ({
   artist: null,
   inferred_artist: null,
+  year: null,
   ...over,
 });
 
@@ -72,6 +73,7 @@ test("a stated album artist wins over the inference", () => {
       release({
         artist: "Shore",
         inferred_artist: { kind: "named", name: "Other" },
+        year: null,
       }),
       [],
     ),

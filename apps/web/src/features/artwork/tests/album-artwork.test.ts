@@ -126,6 +126,7 @@ test("album covers retrieve exact release artwork, retry failures and reject an 
             artist: null,
             artist_id: null,
             inferred_artist: null,
+            year: null,
             track_count: 0,
             duration_ms: 0,
             artwork_recording_id: null,

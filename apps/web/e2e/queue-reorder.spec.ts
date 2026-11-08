@@ -21,7 +21,7 @@ test("play-all queues every library page, then a reorder changes the next transi
   });
   let cleanup: (() => Promise<void>) | null = null;
   try {
-    await page.goto("/library");
+    await page.goto("/library?sort=title");
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
@@ -74,7 +74,7 @@ test("play-all queues every library page, then a reorder changes the next transi
       expect(adopted.status()).toBe(200);
     }
 
-    await page.goto("/library?q=Order&limit=3");
+    await page.goto("/library?q=Order&limit=3&sort=title");
     await expect(page.getByRole("button", { name: /^Play Order/ })).toHaveCount(
       3,
     );

@@ -4,6 +4,7 @@ import {
   type TrackListing,
 } from "../../playback/api/trackListing";
 import { requestJson } from "../../../shared/http";
+import { TRACK_SORTS, chosenSort } from "../../../shared/hooks/useCatalogSort";
 import type { Schema } from "../../../shared/schema";
 
 export function recordingsListing(
@@ -16,6 +17,7 @@ export function recordingsListing(
   const filters = new URLSearchParams();
   if (query) filters.set("q", query);
   if (liked) filters.set("liked", "true");
+  else filters.set("sort", chosenSort(TRACK_SORTS));
   for (const key of ["library", "artist"]) {
     const value = location.get(key);
     if (value) filters.set(key, value);

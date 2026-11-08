@@ -12,6 +12,8 @@ import { Grid2X2, List } from "lucide-react";
 import TrackGrid from "../../playback/components/TrackGrid";
 import { log } from "../../../shared/log";
 import { recordingsListing } from "../api/trackListings";
+import SortControl from "../../../shared/ui/SortControl";
+import type { SortOption } from "../../../shared/hooks/useCatalogSort";
 
 export default function CatalogResults({
   user,
@@ -23,6 +25,7 @@ export default function CatalogResults({
   emptyText,
   emptyAction,
   browse = false,
+  sort,
 }: Pick<
   Schema<"CatalogPageProps">,
   "user" | "playlists" | "query" | "recordings"
@@ -32,6 +35,11 @@ export default function CatalogResults({
   emptyText: string;
   emptyAction?: ReactNode;
   browse?: boolean;
+  sort?: {
+    value: string;
+    options: SortOption[];
+    onChange: (value: string) => void;
+  };
 }) {
   const { mutate } = useMutation(user.id);
   const [view, setView] = useState<"grid" | "list">(browse ? "grid" : "list");
@@ -62,6 +70,13 @@ export default function CatalogResults({
                 : ""
             }
           >
+            {sort && (
+              <SortControl
+                options={sort.options}
+                value={sort.value}
+                onChange={sort.onChange}
+              />
+            )}
             <div className="view-toggle" role="group" aria-label="Library view">
               <button
                 className="icon-button"

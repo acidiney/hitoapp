@@ -24,6 +24,7 @@ const release = {
   artist_id: "artist-1",
   track_count: 4,
   duration_ms: 1000,
+  year: null,
 } as unknown as Schema<"Release">;
 
 test("an album without artwork gets a deterministic generated cover", () => {
@@ -57,4 +58,17 @@ test("a card without an album artist shows the server's inferred credit as plain
   expect(screen.getByText("Lume Areia").closest("a")).toBeNull();
   expect(screen.getByText("Various artists").closest("a")).toBeNull();
   expect(screen.getAllByText(/^4 tracks$/)).toHaveLength(3);
+});
+
+test("an album card shows its year before the track count when the year is known", () => {
+  render(
+    createElement(AlbumGrid, {
+      releases: [
+        { ...release, year: 1999 },
+        { ...release, id: "release-2", title: "Sem data", year: null },
+      ],
+    }),
+  );
+  expect(screen.getByText("1999 · 4 tracks")).toBeTruthy();
+  expect(screen.getByText("4 tracks")).toBeTruthy();
 });

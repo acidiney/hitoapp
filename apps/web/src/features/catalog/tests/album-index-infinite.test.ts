@@ -75,7 +75,9 @@ test("the albums grid appends the next page when its sentinel scrolls into view 
   await waitFor(() =>
     expect(screen.getByRole("link", { name: "Album c" })).toBeTruthy(),
   );
-  expect(fetch.mock.calls[0][0]).toBe("/api/v1/releases?q=Album&offset=2");
+  expect(fetch.mock.calls[0][0]).toBe(
+    "/api/v1/releases?q=Album&sort=recent&offset=2",
+  );
   expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
 });
 
@@ -89,4 +91,24 @@ test("Load more is the button fallback when the browser gives no scroll signal",
   await waitFor(() =>
     expect(screen.getByRole("link", { name: "Album c" })).toBeTruthy(),
   );
+});
+
+test("the albums page offers a sort control and asks the server for the chosen order on every page", async () => {
+  window.history.replaceState(null, "", "/albums?sort=year");
+  const fetch = vi.fn(async (_path: string) =>
+    Response.json({ items: [release("c")], total: 3, offset: 2, limit: 2 }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  render(createElement(AlbumIndexPage, props()));
+  expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe(
+    "Year, newest first",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+  await waitFor(() =>
+    expect(screen.getByRole("link", { name: "Album c" })).toBeTruthy(),
+  );
+  expect(fetch.mock.calls[0][0]).toBe(
+    "/api/v1/releases?q=Album&sort=year&offset=2",
+  );
+  window.history.replaceState(null, "", "/");
 });

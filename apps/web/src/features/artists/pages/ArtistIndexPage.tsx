@@ -12,6 +12,11 @@ import { artistListApi, type ArtistListFilter } from "../api/artistListApi";
 import ArtistMatchingStatus from "../components/ArtistMatchingStatus";
 import { artistCounts } from "../model/artistCounts";
 import ArtistReviewQueue from "../components/ArtistReviewQueue";
+import SortControl from "../../../shared/ui/SortControl";
+import {
+  ARTIST_SORTS,
+  useCatalogSort,
+} from "../../../shared/hooks/useCatalogSort";
 
 export default function ArtistIndexPage({
   user,
@@ -29,10 +34,12 @@ export default function ArtistIndexPage({
   const limit = current.get("limit");
   if (limit) filters.set("limit", limit);
   const suffix = filters.size ? `?${filters}` : "";
+  const order = useCatalogSort("/artists", ARTIST_SORTS);
   const filter: ArtistListFilter = {
     query,
     library: filters.get("library"),
     limit,
+    sort: order.sort,
   };
   const scope = JSON.stringify(filter);
   const restart = new URLSearchParams();
@@ -58,7 +65,13 @@ export default function ArtistIndexPage({
       <PageHeading
         title="Artists"
         description={`${artists.total} ${artists.total === 1 ? "artist" : "artists"} in your library`}
-      />
+      >
+        <SortControl
+          options={order.options}
+          value={order.sort}
+          onChange={order.change}
+        />
+      </PageHeading>
       <div className="artist-toolbar">
         <ArtistMatchingStatus account={user.id} />
         <ArtistReviewQueue

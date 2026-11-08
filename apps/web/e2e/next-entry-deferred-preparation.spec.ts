@@ -77,7 +77,7 @@ for (const pageState of ["visible", "hidden"] as const)
       expect(saved[1].available).toBe(false);
 
       await page.goto(
-        `/library?q=${pageState === "hidden" ? "Hidden" : "Deferred"}`,
+        `/library?q=${pageState === "hidden" ? "Hidden" : "Deferred"}&sort=title`,
       );
       await page.evaluate(() => {
         const events: {

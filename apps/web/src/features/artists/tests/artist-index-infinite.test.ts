@@ -153,6 +153,7 @@ test("reaching the end of the library credits appends the next page to the same 
     library: "owned-local-library",
     limit: "2",
     offset: "2",
+    sort: "recent",
   });
   expect(navigation.get).not.toHaveBeenCalled();
   expect(
@@ -203,4 +204,50 @@ test("coming back to the artists keeps every page already loaded without asking 
   expect(
     fetch.mock.calls.filter(([path]) => String(path).includes("offset=")),
   ).toEqual([]);
+});
+
+test("the artists page sorts its library credits by name when asked and leaves chosen artists in order", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/artists?sort=title&limit=2&library=owned-local-library",
+  );
+  const { index, requests, credits, chosen } = setup();
+  window.history.replaceState(
+    null,
+    "",
+    "/artists?sort=title&limit=2&library=owned-local-library",
+  );
+  cleanup();
+  render(createElement(ArtistIndexPage, index));
+  expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe(
+    "Name A–Z",
+  );
+  requests.length = 0;
+  const region = screen.getByRole("region", {
+    name: "Artists in your library",
+  });
+  fireEvent.click(within(region).getByRole("button", { name: "Load more" }));
+  await within(region).findByRole("link", { name: /Credit third/ });
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "Chosen artists" })).getByRole(
+      "button",
+      { name: "Load more" },
+    ),
+  );
+  await waitFor(() =>
+    expect(
+      requests.some((path) =>
+        path.startsWith("/api/v1/artist-identity-groups?"),
+      ),
+    ).toBe(true),
+  );
+  expect(
+    requests.find((path) => path.startsWith("/api/v1/artists?")),
+  ).toContain("sort=title");
+  expect(
+    requests.find((path) => path.startsWith("/api/v1/artist-identity-groups?")),
+  ).not.toContain("sort=");
+  expect(credits).toBeTruthy();
+  expect(chosen).toBeTruthy();
 });
