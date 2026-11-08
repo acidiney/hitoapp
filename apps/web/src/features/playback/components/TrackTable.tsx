@@ -134,6 +134,7 @@ export default function TrackTable({
     <div className="table-scroll">
       <table
         className="track-table"
+        data-editing={edit?.active || undefined}
         aria-label={playlist ? "Playlist entries" : "Tracks"}
       >
         <thead>
@@ -287,6 +288,7 @@ export default function TrackTable({
                       playlist={playlist}
                       mutate={mutate}
                       onMutationAccepted={catalog?.mutated}
+                      liking={!edit?.active}
                       replaceMenu={
                         edit?.active && playlist?.kind === "local" ? (
                           <PlaylistEntryRemove

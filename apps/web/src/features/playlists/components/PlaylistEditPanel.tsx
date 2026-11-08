@@ -36,8 +36,7 @@ export default function PlaylistEditPanel({
       )}
       <p className="muted">
         Use the arrows to change the order and the cross to remove a track.
-        Nothing changes until you press Done. Cancel throws your changes away.
-        Changes stay in Hito; a provider playlist is not changed.
+        Nothing is saved until you press Done.
       </p>
       {dirty && <p className="edit-dirty">You have unsaved changes.</p>}
     </section>

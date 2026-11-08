@@ -76,7 +76,7 @@ export default function PlaylistIndexPage({
       ) : (
         <EmptyState
           title="No playlists yet"
-          text="Make a playlist and add tracks from your library, or bring one over from a link."
+          text="Add tracks from your library, or import one you already have."
           libraryLink={false}
         >
           <div className="empty-actions">{actions}</div>

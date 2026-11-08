@@ -49,103 +49,105 @@ export default function PlaylistImport({
 
   return (
     <section className="playlist-import" aria-label="Import a playlist">
-      <p>
-        {mode === "copy"
-          ? "Create an editable copy. Changes at the provider will not update it."
-          : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order."}
-      </p>
-      <p className="muted">
-        {mode === "copy"
-          ? "Hito adds track details, without downloading audio. Tracks need an available source to play."
-          : "Following adds track details, without downloading audio. Tracks need an available source to play."}
-      </p>
       {selected ? (
-        <form className="playlist-import-form" onSubmit={submit}>
-          <div className="import-mode">
-            <SegmentedControl
-              label="Playlist behavior"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: "copy", label: "Import a copy" },
-                { value: "follow", label: "Follow playlist" },
-              ]}
-            />
-          </div>
-          {providers.length > 1 && (chosen || inferred.ambiguous) && (
-            <label>
-              Playlist service
-              <select
-                value={selected.id}
-                onChange={(event) => setChoice(event.target.value)}
-              >
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {names[provider.service_id] ?? provider.manifest.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {mode === "follow" && (
-            <label>
-              Refresh interval
-              <select
-                value={interval}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === "hourly" || value === "daily")
-                    setInterval(value);
-                }}
-              >
-                <option value="hourly">Every hour</option>
-                <option value="daily">Every day</option>
-              </select>
-            </label>
-          )}
-          <label>
-            Playlist link or identifier
-            <input
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-              maxLength={2048}
-              required
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Paste a playlist link or identifier"
-            />
-          </label>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={workflow.pending || !reference.trim()}
-          >
-            {workflow.pending
-              ? workflow.pendingKind === "copy"
-                ? "Importing…"
-                : "Following…"
-              : submitLabel}
-          </Button>
-          {workflow.error && <p role="alert">{workflow.error}</p>}
-          {workflow.hasAttempt && !workflow.pending && (
-            <div className="playlist-import-recovery">
-              <p className="muted">
-                {workflow.attemptKind === "copy"
-                  ? "Retry recovers the previous import. Import a new copy uses the current playlist field."
-                  : "Retry recovers the previous follow request and its original refresh interval. Following again uses the current playlist field and interval."}
-              </p>
-              <Button
-                type="button"
-                disabled={workflow.pending}
-                onClick={() => void workflow.retry()}
-              >
-                {workflow.attemptKind === "copy"
-                  ? "Retry import"
-                  : "Retry follow"}
-              </Button>
+        <>
+          <p>
+            {mode === "copy"
+              ? "Create an editable copy. Changes at the provider will not update it."
+              : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order."}
+          </p>
+          <p className="muted">
+            {mode === "copy"
+              ? "Hito adds track details, without downloading audio. Tracks need an available source to play."
+              : "Following adds track details, without downloading audio. Tracks need an available source to play."}
+          </p>
+          <form className="playlist-import-form" onSubmit={submit}>
+            <div className="import-mode">
+              <SegmentedControl
+                label="Playlist behavior"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: "copy", label: "Import a copy" },
+                  { value: "follow", label: "Follow playlist" },
+                ]}
+              />
             </div>
-          )}
-        </form>
+            {providers.length > 1 && (chosen || inferred.ambiguous) && (
+              <label>
+                Playlist service
+                <select
+                  value={selected.id}
+                  onChange={(event) => setChoice(event.target.value)}
+                >
+                  {providers.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {names[provider.service_id] ?? provider.manifest.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {mode === "follow" && (
+              <label>
+                Refresh interval
+                <select
+                  value={interval}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "hourly" || value === "daily")
+                      setInterval(value);
+                  }}
+                >
+                  <option value="hourly">Every hour</option>
+                  <option value="daily">Every day</option>
+                </select>
+              </label>
+            )}
+            <label>
+              Playlist link or identifier
+              <input
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+                maxLength={2048}
+                required
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Paste a playlist link or identifier"
+              />
+            </label>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={workflow.pending || !reference.trim()}
+            >
+              {workflow.pending
+                ? workflow.pendingKind === "copy"
+                  ? "Importing…"
+                  : "Following…"
+                : submitLabel}
+            </Button>
+            {workflow.error && <p role="alert">{workflow.error}</p>}
+            {workflow.hasAttempt && !workflow.pending && (
+              <div className="playlist-import-recovery">
+                <p className="muted">
+                  {workflow.attemptKind === "copy"
+                    ? "Retry recovers the previous import. Import a new copy uses the current playlist field."
+                    : "Retry recovers the previous follow request and its original refresh interval. Following again uses the current playlist field and interval."}
+                </p>
+                <Button
+                  type="button"
+                  disabled={workflow.pending}
+                  onClick={() => void workflow.retry()}
+                >
+                  {workflow.attemptKind === "copy"
+                    ? "Retry import"
+                    : "Retry follow"}
+                </Button>
+              </div>
+            )}
+          </form>
+        </>
       ) : (
         <div className="playlist-import-empty">
           <p className="muted">

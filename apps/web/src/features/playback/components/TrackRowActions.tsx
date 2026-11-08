@@ -14,11 +14,13 @@ export default function TrackRowActions({
   mutate,
   onMutationAccepted,
   replaceMenu,
+  liking = true,
   queueActions = true,
   onNavigate,
   children,
 }: {
   replaceMenu?: ReactNode;
+  liking?: boolean;
   queueActions?: boolean;
   onNavigate?: () => void;
   children?: ReactNode;
@@ -42,14 +44,16 @@ export default function TrackRowActions({
   }
   return (
     <div className="track-actions">
-      <button
-        className={`icon-button ${track.liked ? "selected" : ""}`.trim()}
-        aria-label={`${track.liked ? "Unlike" : "Like"} ${track.title}`}
-        aria-pressed={track.liked}
-        onClick={() => void toggleLike()}
-      >
-        <Heart size={17} fill={track.liked ? "currentColor" : "none"} />
-      </button>
+      {liking && (
+        <button
+          className={`icon-button ${track.liked ? "selected" : ""}`.trim()}
+          aria-label={`${track.liked ? "Unlike" : "Like"} ${track.title}`}
+          aria-pressed={track.liked}
+          onClick={() => void toggleLike()}
+        >
+          <Heart size={17} fill={track.liked ? "currentColor" : "none"} />
+        </button>
+      )}
       {children}
       {replaceMenu ?? (
         <TrackRowMenu

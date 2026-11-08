@@ -148,3 +148,19 @@ test("Import from a link opens the import form with its explanation in short sep
     "Hito adds track details, without downloading audio. Tracks need an available source to play.",
   ]);
 });
+
+test("without a playlist service the import dialog only offers to connect one", () => {
+  render(createElement(PlaylistIndexPage, { ...empty, connections: [] }), {
+    wrapper,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Import from a link" }));
+  const region = within(
+    screen.getByRole("dialog", { name: "Import a playlist" }),
+  ).getByRole("region", { name: "Import a playlist" });
+  expect([...region.querySelectorAll("p")].map((p) => p.textContent)).toEqual([
+    "Connect a playlist service to copy a playlist into Hito.",
+  ]);
+  expect(
+    within(region).getByRole("link", { name: "Connect a playlist service" }),
+  ).toBeTruthy();
+});

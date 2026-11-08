@@ -105,6 +105,16 @@ test("entries are read-only until Edit is pressed", () => {
   expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy();
 });
 
+test("rows in edit mode keep only the order and removal controls", () => {
+  open();
+  expect(
+    screen.getAllByRole("button", { name: /^(Like|Unlike) / }).length,
+  ).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect(screen.queryByRole("button", { name: /^(Like|Unlike) / })).toBeNull();
+  expect(screen.getByRole("table").getAttribute("data-editing")).toBe("true");
+});
+
 test("Done without changes closes editing and sends nothing", () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));

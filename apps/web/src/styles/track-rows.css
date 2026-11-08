@@ -235,4 +235,8 @@ a.track-name:hover {
   .track-table td.actions-column {
     padding-left: 0;
   }
+  .track-table[data-editing] th:last-child,
+  .track-table[data-editing] td.actions-column {
+    width: 132px;
+  }
 }
