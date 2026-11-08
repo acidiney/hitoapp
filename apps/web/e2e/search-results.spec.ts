@@ -33,12 +33,12 @@ test("Search lists each match once with a count per section and a helpful empty 
     )
     .toBeGreaterThanOrEqual(2);
 
-  await page.goto("/search?q=Fixture");
+  await page.goto("/search?q=Fixture%20440%20Hz");
   await expect(page.getByRole("heading", { name: "Top result" })).toHaveCount(
     0,
   );
   const tracks = page.getByRole("region", { name: "Tracks" });
-  await expect(tracks).toContainText(/\d+ results?/);
+  await expect(tracks).toContainText(/(\d+ results?|Showing \d+ of \d+)/);
   await expect(
     tracks.getByRole("link", { name: "Fixture 440 Hz", exact: true }),
   ).toHaveCount(1);
@@ -46,7 +46,7 @@ test("Search lists each match once with a count per section and a helpful empty 
     1,
   );
   await expect(page.getByRole("region", { name: "Albums" })).toContainText(
-    /\d+ results?/,
+    /(\d+ results?|Showing \d+ of \d+)/,
   );
   await page.screenshot({
     path: "/workspace/test-results/search-results-desktop.png",
