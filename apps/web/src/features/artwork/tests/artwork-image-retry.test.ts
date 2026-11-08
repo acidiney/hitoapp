@@ -5,6 +5,8 @@ import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
+import ArtworkRetryMenu from "../components/ArtworkRetryMenu";
+import { retryControl, retryOffered } from "./retryControl";
 
 const id = "3017a834-f2ef-4b57-9411-c3b56781132e";
 const targets = [
@@ -76,6 +78,7 @@ test.each(
             className: "second-renderer",
           }),
           createElement(ArtworkStatus, target.props),
+          createElement(ArtworkRetryMenu, target.props),
         ),
       }),
     );
@@ -94,20 +97,23 @@ test.each(
       });
     }
     expect(first()).toBeNull();
-    expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
+    expect(retryOffered()).toBe(true);
     const loadedPeer = second();
     await act(async () => {
       fireEvent.load(loadedPeer!);
     });
     expect(first()).toBeNull();
     expect(second()).toBe(loadedPeer);
-    const retry = screen.getByRole("button", { name: "Retry artwork" });
+    const retry = await retryControl();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(fetch).toHaveBeenCalledTimes(target.phase === "ready" ? 2 : 1);
     await act(async () => {
       fireEvent.click(retry);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
     });
     expect(first()?.getAttribute("src")).toBe(image);
     expect(second()?.getAttribute("src")).toBe(image);
@@ -117,14 +123,14 @@ test.each(
       fireEvent.load(first()!);
       fireEvent.load(second()!);
     });
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     await act(async () => {
       fireEvent.error(first()!);
       fireEvent.load(second()!);
     });
     expect(first()).toBeNull();
     expect(second()?.getAttribute("src")).toBe(image);
-    expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
+    expect(retryOffered()).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
@@ -150,6 +156,7 @@ test.each(targets)(
           null,
           createElement(Artwork, target.props),
           createElement(ArtworkStatus, target.props),
+          createElement(ArtworkRetryMenu, target.props),
         ),
       });
     const { container, rerender, unmount } = render(view("alice"));
@@ -158,18 +165,18 @@ test.each(targets)(
       fireEvent.error(cover()!);
     });
     expect(cover()).toBeNull();
-    expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
+    expect(retryOffered()).toBe(true);
     const oldSignal = fetch.mock.calls[0][1]?.signal;
     rerender(view("bob"));
     expect(cover()?.getAttribute("src")).toBe(image);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     expect(oldSignal?.aborted).toBe(true);
     await act(async () => {
       fireEvent.load(cover()!);
     });
     rerender(view("alice"));
     expect(cover()?.getAttribute("src")).toBe(image);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(1);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
@@ -209,6 +216,7 @@ test.each(targets)(
           null,
           createElement(Artwork, target.props),
           createElement(ArtworkStatus, target.props),
+          createElement(ArtworkRetryMenu, target.props),
         ),
       });
     const { container, rerender, unmount } = render(view("alice"));
@@ -224,7 +232,7 @@ test.each(targets)(
     });
     expect(cover()).toBeNull();
     expect(screen.getByText("Artwork could not be loaded.")).toBeTruthy();
-    const retry = screen.getByRole("button", { name: "Retry artwork" });
+    const retry = await retryControl();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
@@ -235,17 +243,17 @@ test.each(targets)(
     expect(cover()?.getAttribute("src")).toBe(image);
     expect(cover()).not.toBe(failed);
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     await act(async () => {
       fireEvent.load(cover()!);
     });
     await act(async () => {
       fireEvent.error(cover()!);
     });
-    expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
+    expect(retryOffered()).toBe(true);
     rerender(view("bob"));
     expect(cover()?.getAttribute("src")).toBe(image);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(2);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
@@ -280,6 +288,7 @@ test.each(targets)(
           null,
           createElement(Artwork, target.props),
           createElement(ArtworkStatus, target.props),
+          createElement(ArtworkRetryMenu, target.props),
         ),
       }),
     );
@@ -290,7 +299,7 @@ test.each(targets)(
     });
     expect(cover()).toBeNull();
     expect(checks).toBe(1);
-    const retry = screen.getByRole("button", { name: "Retry artwork" });
+    const retry = await retryControl();
     await act(async () => {
       fireEvent.click(retry);
     });
@@ -303,7 +312,7 @@ test.each(targets)(
       finishAvailability(Response.json({ can_fetch: false }));
     });
     expect(cover()?.getAttribute("src")).toBe(image);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
+    expect(retryOffered()).toBe(false);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });

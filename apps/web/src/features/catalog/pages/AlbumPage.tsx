@@ -6,6 +6,7 @@ import { time } from "../../../shared/format";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import Artwork from "../../artwork/components/Artwork";
+import ArtworkRetryMenu from "../../artwork/components/ArtworkRetryMenu";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
   type TrackTableRow,
@@ -97,6 +98,7 @@ export default function AlbumPage({
             >
               Edit album details
             </Link>
+            <ArtworkRetryMenu release={release.id} />
           </>
         }
       />

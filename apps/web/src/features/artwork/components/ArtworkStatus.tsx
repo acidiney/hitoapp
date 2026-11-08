@@ -1,16 +1,12 @@
 import { useArtwork } from "./ArtworkProvider";
+import type { ArtworkSubject } from "./ArtworkRetryMenu";
 import Button from "../../../shared/ui/Button";
-
-type ArtworkStatusProps =
-  | { recording: string; release?: never; playlistId?: never }
-  | { recording?: never; release: string; playlistId?: never }
-  | { recording?: never; release?: never; playlistId: string };
 
 export default function ArtworkStatus({
   recording,
   release,
   playlistId,
-}: ArtworkStatusProps) {
+}: ArtworkSubject) {
   const artwork = useArtwork(
     playlistId ? "playlist" : release ? "release" : "recording",
     playlistId ?? release ?? recording,
@@ -24,14 +20,6 @@ export default function ArtworkStatus({
         : artwork.phase === "cancelled"
           ? "Artwork retrieval was cancelled."
           : null;
-  if (artwork.phase === "unavailable")
-    return (
-      <div className="artwork-status" data-quiet="true">
-        <button type="button" className="text-link" onClick={artwork.retry}>
-          Retry artwork
-        </button>
-      </div>
-    );
   if (!message) return null;
   return (
     <div className="artwork-status">

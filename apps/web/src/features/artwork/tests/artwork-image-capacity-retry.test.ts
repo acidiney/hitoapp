@@ -3,7 +3,8 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";
-import ArtworkStatus from "../components/ArtworkStatus";
+import ArtworkRetryMenu from "../components/ArtworkRetryMenu";
+import { retryControl } from "./retryControl";
 
 test("a mounted image can explicitly retry private bytes after 129 settled targets retire its bounded cache entry", async () => {
   vi.useFakeTimers();
@@ -36,14 +37,15 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
           "section",
           { key: id, "data-target": id },
           createElement(Artwork, { playlistId: id, playlist: true }),
-          createElement(ArtworkStatus, { playlistId: id }),
+          createElement(ArtworkRetryMenu, { playlistId: id }),
         ),
       ),
     }),
   );
   const card = (index: number) =>
     container.querySelector<HTMLElement>(`[data-target="${ids[index]}"]`)!;
-  const retryButtons = () => screen.getAllByText("Retry artwork");
+  const retryButtons = () =>
+    screen.getAllByRole("button", { name: "More options" });
   const cover = (index: number) => card(index).querySelector("img");
   await act(async () => {
     for (let index = 0; index < 128; index++) fireEvent.error(cover(index)!);
@@ -57,11 +59,17 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
   });
   expect(fetch).toHaveBeenCalledTimes(129);
   expect(retryButtons()).toHaveLength(129);
-  const retry = within(card(0)).getByText("Retry artwork");
+  const opener = within(card(0)).getByRole("button", {
+    name: "More options",
+  });
   expect(cover(0)).toBeNull();
   const image = `/api/v1/playlists/${ids[0]}/artwork`;
   await act(async () => {
-    fireEvent.click(retry);
+    fireEvent.click(opener);
+  });
+  const item = await retryControl();
+  await act(async () => {
+    fireEvent.click(item);
   });
   expect(cover(0)?.getAttribute("src")).toBe(image);
   expect(fetch).toHaveBeenCalledTimes(130);
@@ -70,7 +78,7 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
     fireEvent.load(cover(0)!);
   });
   expect(
-    within(card(0)).queryByRole("button", { name: "Retry artwork" }),
+    within(card(0)).queryByRole("button", { name: "More options" }),
   ).toBeNull();
   expect(retryButtons()).toHaveLength(128);
   await act(async () => {
