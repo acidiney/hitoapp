@@ -10,80 +10,50 @@ import TrackTable, {
 } from "../../playback/components/TrackTable";
 import type { ArtistHit } from "../model/artistHits";
 
-function trackCover(track: Schema<"Recording">) {
-  return {
-    id: track.release_id ?? track.id,
-    title: track.album ?? track.title,
-    artist: track.artist,
-  };
+export function resultCount(shown: number, total: number): string {
+  if (total > shown) return `Showing ${shown} of ${total}`;
+  return shown === 1 ? "1 result" : `${shown} results`;
 }
 
-export function TopResult({
-  track,
-  release,
-  artist,
+function GroupHead({
+  id,
+  title,
+  shown,
+  total,
 }: {
-  track?: Schema<"Recording">;
-  release?: Schema<"Release">;
-  artist?: ArtistHit;
+  id: string;
+  title: string;
+  shown: number;
+  total: number;
 }) {
-  if (!track && !release && !artist) return null;
   return (
-    <section className="search-group search-top" aria-labelledby="top-result">
-      <h2 id="top-result">Top result</h2>
-      {track ? (
-        <Link
-          className="search-card"
-          href={`/recordings/${encodeURIComponent(track.id)}`}
-        >
-          <Artwork recording={track.id} fallback={trackCover(track)} />
-          <span className="search-card-copy">
-            <strong>{track.title}</strong>
-            <span>Track · {track.artist}</span>
-          </span>
-        </Link>
-      ) : release ? (
-        <Link className="search-card" href={`/albums/${release.id}`}>
-          <Artwork
-            release={release.id}
-            fallback={{
-              id: release.id,
-              title: release.title,
-              artist: release.artist,
-            }}
-          />
-          <span className="search-card-copy">
-            <strong>{release.title}</strong>
-            <span>
-              Album · {releaseCreditLabel(release) ?? "Unknown artist"}
-            </span>
-          </span>
-        </Link>
-      ) : artist ? (
-        <Link className="search-card" href={artist.href}>
-          <span className="search-card-copy">
-            <strong>{artist.name}</strong>
-            <span>Artist</span>
-          </span>
-        </Link>
-      ) : null}
-    </section>
+    <div className="search-group-head">
+      <h2 id={id}>{title}</h2>
+      <span className="muted">{resultCount(shown, total)}</span>
+    </div>
   );
 }
 
 export function TrackResults({
   tracks,
+  total,
   playlists,
   mutate,
 }: {
   tracks: Schema<"Recording">[];
+  total: number;
   playlists: Schema<"Playlist">[];
   mutate: Mutate;
 }) {
   if (tracks.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-tracks">
-      <h2 id="search-tracks">Tracks</h2>
+      <GroupHead
+        id="search-tracks"
+        title="Tracks"
+        shown={tracks.length}
+        total={total}
+      />
       <TrackTable
         rows={tracks.map<TrackTableRow>((track) => ({
           kind: "recording",
@@ -96,11 +66,22 @@ export function TrackResults({
   );
 }
 
-export function AlbumResults({ releases }: { releases: Schema<"Release">[] }) {
+export function AlbumResults({
+  releases,
+  total,
+}: {
+  releases: Schema<"Release">[];
+  total: number;
+}) {
   if (releases.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-albums">
-      <h2 id="search-albums">Albums</h2>
+      <GroupHead
+        id="search-albums"
+        title="Albums"
+        shown={releases.length}
+        total={total}
+      />
       <div className="search-cards">
         {releases.map((release) => (
           <Link
@@ -137,7 +118,12 @@ export function ArtistResults({ artists }: { artists: ArtistHit[] }) {
   if (artists.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-artists">
-      <h2 id="search-artists">Artists</h2>
+      <GroupHead
+        id="search-artists"
+        title="Artists"
+        shown={artists.length}
+        total={artists.length}
+      />
       <div className="search-cards">
         {artists.map((artist) => (
           <Link key={artist.key} className="search-card" href={artist.href}>

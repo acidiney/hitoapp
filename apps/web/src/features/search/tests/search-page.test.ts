@@ -1,6 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SearchPage from "../pages/SearchPage";
 
@@ -144,9 +150,8 @@ const props = (
   ...over,
 });
 
-test("library results are grouped with a top result, availability and one action each", () => {
+test("library results are grouped by kind with availability and one action each", () => {
   render(createElement(SearchPage, props()));
-  expect(screen.getByRole("heading", { name: "Top result" })).toBeTruthy();
   const tracks = screen.getByRole("region", { name: "Tracks" });
   expect(within(tracks).getByText("Not playable yet")).toBeTruthy();
   fireEvent.click(
@@ -262,6 +267,143 @@ test("providers scope without a connected service points to Settings", () => {
   ).toBe("/settings?section=plugins");
 });
 
+test("the best match is listed once, in its own section, with that section first", () => {
+  render(createElement(SearchPage, props()));
+  expect(screen.queryByRole("heading", { name: "Top result" })).toBeNull();
+  expect(screen.getAllByText("Tide one")).toHaveLength(1);
+  const order = screen
+    .getAllByRole("heading", { level: 2 })
+    .map((heading) => heading.textContent);
+  expect(order.slice(0, 3)).toEqual(["Tracks", "Albums", "Artists"]);
+  cleanup();
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "shore",
+        artist_groups: page([group("g-shore", "Shore")]),
+      }),
+    ),
+  );
+  const exact = screen
+    .getAllByRole("heading", { level: 2 })
+    .map((heading) => heading.textContent);
+  expect(exact.slice(0, 3)).toEqual(["Artists", "Tracks", "Albums"]);
+});
+
+test("every section says how many results it has and when it shows only some", () => {
+  render(
+    createElement(
+      SearchPage,
+      props({
+        recordings: {
+          items: [
+            recording("r1", "Tide one", true),
+            recording("r2", "Tide two", false),
+          ],
+          total: 24,
+          offset: 0,
+          limit: 8,
+        },
+      }),
+    ),
+  );
+  expect(
+    within(screen.getByRole("region", { name: "Tracks" })).getByText(
+      "Showing 2 of 24",
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Albums" })).getByText(
+      "1 result",
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Artists" })).getByText(
+      "1 result",
+    ),
+  ).toBeTruthy();
+});
+
+test("no results suggests checking the spelling and offers to search the connected services", async () => {
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  const searches = stubServices({ automatic: false, items: [] });
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "zzz",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+        connections: [connection],
+        service_names: { service: "Home" },
+      }),
+    ),
+  );
+  expect(
+    screen.getByText("Nothing in your library matches “zzz”"),
+  ).toBeTruthy();
+  expect(screen.getByText(/Check the spelling/)).toBeTruthy();
+  await settled();
+  expect(searches).toEqual([]);
+  const buttons = screen.getAllByRole("button", {
+    name: "Search your services",
+  });
+  expect(buttons).toHaveLength(1);
+  fireEvent.click(buttons[0]);
+  await settled();
+  expect(searches.map((body) => body.query)).toEqual(["zzz"]);
+});
+
+test("no results without a connected service points to Settings", () => {
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "zzz",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+      }),
+    ),
+  );
+  expect(screen.getByText(/Check the spelling/)).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "Connect a music service" })
+      .getAttribute("href"),
+  ).toBe("/settings?section=plugins");
+});
+
+test("the Library scope with no results offers the services without sending anything itself", async () => {
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  const searches = stubServices({ automatic: false, items: [] });
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "zzz",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+        connections: [connection],
+        service_names: { service: "Home" },
+      }),
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Library" }));
+  await settled();
+  expect(searches).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
+  await settled();
+  expect(searches.map((body) => body.query)).toEqual(["zzz"]);
+  expect(
+    screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+});
+
 test("an empty query asks for a search and no match says so", () => {
   const empty = { items: [], total: 0, offset: 0, limit: 8 };
   const { unmount } = render(
@@ -285,7 +427,9 @@ test("an empty query asks for a search and no match says so", () => {
       }),
     ),
   );
-  expect(screen.getByText("No matches in your library")).toBeTruthy();
+  expect(
+    screen.getByText("Nothing in your library matches “zzz”"),
+  ).toBeTruthy();
 });
 
 test("submitting the field searches again", () => {
@@ -307,7 +451,7 @@ const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
   library_count: 1,
 });
 
-test("chosen artists come from the server in its order and an exact match is the top result", () => {
+test("chosen artists come from the server in its order and an exact match comes first", () => {
   render(
     createElement(
       SearchPage,
@@ -321,10 +465,7 @@ test("chosen artists come from the server in its order and an exact match is the
       }),
     ),
   );
-  const top = screen.getByRole("region", { name: "Top result" });
-  expect(
-    within(top).getByRole("link", { name: /Shore/ }).getAttribute("href"),
-  ).toBe("/artist-groups/g-shore");
+  expect(screen.queryByRole("heading", { name: "Top result" })).toBeNull();
   const artists = screen.getByRole("region", { name: "Artists" });
   expect(
     within(artists)

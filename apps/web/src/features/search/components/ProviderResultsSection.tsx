@@ -27,6 +27,7 @@ export default function ProviderResultsSection({
   full,
   requested,
   automatic,
+  prompt,
   onRequest,
   onSeeAll,
 }: {
@@ -36,6 +37,7 @@ export default function ProviderResultsSection({
   full: boolean;
   requested: boolean;
   automatic: boolean;
+  prompt: boolean;
   onRequest: () => void;
   onSeeAll: () => void;
 }) {
@@ -55,7 +57,7 @@ export default function ProviderResultsSection({
     ) : null;
   if (!query) return null;
   if (!requested)
-    return (
+    return !prompt ? null : (
       <section className="search-group" aria-labelledby="search-providers">
         <h2 id="search-providers">From your services</h2>
         <p className="muted">

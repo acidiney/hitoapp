@@ -4,6 +4,7 @@ import { Link, router } from "@inertiajs/react";
 
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useMutation } from "../../../shared/hooks/useMutation";
+import Button from "../../../shared/ui/Button";
 import EmptyState from "../../../shared/ui/EmptyState";
 import FilterPills from "../../../shared/ui/FilterPills";
 import SearchField from "../../../shared/ui/SearchField";
@@ -15,13 +16,12 @@ import {
 import {
   AlbumResults,
   ArtistResults,
-  TopResult,
   TrackResults,
 } from "../components/LibraryResults";
 import ProviderResultsSection from "../components/ProviderResultsSection";
 import { useProviderSearch } from "../hooks/useProviderSearch";
 import { useAutomaticLookups } from "../../metadata/hooks/useAutomaticLookups";
-import { artistHits, topArtistHit } from "../model/artistHits";
+import { artistHits } from "../model/artistHits";
 import { topResultKind } from "../model/ranking";
 
 const FEW_LIBRARY_RESULTS = 3;
@@ -70,6 +70,36 @@ export default function SearchPage({
     releases: releases.items.length,
     artistNames: artistResults.map((artist) => artist.name),
   });
+  const askable = providers.selected !== null && !requested;
+  function askServices() {
+    if (scope === "library") setScope("all");
+    setAsked(query);
+  }
+  const tracksSection = (
+    <TrackResults
+      key="tracks"
+      tracks={recordings.items}
+      total={recordings.total}
+      playlists={playlists}
+      mutate={mutate}
+    />
+  );
+  const albumsSection = (
+    <AlbumResults
+      key="albums"
+      releases={releases.items}
+      total={releases.total}
+    />
+  );
+  const artistsSection = (
+    <ArtistResults key="artists" artists={artistResults} />
+  );
+  const sections =
+    topKind === "artist"
+      ? [artistsSection, tracksSection, albumsSection]
+      : topKind === "release"
+        ? [albumsSection, tracksSection, artistsSection]
+        : [tracksSection, albumsSection, artistsSection];
   return (
     <div className="search-page">
       <header className="search-header">
@@ -111,32 +141,30 @@ export default function SearchPage({
         />
       ) : (
         <>
-          {library && found && (
-            <>
-              <TopResult
-                track={topKind === "track" ? recordings.items[0] : undefined}
-                release={topKind === "release" ? releases.items[0] : undefined}
-                artist={
-                  topKind === "artist"
-                    ? topArtistHit(query, artistResults)
-                    : undefined
-                }
-              />
-              <TrackResults
-                tracks={recordings.items}
-                playlists={playlists}
-                mutate={mutate}
-              />
-              <AlbumResults releases={releases.items} />
-              <ArtistResults artists={artistResults} />
-            </>
-          )}
+          {library && found && sections}
           {library && !found && (
             <EmptyState
-              title="No matches in your library"
-              text="Try another name, or search your connected services."
+              title={`Nothing in your library matches “${query}”`}
+              text={
+                askable
+                  ? "Check the spelling or try fewer words. You can also search your connected services."
+                  : "Check the spelling or try fewer words. Connect a music service to search beyond your library."
+              }
               libraryLink={false}
-            />
+            >
+              {askable ? (
+                <Button variant="primary" onClick={askServices}>
+                  Search your services
+                </Button>
+              ) : connections.length === 0 ? (
+                <Link
+                  className="button primary"
+                  href="/settings?section=plugins"
+                >
+                  Connect a music service
+                </Link>
+              ) : null}
+            </EmptyState>
           )}
           {scope !== "library" && (
             <ProviderResultsSection
@@ -146,7 +174,8 @@ export default function SearchPage({
               full={scope === "providers"}
               requested={requested}
               automatic={sentAutomatically && scope !== "providers"}
-              onRequest={() => setAsked(query)}
+              prompt={found || scope === "providers"}
+              onRequest={askServices}
               onSeeAll={() => setScope("providers")}
             />
           )}

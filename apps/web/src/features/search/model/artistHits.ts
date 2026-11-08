@@ -33,11 +33,3 @@ export function artistHits(
       })),
   ];
 }
-
-export function topArtistHit(
-  query: string,
-  hits: ArtistHit[],
-): ArtistHit | undefined {
-  const wanted = fold(query);
-  return hits.find((hit) => fold(hit.name) === wanted) ?? hits[0];
-}

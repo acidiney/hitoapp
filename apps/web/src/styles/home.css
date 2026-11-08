@@ -209,6 +209,23 @@
   flex-direction: column;
   gap: 8px;
 }
+.search-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.search-group-head h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.search-group-head .muted {
+  font-size: 13px;
+  white-space: nowrap;
+}
 .search-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
