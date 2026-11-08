@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
@@ -159,6 +160,7 @@ test("existing independent playlist copies automatically retain private provider
     const initial = await get<Schema<"Playlist">[]>(page, "/api/v1/playlists");
     for (let index = 0; index < 2; index++) {
       await page.goto("/playlists");
+      await openPlaylistImport(page);
       const form = page.getByRole("region", { name: "Import a playlist" });
       await form
         .getByRole("textbox", { name: "Playlist link or identifier" })

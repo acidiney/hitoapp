@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
   expect,
   test,
@@ -385,6 +386,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
 
     phase = "import";
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

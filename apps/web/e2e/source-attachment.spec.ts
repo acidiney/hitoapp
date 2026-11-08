@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
   expect,
   test,
@@ -248,6 +249,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     const origin = connections[0];
     const candidates = connections.slice(1);
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", { name: "Import a playlist" });
     await form
       .getByRole("textbox", { name: "Playlist link or identifier" })

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { expect, test as baseTest, type Page } from "@playwright/test";
 import { automaticSourceFixture } from "./fixtures/automatic-source";
 import type { Schema } from "../src/shared/schema";
@@ -208,6 +209,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
 
     phase = "playlist_import";
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

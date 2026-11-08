@@ -6,6 +6,7 @@ import {
   type Request as BrowserRequest,
   type Route,
 } from "@playwright/test";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { isDeepStrictEqual } from "node:util";
 import type { Schema } from "../src/shared/schema";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
@@ -125,6 +126,7 @@ test.describe("isolated provider playlist Follow", () => {
 
       phase = 2;
       await openPlaylists(page);
+      await openPlaylistImport(page);
       const form = page.getByRole("region", {
         name: "Import a playlist",
         exact: true,

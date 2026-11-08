@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { openNewPlaylist } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
 import { readSpotifyYouTube } from "./fixtures/spotify-youtube-collection";
 import {
@@ -67,15 +68,16 @@ test("the live Spotify to YouTube entry point refuses an initialized server befo
     phase = 2;
     await signInLiveAccount(page);
     await openLibrarySection(page, "Playlists");
-    await page
-      .getByLabel("New playlist", { exact: true })
+    const newPlaylist = await openNewPlaylist(page);
+    await newPlaylist
+      .getByRole("textbox", { name: "Name" })
       .fill("Isolation retained playlist");
     const createdResponse = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/v1/sync" &&
         response.request().method() === "POST",
     );
-    await page
+    await newPlaylist
       .getByRole("button", { name: "Create playlist", exact: true })
       .click();
     expect((await createdResponse).status()).toBe(200);

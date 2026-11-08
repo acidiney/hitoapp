@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { chooseOption } from "./fixtures/listbox";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -262,6 +263,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
 
     phase = 5;
     await openLibrarySection(page, "Playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { enterAdmin } from "./fixtures/admin-session";
 import { openLibrarySection } from "./fixtures/library-sections";
 import { enterEditMode } from "./fixtures/playlist-edit";
@@ -467,10 +468,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
-  await page
-    .getByLabel("New playlist", { exact: true })
-    .fill("Docker favorites");
-  await page.getByRole("button", { name: "Create playlist" }).click();
+  await createPlaylist(page, "Docker favorites");
   await expect(
     page.locator(".playlist-list").getByText("Docker favorites"),
   ).toBeVisible();

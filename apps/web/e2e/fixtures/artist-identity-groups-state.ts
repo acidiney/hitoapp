@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./playlist-dialogs";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
@@ -100,6 +101,7 @@ export async function prepareArtistGroups(
     providers: [selected],
   });
   await openLibrarySection(page, "Playlists");
+  await openPlaylistImport(page);
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

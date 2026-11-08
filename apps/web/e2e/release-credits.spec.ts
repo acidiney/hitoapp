@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { chooseOption } from "./fixtures/listbox";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -150,6 +151,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     ).toBe(true);
     stage = "import metadata without sources";
     await openLibrarySection(page, "Playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", { name: "Import a playlist" });
     await form
       .getByRole("textbox", { name: "Playlist link or identifier" })

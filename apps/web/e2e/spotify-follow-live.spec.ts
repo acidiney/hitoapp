@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
   expect,
   test,
@@ -67,6 +68,7 @@ async function createFollow(
   interval: Schema<"PlaylistFollowInterval">,
 ) {
   await openLibrarySection(page, "Playlists");
+  await openPlaylistImport(page);
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

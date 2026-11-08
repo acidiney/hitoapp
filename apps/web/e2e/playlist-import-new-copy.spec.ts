@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import { expect, test, type Page } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
 import type { Schema } from "../src/shared/schema";
@@ -136,6 +137,7 @@ test("a new copy uses the current field after a committed import loses its respo
       { times: 1 },
     );
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", { name: "Import a playlist" });
     const field = form.getByRole("textbox", {
       name: "Playlist link or identifier",

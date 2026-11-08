@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { openPlaylistImport } from "./playlist-dialogs";
 import type { Page } from "@playwright/test";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import { creditPost } from "./release-credits";
@@ -90,6 +91,7 @@ export async function prepareSpotifyMetadataUpgrade(
       }),
   );
   await openLibrarySection(page, "Playlists");
+  await openPlaylistImport(page);
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

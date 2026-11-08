@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
 import {
@@ -28,6 +29,7 @@ test.describe("isolated provider playlist connection revisions", () => {
         () => {},
       );
       await openLibrarySection(page, "Playlists");
+      await openPlaylistImport(page);
       const form = page.getByRole("region", {
         name: "Import a playlist",
         exact: true,

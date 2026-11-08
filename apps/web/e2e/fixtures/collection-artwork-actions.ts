@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./playlist-dialogs";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import type { ArtworkProviderFixture } from "./collection-artwork-provider";
@@ -188,6 +189,7 @@ export async function importCopy(
   selection = fixture.selections[0],
 ) {
   await page.goto("/playlists");
+  await openPlaylistImport(page);
   const form = page.getByRole("region", { name: "Import a playlist" });
   await form
     .getByRole("combobox", { name: "Playlist service" })

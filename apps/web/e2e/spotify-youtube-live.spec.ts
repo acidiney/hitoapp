@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
 import {
@@ -137,6 +138,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
 
       phase = 3;
       await openLibrarySection(page, "Playlists");
+      await openPlaylistImport(page);
       const form = page.getByRole("region", {
         name: "Import a playlist",
         exact: true,

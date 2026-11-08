@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { nextEntryFixture } from "./fixtures/next-entry";
@@ -238,6 +239,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
 
     phase = "playlist_import";
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

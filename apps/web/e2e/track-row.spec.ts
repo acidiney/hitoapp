@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import {
   addToPlaylistFromRow,
@@ -97,8 +98,7 @@ test("the row menu opens from the keyboard, plays next, queues, adds to a playli
   await page.goto("/playlists");
   const existing = page.locator(".playlist-list").getByText(playlistName);
   if ((await existing.count()) === 0) {
-    await page.getByLabel("New playlist", { exact: true }).fill(playlistName);
-    await page.getByRole("button", { name: "Create playlist" }).click();
+    await createPlaylist(page, playlistName);
     await expect(
       page.locator(".playlist-list").getByText(playlistName),
     ).toBeVisible();

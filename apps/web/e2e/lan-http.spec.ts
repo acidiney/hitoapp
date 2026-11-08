@@ -1,4 +1,5 @@
 import type { Schema } from "../src/shared/schema";
+import { openNewPlaylist } from "./fixtures/playlist-dialogs";
 import { expect, test, type Page } from "@playwright/test";
 
 import { openLibrarySection } from "./fixtures/library-sections";
@@ -247,8 +248,9 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     await queue.getByRole("button", { name: "Close now playing" }).click();
 
     await openLibrarySection(page, "Playlists");
-    await page
-      .getByLabel("New playlist", { exact: true })
+    const newPlaylist = await openNewPlaylist(page);
+    await newPlaylist
+      .getByRole("textbox", { name: "Name" })
       .fill(privatePlaylist);
     const mutation = page.waitForRequest((outgoing) => {
       if (
@@ -261,7 +263,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
         (operation) => operation.action.kind === "playlist_create",
       );
     });
-    await page
+    await newPlaylist
       .getByRole("button", { name: "Create playlist", exact: true })
       .click();
     const batch = (await mutation).postDataJSON() as Schema<"SyncBatch">;

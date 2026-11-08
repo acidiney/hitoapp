@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { openLibrarySection } from "./fixtures/library-sections";
 
 const capture = process.env.HITO_VISUAL_CAPTURE === "1";
@@ -68,8 +69,7 @@ async function seedLibrary(page: Page) {
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await openLibrarySection(page, "Playlists");
-  await page.getByLabel("New playlist", { exact: true }).fill("Late night");
-  await page.getByRole("button", { name: "Create playlist" }).click();
+  await createPlaylist(page, "Late night");
   await expect(
     page.locator(".playlist-list").getByText("Late night"),
   ).toBeVisible();

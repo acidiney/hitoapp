@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import {
@@ -290,6 +291,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
 
     phase = "import";
     await openLibrarySection(page, "Playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

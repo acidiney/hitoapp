@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
   expect,
   test,
@@ -171,6 +172,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     const connectionId = connection.id;
     const importPath = `/api/v1/plugins/${connectionId}/playlists/import`;
     await page.goto("/playlists");
+    await openPlaylistImport(page);
     const form = page.getByRole("region", { name: "Import a playlist" });
     const reference = form.getByRole("textbox", {
       name: "Playlist link or identifier",
@@ -374,9 +376,17 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await expect(rows).toHaveCount(4);
     expect(await (await page.request.get(detailPath)).json()).toEqual(detail);
     await enterEditMode(page);
-    const remaining = [...detail.entries];
-    for (const entry of [detail.entries[0], detail.entries[2]]) {
-      const index = remaining.findIndex(
+    const removedEntries = [detail.entries[0], detail.entries[2]];
+    let syncPosts = 0;
+    page.on("request", (request) => {
+      if (
+        new URL(request.url()).pathname === "/api/v1/sync" &&
+        request.method() === "POST"
+      )
+        syncPosts += 1;
+    });
+    for (const entry of removedEntries) {
+      const index = detail.entries.findIndex(
         (item) => item.entry_id === entry.entry_id,
       );
       const remove = rows.nth(index).getByRole("button", {
@@ -385,30 +395,44 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       });
       await remove.focus();
       await expect(remove).toBeFocused();
-      const changed = page.waitForRequest(
-        (request) =>
-          new URL(request.url()).pathname === "/api/v1/sync" &&
-          request.method() === "POST",
-      );
       await remove.press("Enter");
-      const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
-      expect(batch.operations).toEqual([
-        {
-          id: expect.any(String),
-          action: {
-            kind: "entry_remove",
-            playlist_id: copied,
-            entry_id: entry.entry_id,
-          },
-        },
-      ]);
-      remaining.splice(index, 1);
-      await expect(rows).toHaveCount(remaining.length);
-      expect(await (await page.request.get(detailPath)).json()).toEqual({
-        ...detail,
-        entries: remaining,
-      });
+      await expect(
+        rows.nth(index).getByRole("button", {
+          name: `Keep ${entry.title} in playlist`,
+          exact: true,
+        }),
+      ).toBeVisible();
     }
+    await expect(rows).toHaveCount(detail.entries.length);
+    expect(syncPosts).toBe(0);
+    expect(await (await page.request.get(detailPath)).json()).toEqual(detail);
+    const changed = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname === "/api/v1/sync" &&
+        request.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
+    expect(batch.operations).toEqual(
+      removedEntries.map((entry) => ({
+        id: expect.any(String),
+        action: {
+          kind: "entry_remove",
+          playlist_id: copied,
+          entry_id: entry.entry_id,
+        },
+      })),
+    );
+    await expect(rows).toHaveCount(detail.entries.length - 2);
+    expect(await (await page.request.get(detailPath)).json()).toEqual({
+      ...detail,
+      entries: detail.entries.filter(
+        (entry) =>
+          !removedEntries.some(
+            (removed) => removed.entry_id === entry.entry_id,
+          ),
+      ),
+    });
     await page.reload();
     await expect(rows).toHaveCount(2);
     await expect(
