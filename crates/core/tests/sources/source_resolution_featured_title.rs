@@ -37,7 +37,10 @@ async fn featured_artist_qualifier_does_not_hide_a_different_title() {
     );
 }
 
-async fn resolve_featured_target(target_title: &str, candidate_title: &str) -> SourceResolutionOutcome {
+async fn resolve_featured_target(
+    target_title: &str,
+    candidate_title: &str,
+) -> SourceResolutionOutcome {
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
@@ -63,7 +66,9 @@ async fn resolve_featured_target(target_title: &str, candidate_title: &str) -> S
                     std::future::pending(),
                 )
                 .await
-                .unwrap_or_else(|_| panic!("featured-title resolution must return a typed outcome"));
+                .unwrap_or_else(|_| {
+                    panic!("featured-title resolution must return a typed outcome")
+                });
             owned.assert_preserved().await;
             resolution.outcome
         })
