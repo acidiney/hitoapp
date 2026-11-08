@@ -252,6 +252,11 @@
   font-weight: 700;
   letter-spacing: 0;
 }
+.np-source {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .np-source-info {
   display: grid;
   gap: 4px;

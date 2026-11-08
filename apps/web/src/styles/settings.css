@@ -452,6 +452,12 @@
 .dialog-actions {
   justify-content: flex-end;
 }
+.dialog > .dialog-actions {
+  margin-top: 20px;
+}
+.dialog > .form-error {
+  margin: 12px 0 0;
+}
 .settings code {
   font-size: 12px;
   background: var(--subtle);
