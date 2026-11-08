@@ -86,6 +86,7 @@
 .sidebar-playlists {
   margin: 24px 0 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 .sidebar-section-heading {
   display: flex;
@@ -122,6 +123,7 @@
   background: var(--subtle);
 }
 .sidebar-playlists > a > span:last-child {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

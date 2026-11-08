@@ -194,3 +194,14 @@ test("library sections are absent outside the library family", () => {
   const view = render(createElement(LibrarySections, { path: "/settings" }));
   expect(view.container.firstChild).toBeNull();
 });
+
+test("each sidebar playlist name carries its full text as a tooltip", () => {
+  const navigation = sidebar("/library");
+  const names = within(navigation.parentElement as HTMLElement)
+    .getAllByRole("link")
+    .filter((link) => link.getAttribute("href")?.startsWith("/playlists/"))
+    .map((link) =>
+      link.querySelector("span:last-child")?.getAttribute("title"),
+    );
+  expect(names).toEqual(["Sunday calm", "Running"]);
+});

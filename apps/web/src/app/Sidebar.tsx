@@ -75,7 +75,7 @@ export default function Sidebar({
             <span className="playlist-swatch" aria-hidden="true">
               <CoverArtSvg art={coverArt("playlist", playlist.id, "", null)} />
             </span>
-            <span>{playlist.name}</span>
+            <span title={playlist.name}>{playlist.name}</span>
           </Link>
         ))}
         {playlists.length === 0 && (
