@@ -8,23 +8,38 @@ Preparation uses the same successor calculation as natural advancement, includin
 
 ```mermaid
 flowchart LR
-  Current[Current browser audio plays] --> Successor[Predict one actual successor]
+  Current[One persistent audio element plays] --> Successor[Predict one actual successor]
   Successor --> Owner[Independent cancellable preparation]
   Owner --> Sources[Current sources then one refresh and resolution]
-  Sources --> Buffer[One paused authorized audio element]
-  Buffer --> Boundary[Current track ends]
-  Boundary --> Check[Recheck current authorized source order]
-  Check -->|Same source remains preferred| Adopt[Transfer the prepared element]
-  Check -->|Choice or readiness changed| Fresh[Discard buffer and use current sources]
-  Adopt --> Current
-  Fresh --> Current
+  Sources --> Url[Ready audio URL kept in memory]
+  Sources --> Warm[Separate muted preload element warms the connection]
+  Current --> Recheck[Last 20 seconds: recheck source order once]
+  Recheck -->|Choice changed| Owner
+  Current --> Ended[Track ends]
+  Ended --> Swap[Same element: set src and call play in the ended handler]
+  Url --> Swap
+  Swap --> Current
 ```
 
-The preparation owns its source attempts, cancellation signal and paused media. It has a fifteen-second background acquisition/buffering deadline. It runs the same ordered stages as ordinary Play: existing sources, one refresh, one automatic resolution. All of that happens while the current track plays, never at the transition. Preparation never issues Download or Keep offline commands.
+The preparation owns its source attempts, cancellation signal and a separate preload element that never plays. It has a fifteen-second background acquisition deadline. It runs the same ordered stages as ordinary Play: existing sources, one refresh, one automatic resolution. All of that starts when the current track starts playing, never near its end, because mobile browsers freeze or throttle timers and requests while the screen is locked. Preparation never issues Download or Keep offline commands.
 
-At handoff, current authorized source order is read again. A historical resolution result does not override a newer manual source choice. An exhausted preparation also checks for a source that became ready while the current track played. This final server read means prebuffering alone does not establish a gapless or zero-wait transition.
+## One persistent playing element
 
-Queue replacement, removal, repeat/shuffle changes and account teardown cancel obsolete work. Ownership is limited to current media and one preparation. A repeated recording retains distinct queue entry IDs and can reuse a verified current source without repeating provider matching. Buffer transfer releases the outgoing element. If seeking the adopted element fails, ordinary source recovery retains its attempt identity and requested position.
+The player creates one audio element for the whole signed-in session and never swaps it. Phone browsers let only the element that is already playing continue in the background. Starting a different element there is often blocked. When a track ends, the player sets the prepared source on the same element and calls `play()` in the same `ended` event turn. It does no network call, timer or `await` before `play()`.
+
+The preload element only warms the connection and the browser's HTTP cache. Whether the warm bytes are reused depends on the browser; the guarantee is that the playing element has nothing left to look up or wait for in JavaScript. The audio endpoint already answers Range requests, so the browser can resume or seek inside the file. No server change was needed. A warm element that errors marks that source as unusable, as before. A warm element that is merely slow (fifteen seconds) is released and the source is still used.
+
+Source order is checked once more while the current track plays, when 20 seconds or less remain and the browser delivers a time update. If the authorized order changed (for example a manual source choice), the stale preparation is discarded and a new one starts from the fresh order, so the new choice is normally ready at the boundary. A choice made in the final seconds, or while the page is locked and no time updates are delivered, is not honored for that one advancement. The old behavior re-read the server at the boundary, which required a network wait that a locked phone may never complete.
+
+The synchronous start applies only to natural advancement. When the user selects the next entry or presses Next, the player still reads the authorized source order first, because the user is present and the page is active.
+
+If the preparation is not ready when the track ends (still finding a source), the player falls back to the earlier waiting path on the same element. That path still depends on JavaScript timers and requests and is not expected to be reliable while locked.
+
+## Stalls while the page is hidden
+
+If the element reports `error` (other than an unsupported format) or `stalled` with too little data while the page is hidden, the player sets the same URL again on the same element and resumes at the same position, once. The allowance resets after 10 further seconds of playback. A second failure uses the earlier recovery path, which re-reads sources. This uses only media element events, not timers.
+
+Queue replacement, removal, repeat/shuffle changes and account teardown cancel obsolete work. Ownership is limited to the playing element and one preparation. A repeated recording retains distinct queue entry IDs and can reuse a verified current source without repeating provider matching.
 
 ## Sources that need provider preparation
 
@@ -68,4 +83,12 @@ A default-run Chromium test (`next-entry-deferred-preparation.spec.ts`) uses the
 
 ## Duration and end of a prepared entry
 
-When prepared media is adopted, the player applies the same duration rule as for a directly opened source. If the browser reports a duration more than 10 percent and 5 seconds above the recording's known duration, the known duration drives the timeline and the entry ends when playback reaches it. See [overlong browser duration estimates](browser-media-session.md#overlong-browser-duration-estimates). A late `ended` event from the retired element is ignored, and the next entry is never skipped.
+When a prepared source starts, the player applies the same duration rule as for a directly opened source. If the browser reports a duration more than 10 percent and 5 seconds above the recording's known duration, the known duration drives the timeline and the entry ends when playback reaches it. See [overlong browser duration estimates](browser-media-session.md#overlong-browser-duration-estimates). A late `ended` event for a finished entry is ignored, and the next entry is never skipped.
+
+## Background advancement evidence and limits
+
+Vitest with fake media elements covers: one element plays both tracks; `play()` runs inside the `ended` dispatch with the prepared URL and no request; fake timers are never advanced; a changed source order discards the stale preparation near the end and the replacement plays; a hidden-page stall is retried once on the same element at the same position, and the next failure uses source recovery; a visible-page stall is left to the browser; Media Session title and position follow the swap.
+
+The default-run Chromium test (`next-entry-deferred-preparation.spec.ts`) now runs twice. It marks the playing element, advances naturally and checks that the same marked element fires `ended` and then `playing` for the second source, with exactly one player element. In its hidden variant it sets the page's visibility to hidden and replaces `setTimeout`, `setInterval` and `requestAnimationFrame` with counters that never run their callbacks before the track ends.
+
+Playwright cannot prove real lock-screen behavior. It cannot suspend a page, throttle timers the way iOS or Android do, or apply the operating system's rule about which element may keep playing. The hidden variant shows the advancement code needs no timers and no JavaScript network work. It does not show that Safari or Chrome on a locked phone keep the page alive. Physical iOS Safari and Android Chrome verification remains open. The opt-in `next-entry-preparation.spec.ts` audio audit was not rerun against this change.
