@@ -215,6 +215,28 @@ Hito keeps working. Only the features that need that addon stop.
 - **Folder music, your own playlists, likes and history** are not affected.
 - When the server starts before an addon, it keeps trying to offer the addon (see above). Connect once it appears.
 
+### Pin DNS for the addons
+
+Docker copies the host resolver into a container when it is created. If the host later switches resolver, a running addon keeps the old one and cannot find `www.youtube.com`. The YouTube addon then reports `outcome: network` in its log for every search and play, and nothing else about the library changes.
+
+To make this stable, pin a resolver in a Compose override file next to `compose.yaml`, for example `compose.override.yaml`:
+
+```yaml
+services:
+  plugin-youtube:
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+```
+
+Use resolvers you trust, or your own router address. Then recreate the addon:
+
+```sh
+docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml -f compose.override.yaml --profile plugins up -d --force-recreate plugin-youtube
+```
+
+Recreating without the override also picks up the host's current resolver. The addon logs only the failure class (`network`, `refused`, `video_unavailable`, `format_missing`, `deadline` or `unavailable`), never the yt-dlp message, video ids or addresses. Settings → Plugins does not yet show a "Hito cannot reach YouTube" state; the addon's own error text for this class is "Hito cannot reach YouTube".
+
 ## Troubleshooting
 
 | What you see | Likely cause and fix |
@@ -224,6 +246,9 @@ Hito keeps working. Only the features that need that addon stop.
 | "The music service is not responding right now" | The addon answered 502, 503 or 504, or did not answer within 10 seconds, usually because the music service behind it was slow. Try again in a moment. If it keeps happening, check the addon log |
 | "The music service is busy" | The addon answered 429. Wait a moment and try again |
 | "The plugin service refused the request" | The addon answered 401 or 403. It may need a bearer token that you did not enter or that is wrong. Check the connection in Settings → Plugins |
+| Every YouTube search and play fails within a second, and the YouTube addon log says `outcome` is `network` | The addon container cannot resolve or reach YouTube. Docker keeps the resolver the container saw when it was created, so a host that changes resolver (Tailscale, AdGuard or a VPN switching) leaves old containers with a dead one. Recreate the addon, or pin `dns:`; see [Pin DNS for the addons](#pin-dns-for-the-addons) |
+| YouTube `outcome` is `refused` in the addon log | YouTube answered with a bot check or HTTP 403 or 429 for this connection. See the [YouTube limit](#youtube-limit) |
+| YouTube `outcome` is `video_unavailable` or `format_missing` | That video is private, removed, blocked in your region, or has no supported audio. Other videos still play |
 | "The plugin service rejected the request" | The addon answered with another error. It is probably unhealthy. Check its log |
 | "The plugin service did not return JSON data" or "returned invalid JSON data" | The address points at something that is not an addon, for example a web page. Check the port |
 | "This service is already offered" | That address is already offered. Nothing to do |

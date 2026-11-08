@@ -10,6 +10,7 @@ use tower::ServiceExt;
 
 mod artwork;
 mod cancellation;
+mod failures;
 #[cfg(target_os = "linux")]
 mod lifecycle;
 mod logging;

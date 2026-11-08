@@ -103,12 +103,15 @@ pub(crate) async fn run(
     };
     let result = {
         let collect = async {
-            let (output, _) = tokio::try_join!(
+            let (output, diagnostics) = tokio::try_join!(
                 read_bounded(stdout, 2 * 1024 * 1024),
-                read_bounded(stderr, 65_536),
+                read_prefix(stderr, 65_536),
             )?;
-            wait_for_exit(group).await?;
-            Ok(output)
+            if wait_for_exit(group).await? {
+                Ok(output)
+            } else {
+                Err(crate::classify::failure(&diagnostics))
+            }
         };
         tokio::pin!(collect);
         tokio::select! {
@@ -156,6 +159,28 @@ async fn read_bounded(
 }
 
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+async fn read_prefix(
+    mut reader: impl tokio::io::AsyncRead + Unpin,
+    maximum: usize,
+) -> Result<Vec<u8>, Error> {
+    use tokio::io::AsyncReadExt;
+
+    let mut kept = Vec::new();
+    let mut buffer = [0; 8192];
+    loop {
+        let count = reader
+            .read(&mut buffer)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        if count == 0 {
+            return Ok(kept);
+        }
+        let room = maximum.saturating_sub(kept.len()).min(count);
+        kept.extend_from_slice(&buffer[..room]);
+    }
+}
+
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 fn child_status(group: Pid) -> Result<WaitStatus, Error> {
     loop {
         match waitid(
@@ -169,14 +194,14 @@ fn child_status(group: Pid) -> Result<WaitStatus, Error> {
 }
 
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
-async fn wait_for_exit(group: Pid) -> Result<(), Error> {
+async fn wait_for_exit(group: Pid) -> Result<bool, Error> {
     loop {
         match child_status(group)? {
             WaitStatus::StillAlive => {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
-            WaitStatus::Exited(_, 0) => return Ok(()),
-            _ => return Err(Error::Unavailable),
+            WaitStatus::Exited(_, 0) => return Ok(true),
+            _ => return Ok(false),
         }
     }
 }

@@ -1,4 +1,6 @@
 mod artwork;
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+mod classify;
 mod extractor;
 mod media;
 mod process;
@@ -269,6 +271,10 @@ pub(crate) enum Error {
     UpstreamRejected,
     ValidatorChanged,
     NotFound,
+    VideoUnavailable,
+    FormatMissing,
+    Refused,
+    Network,
     Busy,
     Unavailable,
     InvalidResponse,
@@ -288,6 +294,10 @@ impl Error {
             Self::UpstreamRejected => "upstream_rejected",
             Self::ValidatorChanged => "validator_changed",
             Self::NotFound => "not_found",
+            Self::VideoUnavailable => "video_unavailable",
+            Self::FormatMissing => "format_missing",
+            Self::Refused => "refused",
+            Self::Network => "network",
             Self::Busy => "capacity",
             Self::Unavailable => "unavailable",
             Self::InvalidResponse => "invalid_response",
@@ -314,6 +324,16 @@ impl IntoResponse for Error {
                 "The YouTube audio response is invalid",
             ),
             Self::NotFound => (StatusCode::NOT_FOUND, "The YouTube source was not found"),
+            Self::VideoUnavailable => (StatusCode::NOT_FOUND, "The YouTube video is unavailable"),
+            Self::FormatMissing => (
+                StatusCode::NOT_FOUND,
+                "The YouTube video has no supported audio format",
+            ),
+            Self::Refused => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "YouTube refused the request",
+            ),
+            Self::Network => (StatusCode::SERVICE_UNAVAILABLE, "Hito cannot reach YouTube"),
             Self::Busy => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The YouTube service is busy. Try again later",
