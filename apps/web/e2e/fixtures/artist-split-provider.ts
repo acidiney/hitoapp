@@ -80,6 +80,8 @@ export async function artistSplitProvider(label: string) {
           revision: "split-r1",
         });
       }
+      case "v1/health":
+        return response.writeHead(404).end();
       default:
         state.unexpected++;
         response.writeHead(404).end();

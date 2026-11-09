@@ -75,6 +75,10 @@ export async function playlistFixture() {
       return;
     }
     const path = new URL(request.url ?? "/", "http://fixture.invalid").pathname;
+    if (path.endsWith("/v1/health")) {
+      response.writeHead(404).end();
+      return;
+    }
     requests.push({
       method: request.method,
       path,
