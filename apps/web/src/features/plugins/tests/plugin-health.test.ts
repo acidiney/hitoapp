@@ -66,9 +66,7 @@ beforeEach(() => {
 test("a plugin that cannot reach its provider says so by the provider's name and what to check", async () => {
   withHealth({ state: "degraded", reason: "network", since: 1_700_000_000 });
   show();
-  expect(
-    await screen.findByText("Hito cannot reach YouTube."),
-  ).toBeTruthy();
+  expect(await screen.findByText("Hito cannot reach YouTube.")).toBeTruthy();
   expect(
     screen.getByText("Check the server's internet connection or DNS."),
   ).toBeTruthy();
@@ -106,7 +104,9 @@ test("healthy plugins and plugins without a health report show no warning", asyn
       }),
     );
     await screen.findByText("Finds songs and plays them from YouTube.");
-    expect(screen.queryByText(/cannot reach|refusing|not responding/)).toBeNull();
+    expect(
+      screen.queryByText(/cannot reach|refusing|not responding/),
+    ).toBeNull();
     view.unmount();
   }
 });
