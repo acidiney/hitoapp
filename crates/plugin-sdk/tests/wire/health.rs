@@ -21,7 +21,7 @@ fn health_reports_keep_their_exact_wire_shape() {
     healthy.validate().unwrap();
     assert_eq!(healthy, HealthReport::ok());
     assert_eq!(
-        serde_json::to_value(&healthy).unwrap(),
+        serde_json::to_value(healthy).unwrap(),
         json!({"state": "ok", "reason": null, "since": null})
     );
     for (wire, reason) in [

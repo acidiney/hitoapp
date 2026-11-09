@@ -16,10 +16,11 @@ const CONCURRENT_READS: usize = 8;
 const MAX_CACHED: usize = 128;
 
 type Key = (String, i64);
+type Answer = (Instant, Option<PluginHealth>);
 
 #[derive(Clone, Default)]
 pub(super) struct Cache {
-    entries: Arc<Mutex<HashMap<Key, (Instant, Option<PluginHealth>)>>>,
+    entries: Arc<Mutex<HashMap<Key, Answer>>>,
 }
 
 impl Cache {
