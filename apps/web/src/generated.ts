@@ -3012,6 +3012,7 @@ export interface components {
             featured_recording_count?: number;
             id: string;
             library_id: string;
+            member_only?: boolean;
             name: string;
             provider_photo?: boolean;
             /** Format: int64 */
@@ -4303,6 +4304,7 @@ export interface components {
                 featured_recording_count?: number;
                 id: string;
                 library_id: string;
+                member_only?: boolean;
                 name: string;
                 provider_photo?: boolean;
                 /** Format: int64 */

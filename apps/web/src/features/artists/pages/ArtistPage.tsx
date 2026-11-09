@@ -73,13 +73,15 @@ export default function ArtistPage({
           ) : undefined
         }
       />
-      <ArtistCreditIdentity
-        account={user.id}
-        artist={artist}
-        searchRecording={
-          tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
-        }
-      />
+      {!artist.member_only && (
+        <ArtistCreditIdentity
+          account={user.id}
+          artist={artist}
+          searchRecording={
+            tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
+          }
+        />
+      )}
       {releases.total > 0 && (
         <section aria-labelledby="artist-albums-title">
           <h2 className="discography-heading" id="artist-albums-title">

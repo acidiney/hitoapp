@@ -13,6 +13,8 @@ pub struct Artist {
     pub recording_count: i64,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub featured_recording_count: i64,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub member_only: bool,
     pub artwork_recording_id: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub provider_photo: bool,
@@ -43,6 +45,7 @@ const SUMMARY_HEAD: &str = "), associations AS (
         SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id
         UNION ALL SELECT m.recording_id FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id AND m.role = 'main')) AS recording_count,
     (SELECT count(*) FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id AND m.role = 'featured') AS featured_recording_count,
+    (c.release_count = 0 AND NOT EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id)) AS member_only,
     COALESCE((SELECT s.recording_id FROM source_metadata m JOIN sources s ON s.id = m.source_id
      WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1),
     (SELECT appearance.recording_id FROM provider_release_appearances appearance

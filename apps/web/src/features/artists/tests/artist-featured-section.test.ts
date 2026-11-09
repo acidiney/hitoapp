@@ -45,6 +45,7 @@ function page(
   main: ReturnType<typeof recording>[],
   featured: ReturnType<typeof recording>[],
   featuredTotal = featured.length,
+  memberOnly = false,
 ): Schema<"ArtistPageProps"> {
   return {
     errors: {},
@@ -61,6 +62,7 @@ function page(
         release_count: 0,
         recording_count: main.length,
         featured_recording_count: featuredTotal,
+        ...(memberOnly ? { member_only: true } : {}),
       },
       releases: { total: 0, offset: 0, limit: 60, items: [] },
       recordings: { total: main.length, offset: 0, limit: 60, items: main },
@@ -100,4 +102,17 @@ test("a longer list of appearances says how many are shown", () => {
     createElement(ArtistPage, page([], [recording("r", "Guest verse")], 75)),
   );
   expect(screen.getByText("Showing 1 of 75 appearances")).toBeTruthy();
+});
+
+test("an artist only named inside credits has no credit of its own to identify", () => {
+  const { unmount } = render(
+    createElement(
+      ArtistPage,
+      page([], [recording("r", "Guest verse")], 1, true),
+    ),
+  );
+  expect(screen.queryByText("Artist identity")).toBeNull();
+  unmount();
+  render(createElement(ArtistPage, page([recording("main", "Own song")], [])));
+  expect(screen.getByText("Artist identity")).toBeTruthy();
 });

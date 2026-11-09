@@ -18962,6 +18962,9 @@
           "library_id": {
             "type": "string"
           },
+          "member_only": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -24404,6 +24407,9 @@
                 },
                 "library_id": {
                   "type": "string"
+                },
+                "member_only": {
+                  "type": "boolean"
                 },
                 "name": {
                   "type": "string"

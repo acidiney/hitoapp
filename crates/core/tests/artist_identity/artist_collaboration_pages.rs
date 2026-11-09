@@ -57,7 +57,12 @@ async fn collaboration_library() -> NameLibrary {
     .await
 }
 
+async fn combined_page(library: &NameLibrary) -> Page {
+    page(library, "Ada & Bo").await.unwrap()
+}
+
 struct Page {
+    member_only: bool,
     recordings: Vec<String>,
     featured: Vec<String>,
     recording_count: i64,
@@ -85,6 +90,7 @@ async fn page(library: &NameLibrary, name: &str) -> Option<Page> {
         titles
     };
     Some(Page {
+        member_only: detail.artist.member_only,
         recordings: titles(detail.recordings),
         featured: titles(detail.featured_recordings),
         recording_count: detail.artist.recording_count,
@@ -100,6 +106,12 @@ async fn every_main_artist_of_a_collaboration_lists_it_whatever_the_order() {
     let bo = page(&library, "Bo").await.unwrap();
     assert_eq!(bo.recordings, ["Song 0", "Song 1"]);
     assert_eq!(bo.recording_count, 2);
+    assert!(
+        bo.member_only,
+        "Bo is only ever named inside collaborations"
+    );
+    assert!(!ada.member_only, "Ada is the main credit of Song 2");
+    assert!(!combined_page(&library).await.member_only);
     let combined = page(&library, "Ada & Bo").await.unwrap();
     assert_eq!(combined.recordings, ["Song 0", "Song 1"]);
     let shown: Vec<String> = library
@@ -125,6 +137,10 @@ async fn a_featured_artist_lists_the_recording_as_appearing_on_without_a_main_cr
     assert!(cy.recordings.is_empty());
     assert_eq!(cy.recording_count, 0);
     assert_eq!(cy.featured, ["Song 2"]);
+    assert!(
+        cy.member_only,
+        "A featured artist has no credit of its own to identify"
+    );
     let ada = page(&library, "Ada").await.unwrap();
     assert!(ada.featured.is_empty());
     let credit: String = library
