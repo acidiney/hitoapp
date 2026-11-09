@@ -35,17 +35,9 @@
   line-height: 1.35;
   text-decoration: none;
 }
-.track-table .track-title:hover,
-.track-card .track-title:hover {
-  text-decoration: underline;
-}
 .track-name {
   color: inherit;
   text-decoration: none;
-}
-a.track-name:hover {
-  color: var(--ink);
-  text-decoration: underline;
 }
 .track-name-part + .track-name-part::before {
   content: " · ";
@@ -239,4 +231,17 @@ a.track-name:hover {
   .track-table[data-editing] td.actions-column {
     width: 132px;
   }
+}
+@media (hover: hover) {
+  :is(a.track-title, a.track-name, .player-link, .np-artist-link):hover {
+    text-decoration: underline;
+  }
+  a.track-name:hover {
+    color: var(--ink);
+  }
+}
+:is(a.track-title, a.track-name, .player-link, .np-artist-link):focus-visible {
+  text-decoration: underline;
+  outline-offset: -2px;
+  border-radius: 3px;
 }

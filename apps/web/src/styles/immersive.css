@@ -87,9 +87,6 @@
   color: var(--ink-soft);
   text-decoration: none;
 }
-.np-title a:hover {
-  color: var(--action);
-}
 .np-seek .seek {
   display: grid;
   grid-template-columns: 1fr 1fr;
