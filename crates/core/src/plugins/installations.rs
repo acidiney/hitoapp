@@ -12,8 +12,9 @@ impl Plugins {
     pub async fn settings(&self, actor: &Actor) -> Result<PluginSettings> {
         let Connections {
             services,
-            installations,
+            mut installations,
         } = self.connections(actor).await?;
+        self.attach_health(actor, &mut installations).await;
         Ok(PluginSettings {
             credential_storage_ready: self.vault.ready(),
             services,
@@ -138,6 +139,7 @@ pub(super) fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstall
         revision: row.try_get("revision")?,
         checked_at: row.try_get("checked_at")?,
         credential_set: row.try_get("credential_set")?,
+        health: None,
     })
 }
 

@@ -1,6 +1,7 @@
 #![allow(clippy::duplicate_mod)]
 
 mod featured;
+mod health;
 mod plugin_authorization_key_recovery;
 mod plugin_authorization_loopback;
 mod plugin_connections;

@@ -22690,6 +22690,13 @@
           }
         }
       },
+      "HealthReason": {
+        "type": "string",
+        "enum": [
+          "network",
+          "refused"
+        ]
+      },
       "HistoryCleared": {
         "type": "object",
         "required": [
@@ -26631,6 +26638,43 @@
           }
         ]
       },
+      "PluginHealth": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HealthReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "since": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/PluginHealthState"
+          }
+        }
+      },
+      "PluginHealthState": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "degraded",
+          "unreachable"
+        ]
+      },
       "PluginInstallation": {
         "type": "object",
         "required": [
@@ -26648,6 +26692,16 @@
           },
           "credential_set": {
             "type": "boolean"
+          },
+          "health": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PluginHealth"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "type": "string"

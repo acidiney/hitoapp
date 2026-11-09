@@ -12,6 +12,7 @@ mod catalog;
 mod catalog_editions;
 mod catalog_similarity;
 mod featured;
+pub(super) mod health;
 mod lyrics;
 mod preparation;
 mod refusal;
@@ -317,7 +318,7 @@ impl ControlClient {
                 if error.is_timeout() {
                     Error::Upstream(NOT_RESPONDING)
                 } else {
-                    Error::Upstream("The plugin service could not be reached")
+                    Error::Upstream(COULD_NOT_REACH)
                 }
             })?;
         let status = response.status();
@@ -391,6 +392,7 @@ pub(super) struct Call {
 
 const NOT_RESPONDING: &str =
     "The music service is not responding right now. Try again in a moment.";
+const COULD_NOT_REACH: &str = "The plugin service could not be reached";
 
 fn status_error(status: reqwest::StatusCode) -> Error {
     Error::Upstream(match status.as_u16() {

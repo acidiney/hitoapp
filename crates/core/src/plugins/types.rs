@@ -1,4 +1,4 @@
-use hito_plugin_sdk::Manifest;
+use hito_plugin_sdk::{HealthReason, Manifest};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use utoipa::ToSchema;
@@ -44,6 +44,21 @@ pub struct PluginService {
     pub revision: i64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PluginHealthState {
+    Ok,
+    Degraded,
+    Unreachable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+pub struct PluginHealth {
+    pub state: PluginHealthState,
+    pub reason: Option<HealthReason>,
+    pub since: Option<u64>,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct PluginInstallation {
     pub id: String,
@@ -52,6 +67,8 @@ pub struct PluginInstallation {
     pub revision: i64,
     pub checked_at: i64,
     pub credential_set: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health: Option<PluginHealth>,
 }
 
 #[derive(Serialize, ToSchema)]

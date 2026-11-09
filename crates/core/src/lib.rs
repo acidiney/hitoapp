@@ -128,8 +128,9 @@ pub use plugins::{
     PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
     PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
     PluginConnectionState, PluginConnectionStatus, PluginCredential, PluginDeclarationCheck,
-    PluginInstallation, PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
-    Plugins, PreviewPluginInstallation, ProviderAccess, RefreshPlugin,
+    PluginHealth, PluginHealthState, PluginInstallation, PluginInstallationPreview, PluginRefresh,
+    PluginService, PluginSettings, Plugins, PreviewPluginInstallation, ProviderAccess,
+    RefreshPlugin,
 };
 pub use podcasts::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,

@@ -11,6 +11,7 @@ use zeroize::Zeroizing;
 mod catalog_editions;
 mod catalog_similarity;
 mod featured;
+mod health;
 mod timed_content;
 
 pub(crate) struct Operation {

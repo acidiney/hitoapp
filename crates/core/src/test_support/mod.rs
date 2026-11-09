@@ -42,6 +42,8 @@ pub mod featured_service;
 #[cfg(feature = "test-support")]
 pub mod hang_guard;
 #[cfg(feature = "test-support")]
+pub mod health_service;
+#[cfg(feature = "test-support")]
 pub mod media_tool;
 #[cfg(feature = "test-support")]
 pub mod metadata_tag_logs;

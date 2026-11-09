@@ -6,6 +6,9 @@ use hito_core::test_support::content_service as provider_fixture;
 #[path = "api/featured.rs"]
 mod featured;
 
+#[path = "api/plugin_health.rs"]
+mod plugin_health;
+
 #[path = "api/account_sessions.rs"]
 mod account_sessions;
 

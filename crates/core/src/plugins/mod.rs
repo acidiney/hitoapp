@@ -2,6 +2,7 @@ mod authorization;
 mod configured;
 mod credentials;
 mod download;
+mod health;
 mod install_preview;
 mod installations;
 mod manifest;
@@ -34,8 +35,8 @@ pub(crate) use transport::SourceBatch;
 pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};
 pub use types::{
     Connections, InstallPlugin, OfferPluginService, PluginCredential, PluginDeclarationCheck,
-    PluginInstallation, PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
-    PreviewPluginInstallation, RefreshPlugin,
+    PluginHealth, PluginHealthState, PluginInstallation, PluginInstallationPreview, PluginRefresh,
+    PluginService, PluginSettings, PreviewPluginInstallation, RefreshPlugin,
 };
 
 #[derive(Clone)]
@@ -46,6 +47,7 @@ pub struct Plugins {
     vault: vault::Vault,
     token: authorization::TokenClient,
     connection_locks: std::sync::Arc<authorization::ConnectionLocks>,
+    health: health::Cache,
 }
 
 impl Plugins {
@@ -61,6 +63,7 @@ impl Plugins {
             media: media::MediaClient::new(pace)?,
             token: authorization::TokenClient::new()?,
             connection_locks: std::sync::Arc::default(),
+            health: health::Cache::default(),
         })
     }
 }

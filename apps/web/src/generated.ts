@@ -3917,6 +3917,8 @@ export interface components {
         Health: {
             ready: boolean;
         };
+        /** @enum {string} */
+        HealthReason: "network" | "refused";
         HistoryCleared: {
             /** Format: int64 */
             removed: number;
@@ -4874,10 +4876,19 @@ export interface components {
             kind: "review_required";
             manifest: components["schemas"]["Manifest"];
         };
+        PluginHealth: {
+            reason?: components["schemas"]["HealthReason"] | null;
+            /** Format: int64 */
+            since?: number | null;
+            state: components["schemas"]["PluginHealthState"];
+        };
+        /** @enum {string} */
+        PluginHealthState: "ok" | "degraded" | "unreachable";
         PluginInstallation: {
             /** Format: int64 */
             checked_at: number;
             credential_set: boolean;
+            health?: components["schemas"]["PluginHealth"] | null;
             id: string;
             manifest: components["schemas"]["Manifest"];
             /** Format: int64 */
