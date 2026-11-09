@@ -11,6 +11,7 @@ export type Track = Pick<
       | "inherited_artist"
       | "release_id"
       | "artist_id"
+      | "credited_artists"
       | "liked"
       | "plays_from_services"
     >

@@ -262,6 +262,7 @@ export default function TrackTable({
                           : undefined
                       }
                       artistHref={artistLink}
+                      credited={track?.credited_artists}
                       album={showAlbum ? album : null}
                       albumHref={albumLink}
                     />
@@ -273,6 +274,7 @@ export default function TrackTable({
                       <TrackNames
                         artist={display.artist}
                         artistHref={artistLink}
+                        credited={track?.credited_artists}
                       />
                     )}
                   </td>

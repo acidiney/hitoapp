@@ -55,6 +55,7 @@ export default function TrackGrid({
               <TrackNames
                 artist={track.artist}
                 artistHref={artistHref(track)}
+                credited={track.credited_artists}
                 album={track.album}
                 albumHref={albumHref(track)}
               />

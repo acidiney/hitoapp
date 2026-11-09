@@ -254,3 +254,22 @@ test("on an artist page a collaboration row without an artist page shows plain c
   expect(screen.getAllByText("Ada feat. Cy").length).toBeGreaterThan(0);
   expect(screen.queryByRole("link", { name: "Ada feat. Cy" })).toBeNull();
 });
+
+test("a collaboration row links each credited artist and no combined link", () => {
+  const { row } = show([
+    recording({
+      artist: "Ada & Bo",
+      artist_id: "combined",
+      credited_artists: [
+        { id: "ada-1", name: "Ada", role: "main", join: " & " },
+        { id: "bo-1", name: "Bo", role: "main" },
+      ],
+    }),
+  ]);
+  expect(
+    row
+      .getAllByRole("link", { name: "Bo" })
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/artists/bo-1", "/artists/bo-1"]);
+  expect(row.queryByRole("link", { name: "Ada & Bo" })).toBeNull();
+});

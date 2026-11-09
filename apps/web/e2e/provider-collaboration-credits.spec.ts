@@ -79,11 +79,21 @@ test("every member of a collaboration lists it and a featured artist lists it as
         name: new RegExp(`Together ${label}`),
       });
       await expect(
-        together.getByRole("link", { name: combined }).first(),
-      ).toHaveAttribute("href", `/artists/${named(combined).id}`);
+        together.getByRole("link", { name: credits.ada }).first(),
+      ).toHaveAttribute("href", `/artists/${named(credits.ada).id}`);
+      await expect(
+        together.getByRole("link", { name: credits.bo }).first(),
+      ).toHaveAttribute("href", `/artists/${named(credits.bo).id}`);
+      await expect(together.getByRole("link", { name: combined })).toHaveCount(
+        0,
+      );
+      await expect(together.locator("td.artist-column")).toHaveText(combined);
       await page.screenshot({
         path: `${SHOTS}/after-bo-${size}.png`,
       });
+      await page.goto(`/library?q=${label}`);
+      await expect(track(`Together ${label}`)).toBeVisible();
+      await page.screenshot({ path: `${SHOTS}/after-library-${size}.png` });
       await page.goto(`/artists/${named(credits.cy).id}`);
       await expect(
         page.getByRole("heading", { name: "Appears on" }),
@@ -92,12 +102,18 @@ test("every member of a collaboration lists it and a featured artist lists it as
       await expect(page.getByRole("heading", { name: "Tracks" })).toHaveCount(
         0,
       );
+      const guest = page.getByRole("row", {
+        name: new RegExp(`Guest verse ${label}`),
+      });
+      await expect(guest.locator("td.artist-column")).toHaveText(
+        `${credits.ada} feat. ${credits.cy}`,
+      );
       await expect(
-        page
-          .getByRole("row", { name: new RegExp(`Guest verse ${label}`) })
-          .getByRole("link", { name: `${credits.ada} feat. ${credits.cy}` })
-          .first(),
-      ).toHaveAttribute("href", /\/artists\/.+/);
+        guest.getByRole("link", { name: credits.ada }).first(),
+      ).toHaveAttribute("href", `/artists/${named(credits.ada).id}`);
+      await expect(
+        guest.getByRole("link", { name: credits.cy }).first(),
+      ).toHaveAttribute("href", `/artists/${named(credits.cy).id}`);
       await page.screenshot({ path: `${SHOTS}/after-cy-${size}.png` });
     }
     await page.goto(`/artists/${named(credits.cy).id}`);
@@ -109,6 +125,7 @@ test("every member of a collaboration lists it and a featured artist lists it as
     await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(
       0,
     );
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/artists/${named(credits.ada).id}`);
     const guestRow = page.getByRole("row", {
       name: new RegExp(`Guest verse ${label}`),
@@ -117,6 +134,16 @@ test("every member of a collaboration lists it and a featured artist lists it as
     await expect(guestRow.getByRole("link", { name: credits.ada })).toHaveCount(
       0,
     );
+    await page
+      .getByRole("row", { name: new RegExp(`Together ${label}`) })
+      .locator("td.artist-column")
+      .getByRole("link", { name: credits.bo })
+      .click();
+    await expect(page).toHaveURL(`/artists/${named(credits.bo).id}`);
+    await expect(
+      page.getByRole("heading", { name: credits.bo, level: 1 }),
+    ).toBeVisible();
+    await page.goto(`/artists/${named(credits.ada).id}`);
     for (const title of ["Together", "Reordered", "Guest verse"])
       await expect(track(`${title} ${label}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Appears on" })).toHaveCount(
