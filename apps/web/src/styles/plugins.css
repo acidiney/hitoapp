@@ -114,6 +114,9 @@
 .plugin-details[open] > summary {
   margin-bottom: 10px;
 }
+.plugin-health {
+  margin-top: 12px;
+}
 .plugin-news {
   align-items: center;
   flex-wrap: wrap;

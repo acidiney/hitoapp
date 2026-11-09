@@ -10,6 +10,8 @@ import {
 import type { PluginActions } from "../hooks/usePlugins";
 import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
+import SectionWarning from "../../../shared/ui/SectionWarning";
+import { pluginHealthNotice } from "../model/pluginHealth";
 import {
   capabilityChips,
   newCapabilities,
@@ -104,6 +106,7 @@ export default function PluginConnection({
     void check();
   }
   const chips = capabilityChips(plugin.manifest.capabilities);
+  const notice = pluginHealthNotice(plugin.manifest.name, plugin.health);
   return (
     <li className="plugin-connection">
       <div className="plugin-card-head">
@@ -124,6 +127,11 @@ export default function PluginConnection({
             <li key={chip}>{chip}</li>
           ))}
         </ul>
+      )}
+      {notice && (
+        <div className="plugin-health">
+          <SectionWarning title={notice.title}>{notice.hint}</SectionWarning>
+        </div>
       )}
       <PluginAuthorization
         account={account}
