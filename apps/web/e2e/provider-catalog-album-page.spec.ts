@@ -116,3 +116,54 @@ test("going back to the artist page and into the album again does not ask the pr
     await artist.close();
   }
 });
+
+test("a track whose audio was found opens as a library row on the next visit and after a reload", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(120_000);
+  const artist = await connectCatalogArtist(page, baseURL!);
+  try {
+    await page.goto(artist.path);
+    await page
+      .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
+      .click();
+    const table = page.getByRole("table", { name: "Tracks" });
+    await expect(table.getByRole("row")).toHaveCount(5);
+    const first = table.getByRole("row").filter({ hasText: opening });
+    await first
+      .getByRole("button", { name: `Find audio for ${opening}`, exact: true })
+      .click();
+    await expect(
+      first.getByRole("button", { name: `Like ${opening}`, exact: true }),
+    ).toBeVisible();
+
+    await page.goBack();
+    await page
+      .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
+      .click();
+    await expect(table.getByRole("row")).toHaveCount(5);
+    const again = table.getByRole("row").filter({ hasText: opening });
+    await expect(
+      again.getByRole("button", { name: `Like ${opening}`, exact: true }),
+    ).toBeVisible();
+    await expect(
+      again.getByRole("button", {
+        name: `Find audio for ${opening}`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+
+    await page.reload();
+    const reloaded = page
+      .getByRole("table", { name: "Tracks" })
+      .getByRole("row")
+      .filter({ hasText: opening });
+    await expect(
+      reloaded.getByRole("button", { name: `Like ${opening}`, exact: true }),
+    ).toBeVisible();
+    await expect(trackTitleLink(reloaded, opening)).toBeVisible();
+  } finally {
+    await artist.close();
+  }
+});

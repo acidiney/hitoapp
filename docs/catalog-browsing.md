@@ -102,9 +102,27 @@ A catalog row with an unknown or collective credit (such as Various Artists), or
 
 The route takes the same per-account capacity as source resolution, so one account cannot start parallel searches and a search cannot starve playback resolution. A second request while one runs gets `busy` without any provider call.
 
-Outcomes: `saved`, `no_match`, `insufficient_evidence`, `no_providers`, `busy`, `changed`, `unavailable` (a provider failed or the 15-second budget ended), `cancelled`, `disabled`, `unsupported`, `needs_choice` and `search_off`. Failures are shown on the row with the button still enabled, so the user can retry, and the album table and library rows stay playable. The web app keeps found recordings per album, edition and occurrence, and switching edition cancels a pending search. The saved recording is the audio provider's own recording. The catalog row is not linked to it after a reload, so a later visit shows the row as catalog-only again and finding audio returns the same saved recording.
+Outcomes: `saved`, `no_match`, `insufficient_evidence`, `no_providers`, `busy`, `changed`, `unavailable` (a provider failed or the 15-second budget ended), `cancelled`, `disabled`, `unsupported`, `needs_choice` and `search_off`. Failures are shown on the row with the button still enabled, so the user can retry, and the album table and library rows stay playable. The web app keeps found recordings per album, edition and occurrence, and switching edition cancels a pending search. The saved recording is the audio provider's own recording. A successful save is remembered, as described in [remembered recordings for catalog rows](#remembered-recordings-for-catalog-rows).
 
 Logs record the outcome, connection and candidate counts and timings only.
+
+### Remembered recordings for catalog rows
+
+Current behavior in source (migration 0090, owned fakes, not deployed). When finding audio for a catalog row ends in `saved`, Hito stores a link for that account: provider (built-in MusicBrainz or one plugin installation) + edition id + occurrence id (the track's own id inside that edition) to the saved recording. Nothing is linked on `no_match`, `insufficient_evidence`, `busy`, `changed`, `unavailable`, `cancelled`, `search_off` or any other outcome. Linking again replaces the link and never adds a second row. Names are never compared to create or find a link, and a link made on one edition is not reused on another.
+
+```mermaid
+flowchart LR
+  Find[Find audio for a catalog row] -->|saved| Link[(catalog_track_links: account, provider, edition, occurrence, recording)]
+  Link --> Read[Edition track list read: linked rows]
+  Read --> Page[Album page shows a library row]
+  Find -->|replay of a linked row| Link
+```
+
+- **Reads.** The edition track-list route used by the catalog album page returns `linked`, a list of `{occurrence_id, recording}` for rows whose link points to a recording the account can still read (the recording exists and is in a library the account belongs to). A removed or unreadable recording means the row is unlinked and `linked` simply omits it. The library album comparison also adds a link to `matches` for an occurrence that has no exact provider-identity match; the identity match always wins.
+- **Replay.** Finding audio for a linked row answers `saved` with the linked recording, after the usual fresh edition read that validates the occurrence but without any audio-provider search or save. The web app also seeds linked rows into the page, so Play on such a row plays the recording directly through the shared queue.
+- **Web.** A linked row is a normal library row: the title links to the recording page, Like, Details and Add to playlist work, and Play uses the shared table. After a successful find, the browser forgets its cached read of that edition so the next visit shows the link at once.
+- **Privacy and removal.** Rows belong to one account; reads filter by that account and its library membership, so another account's link is never returned. Deleting an account removes its links; erasing a recording removes links that name it (the table is classified as removed with the recording). Names, titles and provider ids are not logged.
+- **Not covered.** Saving a recording with the general provider save used by Discover does not know which catalog row it came from and creates no link. The album page's provider-identity matching for plugins that can save recordings is unchanged. No live-provider run was made for this change.
 
 ### Remembered edition
 

@@ -83,7 +83,7 @@ Rows are the same `TrackTable` rows as a library album. A row whose audio is not
 
 Cold load of a release page (direct link or reload) has no release group record, so the title comes from the first edition and the type and date line is "Release". Navigating from the grid keeps the full record.
 
-Limits: a catalog track cannot be liked, given a source or added to a playlist until it has a recording, because all three belong to recordings. Finding audio is the only way to create one from a catalog row.
+Limits: a catalog track cannot be liked, given a source or added to a playlist until it has a recording, because all three belong to recordings. Finding audio is the only way to create one from a catalog row. A recording found for a row is remembered for the account ([remembered recordings](catalog-browsing.md#remembered-recordings-for-catalog-rows)), so the row is a library row on later visits.
 
 ## Cached catalog reads
 
