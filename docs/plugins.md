@@ -249,6 +249,38 @@ The remote manifest ID, administrator service ID, and personal installation ID a
 
 The client disables automatic redirects, system proxies, and retries. It uses a two-second connection deadline, a ten-second total request deadline, four simultaneous requests globally, and one per account. Busy requests fail promptly. Private/self-hosted service addresses are supported because choosing an address is an administrator operation. Use HTTPS for services across untrusted networks. A service receives only the configured token and Hito protocol headers, never the browser's session cookie.
 
+### Optional health report
+
+A plugin can answer `GET v1/health` so Settings can warn about trouble that the manifest cannot show. The endpoint is optional and is not a capability: it needs no declaration, does not change the manifest digest, and a plugin without it (HTTP 404 or 501) is simply not asked again for 30 seconds and shows nothing. The request carries the same headers and personal token as every other call and has no body.
+
+```json
+{ "state": "degraded", "reason": "network", "since": 1700000000 }
+```
+
+`state` is `ok` or `degraded`. A degraded report carries a `reason` (`network` when the plugin cannot reach the service behind it, `refused` when that service refuses its requests) and `since`, Unix seconds when the current run of failures began. An `ok` report has `reason` and `since` set to `null`. Unknown fields and inconsistent combinations are rejected, the body is at most 1,024 bytes, and the plugin must answer from memory without calling the service behind it.
+
+```mermaid
+flowchart LR
+  Settings[Settings plugin list] --> Core[Core Plugins capability]
+  Core --> Cache{Answer for this connection and revision under 30 s old?}
+  Cache -- yes --> Field[health field on the installation]
+  Cache -- no --> Ask[GET v1/health, 2 s limit, at most 8 at once, 4 s for the whole list]
+  Ask --> Map{Result}
+  Map -- ok or degraded --> Field
+  Map -- 404 or 501, 4xx, invalid body --> Nothing[No health field]
+  Map -- timeout, no connection, 502 to 504 --> Unreachable[state unreachable]
+  Unreachable --> Field
+  Field --> Card[Warning row on the plugin card]
+```
+
+Core reads health lazily, only when `GET /api/v1/plugins` is requested, and only for the signed-in account's own connections. It keeps the answer, including a failure, for 30 seconds per connection and revision in memory (at most 128 entries, lost on restart). The installation gets an optional `health` object with `state` (`ok`, `degraded` or `unreachable`), `reason` and `since`. `unreachable` is Hito's own result when the plugin did not answer in time or could not be reached, so the plugin never reports it. A refusal (401, 403), another 4xx status or an invalid report shows nothing rather than a false alarm. The read is not logged beyond counts and timing.
+
+Settings shows one warning row on the card, using the plugin's own name: "Hito cannot reach YouTube. Check the server's internet connection or DNS." for `network`, "YouTube is refusing requests right now. Try again later." for `refused`, and "YouTube is not responding right now. Try again in a moment." for `unreachable`. The web app does not link to documentation, because the server does not serve it; the fix is in the [self-hosting troubleshooting table](self-hosting.md#troubleshooting).
+
+The SDK provides `HealthReport` and a bounded `FailureTracker` (monotonic clock, at most `threshold` timestamps per reason). The YouTube plugin records the class of each extractor failure: three `network` failures within 120 seconds with no success in between report `degraded` with `network`, and likewise three `refused` failures; any successful extraction clears both, a run older than the window expires by itself, `network` wins when both repeat, and other classes (unavailable video, missing format, deadline, other) neither count nor clear. The report contains no titles, ids, URLs, search terms or error text.
+
+Evidence: SDK wire and tracker cases (`crates/plugin-sdk/tests/wire/health.rs`), YouTube HTTP cases with an owned fake `yt-dlp` (`plugins/youtube/src/tests/health.rs`), core cases with an owned fake plugin (`crates/core/tests/plugins/health.rs`), HTTP cases (`apps/server/tests/api/plugin_health.rs`), DOM cases (`plugin-health.test.ts`) and a browser case with an owned stub plugin (`apps/web/e2e/plugin-health.spec.ts`).
+
 ### Optional source persistence declaration
 
 The development SDK and core accept a manifest-wide ceiling for new persistent transfers:
