@@ -111,7 +111,10 @@ test("every member of a collaboration lists it and a featured artist lists it as
     const guestRow = page.getByRole("row", {
       name: new RegExp(`Guest verse ${label}`),
     });
-    await expect(guestRow.getByText(`${credits.cy}`)).toHaveCount(0);
+    await expect(guestRow.locator("td.artist-column")).toHaveText("");
+    await expect(guestRow.getByRole("link", { name: credits.ada })).toHaveCount(
+      0,
+    );
     for (const title of ["Together", "Reordered", "Guest verse"])
       await expect(track(`${title} ${label}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Appears on" })).toHaveCount(
