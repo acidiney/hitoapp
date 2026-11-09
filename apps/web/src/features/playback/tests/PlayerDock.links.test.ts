@@ -89,3 +89,29 @@ test("an unreadable artist match keeps the search link", async () => {
     screen.getByRole("link", { name: "Linked artist" }).getAttribute("href"),
   ).toBe("/search?q=Linked%20artist");
 });
+
+test("a collaboration links each credited artist and the featured artist in the player bar", async () => {
+  await dock(
+    {
+      ...track,
+      id: "link-collab",
+      artist: "Duo A & Duo B feat. Guest C",
+      credited_artists: [
+        { id: "member-a", name: "Duo A", role: "main", join: " & " },
+        { id: "member-b", name: "Duo B", role: "main" },
+        { id: "member-c", name: "Guest C", role: "featured" },
+      ],
+    },
+    null,
+  );
+  for (const [name, id] of [
+    ["Duo A", "member-a"],
+    ["Duo B", "member-b"],
+    ["Guest C", "member-c"],
+  ])
+    expect(screen.getByRole("link", { name }).getAttribute("href")).toBe(
+      `/artists/${id}`,
+    );
+  const line = screen.getByRole("link", { name: "Duo B" }).closest("small");
+  expect(line?.textContent).toBe("Duo A & Duo B feat. Guest C");
+});

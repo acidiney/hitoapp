@@ -18,7 +18,7 @@ import { log } from "../../../shared/log";
 import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
 import PlayerTrackActions from "./PlayerTrackActions";
-import { artistHref as knownArtistHref } from "./TrackNames";
+import { ArtistNames, artistHref as knownArtistHref } from "./TrackNames";
 
 export default function PlayerDock({
   account,
@@ -108,9 +108,12 @@ export default function PlayerDock({
             )}
             {current && artistHref ? (
               <small>
-                <RouteLink className="player-link" href={artistHref}>
-                  {current.artist}
-                </RouteLink>
+                <ArtistNames
+                  artist={current.artist}
+                  artistHref={artistHref}
+                  credited={current.credited_artists}
+                  routed={{ className: "player-link" }}
+                />
               </small>
             ) : (
               <small>Choose a track from your library</small>

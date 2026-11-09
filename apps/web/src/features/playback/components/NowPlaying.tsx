@@ -6,9 +6,8 @@ import Artwork from "../../artwork/components/Artwork";
 import { SeekBar, TransportButtons } from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";
 import NowPlayingTabs from "./NowPlayingTabs";
-import RouteLink from "../../../shared/ui/RouteLink";
 import PlayerTrackActions from "./PlayerTrackActions";
-import { artistHref } from "./TrackNames";
+import { ArtistNames, artistHref } from "./TrackNames";
 import { artistSearchLink } from "../hooks/useArtistLink";
 
 export default function NowPlaying({
@@ -62,12 +61,16 @@ export default function NowPlaying({
             <div className="np-title-copy">
               <h1>{current?.title ?? "Ready when you are"}</h1>
               {current ? (
-                <RouteLink
-                  href={artistHref(current) ?? artistSearchLink(current.artist)}
-                  onNavigate={close}
-                >
-                  {current.artist}
-                </RouteLink>
+                <p className="np-artist">
+                  <ArtistNames
+                    artist={current.artist}
+                    artistHref={
+                      artistHref(current) ?? artistSearchLink(current.artist)
+                    }
+                    credited={current.credited_artists}
+                    routed={{ className: "np-artist-link", onNavigate: close }}
+                  />
+                </p>
               ) : (
                 <p>Choose a track to start listening.</p>
               )}

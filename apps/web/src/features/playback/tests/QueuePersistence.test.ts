@@ -287,3 +287,27 @@ test("a very long queue stores a bounded window of ids around the playing track"
   expect(queue?.entries[queue.index].id).toBe("m1000");
   stop();
 });
+
+test("a restored queue keeps the credited artists the lookup returns", async () => {
+  const first = playback();
+  const stop = new QueuePersistence(first.player, "alice").start();
+  await first.player.playQueue(tracks, 1);
+  await vi.waitFor(() => expect(stored("alice")).not.toBeNull());
+  stop();
+
+  const credited: Track[] = tracks.map((track) => ({
+    ...track,
+    credited_artists: [
+      { id: "member-a", name: "Member A", role: "main" },
+      { id: "member-b", name: "Member B", role: "featured" },
+    ],
+  }));
+  const second = playback();
+  await new QueuePersistence(second.player, "alice", {
+    lookup: library(credited),
+  }).restore(new AbortController().signal);
+
+  expect(
+    second.player.snapshot().current?.credited_artists?.map((m) => m.id),
+  ).toEqual(["member-a", "member-b"]);
+});

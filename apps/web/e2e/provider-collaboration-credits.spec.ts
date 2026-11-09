@@ -156,6 +156,36 @@ test("every member of a collaboration lists it and a featured artist lists it as
     await expect(page.getByRole("heading", { name: "Appears on" })).toHaveCount(
       0,
     );
+    for (const [size, viewport] of [
+      ["desktop", { width: 1440, height: 1000 }],
+      ["phone", { width: 390, height: 844 }],
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await page.goto(`/artists/${named(credits.bo).id}`);
+      const together = page.getByRole("row", {
+        name: new RegExp(`Together ${label}`),
+      });
+      if (size === "desktop") {
+        await together.getByRole("link", { name: credits.ada }).first().hover();
+        await page.screenshot({ path: `${SHOTS}/hover-link-${size}.png` });
+      }
+      await together
+        .getByRole("button", { name: `Play Together ${label}` })
+        .click();
+      const bar = page.getByRole("contentinfo", { name: "Audio player" });
+      await expect(
+        bar.getByRole("link", { name: `Together ${label}` }),
+      ).toBeVisible();
+      await page.screenshot({ path: `${SHOTS}/player-bar-${size}.png` });
+      await expect(
+        bar.getByRole("link", { name: credits.ada }),
+      ).toHaveAttribute("href", `/artists/${named(credits.ada).id}`);
+      await bar.getByRole("link", { name: credits.bo }).click();
+      await expect(page).toHaveURL(`/artists/${named(credits.bo).id}`);
+      await expect(
+        page.getByRole("heading", { name: credits.bo, level: 1 }),
+      ).toBeVisible();
+    }
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
   } finally {

@@ -1,4 +1,5 @@
 import { Link } from "@inertiajs/react";
+import RouteLink from "../../../shared/ui/RouteLink";
 import type { Schema } from "../../../shared/schema";
 import type { TrackRow } from "./TrackTable";
 
@@ -16,7 +17,27 @@ export function albumHref(track: Pick<TrackRow, "release_id">): string | null {
     : null;
 }
 
-function Name({ text, href }: { text: string; href: string | null }) {
+export type RoutedLinks = { className: string; onNavigate?: () => void };
+
+function Name({
+  text,
+  href,
+  routed,
+}: {
+  text: string;
+  href: string | null;
+  routed?: RoutedLinks;
+}) {
+  if (href && routed)
+    return (
+      <RouteLink
+        className={routed.className}
+        href={href}
+        onNavigate={routed.onNavigate}
+      >
+        {text}
+      </RouteLink>
+    );
   return href ? (
     <Link className="track-name" href={href}>
       {text}
@@ -32,7 +53,13 @@ function joinBefore(members: CreditMember[], index: number): string {
   return index === members.length - 2 ? " & " : ", ";
 }
 
-function CreditLinks({ members }: { members: CreditMember[] }) {
+function CreditLinks({
+  members,
+  routed,
+}: {
+  members: CreditMember[];
+  routed?: RoutedLinks;
+}) {
   const mains = members.filter((member) => member.role === "main");
   const featured = members.filter((member) => member.role === "featured");
   return (
@@ -42,6 +69,7 @@ function CreditLinks({ members }: { members: CreditMember[] }) {
           <Name
             text={member.name}
             href={`/artists/${encodeURIComponent(member.id)}`}
+            routed={routed}
           />
           {index < mains.length - 1 ? joinBefore(mains, index) : ""}
         </span>
@@ -52,6 +80,7 @@ function CreditLinks({ members }: { members: CreditMember[] }) {
           <Name
             text={member.name}
             href={`/artists/${encodeURIComponent(member.id)}`}
+            routed={routed}
           />
           {index < featured.length - 1
             ? index === featured.length - 2
@@ -61,6 +90,24 @@ function CreditLinks({ members }: { members: CreditMember[] }) {
         </span>
       ))}
     </>
+  );
+}
+
+export function ArtistNames({
+  artist,
+  artistHref: artistLink = null,
+  credited = null,
+  routed,
+}: {
+  artist: string;
+  artistHref?: string | null;
+  credited?: CreditMember[] | null;
+  routed?: RoutedLinks;
+}) {
+  return credited && credited.length > 0 ? (
+    <CreditLinks members={credited} routed={routed} />
+  ) : (
+    <Name text={artist} href={artistLink} routed={routed} />
   );
 }
 
@@ -84,11 +131,11 @@ export default function TrackNames({
     <span className={className}>
       {artist && (
         <span className="track-name-part" data-part="artist">
-          {credited && credited.length > 0 ? (
-            <CreditLinks members={credited} />
-          ) : (
-            <Name text={artist} href={artistLink} />
-          )}
+          <ArtistNames
+            artist={artist}
+            artistHref={artistLink}
+            credited={credited}
+          />
         </span>
       )}
       {album && (
