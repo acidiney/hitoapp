@@ -68,7 +68,7 @@ test("every member of a collaboration lists it and a featured artist lists it as
     await page.emulateMedia({ colorScheme: "dark" });
     for (const [size, viewport] of [
       ["desktop", { width: 1440, height: 1000 }],
-      ["phone", { width: 390, height: 844 }],
+      ["phone", { width: 390, height: 1400 }],
     ] as const) {
       await page.setViewportSize(viewport);
       await page.goto(`/artists/${named(credits.bo).id}`);
@@ -81,7 +81,9 @@ test("every member of a collaboration lists it and a featured artist lists it as
       await expect(
         together.getByRole("link", { name: combined }).first(),
       ).toHaveAttribute("href", `/artists/${named(combined).id}`);
-      await page.screenshot({ path: `${SHOTS}/after-bo-${size}.png` });
+      await page.screenshot({
+        path: `${SHOTS}/after-bo-${size}.png`,
+      });
       await page.goto(`/artists/${named(credits.cy).id}`);
       await expect(
         page.getByRole("heading", { name: "Appears on" }),
