@@ -499,9 +499,11 @@ async fn find_audio(
         "Exactly the matched recording is saved"
     );
     audio.offline().await;
+    let replayed = accepted(app, account, &path, body.clone()).await;
+    assert_eq!(replayed["status"], "saved");
     assert_eq!(
-        accepted(app, account, &path, body.clone()).await,
-        json!({"status": "unavailable"})
+        replayed["recording"]["id"], saved["recording"]["id"],
+        "A linked row is answered from the link, not from a new search"
     );
     assert_eq!(
         account.get(app, "/api/v1/recordings").await["total"],
