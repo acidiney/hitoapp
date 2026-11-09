@@ -273,6 +273,7 @@ async fn exercise(
     let EditionTrackListAvailability::Available {
         association_id,
         edition,
+        ..
     } = retry
     else {
         panic!("The explicit retry must return the selected bonus edition");

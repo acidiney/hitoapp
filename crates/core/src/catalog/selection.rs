@@ -54,7 +54,7 @@ impl Catalog {
         let selected = if all {
             recordings_on(&mut connection, &self.host, actor, recordings).await?
         } else {
-            select_recordings_on(&mut connection, &self.host, actor, recordings).await?
+            readable_recordings_on(&mut connection, &self.host, actor, recordings).await?
         };
         actor.check_session(&self.store).await?;
         Ok(selected)
@@ -67,14 +67,14 @@ pub(crate) async fn recordings_on(
     actor: &Actor,
     recordings: &[Uuid],
 ) -> Result<Vec<Recording>> {
-    let selected = select_recordings_on(connection, host, actor, recordings).await?;
+    let selected = readable_recordings_on(connection, host, actor, recordings).await?;
     if selected.len() != recordings.len() {
         return Err(Error::NotFound);
     }
     Ok(selected)
 }
 
-async fn select_recordings_on(
+pub(crate) async fn readable_recordings_on(
     connection: &mut sqlx::SqliteConnection,
     host: &crate::HostDeviceId,
     actor: &Actor,

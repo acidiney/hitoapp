@@ -186,6 +186,14 @@ impl ArtistCatalog {
                 .await?
             {
                 EditionRead::Available(found) => EditionTrackListAvailability::Available {
+                    linked: self
+                        .linked_catalog_tracks(
+                            actor,
+                            &found.association.provider,
+                            &found.edition.id,
+                            None,
+                        )
+                        .await?,
                     association_id: found.association.id,
                     edition: found.edition,
                 },

@@ -138,6 +138,9 @@ impl ArtistCatalog {
             }
             EditionRead::Missing(status) => return Ok(status.into()),
         };
+        let remembered = self
+            .linked_catalog_tracks(actor, &association.provider, &edition.id, None)
+            .await?;
         let installation = match &association.provider {
             MetadataProvider::HttpPlugin { installation_id } => Some(installation_id.as_str()),
             MetadataProvider::BuiltinMusicBrainz => None,
@@ -164,6 +167,14 @@ impl ArtistCatalog {
                 }
             }
         }
+        for found in remembered {
+            if !matches
+                .iter()
+                .any(|matched| matched.occurrence_id == found.occurrence_id)
+            {
+                matches.push(found);
+            }
+        }
         let attached_occurrences = edition
             .media
             .iter()
@@ -171,7 +182,9 @@ impl ArtistCatalog {
             .filter(|track| {
                 track.recording_id.as_ref().is_some_and(|provider_id| {
                     bound.contains(provider_id) && !linked.contains_key(provider_id)
-                })
+                }) && !matches
+                    .iter()
+                    .any(|matched| matched.occurrence_id == track.id)
             })
             .map(|track| track.id.clone())
             .collect();

@@ -27,6 +27,7 @@ pub(crate) mod reconcile;
 mod review;
 mod shared_corrections;
 mod similar_artists;
+mod track_links;
 mod types;
 pub use identity::*;
 pub use library_availability::{

@@ -144,6 +144,7 @@ pub(crate) fn account_statements() -> Vec<String> {
     let mut statements: Vec<String> = [
         "DELETE FROM recording_artist_identity_choices WHERE user_id=?1",
         "DELETE FROM album_edition_choices WHERE user_id=?1",
+        "DELETE FROM catalog_track_links WHERE user_id=?1",
         "DELETE FROM artist_match_dismissals WHERE user_id=?1",
         "DELETE FROM artist_match_checks WHERE user_id=?1",
         "DELETE FROM artist_provider_checks WHERE user_id=?1",
@@ -196,6 +197,7 @@ pub(crate) fn recording_statements(recordings: &str) -> Vec<String> {
     let mut statements: Vec<String> = [
         "DELETE FROM recording_artist_identity_choices",
         "DELETE FROM album_edition_choices",
+        "DELETE FROM catalog_track_links",
         "DELETE FROM artist_match_checks",
         "DELETE FROM artist_provider_checks",
         "DELETE FROM artist_name_checks",

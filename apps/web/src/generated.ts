@@ -3823,6 +3823,7 @@ export interface components {
         EditionTrackListAvailability: {
             association_id: string;
             edition: components["schemas"]["CatalogEditionTrackList"];
+            linked: components["schemas"]["CatalogTrackMatch"][];
             /** @enum {string} */
             status: "available";
         } | {

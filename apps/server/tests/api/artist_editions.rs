@@ -227,6 +227,7 @@ async fn exercise(
             == json!(EditionTrackListAvailability::Available {
                 association_id: association.into(),
                 edition: catalog::expected_track_list(),
+                linked: Vec::new(),
             })
     );
     let edition: CatalogEditionTrackList =

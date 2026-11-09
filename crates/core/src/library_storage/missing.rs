@@ -42,9 +42,10 @@ pub(crate) const REFERENCING_TABLES: [&str; 26] = [
 ];
 
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 23] = [
+pub(crate) const REMOVED_TABLES: [&str; 24] = [
     "account_recording_credits",
     "account_source_credits",
+    "catalog_track_links",
     "artist_match_checks",
     "artist_name_checks",
     "artist_provider_checks",

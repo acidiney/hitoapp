@@ -20,7 +20,7 @@ pub(crate) mod release_availability;
 pub(crate) mod releases;
 pub(crate) mod search;
 mod selection;
-pub(crate) use selection::recordings_on;
+pub(crate) use selection::{readable_recordings_on, recordings_on};
 mod source_choice;
 pub(crate) use source_choice::push_source_choice;
 pub use source_choice::{

@@ -32,6 +32,14 @@ async fn a_reviewed_artists_catalog_track_finds_and_saves_approved_audio_over_ht
                 "occurrence_id": "occurrence:album/2/2"
             });
             let before = account.get(&app, "/api/v1/recordings").await["total"].clone();
+            let list_path = format!(
+                "/api/v1/recordings/{first}/artist-associations/{association}/edition-track-list"
+            );
+            let list_body = json!({"release_group_id": provider::GROUP_ID, "edition_id": provider::EDITION_ID});
+            let (status, _, unlinked) =
+                fixture::exchange(&app, "POST", &list_path, list_body.clone(), account.headers()).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(unlinked["linked"], json!([]));
 
             let mut anonymous = account.headers();
             anonymous.remove("cookie");
@@ -94,6 +102,19 @@ async fn a_reviewed_artists_catalog_track_finds_and_saves_approved_audio_over_ht
                 json!(before.as_i64().unwrap() + 1)
             );
             assert!(audio.requests("v1/audio").await.is_empty());
+            let (status, headers, linked) =
+                fixture::exchange(&app, "POST", &list_path, list_body.clone(), account.headers()).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(headers["cache-control"], "private, no-store");
+            assert_eq!(linked["linked"].as_array().unwrap().len(), 1);
+            assert_eq!(linked["linked"][0]["occurrence_id"], "occurrence:album/2/2");
+            assert_eq!(linked["linked"][0]["recording"]["id"], saved["recording"]["id"]);
+            let mut anonymous = account.headers();
+            anonymous.remove("cookie");
+            let (status, _, hidden) =
+                fixture::exchange(&app, "POST", &list_path, list_body, anonymous).await;
+            assert_eq!(status, StatusCode::UNAUTHORIZED);
+            assert!(hidden.get("linked").is_none());
 
             let (status, _) = account
                 .request(

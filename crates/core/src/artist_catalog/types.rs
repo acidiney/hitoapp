@@ -1,3 +1,4 @@
+use super::CatalogTrackMatch;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile, CatalogEditionTrackList,
     CatalogReleaseTypeFilter, ReleaseGroupEditionsPage,
@@ -354,6 +355,7 @@ pub enum EditionTrackListAvailability {
     Available {
         association_id: String,
         edition: CatalogEditionTrackList,
+        linked: Vec<CatalogTrackMatch>,
     },
     Disabled,
     Unsupported,

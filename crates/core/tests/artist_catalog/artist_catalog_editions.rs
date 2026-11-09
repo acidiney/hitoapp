@@ -169,6 +169,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
     let EditionTrackListAvailability::Available {
         association_id,
         edition,
+        ..
     } = result
     else {
         panic!("The exact selected edition must return metadata for every occurrence");

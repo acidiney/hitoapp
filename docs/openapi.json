@@ -22281,6 +22281,7 @@
             "required": [
               "association_id",
               "edition",
+              "linked",
               "status"
             ],
             "properties": {
@@ -22289,6 +22290,12 @@
               },
               "edition": {
                 "$ref": "#/components/schemas/CatalogEditionTrackList"
+              },
+              "linked": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CatalogTrackMatch"
+                }
               },
               "status": {
                 "type": "string",

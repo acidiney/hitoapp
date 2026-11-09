@@ -205,13 +205,22 @@ impl ArtistCatalog {
         occurrence: &str,
         permit: &AudioPermit,
     ) -> Result<AlbumTrackAudio> {
-        let edition = match read {
-            EditionRead::Available(found) => found.edition,
+        let (provider, edition) = match read {
+            EditionRead::Available(found) => (found.association.provider, found.edition),
             EditionRead::Missing(status) => {
                 return Ok(AlbumEditionTrackListAvailability::from(status).into());
             }
         };
         let track = catalog_track(&edition, occurrence).ok_or(Error::NotFound)?;
+        if let Some(linked) = self
+            .linked_catalog_tracks(actor, &provider, &edition.id, Some(occurrence))
+            .await?
+            .pop()
+        {
+            return Ok(AlbumTrackAudio::Saved {
+                recording: Box::new(linked.recording),
+            });
+        }
         let found = match self
             .catalog
             .find_audio_for_catalog_track(actor, track, permit)
@@ -238,9 +247,13 @@ impl ArtistCatalog {
             )
             .await;
         Ok(match saved {
-            Ok(Some(recording)) => AlbumTrackAudio::Saved {
-                recording: Box::new(recording),
-            },
+            Ok(Some(recording)) => {
+                self.link_catalog_track(actor, &provider, &edition.id, occurrence, &recording.id)
+                    .await?;
+                AlbumTrackAudio::Saved {
+                    recording: Box::new(recording),
+                }
+            }
             Ok(None) => AlbumTrackAudio::Changed,
             Err(Error::Upstream(_) | Error::ProviderBusy(_)) => AlbumTrackAudio::Unavailable,
             Err(error) => return Err(error),

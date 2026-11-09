@@ -247,4 +247,18 @@ impl Album {
         }
         query.execute(&mut connection).await.unwrap();
     }
+
+    pub async fn count(&self, statement: &str, binds: &[&str]) -> i64 {
+        let mut connection = SqliteConnectOptions::new()
+            .filename(&self.database)
+            .foreign_keys(false)
+            .connect()
+            .await
+            .unwrap();
+        let mut query = sqlx::query_scalar(statement);
+        for bind in binds {
+            query = query.bind(*bind);
+        }
+        query.fetch_one(&mut connection).await.unwrap()
+    }
 }
