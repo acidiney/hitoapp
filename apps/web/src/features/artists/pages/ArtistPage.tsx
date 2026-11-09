@@ -60,7 +60,11 @@ export default function ArtistPage({
             ]}
           />
         }
-        eyebrow="Artist · credit in your library"
+        eyebrow={
+          artist.member_only
+            ? "Artist · appears in your library"
+            : "Artist · credit in your library"
+        }
         title={artist.name}
         stats={artistCounts(
           artist.recording_count,
@@ -126,7 +130,7 @@ export default function ArtistPage({
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}
-                without={["artist"]}
+                artistPage={artist.id}
               />
             </>
           ) : (
@@ -146,6 +150,8 @@ export default function ArtistPage({
         </section>
       )}
       <ArtistAppearances
+        account={user.id}
+        artist={artist.id}
         appearances={featured_recordings}
         playlists={playlists}
         mutate={mutate}

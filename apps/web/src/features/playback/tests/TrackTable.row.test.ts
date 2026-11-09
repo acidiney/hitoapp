@@ -216,3 +216,41 @@ test("a local playlist adds remove to the menu", async () => {
     }),
   );
 });
+
+test("on an artist page a row credited only to that artist leaves the credit out", () => {
+  show([recording()], { artistPage: "artist-1" });
+  expect(screen.queryByText("Cartographers")).toBeNull();
+  expect(screen.queryByRole("columnheader", { name: "Artist" })).toBeNull();
+});
+
+test("on an artist page a collaboration row names the whole credit and links its page", () => {
+  show(
+    [
+      recording(),
+      recording({
+        id: "rec-2",
+        row_id: "row-2",
+        title: "Together",
+        artist: "Ada & Bo",
+        artist_id: "duo",
+      }),
+    ],
+    { artistPage: "artist-1" },
+  );
+  const rows = screen.getAllByRole("row");
+  expect(within(rows[1]).queryByText("Cartographers")).toBeNull();
+  const links = within(rows[2]).getAllByRole("link", { name: "Ada & Bo" });
+  expect(links.length).toBeGreaterThan(0);
+  for (const link of links)
+    expect(link.getAttribute("href")).toBe("/artists/duo");
+  expect(screen.getByRole("columnheader", { name: "Artist" })).toBeTruthy();
+});
+
+test("on an artist page a collaboration row without an artist page shows plain credit text", () => {
+  show(
+    [recording({ artist: "Ada feat. Cy", artist_id: null, title: "Guest" })],
+    { artistPage: "artist-1" },
+  );
+  expect(screen.getAllByText("Ada feat. Cy").length).toBeGreaterThan(0);
+  expect(screen.queryByRole("link", { name: "Ada feat. Cy" })).toBeNull();
+});

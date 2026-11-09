@@ -1,32 +1,47 @@
 import type { Schema } from "../../../shared/schema";
+import LoadMore from "../../../shared/ui/LoadMore";
+import { useInfinitePage } from "../../../shared/hooks/useInfinitePage";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
-import { trackListing } from "../../playback/api/trackListing";
 import TrackToolbar from "../../playback/components/TrackToolbar";
+import {
+  artistAppearancesListing,
+  artistAppearancesPage,
+} from "../api/trackListings";
 
 type Playlists = Parameters<typeof TrackTable>[0]["playlists"];
 type Mutate = Parameters<typeof TrackTable>[0]["mutate"];
 
 export default function ArtistAppearances({
+  account,
+  artist,
   appearances,
   playlists,
   mutate,
 }: {
+  account: string;
+  artist: string;
   appearances: Schema<"Page_Recording">;
   playlists: Playlists;
   mutate: Mutate;
 }) {
-  if (appearances.items.length === 0) return null;
-  const tracks = appearances.items.map((recording) => ({
+  const loaded = useInfinitePage({
+    memory: `artist-appearances-${artist}`,
+    scope: artist,
+    initial: appearances,
+    fetchPage: (offset, signal) =>
+      artistAppearancesPage(account, artist, offset, appearances.limit, signal),
+  });
+  if (loaded.items.length === 0) return null;
+  const tracks = loaded.items.map((recording) => ({
     ...recording,
     row_id: recording.id,
   }));
-  const shown = tracks.length;
-  const listing = trackListing({ total: shown, offset: 0 }, async () => ({
-    total: shown,
-    items: tracks,
-  }));
+  const listing = artistAppearancesListing(account, artist, {
+    total: appearances.total,
+    offset: 0,
+  });
   return (
     <section aria-labelledby="artist-appearances-title">
       <h2 className="discography-heading" id="artist-appearances-title">
@@ -48,11 +63,12 @@ export default function ArtistAppearances({
         playlists={playlists}
         mutate={mutate}
       />
-      {appearances.total > shown && (
-        <p className="muted">
-          Showing {shown} of {appearances.total} appearances
-        </p>
-      )}
+      <LoadMore
+        {...loaded}
+        loaded={loaded.items.length}
+        noun="appearances"
+        onLoad={() => void loaded.loadMore()}
+      />
     </section>
   );
 }

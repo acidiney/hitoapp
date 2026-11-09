@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { createElement, type AnchorHTMLAttributes } from "react";
+import { createElement, useState, type AnchorHTMLAttributes } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
@@ -22,6 +22,7 @@ vi.mock("../../../shared/hooks/useMutation", () => ({
 const navigation = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@inertiajs/react", () => ({
   router: navigation,
+  useRemember: (initial: unknown) => useState(initial),
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));

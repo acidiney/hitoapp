@@ -93,6 +93,7 @@ export default function TrackTable({
   edit,
   catalog,
   without = [],
+  artistPage,
 }: {
   catalog?: CatalogControls;
   edit?: PlaylistEdit;
@@ -103,6 +104,7 @@ export default function TrackTable({
   playlist?: Schema<"Playlist">;
   mutate: Mutate;
   without?: TrackColumn[];
+  artistPage?: string;
 }) {
   const player = usePlayer();
   const currentId = useSyncExternalStore(
@@ -128,7 +130,12 @@ export default function TrackTable({
         ? row.row.album != null || row.row.recording?.album != null
         : false,
   );
-  const showArtist = !without.includes("artist");
+  const creditedElsewhere = (row: TrackTableRow) =>
+    artistPage === undefined ||
+    row.kind !== "recording" ||
+    row.track.artist_id !== artistPage;
+  const showArtist =
+    !without.includes("artist") && rows.some(creditedElsewhere);
   const showAlbum = !without.includes("album") && anyAlbum;
   return (
     <div className="table-scroll">
@@ -249,7 +256,11 @@ export default function TrackTable({
                     )}
                     <TrackNames
                       className="track-meta"
-                      artist={showArtist ? display.artist : undefined}
+                      artist={
+                        showArtist && creditedElsewhere(row)
+                          ? display.artist
+                          : undefined
+                      }
                       artistHref={artistLink}
                       album={showAlbum ? album : null}
                       albumHref={albumLink}
@@ -258,10 +269,12 @@ export default function TrackTable({
                 </td>
                 {showArtist && (
                   <td className="artist-column muted">
-                    <TrackNames
-                      artist={display.artist}
-                      artistHref={artistLink}
-                    />
+                    {creditedElsewhere(row) && (
+                      <TrackNames
+                        artist={display.artist}
+                        artistHref={artistLink}
+                      />
+                    )}
                   </td>
                 )}
                 {showAlbum && (
