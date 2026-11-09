@@ -228,11 +228,139 @@ async fn another_account_sees_no_member_pages() {
             .await
             .is_err()
     );
+    let cy: String = library
+        .scalar("SELECT id FROM account_artists WHERE name='Cy'")
+        .await;
+    assert!(
+        library
+            .hito
+            .catalog
+            .artist(
+                &stranger,
+                &cy,
+                Browse {
+                    featured_offset: Some(0),
+                    ..Browse::default()
+                }
+            )
+            .await
+            .is_err()
+    );
     assert_eq!(
         library
             .scalar("SELECT count(*) FROM account_recording_credit_members WHERE user_id=(SELECT id FROM users WHERE username='stranger')")
             .await,
         "0"
     );
+    library.origin.shutdown().await;
+}
+
+async fn guest_library() -> NameLibrary {
+    let guest = |title: &'static str, length: u64| {
+        (
+            "Ada feat. Cy",
+            title,
+            length,
+            evidence(vec![main_artist("Ada", Some(" feat. ")), featured("Cy")]),
+        )
+    };
+    NameLibrary::prepare_with_evidence(&[
+        guest("song b", 100_000),
+        guest("Song A", 100_001),
+        guest("song c", 100_002),
+        guest("Song D", 100_003),
+        guest("song e", 100_004),
+    ])
+    .await
+}
+
+async fn featured_titles(
+    library: &NameLibrary,
+    offset: Option<i64>,
+    limit: i64,
+) -> (i64, Vec<String>) {
+    let cy: String = library
+        .scalar("SELECT id FROM account_artists WHERE name='Cy'")
+        .await;
+    let detail = library
+        .hito
+        .catalog
+        .artist(
+            &library.actor,
+            &cy,
+            Browse {
+                featured_offset: offset,
+                limit: Some(limit),
+                ..Browse::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(detail.featured_recordings.offset, offset.unwrap_or(0));
+    (
+        detail.featured_recordings.total,
+        detail
+            .featured_recordings
+            .items
+            .into_iter()
+            .map(|recording| recording.title)
+            .collect(),
+    )
+}
+
+#[tokio::test]
+async fn appearances_continue_in_title_order_across_pages() {
+    let library = guest_library().await;
+    let (total, first) = featured_titles(&library, None, 2).await;
+    let (_, second) = featured_titles(&library, Some(2), 2).await;
+    let (_, third) = featured_titles(&library, Some(4), 2).await;
+    let (_, past_the_end) = featured_titles(&library, Some(6), 2).await;
+    assert_eq!(total, 5);
+    assert_eq!(first, ["Song A", "song b"]);
+    assert_eq!(second, ["song c", "Song D"]);
+    assert_eq!(third, ["song e"]);
+    assert!(past_the_end.is_empty());
+    assert_eq!(featured_titles(&library, Some(2), 2).await.1, second);
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn paging_appearances_does_not_move_the_main_tracks_or_albums() {
+    let library = guest_library().await;
+    let cy: String = library
+        .scalar("SELECT id FROM account_artists WHERE name='Cy'")
+        .await;
+    let ada: String = library
+        .scalar("SELECT id FROM account_artists WHERE name='Ada'")
+        .await;
+    let artist = |id: String, featured_offset| {
+        let catalog = library.hito.catalog.clone();
+        let actor = library.actor.clone();
+        async move {
+            catalog
+                .artist(
+                    &actor,
+                    &id,
+                    Browse {
+                        featured_offset,
+                        limit: Some(2),
+                        ..Browse::default()
+                    },
+                )
+                .await
+                .unwrap()
+        }
+    };
+    let ada_first = artist(ada.clone(), None).await;
+    let ada_later = artist(ada, Some(4)).await;
+    let titles = |page: &hito_core::Page<hito_core::Recording>| -> Vec<String> {
+        page.items
+            .iter()
+            .map(|recording| recording.title.clone())
+            .collect()
+    };
+    assert_eq!(titles(&ada_first.recordings), titles(&ada_later.recordings));
+    let cy_later = artist(cy, Some(4)).await;
+    assert_eq!(cy_later.recordings.offset, 0);
     library.origin.shutdown().await;
 }

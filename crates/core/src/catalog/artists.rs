@@ -117,7 +117,7 @@ impl Catalog {
                 Search {
                     featured_artist: Some(artist.id.clone()),
                     library: browse.library.clone(),
-                    offset: None,
+                    offset: browse.featured_offset,
                     limit: Some(browse.bounds().1),
                     ..Search::default()
                 },

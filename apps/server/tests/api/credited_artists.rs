@@ -141,3 +141,82 @@ async fn structured_credits_group_reordered_collaborations_and_are_read_back_in_
     assert_eq!(old["credited_artists"][0]["artist_id"], ada);
     origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn featured_appearances_page_by_offset_and_stay_private_to_the_account() {
+    let (_dir, app) = app().await;
+    let session = admin(&app).await;
+    let token = Some(session.as_str());
+    let featuring = |id: &str| {
+        imported(
+            id,
+            "Ada feat. Cy",
+            json!([{"name": "Ada", "join": " feat. "}, {"name": "Cy", "role": "featured"}]),
+        )
+    };
+    let (origin, _) = import(
+        &app,
+        &session,
+        vec![
+            featuring("c"),
+            featuring("a"),
+            featuring("d"),
+            featuring("b"),
+        ],
+    )
+    .await;
+    let (_, artists) = call(&app, "GET", "/api/v1/artists", Value::Null, token).await;
+    let cy = artists["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|artist| artist["name"] == "Cy")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let titles = |page: &Value| -> Vec<String> {
+        page["featured_recordings"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|recording| recording["title"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let mut continued = Vec::new();
+    for offset in [0, 3, 6] {
+        let (status, page) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/artists/{cy}?featured_offset={offset}&limit=3"),
+            Value::Null,
+            token,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(page["featured_recordings"]["total"], 4);
+        assert_eq!(page["featured_recordings"]["offset"], offset);
+        continued.extend(titles(&page));
+    }
+    assert_eq!(continued, ["Song a", "Song b", "Song c", "Song d"]);
+
+    let credentials = json!({"username": "stranger", "password": "stranger paging password"});
+    assert_eq!(
+        call(&app, "POST", "/api/v1/users", credentials.clone(), token)
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    let (_, other) = call(&app, "POST", "/api/v1/login", credentials, None).await;
+    let other_token = other["token"].as_str().unwrap();
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{cy}?featured_offset=0&limit=3"),
+        Value::Null,
+        Some(other_token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    origin.shutdown().await;
+}

@@ -8611,6 +8611,7 @@ export interface operations {
                 offset?: number;
                 limit?: number;
                 recording_offset?: number;
+                featured_offset?: number;
             };
             header?: never;
             path: {

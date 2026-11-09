@@ -13,6 +13,7 @@ pub struct Browse {
     pub artist: Option<String>,
     pub offset: Option<i64>,
     pub recording_offset: Option<i64>,
+    pub featured_offset: Option<i64>,
     pub limit: Option<i64>,
 }
 

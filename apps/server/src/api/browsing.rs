@@ -72,7 +72,7 @@ pub async fn artists(
 
 #[utoipa::path(get, path = "/api/v1/artists/{id}", params(
     ("id" = String, Path), ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
-    ("recording_offset" = Option<i64>, Query),
+    ("recording_offset" = Option<i64>, Query), ("featured_offset" = Option<i64>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = ArtistDetail), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
