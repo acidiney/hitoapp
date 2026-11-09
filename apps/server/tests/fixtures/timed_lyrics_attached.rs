@@ -135,6 +135,9 @@ impl Fixture {
 }
 
 async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Response {
+    if request.uri().path().ends_with("/v1/health") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let (parts, body) = request.into_parts();
     if parts.uri.query().is_some()
         || parts

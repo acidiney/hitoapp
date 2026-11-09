@@ -231,6 +231,9 @@ pub fn response(present: bool) -> LyricsResponse {
 }
 
 async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Response {
+    if request.uri().path().ends_with("/v1/health") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let (parts, body) = request.into_parts();
     let path = parts.uri.path();
     let expected_method = if matches!(path, "/owned/v1/manifest" | "/owned/v1/lyrics/capabilities")

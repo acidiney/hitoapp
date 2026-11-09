@@ -70,6 +70,9 @@ async fn provider(
     State(unexpected_requests): State<Arc<AtomicUsize>>,
     request: Request,
 ) -> Response {
+    if request.uri().path().ends_with("/v1/health") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let response = match request.uri().path() {
         "/v1/manifest" => json!({
             "id": "org.hito.source-preparation-fixture",

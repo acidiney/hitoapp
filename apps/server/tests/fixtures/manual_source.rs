@@ -143,6 +143,9 @@ impl ProviderState {
 }
 
 async fn exchange(State(state): State<Arc<ProviderState>>, request: Request) -> Response {
+    if request.uri().path().ends_with("/v1/health") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     state.requests.fetch_add(1, Ordering::SeqCst);
     if !request
         .headers()

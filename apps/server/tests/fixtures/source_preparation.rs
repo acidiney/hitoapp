@@ -145,6 +145,9 @@ impl Drop for CapableProvider {
 }
 
 async fn exchange(State(state): State<Arc<ProviderState>>, request: Request) -> Response {
+    if request.uri().path().ends_with("/v1/health") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let expected_authorization = format!("Bearer {}", super::SERVICE_TOKEN);
     if request
         .headers()
