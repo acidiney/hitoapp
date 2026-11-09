@@ -148,6 +148,10 @@ For an operator: take the whole-volume backup first. Restoring it is the only wa
 
 Evidence: `crates/core/tests/catalog/credited_artists_upgrade.rs` checks that every earlier schema object is kept, that an existing credit still reads the same, that the three tables start empty, and that malformed rows and updates are refused.
 
+## Migration 0091, credit members
+
+Migration 0091 adds one table, `account_recording_credit_members` (account, recording, artist, role `main` or `featured`, with a foreign key to the account artist), and its indexes `account_recording_credit_member_artist` and `account_recording_credit_member_recording`. It copies and queues nothing: rows appear the next time an account's credits are refreshed. The rows leave with their recording, when missing recordings are purged, and with the account. Take the whole-volume backup first; it only adds objects. See [members and featured artists](metadata.md#credited-artists-from-providers). Evidence: `crates/core/tests/fixtures/credit_member_schema.rs` names every added object exactly and is used by the shared upgrade fixtures and the server maintenance schema check.
+
 ## Migration 0079, follow approval baseline
 
 Migration 0079 adds `playlist_follows.approved_capabilities` and `playlist_follows.approved_credential` (both nullable text). It then fills them for every follow whose recorded installation revision equals the installation's current revision. The capability list comes from the installation manifest. The credential marker is the hex of 24 bytes taken from the saved credential, or null if there is none. A follow recorded against an older installation revision keeps null in both columns. This rewrites existing `playlist_follows` rows. It adds no table or index.
