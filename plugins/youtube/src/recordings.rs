@@ -1,8 +1,33 @@
 use crate::Error;
-use hito_plugin_sdk::{ProviderRecording, SearchPage};
+use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording, SearchPage};
 use serde::Deserialize;
+use std::collections::HashSet;
 
 const MAX_RESPONSE_BYTES: usize = 262_144;
+const MAX_CREDITED_ARTISTS: usize = 16;
+const MAX_CREDITED_NAME_BYTES: usize = 256;
+
+fn main_credits(names: &[String]) -> Vec<CreditedArtist> {
+    let mut distinct = HashSet::new();
+    let creditable = names.len() <= MAX_CREDITED_ARTISTS
+        && names.iter().all(|name| {
+            name.len() <= MAX_CREDITED_NAME_BYTES && distinct.insert(name.trim().to_lowercase())
+        });
+    if !creditable {
+        return Vec::new();
+    }
+    names
+        .iter()
+        .enumerate()
+        .map(|(index, name)| CreditedArtist {
+            name: name.trim().to_owned(),
+            provider_artist_id: None,
+            page_url: None,
+            role: CreditRole::Main,
+            join: (index + 1 < names.len()).then(|| ", ".to_owned()),
+        })
+        .collect()
+}
 
 #[derive(Deserialize)]
 struct SearchResults {
@@ -69,6 +94,7 @@ impl SearchEntry {
         if !valid_id(&entry.id) {
             return Err(Error::InvalidResponse);
         }
+        let mut credited = Vec::new();
         let artist = match entry.artists {
             Some(artists) if !artists.is_empty() => {
                 if artists
@@ -77,6 +103,7 @@ impl SearchEntry {
                 {
                     return Err(Error::InvalidResponse);
                 }
+                credited = main_credits(&artists);
                 artists.join(", ")
             }
             _ => match entry.artist {
@@ -107,7 +134,7 @@ impl SearchEntry {
         let recording = ProviderRecording {
             isrc: None,
             artist_urls: Vec::new(),
-            artists: Vec::new(),
+            artists: credited,
             id: entry.id,
             title: entry.title,
             artist,
