@@ -82,6 +82,10 @@ export async function cachedRead<T extends Cacheable>(
   return value;
 }
 
+export function forgetRead(account: string, parts: readonly unknown[]) {
+  entries.delete(JSON.stringify([account, ...parts]));
+}
+
 const groupKey = (account: string, association: string, id: string) =>
   JSON.stringify([account, association, id]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
 import type {
@@ -25,10 +25,20 @@ export function useCatalogTracks(
   const { account, recording, association, group } = context;
   const album = useCatalogAlbum(context);
   const edition = album.editions.chosen?.id ?? null;
+  const { linked: remembered } = album.tracks;
+  const rememberedByRow = useMemo(() => {
+    const known = new Set(album.rows.map((row) => row.id));
+    return new Map(
+      remembered
+        .filter((match) => known.has(match.occurrence_id))
+        .map((match) => [match.occurrence_id, match.recording]),
+    );
+  }, [remembered, album.rows]);
   const playback = useCatalogPlayback(
     context,
     edition,
     album.rows.map((row) => row.id),
+    rememberedByRow,
   );
   const library = useDiscographyLibrary(
     account,

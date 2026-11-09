@@ -50,6 +50,7 @@ export const catalogAlbumTrackList = {
   status: "available",
   association_id: artistAssociation.id,
   edition: catalogAlbumEdition,
+  linked: [],
 } satisfies Schema<"EditionTrackListAvailability">;
 
 export const oneEditionPage = {

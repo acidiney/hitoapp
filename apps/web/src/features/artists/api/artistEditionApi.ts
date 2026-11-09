@@ -1,7 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
 import { audioOutcome } from "./albumEditionApi";
-import { cachedRead } from "./catalogCache";
+import { cachedRead, forgetRead } from "./catalogCache";
 
 const part = encodeURIComponent;
 const INVALID_RESPONSE =
@@ -103,7 +103,7 @@ export const artistEditionApi = {
     body: Schema<"FindArtistTrackAudio">,
     signal: AbortSignal,
   ): Promise<Schema<"AlbumTrackAudio">> {
-    return audioOutcome(
+    const outcome = await audioOutcome(
       await request(
         `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-audio`,
         {
@@ -115,5 +115,16 @@ export const artistEditionApi = {
         },
       ),
     );
+    if (outcome.status === "saved")
+      forgetRead(account, [
+        "tracks",
+        recording,
+        association,
+        {
+          release_group_id: body.release_group_id,
+          edition_id: body.edition_id,
+        },
+      ]);
+    return outcome;
   },
 };

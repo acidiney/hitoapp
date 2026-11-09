@@ -4,6 +4,8 @@ import { artistEditionApi } from "../api/artistEditionApi";
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useEditionTrackRead } from "./useEditionTrackRead";
 
+const noLinks: Schema<"CatalogTrackMatch">[] = [];
+
 export function useArtistEditionTrackList(
   context: ArtistEditionContext,
   chosen: Schema<"CatalogEditionSummary"> | null,
@@ -22,5 +24,9 @@ export function useArtistEditionTrackList(
         signal,
       ),
   );
-  return { ...state, edition: result?.edition ?? null };
+  return {
+    ...state,
+    edition: result?.edition ?? null,
+    linked: result?.linked ?? noLinks,
+  };
 }

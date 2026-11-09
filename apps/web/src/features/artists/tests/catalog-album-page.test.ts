@@ -24,6 +24,7 @@ import {
 } from "../fixtures/catalogAlbumPlay";
 import { router } from "@inertiajs/react";
 import { choose } from "../../../test/listbox";
+import { forgetCatalog } from "../api/catalogCache";
 
 const player = vi.hoisted(() => {
   const selected = vi.fn(async (_target: unknown) => true);
@@ -64,6 +65,10 @@ const base = `/api/v1/recordings/${artistAssociation.recording_id}/artist-associ
 const missing = new Set<string>();
 const audioBodies: Array<{ occurrence_id: string; edition_id: string }> = [];
 const trackBodies: Array<{ edition_id: string }> = [];
+let linked: Array<{
+  occurrence_id: string;
+  recording: ReturnType<typeof foundRecording>;
+}> = [];
 
 function serve() {
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
@@ -86,6 +91,7 @@ function serve() {
       return Response.json({
         ...catalogAlbumTrackList,
         edition: { ...catalogAlbumEdition, id: body.edition_id },
+        linked,
       });
     }
     if (path === `${base}/${artistAssociation.id}/edition-track-audio`) {
@@ -104,6 +110,8 @@ function serve() {
 }
 
 beforeEach(() => {
+  forgetCatalog();
+  linked = [];
   const { detail } = artistIdentityBrowsing();
   location.url = `/artist-groups/${detail.detail!.group.id}/releases/${encodeURIComponent(editionGroup.id)}`;
 });
@@ -247,4 +255,52 @@ test("an unfound row has details and like buttons that find audio first", async 
   await waitFor(() =>
     expect(router.get).toHaveBeenCalledWith("/recordings/recording-found-1"),
   );
+});
+
+test("a row linked to a saved recording opens as a library row and plays without a new search", async () => {
+  const title = catalogAlbumTitles[1];
+  linked = [
+    { occurrence_id: "opaque:occurrence/play/2", recording: foundRecording(1) },
+  ];
+  const table = await openPage();
+  const details = await within(table).findByRole("link", { name: title });
+  expect(details.getAttribute("href")).toBe("/recordings/recording-found-2");
+  expect(
+    within(table).getByRole("button", { name: `Like ${title}` }),
+  ).toBeTruthy();
+  expect(
+    within(table).queryByRole("button", { name: `Find audio for ${title}` }),
+  ).toBeNull();
+  expect(
+    within(table).getByRole("button", {
+      name: `Find audio for ${catalogAlbumTitles[0]}`,
+    }),
+  ).toBeTruthy();
+  fireEvent.click(within(table).getByRole("button", { name: `Play ${title}` }));
+  await waitFor(() => expect(player.selected).toHaveBeenCalledTimes(1));
+  const target = player.selected.mock.calls[0][0] as {
+    queue: Array<{ id: string }>;
+  };
+  expect(target.queue.map((track) => track.id)).toEqual(["recording-found-2"]);
+  expect(audioBodies).toHaveLength(0);
+});
+
+test("finding audio makes the next visit read the track list again so the new link shows", async () => {
+  const table = await openPage();
+  fireEvent.click(
+    within(table).getByRole("button", {
+      name: `Find audio for ${catalogAlbumTitles[0]}`,
+    }),
+  );
+  await within(table).findByRole("link", { name: catalogAlbumTitles[0] });
+  cleanup();
+  linked = [
+    { occurrence_id: "opaque:occurrence/play/1", recording: foundRecording(0) },
+  ];
+  trackBodies.length = 0;
+  const again = await openPage();
+  expect(trackBodies).toHaveLength(1);
+  expect(
+    await within(again).findByRole("link", { name: catalogAlbumTitles[0] }),
+  ).toBeTruthy();
 });

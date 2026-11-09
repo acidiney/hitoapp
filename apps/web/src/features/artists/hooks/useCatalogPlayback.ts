@@ -53,6 +53,7 @@ export function useCatalogPlayback(
   context: ArtistEditionContext,
   edition: string | null,
   occurrences: readonly string[],
+  remembered: ReadonlyMap<string, Schema<"Recording">>,
 ) {
   const player = usePlayer();
   const { account, recording, association, group } = context;
@@ -89,6 +90,13 @@ export function useCatalogPlayback(
       finders.current.clear();
     };
   }, [life, account, recording, association.id, group.id, edition]);
+
+  useEffect(() => {
+    for (const [occurrence, recording] of remembered)
+      if (!saved.current.has(occurrence))
+        saved.current.set(occurrence, recording);
+    setRecordings(new Map(saved.current));
+  }, [remembered]);
 
   async function search(
     occurrence: string,

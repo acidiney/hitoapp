@@ -57,6 +57,7 @@ export const lastEditionPage = {
 export const bonusTrackList = {
   status: "available",
   association_id: artistAssociation.id,
+  linked: [],
   edition: {
     id: bonusEdition.id,
     release_group_id: editionGroup.id,
