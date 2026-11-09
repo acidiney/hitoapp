@@ -28,6 +28,7 @@ test("every member of a collaboration lists it and a featured artist lists it as
     expect(response.status(), path).toBe(status);
     return (await response.json()) as T;
   };
+  let connection: Schema<"PluginInstallation"> | null = null;
   try {
     const service = await send<Schema<"PluginService">>(
       "/api/v1/plugins/services",
@@ -36,14 +37,11 @@ test("every member of a collaboration lists it and a featured artist lists it as
         base_url: fixture.address,
       } satisfies Schema<"OfferPluginService">,
     );
-    const connection = await send<Schema<"PluginInstallation">>(
-      "/api/v1/plugins",
-      {
-        service_id: service.id,
-        service_revision: service.revision,
-        bearer_token: fixture.token,
-      } satisfies Schema<"InstallPlugin">,
-    );
+    connection = await send<Schema<"PluginInstallation">>("/api/v1/plugins", {
+      service_id: service.id,
+      service_revision: service.revision,
+      bearer_token: fixture.token,
+    } satisfies Schema<"InstallPlugin">);
     for (const id of Object.keys(credits.recordings))
       await send(
         `/api/v1/plugins/${connection.id}/recordings`,
@@ -96,6 +94,11 @@ test("every member of a collaboration lists it and a featured artist lists it as
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
   } finally {
+    if (connection)
+      await page.request.delete(`/api/v1/plugins/${connection.id}`, {
+        headers,
+        data: { revision: connection.revision },
+      });
     await fixture.close();
   }
 });
