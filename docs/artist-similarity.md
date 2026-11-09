@@ -1,6 +1,6 @@
 # Similar artists
 
-Chosen-artist pages can show an optional "Similar artists" section. It is basic catalog discovery: it sends only an artist identity, never listening history, and it adopts, imports or merges nothing. This is current source behavior, covered by local tests. The server code runs on the local development server. The ListenBrainz plugin is not deployed, and nothing has been checked against the live service.
+Chosen-artist pages can show an optional "Similar artists" section. It is basic catalog discovery: it sends only an artist identity, never listening history, and it adopts, imports or merges nothing. This is current source behavior, covered by local tests. The server code runs on the local development server. The ListenBrainz plugin is not deployed; its response shape was checked once against the live service (see below).
 
 ## Ownership and data flow
 
@@ -56,7 +56,7 @@ Source: the public pages for the [similar-artists viewer](https://labs.api.liste
 
 - What it is: a labs service that, for a MusicBrainz artist identifier and a named algorithm, lists similar artists. The six published algorithm names are all session-based and encode a look-back window in days, session length, contribution and threshold settings and a result limit. The viewer links to a JSON form.
 - Identity: MusicBrainz artist identifiers, which fits the descriptor namespace above.
-- Not documented publicly: the JSON request form, the response schema, versioning and stability. The plugin assumes a GET with `artist_mbids` and `algorithm` returning a list of objects with `artist_mbid`, `name` and `score`. That shape is from the viewer's published parameter names and community usage, not from a reference page. The plugin drops anything that does not match, so a change fails closed as an invalid response. Verify against the live service before relying on it.
+- Not documented publicly: the JSON request form, the response schema, versioning and stability. The plugin assumes a GET with `artist_mbids` and `algorithm` returning a list of objects with `artist_mbid`, `name` and `score`. That shape is from the viewer's published parameter names and community usage, not from a reference page. The plugin drops anything that does not match, so a change fails closed as an invalid response. Verified against the live service on 2026-11-09 (see below).
 - Data source: the results come from aggregate listening sessions of ListenBrainz users and update weekly. Hito sends none of its own listening data. The service is a "labs" endpoint, so it may change or disappear without notice, which is why the page works without it.
 - Authentication and limits: the general API documentation asks for at most one call per second per client, returns HTTP 429 beyond that, requires HTTPS and a User-Agent that identifies the application with a contact. A token is optional for the general API and raises limits; nothing says the labs viewer needs one, and the plugin sends none. The plugin spaces calls one second apart.
 - Terms: not verified for the labs endpoint. Public deployment must review MetaBrainz terms and attribution before enabling it by default.
@@ -78,3 +78,9 @@ Offer that address as a plugin service with the same token as the bearer, instal
 Evidence: eight SDK cases, eight core cases (exact links and namesakes, no contact without a chosen capable plugin, priority and fall-through across invalid answers, limits, cancellation, other accounts, failing probes and a capable fourth provider), one HTTP workflow including the locked-session answer, one SQLite work-budget case, ten DOM cases, ten plugin cases, and regenerated OpenAPI and TypeScript.
 
 Not done: a browser case that shows the section (the offline browser server cannot create a MusicBrainz-identified chosen artist without live MusicBrainz, so the browser case only checks that the section stays hidden and silent for plugin-identified artists), plugin-identified artists, merging several providers, score display, live ListenBrainz verification, plugin packaging and deployment.
+
+## Live verification (2026-11-09)
+
+The ignored `plugins/listenbrainz/tests/live.rs` case starts the real plugin router against `https://labs.api.listenbrainz.org/` (one request, 0.6 seconds, production one-second pacing, the project page as operator contact) and asks for five similar artists of a literal public MusicBrainz artist. It passed: the labs `similar-artists/json` GET with `artist_mbids` and `algorithm` returned a JSON list the plugin maps without changes (canonical `artist_mbid`, `name`, numeric `score`, no repeats, never the seed). The parser needed no fix, so the earlier "assumed shape" is now observed for the current service. Run with `HITO_LISTENBRAINZ_LIVE=1 HITO_LISTENBRAINZ_CONTACT=<contact> cargo test -p hito-plugin-listenbrainz --test live -- --ignored`.
+
+The viewer page (read 2026-11-09) states no terms, licence, attribution, rate limit or stability promise; it only lists the algorithm choices, an artist field and a link to the JSON form. The ListenBrainz data-update page lists artist similarity as updating every Sunday. Terms and attribution for the labs endpoint therefore remain unverified and must be reviewed with MetaBrainz before a public default. Plugin packaging exists in `deploy/compose/listenbrainz.yaml` but was not built here.
