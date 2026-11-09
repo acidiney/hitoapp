@@ -1,7 +1,7 @@
-use super::{Activity, Collection};
+use super::{Activity, Collection, HistoryEntry};
 use crate::{
     Actor, Result,
-    catalog::{push_available, push_plays_from_services, push_primary_artist},
+    catalog::{credit_members, push_available, push_plays_from_services, push_primary_artist},
     metadata,
 };
 use sqlx::QueryBuilder;
@@ -34,7 +34,10 @@ impl Collection {
             .push(" WHERE h.user_id = ")
             .push_bind(actor.id().to_owned())
             .push(" ORDER BY h.played_at DESC, r.id LIMIT 200");
-        let history = query.build_query_as().fetch_all(&self.store.pool).await?;
+        let mut connection = self.store.pool.acquire().await?;
+        let mut history: Vec<HistoryEntry> =
+            query.build_query_as().fetch_all(&mut *connection).await?;
+        credit_members::attach(&mut connection, actor.id(), &mut history).await?;
         Ok(Activity { history })
     }
 }

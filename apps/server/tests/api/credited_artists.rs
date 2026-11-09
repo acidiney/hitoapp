@@ -220,3 +220,86 @@ async fn featured_appearances_page_by_offset_and_stay_private_to_the_account() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn collaboration_rows_carry_their_credited_artists_in_order_and_solo_rows_do_not() {
+    let (_dir, app) = app().await;
+    let session = admin(&app).await;
+    let token = Some(session.as_str());
+    let (origin, recordings) = import(
+        &app,
+        &session,
+        vec![
+            imported(
+                "one",
+                "Ada & Bo",
+                json!([{"name": "Ada", "join": " & "}, {"name": "Bo"}]),
+            ),
+            imported(
+                "two",
+                "Bo feat. Ada",
+                json!([{"name": "Bo", "join": " feat. "}, {"name": "Ada", "role": "featured"}]),
+            ),
+            imported("three", "Solo Act", json!([])),
+        ],
+    )
+    .await;
+    let (_, artists) = call(&app, "GET", "/api/v1/artists", Value::Null, token).await;
+    let id = |name: &str| {
+        artists["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|artist| artist["name"] == name)
+            .unwrap()["id"]
+            .clone()
+    };
+    let (status, listing) = call(&app, "GET", "/api/v1/recordings", Value::Null, token).await;
+    assert_eq!(status, StatusCode::OK);
+    let row = |title: &str| -> Value {
+        listing["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|recording| recording["title"] == title)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(
+        row("Song one")["credited_artists"],
+        json!([
+            {"id": id("Ada"), "name": "Ada", "role": "main", "join": " & "},
+            {"id": id("Bo"), "name": "Bo", "role": "main"}
+        ])
+    );
+    assert_eq!(
+        row("Song two")["credited_artists"],
+        json!([
+            {"id": id("Bo"), "name": "Bo", "role": "main", "join": " feat. "},
+            {"id": id("Ada"), "name": "Ada", "role": "featured"}
+        ])
+    );
+    assert!(row("Song three").get("credited_artists").is_none());
+
+    let playlist = uuid::Uuid::new_v4();
+    let operations = json!({"device_id": "desktop-a", "operations": [
+        {"id": uuid::Uuid::new_v4(), "action": {"kind": "playlist_create", "playlist_id": playlist, "name": "Mixed"}},
+        {"id": uuid::Uuid::new_v4(), "action": {"kind": "entry_insert", "playlist_id": playlist, "entry_id": uuid::Uuid::new_v4(), "recording_id": recordings[0], "position": 0}}
+    ]});
+    assert_eq!(
+        call(&app, "POST", "/api/v1/sync", operations, token)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let (_, detail) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/playlists/{playlist}"),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(detail["entries"][0]["credited_artists"][1]["name"], "Bo");
+    origin.shutdown().await;
+}

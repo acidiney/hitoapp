@@ -2,6 +2,7 @@ mod artists;
 mod artwork;
 mod availability;
 mod browse;
+pub(crate) mod credit_members;
 mod featured;
 mod genres;
 mod groups;
@@ -30,6 +31,9 @@ pub use source_choice::{
 #[cfg(test)]
 #[path = "tests/album_anchor_work.rs"]
 mod album_anchor_work;
+#[cfg(test)]
+#[path = "tests/credit_member_work.rs"]
+mod credit_member_work;
 #[cfg(test)]
 #[path = "tests/genre_work.rs"]
 mod genre_work;
@@ -62,6 +66,7 @@ pub(crate) use availability::{
     SourceAccess, push_available, push_plays_from_services, push_primary_artist, push_source_access,
 };
 pub use browse::Browse;
+pub use credit_members::CreditMember;
 pub use featured::{FeaturedEntry, FeaturedShelf};
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};

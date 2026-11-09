@@ -1,3 +1,4 @@
+use super::credit_members;
 use super::{
     Catalog, CatalogSort, Page, Recording, Search, push_available, push_plays_from_services,
     push_primary_artist,
@@ -108,7 +109,9 @@ impl Catalog {
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
-        let items = query.build_query_as().fetch_all(&self.store.pool).await?;
+        let mut connection = self.store.pool.acquire().await?;
+        let mut items: Vec<Recording> = query.build_query_as().fetch_all(&mut *connection).await?;
+        credit_members::attach(&mut connection, actor.id(), &mut items).await?;
         tracing::debug!(total, offset, limit, "Catalog page loaded");
         Ok(Page {
             items,

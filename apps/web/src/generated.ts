@@ -3747,6 +3747,12 @@ export interface components {
         };
         /** @enum {string} */
         CreditEvidenceKind: "file_tag_artist_id" | "isrc" | "provider_url" | "name_discography";
+        CreditMember: {
+            id: string;
+            join?: string | null;
+            name: string;
+            role: components["schemas"]["CreditRole"];
+        };
         /** @enum {string} */
         CreditRole: "main" | "featured";
         CreditedArtist: {
@@ -3933,6 +3939,7 @@ export interface components {
             artist: string;
             artist_id?: string | null;
             available: boolean;
+            credited_artists?: components["schemas"]["CreditMember"][] | null;
             /** Format: int64 */
             duration_ms: number;
             id: string;
@@ -4393,6 +4400,7 @@ export interface components {
                 artist: string;
                 artist_id?: string | null;
                 available: boolean;
+                credited_artists?: components["schemas"]["CreditMember"][] | null;
                 /** Format: int64 */
                 duration_ms: number;
                 id: string;
@@ -4751,6 +4759,7 @@ export interface components {
             artist: string;
             artist_id?: string | null;
             available: boolean;
+            credited_artists?: components["schemas"]["CreditMember"][] | null;
             /** Format: int64 */
             duration_ms: number;
             entry_id: string;
@@ -5108,6 +5117,7 @@ export interface components {
             artist: string;
             artist_id?: string | null;
             available: boolean;
+            credited_artists?: components["schemas"]["CreditMember"][] | null;
             /** Format: int64 */
             duration_ms: number;
             id: string;

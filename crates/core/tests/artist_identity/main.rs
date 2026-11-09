@@ -11,6 +11,7 @@ mod artist_correction_promotion;
 mod artist_correction_reconcile;
 mod artist_coverage_matches_upgrade;
 mod artist_credit_matches_upgrade;
+mod artist_credit_row_members;
 mod artist_credited_artists;
 mod artist_discography_type_builtin;
 mod artist_group_search_order;

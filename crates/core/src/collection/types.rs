@@ -2,6 +2,7 @@ use super::{
     AudiobookChapterAnchor, CollectionPublication, ImportedPlaylistEntryOrigin,
     ImportedPlaylistOrigin,
 };
+use crate::catalog::{CreditMember, credit_members::CreditRow};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -219,6 +220,18 @@ pub struct PlaylistEntry {
     pub available: bool,
     pub plays_from_services: bool,
     pub origin: Option<ImportedPlaylistEntryOrigin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credited_artists: Option<Vec<CreditMember>>,
+}
+
+impl CreditRow for PlaylistEntry {
+    fn credit_recording_id(&self) -> Option<&str> {
+        self.recording_id.as_deref()
+    }
+
+    fn set_credit_members(&mut self, members: Vec<CreditMember>) {
+        self.credited_artists = Some(members);
+    }
 }
 
 #[derive(Serialize, ToSchema)]
@@ -243,6 +256,19 @@ pub struct HistoryEntry {
     pub available: bool,
     pub plays_from_services: bool,
     pub liked: bool,
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credited_artists: Option<Vec<CreditMember>>,
+}
+
+impl CreditRow for HistoryEntry {
+    fn credit_recording_id(&self) -> Option<&str> {
+        Some(&self.id)
+    }
+
+    fn set_credit_members(&mut self, members: Vec<CreditMember>) {
+        self.credited_artists = Some(members);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]

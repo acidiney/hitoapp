@@ -1,6 +1,8 @@
 use super::{
-    Browse, Catalog, CatalogSort, Page, Recording, SourceAccess, push_plays_from_services,
-    push_primary_artist, push_source_access, release_availability::WantedRecording,
+    Browse, Catalog, CatalogSort, CreditMember, Page, Recording, SourceAccess,
+    credit_members::{self, CreditRow},
+    push_plays_from_services, push_primary_artist, push_source_access,
+    release_availability::WantedRecording,
 };
 use crate::{Actor, AlbumEditionChoice, Error, Result, metadata};
 use serde::Serialize;
@@ -59,6 +61,16 @@ pub struct ReleaseTrack {
     pub entry_id: String,
     pub disc_number: Option<i64>,
     pub track_number: Option<i64>,
+}
+
+impl CreditRow for ReleaseTrack {
+    fn credit_recording_id(&self) -> Option<&str> {
+        self.recording.credit_recording_id()
+    }
+
+    fn set_credit_members(&mut self, members: Vec<CreditMember>) {
+        self.recording.set_credit_members(members);
+    }
 }
 
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
@@ -218,7 +230,10 @@ impl Catalog {
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
-        let items = query.build_query_as().fetch_all(&self.store.pool).await?;
+        let mut connection = self.store.pool.acquire().await?;
+        let mut items: Vec<ReleaseTrack> =
+            query.build_query_as().fetch_all(&mut *connection).await?;
+        credit_members::attach(&mut connection, actor.id(), &mut items).await?;
         let total = release.track_count;
         tracing::debug!(total, offset, limit, "Album detail loaded");
         Ok(ReleaseDetail {

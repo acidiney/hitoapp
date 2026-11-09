@@ -21968,6 +21968,31 @@
           "name_discography"
         ]
       },
+      "CreditMember": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "join": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          }
+        }
+      },
       "CreditRole": {
         "type": "string",
         "enum": [
@@ -22771,6 +22796,15 @@
           },
           "available": {
             "type": "boolean"
+          },
+          "credited_artists": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreditMember"
+            }
           },
           "duration_ms": {
             "type": "integer",
@@ -24725,6 +24759,15 @@
                 "available": {
                   "type": "boolean"
                 },
+                "credited_artists": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/components/schemas/CreditMember"
+                  }
+                },
                 "duration_ms": {
                   "type": "integer",
                   "format": "int64"
@@ -26169,6 +26212,15 @@
           "available": {
             "type": "boolean"
           },
+          "credited_artists": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreditMember"
+            }
+          },
           "duration_ms": {
             "type": "integer",
             "format": "int64"
@@ -27581,6 +27633,15 @@
           },
           "available": {
             "type": "boolean"
+          },
+          "credited_artists": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreditMember"
+            }
           },
           "duration_ms": {
             "type": "integer",

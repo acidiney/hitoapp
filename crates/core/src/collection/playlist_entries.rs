@@ -1,7 +1,7 @@
 use super::{ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, PlaylistEntry};
 use crate::{
     Actor, Error, HostDeviceId, Result,
-    catalog::{push_available, push_plays_from_services, push_primary_artist},
+    catalog::{credit_members, push_available, push_plays_from_services, push_primary_artist},
     metadata,
 };
 use sqlx::{QueryBuilder, Row, SqliteConnection, sqlite::SqliteRow};
@@ -67,13 +67,15 @@ pub(super) async fn read(
         query.push(" AND m.user_id IS NOT NULL");
     }
     query.push(" ORDER BY e.position, e.id LIMIT 10000");
-    query
+    let mut entries = query
         .build()
-        .fetch_all(connection)
+        .fetch_all(&mut *connection)
         .await?
         .into_iter()
         .map(entry)
-        .collect()
+        .collect::<Result<Vec<PlaylistEntry>>>()?;
+    credit_members::attach(connection, actor.id(), &mut entries).await?;
+    Ok(entries)
 }
 
 fn entry(row: SqliteRow) -> Result<PlaylistEntry> {
@@ -118,5 +120,6 @@ fn entry(row: SqliteRow) -> Result<PlaylistEntry> {
         available: row.try_get("available")?,
         plays_from_services: row.try_get("plays_from_services")?,
         origin,
+        credited_artists: None,
     })
 }

@@ -1,4 +1,7 @@
-use super::{Catalog, Recording, push_available, push_plays_from_services, push_primary_artist};
+use super::{
+    Catalog, Recording, credit_members, push_available, push_plays_from_services,
+    push_primary_artist,
+};
 use crate::{Actor, Error, Result, metadata};
 use sqlx::QueryBuilder;
 use uuid::Uuid;
@@ -104,5 +107,7 @@ pub(crate) async fn readable_recordings_on(
             .push_bind(actor.id().to_owned());
     metadata::join_recording_fields(&mut query, actor);
     query.push(" ORDER BY CAST(requested.key AS INTEGER)");
-    Ok(query.build_query_as().fetch_all(connection).await?)
+    let mut selected: Vec<Recording> = query.build_query_as().fetch_all(&mut *connection).await?;
+    credit_members::attach(connection, actor.id(), &mut selected).await?;
+    Ok(selected)
 }

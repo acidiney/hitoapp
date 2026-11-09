@@ -1,3 +1,4 @@
+use super::credit_members::{CreditMember, CreditRow};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -16,6 +17,19 @@ pub struct Recording {
     pub available: bool,
     pub plays_from_services: bool,
     pub liked: bool,
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credited_artists: Option<Vec<CreditMember>>,
+}
+
+impl CreditRow for Recording {
+    fn credit_recording_id(&self) -> Option<&str> {
+        Some(&self.id)
+    }
+
+    fn set_credit_members(&mut self, members: Vec<CreditMember>) {
+        self.credited_artists = Some(members);
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, ToSchema)]
