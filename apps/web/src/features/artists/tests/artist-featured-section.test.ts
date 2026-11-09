@@ -97,10 +97,7 @@ test("main tracks and appearances stay in separate sections and an empty one is 
 
 test("a longer list of appearances says how many are shown", () => {
   render(
-    createElement(
-      ArtistPage,
-      page([], [recording("r", "Guest verse")], 75),
-    ),
+    createElement(ArtistPage, page([], [recording("r", "Guest verse")], 75)),
   );
   expect(screen.getByText("Showing 1 of 75 appearances")).toBeTruthy();
 });
