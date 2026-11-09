@@ -1,12 +1,9 @@
 pub use super::observed::ObservedRequest;
-use super::observed::observed;
 use axum::http::StatusCode;
 use hito_plugin_sdk::{Capability, HEALTH_PATH, HealthReport, Manifest, PROTOCOL_VERSION};
 use hito_testkit::fake_plugin::{FakePlugin, Fault, Reply};
 use serde_json::Value;
 use std::time::Duration;
-
-const REQUEST_LIMIT: usize = 64;
 
 pub struct HealthServer {
     pub url: String,
@@ -25,7 +22,6 @@ impl HealthServer {
             content_policy: None,
         })
         .get(HEALTH_PATH, move |_| Reply::Json(body.clone()))
-        .strict(REQUEST_LIMIT)
         .start()
         .await;
         Self {
@@ -75,9 +71,15 @@ impl HealthServer {
     }
 
     pub fn health_requests(&self) -> Vec<ObservedRequest> {
-        observed(&self.plugin, REQUEST_LIMIT)
+        self.plugin
+            .health_requests()
             .into_iter()
-            .filter(|request| request.path == format!("/prefix/{HEALTH_PATH}"))
+            .map(|request| ObservedRequest {
+                path: format!("/prefix/{}", request.operation),
+                body: request.json(),
+                headers: request.headers,
+                method: request.method,
+            })
             .collect()
     }
 

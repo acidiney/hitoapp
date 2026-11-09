@@ -9,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hito_plugin_sdk::{
-    MANIFEST_PATH, Manifest,
+    HEALTH_PATH, MANIFEST_PATH, Manifest,
     server::{AuthFailure, PROTOCOL_HEADER, ServiceAuth, require_protocol},
 };
 use serde_json::Value;
@@ -221,7 +221,25 @@ impl FakePlugin {
     }
 
     pub fn requests(&self) -> Vec<RecordedRequest> {
-        self.shared.log.lock().unwrap().clone()
+        self.shared
+            .log
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.operation != HEALTH_PATH)
+            .cloned()
+            .collect()
+    }
+
+    pub fn health_requests(&self) -> Vec<RecordedRequest> {
+        self.shared
+            .log
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.operation == HEALTH_PATH)
+            .cloned()
+            .collect()
     }
 
     pub fn requests_for(&self, operation: &str) -> Vec<RecordedRequest> {
