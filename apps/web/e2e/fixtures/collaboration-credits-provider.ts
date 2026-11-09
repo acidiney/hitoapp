@@ -5,11 +5,30 @@ export function collaborationCredits(label: string) {
   const ada = `Ada ${label}`;
   const bo = `Bo ${label}`;
   const cy = `Cy ${label}`;
+  const dee = `Dee ${label}`;
+  const extraAppearances = Object.fromEntries(
+    Array.from({ length: 61 }, (_, index) => {
+      const number = String(index).padStart(2, "0");
+      return [
+        `e2e:recording/extra-${number}`,
+        {
+          title: `Zed ${number} ${label}`,
+          artist: `${dee} feat. ${cy}`,
+          artists: [
+            { name: dee, role: "main", join: " feat. " },
+            { name: cy, role: "featured" },
+          ],
+        },
+      ];
+    }),
+  );
   return {
     ada,
     bo,
     cy,
+    dee,
     recordings: {
+      ...extraAppearances,
       "e2e:recording/collab-one": {
         title: `Together ${label}`,
         artist: `${ada} & ${bo}`,

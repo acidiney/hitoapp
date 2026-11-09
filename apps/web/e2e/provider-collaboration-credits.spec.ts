@@ -61,6 +61,7 @@ test("every member of a collaboration lists it and a featured artist lists it as
     expect(named(credits.bo).recording_count).toBe(2);
     expect(named(credits.cy).recording_count).toBe(0);
 
+    const combined = `${credits.ada} & ${credits.bo}`;
     const track = (title: string) =>
       page.getByRole("link", { name: title, exact: true });
     mkdirSync(SHOTS, { recursive: true });
@@ -74,6 +75,12 @@ test("every member of a collaboration lists it and a featured artist lists it as
       await expect(track(`Together ${label}`)).toBeVisible();
       await expect(track(`Reordered ${label}`)).toBeVisible();
       await expect(track(`Guest verse ${label}`)).toHaveCount(0);
+      const together = page.getByRole("row", {
+        name: new RegExp(`Together ${label}`),
+      });
+      await expect(
+        together.getByRole("link", { name: combined }).first(),
+      ).toHaveAttribute("href", `/artists/${named(combined).id}`);
       await page.screenshot({ path: `${SHOTS}/after-bo-${size}.png` });
       await page.goto(`/artists/${named(credits.cy).id}`);
       await expect(
@@ -83,9 +90,28 @@ test("every member of a collaboration lists it and a featured artist lists it as
       await expect(page.getByRole("heading", { name: "Tracks" })).toHaveCount(
         0,
       );
+      await expect(
+        page
+          .getByRole("row", { name: new RegExp(`Guest verse ${label}`) })
+          .getByRole("link", { name: `${credits.ada} feat. ${credits.cy}` })
+          .first(),
+      ).toHaveAttribute("href", /\/artists\/.+/);
       await page.screenshot({ path: `${SHOTS}/after-cy-${size}.png` });
     }
+    await page.goto(`/artists/${named(credits.cy).id}`);
+    await expect(page.getByRole("row")).toHaveCount(61);
+    await expect(page.getByText("Showing 60 of 62 appearances")).toBeVisible();
+    await page.getByRole("button", { name: "Load more" }).click();
+    await expect(page.getByRole("row")).toHaveCount(63);
+    await expect(track(`Zed 60 ${label}`)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(
+      0,
+    );
     await page.goto(`/artists/${named(credits.ada).id}`);
+    const guestRow = page.getByRole("row", {
+      name: new RegExp(`Guest verse ${label}`),
+    });
+    await expect(guestRow.getByText(`${credits.cy}`)).toHaveCount(0);
     for (const title of ["Together", "Reordered", "Guest verse"])
       await expect(track(`${title} ${label}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Appears on" })).toHaveCount(
