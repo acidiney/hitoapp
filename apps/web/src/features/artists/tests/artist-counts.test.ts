@@ -11,3 +11,8 @@ test("a zero part is left out and an empty credit still says something", () => {
   expect(artistCounts(3, 0)).toBe("3 tracks");
   expect(artistCounts(0, 0)).toBe("0 tracks");
 });
+
+test("guest appearances are counted apart from tracks", () => {
+  expect(artistCounts(4, 0, 2)).toBe("4 tracks · 2 appearances");
+  expect(artistCounts(0, 0, 1)).toBe("1 appearance");
+});

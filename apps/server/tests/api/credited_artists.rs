@@ -51,7 +51,63 @@ async fn structured_credits_group_reordered_collaborations_and_are_read_back_in_
             )
         })
         .collect();
-    assert_eq!(credits, [("Ada & Bo", 2), ("Bo", 1)]);
+    assert_eq!(credits, [("Ada", 2), ("Ada & Bo", 2), ("Bo", 3)]);
+    let id = |name: &str| {
+        artists["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|artist| artist["name"] == name)
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let titles = |page: &Value| -> Vec<String> {
+        let mut titles: Vec<String> = page["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|recording| recording["title"].as_str().unwrap().to_owned())
+            .collect();
+        titles.sort();
+        titles
+    };
+    let (status, ada_page) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{}", id("Ada")),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(titles(&ada_page["recordings"]), ["Song one", "Song three"]);
+    assert_eq!(ada_page["featured_recordings"]["total"], 1);
+    assert_eq!(titles(&ada_page["featured_recordings"]), ["Song two"]);
+    assert_eq!(ada_page["artist"]["featured_recording_count"], 1);
+    let (_, bo_page) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{}", id("Bo")),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(
+        titles(&bo_page["recordings"]),
+        ["Song one", "Song three", "Song two"]
+    );
+    assert_eq!(bo_page["featured_recordings"]["total"], 0);
+    let (_, listing) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/recordings?artist={}", id("Ada")),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(titles(&listing), ["Song one", "Song three"]);
 
     let (status, detail) = call(
         &app,
@@ -62,13 +118,14 @@ async fn structured_credits_group_reordered_collaborations_and_are_read_back_in_
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let bo = artists["items"][1]["id"].as_str().unwrap();
+    let bo = id("Bo");
+    let ada = id("Ada");
     assert_eq!(detail["artist"]["value"], "Bo feat. Ada");
     assert_eq!(
         detail["credited_artists"],
         json!([
             {"name": "Bo", "role": "main", "join": " feat. ", "artist_id": bo},
-            {"name": "Ada", "role": "featured", "join": null, "artist_id": null}
+            {"name": "Ada", "role": "featured", "join": null, "artist_id": ada}
         ])
     );
     let (_, old) = call(
@@ -81,5 +138,6 @@ async fn structured_credits_group_reordered_collaborations_and_are_read_back_in_
     .await;
     assert_eq!(old["credited_artists"][1]["name"], "Bo");
     assert_eq!(old["credited_artists"][1]["artist_id"], bo);
+    assert_eq!(old["credited_artists"][0]["artist_id"], ada);
     origin.shutdown().await;
 }

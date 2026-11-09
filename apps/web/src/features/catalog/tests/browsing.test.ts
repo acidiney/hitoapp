@@ -282,6 +282,7 @@ test("albumless artist tracks play only their page and keep album pagination sep
         },
         releases: { total: 0, offset: 4, limit: 1, items: [] },
         recordings: { total: 2, offset: 0, limit: 1, items: [track] },
+        featured_recordings: { total: 0, offset: 0, limit: 1, items: [] },
       },
     }),
   );

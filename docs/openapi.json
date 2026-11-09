@@ -18952,6 +18952,10 @@
               "null"
             ]
           },
+          "featured_recording_count": {
+            "type": "integer",
+            "format": "int64"
+          },
           "id": {
             "type": "string"
           },
@@ -19446,11 +19450,15 @@
         "required": [
           "artist",
           "releases",
-          "recordings"
+          "recordings",
+          "featured_recordings"
         ],
         "properties": {
           "artist": {
             "$ref": "#/components/schemas/Artist"
+          },
+          "featured_recordings": {
+            "$ref": "#/components/schemas/Page_Recording"
           },
           "recordings": {
             "$ref": "#/components/schemas/Page_Recording"
@@ -24386,6 +24394,10 @@
                     "string",
                     "null"
                   ]
+                },
+                "featured_recording_count": {
+                  "type": "integer",
+                  "format": "int64"
                 },
                 "id": {
                   "type": "string"

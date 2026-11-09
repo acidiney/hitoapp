@@ -3008,6 +3008,8 @@ export interface components {
         };
         Artist: {
             artwork_recording_id?: string | null;
+            /** Format: int64 */
+            featured_recording_count?: number;
             id: string;
             library_id: string;
             name: string;
@@ -3124,6 +3126,7 @@ export interface components {
         ArtistCreditRole: "recording_artist";
         ArtistDetail: {
             artist: components["schemas"]["Artist"];
+            featured_recordings: components["schemas"]["Page_Recording"];
             recordings: components["schemas"]["Page_Recording"];
             releases: components["schemas"]["Page_Release"];
         };
@@ -4296,6 +4299,8 @@ export interface components {
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
+                /** Format: int64 */
+                featured_recording_count?: number;
                 id: string;
                 library_id: string;
                 name: string;

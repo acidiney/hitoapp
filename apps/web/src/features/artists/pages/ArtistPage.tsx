@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { artistCounts } from "../model/artistCounts";
+import ArtistAppearances from "../components/ArtistAppearances";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import ArtistPhoto from "../components/ArtistPhoto";
@@ -23,7 +24,7 @@ export default function ArtistPage({
   playlists,
   detail,
 }: Schema<"ArtistPageProps">) {
-  const { artist, releases, recordings } = detail;
+  const { artist, releases, recordings, featured_recordings } = detail;
   const { mutate } = useMutation(user.id);
   const tracks = recordings.items.map((recording) => ({
     ...recording,
@@ -61,7 +62,11 @@ export default function ArtistPage({
         }
         eyebrow="Artist · credit in your library"
         title={artist.name}
-        stats={artistCounts(artist.recording_count, artist.release_count)}
+        stats={artistCounts(
+          artist.recording_count,
+          artist.release_count,
+          artist.featured_recording_count ?? 0,
+        )}
         actions={
           tracks.length > 0 ? (
             <PlayShuffle tracks={tracks} listing={listing} />
@@ -138,6 +143,11 @@ export default function ArtistPage({
           />
         </section>
       )}
+      <ArtistAppearances
+        appearances={featured_recordings}
+        playlists={playlists}
+        mutate={mutate}
+      />
     </>
   );
 }
