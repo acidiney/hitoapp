@@ -92,7 +92,14 @@ test("every member of a collaboration lists it and a featured artist lists it as
         path: `${SHOTS}/after-bo-${size}.png`,
       });
       await page.goto(`/library?q=${label}`);
+      await page.getByRole("button", { name: "List view" }).click();
       await expect(track(`Together ${label}`)).toBeVisible();
+      await expect(
+        page
+          .getByRole("row", { name: new RegExp(`Together ${label}`) })
+          .getByRole("link", { name: credits.bo })
+          .first(),
+      ).toHaveAttribute("href", `/artists/${named(credits.bo).id}`);
       await page.screenshot({ path: `${SHOTS}/after-library-${size}.png` });
       await page.goto(`/artists/${named(credits.cy).id}`);
       await expect(
