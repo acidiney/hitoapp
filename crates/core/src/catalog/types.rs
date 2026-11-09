@@ -32,6 +32,8 @@ pub enum CatalogSort {
 pub struct Search {
     pub sort: Option<CatalogSort>,
     pub artist: Option<String>,
+    #[serde(skip)]
+    pub featured_artist: Option<String>,
     pub q: Option<String>,
     pub liked: Option<bool>,
     pub offset: Option<i64>,

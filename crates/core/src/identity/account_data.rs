@@ -209,6 +209,7 @@ fn personal_catalog() -> Vec<String> {
         &[
             "account_source_credits",
             "account_recording_credits",
+            "account_recording_credit_members",
             "account_releases",
             "account_credit_keys",
             "account_artists",

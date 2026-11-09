@@ -114,6 +114,7 @@ pub(crate) async fn read(
             (SELECT a.id FROM account_artists a
               WHERE a.user_id=?1 AND a.library_id=r.library_id AND a.name=c.name COLLATE BINARY
                 AND (EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id=a.user_id AND rc.artist_id=a.id)
+                  OR EXISTS (SELECT 1 FROM account_recording_credit_members m WHERE m.user_id=a.user_id AND m.artist_id=a.id)
                   OR EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id=a.user_id AND ar.artist_id=a.id))
               ORDER BY a.id LIMIT 1)
          FROM recordings r

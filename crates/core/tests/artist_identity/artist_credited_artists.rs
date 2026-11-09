@@ -50,6 +50,14 @@ async fn credits(library: &NameLibrary) -> Vec<(String, i64)> {
         .collect()
 }
 
+async fn combined_credits(library: &NameLibrary) -> Vec<(String, i64)> {
+    credits(library)
+        .await
+        .into_iter()
+        .filter(|(name, _)| name.contains(" & "))
+        .collect()
+}
+
 async fn collaboration_library() -> NameLibrary {
     NameLibrary::prepare_with_evidence(&[
         (
@@ -99,11 +107,13 @@ async fn reordered_collaborations_share_one_credit_and_a_feature_credits_only_th
     assert_eq!(
         credits(&library).await,
         [
-            ("Ada".to_owned(), 1),
+            ("Ada".to_owned(), 3),
             ("Ada & Bo".to_owned(), 2),
-            ("Ada and Bo".to_owned(), 1)
+            ("Ada and Bo".to_owned(), 1),
+            ("Bo".to_owned(), 2),
+            ("Cy".to_owned(), 0)
         ],
-        "Reordered members form one credit, the feature leaves the main artist alone, and a credit written only as text stays separate"
+        "Reordered members form one credit, each member also lists it, the feature leaves the main artist alone and lists the recording only as a feature, and a credit written only as text stays separate"
     );
     let shown: Vec<String> = library
         .hito
@@ -138,6 +148,17 @@ async fn credited_artists_are_read_in_order_and_link_to_artists_the_account_has(
         .find(|artist| artist.name == "Ada")
         .unwrap()
         .id;
+    let bo = library
+        .hito
+        .catalog
+        .artists(&library.actor, Browse::default())
+        .await
+        .unwrap()
+        .items
+        .into_iter()
+        .find(|artist| artist.name == "Bo")
+        .unwrap()
+        .id;
     let read = |index: usize| {
         let library = &library;
         async move {
@@ -169,13 +190,17 @@ async fn credited_artists_are_read_in_order_and_link_to_artists_the_account_has(
     assert_eq!(
         seen,
         [
-            ("Bo", CreditRole::Main, Some(", "), None),
+            ("Bo", CreditRole::Main, Some(", "), Some(bo.as_str())),
             ("Ada", CreditRole::Main, None, Some(ada.as_str()))
         ]
     );
     let feature = read(2).await;
     assert_eq!(feature[1].name, "Cy");
     assert_eq!(feature[1].role, CreditRole::Featured);
+    assert!(
+        feature[1].artist_id.is_some(),
+        "A featured artist has its own page now"
+    );
     assert!(read(3).await.is_empty(), "Text-only credits carry no list");
     library.origin.shutdown().await;
 }
@@ -329,7 +354,7 @@ async fn a_collaboration_keeps_the_wording_and_order_it_was_first_seen_with() {
     ])
     .await;
     assert_eq!(
-        credits(&library).await,
+        combined_credits(&library).await,
         [("Simon & Garfunkel".to_owned(), 3)],
         "Every order and casing is one credit, labelled as first seen"
     );
@@ -345,6 +370,7 @@ async fn credit_ids(library: &NameLibrary) -> Vec<(String, String, i64)> {
         .unwrap()
         .items
         .into_iter()
+        .filter(|artist| artist.name.contains(", "))
         .map(|artist| (artist.id, artist.name, artist.recording_count))
         .collect()
 }
@@ -434,8 +460,8 @@ async fn a_new_credit_from_a_refresh_asks_for_a_matching_walk_and_a_feature_does
         .await;
     assert_eq!(
         credits(&library).await,
-        [("Ada".to_owned(), 1)],
-        "A feature credit is the main artist's, not the text credit's"
+        [("Ada".to_owned(), 1), ("Cy".to_owned(), 0)],
+        "A feature credit is the main artist's, not the text credit's, and the featured artist only appears on"
     );
     assert_eq!(library.rows("artist_matching_jobs").await, 1);
     library.origin.shutdown().await;
@@ -494,7 +520,7 @@ async fn names_fold_by_trimmed_unicode_lower_case_and_nothing_else() {
         ),
     ])
     .await;
-    let found = credits(&library).await;
+    let found = combined_credits(&library).await;
     assert_eq!(found.len(), 3, "{found:?}");
     assert!(
         found.contains(&("\u{c9}mile & Bo".to_owned(), 2)),
@@ -525,7 +551,11 @@ async fn a_list_of_sixteen_widest_names_is_kept_whole_or_not_at_all() {
         library.rows("recording_credited_artist_observations").await,
         16
     );
-    assert_eq!(credits(&library).await.len(), 1);
+    assert_eq!(
+        credits(&library).await.len(),
+        17,
+        "The collaboration and each of its sixteen members"
+    );
     library.origin.shutdown().await;
 }
 

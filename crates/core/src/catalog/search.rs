@@ -187,15 +187,38 @@ fn filters(
         query.push(" AND l.liked = 1");
     }
     if let Some(artist) = &search.artist {
-        query.push(" AND EXISTS (SELECT 1 FROM account_recording_credits credit WHERE credit.user_id = ")
-            .push_bind(actor.id().to_owned()).push(" AND credit.artist_id = ").push_bind(artist.clone())
-            .push(" AND (credit.recording_id = r.id OR credit.recording_id IN (SELECT grouped.recording_id FROM recording_group_members grouped WHERE grouped.user_id = credit.user_id AND grouped.canonical_id = r.id)))");
+        push_credited_to(query, actor, artist, true);
+    }
+    if let Some(artist) = &search.featured_artist {
+        push_credited_to(query, actor, artist, false);
     }
     if let Some(library) = &search.library {
         query
             .push(" AND r.library_id = ")
             .push_bind(library.clone());
     }
+}
+
+fn push_credited_to(query: &mut QueryBuilder<'_, Sqlite>, actor: &Actor, artist: &str, main: bool) {
+    query.push(" AND EXISTS (SELECT 1 FROM (");
+    if main {
+        query
+            .push("SELECT recording_id FROM account_recording_credits WHERE user_id = ")
+            .push_bind(actor.id().to_owned())
+            .push(" AND artist_id = ")
+            .push_bind(artist.to_owned())
+            .push(" UNION ALL ");
+    }
+    query
+        .push("SELECT recording_id FROM account_recording_credit_members WHERE user_id = ")
+        .push_bind(actor.id().to_owned())
+        .push(" AND artist_id = ")
+        .push_bind(artist.to_owned())
+        .push(" AND role = ")
+        .push(if main { "'main'" } else { "'featured'" })
+        .push(") credit WHERE credit.recording_id = r.id OR credit.recording_id IN (SELECT grouped.recording_id FROM recording_group_members grouped WHERE grouped.user_id = ")
+        .push_bind(actor.id().to_owned())
+        .push(" AND grouped.canonical_id = r.id))");
 }
 
 pub(crate) fn scoped_terms(actor: &Actor, columns: &str, terms: &str) -> String {

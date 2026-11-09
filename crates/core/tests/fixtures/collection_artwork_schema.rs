@@ -27,6 +27,8 @@ pub mod correction_schema;
 pub mod coverage_matches_schema;
 #[path = "credit_matches_schema.rs"]
 pub mod credit_matches_schema;
+#[path = "credit_member_schema.rs"]
+pub mod credit_member_schema;
 #[path = "credited_artist_photos_schema.rs"]
 pub mod credited_artist_photos_schema;
 #[path = "credited_artists_schema.rs"]
@@ -494,6 +496,10 @@ pub async fn reference_90() -> SqliteConnection {
     catalog_track_link_schema::reference(reference_89().await).await
 }
 
+pub async fn reference_91() -> SqliteConnection {
+    credit_member_schema::reference(reference_90().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -539,6 +545,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         88 => reference_88().await,
         89 => reference_89().await,
         90 => reference_90().await,
+        91 => reference_91().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -760,6 +767,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 90),
+    )
+    .chain(
+        credit_member_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 91),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

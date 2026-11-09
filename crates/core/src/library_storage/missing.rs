@@ -42,8 +42,9 @@ pub(crate) const REFERENCING_TABLES: [&str; 26] = [
 ];
 
 #[cfg(test)]
-pub(crate) const REMOVED_TABLES: [&str; 24] = [
+pub(crate) const REMOVED_TABLES: [&str; 25] = [
     "account_recording_credits",
+    "account_recording_credit_members",
     "account_source_credits",
     "catalog_track_links",
     "artist_match_checks",
@@ -356,12 +357,13 @@ async fn remove_all(connection: &mut SqliteConnection, recordings: &[String]) ->
     Ok(())
 }
 
-const REMOVAL: [&str; 12] = [
+const REMOVAL: [&str; 13] = [
     "UPDATE recordings SET metadata_source_id = NULL, metadata_observation_id = NULL WHERE id = ?1",
     "DELETE FROM recording_group_members WHERE recording_id = ?1 OR canonical_id = ?1",
     "DELETE FROM recording_group_splits WHERE recording_id = ?1 OR other_id = ?1",
     "DELETE FROM account_source_credits WHERE recording_id = ?1",
     "DELETE FROM account_recording_credits WHERE recording_id = ?1",
+    "DELETE FROM account_recording_credit_members WHERE recording_id = ?1",
     "DELETE FROM source_artist_credits WHERE source_id IN (SELECT id FROM sources WHERE recording_id = ?1)",
     "DELETE FROM source_metadata WHERE source_id IN (SELECT id FROM sources WHERE recording_id = ?1)",
     "DELETE FROM metadata_observations WHERE recording_id = ?1",

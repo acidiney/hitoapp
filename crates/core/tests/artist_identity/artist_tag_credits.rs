@@ -249,7 +249,11 @@ async fn repeated_artist_tags_credit_the_main_artists_in_every_container_whateve
     assert!(world.credited("text").await.is_empty());
     assert!(world.credited("solo").await.is_empty());
     let artists = world.artists().await;
-    assert_eq!(artists.len(), 3, "{artists:?}");
+    assert_eq!(
+        artists.len(),
+        7,
+        "The collaboration, the text credit, the lone artist and the members by exact tagged name: {artists:?}"
+    );
     assert!(
         artists
             .iter()
@@ -313,7 +317,8 @@ async fn an_artist_is_featured_only_when_the_display_artist_names_it_in_a_featur
     assert_eq!(world.credited("plain").await, [main("Cy"), main("Di")]);
     assert_eq!(world.credited("other").await, [main("Cy"), main("Di")]);
     let artists = world.artists().await;
-    assert!(artists.contains(&("Cy".to_owned(), 3)), "{artists:?}");
+    assert!(artists.contains(&("Cy".to_owned(), 5)), "{artists:?}");
+    assert!(artists.contains(&("Di".to_owned(), 2)), "{artists:?}");
 }
 
 #[tokio::test]

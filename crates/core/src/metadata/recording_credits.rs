@@ -46,7 +46,7 @@ impl Scope<'_> {
             "WITH targets AS (SELECT access.user_id, r.library_id, r.id AS recording_id,
             COALESCE(p.override_artist, credit.credit_label, r.artist) AS name,
             CASE WHEN p.override_artist IS NULL THEN credit.credit_key END AS credit_key,
-            credit.rowid AS credit_order,
+            credit.rowid AS credit_order, credit.observation_id AS credit_observation,
             (SELECT o.artist FROM metadata_observations o WHERE o.id = r.metadata_observation_id) AS observed,
             EXISTS (SELECT 1 FROM recording_credited_artist_observations f
                 WHERE f.observation_id = credit.observation_id AND f.role = 'featured') AS featured
@@ -77,6 +77,21 @@ const REGISTER_TEXT_CREDITS: &str = "INSERT INTO account_artists(user_id, id, li
 
 const FIRST_SEEN: &str = "(SELECT t.*, ROW_NUMBER() OVER (PARTITION BY t.user_id, t.library_id, t.credit_key ORDER BY t.credit_order) AS first_seen
         FROM targets t WHERE t.credit_key IS NOT NULL)";
+
+const MEMBERS: &str = "(SELECT t.user_id, t.library_id, t.recording_id, member.name, member.role FROM targets t
+        JOIN recording_credited_artist_observations member ON member.observation_id = t.credit_observation
+        WHERE t.credit_key IS NOT NULL AND (member.role = 'featured'
+            OR (SELECT count(*) FROM recording_credited_artist_observations mains
+                WHERE mains.observation_id = member.observation_id AND mains.role = 'main') >= 2))";
+
+const REGISTER_MEMBER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
+        SELECT m.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), m.library_id, m.name FROM MEMBERS m
+        LEFT JOIN artists shared ON shared.library_id = m.library_id AND shared.name = m.name COLLATE BINARY
+        ON CONFLICT(user_id, library_id, name) DO NOTHING";
+
+const BIND_MEMBERS: &str = "INSERT OR IGNORE INTO account_recording_credit_members(user_id, recording_id, artist_id, role)
+        SELECT m.user_id, m.recording_id, a.id, m.role FROM MEMBERS m
+        JOIN account_artists a ON a.user_id = m.user_id AND a.library_id = m.library_id AND a.name = m.name COLLATE BINARY";
 
 fn adopt_text_credits() -> String {
     format!(
@@ -136,6 +151,18 @@ pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) 
         ON CONFLICT(user_id, recording_id) DO UPDATE SET artist_id = excluded.artist_id
         WHERE artist_id IS NOT excluded.artist_id");
     let changed = bind.build().execute(&mut **tx).await?.rows_affected();
+    let mut unbind_members = scope.account_recordings();
+    unbind_members.push(
+        "DELETE FROM account_recording_credit_members
+         WHERE (user_id, recording_id) IN (SELECT user_id, recording_id FROM targets)",
+    );
+    unbind_members.build().execute(&mut **tx).await?;
+    let mut member_artists = scope.account_recordings();
+    member_artists.push(REGISTER_MEMBER_ARTISTS.replace("MEMBERS", MEMBERS));
+    member_artists.build().execute(&mut **tx).await?;
+    let mut members = scope.account_recordings();
+    members.push(BIND_MEMBERS.replace("MEMBERS", MEMBERS));
+    members.build().execute(&mut **tx).await?;
     if created > 0 {
         let mut accounts = scope.account_recordings();
         accounts.push("SELECT DISTINCT user_id FROM targets");

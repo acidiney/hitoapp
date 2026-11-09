@@ -835,6 +835,13 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("table", "catalog_track_links"),
         ("index", "catalog_track_links_by_occurrence"),
         ("index", "catalog_track_links_by_recording"),
+        ("table", "account_recording_credit_members"),
+        (
+            "index",
+            "sqlite_autoindex_account_recording_credit_members_1",
+        ),
+        ("index", "account_recording_credit_member_artist"),
+        ("index", "account_recording_credit_member_recording"),
         ("table", "listening_history"),
         ("index", "sqlite_autoindex_listening_history_1"),
         ("index", "listening_history_recent"),

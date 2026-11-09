@@ -11,9 +11,15 @@ pub struct Artist {
     pub name: String,
     pub release_count: i64,
     pub recording_count: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub featured_recording_count: i64,
     pub artwork_recording_id: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub provider_photo: bool,
+}
+
+fn is_zero(value: &i64) -> bool {
+    *value == 0
 }
 
 #[derive(Serialize, ToSchema)]
@@ -21,7 +27,10 @@ pub struct ArtistDetail {
     pub artist: Artist,
     pub releases: Page<Release>,
     pub recordings: Page<Recording>,
+    pub featured_recordings: Page<Recording>,
 }
+
+const HAS_CREDITS: &str = " AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id))";
 
 const SUMMARY_HEAD: &str = "), associations AS (
     SELECT c.user_id, c.id AS artist_id, appearance.release_id FROM selected c
@@ -30,12 +39,16 @@ const SUMMARY_HEAD: &str = "), associations AS (
     SELECT c.user_id, c.id, c.library_id, c.name, c.added_rank, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
     FROM selected c LEFT JOIN associations ar ON ar.user_id = c.user_id AND ar.artist_id = c.id GROUP BY c.id
 ) SELECT c.id, c.library_id, c.name, c.release_count,
-    (SELECT count(*) FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id) AS recording_count,
+    (SELECT count(DISTINCT recording_id) FROM (
+        SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id
+        UNION ALL SELECT m.recording_id FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id AND m.role = 'main')) AS recording_count,
+    (SELECT count(*) FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id AND m.role = 'featured') AS featured_recording_count,
     COALESCE((SELECT s.recording_id FROM source_metadata m JOIN sources s ON s.id = m.source_id
      WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1),
     (SELECT appearance.recording_id FROM provider_release_appearances appearance
      WHERE appearance.release_id = c.cover_release ORDER BY appearance.recording_id LIMIT 1),
-    (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id,
+    (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1),
+    (SELECT m.recording_id FROM account_recording_credit_members m WHERE m.user_id = c.user_id AND m.artist_id = c.id ORDER BY m.recording_id LIMIT 1)) AS artwork_recording_id,
     ";
 
 const SUMMARY_TAIL: &str = " AS provider_photo
@@ -50,7 +63,7 @@ impl Catalog {
         let mut count = ChosenRecordings::new(actor);
         count.push(" SELECT count(*) FROM account_artists c");
         browse.filter(&mut count, actor, "c", "account_artists_fts", "name")?;
-        count.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
+        count.push(HAS_CREDITS);
         count.exclude_represented(ACCOUNT_ARTIST);
         let total = count
             .build_query_scalar()
@@ -95,6 +108,18 @@ impl Catalog {
                 },
             )
             .await?;
+        let featured_recordings = self
+            .recordings(
+                actor,
+                Search {
+                    featured_artist: Some(artist.id.clone()),
+                    library: browse.library.clone(),
+                    offset: None,
+                    limit: Some(browse.bounds().1),
+                    ..Search::default()
+                },
+            )
+            .await?;
         let releases = self
             .releases(
                 actor,
@@ -113,6 +138,7 @@ impl Catalog {
             artist,
             releases,
             recordings,
+            featured_recordings,
         })
     }
 }
@@ -130,7 +156,7 @@ fn selected(
     let mut query = ChosenRecordings::new(actor);
     query.push(", selected AS (SELECT c.*, c.rowid AS added_rank FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;
-    query.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
+    query.push(HAS_CREDITS);
     if let Some(id) = id {
         query.push(" AND c.id = ").push_bind(id.to_owned());
     } else {
