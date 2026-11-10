@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-10 authorized conversion core
+
+Local development work, not deployed. Core can preserve original audio or convert local/server-managed files to AAC at a 256 or 128 kbit/s target. Unknown profiles and already-small lossy streams keep the original. Child owners retain capacity through termination, watch revocation even without consumer reads, and check authority before delivering prefetched bytes. Scan and conversion admission are independent.
+
+Docker passed 51 playback cases, including 19 conversion cases, one log privacy case, two inspection-command regressions and three admission-limit unit cases. Four new behavior failures were reproduced before their fixes. Scoped strict Clippy and workspace formatting are clean. HTTP delivery, browser settings and real decoded-audio seeking are still pending; provider/native integration and release gates remain open. See [ownership, evidence and remaining work](audio-conversion.md).
+
 ## 2026-11-06 one track row everywhere
 
 Web only, local development state, not deployed. Every track list (Library grid and list, Liked tracks, History, Album, Artist, chosen artist, Genre, Playlist, Search results, catalog albums) now renders the same row: Play on the number, the title as a link to the track page, artist and album links where the page knows the ids, the duration, a heart, and a "…" menu (Track details, Play next, Add to queue, Add to playlist as a submenu of local playlists, Remove from playlist on local playlists, Fix source or Find audio). The native "+ Playlist" `select` is gone from every row; the menu renders in a fixed portal so it is never clipped by a scrolling table and flips above the trigger when the player bar leaves no room. Columns that repeat the page's context are left out (Album on an album page, Artist on artist pages and on an album whose tracks share its artist, Album wherever no row knows it, which includes playlists). Grid cards show Play in the top corner on hover, focus and touch so the generated cover text stays readable. `Player.playNext` places a track after the current entry in the browser queue. Podcast episode rows share the heart and the menu and link their title. See [Track row](design-system.md#library-artist-album-and-playlist-pages-phase-4).
