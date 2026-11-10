@@ -111,6 +111,12 @@ async fn serve_owned(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
+    let replicas = services.replicas.clone();
+    let mut replica_stop = stopped.clone();
+    let replica_shutdown = async move {
+        let _ = replica_stop.wait_for(|stopped| *stopped).await;
+        replicas.close().await
+    };
     let indexing = indexing::worker(services.storage.clone(), stopped.clone());
     let watching = indexing::folder_watching(services.storage.clone(), stopped.clone());
     let retention = retention::worker(services.storage.clone(), stopped.clone());
@@ -156,7 +162,7 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), (), (), (), replicas_closed) = tokio::join!(
         http,
         indexing,
         watching,
@@ -168,12 +174,14 @@ async fn serve_owned(
         transfers,
         preparations,
         refreshes,
-        reports
+        reports,
+        replica_shutdown
     );
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),
     );
+    replicas_closed?;
     downloads_finished?;
     indexing_finished?;
     tracing::info!(event = "server_stopped", "Hito stopped");
