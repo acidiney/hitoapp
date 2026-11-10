@@ -36,6 +36,17 @@ async fn account_deletion_retires_only_its_owned_replica_and_private_state() {
         .activate(&member, erased.id)
         .await
         .unwrap();
+    let catalog_id = uuid::Uuid::new_v4();
+    let (metadata, pages) =
+        super::catalog_fixture::snapshot(catalog_id, &["private-catalog-recording"]);
+    remote.catalog(metadata, pages);
+    super::catalog_fixture::install(&services, &member, &lease)
+        .await
+        .unwrap();
+    let kept_lease = services.replicas.activate(&admin, kept.id).await.unwrap();
+    super::catalog_fixture::install(&services, &admin, &kept_lease)
+        .await
+        .unwrap();
     services
         .identity
         .delete_account(
@@ -71,6 +82,16 @@ async fn account_deletion_retires_only_its_owned_replica_and_private_state() {
     assert_eq!(
         services.replicas.connections(&admin).await.unwrap().len(),
         1
+    );
+    assert_eq!(
+        services
+            .replicas
+            .catalog_snapshot(&admin, &kept_lease, "remote-library")
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        catalog_id
     );
     let mut database = SqliteConnection::connect_with(
         &sqlx::sqlite::SqliteConnectOptions::new().filename(directory.path().join("hito.db")),

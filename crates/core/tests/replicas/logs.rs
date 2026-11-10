@@ -45,6 +45,30 @@ async fn replica_workflows_log_safe_outcomes_and_timing_without_private_inputs()
             .playlists(&actor, &session, Browse::default())
             .await
             .unwrap();
+        let snapshot_id = Uuid::new_v4();
+        let (metadata, mut pages) =
+            super::catalog_fixture::snapshot(snapshot_id, &["owned-recording"]);
+        pages[0]["recordings"][0]["title"] = serde_json::json!("Private catalog display title");
+        pages[0]["recordings"][0]["sources"][0]["title"] =
+            serde_json::json!("Private source display title");
+        remote.catalog(metadata, pages);
+        super::catalog_fixture::install(&services, &actor, &session)
+            .await
+            .unwrap();
+        services
+            .replicas
+            .catalog_page(&actor, &session, snapshot_id, 0)
+            .await
+            .unwrap();
+        let (metadata, mut pages) =
+            super::catalog_fixture::snapshot(Uuid::new_v4(), &["owned-recording"]);
+        pages[0]["ordinal"] = serde_json::json!(99);
+        remote.catalog(metadata, pages);
+        assert!(
+            super::catalog_fixture::install(&services, &actor, &session)
+                .await
+                .is_err()
+        );
         services
             .replicas
             .disconnect(&actor, connection.id)
@@ -56,6 +80,8 @@ async fn replica_workflows_log_safe_outcomes_and_timing_without_private_inputs()
     .await;
     let text = logs.text();
     for outcome in [
+        "installed",
+        "installation_failed",
         "connected",
         "activated",
         "queued",
@@ -72,6 +98,8 @@ async fn replica_workflows_log_safe_outcomes_and_timing_without_private_inputs()
         );
     }
     for private in [
+        "Private catalog display title",
+        "Private source display title",
         "Private unpublished playlist",
         "remote-listener",
         "owned-remote-password",

@@ -95,6 +95,7 @@ impl Replicas {
             sqlx::query("INSERT INTO replica_state(singleton,binding_id,remote_account_id,client_id) VALUES(1,?,?,?)")
                 .bind(id.to_string()).bind(remote).bind(client).execute(&mut *tx).await?;
         }
+        super::catalog::staging::prune(&mut tx).await?;
         tx.commit().await?;
         let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM replica_connections WHERE id=? AND remote_account_id=? AND client_id=?)")
             .bind(id.to_string()).bind(remote).bind(client).fetch_one(&self.store.pool).await?;
@@ -120,6 +121,7 @@ impl Replicas {
             .closed
             .store(true, std::sync::atomic::Ordering::SeqCst);
         self.profiles.shutdown.send_replace(true);
+        self.close_catalog().await?;
         let _network = self
             .profiles
             .network

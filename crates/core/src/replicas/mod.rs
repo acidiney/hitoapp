@@ -1,4 +1,5 @@
 mod authority;
+mod catalog;
 mod changes;
 mod connections;
 mod files;
@@ -42,6 +43,7 @@ struct Profiles {
     active: Mutex<HashMap<Uuid, Arc<profile::Profile>>>,
     initializers: Mutex<HashMap<Uuid, Initialization>>,
     opening: AsyncMutex<()>,
+    catalog: Mutex<HashMap<Uuid, catalog::Work>>,
     closed: AtomicBool,
     synchronizing: crate::admission::Accounts,
     network: Arc<tokio::sync::Semaphore>,
@@ -67,6 +69,7 @@ impl Default for Profiles {
             active: Default::default(),
             initializers: Default::default(),
             opening: Default::default(),
+            catalog: Default::default(),
             closed: AtomicBool::new(false),
             synchronizing: Default::default(),
             network: Arc::new(tokio::sync::Semaphore::new(4)),

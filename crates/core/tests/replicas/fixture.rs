@@ -1,7 +1,8 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use hito_core::{Actor, ConnectReplica, Credentials, Services, SyncBatch};
@@ -9,7 +10,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use tokio::{net::TcpListener, task::JoinHandle};
 
@@ -21,6 +22,11 @@ pub fn user() -> Value {
         "display_name": null, "avatar_version": null})
 }
 
+struct Catalog {
+    metadata: Value,
+    pages: Vec<Value>,
+}
+
 #[derive(Clone, Default)]
 struct Ledger {
     rows: Arc<Mutex<Vec<Value>>>,
@@ -30,6 +36,10 @@ struct Ledger {
     entered: Arc<tokio::sync::Notify>,
     release: Arc<tokio::sync::Notify>,
     reply: Arc<Mutex<Option<Value>>>,
+    catalog: Arc<Mutex<Option<Catalog>>>,
+    catalog_page_bytes: Arc<AtomicUsize>,
+    hold_catalog: Arc<AtomicBool>,
+    catalog_begun: Arc<tokio::sync::Notify>,
 }
 
 pub struct RemoteServer {
@@ -50,6 +60,15 @@ impl RemoteServer {
             )
             .route("/api/v1/me", get(|| async { Json(user()) }))
             .route("/api/v1/sync", post(push).get(pull))
+            .route("/api/v1/catalog/snapshots", post(begin_catalog))
+            .route(
+                "/api/v1/catalog/snapshots/{id}/pages/{ordinal}",
+                get(catalog_page),
+            )
+            .route(
+                "/api/v1/catalog/snapshots/{id}",
+                axum::routing::delete(|| async { StatusCode::NO_CONTENT }),
+            )
             .with_state(ledger.clone());
         let task = tokio::spawn(async move {
             axum::serve(listener, app).await.unwrap();
@@ -59,6 +78,27 @@ impl RemoteServer {
             task,
             ledger,
         }
+    }
+
+    pub fn catalog(&self, metadata: Value, pages: Vec<Value>) {
+        *self.ledger.catalog.lock().unwrap() = Some(Catalog { metadata, pages });
+    }
+
+    pub fn pad_catalog_pages(&self, bytes: usize) {
+        self.ledger
+            .catalog_page_bytes
+            .store(bytes, Ordering::SeqCst);
+    }
+    pub async fn wait_for_catalog_begin(&self) {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.ledger.catalog_begun.notified(),
+        )
+        .await
+        .unwrap();
+    }
+    pub fn hold_next_catalog_page(&self) {
+        self.ledger.hold_catalog.store(true, Ordering::SeqCst);
     }
 
     pub fn lose_next_ack(&self) {
@@ -189,4 +229,48 @@ pub async fn local() -> (tempfile::TempDir, Services, Actor) {
     let (directory, services, actor, _, _) =
         hito_core::test_support::support::library("replica-local-host").await;
     (directory, services, actor)
+}
+
+async fn begin_catalog(
+    State(ledger): State<Ledger>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    if !authorized(&headers) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    ledger.catalog_begun.notify_one();
+    ledger
+        .catalog
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|catalog| Json(catalog.metadata.clone()))
+        .ok_or(StatusCode::NOT_FOUND)
+}
+async fn catalog_page(
+    State(ledger): State<Ledger>,
+    headers: HeaderMap,
+    Path((id, ordinal)): Path<(String, usize)>,
+) -> Result<Response, StatusCode> {
+    if !authorized(&headers) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    if ledger.hold_catalog.swap(false, Ordering::SeqCst) {
+        ledger.entered.notify_one();
+        ledger.release.notified().await;
+    }
+    let catalog = ledger.catalog.lock().unwrap();
+    let catalog = catalog.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    let metadata = &catalog.metadata;
+    let pages = &catalog.pages;
+    if metadata["id"] != id {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let page = pages.get(ordinal).ok_or(StatusCode::NOT_FOUND)?;
+    let mut encoded = serde_json::to_vec(page).unwrap();
+    let bytes = ledger.catalog_page_bytes.load(Ordering::SeqCst);
+    if bytes > encoded.len() {
+        encoded.resize(bytes, b' ');
+    }
+    Ok(([("content-type", "application/json")], encoded).into_response())
 }

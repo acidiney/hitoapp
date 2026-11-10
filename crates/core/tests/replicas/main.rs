@@ -1,4 +1,11 @@
 mod bounds;
+mod catalog;
+mod catalog_admission;
+mod catalog_authority;
+mod catalog_fixture;
+mod catalog_lifecycle;
+mod catalog_upgrade;
+mod catalog_validation;
 mod durable;
 mod erasure;
 mod fencing;
