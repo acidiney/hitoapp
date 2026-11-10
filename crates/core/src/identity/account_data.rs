@@ -36,6 +36,7 @@ pub(super) fn statements() -> Vec<String> {
         "INSERT INTO erased_replica_profiles(id) SELECT id FROM replica_connections WHERE user_id=?1 ON CONFLICT DO NOTHING".to_string(),
         "DELETE FROM replica_activations WHERE connection_id IN (SELECT id FROM replica_connections WHERE user_id=?1)".to_string(),
         "DELETE FROM replica_connections WHERE user_id=?1".to_string(),
+        "DELETE FROM replica_state WHERE remote_account_id=?1".to_string(),
         "INSERT INTO erased_download_files(file_id,attempt_id,host_device) SELECT id,attempt_id,host_device FROM download_files WHERE account_id=?1 AND state IN ('staging','ready','deleting') ON CONFLICT DO NOTHING".to_string(),
         format!("INSERT INTO correction_erasure_scopes(kind,subject) SELECT 'recording',id FROM {RECORDINGS}"),
     ];
@@ -292,13 +293,17 @@ mod tests {
     use crate::store::Store;
     use std::collections::BTreeSet;
 
-    const OUTSIDE_THE_ACCOUNT_GRAPH: [&str; 6] = [
+    const OUTSIDE_THE_ACCOUNT_GRAPH: [&str; 10] = [
         "correction_erasure_scopes",
         "erased_download_files",
+        "erased_replica_profiles",
         "musicbrainz_genre_lookups",
         "musicbrainz_genres",
         "plugin_services",
         "podcast_request_total",
+        "replica_base_playlists",
+        "replica_outbox",
+        "replica_received_events",
     ];
 
     fn touched_tables() -> BTreeSet<String> {
