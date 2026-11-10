@@ -19,6 +19,7 @@ export type SettingId =
   | "connect-service"
   | "plugin-services"
   | "playback-engine"
+  | "streaming-quality"
   | "source-preference"
   | "downloads-storage"
   | "accounts-access"
@@ -169,6 +170,12 @@ const ENTRIES: SettingEntry[] = [
     section: "playback",
     label: "Playback engine",
     keywords: "desktop app browser output audio source rankings",
+  },
+  {
+    id: "streaming-quality",
+    section: "playback",
+    label: "Streaming quality",
+    keywords: "audio bitrate original high data saver AAC browser bandwidth",
   },
   {
     id: "source-preference",

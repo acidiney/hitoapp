@@ -86,6 +86,70 @@ beforeEach(() => {
   vi.spyOn(router, "visit").mockImplementation(() => undefined);
 });
 
+test("a listener chooses streaming quality for this browser and keeps it after reopening settings", () => {
+  const view = open("/settings?section=playback", member);
+  const quality = screen.getByRole("combobox", { name: "Streaming quality" });
+  expect((quality as HTMLSelectElement).value).toBe("original");
+  fireEvent.change(quality, { target: { value: "saver" } });
+  expect((quality as HTMLSelectElement).value).toBe("saver");
+  expect(screen.getByText(/applies to this browser/i)).toBeTruthy();
+  view.unmount();
+  open("/settings?section=playback", member);
+  expect(
+    (
+      screen.getByRole("combobox", {
+        name: "Streaming quality",
+      }) as HTMLSelectElement
+    ).value,
+  ).toBe("saver");
+});
+
+test("streaming quality remains selectable for this session when browser storage refuses writes", () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("Storage unavailable", "QuotaExceededError");
+  });
+  open("/settings?section=playback", member);
+  const quality = screen.getByRole("combobox", { name: "Streaming quality" });
+  fireEvent.change(quality, { target: { value: "high" } });
+  expect((quality as HTMLSelectElement).value).toBe("high");
+  window.dispatchEvent(new StorageEvent("storage", { key: null }));
+});
+
+test("an invalid stored streaming quality opens as Original", () => {
+  localStorage.setItem("hito:stream-quality", "unexpected");
+  open("/settings?section=playback", member);
+  expect(
+    (
+      screen.getByRole("combobox", {
+        name: "Streaming quality",
+      }) as HTMLSelectElement
+    ).value,
+  ).toBe("original");
+});
+
+test("another tab's streaming quality choice updates the open settings", () => {
+  open("/settings?section=playback", member);
+  localStorage.setItem("hito:stream-quality", "high");
+  fireEvent(
+    window,
+    new StorageEvent("storage", { key: "hito:stream-quality" }),
+  );
+  expect(
+    (
+      screen.getByRole("combobox", {
+        name: "Streaming quality",
+      }) as HTMLSelectElement
+    ).value,
+  ).toBe("high");
+});
+
+test("native playback settings keep the browser quality choice out of the native controls", () => {
+  open("/settings?section=playback", { ...member, native_playback: true });
+  expect(
+    screen.queryByRole("combobox", { name: "Streaming quality" }),
+  ).toBeNull();
+});
+
 test("the navigation groups every section as a deep link", async () => {
   open("/settings?section=plugins");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });

@@ -7,6 +7,7 @@ import SettingsCard from "../../../shared/ui/SettingsCard";
 import { sectionHref } from "../model/sections";
 import { setting } from "../model/settingsCatalog";
 import SourcePreferences from "../../sources/components/SourcePreferences";
+import StreamingQualitySettings from "../../playback/components/StreamingQualitySettings";
 
 export function PlaybackSection({
   native,
@@ -42,6 +43,7 @@ export function PlaybackSection({
           }
         />
       </SettingsCard>
+      {!native && <StreamingQualitySettings />}
       <SourcePreferences account={account} />
     </>
   );
