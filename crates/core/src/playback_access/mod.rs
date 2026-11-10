@@ -1,4 +1,5 @@
 mod candidates;
+mod conversion;
 mod grant;
 mod local;
 pub(crate) mod origin;
@@ -7,16 +8,21 @@ mod provider;
 pub(crate) mod relay;
 
 pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
+pub use conversion::{
+    ConversionStream, ConvertedAudio, MAX_CONVERSION_START, QualityAudio, QualityRequest,
+    StreamQuality,
+};
 pub use grant::PlaybackSource;
 pub use relay::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, OpenedAudio, StreamPace,
 };
 
+pub(crate) use conversion::ConversionLimits;
 pub(crate) use local::LocalOrigin;
 pub(crate) use origin::Origins;
 pub(crate) use provider::ProviderOrigin;
 
-use crate::{Actor, AudioFile, Error, HostDeviceId, Result, Store};
+use crate::{Actor, AudioFile, Error, HostDeviceId, MediaTools, Result, Store};
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -24,6 +30,8 @@ pub struct PlaybackAccess {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) origins: Origins,
+    pub(crate) tools: MediaTools,
+    pub(crate) conversions: conversion::ConversionLimits,
 }
 
 impl PlaybackAccess {
@@ -60,6 +68,59 @@ impl PlaybackAccess {
             return Ok(opened);
         }
         self.source_grant(actor, source).await?.open(request).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
+    pub async fn open_quality_audio(
+        &self,
+        actor: &Actor,
+        source: &str,
+        request: QualityRequest,
+    ) -> Result<QualityAudio> {
+        request.validate()?;
+        let Some(target) = request.quality.target_bitrate() else {
+            return self
+                .original_audio(actor, source, request, "original-requested")
+                .await;
+        };
+        if let Some(opened) = self
+            .origins
+            .provider
+            .open_current(actor, source, request.original)
+            .await?
+        {
+            return Ok(QualityAudio::Original {
+                audio: opened,
+                reason: "remote-source",
+            });
+        }
+        let grant = self.source_grant(actor, source).await?;
+        let Some(file) = grant.open_file_if_present().await? else {
+            return conversion::original(&grant, request, "remote-source").await;
+        };
+        conversion::convert(
+            &self.conversions,
+            &self.tools,
+            actor,
+            grant,
+            file,
+            request,
+            target,
+        )
+        .await
+    }
+
+    async fn original_audio(
+        &self,
+        actor: &Actor,
+        source: &str,
+        request: QualityRequest,
+        reason: &'static str,
+    ) -> Result<QualityAudio> {
+        Ok(QualityAudio::Original {
+            audio: self.open_audio(actor, source, request.original).await?,
+            reason,
+        })
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id(), source_id))]

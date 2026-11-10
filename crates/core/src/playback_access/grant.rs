@@ -74,6 +74,10 @@ impl PlaybackSource {
         Ok(grant)
     }
 
+    pub(crate) fn correlation_id(&self) -> u64 {
+        self.id
+    }
+
     pub fn source_id(&self) -> &str {
         &self.source
     }
@@ -186,6 +190,11 @@ impl PlaybackSource {
                 .ok_or(Error::NotFound)
         })
         .await
+    }
+
+    pub(crate) async fn open_file_if_present(&self) -> Result<Option<AudioFile>> {
+        self.supervised(self.origin.open_file(&self.actor, &self.source))
+            .await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]

@@ -121,8 +121,9 @@ pub use metadata::{
 };
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, CandidatesEnd,
-    MAX_FALLBACK_ATTEMPTS, OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource,
-    StreamPace,
+    ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS, OpenedAudio,
+    PlaybackAccess, PlaybackCandidates, PlaybackSource, QualityAudio, QualityRequest, StreamPace,
+    StreamQuality,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
@@ -160,6 +161,7 @@ pub struct Services {
 pub async fn open(config: CoreConfig) -> Result<Services> {
     let directories = library_storage::Directories::new(config.storage)?;
     let store = Store::open(&config.database).await?;
+    let media_tools = config.media_tools.clone();
     let storage = LibraryStorage {
         store: store.clone(),
         host: config.host_device.clone(),
@@ -288,6 +290,8 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 files: local_files.clone(),
             }),
         ),
+        conversions: playback_access::ConversionLimits::new(config.conversion_parallelism),
+        tools: media_tools,
     };
     tracing::info!("Core services ready");
     let downloads = Downloads {
