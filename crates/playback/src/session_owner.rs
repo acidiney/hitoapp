@@ -1,14 +1,14 @@
 use crate::{
     Error, Snapshot, Source, Status,
     grants::Grants,
-    session_worker::{self, OwnerStop, Request},
+    session_worker::{self, Mailbox, OwnerStop},
 };
 use std::sync::{Arc, mpsc};
 use tokio::sync::{oneshot, watch};
 
 pub(crate) async fn own(
     grants: Arc<Grants>,
-    requests: mpsc::Receiver<Request>,
+    mailbox: Mailbox,
     cancel: Arc<OwnerStop>,
     state: watch::Sender<Snapshot>,
     mut stopped: oneshot::Receiver<()>,
@@ -42,7 +42,7 @@ pub(crate) async fn own(
             let _entered = span.enter();
             session_worker::run(
                 input,
-                requests,
+                mailbox,
                 &worker_stop,
                 worker_state,
                 started,

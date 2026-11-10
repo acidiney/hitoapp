@@ -1,7 +1,15 @@
+use crate::session_worker::Message;
 use crate::{Error, Result, Source, SourceStop, grants::Grants};
 use hito_audio::{Decoder, Player};
 use hito_core::PlaybackSource;
-use std::thread::{self, JoinHandle};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc::SyncSender,
+    },
+    thread::{self, JoinHandle},
+};
 use tokio::sync::oneshot;
 
 type Reply = oneshot::Sender<Result<bool>>;
@@ -9,9 +17,12 @@ type Reply = oneshot::Sender<Result<bool>>;
 #[derive(Default)]
 pub(crate) struct Preparation {
     pending: Option<Pending>,
+    next_attempt: u64,
 }
 
 struct Pending {
+    attempt: u64,
+    completed: Arc<AtomicBool>,
     stop: Option<SourceStop>,
     grant: PlaybackSource,
     worker: Option<JoinHandle<hito_audio::Result<Decoder>>>,
@@ -19,8 +30,12 @@ struct Pending {
 }
 
 impl Preparation {
-    pub fn start(&mut self, mut input: Source, reply: Reply) {
+    pub fn start(&mut self, mut input: Source, reply: Reply, wake: SyncSender<Message>) {
         self.cancel();
+        self.next_attempt = self.next_attempt.wrapping_add(1);
+        let attempt = self.next_attempt;
+        let completed = Arc::new(AtomicBool::new(false));
+        let finished = completed.clone();
         let stop = input.stop.child();
         input.stop = stop.clone();
         let grant = input.grant.clone();
@@ -30,14 +45,19 @@ impl Preparation {
         let worker = thread::Builder::new()
             .name("hito-prepare".into())
             .spawn(move || {
-                tracing::dispatcher::with_default(&dispatch, || {
+                let result = tracing::dispatcher::with_default(&dispatch, || {
                     let _entered = span.enter();
                     crate::pcm::decode(input, &mut || cancelled.requested())
-                })
+                });
+                finished.store(true, Ordering::Release);
+                let _ = wake.try_send(Message::Prepared(attempt));
+                result
             });
         match worker {
             Ok(worker) => {
                 self.pending = Some(Pending {
+                    attempt,
+                    completed,
                     stop: Some(stop),
                     grant,
                     worker: Some(worker),
@@ -62,10 +82,11 @@ impl Preparation {
             self.cancel();
             return;
         }
-        if pending
-            .worker
-            .as_ref()
-            .is_some_and(|worker| !worker.is_finished())
+        if !pending.completed.load(Ordering::Acquire)
+            && pending
+                .worker
+                .as_ref()
+                .is_some_and(|worker| !worker.is_finished())
         {
             return;
         }
@@ -97,6 +118,16 @@ impl Preparation {
         );
         if let Some(reply) = pending.reply.take() {
             let _ = reply.send(result);
+        }
+    }
+
+    pub fn wake(&mut self, attempt: u64, player: &mut Player, grants: &Grants) {
+        if self
+            .pending
+            .as_ref()
+            .is_some_and(|pending| pending.attempt == attempt)
+        {
+            self.poll(player, grants);
         }
     }
 

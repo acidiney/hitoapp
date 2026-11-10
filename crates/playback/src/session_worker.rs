@@ -4,7 +4,7 @@ use crate::{
 use std::{
     sync::{
         Arc, Mutex,
-        mpsc::{Receiver, RecvTimeoutError},
+        mpsc::{Receiver, RecvTimeoutError, SyncSender},
     },
     time::Duration,
 };
@@ -14,6 +14,16 @@ pub(crate) enum Order {
     Command(Command),
     Next(Box<Source>),
     CancelNext,
+}
+
+pub(crate) enum Message {
+    Request(Request),
+    Prepared(u64),
+}
+
+pub(crate) struct Mailbox {
+    pub sender: SyncSender<Message>,
+    pub receiver: Receiver<Message>,
 }
 
 pub(crate) struct Request {
@@ -55,7 +65,7 @@ impl OwnerStop {
 
 pub(crate) fn run(
     input: Source,
-    requests: Receiver<Request>,
+    mailbox: Mailbox,
     stop: &OwnerStop,
     state: watch::Sender<Snapshot>,
     opened: oneshot::Sender<Result<()>>,
@@ -101,11 +111,14 @@ pub(crate) fn run(
         if let Some(error) = error {
             break Err(error);
         }
-        match requests.recv_timeout(Duration::from_millis(25)) {
-            Ok(request) if !request.reply.is_closed() => {
+        match mailbox.receiver.recv_timeout(Duration::from_millis(25)) {
+            Ok(Message::Prepared(attempt)) => {
+                preparation.wake(attempt, &mut player, &grants);
+            }
+            Ok(Message::Request(request)) if !request.reply.is_closed() => {
                 let result = match request.order {
                     Order::Next(input) => {
-                        preparation.start(*input, request.reply);
+                        preparation.start(*input, request.reply, mailbox.sender.clone());
                         continue;
                     }
                     Order::CancelNext => {

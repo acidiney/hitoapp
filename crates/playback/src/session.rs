@@ -1,7 +1,7 @@
 use crate::{
     Command, Error, Result, Snapshot, Source, SourceStop, Status,
     grants::Grants,
-    session_worker::{Order, OwnerStop, Request},
+    session_worker::{Mailbox, Message, Order, OwnerStop, Request},
 };
 use hito_core::PlaybackSource;
 use std::sync::{
@@ -20,7 +20,7 @@ static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
 pub struct Session {
     id: u64,
     grants: Arc<Grants>,
-    commands: SyncSender<Request>,
+    commands: SyncSender<Message>,
     cancel: Arc<OwnerStop>,
     state: watch::Receiver<Snapshot>,
     stop: Option<oneshot::Sender<()>>,
@@ -49,9 +49,18 @@ impl Session {
         let (stop, stopped) = oneshot::channel();
         let grants = Arc::new(Grants::new(grant));
         let owner = tokio::spawn(
-            crate::session_owner::own(grants.clone(), requests, cancel.clone(), state, stopped)
-                .instrument(tracing::Span::current())
-                .with_current_subscriber(),
+            crate::session_owner::own(
+                grants.clone(),
+                Mailbox {
+                    sender: commands.clone(),
+                    receiver: requests,
+                },
+                cancel.clone(),
+                state,
+                stopped,
+            )
+            .instrument(tracing::Span::current())
+            .with_current_subscriber(),
         );
         Self {
             id,
@@ -152,7 +161,7 @@ impl Session {
         }
         let (reply, received) = oneshot::channel();
         self.commands
-            .try_send(Request { order, reply })
+            .try_send(Message::Request(Request { order, reply }))
             .map_err(|error| match error {
                 mpsc::TrySendError::Full(_) => Error::Busy,
                 mpsc::TrySendError::Disconnected(_) => Error::Stopped,

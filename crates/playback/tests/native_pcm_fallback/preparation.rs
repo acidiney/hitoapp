@@ -180,3 +180,40 @@ async fn cancelling_a_ready_pcm_successor_joins_it_before_acknowledging_removal(
     let retry = f.grant().await.open_pcm(Duration::ZERO).await.unwrap();
     retry.close().await.unwrap();
 }
+
+#[tokio::test]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn replacing_a_held_preparation_ignores_its_stale_completion() {
+    let witness = tempfile::tempdir().unwrap();
+    let marker = witness.path().join("first-child");
+    let f = Library::configured(|config, tools| {
+        config.conversion_parallelism = 1;
+        config.media_tools.ffprobe = media_tool::script(tools, "ffprobe", &format!(
+            "case \"$*\" in *stream=codec_name,sample_rate,channels,duration*) if test ! -e {marker}; then echo $$ > {marker}; exec sleep 30; fi;; esac\nexec /usr/bin/ffprobe \"$@\"",
+            marker = media_tool::quote(&marker),
+        ));
+    }).await;
+    let session = Arc::new(Session::open(f.wave_for(0.5).await).await.unwrap());
+    let retained = session.clone();
+    let first = f.grant().await;
+    let abandoned = tokio::spawn(async move { retained.prepare_next(first).await });
+    let child = pid(&marker).await;
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        session.prepare_next(f.grant().await),
+    )
+    .await
+    .expect("replacement was blocked by the retired preparation")
+    .unwrap();
+    assert!(abandoned.await.unwrap().is_err());
+    assert!(!Path::new(&format!("/proc/{child}")).exists());
+    assert_eq!(session.snapshot().track, 0);
+    session.command(Command::Resume).await.unwrap();
+    until(&session, |state| {
+        state.track == 1 && state.position > Duration::from_millis(150)
+    })
+    .await;
+    assert!(session.snapshot().playing);
+    let session = Arc::try_unwrap(session).ok().unwrap();
+    session.close().await.unwrap();
+}
