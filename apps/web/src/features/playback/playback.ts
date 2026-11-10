@@ -327,7 +327,7 @@ export class Playback implements Player {
     log.warn("playback.recovering_in_place", {
       recording_id: this.state.current?.id,
     });
-    this.media.openSource(source.id, position, this.state.duration);
+    this.openSourceAudio(source, position);
     void this.playSource(this.generation, ++this.sourceAttempt);
     return true;
   }
@@ -680,15 +680,10 @@ export class Playback implements Player {
     source: Source,
     operation: string,
   ) {
-    this.media.openSource(
-      source.id,
-      this.pendingSeek ?? 0,
-      this.state.duration,
-    );
+    this.openSourceAudio(source, 0);
     this.activeSource = { ...source };
     this.observeSource(occurrence, source);
     this.entryEnded = false;
-    if (!this.pendingSeek) this.pendingSeek = null;
     log.debug("playback.next_preparation_adopted", {
       recording_id: occurrence.recording.id,
       operation_id: operation,
@@ -720,13 +715,15 @@ export class Playback implements Player {
       source_id: source.id,
       position_ms: Math.floor(position * 1000),
     });
-    this.media.openSource(
-      source.id,
-      this.pendingSeek ?? position,
-      this.state.duration,
-    );
+    this.openSourceAudio(source, position);
     this.observeSource(entry, source);
     await this.playSource(generation, attempt);
+  }
+
+  private openSourceAudio(source: Source, position: number) {
+    const start = this.pendingSeek ?? position;
+    this.pendingSeek = null;
+    this.media.openSource(source.id, start, this.state.duration);
   }
 
   private observeSource(entry: PlaybackOccurrence, source: Source) {
