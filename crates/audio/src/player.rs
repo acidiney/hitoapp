@@ -309,7 +309,15 @@ impl Player {
             .worker
             .take()
             .map_or(Ok(()), |worker| worker.join().map_err(|_| Error::Worker)?);
-        tracing::info!(event = "audio_player_closed", "Audio player workers joined");
+        let snapshot = self.snapshot();
+        tracing::info!(
+            event = "audio_player_closed",
+            underruns = snapshot.underruns,
+            xruns = snapshot.xruns,
+            output_failure = snapshot.output_failure,
+            callbacks = self.state.callbacks.load(Ordering::Acquire),
+            "Audio player workers joined"
+        );
         result
     }
 }
