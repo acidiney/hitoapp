@@ -172,6 +172,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 ## Synchronization and downloads
 
 - [ ] Build a durable local replica and offline operation queue, reconnect handling, and account isolation.
+  - [x] Prepare bidirectional shared synchronization/login wire types without a second API model. Reject ambiguous incoming events and preserve strict client batches and existing wire keys. Four new cases, eight collection regressions, an independent repeat and strict checks pass; generated OpenAPI is unchanged. This adds no replica storage or reconnect workflow.
 - [ ] Add previewed standalone-library import while preserving its separate database.
 - [ ] Verify concurrent edits, duplicate delivery, deletions, permissions, and device-local availability across replicas.
 - [x] Deploy explicit provider-track downloads with durable intents, transfer progress, verification, restart/provider-outage playback and intent-specific removal. Verify the release-image browser workflow and migration preservation. See [download evidence and limits](docs/persistent-downloads.md).

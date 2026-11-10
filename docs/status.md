@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-10 synchronization wire preparation
+
+The existing Rust synchronization and login types can now encode client requests and decode server replies. Incoming synchronization events reject ambiguous operation/publication envelopes and unknown fields. Client batches still reject server publications, and the existing `device_id` wire key is unchanged.
+
+Four new public-boundary cases and eight existing collection regressions pass in Docker, including acceptance and exact retry against temporary SQLite. An independent run repeats all four new cases. Scoped strict Clippy and formatting pass; the actual Rust OpenAPI export is byte-identical. This is protocol preparation only. Durable replica storage, an offline outbox, reconnect handling, desktop profiles and cross-replica acceptance remain unfinished.
+
 ## 2026-11-10 streaming-quality HTTP delivery
 
 Local development work, not deployed. Authenticated audio routes now negotiate quality through HEAD and deliver strict converted AAC through GET. A failed conversion returns 409 so the client can explicitly retry original audio without mistaking its position for a converted segment. Original byte ranges remain intact. Query types, quality values and response headers are exported through actual Rust OpenAPI and generated TypeScript.
