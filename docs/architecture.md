@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens ten concrete capability services: identity, catalog, artist catalog, playback access, collection, community, library storage, plugins, downloads and podcasts. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
+Hito keeps library rules in `hito-core`. Startup composes identity, catalog, artist catalog, playback access, collection, community, library storage, plugins, downloads, podcasts and replicas. HTTP adapters authenticate requests once and call those capabilities. Core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
 
 Each statement here is one of four kinds, and the text says which:
 
@@ -131,19 +131,19 @@ Rules that follow from the diagram:
 
 Current behavior. `serve_owned` in `apps/server/src/runtime.rs` starts every worker next to the HTTP listener and stops them through one shutdown signal. Each worker wakes once a second, claims at most one unit of work and runs it with a cancel future. All of them share one polling loop in `apps/server/src/runtime/polling.rs`, which owns the interval, the stop check, the timing and the started, polled, failed and stopped log events. Each worker file under `apps/server/src/runtime/` only names its events and calls one core method. A stop signal ends the loop at once, also while a call is running, and the stopped event is logged once. Downloads and indexing finish joined cleanup after the workers stop. The desktop host calls the same `hito_server::serve`, so it runs the same workers.
 
-| Worker | Instances | External calls |
-| --- | --- | --- |
-| Indexing | 1 | None. Reads granted music folders. |
-| Folder watching | 1 | None. |
-| Missing-recording retention | 1, on its own schedule | None. |
-| Artwork | 1 | Plugins that declare `artwork` (provider covers). |
-| Cover art | 1 | Cover Art Archive, MusicBrainz, Wikidata and Wikimedia Commons (artist photos), plugins that declare `artwork` (credited-artist photos). |
-| Artist matching | 1 | MusicBrainz (tags, ISRC, artist links, names, genres). |
-| Playlist follow | 4 | Plugins (playlist refresh). |
-| Downloads | 2, plus one reconcile loop | Plugins and managed storage. |
-| Source preparation | 2 | Plugins (search, sources, preparation). |
-| Podcast refresh | 2 | Feed hosts and enclosure hosts. |
-| Community reports | 1 | The community service, only when configured. |
+| Worker                      | Instances                  | External calls                                                                                                                           |
+| --------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Indexing                    | 1                          | None. Reads granted music folders.                                                                                                       |
+| Folder watching             | 1                          | None.                                                                                                                                    |
+| Missing-recording retention | 1, on its own schedule     | None.                                                                                                                                    |
+| Artwork                     | 1                          | Plugins that declare `artwork` (provider covers).                                                                                        |
+| Cover art                   | 1                          | Cover Art Archive, MusicBrainz, Wikidata and Wikimedia Commons (artist photos), plugins that declare `artwork` (credited-artist photos). |
+| Artist matching             | 1                          | MusicBrainz (tags, ISRC, artist links, names, genres).                                                                                   |
+| Playlist follow             | 4                          | Plugins (playlist refresh).                                                                                                              |
+| Downloads                   | 2, plus one reconcile loop | Plugins and managed storage.                                                                                                             |
+| Source preparation          | 2                          | Plugins (search, sources, preparation).                                                                                                  |
+| Podcast refresh             | 2                          | Feed hosts and enclosure hosts.                                                                                                          |
+| Community reports           | 1                          | The community service, only when configured.                                                                                             |
 
 The first diagram shows how a worker runs. `main.rs` calls `run` in `runtime.rs`, which calls `serve` and then `serve_owned`. That function starts every worker as a future joined with the HTTP listener and shares one stop signal. Every worker except the retention worker and folder watching runs inside `polling::run`. The retention worker keeps its own timer (first run after 120 seconds, then every six hours, or five seconds while more rows remain) and logs `retention_worker_started`. Folder watching is `LibraryStorage::watch_folders` and has its own loop.
 
@@ -207,7 +207,7 @@ What the gates mean:
 - **Community.** Nothing is sent unless the account opted in and the host has the community origin and token ([community service](community-service.md)).
 - **Plugins.** Core relays only to installations the account approved, checks live authority again, and never logs titles, search terms or URLs.
 
-The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The synchronization client remains unfinished.
+The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The [replica foundation](offline-replicas.md) supports separate private profiles and durable empty-playlist changes in development source. Catalog replication, remote playback and desktop selection remain unfinished.
 
 ## Plugin protocol and the SDK
 
