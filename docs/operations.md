@@ -73,7 +73,9 @@ Unix binaries handle SIGTERM and SIGINT; Windows uses Ctrl+C. Shutdown stops acc
 
 ## Backups
 
-Preserve `hito.plugin-key` beside the database. It decrypts personal plugin credentials; a database-only backup cannot recover those tokens. A missing or invalid key leaves local playback enabled but disables credential-dependent plugin checks. Restore the matching private key and restart. See [plugin recovery](plugins.md#credential-key-and-backups).
+Preserve `hito.plugin-key` beside the database. It decrypts personal plugin credentials and saved remote-server sessions; a database-only backup cannot recover those tokens. A missing or invalid key leaves local playback enabled but disables credential-dependent operations. Restore the matching private key and restart. See [plugin recovery](plugins.md#credential-key-and-backups).
+
+When using the development [replica capability](offline-replicas.md), also retain the sibling `hito.replicas` directory. It contains separate profile databases and unsent local changes. Stop every owner before archiving them together with the standalone database and key. The whole-volume procedure below includes these files; a database-only copy does not. Replica backup restoration still needs its own acceptance test.
 
 Until the online backup interface is implemented, stop the normal server and archive the complete data volume. Copying only `hito.db` while SQLite is running can miss committed WAL data.
 

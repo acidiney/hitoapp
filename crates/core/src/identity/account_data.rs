@@ -33,6 +33,9 @@ fn within(tables: &[&str], column: &str, set: &str) -> Vec<String> {
 
 pub(super) fn statements() -> Vec<String> {
     let mut plan = vec![
+        "INSERT INTO erased_replica_profiles(id) SELECT id FROM replica_connections WHERE user_id=?1 ON CONFLICT DO NOTHING".to_string(),
+        "DELETE FROM replica_activations WHERE connection_id IN (SELECT id FROM replica_connections WHERE user_id=?1)".to_string(),
+        "DELETE FROM replica_connections WHERE user_id=?1".to_string(),
         "INSERT INTO erased_download_files(file_id,attempt_id,host_device) SELECT id,attempt_id,host_device FROM download_files WHERE account_id=?1 AND state IN ('staging','ready','deleting') ON CONFLICT DO NOTHING".to_string(),
         format!("INSERT INTO correction_erasure_scopes(kind,subject) SELECT 'recording',id FROM {RECORDINGS}"),
     ];

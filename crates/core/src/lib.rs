@@ -17,6 +17,7 @@ mod plugins;
 mod podcasts;
 mod private_file;
 mod remote_http;
+mod replicas;
 mod secrets;
 mod store;
 
@@ -140,6 +141,10 @@ pub use podcasts::{
     PodcastUnsubscribeReceipt, Podcasts, RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
 };
 pub use remote_http::PodcastNetworkConfig;
+pub use replicas::{
+    ConnectReplica, QueuedReplicaChange, ReplicaConnection, ReplicaConnectionState, ReplicaSession,
+    ReplicaSyncOutcome, Replicas, SyncClientId,
+};
 use store::Store;
 
 #[derive(Clone)]
@@ -154,6 +159,7 @@ pub struct Services {
     pub plugins: Plugins,
     pub downloads: Downloads,
     pub podcasts: Podcasts,
+    pub replicas: Replicas,
     store: Store,
 }
 
@@ -183,6 +189,14 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     #[cfg(not(any(test, feature = "test-support")))]
     let stream_pace = StreamPace::DEFAULT;
     let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace).await?;
+    let replicas = Replicas::new(store.clone(), vault.clone(), &config.database);
+    if let Err(error) = replicas.retire_pending().await {
+        tracing::warn!(
+            event = "replica_retirement_pending",
+            error_code = error.code(),
+            "Replica file retirement will be retried"
+        );
+    }
     let community = Community::new(
         store.clone(),
         config.host_device.clone(),
@@ -313,10 +327,12 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     Ok(Services {
         identity: Identity {
             store: store.clone(),
+            replicas: replicas.clone(),
             password_attempts: Default::default(),
             seen_attempts: Default::default(),
         },
         community,
+        replicas,
         podcasts: Podcasts {
             store: store.clone(),
             host: config.host_device.clone(),
