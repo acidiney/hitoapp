@@ -1,5 +1,6 @@
 mod candidates;
 mod conversion;
+mod decoding;
 mod grant;
 mod local;
 pub(crate) mod origin;
@@ -12,6 +13,7 @@ pub use conversion::{
     ConversionStream, ConvertedAudio, MAX_CONVERSION_START, QualityAudio, QualityRequest,
     StreamQuality,
 };
+pub use decoding::{PcmBlock, PcmFormat, PcmOpening, PcmStream};
 pub use grant::PlaybackSource;
 pub use relay::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, OpenedAudio, StreamPace,
@@ -44,7 +46,7 @@ impl PlaybackAccess {
     ) -> Result<PlaybackSource> {
         tokio::time::timeout(
             Duration::from_secs(1),
-            PlaybackSource::admit(&self.store, &self.origins, actor, recording, source),
+            PlaybackSource::admit(self, actor, recording, source),
         )
         .await
         .unwrap_or(Err(Error::Upstream(
@@ -145,7 +147,7 @@ impl PlaybackAccess {
             .fetch_optional(&self.store.pool)
             .await?
             .ok_or(Error::NotFound)?;
-            PlaybackSource::admit(&self.store, &self.origins, actor, &recording, source).await
+            PlaybackSource::admit(self, actor, &recording, source).await
         })
         .await
         .unwrap_or(Err(Error::Upstream(

@@ -1,4 +1,8 @@
-use super::origin::{AudioOrigin, Located, Origins};
+use super::{
+    PlaybackAccess,
+    decoding::DecodeContext,
+    origin::{AudioOrigin, Located},
+};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result, Store};
 use std::{
     future::Future,
@@ -22,6 +26,7 @@ pub struct PlaybackSource {
     origin: Arc<dyn AudioOrigin>,
     located: Located,
     revoked: Arc<AtomicBool>,
+    pub(super) decoding: DecodeContext,
 }
 
 async fn playback_membership(
@@ -45,15 +50,15 @@ async fn playback_membership(
 
 impl PlaybackSource {
     pub(super) async fn admit(
-        store: &Store,
-        origins: &Origins,
+        access: &PlaybackAccess,
         actor: &Actor,
         recording: &str,
         source: &str,
     ) -> Result<Self> {
+        let store = &access.store;
         actor.check_session(store).await?;
         let membership = playback_membership(store, actor, recording, source).await?;
-        let (origin, located) = origins.locate(actor, source).await?;
+        let (origin, located) = access.origins.locate(actor, source).await?;
         let grant = Self {
             id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
             store: store.clone(),
@@ -64,6 +69,10 @@ impl PlaybackSource {
             origin,
             located,
             revoked: Arc::new(AtomicBool::new(false)),
+            decoding: DecodeContext {
+                tools: access.tools.clone(),
+                limits: access.conversions.clone(),
+            },
         };
         grant.check().await?;
         tracing::debug!(

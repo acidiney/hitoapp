@@ -122,8 +122,8 @@ pub use metadata::{
 pub use playback_access::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, CandidatesEnd,
     ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS, OpenedAudio,
-    PlaybackAccess, PlaybackCandidates, PlaybackSource, QualityAudio, QualityRequest, StreamPace,
-    StreamQuality,
+    PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates, PlaybackSource,
+    QualityAudio, QualityRequest, StreamPace, StreamQuality,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
