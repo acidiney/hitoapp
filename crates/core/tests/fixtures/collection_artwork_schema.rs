@@ -53,6 +53,8 @@ pub mod name_match_rule_schema;
 pub mod name_match_schema;
 #[path = "name_rule_schema.rs"]
 pub mod name_rule_schema;
+#[path = "offline_replicas_schema.rs"]
+pub mod offline_replicas_schema;
 #[path = "pin_lock_schema.rs"]
 pub mod pin_schema;
 #[path = "plugin_authorization_delivery_schema.rs"]
@@ -500,6 +502,10 @@ pub async fn reference_91() -> SqliteConnection {
     credit_member_schema::reference(reference_90().await).await
 }
 
+pub async fn reference_92() -> SqliteConnection {
+    offline_replicas_schema::reference(reference_91().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -546,6 +552,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         89 => reference_89().await,
         90 => reference_90().await,
         91 => reference_91().await,
+        92 => reference_92().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -773,6 +780,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 91),
+    )
+    .chain(
+        offline_replicas_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 92),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
@@ -804,6 +817,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             count, 0,
             "historical state must not imply community consent, reporters, contributions or collection covers"
         );
+    }
+    if version >= 92 {
+        offline_replicas_schema::assert_empty(connection).await;
     }
     if version >= 54 {
         identity_schema::assert_empty(connection).await;

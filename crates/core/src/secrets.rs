@@ -1,5 +1,7 @@
 mod key_file;
 #[cfg(test)]
+mod replica_work;
+#[cfg(test)]
 mod startup_work;
 
 use crate::{Error, Result, store::Store};
@@ -62,6 +64,22 @@ impl Vault {
         .fetch_optional(&store.pool)
         .await?;
         fingerprints.extend(community);
+        let replica: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM replica_connections
+             INDEXED BY replica_credential_fingerprints WHERE credential IS NOT NULL
+             ORDER BY substr(credential,1,33) ASC LIMIT 1",
+        )
+        .fetch_optional(&store.pool)
+        .await?;
+        fingerprints.extend(replica);
+        let replica: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM replica_connections
+             INDEXED BY replica_credential_fingerprints WHERE credential IS NOT NULL
+             ORDER BY substr(credential,1,33) DESC LIMIT 1",
+        )
+        .fetch_optional(&store.pool)
+        .await?;
+        fingerprints.extend(replica);
         let path = database.with_extension("plugin-key");
         let create = fingerprints.is_empty();
         let loaded = tokio::task::spawn_blocking(move || key_file::load(&path, create)).await;
@@ -201,6 +219,35 @@ impl Vault {
         self.reveal_payload(&context(account, installation, service), envelope)
     }
 
+    pub(super) fn seal_replica(
+        &self,
+        owner: &str,
+        binding: &str,
+        endpoint: &str,
+        remote_account: &str,
+        token: &str,
+    ) -> Result<Vec<u8>> {
+        validate(token)?;
+        self.seal_payload(
+            &replica_context(owner, binding, endpoint, remote_account)?,
+            token.as_bytes(),
+        )
+    }
+
+    pub(super) fn reveal_replica(
+        &self,
+        owner: &str,
+        binding: &str,
+        endpoint: &str,
+        remote_account: &str,
+        envelope: &[u8],
+    ) -> Result<Zeroizing<String>> {
+        self.reveal_payload(
+            &replica_context(owner, binding, endpoint, remote_account)?,
+            envelope,
+        )
+    }
+
     pub(super) fn seal_community(
         &self,
         account: &str,
@@ -289,4 +336,20 @@ fn community_context(account: &str, service: &str, reporter: &str) -> String {
 
 fn unavailable() -> Error {
     Error::Conflict("Plugin credentials cannot be read. Restore the server's plugin key and restart, or clear the saved credential.".into())
+}
+
+fn replica_context(
+    owner: &str,
+    binding: &str,
+    endpoint: &str,
+    remote_account: &str,
+) -> Result<String> {
+    serde_json::to_string(&(
+        "hito.replica.session.v1",
+        owner,
+        binding,
+        endpoint,
+        remote_account,
+    ))
+    .map_err(|_| unavailable())
 }
