@@ -16862,12 +16862,52 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
           "200": {
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            },
             "content": {
               "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStream"
+                }
+              },
+              "audio/aac": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
                 }
@@ -16879,6 +16919,15 @@
               "application/octet-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16920,6 +16969,15 @@
             }
           },
           "416": {},
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "502": {
             "content": {
               "application/json": {
@@ -16949,16 +17007,69 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Audio representation headers without a body"
+            "description": "Audio representation headers without starting an encoder",
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "401": {},
           "403": {},
           "404": {},
           "409": {},
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "502": {}
         },
         "security": [
@@ -29610,6 +29721,14 @@
               }
             }
           }
+        ]
+      },
+      "StreamQuality": {
+        "type": "string",
+        "enum": [
+          "original",
+          "high",
+          "saver"
         ]
       },
       "SubscribePodcast": {

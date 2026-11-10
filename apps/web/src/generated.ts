@@ -5604,6 +5604,8 @@ export interface components {
             provider: components["schemas"]["MetadataProvider"];
             provider_artist_id: string;
         };
+        /** @enum {string} */
+        StreamQuality: "original" | "high" | "saver";
         SubscribePodcast: {
             feed_url: string;
             /** Format: uuid */
@@ -18630,7 +18632,10 @@ export interface operations {
     };
     audio: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: {
                 Range?: string | null;
             };
@@ -18643,10 +18648,15 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                    "audio/aac": components["schemas"]["AudioStream"];
                 };
             };
             206: {
@@ -18655,6 +18665,14 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": components["schemas"]["AudioStream"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: {
@@ -18695,6 +18713,14 @@ export interface operations {
                 };
                 content?: never;
             };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             502: {
                 headers: {
                     [name: string]: unknown;
@@ -18707,7 +18733,10 @@ export interface operations {
     };
     audio_head: {
         parameters: {
-            query?: never;
+            query?: {
+                quality?: components["schemas"]["StreamQuality"];
+                start_ms?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -18716,12 +18745,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Audio representation headers without a body */
+            /** @description Audio representation headers without starting an encoder */
             200: {
                 headers: {
+                    /** @description Effective representation quality */
+                    "X-Hito-Stream-Quality"?: components["schemas"]["StreamQuality"];
+                    /** @description Converted segment start in milliseconds; absent for originals */
+                    "X-Hito-Stream-Start-Ms"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             401: {
                 headers: {
@@ -18746,6 +18787,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             502: {
                 headers: {
