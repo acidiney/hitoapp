@@ -1,6 +1,7 @@
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import type { MediaPort } from "../model";
+import { BrowserStream } from "./BrowserStream";
 import {
   PlaybackSources,
   type Source,
@@ -45,7 +46,7 @@ export class BrowserPreparation {
   readonly sources: PlaybackSources;
   private closed = false;
   private transferred = false;
-  private media: MediaPort | null = null;
+  private media: BrowserStream | null = null;
   private cancelBuffer: (() => void) | null = null;
   private found: Prepared | null = null;
   private rechecked = false;
@@ -100,7 +101,7 @@ export class BrowserPreparation {
       clearTimeout(this.timer);
       const prepared: Prepared = { sources: this.sources, source };
       this.found = prepared;
-      const media = this.owner.create();
+      const media = new BrowserStream(this.owner.create());
       this.media = media;
       const outcome = await new Promise<Buffering>((resolve) => {
         const finish = (result: Buffering) => {
@@ -115,8 +116,7 @@ export class BrowserPreparation {
         this.timer = setTimeout(() => finish("timeout"), ACQUISITION_MS);
         media.addEventListener("canplay", readyEvent, { once: true });
         media.addEventListener("error", failedEvent, { once: true });
-        media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
-        media.load();
+        media.openSource(source.id, 0, 0);
       });
       if (this.closed) return null;
       if (this.transferred) return this.found;
@@ -263,7 +263,8 @@ export class BrowserPreparation {
     media.pause();
     media.removeAttribute("src");
     media.load();
-    this.owner.release(media);
+    media.close();
+    this.owner.release(media.original);
   }
 
   private finished(outcome: string) {

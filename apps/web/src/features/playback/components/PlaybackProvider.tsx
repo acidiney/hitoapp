@@ -124,6 +124,7 @@ function BrowserAccountPlayback({
   });
   useBrowserMediaSession(player, account);
   useEffect(() => {
+    player.activate();
     community.activate();
     log.info("playback.account_opened", { account_id: account });
     media.set(audio, audio);
