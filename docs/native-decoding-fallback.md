@@ -1,0 +1,73 @@
+# Native decoding fallback
+
+Development source can play authorized local and server-managed Opus through FFmpeg when Symphonia reports `Unsupported`. This work has not been deployed or included in a new desktop package. The [release plan](release-plan.md) remains open.
+
+## Current policy and ownership
+
+Symphonia runs first. Only `Unsupported` triggers fallback, not corrupt-input, device or cancellation errors. Fallback accepts probed Opus with one or two channels at 8 to 192 kHz. Fixtures exercise 48 kHz Opus. Provider streams stay unchanged; other fallback codecs and layouts remain unsupported.
+
+Core owns files, probing, admission and FFmpeg. Playback supplies PCM through `Decoder::from_pcm` to the existing converter, tempo processor and CPAL. The engine receives no paths or credentials.
+
+```mermaid
+flowchart TD
+    Grant[Core PlaybackSource grant] --> Opening[Retained PcmOpening]
+    Opening --> Probe[Bounded probe / held file]
+    Probe --> Child[Restricted FFmpeg owner]
+    Child --> PCM[Bounded PCM stream]
+    PCM --> Adapter[Blocking playback adapter]
+    Adapter --> Engine[Decoder / Converter / Tempo / CPAL]
+    Cancel[Stop / authority withdrawal / consumer cancellation] --> Opening
+    Cancel --> Child
+    Opening --> Join[Cancel and join / release capacity]
+    Child --> Join
+    Adapter --> Join
+```
+
+`PlaybackSource::begin_pcm(start)` returns a retained `PcmOpening`. Cancelling its `ready()` wait preserves the opening; successful readiness transfers ownership to `PcmStream`. Both owners expose `close()` to cancel and join. Drop signals cancellation without waiting.
+
+Dropping the convenience `open_pcm(start)` future during startup requests cleanup without confirming a join. Native playback retains the opening and explicitly joins cancelled startup, seeks, prepared-input removal and shutdown.
+
+The probe receives a cloned file descriptor. Core then rewinds the same held file for FFmpeg, avoiding a pathname reopen. Commands restrict formats, file/pipe protocols, probing and individual allocations; provider URLs never enter FFmpeg. Input currently uses inherited stdin through `/dev/stdin`; Windows portability is unfinished.
+
+Probing allows 16 KiB and ten seconds; initial PCM waits ten seconds, later process reads fifteen seconds, and successful EOF requires child exit within two seconds. Two queued blocks hold at most 32 KiB each, plus retained first/current data. Admission shares the AAC budget: two host slots by default, one to eight configurable, at most three per account subject to that limit. Slots remain held through termination. See [conversion admission](audio-conversion.md#process-ownership).
+
+Authority checks cover every delivery, including prefetched PCM. Owners watch revocation and consumer closure while paused or backpressured. Missing tools and decoding failures have safe typed core outcomes. Downloads, library records and originals remain untouched.
+
+## Time and preparation
+
+PCM retains source positions and the full optional duration. Seeking joins the previous generation, rounds to a source frame, seeks up to one second early, then decodes and trims that fixed preroll. Starts are limited to seven days. A nonzero start at or beyond a known end returns EOF without a decoder.
+
+One preparation worker keeps current controls responsive. A bounded, attempt-tagged mailbox wakes the session when decoding finishes; completion no longer waits for the 25 ms state-publishing tick. A full mailbox still prompts completion inspection, and stale notices cannot adopt a replacement attempt. Its child token cancels a successor independently; session shutdown still propagates after adoption. Engine acceptance records the successor grant before state publication and the receipt, so losing an observer cannot leave the old grant attached. Pending and ready cancellation join their resources.
+
+The adapter pins one `next_block` future across 15 ms control checks; ticks never restart authority queries. Core retains received blocks across cancelled waits until the final authority check. Spans and subscribers cross Tokio tasks and native threads. Logs retain safe account, grant and session correlation, outcomes and timings, excluding titles, paths, credentials, signed URLs, audio and tool stderr.
+
+## Qualification and remaining work
+
+Docker checks on 10 November 2026 used temporary SQLite, owned fixtures and controlled tool faults. Actual CPAL output ran through an unprivileged private PulseAudio null-sink monitor, not physical speakers.
+
+| Boundary             | Qualified evidence                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Audio engine         | 76 hardware-independent cases, including nine PCM cases for format, samples, positions, interruption, seeking, EOF and ownership. Standalone Symphonia still rejects Opus.                                                                                                                                                                                                                      |
+| Core                 | 19 new PCM cases and 51 existing playback regressions cover decoding, bounded seeking, retained-file safety, admission, failed tools, cancellation, revocation, saved copies and private logs.                                                                                                                                                                                                  |
+| Native integration   | [`native_pcm_fallback`](../crates/playback/tests/native_pcm_fallback/main.rs) has 15 cases for real tone output, saved Opus with its provider offline, controls, prepared inputs, dropped observers, joined cancellation and scoped logs. Eleven existing [`native_session`](../crates/playback/tests/native_session/main.rs) cases also pass, including the existing gapless counter fixtures. |
+| Wait and regressions | Two owned-future cases check completion across several control ticks and cancellation. The default playback suite passes 71 cases. Scoped strict Clippy, formatting, fresh source reviews and independent core/audio/native repeats pass.                                                                                                                                                       |
+
+The component counts come from explicit runs. The readiness change reproduced a 2× successor gap of 2,400 frames: a ready decoder waited another 16.5 ms before the engine rejected its late handoff. Event-driven delivery reduced that gap to one frame in three focused runs. A held-probe replacement case also verifies stale completion fencing and joined retirement. [`scripts/check-playback.sh`](../scripts/check-playback.sh) now invokes the monitor target and the two device-library wait cases.
+
+Counts overlap earlier qualification and must not be added into a release total. Twenty alternating WAV/Opus opens form one diagnostic case. Opus gapless and release p95 were not measured.
+
+### Open transport regression gate
+
+The broader transport run after the readiness change passed 67 of 70 cases. Deferred failure, ready-before-boundary and removal cases failed exact counter or silence assertions. Earlier Never-ready, recovery and 2× failures passed in that run; those passes do not explain all earlier failures. Progress, saved-position and audiobook targets were not reached by the standard runner.
+
+An isolated pre-engine `e80faf8d` baseline, with identical diagnostic-only test changes, passed five of six focused cases. Its removal case failed with 128 silent frames although all 576,000 source frames remained in order. The matched current run passed four of six. Its deferred-failure capture included a logged backend xrun and replayed audio; its removal capture lost 189 source frames without a logged recovery. These are different observations. The baseline failure establishes an older continuity qualification problem, not the cause of every current failure.
+
+A later two-case counter run passed both current cases but failed baseline removal with one backend xrun, one producer underrun and replayed frames. That proves the older engine also exhibits recovery-associated replay; it does not explain the current missing-frame case.
+
+The combined gate remains red. Ideal gapless output and recovery near the observed position during a real underrun are separate requirements. Assertions and fixtures remain unchanged. Post-join diagnostics now expose existing underrun, xrun, output-failure and callback counters; no logging runs in the audio callback.
+
+### Unresolved output startup failure
+
+An earlier thirteen-case native run failed once with `Native(Output)` during `Session::open`, before Resume. Subsequent twenty-open diagnostics, later fourteen- and fifteen-case runs and eleven existing native cases passed, including independent repeats. Those passes do not identify or fix the failure. It has not been classified as pre-existing. A diagnostic now reports static output failure categories and callback/xrun counts after worker join, outside the audio callback. No automatic retry was added.
+
+Broader codec and timing profiles, missing-tool installation behavior, additional rates/layouts, portable process input, macOS/Windows builds and physical output remain open. Opus gapless measurements, reference-hardware performance and packaged application acceptance are also required. Track these and the startup failure in [Playback and desktop](../TODO.md#playback-and-desktop).

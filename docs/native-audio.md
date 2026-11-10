@@ -1,6 +1,6 @@
 # Native audio engine
 
-`hito-audio` decodes an owned input with Symphonia and, with its `device` feature, sends PCM through CPAL. The [native playback owner](native-playback.md) now supervises authorized local/provider input and session revocation around this engine. The Tauri shared UI uses authenticated native commands and observations. Rust owns queues, source recovery, output, and listening progress; ordinary web sessions retain browser playback.
+`hito-audio` decodes an owned input with Symphonia or accepts an owned PCM source and, with its `device` feature, sends PCM through CPAL. Development source adds an [authorized FFmpeg fallback for local and saved Opus](native-decoding-fallback.md); it is not deployed or packaged yet. The [native playback owner](native-playback.md) now supervises authorized local/provider input and session revocation around this engine. The Tauri shared UI uses authenticated native commands and observations. Rust owns queues, source recovery, output, and listening progress; ordinary web sessions retain browser playback.
 
 ## Ownership
 
@@ -10,7 +10,7 @@ The engine accepts an owned `Input`, including `std::fs::File`, with read/seek a
 flowchart LR
   Access[Core PlaybackAccess / authorized grant] --> Session[hito-playback session and owned input]
   Session --> Player[hito-audio Player]
-  Player --> Decoder[Owned decoder worker / Symphonia]
+  Player --> Decoder[Owned decoder worker / Symphonia or authorized PCM]
   Decoder --> Convert[Converter / downmix to stereo, decimate above 192 kHz]
   Convert --> Tempo[Worker-owned SoundTouch / bounded tempo segments]
   Tempo --> PCM[Bounded 100 ms PCM ring / generation, source time and rate tags]
@@ -134,7 +134,7 @@ sh scripts/check-audio.sh
 
 The desktop verification script also runs this check. Ordinary workspace builds keep CPAL disabled and need no ALSA development package.
 
-The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Opus explicitly returns unsupported until fallback exists.
+The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Standalone `Decoder::open` still returns `Unsupported` for Opus. The application can now supply an [authorized FFmpeg PCM fallback](native-decoding-fallback.md) for local and saved Opus; its separate qualification does not establish every codec profile.
 
 The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, underrun recovery at 2.0, and exact sample continuity across prepared inputs (see [gapless transitions](#gapless-transitions)). Tempo checks measure preserved pitch and output duration (including converted high-rate and surround sources), source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
 
@@ -196,7 +196,7 @@ Gapless depends on what each demuxer and decoder removes. FFmpeg 5.1 generated a
 | AAC in M4A with neither | 1,600 too long | 1,600 too long | 183 frames | nothing declares the delay |
 | AAC in ADTS | 1,600 too long | 1,600 too long | 183 frames | ADTS has no container-level delay field |
 | MP3 without a Xing or LAME header | 1,344 too long | 1,344 too long | about 1,300 frames | no delay information; no reliable signal to apply a standard delay |
-| Opus | unsupported | unsupported | not applicable | Symphonia 0.6.1 has no Opus decoder; the FFmpeg fallback does not exist yet |
+| Opus | unsupported | not measured in this matrix | not measured | Symphonia 0.6.1 has no Opus decoder; separate local/saved Opus fixtures pass through the [application PCM fallback](native-decoding-fallback.md), source only |
 
 One frame is a sample at a sine zero crossing, the same value the exact codecs show.
 
@@ -216,9 +216,9 @@ The fixtures come from FFmpeg 5.1 (`-use_editlist 0` removes the edit list) and 
 
 ## Remaining integration
 
-The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback, resampling to arbitrary device-supported rates, and platform/hardware acceptance remain unfinished.
+The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback coverage beyond the [initial Opus path](native-decoding-fallback.md), resampling to arbitrary device-supported rates, and platform/hardware acceptance remain unfinished.
 
-FFmpeg fallback, delay trimming for ADTS, untagged M4A and untagged MP3, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+Broader FFmpeg fallback, delay trimming for ADTS, untagged M4A and untagged MP3, device selection/media controls, platform verification, and release latency targets remain unfinished. The initial Opus path also has an [unresolved output startup failure](native-decoding-fallback.md#unresolved-output-startup-failure). Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.
 

@@ -1,5 +1,15 @@
 # Implementation status
 
+## 2026-11-10 native Opus source and open regression qualification
+
+Source only. Authorized local and server-managed Opus can use a bounded FFmpeg PCM decoder after Symphonia reports `Unsupported`. Native seeking, shutdown and prepared-input cancellation retain and join the process owner. Successor grants commit with engine acceptance before a receipt is published. The running quality deployment and desktop packages were not updated for this work.
+
+Docker qualification passes 76 audio cases including nine PCM cases, 19 new core cases and 51 existing playback regressions, fifteen native monitor cases, eleven existing native-session cases, two pinned-wait cases and 71 default playback cases. These are component checks, not an additive release total. Scoped strict checks, independent repeats and fresh reviews pass. The monitor uses actual CPAL and a private PulseAudio null sink, not physical hardware. Original files and explicit Download intent remain preserved.
+
+The broader native transport gate is red: 67 of 70 cases passed after an event-driven successor-readiness fix, with deferred failure, ready-before-boundary and removal counter/silence failures. The 2× transition reproduced a 2,400-frame gap when readiness waited for a state tick; immediate attempt-tagged notification reduced it to one frame in three focused runs and preserves responsive cancellation. The original pre-engine `e80faf8d` source also fails ideal removal continuity, but its 128-frame silence with exact source ordering differs from current replay or missing-frame observations. A matched six-case comparison passed five on the baseline and four on current source. One current failure correlates with an actual backend xrun. A later two-case diagnostic run passed current source but reproduced baseline removal failure with one xrun, one producer underrun and replay. Current missing-frame loss remains unclassified. The cause of every failure is not established. Remaining standard-runner targets were not reached, and these component passes do not close the combined release gate.
+
+An earlier thirteen-case run failed `Native(Output)` during native startup before Resume. Later repeated opens and final gates passed, but the cause remains unresolved. Safe startup diagnostics were added outside the callback; no automatic retry was added and no pre-existing-failure claim was made. Broader codecs/profiles, process-input portability, physical platforms, Opus gapless, packaged delivery and release performance remain open. See [ownership, evidence and limits](native-decoding-fallback.md).
+
 ## 2026-11-10 browser streaming quality deployed locally
 
 The normal local server runs `hito-server:quality-e80faf8d`, built from an isolated committed source snapshot. Settings → Playback now offers a browser-local Original, High or Data saver choice for suitable local and server-managed audio. Current playback continues when the choice changes. Converted seeks and recovery retain absolute time and the full recording duration; a failed conversion or unsupported decoder explicitly retries the same Original source.
