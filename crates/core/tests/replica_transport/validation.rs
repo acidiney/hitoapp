@@ -101,7 +101,7 @@ async fn classifies_http_errors_without_consuming_or_exposing_error_bodies() {
         ),
         (500, RemoteError::Unavailable),
         (503, RemoteError::Unavailable),
-        (404, RemoteError::InvalidReply),
+        (404, RemoteError::NotFound),
     ];
     for (status, expected) in cases {
         let mut reply = Reply::status(status);

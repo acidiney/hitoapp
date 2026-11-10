@@ -1,5 +1,18 @@
 use crate::{Error, Result};
 use url::Url;
+use uuid::Uuid;
+
+pub(super) enum Route {
+    Fixed(&'static str),
+    CatalogPage { id: Uuid, ordinal: u64 },
+    CatalogLease(Uuid),
+}
+
+impl From<&'static str> for Route {
+    fn from(path: &'static str) -> Self {
+        Self::Fixed(path)
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct Endpoint(Url);
@@ -30,9 +43,16 @@ impl Endpoint {
         Ok(Self(url))
     }
 
-    pub(super) fn route(&self, path: &'static str) -> super::RemoteResult<Url> {
+    pub(super) fn route(&self, path: impl Into<Route>) -> super::RemoteResult<Url> {
+        let path = match path.into() {
+            Route::Fixed(path) => path.to_owned(),
+            Route::CatalogLease(id) => format!("api/v1/catalog/snapshots/{id}"),
+            Route::CatalogPage { id, ordinal } => {
+                format!("api/v1/catalog/snapshots/{id}/pages/{ordinal}")
+            }
+        };
         self.0
-            .join(path)
+            .join(&path)
             .map_err(|_| super::RemoteError::InvalidReply)
     }
 

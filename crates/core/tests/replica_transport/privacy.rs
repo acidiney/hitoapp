@@ -76,6 +76,7 @@ async fn private_exchanges(capture: &LogCapture) {
     assert!(request.await.unwrap_err().is_cancelled());
     held.close().await;
     tokio::task::yield_now().await;
+    private_catalog_exchanges(capture).await;
     capture.assert_excludes(&[
         &successful_endpoint,
         &endpoint,
@@ -102,6 +103,72 @@ async fn private_exchanges(capture: &LogCapture) {
             "safe correlated transport outcome was lost: {outcome}"
         );
     }
+}
+
+async fn private_catalog_exchanges(capture: &LogCapture) {
+    use super::catalog::{Call, SNAPSHOT};
+    let metadata = serde_json::json!({
+        "id": SNAPSHOT, "account_id": "owned-account", "library_id": "private-library",
+        "mode": "snapshot_only", "collection_watermark": 7, "recording_count": 1,
+        "page_count": 1, "expires_at": 1800000000
+    });
+    let page = serde_json::json!({
+        "snapshot_id": SNAPSHOT, "ordinal": 0, "next_ordinal": null,
+        "recordings": [{"id":"private-recording", "library_id":"private-library",
+            "title":"private-title", "artist":"private-artist", "duration_ms":1, "sources":[]}]
+    });
+    for (call, operation, value) in [
+        (Call::Begin, "begin_catalog_snapshot", Some(metadata)),
+        (Call::Page, "catalog_snapshot_page", Some(page)),
+        (Call::Release, "release_catalog_snapshot", None),
+    ] {
+        let response = match value {
+            Some(value) => {
+                let bytes = serde_json::to_vec(&value).unwrap();
+                let mut response = format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n", bytes.len()).into_bytes();
+                response.extend_from_slice(&bytes);
+                response
+            }
+            None => b"HTTP/1.1 204 No Content\r\n\r\n".to_vec(),
+        };
+        let server = RawServer::start(response, false).await;
+        let endpoint = server.endpoint.clone();
+        let remote = Remote::new(Endpoint::parse(&endpoint).unwrap()).unwrap();
+        call.run(&remote).await.unwrap();
+        server.close().await;
+        let held = RawServer::start(Vec::new(), true).await;
+        let held_endpoint = held.endpoint.clone();
+        let remote = Remote::new(Endpoint::parse(&held_endpoint).unwrap()).unwrap();
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
+        let request =
+            tokio::spawn(async move { call.run(&remote).await }.with_subscriber(dispatch));
+        held.received().await;
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        held.close().await;
+        capture.assert_excludes(&[&endpoint, &held_endpoint]);
+        for outcome in ["complete", "cancelled"] {
+            assert!(
+                capture.events().iter().any(|event| event["fields"]["event"]
+                    == "replica_exchange_finished"
+                    && event["fields"]["outcome"] == outcome
+                    && event["fields"]["elapsed_ms"].is_u64()
+                    && event["span"]["operation"] == operation
+                    && event["span"]["request_id"]
+                        .as_str()
+                        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())),
+                "missing correlated catalog outcome: {operation} {outcome}"
+            );
+        }
+    }
+    capture.assert_excludes(&[
+        SNAPSHOT,
+        "owned-account",
+        "private-library",
+        "private-recording",
+        "private-title",
+        "private-artist",
+    ]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

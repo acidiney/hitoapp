@@ -44,6 +44,7 @@ pub(super) fn remote_error(error: RemoteError) -> Error {
         }
         RemoteError::Locked => Error::Locked,
         RemoteError::Forbidden => Error::Forbidden,
+        RemoteError::NotFound => Error::NotFound,
         RemoteError::Conflict => {
             Error::Conflict("The remote server rejected this operation identity".into())
         }

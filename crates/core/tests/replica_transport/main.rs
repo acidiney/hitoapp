@@ -1,6 +1,10 @@
 pub use hito_core::{
-    AuthSession, Credentials, Error, Result, SyncBatch, SyncPage, SyncReceipt, User,
+    AuthSession, BeginCatalogSnapshot, CatalogSnapshot, CatalogSnapshotPage, Credentials, Error,
+    Result, SyncBatch, SyncPage, SyncReceipt, User,
 };
+mod catalog;
+mod catalog_lifetimes;
+mod catalog_policy;
 mod fixture;
 mod lifetimes;
 mod privacy;

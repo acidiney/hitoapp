@@ -15,6 +15,7 @@ use tokio::{
 pub struct RawServer {
     pub endpoint: String,
     received: Arc<Notify>,
+    responded: Arc<Notify>,
     pub closed: Arc<AtomicBool>,
     owner: Option<JoinHandle<()>>,
     held: bool,
@@ -25,6 +26,8 @@ impl RawServer {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://localhost:{}", listener.local_addr().unwrap().port());
         let received = Arc::new(Notify::new());
+        let responded = Arc::new(Notify::new());
+        let response_observed = responded.clone();
         let closed = Arc::new(AtomicBool::new(false));
         let observed = received.clone();
         let closed_observed = closed.clone();
@@ -54,6 +57,7 @@ impl RawServer {
             observed.notify_one();
             socket.write_all(&response).await.unwrap();
             socket.flush().await.unwrap();
+            response_observed.notify_one();
             if hold {
                 let mut byte = [0];
                 let count = tokio::time::timeout(Duration::from_secs(3), socket.read(&mut byte))
@@ -67,6 +71,7 @@ impl RawServer {
         Self {
             endpoint,
             received,
+            responded,
             closed,
             owner: Some(owner),
             held: hold,
@@ -75,6 +80,11 @@ impl RawServer {
 
     pub async fn received(&self) {
         tokio::time::timeout(Duration::from_secs(2), self.received.notified())
+            .await
+            .unwrap();
+    }
+    pub async fn responded(&self) {
+        tokio::time::timeout(Duration::from_secs(2), self.responded.notified())
             .await
             .unwrap();
     }
