@@ -75,8 +75,9 @@ pub use catalog::{
     UpdateSourcePreferences,
 };
 pub use catalog_replication::{
-    CatalogReplication, CatalogSnapshot, CatalogSnapshotMode, CatalogSnapshotPage,
-    LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact, ServerRelayObservation,
+    BeginCatalogSnapshot, CatalogReplication, CatalogSnapshot, CatalogSnapshotMode,
+    CatalogSnapshotPage, LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact,
+    ServerRelayObservation,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

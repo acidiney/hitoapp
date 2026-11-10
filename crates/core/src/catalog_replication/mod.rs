@@ -18,8 +18,8 @@ use std::{
 use tokio::sync::{Semaphore, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
-    CatalogSnapshot, CatalogSnapshotMode, CatalogSnapshotPage, LocalRecordingFact,
-    LocalReleaseAppearance, LocalSourceFact, ServerRelayObservation,
+    BeginCatalogSnapshot, CatalogSnapshot, CatalogSnapshotMode, CatalogSnapshotPage,
+    LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact, ServerRelayObservation,
 };
 use uuid::Uuid;
 
