@@ -1,6 +1,8 @@
 pub mod capture;
 pub mod continuity;
 pub mod m4a;
+#[cfg(feature = "device")]
+pub mod output_witness;
 
 use std::{
     fs::File,

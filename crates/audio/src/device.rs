@@ -146,13 +146,24 @@ fn build<T: SizedSample + FromSample<f32>>(
     consumer: Consumer<Frame>,
     state: Arc<State>,
     format: AudioFormat,
-) -> Result<cpal::Stream> {
+) -> Result<cpal::Stream>
+where
+    f32: FromSample<T>,
+{
     let mut render = Render::new(consumer, state.clone(), format);
     let born_xruns = state.xruns.load(Ordering::Acquire);
+    #[cfg(feature = "test-support")]
+    let mut witness = crate::test_support::output_witness::attach(&state, format);
     device
         .build_output_stream(
             config,
-            move |data: &mut [T], info| render.fill(data, info),
+            move |data: &mut [T], info| {
+                render.fill(data, info);
+                #[cfg(feature = "test-support")]
+                if let Some(witness) = &mut witness {
+                    witness.record(data, info);
+                }
+            },
             move |error| report(&state, born_xruns, error.kind()),
             Some(Duration::from_secs(2)),
         )
