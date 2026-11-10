@@ -12,14 +12,31 @@ flowchart LR
     Capability --> Reader[Owned SQLite reader]
     Reader --> Facts[Local recording and source facts]
     Facts --> Pages[Bounded immutable pages]
-    Pages --> Consumer[Future synchronization consumer]
+    Pages --> HTTP[Authenticated versioned HTTP]
+    HTTP --> Consumer[Future durable client installation]
     Authority[Session, PIN and library grant] --> Capability
     Stop[Cancellation and host shutdown] --> Reader
 ```
 
 A source's `server_relay` value is an observation of whether the server can relay it. It does not make that file local or offline-ready on another device. Facts exclude filesystem coordinates, folder labels, credentials, raw tags and provider stream URLs. The authorized inherited display title remains catalog data even when indexing derived it from a filename.
 
-`begin` returns a snapshot identity and metadata only after successful construction and a final authority check. `page` reads an ordinal from the immutable materialization. Each call validates its requesting session, PIN state and current library-grant identity. Snapshots belong to the account and library, so another currently authorized session of the same account can read them. Revoking and recreating library access does not restore access to an old snapshot. Account erasure retires its constructions and removes retained pages. Host shutdown closes the capability and joins its reader.
+`begin` returns a snapshot identity and metadata only after successful construction and a final authority check. Repeating it for the same account, library and current grant resumes the same immutable snapshot without rebuilding it or extending its expiry. It can resume even when the retained registry is full. `page` reads an ordinal from that materialization. Each read validates its requesting session, PIN state and current library-grant identity. Snapshots belong to the account and library, so another currently authorized session of the same account can read them. Revoking and recreating library access does not restore access to an old snapshot.
+
+`release` requires a current unlocked session. It removes only that account's snapshot and allows owned cleanup after library access is revoked. Unknown, expired and foreign handles are idempotent; a foreign caller cannot remove the owner's snapshot. Account erasure retires its constructions and removes retained pages. Host shutdown closes the capability and joins its reader.
+
+## HTTP delivery
+
+The versioned routes use shared authentication, origin policy and Core wire types. HTTP owns no SQL, retention or synchronization rules.
+
+| Method | Route                                            | Successful response                                                            |
+| ------ | ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| POST   | `/api/v1/catalog/snapshots`                      | `200 CatalogSnapshot`, accepting the strict shared `BeginCatalogSnapshot` body |
+| GET    | `/api/v1/catalog/snapshots/{id}/pages/{ordinal}` | `200 CatalogSnapshotPage`                                                      |
+| DELETE | `/api/v1/catalog/snapshots/{id}`                 | Empty `204`                                                                    |
+
+Pages are compact JSON with no additional envelope and retain the 256 KiB encoded-page bound. Responses use the existing private, no-store policy. Malformed path fields return a safe JSON error, and invalid or inaccessible page handles return not found. Native bearer requests may omit Origin under the existing policy; browser cookie mutations still require origin verification. OpenAPI and TypeScript are generated from the actual Rust routes and types.
+
+If the caller loses a successful creation response, it can repeat POST to recover the same handle and facts until expiry or release. Release followed by POST constructs a fresh view. These transient server handles do not provide durable client storage or incremental changes.
 
 ## Resource and cancellation policy
 
@@ -41,11 +58,17 @@ Review exposed repeated scans under stale statistics. Snapshot queries now use b
 
 Controlled deadline cases verify that a held publication writer cannot publish late, a reader waiter can expire without acquiring its slot, and close retains the reader until in-flight SQL settles. Public cases cover another account, a second current session of the owner, revoked sessions, PIN locking, revoke/regrant, retained source-specific release facts after rescan, and invalid handles after close. Fresh reviews found and resolved query-work, deadline and test-cleanup defects. Strict scoped checks and formatting pass. No running server or desktop package is updated by this slice.
 
+The create-or-resume and release extension has an independent 26-case Docker repeat covering public snapshot/authority/lifecycle behavior, retained SQL work and deadlines, and actual server runtime closure. It also caught and corrected retention-clock handling after expiry and reservation lifetime during SQL cancellation. The synthetic 100,000-recording runs remain about 3.34 to 3.37 seconds in that repeat; these are warm development observations.
+
+The HTTP adapter passes ten actual Router/TCP cases, independently repeated in 6.49 seconds. They cover strict and bounded requests, session/PIN/account/grant isolation, browser/native origin policy, immutable retry after rescan, owned and foreign release, original expiry, fresh construction, and escaped pages near 256 KiB. The TCP case reads a committed snapshot identity before dropping the socket, then verifies the same retained facts and joined server shutdown. It proves retry after publication and partial client consumption, not prepublication cancellation or an interrupted server write. Existing collection state remains unchanged.
+
+Three fresh source reviews cover security, correctness and resource/recovery ownership. Strict server all-target Clippy, formatting, both TypeScript checks and independent byte-for-byte regeneration of OpenAPI/TypeScript pass. The generated contract adds three paths and eight shared schemas, preserving existing entries. These checks supplement the earlier combined 261-case run; they are not a new full-suite or release result.
+
 ## Incremental replication remains open
 
 The wire mode is explicitly `snapshot_only`. `collection_watermark` is an observation of the collection log during construction. It must never advance an existing collection cursor or acknowledge an offline operation. The collection log does not cover every writer of exported catalog fields, so it cannot yet provide catalog catch-up.
 
-Before a client can install this as a synchronized catalog, Hito still needs a catalog change journal covering every exported-field writer, resumable bootstrap and change delivery, client staging and atomic publication, populated playlist projection, likes/progress, remote audio ownership and desktop profile selection. Provider-only recordings require their own catalog coverage. Personal overrides and standalone import preview must remain separate. See [offline replica ownership](offline-replicas.md).
+Durable client installation still needs staging, validation, atomic publication and restart recovery in the private server profile. Incremental synchronization additionally needs a catalog change journal covering every exported-field writer and resumable change delivery. Populated playlist projection, likes/progress, remote audio ownership and desktop profile selection also remain open. Provider-only recordings require their own catalog coverage. Personal overrides and standalone import preview must remain separate. See [offline replica ownership](offline-replicas.md).
 
 A producer audit identified the dependencies that incremental delivery must cover:
 

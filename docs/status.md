@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-10 resumable catalog HTTP delivery
+
+Development source now exposes authenticated snapshot creation/resumption, immutable pages and owned release through three versioned routes with generated OpenAPI/TypeScript. Retrying creation preserves the original handle, facts and expiry. Release permits owned cleanup after a grant is revoked; foreign cleanup cannot remove another account's data. Collection cursors and offline operations remain separate.
+
+The Core lifecycle extension passes an independent 26-case repeat, including retained SQL cancellation and actual runtime closure. The HTTP adapter passes ten actual Router/TCP cases, independently repeated in 6.49 seconds, with near-limit escaped pages, authority/origin checks, expiry and retry after a partially consumed committed response. Three fresh reviews, strict server checks, formatting, both TypeScript checks and byte-for-byte contract regeneration pass. These are scoped checks after the earlier 261-case run, not a repeated complete suite.
+
+Private client installation, catalog change delivery, populated collection projection and desktop remote mode remain unfinished. The local running image, VPS, desktop packages and browser UI are unchanged. See [catalog ownership and evidence](catalog-replication.md).
+
 ## 2026-11-10 combined catalog and metadata-write qualification
 
 The integrated snapshot, migration 0093 and replica-account erasure correction pass 261 selected cases across twelve result groups, with one opt-in scan-speed measurement ignored because it requires `BENCH_LIBRARY`. This includes all 155 core unit cases, 56 active indexing cases, public catalog/account/replica/restoration checks, historical source/playlist upgrades and actual server shutdown/Router checks. Strict Core all-target and scoped server Clippy, workspace formatting and unchanged-source verification pass. This is not the complete Rust/browser/platform release suite.
@@ -12,7 +20,7 @@ All changes remain development source. The local running image, VPS, desktop pac
 
 ## 2026-11-10 bounded local catalog snapshots
 
-Development source only. Core can export immutable local recording/source facts with inherited fields, source-specific release appearances and explicit server-relay observations. It retains authorization, SQL, cancellation and bounded pages behind one capability. The mode is `snapshot_only`; its collection watermark does not acknowledge offline operations or advance a collection cursor. HTTP delivery, profile installation and catalog change catch-up remain open.
+Development source only. Core can export immutable local recording/source facts with inherited fields, source-specific release appearances and explicit server-relay observations. It retains authorization, SQL, cancellation and bounded pages behind one capability. The mode is `snapshot_only`; its collection watermark does not acknowledge offline operations or advance a collection cursor. The later HTTP extension is recorded above. Profile installation and catalog change catch-up remain open.
 
 Six unit cases, six public capability cases and actual shared-runtime shutdown pass. An independent run also repeats the existing account-deletion and replica regressions against unchanged source. The scale fixture verifies 100,000 recordings, distinct release identities, metadata rows and file coordinates under absent, exact restored stale and fresh statistics, then reads every identity through 500 public pages. Construction requires about 24.1 million VM steps and takes 3.26 to 3.35 seconds in the independent development run. One owned WAV is ready; the other locators are synthetic unavailable history. This is not a full scan, p95 or multi-listener release result.
 
