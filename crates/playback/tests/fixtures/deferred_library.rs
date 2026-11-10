@@ -525,6 +525,17 @@ impl Run {
         }
         self.owner.close().await.unwrap();
         self.capture.after(self.capture.mark(), 0.3);
-        (self.capture.all(), self.events, self.f)
+        let captured = self.capture.all();
+        if let Some(root) = std::env::var_os("HITO_CAPTURE_DUMP") {
+            let thread = std::thread::current();
+            let case = thread.name().unwrap_or("deferred");
+            hito_audio::test_support::continuity::dump(case, &captured);
+            std::fs::write(
+                std::path::Path::new(&root).join(format!("{case}.json")),
+                self.events.text(),
+            )
+            .unwrap();
+        }
+        (captured, self.events, self.f)
     }
 }
