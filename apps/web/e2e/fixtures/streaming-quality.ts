@@ -126,9 +126,22 @@ export async function playFixture(page: Page, title: string) {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Library", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: `Play ${title}`, exact: true })
-    .click();
+  const search = page.getByRole("textbox", {
+    name: "Search library",
+    exact: true,
+  });
+  await search.fill(title);
+  await search.press("Enter");
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/library" && url.searchParams.get("q") === title,
+  );
+  await expect(page.locator("main").getByRole("article")).toHaveCount(1);
+  const play = page.getByRole("button", {
+    name: `Play ${title}`,
+    exact: true,
+  });
+  await expect(play).toHaveCount(1);
+  await play.click();
   await expect(dock(page)).toContainText(title);
 }
 
