@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow, ToSchema)]
 pub struct User {
     pub id: String,
     pub username: String,
@@ -88,14 +88,14 @@ impl Actor {
     }
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct AuthSession {
     pub token: String,
     pub user: User,
