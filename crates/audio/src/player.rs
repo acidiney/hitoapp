@@ -80,12 +80,12 @@ impl Player {
             tracing::dispatcher::with_default(&dispatch, || {
             let _entered = span.enter();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                worker::run(decoder, receiver, worker_state.clone(), ready.clone(), rates)
+                worker::run(id, decoder, receiver, worker_state.clone(), ready.clone(), rates)
             })).unwrap_or(Err(Error::Worker));
             if let Err(error) = result {
                 worker_state.fail(error);
                 let _ = ready.try_send(Err(error));
-                tracing::warn!(event = "audio_worker_failed", error_kind = ?error, "Audio worker failed");
+                tracing::warn!(event = "audio_worker_failed", audio_id = id, error_kind = ?error, "Audio worker failed");
             }
             result
             })

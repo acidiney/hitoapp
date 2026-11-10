@@ -40,6 +40,7 @@ pub(crate) enum Control {
 }
 
 pub(crate) fn run(
+    audio_id: u64,
     decoder: Decoder,
     commands: Receiver<Control>,
     state: Arc<State>,
@@ -143,6 +144,7 @@ pub(crate) fn run(
                 return Err(Error::Output);
             }
             last_reset = target;
+            let previous_callbacks = state.callbacks.load(Ordering::Acquire);
             output.take();
             state.output_failure.store(0, Ordering::Release);
             epoch = reposition(&mut decoder, &state, target)?;
@@ -154,7 +156,12 @@ pub(crate) fn run(
             state.recovered_xruns.store(xruns, Ordering::Release);
             tracing::warn!(
                 event = "audio_output_recovered",
+                audio_id,
                 xruns,
+                target_position_ns = nanos(target),
+                track = observed.track,
+                recovery_attempt = resets,
+                previous_callbacks,
                 "Audio output underrun recovered at the last presented position"
             );
         }
