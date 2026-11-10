@@ -1,10 +1,16 @@
 # Implementation status
 
+## 2026-11-10 streaming-quality HTTP delivery
+
+Local development work, not deployed. Authenticated audio routes now negotiate quality through HEAD and deliver strict converted AAC through GET. A failed conversion returns 409 so the client can explicitly retry original audio without mistaking its position for a converted segment. Original byte ranges remain intact. Query types, quality values and response headers are exported through actual Rust OpenAPI and generated TypeScript.
+
+Thirteen new Router cases and two unchanged catalog audio regressions pass. An independent Docker run repeats all thirteen new cases. The checks include real decoded AAC, offsets, low-bitrate preservation, converter startup failure, validation, revoked/cancelled bodies, remote passthrough, server-managed downloads, original ranges and private correlated logs. Independent source review found no defects; scoped strict server Clippy passed. Browser integration and real browser audio acceptance remain in progress. See [the HTTP contract and evidence](audio-conversion.md#http-contract).
+
 ## 2026-11-10 authorized conversion core
 
 Local development work, not deployed. Core can preserve original audio or convert local/server-managed files to AAC at a 256 or 128 kbit/s target. Unknown profiles and already-small lossy streams keep the original. Child owners retain capacity through termination, watch revocation even without consumer reads, and check authority before delivering prefetched bytes. Scan and conversion admission are independent.
 
-Docker passed 51 playback cases, including 19 conversion cases, one log privacy case, two inspection-command regressions and three admission-limit unit cases. Four new behavior failures were reproduced before their fixes. Scoped strict Clippy and workspace formatting are clean. HTTP delivery, browser settings and real decoded-audio seeking are still pending; provider/native integration and release gates remain open. See [ownership, evidence and remaining work](audio-conversion.md).
+Docker passed 51 playback cases, including 19 conversion cases, one log privacy case, two inspection-command regressions and three admission-limit unit cases. Four new behavior failures were reproduced before their fixes. Scoped strict Clippy and workspace formatting are clean. HTTP delivery is qualified above; browser settings and real decoded-audio seeking remain in progress; provider/native integration and release gates remain open. See [ownership, evidence and remaining work](audio-conversion.md).
 
 ## 2026-11-06 one track row everywhere
 
