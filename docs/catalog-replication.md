@@ -104,7 +104,7 @@ A separate stopped-data acceptance now restores a populated catalog profile in L
 
 ## Incremental replication remains open
 
-The wire mode is explicitly `snapshot_only`. `collection_watermark` is an observation of the collection log during construction. It must never advance an existing collection cursor or acknowledge an offline operation. The collection log does not cover every writer of exported catalog fields, so it cannot yet provide catalog catch-up.
+The wire mode is explicitly `snapshot_only`. `collection_watermark` is an observation of the collection log during construction. It must never advance an existing collection cursor or acknowledge an offline operation. The collection log does not cover every writer of exported catalog fields, so it cannot yet provide catalog catch-up. The [selected incremental design](catalog-journal-design.md) records the intended journal, normalized facts, cursor privacy and acceptance boundary.
 
 Durable snapshot installation is implemented at the private Core profile boundary. Incremental synchronization still needs a catalog change journal covering every exported-field writer and resumable change delivery. Populated playlist projection, likes/progress, remote audio ownership and desktop profile selection also remain open. Provider-only recordings require their own catalog coverage. Personal overrides and standalone import preview must remain separate. See [offline replica ownership](offline-replicas.md).
 
