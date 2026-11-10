@@ -1,7 +1,9 @@
-use crate::{Command, Error, Result, Snapshot, Source, SourceStop};
+use crate::{
+    Command, Error, Result, Snapshot, Source, SourceStop, grants::Grants, preparation::Preparation,
+};
 use std::{
     sync::{
-        Mutex,
+        Arc, Mutex,
         mpsc::{Receiver, RecvTimeoutError},
     },
     time::Duration,
@@ -58,11 +60,14 @@ pub(crate) fn run(
     state: watch::Sender<Snapshot>,
     opened: oneshot::Sender<Result<()>>,
     activation: Receiver<()>,
+    grants: Arc<Grants>,
 ) -> Result<()> {
     if stop.requested() {
         return Ok(());
     }
-    let mut player = match hito_audio::Player::open(input) {
+    let mut player = match crate::pcm::decode(input, &mut || stop.requested())
+        .and_then(hito_audio::Player::open_decoder)
+    {
         Ok(player) => player,
         Err(error) => {
             let _ = opened.send(Err(Error::Native(error)));
@@ -84,10 +89,12 @@ pub(crate) fn run(
             Err(RecvTimeoutError::Timeout) => (),
         }
     }
+    let mut preparation = Preparation::default();
     let result = loop {
         if stop.requested() {
             break Ok(());
         }
+        preparation.poll(&mut player, &grants);
         let snapshot = Snapshot::from_audio(player.snapshot());
         let error = snapshot.error;
         publish(&state, snapshot);
@@ -96,7 +103,25 @@ pub(crate) fn run(
         }
         match requests.recv_timeout(Duration::from_millis(25)) {
             Ok(request) if !request.reply.is_closed() => {
-                let result = handle(&mut player, request.order);
+                let result = match request.order {
+                    Order::Next(input) => {
+                        preparation.start(*input, request.reply);
+                        continue;
+                    }
+                    Order::CancelNext => {
+                        let pending = preparation.cancel();
+                        player
+                            .cancel_next()
+                            .map_err(Error::Native)
+                            .map(|cancelled| {
+                                if cancelled {
+                                    grants.withdraw();
+                                }
+                                pending || cancelled
+                            })
+                    }
+                    Order::Command(value) => command(&mut player, value).map(|()| false),
+                };
                 publish(&state, Snapshot::from_audio(player.snapshot()));
                 let _ = request.reply.send(result);
             }
@@ -104,19 +129,12 @@ pub(crate) fn run(
             _ => (),
         }
     };
+    preparation.cancel();
     let closed = player.close().map_err(Error::Native);
     if stop.requested() {
         Ok(())
     } else {
         result.and(closed)
-    }
-}
-
-fn handle(player: &mut hito_audio::Player, order: Order) -> Result<bool> {
-    match order {
-        Order::Command(value) => command(player, value).map(|()| false),
-        Order::Next(input) => player.prepare_next(*input).map_err(Error::Native),
-        Order::CancelNext => player.cancel_next().map_err(Error::Native),
     }
 }
 

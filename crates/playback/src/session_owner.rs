@@ -30,6 +30,7 @@ pub(crate) async fn own(
         },
     };
     state.send_modify(|state| state.status = Status::Starting);
+    let worker_grants = grants.clone();
     let worker_stop = cancel.clone();
     let worker_state = state.clone();
     let (started, mut opening) = oneshot::channel();
@@ -46,6 +47,7 @@ pub(crate) async fn own(
                 worker_state,
                 started,
                 activation,
+                worker_grants,
             )
         })
     });

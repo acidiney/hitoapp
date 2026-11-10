@@ -111,7 +111,6 @@ impl Session {
             .await
             .map_err(|_| Error::Input)?;
         let replaced = self.send(Order::Next(Box::new(input))).await?;
-        self.grants.push(grant, replaced);
         tracing::debug!(
             event = "native_next_input_prepared",
             replaced,
@@ -123,9 +122,6 @@ impl Session {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(native_session = self.id))]
     pub async fn cancel_next(&self) -> Result<bool> {
         let cancelled = self.send(Order::CancelNext).await?;
-        if cancelled {
-            self.grants.withdraw();
-        }
         tracing::debug!(
             event = "native_next_input_cancelled",
             cancelled,

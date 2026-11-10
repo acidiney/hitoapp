@@ -18,6 +18,10 @@ pub use source::Source;
 #[cfg(feature = "device")]
 mod grants;
 #[cfg(feature = "device")]
+mod pcm;
+#[cfg(feature = "device")]
+mod preparation;
+#[cfg(feature = "device")]
 mod session;
 #[cfg(feature = "device")]
 mod session_owner;
