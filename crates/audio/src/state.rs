@@ -25,6 +25,8 @@ pub(crate) struct State {
     pub stopped: AtomicBool,
     pub seek_requested: AtomicBool,
     pub epoch: AtomicU64,
+    #[cfg(feature = "device")]
+    pub ready_epoch: AtomicU64,
     position_epoch: AtomicU64,
     position: AtomicU64,
     base: AtomicU64,
@@ -50,6 +52,8 @@ impl State {
             stopped: AtomicBool::new(false),
             seek_requested: AtomicBool::new(false),
             epoch: AtomicU64::new(1),
+            #[cfg(feature = "device")]
+            ready_epoch: AtomicU64::new(0),
             position_epoch: AtomicU64::new(0),
             position: AtomicU64::new(0),
             base: AtomicU64::new(0),

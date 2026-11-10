@@ -1,5 +1,6 @@
 use crate::{
     AudioFormat, Converter, Decoder, Error, Result,
+    buffering::Buffering,
     device::Output,
     negotiate::Target,
     render::Frame,
@@ -55,6 +56,7 @@ pub(crate) fn run(
     let channels = usize::from(format.channels);
     let (mut producer, output) = Output::start(format, state.clone())?;
     let mut output = Some(output);
+    let mut buffering = Buffering::new(producer.buffer().capacity());
     let _ = ready.send(Ok(format));
     let mut epoch = 1;
     let mut xruns = 0;
@@ -147,6 +149,7 @@ pub(crate) fn run(
             finished = false;
             let (next, replacement) = Output::start(format, state.clone())?;
             producer = next;
+            buffering = Buffering::new(producer.buffer().capacity());
             output = Some(replacement);
             state.recovered_xruns.store(xruns, Ordering::Release);
             tracing::warn!(
@@ -204,6 +207,7 @@ pub(crate) fn run(
                     &state,
                     xruns,
                     &mut deferred,
+                    &mut buffering,
                 )? {
                     pending = Some(control);
                     continue 'decode;
@@ -222,6 +226,7 @@ pub(crate) fn run(
                 &state,
                 xruns,
                 &mut deferred,
+                &mut buffering,
             )? {
                 pending = Some(control);
                 continue;
@@ -256,6 +261,7 @@ fn send(
     state: &State,
     xruns: u64,
     deferred: &mut Deferred,
+    buffering: &mut Buffering,
 ) -> Result<Option<Control>> {
     loop {
         if state.stopped.load(Ordering::Acquire) {
@@ -275,7 +281,10 @@ fn send(
             return Ok(Some(Control::Recover));
         }
         match producer.push(frame) {
-            Ok(()) => return Ok(None),
+            Ok(()) => {
+                buffering.queued(frame, state);
+                return Ok(None);
+            }
             Err(rtrb::PushError::Full(value)) => frame = value,
         }
         if let Some(control) = commands
