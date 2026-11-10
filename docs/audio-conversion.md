@@ -1,16 +1,16 @@
 # Audio conversion
 
-The development core and authenticated audio API can open a local or server-managed file at a selected streaming quality. Browser integration is in progress. This capability is not deployed or qualified as a release feature yet.
+The local development server offers per-browser streaming quality for suitable local and server-managed files. Core, HTTP and controlled Chromium/WebKit workflows are qualified in Docker. Provider conversion, native quality controls and platform release acceptance remain unfinished.
 
 ## Quality policy
 
 `PlaybackAccess::open_quality_audio` accepts a `QualityRequest` with one of these choices:
 
-| Choice | Result when conversion is suitable |
-| --- | --- |
+| Choice                | Result when conversion is suitable              |
+| --------------------- | ----------------------------------------------- |
 | Original, the default | Original bytes and existing byte-range behavior |
-| High | ADTS AAC with a target of 256 kbit/s |
-| Data saver | ADTS AAC with a target of 128 kbit/s |
+| High                  | ADTS AAC with a target of 256 kbit/s            |
+| Data saver            | ADTS AAC with a target of 128 kbit/s            |
 
 The bitrate is an encoder target. It is not a promise of an exact output byte count.
 
@@ -58,7 +58,28 @@ Original GETs retain byte ranges and the existing If-Range restart behavior. Con
 
 A converted request can start at a time offset up to seven days. The resulting stream represents the remaining segment, not the whole recording. A HEAD request probes eligibility and describes conversion without starting an encoder.
 
-The core may return `QualityAudio::Original` after an inconclusive profile or a converter startup failure. Its reason tells the caller why. An original result does not apply the conversion time offset. The HTTP contract above makes the effective representation explicit. Browser integration must preserve the full recording duration, absolute progress, and paused or playing intent when it reopens at another offset.
+The core may return `QualityAudio::Original` after an inconclusive profile or a converter startup failure. Its reason tells the caller why. An original result does not apply the conversion time offset. The HTTP contract above makes the effective representation explicit.
+
+## Browser ownership
+
+Settings → Playback → Streaming quality offers Original, High and Data saver. Original is the default. The choice belongs to this browser and origin, survives reload, and takes effect on a subsequent source open. Changing it preserves the current stream and invalidates prepared audio with an older choice. If browser storage refuses writes, the selection still works for the current session. Native settings hide this browser-only control.
+
+```mermaid
+flowchart TD
+    initial[Initial playback position] --> stream[Browser stream owner]
+    setting[Browser quality choice] --> stream
+    stream --> head[Negotiate through HEAD]
+    head --> converted[Converted segment]
+    head --> original[Original audio]
+    converted --> position[Segment offset plus native clock]
+    position --> consumers[Progress, history and Media Session]
+    later[Later explicit seek] --> stream
+    converted -->|Conversion or decoding fails| original
+```
+
+The stream owner applies the initial position once. A later explicit seek received during negotiation or metadata loading remains pending. Converted seeks open another segment while preserving the full recording timeline, absolute progress and play/pause intent. A known recording duration remains the full duration; an unknown duration is learned only from a segment starting at zero.
+
+A failed converted representation gets one explicit retry at the same source's original URL. Original audio receives the absolute seek after metadata. If that also fails, normal bounded recording-source recovery applies. Cancellation retires obsolete negotiation and media work. Player construction installs no listeners; committed activation and cleanup support React Strict Mode replay.
 
 ## Evidence and remaining work
 
@@ -66,4 +87,17 @@ On 10 November 2026, Docker checks passed 51 public playback cases, including 19
 
 Fixtures use temporary SQLite, deterministic owned audio, real FFmpeg/ffprobe and controlled failing tool wrappers. They cover both bitrate classes, time offsets, low-bitrate preservation, authentication, capacity, child cancellation, and safe logs. The HTTP layer also passed thirteen new Router cases and two unchanged original-audio regressions. An independent Docker run repeated all thirteen new cases. They cover both bitrate classes, HEAD, strict fallback, validation, revoked and cancelled streams, remote passthrough, a server-managed download, original ranges, private logs and retained request correlation. Scoped server Clippy passed. Actual OpenAPI export changed only the audio route and the new quality schema; the generated optional query fields and inclusive offset maximum were verified before TypeScript generation.
 
-This evidence covers core and HTTP boundaries in Linux Docker. It does not prove real browser decoding/seeking, provider conversion, native quality settings, Windows/macOS conversion, packaging, live sources, or release performance. Those remain under the [release plan](release-plan.md).
+The final browser change passed 1,865 tests across 379 files, both TypeScript configurations, scoped ESLint and the production build. Eight new cases reproduced and corrected duplicate converted opens after resume: the playback owner had reapplied an initial seek already handled by the stream owner. The directed regression set passed 64 cases, and independent source review approved the fix.
+
+The release image from source `e80faf8d` passed these separate, fresh-server workflows with owned 90-second WAV fixtures:
+
+| Engine              | Qualified behavior                                                                                                                            | Case duration |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| WebKit 26           | Actual High and Data saver AAC decoding, forward/reverse segment seeks, pause/resume, uninterrupted navigation and checkpoint reload          | 21.1 seconds  |
+| Pinned Chromium 141 | Exactly three expected AAC codec failures, each followed by same-source Original playback, range verification, seeking, navigation and reload | 18.4 seconds  |
+
+WebKit retained the 90-second timeline when its native segment clock restarted. Its restored segment opened once, delivered a complete 429,785-byte AAC body and advanced to an absolute position of about 28.1 seconds from a 26-second start. Chromium's Original responses matched the owned WAV bytes through independent full-body and browser-range replays. Both workflows checked actual media clock advancement, played ranges and readiness, no unexpected media or JavaScript errors, and no source-refresh, resolution or Download mutations. Download intent was absent before and after playback.
+
+A separate actual decode probe established that the pinned Chromium test binary lacks AAC support, while WebKit decodes it. This is an explicit engine matrix, not a runtime skip and not a claim about production Google Chrome. Native browser responses can remain open while playback buffers; Original byte checks use independent completed HTTP reads rather than waiting for the track to finish.
+
+The normal local server now uses this verified image after a stopped whole-volume backup and a restored-clone startup, SQLite integrity and retained-data audit. This is a development deployment. Physical Safari/phone behavior, provider conversion, native quality settings, Windows/macOS conversion, packaging, live sources and release performance remain under the [release plan](release-plan.md).

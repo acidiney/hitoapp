@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-10 browser streaming quality deployed locally
+
+The normal local server runs `hito-server:quality-e80faf8d`, built from an isolated committed source snapshot. Settings → Playback now offers a browser-local Original, High or Data saver choice for suitable local and server-managed audio. Current playback continues when the choice changes. Converted seeks and recovery retain absolute time and the full recording duration; a failed conversion or unsupported decoder explicitly retries the same Original source.
+
+The final source passed 1,865 web cases across 379 files, both TypeScript checks, scoped ESLint, production build and independent source review. Eight new regressions reproduced and fixed an unnecessary second converted open after checkpoint reload. Fresh isolated WebKit and Chromium workflows passed on the same image. WebKit actually decoded AAC and restored one complete converted segment; the pinned Chromium binary's expected AAC failures each recovered to Original. Both checked real clock advancement, the full timeline, seeking, pause/resume, navigation, reload and absence of implicit downloads. See [browser behavior and qualification limits](audio-conversion.md#browser-ownership).
+
+A stopped whole-volume backup was restored into a disposable clone. All 50 restored files matched their archived bytes, modes and ownership; SQLite integrity and foreign keys passed. Candidate startup was healthy, and the nine selected account/library tables retained all 6,097 rows and content digests. A fresh final backup preceded the local replacement. The normal data volume, connection settings and running plugins were preserved, and the new server reports ready. No database migration changed in this slice. The VPS was not updated. Provider/native integration, physical devices and public release gates remain open.
+
 ## 2026-11-10 synchronization wire preparation
 
 The existing Rust synchronization and login types can now encode client requests and decode server replies. Incoming synchronization events reject ambiguous operation/publication envelopes and unknown fields. Client batches still reject server publications, and the existing `device_id` wire key is unchanged.
@@ -8,15 +16,15 @@ Four new public-boundary cases and eight existing collection regressions pass in
 
 ## 2026-11-10 streaming-quality HTTP delivery
 
-Local development work, not deployed. Authenticated audio routes now negotiate quality through HEAD and deliver strict converted AAC through GET. A failed conversion returns 409 so the client can explicitly retry original audio without mistaking its position for a converted segment. Original byte ranges remain intact. Query types, quality values and response headers are exported through actual Rust OpenAPI and generated TypeScript.
+Authenticated audio routes negotiate quality through HEAD and deliver strict converted AAC through GET. A failed conversion returns 409 so the client can explicitly retry original audio without mistaking its position for a converted segment. Original byte ranges remain intact. Query types, quality values and response headers are exported through actual Rust OpenAPI and generated TypeScript. This contract is included in the local development deployment above.
 
-Thirteen new Router cases and two unchanged catalog audio regressions pass. An independent Docker run repeats all thirteen new cases. The checks include real decoded AAC, offsets, low-bitrate preservation, converter startup failure, validation, revoked/cancelled bodies, remote passthrough, server-managed downloads, original ranges and private correlated logs. Independent source review found no defects; scoped strict server Clippy passed. Browser integration and real browser audio acceptance remain in progress. See [the HTTP contract and evidence](audio-conversion.md#http-contract).
+Thirteen new Router cases and two unchanged catalog audio regressions pass. An independent Docker run repeats all thirteen new cases. The checks include real decoded AAC, offsets, low-bitrate preservation, converter startup failure, validation, revoked/cancelled bodies, remote passthrough, server-managed downloads, original ranges and private correlated logs. Independent source review found no defects; scoped strict server Clippy passed. Browser acceptance is recorded above. See [the HTTP contract and evidence](audio-conversion.md#http-contract).
 
 ## 2026-11-10 authorized conversion core
 
-Local development work, not deployed. Core can preserve original audio or convert local/server-managed files to AAC at a 256 or 128 kbit/s target. Unknown profiles and already-small lossy streams keep the original. Child owners retain capacity through termination, watch revocation even without consumer reads, and check authority before delivering prefetched bytes. Scan and conversion admission are independent.
+Core can preserve original audio or convert local/server-managed files to AAC at a 256 or 128 kbit/s target. Unknown profiles and already-small lossy streams keep the original. Child owners retain capacity through termination, watch revocation even without consumer reads, and check authority before delivering prefetched bytes. Scan and conversion admission are independent. This capability is included in the local development deployment above.
 
-Docker passed 51 playback cases, including 19 conversion cases, one log privacy case, two inspection-command regressions and three admission-limit unit cases. Four new behavior failures were reproduced before their fixes. Scoped strict Clippy and workspace formatting are clean. HTTP delivery is qualified above; browser settings and real decoded-audio seeking remain in progress; provider/native integration and release gates remain open. See [ownership, evidence and remaining work](audio-conversion.md).
+Docker passed 51 playback cases, including 19 conversion cases, one log privacy case, two inspection-command regressions and three admission-limit unit cases. Four new behavior failures were reproduced before their fixes. Scoped strict Clippy and workspace formatting passed at core qualification. HTTP delivery and browser acceptance are recorded above; provider/native integration and release gates remain open. See [ownership, evidence and remaining work](audio-conversion.md).
 
 ## 2026-11-06 one track row everywhere
 
