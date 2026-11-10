@@ -756,6 +756,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Begin or resume an immutable snapshot of local recording and source facts. Snapshot-only metadata does not advance collection synchronization. */
+        post: operations["catalog_snapshot_begin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/snapshots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Release this account's snapshot. Unknown, expired and foreign handles are idempotent; current library membership is not required for owned cleanup. */
+        delete: operations["catalog_snapshot_release"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/snapshots/{id}/pages/{ordinal}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Read an immutable snapshot page while its lifetime and current library authority remain valid. */
+        get: operations["catalog_snapshot_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/community/credentials": {
         parameters: {
             query?: never;
@@ -3540,6 +3591,9 @@ export interface components {
         BeginArtistReview: {
             provider: components["schemas"]["MetadataProvider"];
         };
+        BeginCatalogSnapshot: {
+            library_id: string;
+        };
         BrowseDirectories: {
             directory: components["schemas"]["DirectoryRef"];
             /** Format: int32 */
@@ -3613,6 +3667,31 @@ export interface components {
         CatalogReleaseGroupKind: "album" | "ep" | "single" | "broadcast" | "other";
         /** @enum {string} */
         CatalogReleaseTypeFilter: "album" | "ep" | "single" | "other";
+        CatalogSnapshot: {
+            account_id: string;
+            /** Format: int64 */
+            collection_watermark: number;
+            /** Format: int64 */
+            expires_at: number;
+            /** Format: uuid */
+            id: string;
+            library_id: string;
+            mode: components["schemas"]["CatalogSnapshotMode"];
+            /** Format: int64 */
+            page_count: number;
+            recording_count: number;
+        };
+        /** @enum {string} */
+        CatalogSnapshotMode: "snapshot_only";
+        CatalogSnapshotPage: {
+            /** Format: int64 */
+            next_ordinal?: number | null;
+            /** Format: int64 */
+            ordinal: number;
+            recordings: components["schemas"]["LocalRecordingFact"][];
+            /** Format: uuid */
+            snapshot_id: string;
+        };
         /** @enum {string} */
         CatalogSort: "title" | "recent" | "artist" | "year";
         /** @enum {string} */
@@ -4125,6 +4204,35 @@ export interface components {
         LibraryReleaseGroup: {
             albums: components["schemas"]["LibraryAlbum"][];
             release_group_id: string;
+        };
+        LocalRecordingFact: {
+            artist: string;
+            /** Format: int64 */
+            duration_ms: number;
+            id: string;
+            library_id: string;
+            sources: components["schemas"]["LocalSourceFact"][];
+            title: string;
+        };
+        LocalReleaseAppearance: {
+            artist?: string | null;
+            /** Format: int64 */
+            disc_number?: number | null;
+            entry_id: string;
+            id: string;
+            title: string;
+            /** Format: int64 */
+            track_number?: number | null;
+        };
+        LocalSourceFact: {
+            artist: string;
+            /** Format: int64 */
+            duration_ms: number;
+            id: string;
+            observation_id?: string | null;
+            release?: components["schemas"]["LocalReleaseAppearance"] | null;
+            server_relay: components["schemas"]["ServerRelayObservation"];
+            title: string;
         };
         LockPageProps: {
             account_id: string;
@@ -5379,6 +5487,8 @@ export interface components {
             context: components["schemas"]["ArtistReviewContext"];
             provider_artist_id: string;
         };
+        /** @enum {string} */
+        ServerRelayObservation: "ready" | "unavailable";
         SessionInfo: {
             client?: string | null;
             /** Format: int64 */
@@ -9322,6 +9432,246 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    catalog_snapshot_begin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginCatalogSnapshot"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSnapshot"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    catalog_snapshot_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    catalog_snapshot_page: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                ordinal: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSnapshotPage"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

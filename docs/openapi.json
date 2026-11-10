@@ -4734,6 +4734,313 @@
         ]
       }
     },
+    "/api/v1/catalog/snapshots": {
+      "post": {
+        "description": "Begin or resume an immutable snapshot of local recording and source facts. Snapshot-only metadata does not advance collection synchronization.",
+        "operationId": "catalog_snapshot_begin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginCatalogSnapshot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/snapshots/{id}": {
+      "delete": {
+        "description": "Release this account's snapshot. Unknown, expired and foreign handles are idempotent; current library membership is not required for owned cleanup.",
+        "operationId": "catalog_snapshot_release",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/snapshots/{id}/pages/{ordinal}": {
+      "get": {
+        "description": "Read an immutable snapshot page while its lifetime and current library authority remain valid.",
+        "operationId": "catalog_snapshot_page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ordinal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSnapshotPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/community/credentials": {
       "delete": {
         "operationId": "reset_community_credentials",
@@ -21220,6 +21527,18 @@
         },
         "additionalProperties": false
       },
+      "BeginCatalogSnapshot": {
+        "type": "object",
+        "required": [
+          "library_id"
+        ],
+        "properties": {
+          "library_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "BrowseDirectories": {
         "type": "object",
         "required": [
@@ -21588,6 +21907,92 @@
           "single",
           "other"
         ]
+      },
+      "CatalogSnapshot": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "library_id",
+          "mode",
+          "collection_watermark",
+          "recording_count",
+          "page_count",
+          "expires_at"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "collection_watermark": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "library_id": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/CatalogSnapshotMode"
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "recording_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogSnapshotMode": {
+        "type": "string",
+        "enum": [
+          "snapshot_only"
+        ]
+      },
+      "CatalogSnapshotPage": {
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "ordinal",
+          "recordings"
+        ],
+        "properties": {
+          "next_ordinal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "recordings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocalRecordingFact"
+            }
+          },
+          "snapshot_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "CatalogSort": {
         "type": "string",
@@ -23741,6 +24146,127 @@
             "type": "string"
           }
         }
+      },
+      "LocalRecordingFact": {
+        "type": "object",
+        "required": [
+          "id",
+          "library_id",
+          "title",
+          "artist",
+          "duration_ms",
+          "sources"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "library_id": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocalSourceFact"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocalReleaseAppearance": {
+        "type": "object",
+        "required": [
+          "id",
+          "entry_id",
+          "title"
+        ],
+        "properties": {
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disc_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "entry_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocalSourceFact": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "duration_ms",
+          "server_relay"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "observation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LocalReleaseAppearance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "server_relay": {
+            "$ref": "#/components/schemas/ServerRelayObservation"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "LockPageProps": {
         "type": "object",
@@ -28867,6 +29393,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ServerRelayObservation": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "unavailable"
+        ]
       },
       "SessionInfo": {
         "type": "object",
