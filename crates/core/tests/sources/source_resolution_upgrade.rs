@@ -103,6 +103,9 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     let after_schema = schema(&pool).await;
     for (name, (kind, original)) in before_schema {
         let definition = match name.as_str() {
+            "source_artist_insert" | "source_artist_update" => {
+                collection_artwork_schema::source_artist_trigger_schema::definition(&name)
+            }
             "current_download_authority" => declared_download_definition("VIEW", &name, ";"),
             "download_intent_identity" => declared_download_definition("TRIGGER", &name, "END;"),
             "release_artist_insert"
