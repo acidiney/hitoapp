@@ -1,6 +1,6 @@
 use super::{
-    CatalogReplication, CatalogSnapshotPage, Construction, MAX_EXPORT_BYTES, limit,
-    materialization::Materialized, unavailable,
+    CatalogReplication, CatalogSnapshot, CatalogSnapshotPage, Construction, MAX_EXPORT_BYTES,
+    limit, materialization::Materialized, unavailable,
 };
 use crate::{Actor, Error, Result};
 use std::{
@@ -27,6 +27,33 @@ pub(super) struct Registry {
 }
 
 impl Registry {
+    pub fn resume(
+        &mut self,
+        account: &str,
+        library: &str,
+        grant: &str,
+    ) -> Result<Option<CatalogSnapshot>> {
+        self.expire();
+        if self.closed {
+            return Err(unavailable());
+        }
+        let existing = self.snapshots.iter().find(|(_, snapshot)| {
+            snapshot.materialized.metadata.account_id == account
+                && snapshot.materialized.metadata.library_id == library
+        });
+        match existing {
+            Some((_, snapshot)) if snapshot.grant == grant => {
+                Ok(Some(snapshot.materialized.metadata.clone()))
+            }
+            Some((id, _)) => {
+                let id = *id;
+                self.remove(id);
+                Ok(None)
+            }
+            None => Ok(None),
+        }
+    }
+
     pub fn reserve(&mut self, account: &str, library: &str) -> Result<()> {
         self.expire();
         if self.closed {
@@ -81,6 +108,40 @@ impl Drop for Observer {
 }
 
 impl CatalogReplication {
+    /// Releases an account-owned snapshot without requiring its former library grant.
+    #[tracing::instrument(level="info",skip_all,err(Debug),fields(account_id=actor.id(),snapshot_id=%id))]
+    pub async fn release(&self, actor: &Actor, id: Uuid) -> Result<()> {
+        let started = std::time::Instant::now();
+        actor.require_session()?;
+        actor.require_unlocked()?;
+        if self.registry.lock().map_err(|_| unavailable())?.closed {
+            return Err(unavailable());
+        }
+        let mut fence = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut fence).await?;
+        let removed = {
+            let mut registry = self.registry.lock().map_err(|_| unavailable())?;
+            if registry.closed {
+                return Err(unavailable());
+            }
+            let owned = registry
+                .snapshots
+                .get(&id)
+                .is_some_and(|snapshot| snapshot.materialized.metadata.account_id == actor.id());
+            if owned {
+                registry.remove(id);
+            }
+            owned
+        };
+        fence.commit().await?;
+        tracing::info!(
+            outcome = if removed { "released" } else { "unchanged" },
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Catalog snapshot released"
+        );
+        Ok(())
+    }
+
     #[tracing::instrument(level="debug",skip_all,err(Debug),fields(account_id=actor.id(),snapshot_id=%id,ordinal))]
     pub async fn page(&self, actor: &Actor, id: Uuid, ordinal: u64) -> Result<CatalogSnapshotPage> {
         let (library, expected_grant) = {

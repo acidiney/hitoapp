@@ -44,6 +44,8 @@ pub struct CatalogReplication {
     before_publication: Arc<tokio::sync::Notify>,
     #[cfg(test)]
     before_reader: Arc<tokio::sync::Notify>,
+    #[cfg(test)]
+    before_read_settlement: Arc<tokio::sync::Notify>,
 }
 
 impl CatalogReplication {
@@ -60,9 +62,13 @@ impl CatalogReplication {
             before_publication: Default::default(),
             #[cfg(test)]
             before_reader: Default::default(),
+            #[cfg(test)]
+            before_read_settlement: Default::default(),
         })
     }
 
+    /// Reuses this account's retained snapshot for the current library grant.
+    /// Release it first when a fresh view of the library is needed.
     #[tracing::instrument(level="info",skip_all,err(Debug),fields(account_id=actor.id(),snapshot_id=tracing::field::Empty))]
     pub async fn begin(&self, actor: &Actor, library: &str) -> Result<CatalogSnapshot> {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
@@ -90,8 +96,9 @@ impl CatalogReplication {
         let (cancel, stop) = watch::channel(false);
         let completion = {
             let mut registry = self.registry.lock().map_err(|_| unavailable())?;
-            registry.reserve(actor.id(), library)?;
-            let reservation = retention::Reservation(self.registry.clone());
+            if registry.closed {
+                return Err(unavailable());
+            }
             let owner = actor.id().to_owned();
             let this = self.clone();
             let actor = actor.clone();
@@ -99,7 +106,6 @@ impl CatalogReplication {
             let task = tokio::spawn(
                 async move {
                     let _permit = permit;
-                    let _reservation = reservation;
                     this.construct(&actor, &library, id, deadline, stop)
                         .await
                         .map_err(Arc::new)

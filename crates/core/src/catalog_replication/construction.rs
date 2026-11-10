@@ -1,7 +1,7 @@
 use super::{
     CatalogReplication, CatalogSnapshot, SNAPSHOT_TTL, busy, limit,
     materialization::{self, Materialized},
-    retention::Retained,
+    retention::{Reservation, Retained},
     unavailable,
 };
 use crate::{Actor, Error, Result};
@@ -9,10 +9,24 @@ use sqlx::{Connection, SqliteConnection};
 use tokio::{sync::watch, time::Instant};
 use uuid::Uuid;
 
+enum Prepared {
+    Resume(CatalogSnapshot),
+    Fresh(Materialized),
+}
+
+impl Prepared {
+    fn metadata(&self) -> &CatalogSnapshot {
+        match self {
+            Self::Resume(metadata) => metadata,
+            Self::Fresh(materialized) => &materialized.metadata,
+        }
+    }
+}
+
 struct Budget {
     deadline: Instant,
     stop: watch::Receiver<bool>,
-    started: std::time::Instant,
+    retention_started: Instant,
 }
 
 impl Budget {
@@ -44,7 +58,7 @@ impl CatalogReplication {
         let mut budget = Budget {
             deadline,
             stop,
-            started,
+            retention_started: Instant::now(),
         };
         budget.check()?;
         #[cfg(test)]
@@ -60,19 +74,45 @@ impl CatalogReplication {
             Some(connection) => connection,
             None => SqliteConnection::connect_with(&self.store.pool.connect_options()).await?,
         };
+        let mut reservation: Option<Reservation> = None;
         let outcome = async {
             budget.check()?;
-            let (materialized, grant) = self
-                .read(&mut connection, actor, library, id, &mut budget)
+            let (prepared, grant) = self
+                .read(
+                    &mut connection,
+                    actor,
+                    library,
+                    id,
+                    &mut budget,
+                    &mut reservation,
+                )
                 .await?;
-            self.publish(&mut connection, actor, &grant, materialized, &budget)
-                .await
+            let resumed = matches!(prepared, Prepared::Resume(_));
+            let snapshot = self
+                .publish(&mut connection, actor, &grant, prepared, &budget)
+                .await?;
+            tracing::Span::current().record("snapshot_id", tracing::field::display(snapshot.id));
+            if resumed {
+                tracing::debug!(
+                    outcome = "resumed",
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "Catalog snapshot resumed"
+                );
+            } else {
+                tracing::info!(
+                    recordings = snapshot.recording_count,
+                    pages = snapshot.page_count,
+                    outcome = "ready",
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "Catalog snapshot constructed"
+                );
+            }
+            Ok(snapshot)
         }
         .await;
         match outcome {
             Ok(snapshot) => {
                 *idle = Some(connection);
-                tracing::info!(snapshot_id=%id,recordings=snapshot.recording_count,pages=snapshot.page_count,outcome="ready",elapsed_ms=started.elapsed().as_millis() as u64,"Catalog snapshot constructed");
                 Ok(snapshot)
             }
             Err(error) => {
@@ -89,7 +129,8 @@ impl CatalogReplication {
         library: &str,
         id: Uuid,
         budget: &mut Budget,
-    ) -> Result<(Materialized, String)> {
+        reservation: &mut Option<Reservation>,
+    ) -> Result<(Prepared, String)> {
         budget.check()?;
         let mut tx = connection.begin().await?;
         let result = tokio::select! {
@@ -98,10 +139,22 @@ impl CatalogReplication {
             _=budget.stop.changed()=>Err(busy()),
             result=async {
                 let grant=self.grant(&mut tx,actor,library).await?;
+                {
+                    let mut registry = self.registry.lock().map_err(|_| unavailable())?;
+                    if let Some(snapshot) = registry.resume(actor.id(), library, &grant)? {
+                        return Ok((Prepared::Resume(snapshot), grant));
+                    }
+                    registry.reserve(actor.id(),library)?;
+                }
+                *reservation=Some(Reservation(self.registry.clone()));
                 let materialized=materialization::collect(&mut tx,actor,&self.host,library,id).await?;
-                Ok((materialized,grant))
+                Ok((Prepared::Fresh(materialized),grant))
             }=>result,
         };
+        #[cfg(test)]
+        if result.is_err() {
+            self.before_read_settlement.notify_one();
+        }
         let settled = if result.is_ok() {
             tx.commit().await
         } else {
@@ -117,19 +170,20 @@ impl CatalogReplication {
         connection: &mut SqliteConnection,
         actor: &Actor,
         expected_grant: &str,
-        materialized: Materialized,
+        prepared: Prepared,
         budget: &Budget,
     ) -> Result<CatalogSnapshot> {
         budget.check()?;
-        let id = materialized.metadata.id;
-        let library = materialized.metadata.library_id.clone();
+        let metadata = prepared.metadata().clone();
+        let id = metadata.id;
+        let library = &metadata.library_id;
+        let fresh = matches!(prepared, Prepared::Fresh(_));
         #[cfg(test)]
         self.before_publication.notify_one();
         let mut fence = connection.begin_with("BEGIN IMMEDIATE").await?;
-        let metadata = materialized.metadata.clone();
         let publication: Result<()> = async {
             budget.check()?;
-            if self.grant(&mut fence, actor, &library).await? != expected_grant {
+            if self.grant(&mut fence, actor, library).await? != expected_grant {
                 return Err(Error::NotFound);
             }
             let mut registry = self.registry.lock().map_err(|_| unavailable())?;
@@ -137,18 +191,31 @@ impl CatalogReplication {
             if registry.closed {
                 return Err(unavailable());
             }
-            if materialized.bytes > super::MAX_EXPORT_BYTES {
-                return Err(limit());
+            match prepared {
+                Prepared::Resume(_) => {
+                    if registry
+                        .resume(actor.id(), library, expected_grant)?
+                        .as_ref()
+                        != Some(&metadata)
+                    {
+                        return Err(Error::NotFound);
+                    }
+                }
+                Prepared::Fresh(materialized) => {
+                    if materialized.bytes > super::MAX_EXPORT_BYTES {
+                        return Err(limit());
+                    }
+                    registry.bytes += materialized.bytes;
+                    registry.snapshots.insert(
+                        id,
+                        Retained {
+                            materialized,
+                            grant: expected_grant.to_owned(),
+                            deadline: budget.retention_started + SNAPSHOT_TTL,
+                        },
+                    );
+                }
             }
-            registry.bytes += materialized.bytes;
-            registry.snapshots.insert(
-                id,
-                Retained {
-                    materialized,
-                    grant: expected_grant.to_owned(),
-                    deadline: Instant::from_std(budget.started) + SNAPSHOT_TTL,
-                },
-            );
             Ok(())
         }
         .await;
@@ -158,7 +225,7 @@ impl CatalogReplication {
             fence.rollback().await
         };
         let valid = budget.check();
-        if publication.is_err() || completed.is_err() || valid.is_err() {
+        if fresh && (publication.is_err() || completed.is_err() || valid.is_err()) {
             self.registry.lock().map_err(|_| unavailable())?.remove(id);
         }
         completed?;
