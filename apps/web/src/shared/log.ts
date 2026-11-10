@@ -1,3 +1,5 @@
+import type { Schema } from "./schema";
+
 export type LogLevel = "debug" | "info" | "warn" | "error" | "off";
 export type LogFields = {
   request_id?: string;
@@ -27,6 +29,9 @@ export type LogFields = {
   speed?: number;
   volume?: number;
   enabled?: boolean;
+  generation?: number;
+  quality?: Schema<"StreamQuality">;
+  outcome?: "converted" | "original";
 };
 
 type Sink = (
@@ -69,7 +74,25 @@ const permitted = new Set([
   "speed",
   "volume",
   "enabled",
+  "generation",
+  "quality",
+  "outcome",
 ]);
+
+function permittedValue(key: string, value: unknown) {
+  if (key === "generation")
+    return (
+      typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    );
+  if (key === "quality")
+    return value === "original" || value === "high" || value === "saver";
+  if (key === "outcome") return value === "converted" || value === "original";
+  return (
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  );
+}
 
 export function createLogger(level: LogLevel, sink: Sink) {
   function write(
@@ -80,11 +103,7 @@ export function createLogger(level: LogLevel, sink: Sink) {
     if (priority[severity] < priority[level]) return;
     const safe = Object.fromEntries(
       Object.entries(fields).filter(
-        ([key, value]) =>
-          permitted.has(key) &&
-          (typeof value === "string" ||
-            typeof value === "boolean" ||
-            (typeof value === "number" && Number.isFinite(value))),
+        ([key, value]) => permitted.has(key) && permittedValue(key, value),
       ),
     );
     sink(severity, event, safe);

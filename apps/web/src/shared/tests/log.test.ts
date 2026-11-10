@@ -42,3 +42,36 @@ test("configured levels suppress frequent events and invalid values", () => {
   expect(sink).toHaveBeenCalledTimes(1);
   expect(sink).toHaveBeenCalledWith("warn", "http.failed", { status: 503 });
 });
+
+test("stream workflow logs keep bounded quality outcomes and correlation without private fields", () => {
+  const sink = vi.fn();
+  const log = createLogger("debug", sink);
+  log.debug("playback.stream_opened", {
+    operation_id: "stream-operation",
+    generation: 2,
+    quality: "high",
+    outcome: "converted",
+    duration_ms: 31,
+    title: "Private recording",
+    url: "https://private.test/audio?token=secret",
+    token: "session-secret",
+    path: "/private/music",
+    private_position_ms: 12000,
+  } as LogFields);
+  expect(sink).toHaveBeenLastCalledWith("debug", "playback.stream_opened", {
+    operation_id: "stream-operation",
+    generation: 2,
+    quality: "high",
+    outcome: "converted",
+    duration_ms: 31,
+  });
+  log.debug("playback.stream_fallback", {
+    generation: "private-position",
+    quality: "https://private.test/audio?token=secret",
+    outcome: "Private recording",
+    reason: "converted_audio_failed",
+  } as unknown as LogFields);
+  expect(sink).toHaveBeenLastCalledWith("debug", "playback.stream_fallback", {
+    reason: "converted_audio_failed",
+  });
+});
