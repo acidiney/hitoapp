@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-10 populated catalog backup restoration
+
+Development acceptance now restores a whole stopped data directory containing a private catalog cache, encrypted connection and durable outbox. Separate Core processes verify both cached pages while the configured endpoint is stopped, then reconnect and send exactly the pending rename. Standalone indexed metadata, source provenance, a populated local playlist, likes, progress and history remain exact. Every restored file matches bytes, mode, UID and GID before reopening; the stopped source, archive and external original audio remain unchanged after clone use.
+
+The existing empty-profile case and new populated-catalog case pass together, with strict checks, formatting, fresh independent review and an independent 4.27-second repeat. This is Linux Docker qualification with the external original retained at its original location. Audio relocation, hot backup, physical crash durability and platform packages remain open. No production behavior or deployment changed. See [the restoration boundary](offline-replicas.md#stopped-backup-and-restoration).
+
 ## 2026-11-10 durable private catalog installation
 
 Development source now installs validated local catalog snapshots into a private connection profile and reads the committed metadata/pages after restart without a server. Staging and atomic head replacement preserve the previous cache before publication failures. A retained owner holds admission and authority through SQL settlement after caller cancellation or a failed commit. Migration 0094 adds the generation tables and strict child-first account erasure coverage. Collection cursors, exact offline operations, standalone media and server-versus-client availability remain separate.

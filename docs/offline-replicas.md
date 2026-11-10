@@ -67,7 +67,13 @@ flowchart LR
 
 A Linux Docker acceptance uses separate Core processes before and after restoration. The first process creates a standalone playlist, synchronizes one remote playlist operation and retains an offline rename. Both processes exit before the next archive or preservation check. Before reopening the restored copy, every file matches its source bytes, mode, UID and GID. Restored login and synchronization retain the account, encrypted connection, synchronization client, accepted cursor and exact pending operation. The server sees only the pending rename added to its existing history. The stopped source, archive and external original-audio sentinel remain unchanged.
 
-The public case passes with strict test-target Clippy, formatting, independent source review and an independent repeat. This qualifies the stated stopped-data workflow for empty-playlist replicas in Linux Docker. It does not establish online backup, indexed-media restoration, physical power-loss recovery or macOS/Windows package acceptance.
+The original public case passes with strict test-target Clippy, formatting, independent source review and an independent repeat. It qualifies the stated stopped-data workflow for empty-playlist replicas in Linux Docker.
+
+A second acceptance installs two catalog pages containing exact source/observation/release facts and ready/unavailable server-relay observations. Separate Core processes seed and reopen the data, and the configured TCP endpoint has no listener while the restored process reads every cached page. The source process has exited before archiving; a fresh empty restore matches every file byte, mode, UID and GID before reopening. The gate drains its forwarding tasks before shutdown.
+
+Restoration retains the remote account, encrypted binding, client identity, accepted cursor and exact pending rename. Reconnecting sends only that rename once. The case also preserves indexed standalone metadata, provenance, a populated local playlist, likes, progress and history, with no cross-account cache access. The original WAV remains outside the archive at its original location and is unchanged, as are the stopped source and archive after the restored clone is used. Expired remote snapshot lease metadata does not expire the offline cache.
+
+Both cases pass together, with strict scoped Clippy, formatting, fresh source review and an independent repeat of 4.27 seconds. This adds stopped Linux restoration of a populated catalog cache and indexed metadata. It does not establish audio relocation/restoration, hot backup, physical power-loss recovery or macOS/Windows package acceptance.
 
 ## Qualification and remaining work
 

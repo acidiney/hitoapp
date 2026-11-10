@@ -100,7 +100,7 @@ Independent integrated verification also passes all 158 Core unit cases and the 
 
 The cancellation tests exercise twelve dropped callers, a blocked profile writer, actual deferred-foreign-key commit failure and a held SQLite rollback hook. Admission and the control guard remain held until the worker settles, the retained owner reaps its work entry, and the previous head remains readable. Quota tests count actual padded HTTP bytes at the export/profile limits without constructing one aggregate client buffer.
 
-A 100,000-record client-install performance run, physical SQLite/WAL growth and disk exhaustion, populated-catalog backup/restoration, platform packages, remote audio and desktop profile selection remain unverified or unfinished. No running server or desktop package is updated by this source qualification.
+A separate stopped-data acceptance now restores a populated catalog profile in Linux Docker, with two exact pages, private ownership, indexed standalone metadata and immutable pending-operation preservation. It retains the original external audio location; audio relocation, hot backup and physical platforms remain open. See [stopped restoration](offline-replicas.md#stopped-backup-and-restoration). A 100,000-record client-install performance run, physical SQLite/WAL growth and disk exhaustion, platform packages, remote audio and desktop profile selection remain unverified or unfinished. No running server or desktop package is updated by this source qualification.
 
 ## Incremental replication remains open
 
