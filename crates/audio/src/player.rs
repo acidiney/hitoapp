@@ -49,22 +49,26 @@ pub struct Player {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
     pub fn open(input: impl Input + 'static) -> Result<Self> {
+        Self::open_decoder(Decoder::open(input)?)
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
+    pub fn open_decoder(decoder: Decoder) -> Result<Self> {
         #[cfg(feature = "test-support")]
         let rates = crate::test_support::restricted_output_rates();
         #[cfg(not(feature = "test-support"))]
         let rates = None;
-        Self::start(input, rates)
+        Self::start(decoder, rates)
     }
 
     #[cfg(feature = "test-support")]
     pub fn open_with_output_rates(input: impl Input + 'static, rates: &[u32]) -> Result<Self> {
-        Self::start(input, Some(rates.to_vec()))
+        Self::start(Decoder::open(input)?, Some(rates.to_vec()))
     }
 
-    fn start(input: impl Input + 'static, rates: Option<Vec<u32>>) -> Result<Self> {
+    fn start(decoder: Decoder, rates: Option<Vec<u32>>) -> Result<Self> {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("audio_id", id);
-        let decoder = Decoder::open(input)?;
         let format = decoder.format();
         let state = Arc::new(State::new());
         let (commands, receiver) = mpsc::sync_channel(1);
@@ -205,13 +209,22 @@ impl Player {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
     pub fn prepare_next(&mut self, input: impl Input + 'static) -> Result<bool> {
+        self.prepare(|| Decoder::open(input))
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
+    pub fn prepare_next_decoder(&mut self, decoder: Decoder) -> Result<bool> {
+        self.prepare(|| Ok(decoder))
+    }
+
+    fn prepare(&mut self, open: impl FnOnce() -> Result<Decoder>) -> Result<bool> {
         if self.state.stopped.load(Ordering::Acquire) {
             return Err(Error::Interrupted);
         }
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
-        let decoder = Decoder::open(input)?;
+        let decoder = open()?;
         let format = decoder.format();
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
