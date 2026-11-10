@@ -6,7 +6,11 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use hito_audio::test_support::{capture::Capture, continuity::counter};
+use hito_audio::test_support::{
+    capture::Capture,
+    continuity::counter,
+    output_witness::{OutputReport, OutputWitness},
+};
 use hito_core::{
     Actor, AdoptProviderRecording, Credentials, InstallPlugin, OfferPluginService, PrepareSource,
     Search, Services, test_support::support,
@@ -379,6 +383,7 @@ pub struct Run {
     pub capture: Capture,
     sequence: u64,
     worker: Option<tokio::task::JoinHandle<()>>,
+    witness: Option<OutputWitness>,
 }
 
 impl Run {
@@ -394,6 +399,15 @@ impl Run {
                 .with_writer(move || writer.clone())
                 .finish(),
         );
+        let witness = std::env::var("HITO_OUTPUT_WITNESS")
+            .is_ok_and(|value| value == "1")
+            .then(|| {
+                let destination = std::env::var_os("HITO_CAPTURE_DUMP")
+                    .expect("the output witness requires an owned artifact directory");
+                let destination = std::path::Path::new(&destination);
+                assert!(destination.is_absolute() && destination.is_dir());
+                OutputWitness::begin(30 * RATE as usize, 8192).unwrap()
+            });
         let capture = Capture::open();
         let (player, owner) =
             tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));
@@ -433,6 +447,7 @@ impl Run {
             capture,
             sequence: 0,
             worker,
+            witness,
         };
         run.send(PlayerAction::Replace {
             recordings,
@@ -530,6 +545,12 @@ impl Run {
             let thread = std::thread::current();
             let case = thread.name().unwrap_or("deferred");
             hito_audio::test_support::continuity::dump(case, &captured);
+            if let Some(witness) = &self.witness {
+                let output = witness
+                    .finish()
+                    .expect("all output writers must join before export");
+                dump_callback_output(std::path::Path::new(&root), case, &output);
+            }
             std::fs::write(
                 std::path::Path::new(&root).join(format!("{case}.json")),
                 self.events.text(),
@@ -538,4 +559,42 @@ impl Run {
         }
         (captured, self.events, self.f)
     }
+}
+
+fn dump_callback_output(root: &std::path::Path, case: &str, output: &OutputReport) {
+    hito_audio::test_support::continuity::dump(&format!("{case}.callback"), &output.samples);
+    let callbacks: Vec<Value> = output
+        .callbacks
+        .iter()
+        .map(|block| {
+            json!({
+                "owner": block.owner,
+                "generation": block.generation,
+                "sequence": block.sequence,
+                "offset": block.offset,
+                "frames": block.frames,
+                "sample_rate": block.sample_rate,
+                "channels": block.channels,
+                "first_bits": block.first.to_bits(),
+                "last_bits": block.last.to_bits(),
+                "zeroes": block.zeroes,
+                "xruns": block.xruns,
+                "epoch": block.epoch,
+                "callback_ns": block.callback_ns,
+                "playback_ns": block.playback_ns,
+            })
+        })
+        .collect();
+    let metadata = json!({
+        "version": 1,
+        "owner_identity": "witness-local",
+        "clock_origin": "first callback of each generation",
+        "sample_count": output.samples.len(),
+        "callbacks": callbacks,
+    });
+    std::fs::write(
+        root.join(format!("{case}.callback.json")),
+        serde_json::to_vec(&metadata).unwrap(),
+    )
+    .unwrap();
 }
