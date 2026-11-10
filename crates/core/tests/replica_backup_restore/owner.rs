@@ -65,7 +65,7 @@ pub async fn run(stage: &str) {
     drop(services);
 }
 
-async fn seed(services: &Services, actor: &Actor, endpoint: String) -> Proof {
+pub(super) async fn seed(services: &Services, actor: &Actor, endpoint: String) -> Proof {
     let standalone = Uuid::new_v4();
     let standalone_operation = Uuid::new_v4();
     services

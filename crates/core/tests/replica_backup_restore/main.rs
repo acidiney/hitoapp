@@ -1,6 +1,10 @@
 #![cfg(target_os = "linux")]
 
 mod archive;
+mod catalog;
+mod catalog_fixture;
+mod catalog_owner;
+mod catalog_standalone;
 mod owner;
 #[allow(dead_code)]
 #[path = "../replicas/fixture.rs"]
