@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-10 catalog installation scale and disk recovery
+
+The private catalog cache now has Linux Docker acceptance for 100,000 recording/source/release facts across 500 HTTP pages, followed by exact offline reads after restart. A dedicated 64 MiB tmpfs case reaches real ENOSPC through allocated regular-file writes. The replacement installation fails safely, every fact in the old committed catalog remains readable, and the identical replacement succeeds after removing only the owned filler. Original audio, standalone state, the exact pending operation, synchronization client identity and collection cursor remain intact.
+
+Fresh review corrected two test-oracle gaps before acceptance: preservation checks no longer replay the pending operation before inspecting it, and client identity is compared with its original connection-time value. An independent repeat passes both normal cases in 14.75 seconds and the explicitly enabled disk case in 2.32 seconds, with strict Clippy and formatting. The reusable Docker runner checks exact test counts and resource budgets. These are synthetic catalog and Linux storage checks, not the 100,000-file, ten-account, five-listener or p95 release gates. No deployed server changed. See [storage evidence and reproduction](catalog-replication.md#client-storage-qualification).
+
 ## 2026-11-10 populated catalog backup restoration
 
 Development acceptance now restores a whole stopped data directory containing a private catalog cache, encrypted connection and durable outbox. Separate Core processes verify both cached pages while the configured endpoint is stopped, then reconnect and send exactly the pending rename. Standalone indexed metadata, source provenance, a populated local playlist, likes, progress and history remain exact. Every restored file matches bytes, mode, UID and GID before reopening; the stopped source, archive and external original audio remain unchanged after clone use.

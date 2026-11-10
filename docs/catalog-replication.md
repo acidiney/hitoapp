@@ -100,7 +100,39 @@ Independent integrated verification also passes all 158 Core unit cases and the 
 
 The cancellation tests exercise twelve dropped callers, a blocked profile writer, actual deferred-foreign-key commit failure and a held SQLite rollback hook. Admission and the control guard remain held until the worker settles, the retained owner reaps its work entry, and the previous head remains readable. Quota tests count actual padded HTTP bytes at the export/profile limits without constructing one aggregate client buffer.
 
-A separate stopped-data acceptance now restores a populated catalog profile in Linux Docker, with two exact pages, private ownership, indexed standalone metadata and immutable pending-operation preservation. It retains the original external audio location; audio relocation, hot backup and physical platforms remain open. See [stopped restoration](offline-replicas.md#stopped-backup-and-restoration). A 100,000-record client-install performance run, physical SQLite/WAL growth and disk exhaustion, platform packages, remote audio and desktop profile selection remain unverified or unfinished. No running server or desktop package is updated by this source qualification.
+A separate stopped-data acceptance now restores a populated catalog profile in Linux Docker, with two exact pages, private ownership, indexed standalone metadata and immutable pending-operation preservation. It retains the original external audio location; audio relocation, hot backup and physical platforms remain open. See [stopped restoration](offline-replicas.md#stopped-backup-and-restoration). Client-install scale, measured SQLite/WAL growth and actual disk exhaustion are qualified below. Platform packages, remote audio and desktop profile selection remain unverified or unfinished. No running server or desktop package is updated by this source qualification.
+
+## Client storage qualification
+
+The Linux fixture serves 100,000 synthetic recording/source facts with distinct releases through an owned TCP peer. Installation consumes all 500 pages and 68,292,682 encoded bytes. It compares every fact before and after a joined offline restart. Standalone indexed audio, playlists and activity remain separate. A pending rename retains its exact body and identifier; reconnection sends it once with the original synchronization client identity and independent collection cursor.
+
+Recorded warm development observations on the Apple M5 Pro, 24 GiB RAM, 15 logical CPUs, Docker 29.4 Linux arm64 and a 4 GiB tools container are:
+
+| Observation                             |       Measurement |
+| --------------------------------------- | ----------------: |
+| Installation                            |          9,496 ms |
+| Read and compare every offline page     |          2,624 ms |
+| Logical owned files before installation |  12,451,745 bytes |
+| Logical owned files after installation  | 110,801,641 bytes |
+| Profile database after installation     | 102,121,472 bytes |
+| WAL after installation                  |   8,598,504 bytes |
+| Logical owned files after reopening     | 108,232,609 bytes |
+
+The owned-file total includes control and profile databases and the fixture original. It is an observation, not a physical storage cap. This is a synthetic install test rather than a real-file scan, multi-listener test or p95 benchmark.
+
+A separate explicitly enabled test guards that its directory is a dedicated 64 MiB tmpfs. Allocated regular-file writes reach ENOSPC, rather than a sparse-file or logical-quota limit. An 8,000-fact, 40-page refresh then fails with the safe public private-storage error. Every one of the 401 old facts remains readable while full and after reopening. Removing only the owned filler lets the same refresh succeed; every replacement fact survives another offline restart. The external sentinel, original audio, standalone state, pending operation, client identity and collection cursor remain exact. This does not qualify physical power loss or other operating systems.
+
+Fresh review and an independent final-source repeat pass two normal cases and the explicit disk case, strict Clippy and formatting. Review corrected verification that could have recreated a lost pending operation and a client-identity comparison that previously started after reopening. The final checks inspect preserved state before reconnection and carry the original client identity throughout.
+
+Run the isolated qualification with:
+
+```sh
+scripts/qualify-replica-catalog-storage.sh
+```
+
+The runner builds tools and fetches locked dependencies, then runs offline under the tools profile. `--offline` uses an already populated dependency cache. `HITO_CATALOG_STORAGE_TOOLS_IMAGE` selects an existing local tools image; `--help` documents optional dedicated volumes and the shared Cargo lock. Sources are read-only, the disk fixture uses ephemeral tmpfs, and no normal server volume is mounted. Each source snapshot receives a distinct Cargo target. Private ignored result directories contain phase logs and an exact-count TSV.
+
+Independent execution qualified the prebuilt-image, populated-cache `--offline` path. It passed the two normal cases in 14.75 seconds and the disk case in 2.32 seconds. The default tools-build/fetch path has configuration and source review, but was not executed in that repeat. The resource guard measures discovered named Hito target volumes and known host targets before each phase. Custom targets and BuildKit caches still require separate inspection; see [development resource limits](development.md#disk-and-cpu-budget).
 
 ## Incremental replication remains open
 

@@ -109,6 +109,12 @@ The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`
 - Check both before and during large builds. At either limit, stop starting builds and remove only inactive, regenerable Hito output.
 - Never run a global Docker prune. Never remove another project's artifacts or application data.
 
+## Catalog storage qualification
+
+`scripts/qualify-replica-catalog-storage.sh` runs formatting, strict Core test-target Clippy, the 100,000-fact catalog install/restart cases and an explicitly enabled real-ENOSPC case through Docker Compose. It uses source-specific targets, a shared Cargo lock, read-only sources and a dedicated ephemeral 64 MiB tmpfs. It never mounts normal server data. Exact counts and phase results are written beneath ignored `test-results/replica-catalog-storage/`.
+
+The default command builds tools and fetches locked dependencies before offline checks. Use `--offline` with a populated cache, and `--help` for an existing tools image or dedicated volume options. The independent acceptance run used the prebuilt/offline path. Read [the measurements and remaining limits](catalog-replication.md#client-storage-qualification) before treating this as release-scale or platform evidence.
+
 ## Test layout
 
 [Testing](testing.md) explains the strategy. In short:
