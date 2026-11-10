@@ -29,6 +29,7 @@ pub use types::{
 pub struct Identity {
     pub(crate) store: Store,
     pub(crate) replicas: crate::Replicas,
+    pub(crate) catalog_replication: crate::CatalogReplication,
     pub(crate) password_attempts: password::PasswordAttempts,
     pub(crate) seen_attempts: sessions::SeenAttempts,
 }

@@ -1,6 +1,7 @@
 mod admission;
 mod artist_catalog;
 mod catalog;
+mod catalog_replication;
 mod collection;
 mod community;
 mod context;
@@ -72,6 +73,10 @@ pub use catalog::{
     SourceMatchKind, SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
     UpdateSourcePreferences,
+};
+pub use catalog_replication::{
+    CatalogReplication, CatalogSnapshot, CatalogSnapshotMode, CatalogSnapshotPage,
+    LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact, ServerRelayObservation,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -151,6 +156,7 @@ use store::Store;
 pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
+    pub catalog_replication: CatalogReplication,
     pub artist_catalog: ArtistCatalog,
     pub playback: PlaybackAccess,
     pub collection: Collection,
@@ -189,6 +195,8 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     #[cfg(not(any(test, feature = "test-support")))]
     let stream_pace = StreamPace::DEFAULT;
     let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace).await?;
+    let catalog_replication =
+        CatalogReplication::new(store.clone(), config.host_device.clone()).await?;
     let replicas = Replicas::new(store.clone(), vault.clone(), &config.database);
     if let Err(error) = replicas.retire_pending().await {
         tracing::warn!(
@@ -328,10 +336,12 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         identity: Identity {
             store: store.clone(),
             replicas: replicas.clone(),
+            catalog_replication: catalog_replication.clone(),
             password_attempts: Default::default(),
             seen_attempts: Default::default(),
         },
         community,
+        catalog_replication,
         replicas,
         podcasts: Podcasts {
             store: store.clone(),
