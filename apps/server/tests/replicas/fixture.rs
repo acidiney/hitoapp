@@ -19,6 +19,31 @@ pub struct Library {
     host: String,
 }
 
+pub struct ClosedLibrary {
+    directory: tempfile::TempDir,
+    host: String,
+}
+
+impl ClosedLibrary {
+    pub async fn open(self) -> Library {
+        let Self { directory, host } = self;
+        let services = open(directory.path(), &host).await;
+        let session = services.identity.login(credentials("admin")).await.unwrap();
+        let actor = services
+            .identity
+            .authenticate(&session.token)
+            .await
+            .unwrap();
+        Library {
+            directory,
+            services,
+            actor,
+            token: session.token,
+            host,
+        }
+    }
+}
+
 impl Library {
     pub async fn new(host: &str) -> Self {
         let directory = tempfile::tempdir().unwrap();
@@ -40,6 +65,10 @@ impl Library {
     }
 
     pub async fn reopen(self) -> Self {
+        self.close().await.open().await
+    }
+
+    pub async fn close(self) -> ClosedLibrary {
         let Self {
             directory,
             services,
@@ -47,21 +76,9 @@ impl Library {
             ..
         } = self;
         services.replicas.close().await.unwrap();
+        services.catalog_replication.close().await.unwrap();
         drop(services);
-        let services = open(directory.path(), &host).await;
-        let session = services.identity.login(credentials("admin")).await.unwrap();
-        let actor = services
-            .identity
-            .authenticate(&session.token)
-            .await
-            .unwrap();
-        Self {
-            directory,
-            services,
-            actor,
-            token: session.token,
-            host,
-        }
+        ClosedLibrary { directory, host }
     }
 }
 
@@ -83,10 +100,28 @@ pub struct Host {
     serving: Option<JoinHandle<()>>,
 }
 
+pub struct ClosedHost {
+    library: ClosedLibrary,
+    endpoint: String,
+}
+
+impl ClosedHost {
+    pub async fn start(self) -> Host {
+        let library = self.library.open().await;
+        let address = self.endpoint.strip_prefix("http://").unwrap();
+        let listener = TcpListener::bind(address).await.unwrap();
+        Host::serve(library, listener).await
+    }
+}
+
 impl Host {
     pub async fn start() -> Self {
         let library = Library::new("owned-authoritative-host").await;
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        Self::serve(library, listener).await
+    }
+
+    async fn serve(library: Library, listener: TcpListener) -> Self {
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let config = hito_server::Config {
             origin: "https://canonical-hito.invalid".into(),
@@ -121,7 +156,7 @@ impl Host {
         }
     }
 
-    pub async fn close(mut self) {
+    pub async fn stop(mut self) -> ClosedHost {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
@@ -131,7 +166,26 @@ impl Host {
                 .unwrap()
                 .unwrap();
         }
+        let endpoint = self.endpoint.clone();
+        let replacement = tempfile::tempdir().unwrap();
         self.library.services.replicas.close().await.unwrap();
+        self.library
+            .services
+            .catalog_replication
+            .close()
+            .await
+            .unwrap();
+        let directory = std::mem::replace(&mut self.library.directory, replacement);
+        let host = self.library.host.clone();
+        drop(self);
+        ClosedHost {
+            library: ClosedLibrary { directory, host },
+            endpoint,
+        }
+    }
+
+    pub async fn close(self) {
+        drop(self.stop().await);
     }
 }
 

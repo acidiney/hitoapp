@@ -1,3 +1,7 @@
+mod catalog;
+mod catalog_authority;
+mod catalog_fixture;
+mod catalog_refresh;
 mod convergence;
 mod faults;
 mod fixture;
