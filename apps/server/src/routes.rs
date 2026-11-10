@@ -29,6 +29,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
     components(schemas(
         PageComponent,
         hito_core::CatalogSort,
+        hito_core::StreamQuality,
         SharedPageProps,
         LoginPageProps,
         LockPageProps,

@@ -10,11 +10,23 @@ use std::time::{Duration, Instant};
 const CONTENT_TYPE: &str = "audio/aac";
 pub const MAX_CONVERSION_START: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Deserialize,
+    serde::Serialize,
+    utoipa::ToSchema,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum StreamQuality {
     #[default]
     Original,
     High,
+    #[serde(rename = "saver")]
     DataSaver,
 }
 

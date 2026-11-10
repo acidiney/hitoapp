@@ -125,10 +125,15 @@ pub async fn playback_sources(
 
 #[utoipa::path(get, path = "/api/v1/sources/{id}/audio", params(
     ("id" = String, Path), ("Range" = Option<String>, Header),
+    crate::audio::AudioQuery,
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = AudioStream, content_type = "application/octet-stream"),
+    (status = 200, content((AudioStream = "application/octet-stream"), (AudioStream = "audio/aac")), headers(
+        ("X-Hito-Stream-Quality" = hito_core::StreamQuality, description = "Effective representation quality"),
+        ("X-Hito-Stream-Start-Ms" = u64, description = "Converted segment start in milliseconds; absent for originals"),
+    )),
     (status = 206, body = AudioStream, content_type = "application/octet-stream"),
     (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 422, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 416),
     (status = 409, body = ErrorResponse), (status = 502, body = ErrorResponse),
 ))]
@@ -136,21 +141,30 @@ pub async fn audio(
     State(services): State<Services>,
     Account(actor): Account,
     Path(id): Path<String>,
+    QueryParams(query): QueryParams<crate::audio::AudioQuery>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::response(&services.playback, &actor, &id, request).await
+    crate::audio::response(&services.playback, &actor, &id, query, request).await
 }
 
-#[utoipa::path(head, path = "/api/v1/sources/{id}/audio", params(("id" = String, Path)),
+#[utoipa::path(head, path = "/api/v1/sources/{id}/audio", params(
+    ("id" = String, Path),
+    crate::audio::AudioQuery,
+),
     security(("session" = []), ("bearer" = [])), responses(
-        (status = 200, description = "Audio representation headers without a body"),
+        (status = 200, description = "Audio representation headers without starting an encoder", headers(
+            ("X-Hito-Stream-Quality" = hito_core::StreamQuality, description = "Effective representation quality"),
+            ("X-Hito-Stream-Start-Ms" = u64, description = "Converted segment start in milliseconds; absent for originals"),
+        )),
+        (status = 400, body = ErrorResponse), (status = 422, body = ErrorResponse),
         (status = 401), (status = 403), (status = 404), (status = 409), (status = 502),
 ))]
 pub async fn audio_head(
     State(services): State<Services>,
     Account(actor): Account,
     Path(id): Path<String>,
+    QueryParams(query): QueryParams<crate::audio::AudioQuery>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::response(&services.playback, &actor, &id, request).await
+    crate::audio::response(&services.playback, &actor, &id, query, request).await
 }

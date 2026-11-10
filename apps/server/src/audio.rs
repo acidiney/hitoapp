@@ -1,127 +1,130 @@
+mod original;
+
 use crate::error::ApiResult;
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode, header},
     response::Response,
 };
-use hito_core::{Actor, AudioRequest, ByteRange, OpenedAudio, PlaybackAccess};
+use hito_core::{Actor, AudioRequest, PlaybackAccess, QualityAudio, QualityRequest, StreamQuality};
+use serde::Deserialize;
+use std::time::{Duration, Instant};
+use tracing::Instrument;
+use utoipa::IntoParams;
 
+#[derive(Default, Deserialize, IntoParams)]
+#[serde(deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub struct AudioQuery {
+    #[serde(default)]
+    pub quality: StreamQuality,
+    #[serde(default)]
+    #[param(maximum = 604800000)]
+    pub start_ms: u64,
+}
+
+#[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.user().id.as_str(), quality = query.quality.label()))]
 pub async fn response(
     playback: &PlaybackAccess,
     actor: &Actor,
     source: &str,
+    query: AudioQuery,
     request: Request<Body>,
 ) -> ApiResult<Response> {
-    let head = request.method() == Method::HEAD;
-    let parsed = if head || request.headers().contains_key(header::IF_RANGE) {
-        Ok(None)
-    } else {
-        range(request.headers())
+    let started = Instant::now();
+    let quality_request = QualityRequest {
+        quality: query.quality,
+        start: Duration::from_millis(query.start_ms),
+        original: AudioRequest {
+            head: request.method() == Method::HEAD,
+            range: None,
+        },
     };
-    let invalid = parsed.is_err();
+    quality_request.validate()?;
+    if query.quality == StreamQuality::Original {
+        if query.start_ms > 0 {
+            return Err(hito_core::Error::Invalid(
+                "Start position requires a converted stream".into(),
+            )
+            .into());
+        }
+        return original::response(playback, actor, source, request).await;
+    }
     let opened = playback
-        .open_audio(
-            actor,
-            source,
-            AudioRequest {
-                head: head || invalid,
-                range: parsed.unwrap_or(None),
-            },
-        )
+        .open_quality_audio(actor, source, quality_request)
         .await?;
-    let mut audio = match opened {
-        OpenedAudio::Unsatisfiable { length } => return Ok(unsatisfiable(length)),
-        OpenedAudio::Content(audio) if invalid => return Ok(unsatisfiable(audio.total_length)),
-        OpenedAudio::Content(audio) => audio,
-    };
-    let mut builder = Response::builder()
-        .status(if audio.range.is_some() {
-            StatusCode::PARTIAL_CONTENT
-        } else {
-            StatusCode::OK
-        })
-        .header(header::CONTENT_TYPE, audio.content_type)
-        .header(
-            header::ACCEPT_RANGES,
-            if audio.seekable { "bytes" } else { "none" },
-        )
-        .header(header::CACHE_CONTROL, "private, no-store");
-    if let Some(length) = audio.length {
-        builder = builder.header(header::CONTENT_LENGTH, length);
-    }
-    if let Some(range) = audio.range {
-        let total = audio
-            .total_length
-            .map_or_else(|| "*".into(), |total| total.to_string());
-        builder = builder.header(
-            header::CONTENT_RANGE,
-            format!("bytes {}-{}/{total}", range.start(), range.end()),
-        );
-    }
-    let body = audio
-        .body
-        .take()
-        .map(|stream| {
-            Body::from_stream(futures_util::stream::try_unfold(
-                stream,
-                |mut stream| async move {
-                    stream
-                        .chunk()
-                        .await
-                        .map(|chunk| chunk.map(|bytes| (bytes, stream)))
+    match opened {
+        QualityAudio::Original { audio, reason } => {
+            tracing::debug!(
+                event = "audio_quality_response",
+                outcome = if quality_request.original.head {
+                    "original"
+                } else {
+                    "retry_original"
                 },
-            ))
-        })
-        .unwrap_or_else(Body::empty);
-    Ok(builder.body(body).unwrap())
-}
-
-fn unsatisfiable(length: Option<u64>) -> Response {
-    let mut builder = Response::builder()
-        .status(StatusCode::RANGE_NOT_SATISFIABLE)
-        .header(header::CACHE_CONTROL, "private, no-store")
-        .header(header::CONTENT_LENGTH, 0);
-    if let Some(length) = length {
-        builder = builder.header(header::CONTENT_RANGE, format!("bytes */{length}"));
+                reason,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Audio quality negotiated"
+            );
+            if !quality_request.original.head {
+                drop(audio);
+                return Err(hito_core::Error::Conflict(
+                    "Selected audio quality is unavailable; retry the original stream".into(),
+                )
+                .into());
+            }
+            original::content(audio, false)
+        }
+        QualityAudio::Converted(mut audio) => {
+            let body = audio
+                .body
+                .take()
+                .map(|stream| {
+                    let span = tracing::Span::current();
+                    Body::from_stream(futures_util::stream::try_unfold(
+                        stream,
+                        move |mut stream| {
+                            let span = span.clone();
+                            async move {
+                                stream
+                                    .chunk()
+                                    .await
+                                    .map(|chunk| chunk.map(|bytes| (bytes, stream)))
+                                    .map_err(|error| {
+                                        tracing::debug!(
+                                            event = "audio_quality_body_failed",
+                                            error_kind = error.code(),
+                                            "Converted audio delivery failed"
+                                        );
+                                        std::io::Error::other("Audio stream could not finish")
+                                    })
+                            }
+                            .instrument(span)
+                        },
+                    ))
+                })
+                .unwrap_or_else(|| {
+                    Body::from_stream(futures_util::stream::empty::<
+                        Result<axum::body::Bytes, std::io::Error>,
+                    >())
+                });
+            tracing::debug!(
+                event = "audio_quality_response",
+                outcome = "converted",
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Audio quality negotiated"
+            );
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, audio.content_type)
+                .header(header::CACHE_CONTROL, "private, no-store")
+                .header("x-hito-stream-quality", query.quality.label())
+                .header(
+                    "x-hito-stream-start-ms",
+                    audio.start.as_millis().to_string(),
+                )
+                .body(body)
+                .unwrap())
+        }
     }
-    builder.body(Body::empty()).unwrap()
-}
-
-fn range(headers: &axum::http::HeaderMap) -> Result<Option<ByteRange>, ()> {
-    let mut values = headers.get_all(header::RANGE).iter();
-    let Some(value) = values.next() else {
-        return Ok(None);
-    };
-    if values.next().is_some() {
-        return Err(());
-    }
-    let value = value.to_str().map_err(|_| ())?;
-    if value.len() > 1024 {
-        return Err(());
-    }
-    let (unit, value) = value.trim().split_once('=').ok_or(())?;
-    if !unit.eq_ignore_ascii_case("bytes") {
-        return Ok(None);
-    }
-    let (first, last) = value.split_once('-').ok_or(())?;
-    if first.is_empty() {
-        let length = decimal(last).ok_or(())?;
-        return (length > 0)
-            .then_some(Some(ByteRange::Suffix { length }))
-            .ok_or(());
-    }
-    let first = decimal(first).ok_or(())?;
-    let last = if last.is_empty() {
-        None
-    } else {
-        Some(decimal(last).ok_or(())?)
-    };
-    if last.is_some_and(|last| last < first) {
-        return Err(());
-    }
-    Ok(Some(ByteRange::From { first, last }))
-}
-fn decimal(value: &str) -> Option<u64> {
-    (!value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
-        .then(|| value.parse().unwrap_or(u64::MAX))
 }
