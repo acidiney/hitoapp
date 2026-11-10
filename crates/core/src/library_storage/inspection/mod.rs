@@ -26,7 +26,7 @@ pub(crate) struct FileInspector {
     snapshots: snapshot::Reader,
 }
 
-const FORMATS: &str = "aac,aiff,asf,flac,mp3,mov,ogg,wav";
+use crate::media_command::audio_input as input;
 
 enum AudioInspection {
     Verified(AudioEvidence),
@@ -273,28 +273,4 @@ impl FileInspector {
             digest: format!("{:x}", Sha256::digest(descriptor)),
         }))
     }
-}
-
-fn input(path: &Path) -> Vec<OsString> {
-    let mut arguments: Vec<_> = [
-        "-v",
-        "error",
-        "-max_alloc",
-        "16777216",
-        "-threads",
-        "1",
-        "-protocol_whitelist",
-        "file,pipe",
-        "-format_whitelist",
-        FORMATS,
-        "-probesize",
-        "8388608",
-        "-analyzeduration",
-        "10000000",
-        "-i",
-    ]
-    .map(OsString::from)
-    .into();
-    arguments.push(path.as_os_str().to_owned());
-    arguments
 }

@@ -10,6 +10,7 @@ mod id3_frames;
 mod identity;
 mod library_storage;
 mod maintenance;
+mod media_command;
 mod metadata;
 mod playback_access;
 mod plugins;
