@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-10 stopped offline-replica restoration
+
+One public Linux Docker acceptance now restores a whole stopped data directory into a new empty directory. Separate Core processes verify standalone playlist/history, the private replica database, encrypted server binding, client identity, accepted cursor and exact offline operation. All restored file bytes, modes and ownership match before reopening. Synchronization sends only the pending operation; the stopped source, archive and original-audio sentinel remain unchanged.
+
+Strict test-target Clippy, formatting, independent source review and an independent repeat pass. This is development-source acceptance, not a deployed backup feature. Online backup, indexed-media restoration, populated replica profiles and physical macOS/Windows/Linux packages remain open. See [the stopped-data boundary](offline-replicas.md#stopped-backup-and-restoration).
+
 ## 2026-11-10 native startup buffering
 
 Development source only. A callback/monitor comparison localized initial producer starvation, and a controlled 80 ms second-read delay reproduced it through the public PCM boundary. The existing output ring now waits for current-epoch readiness or EOF. That fixture fell from 2,688 internal silent frames to zero, preserving all 48,000 source frames without producer underruns or backend xruns. No buffer enlargement, startup timer or callback logging was added.
@@ -12,7 +18,7 @@ Development source only, not deployed or exposed in desktop settings. Core now r
 
 Docker passes 19 public core cases, 16 protocol cases, three replica-vault cases and six actual Hito Router cases. An independent run repeated all four groups against unchanged source. Directed existing runtime and download-shutdown checks, account deletion, collection and historical schema upgrades also pass, along with scoped strict Clippy and formatting. Actual Router acceptance covers two replicas, lost acknowledgements and restart, account switching, reauthentication, native address aliases with browser protection retained, and replica closure during HTTP drain. Review found and resolved origin handling, control-lock contention and interrupted-retirement defects.
 
-Catalog replication, populated playlists, likes/progress, remote playback, standalone import preview, desktop selection, history compaction, backup restoration and platform/performance gates remain open. No web UI changed in this slice. See [replica ownership and qualification](offline-replicas.md).
+Catalog replication, populated playlists, likes/progress, remote playback, standalone import preview, desktop selection, history compaction, broader backup restoration and platform/performance gates remain open. No web UI changed in this slice. See [replica ownership and qualification](offline-replicas.md).
 
 ## 2026-11-10 native Opus source and open regression qualification
 

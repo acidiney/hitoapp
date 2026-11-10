@@ -45,6 +45,23 @@ Transport bounds request and response bytes, deadlines and concurrent calls. It 
 
 Workflow logs use correlation IDs, safe outcomes, counts and timings. They exclude credentials, session values, endpoint URLs, private paths, playlist names and response bodies.
 
+## Stopped backup and restoration
+
+Back up the complete data directory only after the application has stopped. Preserve the standalone database and its SQLite companion files, `hito.plugin-key` and the complete `hito.replicas` directory together. A database-only copy cannot retain the encrypted connection and private profile as a coherent backup. Restore into a new empty directory with the original private permissions and ownership.
+
+```mermaid
+flowchart LR
+    Stopped[Stopped application data] --> Archive[Whole-directory archive]
+    Archive --> Clone[New empty data directory]
+    Clone --> Verify[Verify bytes and private ownership]
+    Verify --> Open[Open restored application]
+    Open --> Sync[Send only pending operations]
+```
+
+A Linux Docker acceptance uses separate Core processes before and after restoration. The first process creates a standalone playlist, synchronizes one remote playlist operation and retains an offline rename. Both processes exit before the next archive or preservation check. Before reopening the restored copy, every file matches its source bytes, mode, UID and GID. Restored login and synchronization retain the account, encrypted connection, synchronization client, accepted cursor and exact pending operation. The server sees only the pending rename added to its existing history. The stopped source, archive and external original-audio sentinel remain unchanged.
+
+The public case passes with strict test-target Clippy, formatting, independent source review and an independent repeat. This qualifies the stated stopped-data workflow for empty-playlist replicas in Linux Docker. It does not establish online backup, indexed-media restoration, physical power-loss recovery or macOS/Windows package acceptance.
+
 ## Qualification and remaining work
 
 Docker qualification on 10 November 2026 passed 19 public core cases, 16 protocol cases, three replica-vault cases and six actual Hito Router cases. An independent run repeated all four groups against unchanged source. Strict scoped core/server Clippy and formatting pass. Existing account-deletion, collection and historical schema-upgrade checks also pass, alongside directed embedded-host, connection-drain, indexing, signal and download-shutdown regressions. These counts overlap earlier runs and do not form a release total.
@@ -53,4 +70,4 @@ The core cases use temporary SQLite and owned HTTP fixtures for durable changes,
 
 Actual Router acceptance verifies native access through a different address from the configured browser origin while unlisted browser origins remain forbidden. Two independent replicas retain exact operations across restart and a lost acknowledgement, then converge in server acceptance order without resurrecting deletion. Other cases cover account switching, real remote-session revocation and reauthentication. Shared server/desktop-host shutdown cancels a held outgoing synchronization request while HTTP drains, before returning with the replica owner closed. Independent review identified and resolved origin handling and interrupted-retirement defects.
 
-Passing these checks does not qualify desktop remote mode. Catalog bootstrap and incremental catalog events, populated playlists, likes and progress, remote audio availability, standalone import preview, desktop selection and offline playback remain open. History compaction, whole-profile backup restoration, Windows filesystem support, physical platform checks and release performance also remain required. Nothing in this slice updates the running server or desktop packages.
+Passing these checks does not qualify desktop remote mode. Catalog bootstrap and incremental catalog events, populated playlists, likes and progress, remote audio availability, standalone import preview, desktop selection and offline playback remain open. History compaction, broader populated-profile and platform backup restoration, Windows filesystem support, physical platform checks and release performance also remain required. Nothing in this slice updates the running server or desktop packages.
