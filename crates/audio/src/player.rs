@@ -96,6 +96,15 @@ impl Player {
                 state.stopped.store(true, Ordering::Release);
                 let _ = commands.try_send(Control::Stop);
                 let _ = worker.join();
+                tracing::debug!(
+                    event = "audio_startup_failed",
+                    audio_id = id,
+                    error_kind = ?error,
+                    output_failure = state.snapshot(format).output_failure,
+                    callbacks = state.callbacks.load(Ordering::Acquire),
+                    xruns = state.xruns.load(Ordering::Acquire),
+                    "Audio output could not start"
+                );
                 return Err(error);
             }
         };
