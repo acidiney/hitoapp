@@ -262,3 +262,18 @@ Scaling on 1,000 tracks (first scan): parallelism 1 took 92.4 s, 4 took 25.5 s (
 Projection for 100,000 tracks, extending the 10,000-track rates linearly (not measured): the serial scan would take about 2.6 hours; the parallel scan about 24 minutes on this host with 8 slots, and a rescan with no changes about 2 minutes. Larger libraries add database size and directory depth, which were not measured. A cold disk was not measured either; the library was warm in the operating system cache.
 
 The first scan is still processor-bound by the two child processes. Raising the cap above 8 would help this host (9.0x at 15) but takes processor time from playback and requests on a small server, so the default stops at 8.
+
+## Source-artist metadata writes
+
+Development source includes migration 0093, which replaces only the two source-artist triggers. A stale small-catalog estimate previously let SQLite scan recordings for each source-metadata insertion or artist update. The replacement uses existing indexed source and recording identities. Per-library artist assignment, generated identities and conflict behavior remain unchanged.
+
+Pinned SQLx SQLite 3.46.0 tests measure whole-statement VM work, including the triggers:
+
+| Operation, 128 to 512 recordings         |   Previous triggers |   Migration 0093 |
+| ---------------------------------------- | ------------------: | ---------------: |
+| Metadata insert, stale statistics        | 80,100 to 1,107,000 | 15,200 to 60,900 |
+| Metadata artist update, stale statistics | 77,600 to 1,096,700 | 12,700 to 50,700 |
+
+The fixed work grows about four times for four times the input under absent, stale and fresh statistics, on fresh and upgraded databases. Query-plan checks require both indexed lookups. Five focused cases cover work, old/new semantics, current catalog privacy and exact migration preservation. Historical source and playlist upgrade regressions pass. Three independent specialist reviews and an independent test repeat also pass.
+
+The 92-to-93 upgrade preserves prior typed cells, rowids, FTS tables, migration receipts/checksums and planner statistics, while changing exactly the two trigger definitions. This is source-level development qualification, not a deployed upgrade or physical power-loss test. It measures the targeted lookup work at 128 and 512 recordings, not a 100,000-file scan, unique-artist growth, storage I/O, playback p95 or the complete release load.

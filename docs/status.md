@@ -1,5 +1,23 @@
 # Implementation status
 
+## 2026-11-10 combined catalog and metadata-write qualification
+
+The integrated snapshot, migration 0093 and replica-account erasure correction pass 261 selected cases across twelve result groups, with one opt-in scan-speed measurement ignored because it requires `BENCH_LIBRARY`. This includes all 155 core unit cases, 56 active indexing cases, public catalog/account/replica/restoration checks, historical source/playlist upgrades and actual server shutdown/Router checks. Strict Core all-target and scoped server Clippy, workspace formatting and unchanged-source verification pass. This is not the complete Rust/browser/platform release suite.
+
+Migration 0093 bounds the two source-artist triggers under stale statistics. Four times the input previously caused about fourteen times the work; indexed lookups now grow about four times. Exact schema/data/statistics preservation, old/new behavior and independent reviews/repeats pass. See [metadata-write evidence](performance.md#source-artist-metadata-writes).
+
+The broader unit run also found missing replica-state coverage in account erasure. A scoped deletion now removes only state referencing the erased principal. The reachability guard remains strict and explicitly classifies profile-local tables without account foreign keys; private profile files still retire through the existing post-commit ledger. Nine public account-deletion cases, including both state ownership variants, and actual private-profile erasure pass, alongside three fresh reviews. The earlier 154-of-155 failure is resolved by the complete 155-case repeat.
+
+All changes remain development source. The local running image, VPS, desktop packages and browser UI are unchanged.
+
+## 2026-11-10 bounded local catalog snapshots
+
+Development source only. Core can export immutable local recording/source facts with inherited fields, source-specific release appearances and explicit server-relay observations. It retains authorization, SQL, cancellation and bounded pages behind one capability. The mode is `snapshot_only`; its collection watermark does not acknowledge offline operations or advance a collection cursor. HTTP delivery, profile installation and catalog change catch-up remain open.
+
+Six unit cases, six public capability cases and actual shared-runtime shutdown pass. An independent run also repeats the existing account-deletion and replica regressions against unchanged source. The scale fixture verifies 100,000 recordings, distinct release identities, metadata rows and file coordinates under absent, exact restored stale and fresh statistics, then reads every identity through 500 public pages. Construction requires about 24.1 million VM steps and takes 3.26 to 3.35 seconds in the independent development run. One owned WAV is ready; the other locators are synthetic unavailable history. This is not a full scan, p95 or multi-listener release result.
+
+Scoped strict checks, formatting and reviews pass after query, deadline and test-fixture corrections. The separately qualified source-artist write-trigger correction is recorded above. The standalone library, collection outbox, local running image and VPS are unchanged. See [ownership, qualification and remaining work](catalog-replication.md).
+
 ## 2026-11-10 stopped offline-replica restoration
 
 One public Linux Docker acceptance now restores a whole stopped data directory into a new empty directory. Separate Core processes verify standalone playlist/history, the private replica database, encrypted server binding, client identity, accepted cursor and exact offline operation. All restored file bytes, modes and ownership match before reopening. Synchronization sends only the pending operation; the stopped source, archive and original-audio sentinel remain unchanged.
