@@ -299,7 +299,6 @@ test(
       page,
       await restoredOriginal,
       fixtures[1],
-      false,
     );
     const resumed = await advancing(page);
     expect(resumed.absolute).toBeGreaterThan(checkpoint - 1.1);

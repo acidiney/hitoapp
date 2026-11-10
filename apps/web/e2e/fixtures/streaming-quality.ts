@@ -60,12 +60,19 @@ export function convertedResponse(
   minimum = 0,
   maximum = 0,
 ) {
-  return page.waitForResponse((response) => {
+  return page.waitForResponse(async (response) => {
     const url = new URL(response.url());
     const start = Number(url.searchParams.get("start_ms") ?? 0);
+    const request = response.request();
+    const browserAudio =
+      request.resourceType() === "media" ||
+      (page.context().browser()?.browserType().name() === "webkit" &&
+        request.resourceType() === "other" &&
+        response.status() !== 0 &&
+        (await request.headerValue("sec-fetch-dest")) === "audio");
     return (
-      response.request().method() === "GET" &&
-      response.request().resourceType() === "media" &&
+      request.method() === "GET" &&
+      browserAudio &&
       /\/api\/v1\/sources\/[^/]+\/audio$/.test(url.pathname) &&
       url.searchParams.get("quality") === quality &&
       start >= minimum &&
@@ -271,7 +278,6 @@ export async function verifyOriginal(
   page: Page,
   response: Response,
   fixture: { path: string; bytes: Buffer },
-  completeBody = true,
 ) {
   const url = new URL(response.url());
   expect(url.pathname).toBe(fixture.path);
@@ -285,29 +291,37 @@ export async function verifyOriginal(
   await expect
     .poll(async () => (await mediaState(page)).source)
     .toBe(response.url());
-  if (completeBody) {
-    expect(await response.finished()).toBeNull();
-    const body = await response.body();
-    if (response.status() === 200)
-      expect(body.equals(fixture.bytes)).toBe(true);
-    else {
-      const range = response
-        .headers()
-        ["content-range"]?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
-      expect(range).toBeDefined();
-      const [start, end, total] = range!.slice(1).map(Number);
-      expect(total).toBe(fixture.bytes.length);
-      expect(body.equals(fixture.bytes.subarray(start, end + 1))).toBe(true);
-    }
+  const requestRange = await response.request().headerValue("range");
+  const replay = await page.request.get(fixture.path, {
+    headers: requestRange ? { range: requestRange } : {},
+  });
+  expect(replay.status()).toBe(response.status());
+  expect(replay.headers()["x-hito-stream-quality"]).toBe("original");
+  const contentRange = response.headers()["content-range"];
+  expect(replay.headers()["content-range"]).toBe(contentRange);
+  const body = await replay.body();
+  if (response.status() === 200) expect(body.equals(fixture.bytes)).toBe(true);
+  else {
+    const range = contentRange?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+    expect(range).toBeDefined();
+    const [start, end, total] = range!.slice(1).map(Number);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThanOrEqual(start);
+    expect(end).toBeLessThan(total);
+    expect(total).toBe(fixture.bytes.length);
+    expect(body.equals(fixture.bytes.subarray(start, end + 1))).toBe(true);
   }
+  expect(response.headers()["content-length"]).toBe(String(body.length));
   const original = await page.request.get(fixture.path);
   expect(original.status()).toBe(200);
   expect(original.headers()["x-hito-stream-quality"]).toBe("original");
   expect((await original.body()).equals(fixture.bytes)).toBe(true);
-  const browserBodyFailure = (await response.finished())?.message ?? null;
-  if (!completeBody && browserBodyFailure !== null)
-    expect(browserBodyFailure).toContain("net::ERR_ABORTED");
-  return { source: response.url(), browserBodyFailure };
+  return {
+    source: response.url(),
+    status: response.status(),
+    requestRange,
+    contentRange: contentRange ?? null,
+  };
 }
 
 export async function verifyUnsupportedConverted(
