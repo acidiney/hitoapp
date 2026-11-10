@@ -13,7 +13,7 @@ flowchart LR
     Reader --> Facts[Local recording and source facts]
     Facts --> Pages[Bounded immutable pages]
     Pages --> HTTP[Authenticated versioned HTTP]
-    HTTP --> Consumer[Future durable client installation]
+    HTTP --> Consumer[Replicas private catalog installation]
     Authority[Session, PIN and library grant] --> Capability
     Stop[Cancellation and host shutdown] --> Reader
 ```
@@ -37,6 +37,36 @@ The versioned routes use shared authentication, origin policy and Core wire type
 Pages are compact JSON with no additional envelope and retain the 256 KiB encoded-page bound. Responses use the existing private, no-store policy. Malformed path fields return a safe JSON error, and invalid or inaccessible page handles return not found. Native bearer requests may omit Origin under the existing policy; browser cookie mutations still require origin verification. OpenAPI and TypeScript are generated from the actual Rust routes and types.
 
 If the caller loses a successful creation response, it can repeat POST to recover the same handle and facts until expiry or release. Release followed by POST constructs a fresh view. These transient server handles do not provide durable client storage or incremental changes.
+
+## Durable private catalog cache
+
+`Replicas.install_catalog` receives the existing snapshot types through the bounded native transport. It stages validated facts in the connection's private SQLite profile, then publishes one library head atomically. `catalog_snapshot` and `catalog_page` read that committed generation under the current local session and connection lease. These are Core APIs; desktop profile selection and rendering are not implemented by this slice.
+
+```mermaid
+flowchart LR
+    Server[Server snapshot API] --> Transport[Bounded authenticated transport]
+    Transport --> Validate[Validate identity, order and limits]
+    Validate --> Stage[Private profile staging generation]
+    Stage --> Commit[Atomic library head publication]
+    Commit --> Read[Authorized offline catalog reads]
+    Authority[Local session, PIN and connection generation] --> Stage
+    Authority --> Read
+    Stop[Caller drop, retirement or shutdown] --> Owner[Retained installation owner]
+    Owner --> Stage
+    Owner --> Settle[Settle commit or rollback before releasing admission]
+```
+
+Migration 0094 adds private installation, recording-fact and library-head tables. Facts keep their exact recording, source, observation and release identities, including legacy string values. Source-specific entry, disc and track fields remain distinct. Duplicate recording/source identities, conflicting release-level fields, repeated release-entry identities and a snapshot UUID shared by different cached libraries are rejected. No ordinary recording/source rows, filesystem coordinates, audio, provider bindings or metadata provenance are fabricated.
+
+Each page is validated and written in a short transaction without a network wait. The old head remains readable until all pages, ordinals, identities and totals match. An incomplete or failed refresh preserves the committed cache. A later installation or profile reopening removes abandoned staging and superseded generations. Empty catalogs retain the producer's one empty terminal page.
+
+The retained owner holds per-connection synchronization admission and one of four global network slots. Dropping the public caller signals cancellation; the owner settles SQL and removes its own work entry independently of observer polling. The final control guard stays held until the profile commit or queued rollback has settled. Deactivation, disconnect, erasure and shutdown join retained work before retiring its profile. Publication is the atomic boundary: after it succeeds, a later error or observer drop can leave a complete new generation.
+
+The existing per-export limits apply to actual received page bytes, not just reserialized JSON. The retained owner uses a two-minute success budget; SQL settlement can outlast it. A profile admits at most sixteen cached libraries and 256 MiB of page-wire bookkeeping, including old and staging generations. These are logical admission limits, not bounds on physical SQLite/WAL size or total process memory. Explicit downloads, original media and the standalone library are untouched.
+
+The server's `expires_at` limits its transient lease. It does not expire a committed offline cache. A current authorized local lease can read the last known catalog while the server is unavailable. Remote permission or session failure stops refresh and preserves that cache; reauthentication retires the old local activation. The protocol has no remote grant incarnation or revocation feed and cannot promise immediate offline erasure. Local PIN/session/account checks still apply on every read, and local account erasure retires the owned profile through the existing file ledger.
+
+The snapshot's collection watermark never advances a collection cursor, acknowledges an operation or changes the outbox. Catalog installation does not add populated playlists, likes, progress, local audio availability or incremental catch-up.
 
 ## Resource and cancellation policy
 
@@ -64,11 +94,19 @@ The HTTP adapter passes ten actual Router/TCP cases, independently repeated in 6
 
 Three fresh source reviews cover security, correctness and resource/recovery ownership. Strict server all-target Clippy, formatting, both TypeScript checks and independent byte-for-byte regeneration of OpenAPI/TypeScript pass. The generated contract adds three paths and eight shared schemas, preserving existing entries. These checks supplement the earlier combined 261-case run; they are not a new full-suite or release result.
 
+The durable-cache extension passes 30 public replica cases, nine account-deletion cases and 30 protocol cases. Actual Router acceptance passes nine cases, including three new catalog workflows. The latter install 47 owned indexed WAVs across near-256-KiB pages, compare every source/release fact after a joined client/server shutdown and offline restart, preserve standalone originals and exact queued operations, and verify refresh, permission, session, PIN and account isolation. Server-relay observations remain server-scoped.
+
+Independent integrated verification also passes all 158 Core unit cases and the selected snapshot, authority, lifecycle, backup, source-upgrade and server-shutdown groups. It found a historical playlist fixture whose supported endpoints stopped at schema 93. The correction explicitly supports 94 without weakening typed-row, rowid, FTS, schema or migration-ledger assertions. A targeted 33-case repeat covers the changed profile fixture, stopped backup and both playlist-upgrade cases. Three fresh specialist reviews pass both rounds. Core all-target and scoped server strict Clippy, workspace formatting and unchanged OpenAPI export pass on the final source. These overlapping checks are not a complete release suite.
+
+The cancellation tests exercise twelve dropped callers, a blocked profile writer, actual deferred-foreign-key commit failure and a held SQLite rollback hook. Admission and the control guard remain held until the worker settles, the retained owner reaps its work entry, and the previous head remains readable. Quota tests count actual padded HTTP bytes at the export/profile limits without constructing one aggregate client buffer.
+
+A 100,000-record client-install performance run, physical SQLite/WAL growth and disk exhaustion, populated-catalog backup/restoration, platform packages, remote audio and desktop profile selection remain unverified or unfinished. No running server or desktop package is updated by this source qualification.
+
 ## Incremental replication remains open
 
 The wire mode is explicitly `snapshot_only`. `collection_watermark` is an observation of the collection log during construction. It must never advance an existing collection cursor or acknowledge an offline operation. The collection log does not cover every writer of exported catalog fields, so it cannot yet provide catalog catch-up.
 
-Durable client installation still needs staging, validation, atomic publication and restart recovery in the private server profile. Incremental synchronization additionally needs a catalog change journal covering every exported-field writer and resumable change delivery. Populated playlist projection, likes/progress, remote audio ownership and desktop profile selection also remain open. Provider-only recordings require their own catalog coverage. Personal overrides and standalone import preview must remain separate. See [offline replica ownership](offline-replicas.md).
+Durable snapshot installation is implemented at the private Core profile boundary. Incremental synchronization still needs a catalog change journal covering every exported-field writer and resumable change delivery. Populated playlist projection, likes/progress, remote audio ownership and desktop profile selection also remain open. Provider-only recordings require their own catalog coverage. Personal overrides and standalone import preview must remain separate. See [offline replica ownership](offline-replicas.md).
 
 A producer audit identified the dependencies that incremental delivery must cover:
 

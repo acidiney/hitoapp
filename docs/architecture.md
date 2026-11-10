@@ -212,7 +212,7 @@ What the gates mean:
 - **Community.** Nothing is sent unless the account opted in and the host has the community origin and token ([community service](community-service.md)).
 - **Plugins.** Core relays only to installations the account approved, checks live authority again, and never logs titles, search terms or URLs.
 
-The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The [replica foundation](offline-replicas.md) supports separate private profiles and durable empty-playlist changes in development source. The [local catalog snapshot boundary](catalog-replication.md) is also in development source. Catalog installation and incremental changes, remote playback and desktop selection remain unfinished.
+The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The [replica capability](offline-replicas.md) supports separate private profiles, durable empty-playlist changes and a validated local-catalog snapshot cache in development source. The [catalog boundary](catalog-replication.md) separates server snapshot production from client staging and atomic publication. Incremental catalog changes, populated collections, remote playback and desktop selection remain unfinished.
 
 ## Plugin protocol and the SDK
 
@@ -367,8 +367,8 @@ What each capability owns:
 - `Plugins`: offered service addresses, personal installations, credential encryption and manifest checks.
 - `Downloads`: persistent and playlist downloads into managed storage.
 - `Podcasts`: subscriptions, episodes and episode progress.
-- `Replicas`: separate private server profiles, encrypted server sessions, durable offline operations, acknowledgement/echo reconciliation and joined connection retirement. Current support is limited to empty playlists.
-- `CatalogReplication`: authorized immutable local recording/source snapshots, bounded construction, retained pages, current grant checks and joined reader closure. It does not yet install or incrementally synchronize a client catalog.
+- `Replicas`: separate private server profiles, encrypted server sessions, durable offline operations, acknowledgement/echo reconciliation, validated catalog generation installation and joined connection retirement. Current collection projection is limited to empty playlists; the catalog cache adds no ordinary local sources or playback readiness.
+- `CatalogReplication`: authorized immutable local recording/source snapshots, create-or-resume and owned release, bounded construction/pages, current grant checks and joined reader closure. `Replicas` owns client installation separately; incremental catalog delivery remains open.
 
 Planned behavior and gaps are in [status](status.md). The desktop host and the server build their routers on this same `Services` value.
 

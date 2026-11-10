@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-10 durable private catalog installation
+
+Development source now installs validated local catalog snapshots into a private connection profile and reads the committed metadata/pages after restart without a server. Staging and atomic head replacement preserve the previous cache before publication failures. A retained owner holds admission and authority through SQL settlement after caller cancellation or a failed commit. Migration 0094 adds the generation tables and strict child-first account erasure coverage. Collection cursors, exact offline operations, standalone media and server-versus-client availability remain separate.
+
+Thirty public replica, nine account-deletion and thirty protocol cases pass. Nine actual Router cases include three new workflows for offline restart, refresh/revocation and PIN/account privacy. Independent verification also passes all 158 Core unit cases and the selected catalog, backup and upgrade groups. It caught an outdated historical-playlist fixture; the exact schema-94 correction retains its preservation assertions, and the 33 affected profile/backup/upgrade cases pass in a targeted repeat. Three fresh reviews, strict checks, formatting and unchanged generated OpenAPI pass. See [ownership, limits and evidence](catalog-replication.md#durable-private-catalog-cache).
+
+This is a Core cache, not completed desktop remote mode. Incremental changes, provider-only catalog coverage, populated collections, remote audio, desktop selection, large client-install/disk qualification and populated-profile restoration remain open. The local running image and VPS are unchanged.
+
 ## 2026-11-10 resumable catalog HTTP delivery
 
 Development source now exposes authenticated snapshot creation/resumption, immutable pages and owned release through three versioned routes with generated OpenAPI/TypeScript. Retrying creation preserves the original handle, facts and expiry. Release permits owned cleanup after a grant is revoked; foreign cleanup cannot remove another account's data. Collection cursors and offline operations remain separate.

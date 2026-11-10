@@ -1,6 +1,6 @@
 # Offline replicas
 
-This is an unfinished core capability in development source. It is not exposed in desktop settings, packaged or deployed. The first slice handles empty playlist creation, renaming and deletion. It does not synchronize recordings, playlist entries, likes, progress or playable files.
+This is an unfinished core capability in development source. It is not exposed in desktop settings, packaged or deployed. The collection projection handles empty playlist creation, renaming and deletion. A later extension installs local recording/source snapshots into a separate durable catalog cache. Incremental catalog changes, populated playlist entries, likes, progress and playable files remain unfinished.
 
 ## Ownership
 
@@ -15,8 +15,9 @@ flowchart LR
     Profile --> Base[Accepted server state and cursor]
     Profile --> Outbox[Immutable local operations]
     Profile --> Projection[Visible state: accepted base plus pending operations]
+    Profile --> Catalog[Validated catalog generations and committed library heads]
     Replicas --> Transport[Bounded native HTTP transport]
-    Transport --> Server[Hito login, account and synchronization APIs]
+    Transport --> Server[Hito login, account, synchronization and snapshot APIs]
 ```
 
 The local account and its session authorize every operation. A remote connection binds one canonical server origin, verified remote account and stable synchronization client ID. The synchronization client ID is separate from `HostDeviceId`, which determines filesystem ownership and local source availability.
@@ -45,6 +46,12 @@ Transport bounds request and response bytes, deadlines and concurrent calls. It 
 
 Workflow logs use correlation IDs, safe outcomes, counts and timings. They exclude credentials, session values, endpoint URLs, private paths, playlist names and response bodies.
 
+## Catalog snapshots
+
+The profile can install and retain validated local recording/source facts through `Replicas.install_catalog`, then read committed metadata and pages offline. Installation stages a new generation and atomically replaces its library head, preserving the old cache on failure before publication. It does not project those facts into ordinary local recordings or make server-relay availability local playback readiness. The collection cursor and immutable outbox remain separate.
+
+Migration 0094 covers the new tables in the strict child-first account erasure plan. A retained installation owner holds admission and authority through SQLite settlement after cancellation or a failed commit, and joins profile retirement. Current local session, PIN and activation checks protect cached reads. Remote refresh failure retains the last known cache; the current protocol cannot guarantee immediate remote-revocation erasure while offline. See [catalog ownership, bounds and evidence](catalog-replication.md#durable-private-catalog-cache).
+
 ## Stopped backup and restoration
 
 Back up the complete data directory only after the application has stopped. Preserve the standalone database and its SQLite companion files, `hito.plugin-key` and the complete `hito.replicas` directory together. A database-only copy cannot retain the encrypted connection and private profile as a coherent backup. Restore into a new empty directory with the original private permissions and ownership.
@@ -72,4 +79,4 @@ Actual Router acceptance verifies native access through a different address from
 
 The schema-driven erasure guard also covers `replica_state` through its principal foreign key. A public two-case regression verifies removal for the erased principal and exact preservation for another principal. Profile-local playlist/outbox/event tables and the opaque retirement ledger are explicitly classified outside the relational account graph; their private data still leaves through owned profile-file retirement after commit. The guard algorithm and exact-set assertions remain intact.
 
-Passing these checks does not qualify desktop remote mode. Catalog bootstrap and incremental catalog events, populated playlists, likes and progress, remote audio availability, standalone import preview, desktop selection and offline playback remain open. History compaction, broader populated-profile and platform backup restoration, Windows filesystem support, physical platform checks and release performance also remain required. Nothing in this slice updates the running server or desktop packages.
+Passing these checks does not qualify desktop remote mode. Private catalog snapshot installation now has separate qualification; incremental catalog events, populated playlists, likes and progress, remote audio availability, standalone import preview, desktop selection and offline playback remain open. History compaction, broader populated-profile and platform backup restoration, Windows filesystem support, physical platform checks and release performance also remain required. Nothing in this slice updates the running server or desktop packages.
