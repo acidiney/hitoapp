@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { sourceStatusStore } from "../model/sourceStatusStore";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
@@ -71,6 +72,8 @@ export const sourceResolutionApi = {
       count: resolution.sources.length,
       duration_ms: Math.round(performance.now() - started),
     });
+    if (resolution.sources.length > 0)
+      sourceStatusStore.invalidate(account, recording);
     return resolution;
   },
 };

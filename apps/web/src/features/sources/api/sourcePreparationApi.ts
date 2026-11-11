@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { HttpError, request, requestJson } from "../../../shared/http";
+import { sourceStatusStore } from "../model/sourceStatusStore";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
@@ -82,6 +83,7 @@ export const sourcePreparationApi = {
       !identity(receipt.preparation_id)
     )
       throw new Error("Hito returned a different preparation receipt");
+    sourceStatusStore.invalidate(account, recording);
     return receipt;
   },
   async status(

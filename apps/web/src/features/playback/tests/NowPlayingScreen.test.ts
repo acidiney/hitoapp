@@ -13,6 +13,7 @@ import { router } from "@inertiajs/react";
 import { Playback } from "../playback";
 import NowPlaying from "../components/NowPlaying";
 import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
+import { sourceStatusStore } from "../../sources/model/sourceStatusStore";
 
 let player: Playback;
 let media: QueueMedia;
@@ -44,6 +45,7 @@ vi.mock("../../artwork/components/Artwork", () => ({
 }));
 
 beforeEach(async () => {
+  sourceStatusStore.reset();
   playbackSources = [
     {
       id: "s0",
@@ -136,6 +138,7 @@ test("Source names the service and its state in plain words", async () => {
 });
 
 test("Source marks a best guess", async () => {
+  await screen.findByText("YouTube Music");
   playbackSources = [
     {
       ...(playbackSources[0] as object),

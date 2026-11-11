@@ -14,15 +14,55 @@ import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { usePlayer } from "./PlaybackProvider";
 import { SPEED_CHOICES } from "./SpeedControl";
-import type { Track } from "../model";
+import type { PlaybackOccurrence, Track } from "../model";
 
-function availability(track: Track): string {
+function availability(track: Track, resolved: Schema<"Source"> | null): string {
+  if (resolved?.ready)
+    return resolved.provider === "local"
+      ? "Ready · Local"
+      : `Ready · from ${sourceLabels(resolved).primary}`;
   if (track.available) return "Ready · Local";
   if (track.plays_from_services) return "Ready · from your services";
   return "No source";
 }
 
-function UpNextCard({ openQueue }: { openQueue: () => void }) {
+function UpNextRow({
+  account,
+  entry,
+}: {
+  account: string;
+  entry: PlaybackOccurrence;
+}) {
+  const player = usePlayer();
+  const resolved = usePlayingSource(account, entry.recording.id).source;
+  return (
+    <button
+      type="button"
+      className="np-next-row"
+      onClick={() => void player.selectEntry(entry.id)}
+    >
+      <Artwork
+        release={entry.recording.release_id ?? undefined}
+        recording={entry.recording.id}
+        fallback={coverIdentity(entry.recording)}
+      />
+      <span>
+        <strong>{entry.recording.title}</strong>
+        <small>
+          {entry.recording.artist} · {availability(entry.recording, resolved)}
+        </small>
+      </span>
+    </button>
+  );
+}
+
+function UpNextCard({
+  account,
+  openQueue,
+}: {
+  account: string;
+  openQueue: () => void;
+}) {
   const player = usePlayer();
   const { page, error, loading, retry, view } = useQueuePage(player);
   const next = page?.entries[0];
@@ -50,25 +90,7 @@ function UpNextCard({ openQueue }: { openQueue: () => void }) {
             : "Choose a track to start listening."}
         </p>
       )}
-      {next && (
-        <button
-          type="button"
-          className="np-next-row"
-          onClick={() => void player.selectEntry(next.id)}
-        >
-          <Artwork
-            release={next.recording.release_id ?? undefined}
-            recording={next.recording.id}
-            fallback={coverIdentity(next.recording)}
-          />
-          <span>
-            <strong>{next.recording.title}</strong>
-            <small>
-              {next.recording.artist} · {availability(next.recording)}
-            </small>
-          </span>
-        </button>
-      )}
+      {next && <UpNextRow account={account} entry={next} />}
     </section>
   );
 }
@@ -228,7 +250,7 @@ export default function NowPlayingAside({
   const player = usePlayer();
   return (
     <aside className="np-aside" aria-label="Up next and source" data-np-fade="">
-      <UpNextCard openQueue={openQueue} />
+      <UpNextCard account={account} openQueue={openQueue} />
       <SourceCard account={account} track={track} leave={leave} />
       {player.supports.speed && <SpeedCard />}
     </aside>

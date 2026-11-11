@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
+import { sourceStatusStore } from "../model/sourceStatusStore";
 
 export const sourceBindingsApi = {
   async review(
@@ -25,7 +26,7 @@ export const sourceBindingsApi = {
     body: Schema<"AttachReviewedProviderSource">,
     signal: AbortSignal,
   ): Promise<Schema<"Recording">> {
-    return requestJson<Schema<"Recording">>(
+    const attached = await requestJson<Schema<"Recording">>(
       `/recordings/${encodeURIComponent(recording)}/sources/attach`,
       {
         action: "sources.attach",
@@ -35,5 +36,7 @@ export const sourceBindingsApi = {
         signal,
       },
     );
+    sourceStatusStore.invalidate(account, recording);
+    return attached;
   },
 };
