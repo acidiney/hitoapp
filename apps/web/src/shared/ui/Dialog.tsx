@@ -23,20 +23,19 @@ function leavingCopy(element: HTMLDialogElement) {
   ghost.setAttribute("data-leaving", "");
   ghost.setAttribute("aria-hidden", "true");
   return {
-    show() {
+    show(done: () => void) {
       document.body.append(ghost);
       if (typeof ghost.showModal !== "function") {
         ghost.remove();
+        done();
         return;
       }
-      const focused = document.activeElement;
       ghost.showModal();
       ghost.setAttribute("inert", "");
-      if (focused instanceof HTMLElement)
-        focused.focus({ preventScroll: true });
       window.setTimeout(() => {
         ghost.close();
         ghost.remove();
+        done();
       }, LEAVE_MS);
     },
   };
@@ -90,9 +89,12 @@ export default function Dialog({
       element.removeEventListener("close", closed);
       const ghost = leavingCopy(element);
       element.close();
-      ghost?.show();
       const target = returning.current?.current ?? opener;
-      if (target?.isConnected) target.focus();
+      const restoreFocus = () => {
+        if (target?.isConnected) target.focus();
+      };
+      if (ghost) ghost.show(restoreFocus);
+      else restoreFocus();
     };
   }, []);
   return (
