@@ -251,10 +251,7 @@ test.describe("isolated provider playlist Resume", () => {
       await page
         .getByRole("link", { name: "Account and settings", exact: true })
         .click();
-      await page
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("link", { name: "Plugins", exact: true })
-        .click();
+      await page.goto("/settings?section=plugins");
       const card = page.locator(".plugin-connection").filter({
         has: page.getByRole("heading", {
           name: fixture.manifest.name,

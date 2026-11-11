@@ -189,10 +189,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     await page
       .getByRole("link", { name: "Account and settings", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await page.goto("/settings?section=plugins");
     await page.getByRole("button", { name: /^This server/ }).click();
     await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(
       0,

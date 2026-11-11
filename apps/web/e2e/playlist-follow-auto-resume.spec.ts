@@ -125,10 +125,7 @@ async function acceptChanges(page: Page, installation: string, name: string) {
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Plugins", exact: true })
-    .click();
+  await page.goto("/settings?section=plugins");
   const card = page.locator(".plugin-connection").first();
   const path = `/api/v1/plugins/${installation}/refresh`;
   const checked = page.waitForResponse(

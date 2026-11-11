@@ -131,10 +131,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toBe(true);
 
     stage = "address-only service offer and personal provider approval";
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await page.goto("/settings?section=plugins");
     await page.getByRole("button", { name: /^This server/ }).click();
     await page
       .getByLabel("Service address", { exact: true })
