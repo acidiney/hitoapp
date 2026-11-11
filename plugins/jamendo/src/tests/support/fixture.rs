@@ -13,7 +13,6 @@ use std::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
-use tracing::instrument::WithSubscriber;
 use url::Url;
 
 pub const CLIENT_ID: &str = "private-owned-jamendo-client";
@@ -23,44 +22,7 @@ pub const ARTIST: &str = "Owned performer";
 pub const ALBUM: &str = "Owned album";
 pub const CONTENT_URL: &str = "https://www.jamendo.com/track/42";
 
-pub struct Server {
-    pub base: Url,
-    task: tokio::task::JoinHandle<std::io::Result<()>>,
-}
-
-impl Server {
-    pub async fn start(router: Router) -> Self {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("fixture listener setup failed");
-        Self::serve(listener, router)
-    }
-
-    pub async fn start_with_dispatch(router: Router, dispatch: tracing::Dispatch) -> Self {
-        let router = router.layer(axum::middleware::from_fn(
-            move |request: axum::extract::Request, next: axum::middleware::Next| {
-                let dispatch = dispatch.clone();
-                async move { next.run(request).with_subscriber(dispatch).await }
-            },
-        ));
-        Self::start(router).await
-    }
-
-    fn serve(listener: tokio::net::TcpListener, router: Router) -> Self {
-        let address = listener.local_addr().expect("fixture address failed");
-        let task = tokio::spawn(async move { axum::serve(listener, router).await });
-        Self {
-            base: Url::parse(&format!("http://{address}/")).unwrap(),
-            task,
-        }
-    }
-}
-
-impl Drop for Server {
-    fn drop(&mut self) {
-        self.task.abort();
-    }
-}
+pub use super::server::Server;
 
 pub struct Provider {
     pub base: Url,
@@ -77,6 +39,7 @@ struct ProviderState {
     requests: AtomicUsize,
     api: AtomicUsize,
     media: AtomicUsize,
+    ranges: AtomicUsize,
     downloads: AtomicUsize,
     artwork: AtomicUsize,
     albums: AtomicUsize,
@@ -90,29 +53,23 @@ impl Provider {
         let wav = owned_wav();
         std::fs::write(directory.path().join("owned.wav"), &wav)
             .expect("owned audio fixture write failed");
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("provider fixture listener failed");
-        let address = listener
-            .local_addr()
-            .expect("provider fixture address failed");
-        let base = Url::parse(&format!("http://{address}/")).unwrap();
-        let state = Arc::new(ProviderState {
-            base: base.clone(),
-            wav: wav.clone(),
-            audio_override: Mutex::new(None),
-            requests: AtomicUsize::new(0),
-            api: AtomicUsize::new(0),
-            media: AtomicUsize::new(0),
-            downloads: AtomicUsize::new(0),
-            artwork: AtomicUsize::new(0),
-            albums: AtomicUsize::new(0),
-            album_changed: AtomicBool::new(false),
-            rejected: AtomicBool::new(false),
-        });
-        let server = Server::serve(
-            listener,
-            Router::new()
+        let state_wav = wav.clone();
+        let (server, state) = Server::build(move |base| {
+            let state = Arc::new(ProviderState {
+                base: base.clone(),
+                wav: state_wav,
+                audio_override: Mutex::new(None),
+                requests: AtomicUsize::new(0),
+                api: AtomicUsize::new(0),
+                media: AtomicUsize::new(0),
+                ranges: AtomicUsize::new(0),
+                downloads: AtomicUsize::new(0),
+                artwork: AtomicUsize::new(0),
+                albums: AtomicUsize::new(0),
+                album_changed: AtomicBool::new(false),
+                rejected: AtomicBool::new(false),
+            });
+            let router = Router::new()
                 .route("/v3.0/tracks/", get(tracks))
                 .route("/v3.0/albums/", get(albums))
                 .route("/v3.0/albums/tracks/", get(album_tracks))
@@ -123,8 +80,11 @@ impl Provider {
                     state.clone(),
                     count_request,
                 ))
-                .with_state(state.clone()),
-        );
+                .with_state(state.clone());
+            (router, state)
+        })
+        .await;
+        let base = server.base.clone();
         Self {
             base,
             wav,
@@ -154,6 +114,10 @@ impl Provider {
         self.state.media.load(Ordering::SeqCst)
     }
 
+    pub fn range_requests(&self) -> usize {
+        self.state.ranges.load(Ordering::SeqCst)
+    }
+
     pub fn download_requests(&self) -> usize {
         self.state.downloads.load(Ordering::SeqCst)
     }
@@ -172,6 +136,10 @@ impl Provider {
 
     pub fn rejected_request(&self) -> bool {
         self.state.rejected.load(Ordering::SeqCst)
+    }
+
+    pub async fn shutdown_report(self) -> super::server::Shutdown {
+        self._server.shutdown_report().await
     }
 }
 
@@ -331,15 +299,56 @@ async fn audio(State(state): State<Arc<ProviderState>>, headers: HeaderMap) -> R
         state.rejected.store(true, Ordering::SeqCst);
         return StatusCode::BAD_REQUEST.into_response();
     }
-    (
-        [
-            ("content-type", "audio/wav"),
-            ("accept-ranges", "bytes"),
-            ("set-cookie", "private-provider-cookie"),
-        ],
-        state.wav.clone(),
-    )
-        .into_response()
+    let mut response = Response::builder()
+        .header("content-type", "audio/wav")
+        .header("accept-ranges", "bytes")
+        .header("set-cookie", "private-provider-cookie");
+    let body = if headers.contains_key("range") {
+        state.ranges.fetch_add(1, Ordering::SeqCst);
+        let Some((first, last)) = audio_range(&headers, state.wav.len()) else {
+            return Response::builder()
+                .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                .header("content-range", format!("bytes */{}", state.wav.len()))
+                .body(axum::body::Body::empty())
+                .unwrap();
+        };
+        response = response.status(StatusCode::PARTIAL_CONTENT).header(
+            "content-range",
+            format!("bytes {first}-{last}/{}", state.wav.len()),
+        );
+        state.wav[first..=last].to_vec()
+    } else {
+        state.wav.clone()
+    };
+    response
+        .header("content-length", body.len())
+        .body(body.into())
+        .unwrap()
+}
+
+fn audio_range(headers: &HeaderMap, length: usize) -> Option<(usize, usize)> {
+    let mut values = headers.get_all("range").iter();
+    let raw = values.next()?.to_str().ok()?;
+    if values.next().is_some() || raw.len() > 128 || length == 0 {
+        return None;
+    }
+    let (first, last) = raw.strip_prefix("bytes=")?.split_once('-')?;
+    let decimal = |value: &str| -> Option<usize> {
+        (!value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
+            .then(|| value.parse().ok())
+            .flatten()
+    };
+    if first.is_empty() {
+        let suffix = decimal(last).filter(|suffix| *suffix > 0)?;
+        return Some((length.saturating_sub(suffix), length - 1));
+    }
+    let first = decimal(first)?;
+    let last = if last.is_empty() {
+        length - 1
+    } else {
+        decimal(last)?.min(length - 1)
+    };
+    (first <= last && first < length).then_some((first, last))
 }
 
 async fn download(State(state): State<Arc<ProviderState>>) -> StatusCode {
