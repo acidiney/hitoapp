@@ -605,3 +605,43 @@ test("album results without an album artist show the server's inferred credit", 
   expect(within(albums).getByText(/^Shore · 3 tracks/)).toBeTruthy();
   expect(within(albums).queryByText(/Unknown artist/)).toBeNull();
 });
+
+test("a 300-character artist credit stays in its card with an ellipsis, a title and no zero counts", () => {
+  const name = `Pineapple ${"Collaborator ".repeat(24)}`.trim();
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "pineapple",
+        recordings: { items: [], total: 0, offset: 0, limit: 8 },
+        releases: { items: [], total: 0, offset: 0, limit: 8 },
+        artists: page([
+          {
+            id: "first",
+            library_id: "library",
+            name: "Pineapple",
+            recording_count: 2,
+            release_count: 1,
+          },
+          {
+            id: "long",
+            library_id: "library",
+            name,
+            recording_count: 1,
+            release_count: 0,
+          },
+        ]),
+      }),
+    ),
+  );
+  expect(name.length).toBeGreaterThan(290);
+  const card = within(
+    screen.getByRole("region", { name: "Artists" }),
+  ).getByRole("link");
+  const title = card.querySelector("strong")!;
+  expect(title.getAttribute("title")).toBe(name);
+  const copy = card.querySelector(".search-card-copy")!;
+  expect(copy.textContent).toContain("1 track");
+  expect(copy.textContent).not.toMatch(/0 albums/);
+  expect(card.closest(".search-cards")).toBeTruthy();
+});

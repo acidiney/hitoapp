@@ -450,3 +450,9 @@
     transition: none;
   }
 }
+.outside-library .discovery-query:focus-within {
+  border-color: var(--action);
+}
+.outside-library .discovery-query input:focus-visible {
+  outline: none;
+}

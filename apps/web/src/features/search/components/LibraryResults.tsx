@@ -7,6 +7,7 @@ import Artwork from "../../artwork/components/Artwork";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { releaseCreditLabel } from "../../catalog/model/albumCredit";
 import type { ArtistHit } from "../model/artistHits";
+import { artistCounts } from "../../artists/model/artistCounts";
 import TrackResultRows from "./TrackResultRows";
 
 export function resultCount(shown: number, total: number): string {
@@ -108,7 +109,7 @@ export function AlbumResults({
               }}
             />
             <span className="search-card-copy">
-              <strong>{release.title}</strong>
+              <strong title={release.title}>{release.title}</strong>
               <span>
                 {releaseCreditLabel(release) ?? "Unknown artist"} ·{" "}
                 {release.track_count}{" "}
@@ -155,11 +156,8 @@ export function ArtistResults({
               />
             </span>
             <span className="search-card-copy">
-              <strong>{artist.name}</strong>
-              <span>
-                {artist.albums} {artist.albums === 1 ? "album" : "albums"} ·{" "}
-                {artist.tracks} {artist.tracks === 1 ? "track" : "tracks"}
-              </span>
+              <strong title={artist.name}>{artist.name}</strong>
+              <span>{artistCounts(artist.tracks, artist.albums)}</span>
             </span>
           </Link>
         ))}
