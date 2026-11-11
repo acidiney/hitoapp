@@ -118,14 +118,16 @@
 .plugin-power-by {
   display: flex;
   flex: none;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
   font-size: 14px;
+  line-height: 1.45;
   color: var(--muted);
 }
-.plugin-power-by > span:last-child {
+.plugin-power-line {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 .plugin-power li[data-on="true"] .plugin-power-by {
   color: var(--ink);

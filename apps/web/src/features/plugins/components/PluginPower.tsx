@@ -15,12 +15,19 @@ export default function PluginPower({
             <span className="plugin-power-name">{row.name}</span>
             <span className="plugin-power-what">{row.what}</span>
             <span className="plugin-power-by">
-              <span className="plugin-power-dot" aria-hidden="true" />
-              <span>
-                {row.providers.length > 0
-                  ? row.providers.map((name) => <span key={name}>{name}</span>)
-                  : "Not offered yet"}
-              </span>
+              {row.providers.length > 0 ? (
+                row.providers.map((name) => (
+                  <span key={name} className="plugin-power-line">
+                    <span className="plugin-power-dot" aria-hidden="true" />
+                    {name}
+                  </span>
+                ))
+              ) : (
+                <span className="plugin-power-line">
+                  <span className="plugin-power-dot" aria-hidden="true" />
+                  Not offered yet
+                </span>
+              )}
             </span>
           </li>
         ))}

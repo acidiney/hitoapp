@@ -6,7 +6,7 @@
   .plugin-power li {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: baseline;
     gap: 2px 12px;
     padding-block: 12px;
   }
@@ -17,10 +17,6 @@
   .plugin-power-by {
     justify-self: end;
     align-items: flex-start;
-    text-align: right;
-  }
-  .plugin-power-by > span:last-child {
-    align-items: flex-end;
   }
   .plugin-power-what {
     grid-column: 1 / -1;
