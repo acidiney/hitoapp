@@ -34,7 +34,7 @@ export default function PluginInstallationReview({
       </dl>
       <div className="plugin-actions">
         <Button
-          variant="primary"
+          variant="action"
           type="button"
           disabled={pending}
           onClick={onAccept}

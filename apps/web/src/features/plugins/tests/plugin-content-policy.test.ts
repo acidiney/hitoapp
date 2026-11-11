@@ -1,10 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { findCheckConnection } from "../fixtures/pluginInstallation";
 import { beforeEach, expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import PluginSettings from "../components/PluginSettings";
 
+vi.mock("../components/PluginPlaybackOrder", () => ({ default: () => null }));
 type Persistence = NonNullable<
   Schema<"PluginInstallation">["manifest"]["content_policy"]
 >["source_persistence"];
@@ -98,7 +100,11 @@ function acceptedDisclosure() {
 }
 
 function reviewDisclosure(label: "Current" | "Proposed") {
-  const term = screen.getByText(`${label} source persistence`);
+  const term = screen.getByText(
+    label === "Current"
+      ? "Source persistence today"
+      : "Source persistence if you accept",
+  );
   expect(term.tagName).toBe("DT");
   const definition = term.nextElementSibling;
   expect(definition?.tagName).toBe("DD");
@@ -161,37 +167,27 @@ test.each(transitions)(
   "policy-only review discloses $name without changing the accepted declaration before acceptance",
   async ({ current, proposed }) => {
     const fixture = workflow(current, proposed);
-    const check = await screen.findByRole("button", {
-      name: "Check connection",
-    });
+    const check = await findCheckConnection();
     expectPolicy(acceptedDisclosure(), current);
     fireEvent.click(check);
-    await screen.findByRole("heading", { name: "Review plugin changes" });
+    await screen.findByRole("dialog");
     expectPolicy(acceptedDisclosure(), current);
     expectPolicy(reviewDisclosure("Current"), current);
     expectPolicy(reviewDisclosure("Proposed"), proposed);
     expect(fixture.accepted()).toEqual(installation(current));
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Keep current declaration" }),
-    );
-    expect(
-      screen.queryByRole("heading", { name: "Review plugin changes" }),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expectPolicy(acceptedDisclosure(), current);
     expect(fixture.accepted()).toEqual(installation(current));
     expect(fixture.requests).toHaveLength(2);
 
     fireEvent.click(check);
-    await screen.findByRole("heading", { name: "Review plugin changes" });
+    await screen.findByRole("dialog");
     expectPolicy(acceptedDisclosure(), current);
     expectPolicy(reviewDisclosure("Proposed"), proposed);
     fireEvent.click(screen.getByRole("button", { name: "Accept changes" }));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("heading", { name: "Review plugin changes" }),
-      ).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expectPolicy(acceptedDisclosure(), proposed);
     expect(fixture.requests).toEqual([
       { path: "/api/v1/plugins", method: "GET", body: undefined },
@@ -212,12 +208,11 @@ test.each(transitions)(
 
 test("declining a policy review clears a private replacement-token draft without another request", async () => {
   const fixture = workflow("explicit_download", "playback_only");
-  await screen.findByRole("button", { name: "Check connection" });
-  fireEvent.click(screen.getByText("Connection settings"));
+  await findCheckConnection();
   const input = screen.getByLabelText("New bearer token") as HTMLInputElement;
   fireEvent.change(input, { target: { value: replacementToken } });
   fireEvent.click(screen.getByRole("button", { name: "Save token" }));
-  await screen.findByRole("heading", { name: "Review plugin changes" });
+  await screen.findByRole("dialog");
   expectPolicy(acceptedDisclosure(), "explicit_download");
   expectPolicy(reviewDisclosure("Current"), "explicit_download");
   expectPolicy(reviewDisclosure("Proposed"), "playback_only");
@@ -231,9 +226,7 @@ test("declining a policy review clears a private replacement-token draft without
     },
   });
 
-  fireEvent.click(
-    screen.getByRole("button", { name: "Keep current declaration" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Not now" }));
   expect(input.value).toBe("");
   expectPolicy(acceptedDisclosure(), "explicit_download");
   expect(fixture.accepted()).toEqual(installation("explicit_download"));

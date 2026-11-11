@@ -1,34 +1,34 @@
-import type { Ref } from "react";
 import type { Schema } from "../../../shared/schema";
 
 import type { PluginActions } from "../hooks/usePlugins";
 import { usePluginInstallation } from "../hooks/usePluginInstallation";
 import Button from "../../../shared/ui/Button";
-import Listbox from "../../../shared/ui/Listbox";
-import SettingsCard from "../../../shared/ui/SettingsCard";
+import Dialog from "../../../shared/ui/Dialog";
 import PluginInstallationReview from "./PluginInstallationReview";
-import { setting } from "../../settings/model/settingsCatalog";
+import PluginTile from "./PluginTile";
 
 export default function ConnectPlugin({
-  services,
+  service,
   actions,
   storageReady,
-  headingRef,
+  onClose,
 }: {
-  services: Schema<"PluginService">[];
+  service: Schema<"PluginService">;
   actions: PluginActions;
   storageReady: boolean;
-  headingRef?: Ref<HTMLHeadingElement>;
+  onClose: () => void;
 }) {
-  const workflow = usePluginInstallation(services, actions);
-  const { service, token } = workflow;
+  const workflow = usePluginInstallation([service], actions);
+  const { token } = workflow;
   const pending = actions.pending || workflow.pending;
-  if (!service) return null;
   return (
-    <SettingsCard
-      setting={setting("connect-service")}
-      headingRef={headingRef}
+    <Dialog
+      title={`Connect ${service.name}`}
+      eyebrow="Offered by this server"
+      lead={<PluginTile name={service.name} />}
+      className="dialog-plugin"
       busy={pending}
+      onClose={onClose}
     >
       <form
         className="plugin-form"
@@ -37,16 +37,6 @@ export default function ConnectPlugin({
           void workflow.preview();
         }}
       >
-        <Listbox
-          label="Service"
-          value={service.id}
-          options={services.map((item) => ({
-            value: item.id,
-            label: item.name,
-          }))}
-          disabled={actions.pending}
-          onChange={workflow.select}
-        />
         <p className="plugin-address">{service.base_url}</p>
         <label>
           Bearer token (optional)
@@ -63,9 +53,14 @@ export default function ConnectPlugin({
           Use a token supplied by this service. It stays private to your
           account.
         </p>
-        <Button type="submit" variant="primary" disabled={pending}>
-          {workflow.pending ? "Checking service…" : "Review connection"}
-        </Button>
+        <div className="plugin-actions">
+          <Button type="submit" variant="action" disabled={pending}>
+            {workflow.pending ? "Checking service…" : "Review connection"}
+          </Button>
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
       </form>
       {workflow.error && (
         <p role="alert" className="form-error">
@@ -80,6 +75,6 @@ export default function ConnectPlugin({
           onBack={workflow.back}
         />
       )}
-    </SettingsCard>
+    </Dialog>
   );
 }

@@ -8,11 +8,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { findCheckConnection } from "../fixtures/pluginInstallation";
 import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { pluginsApi } from "../api/pluginsApi";
 
+vi.mock("../components/PluginPlaybackOrder", () => ({ default: () => null }));
 vi.mock("../api/pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),
@@ -65,7 +67,19 @@ function settingsPage(account: string, admin: boolean) {
   });
 }
 
+async function openConnect(name = service.name) {
+  fireEvent.click(
+    await screen.findByRole("button", { name: `Connect ${name}` }),
+  );
+}
+
+async function openServerTab() {
+  fireEvent.click(await screen.findByRole("button", { name: /This server/ }));
+}
+
 async function reviewAndAccept() {
+  if (!screen.queryByRole("button", { name: "Review connection" }))
+    await openConnect();
   fireEvent.click(
     await screen.findByRole("button", { name: "Review connection" }),
   );
@@ -83,7 +97,7 @@ test("administrators offer an address and connect separately using its manifest 
     name: "Fixture provider",
   });
   render(settingsPage("admin", true));
-  fireEvent.click(await screen.findByText("Services for this server"));
+  await openServerTab();
 
   const address = screen.getByRole("textbox", { name: "Service address" });
   expect(screen.queryByRole("textbox", { name: "Service name" })).toBeNull();
@@ -96,25 +110,21 @@ test("administrators offer an address and connect separately using its manifest 
   });
   fireEvent.click(screen.getByRole("button", { name: "Offer service" }));
 
-  await waitFor(() =>
-    expect(screen.getByLabelText("Service").textContent).toBe(
-      "Fixture provider",
-    ),
-  );
+  await screen.findByRole("heading", { name: "Fixture provider" });
   expect(pluginsApi.offer).toHaveBeenCalledExactlyOnceWith(
     "admin",
     { base_url: service.base_url },
     expect.any(AbortSignal),
   );
-  expect(screen.getByLabelText("Service").textContent).toBe("Fixture provider");
   expect(
-    screen.getByRole("button", { name: "Review connection" }),
+    screen.getByRole("button", { name: "Withdraw Fixture provider" }),
   ).toBeTruthy();
   expect(pluginsApi.install).not.toHaveBeenCalled();
-  expect(
-    screen.getByText("No plugins connected to this account."),
-  ).toBeTruthy();
   expect((address as HTMLInputElement).value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "Your plugins" }));
+  expect(
+    screen.getByRole("button", { name: "Connect Fixture provider" }),
+  ).toBeTruthy();
 });
 
 test("invalid nonempty custom labels reach server validation and retain the draft", async () => {
@@ -127,7 +137,7 @@ test("invalid nonempty custom labels reach server validation and retain the draf
   });
   vi.mocked(pluginsApi.offer).mockRejectedValue(new Error(validationError));
   render(settingsPage("admin", true));
-  fireEvent.click(await screen.findByText("Services for this server"));
+  await openServerTab();
   fireEvent.click(screen.getByText("Advanced settings"));
   const label = screen.getByRole("textbox", {
     name: "Custom label (optional)",
@@ -149,7 +159,7 @@ test("invalid nonempty custom labels reach server validation and retain the draf
   expect(
     screen.queryByRole("button", { name: "Review connection" }),
   ).toBeNull();
-  expect(screen.queryByRole("button", { name: "Withdraw service" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Withdraw/ })).toBeNull();
   expect(pluginsApi.install).not.toHaveBeenCalled();
 });
 
@@ -162,6 +172,7 @@ test("ordinary accounts connect offered services and retain failed token drafts"
   expect(
     screen.queryByText("Provider content is not available in Hito yet."),
   ).toBeNull();
+  await openConnect();
   const input = await screen.findByLabelText("Bearer token (optional)");
   fireEvent.change(input, { target: { value: "private-token" } });
   await reviewAndAccept();
@@ -183,14 +194,17 @@ test("ordinary accounts connect offered services and retain failed token drafts"
   expect(screen.queryByLabelText("Bearer token (optional)")).toBeNull();
 });
 
-test("the Your plugins action stays in Settings and moves to Connect a service", async () => {
+test("an offered service opens its own connection dialog", async () => {
   render(settingsPage("bob", false));
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Connect a service" }),
-  );
-  expect(document.activeElement).toBe(
-    screen.getByRole("heading", { name: "Connect a service" }),
-  );
+  await openConnect();
+  const dialog = await screen.findByRole("dialog", {
+    name: `Connect ${service.name}`,
+  });
+  expect(
+    within(dialog).getByRole("button", { name: "Review connection" }),
+  ).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 test("the card does not repeat the section intro and no sentence floats between cards", async () => {
@@ -199,19 +213,16 @@ test("the card does not repeat the section intro and no sentence floats between 
     services: [],
   });
   const view = render(settingsPage("admin", true));
-  const offered = await screen.findByRole("region", {
-    name: "Services for this server",
-  });
-  expect(within(offered).getByText(/Nothing is offered yet/)).toBeTruthy();
+  await openServerTab();
+  expect(await screen.findByText(/Nothing is offered yet/)).toBeTruthy();
   expect(view.container.textContent).not.toMatch(/Offer a service below/);
   expect(view.container.textContent).not.toMatch(
     /Connect to services offered by your administrator/,
   );
   view.unmount();
   render(settingsPage("bob", false));
-  const mine = await screen.findByRole("region", { name: "Your plugins" });
   expect(
-    within(mine).getByText(/Your administrator has not offered any services/),
+    await screen.findByText(/Your administrator has not offered any services/),
   ).toBeTruthy();
 });
 
@@ -232,17 +243,11 @@ test("manifest changes are reviewed before accepting new capabilities", async ()
       installation: { ...plugin, revision: 2, manifest },
     });
   render(settingsPage("bob", false));
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Check connection" }),
-  );
-  await screen.findByRole("heading", { name: "Review plugin changes" });
+  fireEvent.click(await findCheckConnection());
+  await screen.findByRole("dialog");
   expect(pluginsApi.refresh).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole("button", { name: "Accept changes" }));
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("heading", { name: "Review plugin changes" }),
-    ).toBeNull(),
-  );
+  fireEvent.click(screen.getByRole("button", { name: /^Accept / }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(document.activeElement).toBe(
     screen.getByRole("button", { name: "Check connection" }),
   );
@@ -271,7 +276,7 @@ test("old account responses cannot add private connections after an account chan
   await waitFor(() => expect(pluginsApi.install).toHaveBeenCalledTimes(1));
   const signal = vi.mocked(pluginsApi.install).mock.calls[0][2];
   view.rerender(settingsPage("bob", false));
-  await screen.findByRole("button", { name: "Review connection" });
+  await screen.findByRole("button", { name: `Connect ${service.name}` });
   await act(async () => resolve(plugin));
   await waitFor(() => expect(signal.aborted).toBe(true));
   expect(
@@ -284,6 +289,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
     new Error("Plugin unavailable"),
   );
   render(settingsPage("bob", false));
+  await openConnect();
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "failed-private-draft" },
   });
@@ -294,12 +300,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
     services: [{ ...service, id: "other", name: "Other service" }, service],
   });
   fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
-  const services = screen.getByLabelText("Service");
-  await waitFor(() => {
-    fireEvent.click(services);
-    expect(screen.getByRole("option", { name: "Other service" })).toBeTruthy();
-  });
-  fireEvent.keyDown(services, { key: "Escape" });
+  await screen.findByRole("button", { name: "Connect Other service" });
   expect(
     (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
       .value,
@@ -309,6 +310,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
 test("withdrawing the selected offer clears its token before selecting another service", async () => {
   vi.mocked(pluginsApi.install).mockRejectedValue(new Error("Offer withdrawn"));
   render(settingsPage("bob", false));
+  await openConnect();
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "old-service-private-draft" },
   });
@@ -320,8 +322,9 @@ test("withdrawing the selected offer clears its token before selecting another s
   });
   fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
   await waitFor(() =>
-    expect(screen.getByLabelText("Service").textContent).toBe("Other service"),
+    expect(screen.queryByLabelText("Bearer token (optional)")).toBeNull(),
   );
+  await openConnect("Other service");
   expect(
     (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
       .value,
@@ -354,7 +357,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
   );
 });
 
-test("a connection says in plain words what it does and keeps the technical declaration in Details", async () => {
+test("a connection says in plain words what it does and keeps the technical declaration under Manage", async () => {
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     ...initial,
     installations: [plugin],
@@ -362,16 +365,10 @@ test("a connection says in plain words what it does and keeps the technical decl
   vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
   render(settingsPage("bob", false));
   await screen.findByText("Finds songs and plays them from Fixture provider.");
-  for (const label of screen.getAllByText(/Declared capabilities/))
-    expect(label.closest("details")).not.toBeNull();
-  const details = screen.getByText("Details").closest("details");
-  expect(details?.open).toBe(false);
-  expect(
-    within(details as HTMLElement).getByText(/Declared capabilities/),
-  ).toBeTruthy();
-  expect(
-    within(details as HTMLElement).getByText(/No persistence declaration/),
-  ).toBeTruthy();
+  expect(screen.queryByText(/Declared capabilities/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+  expect(screen.getByText(/Declared capabilities/)).toBeTruthy();
+  expect(screen.getByText(/No persistence declaration/)).toBeTruthy();
 });
 
 test("new capabilities waiting for approval are announced without pressing Check connection", async () => {
@@ -403,14 +400,10 @@ test("new capabilities waiting for approval are announced without pressing Check
     expect.any(AbortSignal),
   );
   expect(pluginsApi.refresh).not.toHaveBeenCalled();
-  expect(
-    screen.queryByRole("heading", { name: "Review plugin changes" }),
-  ).toBeNull();
-  fireEvent.click(
-    within(banner).getByRole("button", { name: "Review and accept" }),
-  );
-  await screen.findByRole("heading", { name: "Review plugin changes" });
-  fireEvent.click(screen.getByRole("button", { name: "Accept changes" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(within(banner).getByRole("button", { name: "Review" }));
+  await screen.findByRole("dialog");
+  fireEvent.click(screen.getByRole("button", { name: /^Accept / }));
   await waitFor(() =>
     expect(
       screen.queryByRole("status", { name: "New: album covers" }),
@@ -437,7 +430,7 @@ test("a failed automatic check stays quiet", async () => {
     new Error("offline"),
   );
   render(settingsPage("bob", false));
-  await screen.findByRole("button", { name: "Check connection" });
+  await findCheckConnection();
   await waitFor(() => expect(pluginsApi.checkDeclaration).toHaveBeenCalled());
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByText("offline")).toBeNull();
@@ -481,13 +474,16 @@ test("each connection is a card with capability chips beside its name and status
       within(second).getByRole("list", { name: "Capabilities" }),
     ).getAllByRole("listitem"),
   ).toHaveLength(1);
+  expect(within(first).getByText("Connected")).toBeTruthy();
+  expect(within(second).getByText("Connected")).toBeTruthy();
+  fireEvent.click(within(first).getByRole("button", { name: "Manage" }));
+  fireEvent.click(within(second).getByRole("button", { name: "Manage" }));
   expect(within(first).getByText("Token saved")).toBeTruthy();
   expect(within(second).getByText("No token saved")).toBeTruthy();
   expect(
     within(first).getByRole("button", { name: "Check connection" }),
   ).toBeTruthy();
   expect(within(first).getByRole("button", { name: "Remove" })).toBeTruthy();
-  expect(within(first).getByText("Details")).toBeTruthy();
 });
 
 test("a connection that declares nothing shows no chip list", async () => {

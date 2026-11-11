@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
 
+import PluginSettings from "../../plugins/components/PluginSettings";
 import PageHeading from "../../../shared/ui/PageHeading";
 import {
   UnsavedContext,
@@ -82,6 +83,16 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
       }));
     router.visit(hit.href, { preserveState: true, preserveScroll: true });
   }
+  if (section === "plugins")
+    return (
+      <UnsavedContext.Provider value={unsaved}>
+        <PluginSettings
+          account={props.user.id}
+          admin={props.user.admin}
+          desktop={props.native_playback}
+        />
+      </UnsavedContext.Provider>
+    );
   return (
     <UnsavedContext.Provider value={unsaved}>
       <PageHeading title="Settings" headingRef={pageHeading} />

@@ -17,7 +17,10 @@ export default function SourcePreferences({ account }: { account: string }) {
   return <PreferencesForm key={account} {...useSourcePreferences(account)} />;
 }
 
-function describe(entry: Entry, connections: Schema<"PluginSettings"> | null) {
+export function describeSource(
+  entry: Entry,
+  connections: Schema<"PluginSettings"> | null,
+) {
   if (entry.kind === "local_files")
     return { label: "Local files", hint: "Audio in your music folders" };
   if (entry.kind === "saved_copies")
@@ -58,7 +61,7 @@ function PreferencesForm(preferences: ReturnType<typeof useSourcePreferences>) {
           <fieldset disabled={preferences.pending}>
             <ol className="provider-order" aria-label="Source order">
               {entries.map((entry, index) => {
-                const { label, hint } = describe(
+                const { label, hint } = describeSource(
                   entry,
                   preferences.connections,
                 );
