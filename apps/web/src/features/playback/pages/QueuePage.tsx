@@ -6,5 +6,5 @@ import {
 
 export default function QueuePage() {
   const phone = useMediaQuery(PHONE_QUERY);
-  return phone ? <QueueScreen /> : null;
+  return phone ? <QueueScreen onClose={() => window.history.back()} /> : null;
 }

@@ -1,6 +1,7 @@
 import {
   useLayoutEffect,
   useRef,
+  useState,
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
@@ -10,9 +11,14 @@ import { coverPaint } from "../../../shared/ui/coverArt";
 import { oklchToHex } from "../../../shared/ui/coverColor";
 import NowPlayingAside from "./NowPlayingAside";
 import { LyricsPanel } from "./NowPlayingLyrics";
+import NowPlayingPhone, { type PhonePanel } from "./NowPlayingPhone";
 import NowPlayingTrack from "./NowPlayingTrack";
 import PlayerTrackActions from "./PlayerTrackActions";
 import { useNowPlayingMotion } from "../hooks/useNowPlayingMotion";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import type { Track } from "../model";
 
 function roomTint(current: Track | null): CSSProperties {
@@ -37,6 +43,8 @@ export default function NowPlaying({
   openQueue: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const phone = useMediaQuery(PHONE_QUERY);
+  const [panel, setPanel] = useState<PhonePanel>(null);
   const cover = useRef<HTMLDivElement>(null);
   const player = usePlayer();
   const current = useSyncExternalStore(
@@ -63,39 +71,65 @@ export default function NowPlaying({
         motion.requestClose();
       }}
     >
-      <header data-np-fade="">
-        <button
-          className="icon-button"
-          aria-label="Close now playing"
-          onClick={motion.requestClose}
-        >
-          <ChevronDown size={22} />
-        </button>
-        <span>Now playing</span>
-        {current ? (
-          <PlayerTrackActions
-            track={current}
-            liking={false}
-            onNavigate={close}
+      {!(phone && panel) && (
+        <header data-np-fade="">
+          <button
+            className="icon-button"
+            aria-label="Close now playing"
+            onClick={motion.requestClose}
+          >
+            <ChevronDown size={22} />
+          </button>
+          <span>Now playing</span>
+          {current ? (
+            <PlayerTrackActions
+              track={current}
+              liking={false}
+              onNavigate={close}
+            />
+          ) : (
+            <span aria-hidden="true" className="np-header-balance" />
+          )}
+        </header>
+      )}
+      <div
+        className="np-body"
+        data-panel={phone ? (panel ?? "player") : undefined}
+      >
+        {phone ? (
+          <NowPlayingPhone
+            account={account}
+            current={current}
+            panel={panel}
+            choose={setPanel}
+            leave={close}
+            openQueue={openQueue}
+            track={
+              <NowPlayingTrack
+                account={account}
+                current={current}
+                cover={cover}
+                close={close}
+              />
+            }
           />
         ) : (
-          <span aria-hidden="true" className="np-header-balance" />
+          <>
+            <NowPlayingTrack
+              account={account}
+              current={current}
+              cover={cover}
+              close={close}
+            />
+            <LyricsPanel account={account} track={current} leave={close} />
+            <NowPlayingAside
+              account={account}
+              track={current}
+              openQueue={openQueue}
+              leave={close}
+            />
+          </>
         )}
-      </header>
-      <div className="np-body">
-        <NowPlayingTrack
-          account={account}
-          current={current}
-          cover={cover}
-          close={close}
-        />
-        <LyricsPanel account={account} track={current} leave={close} />
-        <NowPlayingAside
-          account={account}
-          track={current}
-          openQueue={openQueue}
-          leave={close}
-        />
       </div>
     </dialog>
   );

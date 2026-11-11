@@ -3,8 +3,13 @@
     --phone-top: max(56px, calc(env(safe-area-inset-top) + 16px));
     line-height: 1.45;
   }
-  main#main {
+  main#main,
+  main#main:has(> .library-heading) {
     padding: var(--phone-top) 16px 16px;
+  }
+  main#main:has(> .playlist-header),
+  main#main:has(> .detail-page) {
+    padding-top: 0;
   }
   .account {
     display: none;
@@ -168,6 +173,10 @@
     flex-wrap: nowrap;
     align-items: center;
     min-height: 44px;
+  }
+  .library-heading .page-heading:has(> .page-heading-actions) {
+    align-items: flex-start;
+    gap: 12px;
   }
   .library-heading .page-heading h1 {
     font-size: 28px;
@@ -801,5 +810,18 @@
   .track-table:not([data-layout]):not([data-editing]) td.album-column,
   .track-table:not([data-layout]):not([data-editing]) td.duration-column {
     display: none;
+  }
+}
+@media (max-width: 767px) {
+  .settings-page {
+    margin-top: 0;
+  }
+  .plugins-page,
+  .discovery-page {
+    padding-top: 0;
+  }
+  .plugins-page h1,
+  .discover-header h1 {
+    font-size: 28px;
   }
 }

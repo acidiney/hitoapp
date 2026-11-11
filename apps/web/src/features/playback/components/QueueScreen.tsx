@@ -117,6 +117,16 @@ export default function QueueScreen({
             >
               Clear
             </button>
+            {onClose && (
+              <button
+                type="button"
+                className="queue-close"
+                aria-label="Close queue"
+                onClick={onClose}
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </PageHeading>
       )}

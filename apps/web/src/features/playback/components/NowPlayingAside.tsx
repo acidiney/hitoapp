@@ -98,7 +98,7 @@ function UpNextCard({
 const SPEED_SETTLE_MS = 250;
 const label = (speed: number) => `${speed}×`;
 
-function SpeedCard() {
+export function SpeedCard() {
   const player = usePlayer();
   const speed = useSyncExternalStore(
     player.subscribe,
@@ -168,7 +168,7 @@ function SpeedCard() {
   );
 }
 
-function SourceCard({
+export function SourceCard({
   account,
   track,
   leave,
@@ -233,6 +233,24 @@ function SourceCard({
         </div>
       )}
     </section>
+  );
+}
+
+export function SourcePanel({
+  account,
+  track,
+  leave,
+}: {
+  account: string;
+  track: Track | null;
+  leave: () => void;
+}) {
+  const player = usePlayer();
+  return (
+    <div className="np-panel">
+      <SourceCard account={account} track={track} leave={leave} />
+      {player.supports.speed && <SpeedCard />}
+    </div>
   );
 }
 

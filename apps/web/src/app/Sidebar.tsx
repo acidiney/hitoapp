@@ -1,7 +1,7 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Compass, Home, Library, Plug, Plus, Search } from "lucide-react";
-import { HitoLogo } from "../shared/brand/HitoLogo";
+import { HitoLogo, HitoMark } from "../shared/brand/HitoLogo";
 import FallbackCover from "../shared/ui/FallbackCover";
 
 import { log } from "../shared/log";
@@ -25,7 +25,12 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <Link href="/home" className="brand" aria-label="Hito home">
-        <HitoLogo />
+        <span className="brand-wordmark">
+          <HitoLogo />
+        </span>
+        <span className="brand-mark">
+          <HitoMark />
+        </span>
       </Link>
       <nav aria-label="Main navigation">
         <Link
