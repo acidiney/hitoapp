@@ -2,10 +2,17 @@ import { useSyncExternalStore } from "react";
 import type { Schema } from "./schema";
 
 export type InvalidationScope =
-  "sources" | "recording" | "playlist" | "playlists" | "lyrics" | "plugins";
+  | "sources"
+  | "resolved"
+  | "recording"
+  | "playlist"
+  | "playlists"
+  | "lyrics"
+  | "plugins";
 
 export type RecordingChange =
-  { liked: boolean } | { field: "title" | "artist"; value: string };
+  | { liked: boolean }
+  | { field: "title" | "artist"; value: string };
 
 export type Invalidation = {
   scope: InvalidationScope;
