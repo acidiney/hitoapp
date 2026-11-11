@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { request, requestJson } from "../../../shared/http";
+import { invalidate } from "../../../shared/invalidation";
 
 const part = encodeURIComponent;
 export const pluginsApi = {
@@ -40,7 +41,7 @@ export const pluginsApi = {
     attempt: string,
     signal: AbortSignal,
   ): Promise<Schema<"PluginAuthorizationStatus">> {
-    return requestJson<Schema<"PluginAuthorizationStatus">>(
+    const status = await requestJson<Schema<"PluginAuthorizationStatus">>(
       `/plugins/${part(installation)}/authorization/${part(attempt)}`,
       {
         action: "plugins.authorization_status",
@@ -49,6 +50,8 @@ export const pluginsApi = {
         cache: "no-store",
       },
     );
+    if (status.status === "completed") invalidate("plugins", installation);
+    return status;
   },
   async launchAuthorization(
     account: string,
@@ -81,6 +84,7 @@ export const pluginsApi = {
       account,
       signal,
     });
+    invalidate("plugins", installation);
   },
   async followPlaylist(
     account: string,
@@ -278,6 +282,7 @@ export const pluginsApi = {
       body: { revision: plugin.revision },
       signal,
     });
+    invalidate("plugins", plugin.id);
   },
   async clearCredential(
     account: string,
