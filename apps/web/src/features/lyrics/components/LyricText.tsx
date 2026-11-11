@@ -29,6 +29,15 @@ function Provider({
   );
 }
 
+export function LyricCredits({ view }: { view: LyricView }) {
+  return (
+    <>
+      {view.attribution && <Provider attribution={view.attribution} />}
+      <RecordingCredits attribution={view.legacyAttribution} />
+    </>
+  );
+}
+
 export default function LyricText({ view }: { view: LyricView }) {
   return (
     <div className="track-lyrics-body">
@@ -55,8 +64,7 @@ export default function LyricText({ view }: { view: LyricView }) {
           ),
         )}
       </ol>
-      {view.attribution && <Provider attribution={view.attribution} />}
-      <RecordingCredits attribution={view.legacyAttribution} />
+      <LyricCredits view={view} />
     </div>
   );
 }

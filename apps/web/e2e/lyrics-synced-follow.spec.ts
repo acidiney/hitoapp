@@ -99,6 +99,33 @@ test("Track Details lyrics follow the playing music when the durations match", a
   await page.reload();
   const panel = page.getByRole("region", { name: "Lyrics" });
   await expect(panel.getByText("Synced · from LRCLIB lyrics")).toBeVisible();
+  const states = await panel
+    .locator(".np-lines button")
+    .evaluateAll((buttons) =>
+      buttons.map((button) => (button as HTMLElement).dataset.state),
+    );
+  expect(states.length).toBe(lines.length);
+  expect(new Set(states)).toEqual(new Set(["next"]));
+  await expect(panel.locator("[aria-current]")).toHaveCount(0);
+  const inside = await panel.evaluate((element) => {
+    const card = element.querySelector(".lyric-panel")!.getBoundingClientRect();
+    const scroller = element.querySelector<HTMLElement>(".np-lines")!;
+    const box = scroller.getBoundingClientRect();
+    return {
+      contained: box.bottom <= card.bottom + 1 && box.top >= card.top,
+      scrolls: getComputedStyle(scroller).overflowY === "auto",
+    };
+  });
+  expect(inside).toEqual({ contained: true, scrolls: true });
+  await panel.getByRole("button", { name: lines[3] }).click({ force: true });
+  expect(
+    await page.evaluate(
+      () =>
+        document
+          .querySelector("audio[data-hito-player]")
+          ?.getAttribute("src") ?? null,
+    ),
+  ).toBeNull();
   await expect(panel.getByRole("button", { name: "Change" })).toBeVisible();
   await expect(panel.getByRole("radio")).toHaveCount(0);
   await expect(panel.getByRole("button", { name: /^Remove/ })).toHaveCount(0);

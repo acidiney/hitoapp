@@ -142,11 +142,14 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   const requests = await mockLyrics(page, recording.id);
   await page.goto(`/recordings/${recording.id}?tab=lyrics`);
   const panel = page.getByRole("region", { name: "Lyrics" });
+  await expect(panel.getByRole("radio")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Change" }).click();
+  const choices = page.getByRole("dialog", { name: "Lyrics for this track" });
   await expect(
-    panel.getByRole("radio", { name: /Retired lyrics/ }),
+    choices.getByRole("radio", { name: /Retired lyrics/ }),
   ).toBeDisabled();
   await expect(
-    panel.getByRole("button", { name: "Remove Retired lyrics" }),
+    choices.getByRole("button", { name: "Remove Retired lyrics" }),
   ).toBeEnabled();
   await trackShot(page, "lyr-01-choices");
   await trackShot(page, "lyr-01-choices-phone", "phone-dark");
@@ -155,7 +158,7 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
     "/services",
   ]);
 
-  await panel.getByRole("button", { name: "Find lyrics" }).click();
+  await choices.getByRole("button", { name: "Find lyrics" }).click();
   await expect(
     panel.getByRole("searchbox", { name: "Search text" }),
   ).toHaveValue(`${recording.title} ${recording.artist}`);
@@ -173,7 +176,7 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   await trackShot(page, "lyr-03-review-phone", "phone-dark");
   await dialog.getByRole("button", { name: "Use these lyrics" }).click();
   await expect(dialog).toBeHidden();
-  await expect(panel.getByRole("radio", { name: /Open lyrics/ })).toBeChecked();
+  await expect(panel.getByText(/from Open lyrics/)).toBeVisible();
   const retain = requests.find(
     (entry) => entry.method === "POST" && entry.path === "/identities",
   );

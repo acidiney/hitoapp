@@ -62,6 +62,30 @@ export function SyncedLines({ lines }: { lines: Line[] }) {
   );
 }
 
+export function UnplayedLines({ lines }: { lines: Line[] }) {
+  return (
+    <div
+      className="np-lines"
+      data-synced=""
+      aria-label="Lyric lines"
+      role="group"
+      tabIndex={0}
+    >
+      {lines.map((line, index) => (
+        <button
+          key={index}
+          type="button"
+          data-line={index}
+          data-state="next"
+          disabled
+        >
+          {line.text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function PlainLines({ lines }: { lines: { text: string }[] }) {
   return (
     <div

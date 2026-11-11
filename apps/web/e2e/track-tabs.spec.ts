@@ -256,7 +256,7 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     ).toBeVisible();
     await page.goto(`${base}?tab=lyrics`);
     await expect(page.getByRole("list", { name: "Lyric lines" })).toBeVisible();
-    await expect(page.getByText("Synced", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Synced · from/)).toBeVisible();
     await trackShot(page, "03-lyrics-synced");
 
     await clearLyrics(page, recording.id);
@@ -265,7 +265,7 @@ test("a saved provider track without audio finds audio, reviews the match and sh
       lines: ready.lines.map((line) => ({ ...line, start_ms: 0, end_ms: 0 })),
     });
     await page.reload();
-    await expect(page.getByText("Unsynced", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Not synced · from/)).toBeVisible();
     await trackShot(page, "04-lyrics-unsynced");
 
     await clearLyrics(page, recording.id);

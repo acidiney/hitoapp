@@ -260,7 +260,7 @@
   min-height: 0;
   gap: 16px;
   padding: 0;
-  justify-content: center;
+  justify-content: safe center;
   line-height: 1.15;
 }
 .lyric-panel .np-lines button {
@@ -285,4 +285,12 @@
 }
 .lyric-panel .track-lyrics-body ol li[data-blank] {
   height: 8px;
+}
+.lyric-panel .np-lines {
+  overflow-y: auto;
+  flex: 1 1 0;
+}
+.lyric-panel .np-lines button:disabled {
+  opacity: 1;
+  cursor: default;
 }

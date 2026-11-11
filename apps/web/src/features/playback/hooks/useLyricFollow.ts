@@ -30,8 +30,11 @@ export function useLyricFollow(
       const root = scroller.current;
       const line = root?.querySelector<HTMLElement>(`[data-line="${index}"]`);
       if (!root || !line) return;
-      line.scrollIntoView({
-        block: "center",
+      const rootBox = root.getBoundingClientRect();
+      const lineBox = line.getBoundingClientRect();
+      root.scrollBy?.({
+        top:
+          lineBox.top + lineBox.height / 2 - (rootBox.top + rootBox.height / 2),
         behavior: reducedMotion() ? "auto" : "smooth",
       });
     },

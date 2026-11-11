@@ -8,7 +8,7 @@ import FollowedLyrics from "./FollowedLyrics";
 import LyricChangeDialog from "./LyricChangeDialog";
 import LyricFinder from "./LyricFinder";
 import LyricLookup, { LyricStateCard } from "./LyricLookup";
-import LyricText from "./LyricText";
+import LyricText, { LyricCredits } from "./LyricText";
 
 type SavedFacts = {
   title: string;
@@ -185,11 +185,10 @@ export default function RecordingLyrics({
         >
           {header(followed ? "Synced" : "Not synced")}
           {followed ? (
-            <FollowedLyrics
-              recording={recording}
-              lines={followed}
-              fallback={text}
-            />
+            <>
+              <FollowedLyrics recording={recording} lines={followed} />
+              <LyricCredits view={view} />
+            </>
           ) : (
             text
           )}

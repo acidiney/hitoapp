@@ -130,9 +130,11 @@ test("v1 timed lyrics keep their existing synced rendering and creators", async 
       }),
     ),
   );
-  const lines = await lyrics.findByRole("list", { name: "Lyric lines" });
-  expect(lines.getAttribute("data-synced")).toBe("true");
-  expect(lines.querySelectorAll("[data-time]")).toHaveLength(2);
+  const lines = await lyrics.findByRole("group", { name: "Lyric lines" });
+  expect(lines.hasAttribute("data-synced")).toBe(true);
+  expect(
+    [...lines.querySelectorAll("button")].map((line) => line.dataset.state),
+  ).toEqual(["next", "next"]);
   expect(lyrics.getByText(/^Synced · from/)).toBeTruthy();
   expect(
     within(lyrics.getByRole("list", { name: "Creators" })).getByText("Writer"),

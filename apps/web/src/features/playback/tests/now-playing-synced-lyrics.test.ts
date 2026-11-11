@@ -83,7 +83,7 @@ beforeEach(() => {
       },
     ],
   });
-  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollBy = vi.fn();
 });
 afterEach(() => {
   cleanup();
@@ -148,7 +148,7 @@ test("scrolling by hand pauses following until Back to current line", async () =
     screen.queryByRole("button", { name: "Back to current line" }),
   ).toBeNull();
   fireEvent.wheel(lines);
-  const scroll = vi.mocked(Element.prototype.scrollIntoView);
+  const scroll = vi.mocked(Element.prototype.scrollBy);
   scroll.mockClear();
   setPosition(4.5);
   expect(scroll).not.toHaveBeenCalled();

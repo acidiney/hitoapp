@@ -117,7 +117,7 @@ test("the Lyrics tab names synced lyrics Synced", async () => {
     "?tab=lyrics",
   );
   const region = await screen.findByRole("region", { name: "Lyrics" });
-  await within(region).findByRole("list", { name: "Lyric lines" });
+  await within(region).findByRole("group", { name: "Lyric lines" });
   expect(within(region).getByText(/^Synced · from/)).toBeTruthy();
 });
 

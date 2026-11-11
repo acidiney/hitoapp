@@ -3,81 +3,101 @@ import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { trackShot } from "./fixtures/track-shots";
 import type { Schema } from "../src/shared/schema";
 
-type Mode = "synced" | "none" | "failed" | "loading";
+type Mode = "found" | "none" | "failed" | "loading";
 
-const provider = {
+const service = {
   installation_id: "11111111-1111-4111-8111-111111111111",
   installation_revision: 2,
   label: "Open lyrics",
-  observation_id: "22222222-2222-4222-8222-222222222222",
-  provider_recording: { id: "auto-1", revision: null },
-} satisfies Schema<"RecordingLyricsProvider">;
+} satisfies Schema<"RecordingLyricService">;
 
-async function mockCompatible(page: Page, recording: string, mode: Mode) {
+const saved = {
+  selectable: true,
+  selector: {
+    kind: "reviewed",
+    identity_id: "44444444-4444-4444-8444-444444444444",
+    identity_revision: 1,
+  },
+  installation_id: service.installation_id,
+  installation_revision: service.installation_revision,
+  provider_recording: { id: "auto-1", revision: null },
+  label: service.label,
+} satisfies Schema<"RecordingLyricIdentity">;
+
+async function mockAutomatic(
+  page: Page,
+  recording: Schema<"Recording">,
+  mode: Mode,
+) {
   const requests: string[] = [];
-  const base = `**/api/v1/recordings/${recording}/lyrics`;
-  await page.route(`${base}/identities`, (route) =>
-    route.fulfill({ json: { recording_id: recording, items: [] } }),
-  );
+  let retained = false;
+  const base = `**/api/v1/recordings/${recording.id}/lyrics`;
+  const match = {
+    id: "auto-1",
+    title:
+      mode === "none" ? `${recording.title} Remix Part 2` : recording.title,
+    artist: recording.artist,
+    duration_ms: recording.duration_ms,
+  } satisfies Schema<"ProviderRecording">;
   await page.route(`${base}/services`, (route) =>
-    route.fulfill({
-      json: {
-        recording_id: recording,
-        items: [
-          {
-            installation_id: provider.installation_id,
-            installation_revision: 2,
-            label: "Open lyrics",
-          },
-        ],
-      },
-    }),
+    route.fulfill({ json: { recording_id: recording.id, items: [service] } }),
   );
-  await page.route(`${base}/providers`, (route) => {
-    requests.push("providers");
+  await page.route(`${base}/identities`, (route) => {
+    if (route.request().method() === "POST") {
+      requests.push("retain");
+      retained = true;
+      return route.fulfill({ json: saved });
+    }
     return route.fulfill({
-      json: { recording_id: recording, items: [provider] },
+      json: { recording_id: recording.id, items: retained ? [saved] : [] },
     });
   });
-  await page.route(base, (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    requests.push(`read:${route.request().postData()}`);
+  await page.route(`${base}/candidates`, (route) => {
+    requests.push(`candidates:${route.request().postData()}`);
     if (mode === "loading") return;
     if (mode === "failed")
       return route.fulfill({ status: 502, json: { error: "down" } });
+    return route.fulfill({ json: { items: [match] } });
+  });
+  await page.route(`${base}/identities/review`, (route) => {
+    requests.push("review");
     return route.fulfill({
       json: {
-        status: "ready",
-        recording_id: recording,
-        observation_id: provider.observation_id,
-        document_digest: "0",
-        document: {
-          recording: provider.provider_recording,
-          lyrics:
-            mode === "none"
-              ? null
-              : {
-                  id: "l",
-                  rendition_id: "r",
-                  lines: [
-                    { start_ms: 0, end_ms: 4000, text: "Should auld acquaintance be forgot," },
-                    { start_ms: 4000, end_ms: 8000, text: "And never brought to mind?" },
-                  ],
-                  attribution: null,
-                },
-        },
-      } satisfies Schema<"LyricsLookup">,
+        candidate: { recording: match },
+        review_stamp: "auto-stamp",
+      } satisfies Schema<"RecordingLyricReview">,
     });
   });
-  for (const suffix of ["candidates", "identities/review", "identities/read"])
-    await page.route(`${base}/${suffix}`, (route) => {
-      requests.push(`forbidden:${suffix}`);
-      return route.abort();
+  await page.route(`${base}/identities/read`, (route) => {
+    requests.push("read");
+    return route.fulfill({
+      json: {
+        status: "ready_v2",
+        recording_id: recording.id,
+        selector: saved.selector,
+        provider_recording: saved.provider_recording,
+        document_digest: "0",
+        document: {
+          recording: saved.provider_recording,
+          lyrics: {
+            id: "l",
+            rendition_id: "r",
+            content: {
+              kind: "plain",
+              lines: [
+                "Should auld acquaintance be forgot,",
+                "And never brought to mind?",
+              ],
+            },
+          },
+        },
+      } satisfies Schema<"SelectedLyricsLookup">,
     });
+  });
   return requests;
 }
 
-for (const mode of ["loading", "synced", "none", "failed"] as const)
+for (const mode of ["loading", "found", "none", "failed"] as const)
   test(`automatic lyric lookup on Track Details: ${mode}`, async ({ page }) => {
     if (!sharedAdminSession) await enterAdmin(page);
     await page.emulateMedia({ colorScheme: "dark" });
@@ -87,17 +107,29 @@ for (const mode of ["loading", "synced", "none", "failed"] as const)
     const recording: Schema<"Recording"> = (await listed.json()).items.find(
       (item: Schema<"Recording">) => item.title === "Fixture 440 Hz",
     );
-    const requests = await mockCompatible(page, recording.id, mode);
+    const requests = await mockAutomatic(page, recording, mode);
     await page.goto(`/recordings/${recording.id}?tab=lyrics`);
     const panel = page.getByRole("region", { name: "Lyrics" });
     const expected = {
       loading: "Looking up lyrics…",
-      synced: "Synced · from Open lyrics",
+      found: "Not synced · from Open lyrics",
       none: "None found",
       failed: "Couldn't check",
     }[mode];
     await expect(panel.getByText(expected).first()).toBeVisible();
-    expect(requests.filter((entry) => entry.startsWith("forbidden"))).toEqual([]);
+    if (mode === "found")
+      expect(requests).toEqual([
+        expect.stringContaining('"query":"Fixture 440 Hz'),
+        "review",
+        "retain",
+        "read",
+      ]);
+    if (mode === "none") {
+      expect(requests).toHaveLength(1);
+      await expect(
+        panel.getByRole("button", { name: "Find lyrics" }),
+      ).toBeVisible();
+    }
     await trackShot(page, `auto-${mode}`);
     await trackShot(page, `auto-${mode}-phone`, "phone-dark");
   });

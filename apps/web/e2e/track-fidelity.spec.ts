@@ -75,7 +75,7 @@ test("the track page renders the mockup data screen by screen", async ({
 
   await page.getByRole("tab", { name: /^Lyrics/ }).click();
   await expect(page.getByRole("list", { name: "Lyric lines" })).toBeVisible();
-  await expect(page.getByText("Synced", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Synced · from/)).toBeVisible();
   await shot(page, "03-lyrics-synced");
 
   await page.getByRole("tab", { name: /^Sources/ }).click();
