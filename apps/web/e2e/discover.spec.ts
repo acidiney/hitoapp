@@ -45,15 +45,15 @@ test("Discover offers the library's genres, opens one and plays it, and keeps th
     navigation.getByRole("link", { name: "Discover", exact: true }),
   ).toHaveAttribute("aria-current", "page");
 
-  const genres = page.getByRole("region", { name: "By genre" });
+  const genres = page.getByRole("region", { name: "Genres you own" });
   const tile = genres.getByRole("link", { name: /^Fixture tone/ });
   await expect.poll(() => tile.count(), { timeout: 30000 }).toBe(1);
   await expect(tile).toContainText("2 tracks");
-  await expect(page.getByRole("region", { name: "Radio from…" })).toHaveCount(
-    0,
-  );
   await expect(
-    page.getByRole("heading", { name: "Search your services" }),
+    page.getByRole("region", { name: "Start a radio from an artist" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Outside your library" }),
   ).toBeVisible();
   await page.screenshot({
     path: "/workspace/test-results/discover-desktop.png",

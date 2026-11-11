@@ -1,14 +1,31 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import { ChevronDown } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import { coverIdentity } from "../../artwork/model/coverIdentity";
-import Artwork from "../../artwork/components/Artwork";
-import { SeekBar, TransportButtons } from "./PlaybackControls";
-import PlaybackStatus from "./PlaybackStatus";
-import NowPlayingTabs from "./NowPlayingTabs";
+import { coverPaint } from "../../../shared/ui/coverArt";
+import { oklchToHex } from "../../../shared/ui/coverColor";
+import NowPlayingAside from "./NowPlayingAside";
+import { LyricsPanel } from "./NowPlayingLyrics";
+import NowPlayingTrack from "./NowPlayingTrack";
 import PlayerTrackActions from "./PlayerTrackActions";
-import { ArtistNames, artistHref } from "./TrackNames";
-import { artistSearchLink } from "../hooks/useArtistLink";
+import { useNowPlayingMotion } from "../hooks/useNowPlayingMotion";
+import type { Track } from "../model";
+
+function roomTint(current: Track | null): CSSProperties {
+  const hue = coverPaint(
+    "album",
+    current?.release_id ?? current?.id ?? "none",
+  ).hue;
+  return {
+    "--np-tint": oklchToHex(0.82, 0.08, hue),
+    "--np-past": oklchToHex(0.66, 0.03, hue),
+    "--np-next": oklchToHex(0.8, 0.02, hue),
+  } as CSSProperties;
+}
 
 export default function NowPlaying({
   account,
@@ -20,81 +37,65 @@ export default function NowPlaying({
   openQueue: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const cover = useRef<HTMLDivElement>(null);
   const player = usePlayer();
   const current = useSyncExternalStore(
     player.subscribe,
     () => player.snapshot().current,
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = dialog.current;
     element?.showModal();
     return () => element?.close();
   }, []);
+  const motion = useNowPlayingMotion(dialog, cover, () =>
+    dialog.current?.close(),
+  );
   return (
     <dialog
       ref={dialog}
       className="now-playing-dialog"
       aria-label="Now playing"
+      style={roomTint(current)}
       onClose={close}
+      onCancel={(event) => {
+        event.preventDefault();
+        motion.requestClose();
+      }}
     >
-      <header>
+      <header data-np-fade="">
         <button
           className="icon-button"
           aria-label="Close now playing"
-          onClick={() => dialog.current?.close()}
+          onClick={motion.requestClose}
         >
-          <ChevronDown size={20} />
+          <ChevronDown size={22} />
         </button>
         <span>Now playing</span>
-        <span aria-hidden="true" className="np-header-balance" />
+        {current ? (
+          <PlayerTrackActions
+            track={current}
+            liking={false}
+            onNavigate={close}
+          />
+        ) : (
+          <span aria-hidden="true" className="np-header-balance" />
+        )}
       </header>
       <div className="np-body">
-        <section className="np-track" aria-label="Track">
-          <div className="np-cover">
-            <Artwork
-              release={current?.release_id ?? undefined}
-              recording={current?.id}
-              fallback={coverIdentity(current)}
-            />
-          </div>
-          <div className="np-title">
-            <div className="np-title-copy">
-              <h1>{current?.title ?? "Ready when you are"}</h1>
-              {current ? (
-                <p className="np-artist">
-                  <ArtistNames
-                    artist={current.artist}
-                    artistHref={
-                      artistHref(current) ?? artistSearchLink(current.artist)
-                    }
-                    credited={current.credited_artists}
-                    routed={{ className: "np-artist-link", onNavigate: close }}
-                  />
-                </p>
-              ) : (
-                <p>Choose a track to start listening.</p>
-              )}
-            </div>
-            {current && (
-              <PlayerTrackActions track={current} onNavigate={close} />
-            )}
-          </div>
-          <div className="np-seek">
-            <SeekBar remaining />
-          </div>
-          <div className="np-transport">
-            <TransportButtons />
-          </div>
-          <PlaybackStatus className="now-playing-status" />
-        </section>
-        <aside aria-label="Details" className="np-details">
-          <NowPlayingTabs
-            account={account}
-            track={current}
-            openQueue={openQueue}
-            leave={close}
-          />
-        </aside>
+        <NowPlayingTrack
+          account={account}
+          current={current}
+          cover={cover}
+          close={close}
+        />
+        <LyricsPanel account={account} track={current} leave={close} />
+        <NowPlayingAside
+          account={account}
+          track={current}
+          openQueue={openQueue}
+          leave={close}
+        />
       </div>
     </dialog>
   );

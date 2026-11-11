@@ -54,11 +54,12 @@ test("provider discovery saves, pages and plays privately with stale selection p
     expect(installed.status()).toBe(201);
     connection = await installed.json();
     await page.goto("/discover");
-    const services = page.getByRole("group", { name: "Music service" });
     await expect(
-      services.getByRole("button", { name: /Discovery collection/ }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(services.getByRole("button")).toHaveCount(1);
+      page.getByRole("group", { name: "Music service" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByPlaceholder("Search Discovery collection"),
+    ).toBeVisible();
     const search = page.getByRole("searchbox", { name: "Search music" });
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await search.fill("Discovery");

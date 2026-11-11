@@ -19,6 +19,7 @@ import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
 import { useMute } from "../hooks/useMute";
 import { onNowPlayingRequest } from "../nowPlayingRequests";
+import { rememberNowPlayingOrigin } from "../nowPlayingOrigin";
 import PlayerTrackActions from "./PlayerTrackActions";
 import { ArtistNames, artistHref as knownArtistHref } from "./TrackNames";
 
@@ -67,6 +68,7 @@ export default function PlayerDock({
       onNowPlayingRequest(() => {
         if (current && !expanded) {
           expandedOpener.current = null;
+          rememberNowPlayingOrigin();
           setExpanded(true);
         }
       }),
@@ -79,6 +81,7 @@ export default function PlayerDock({
   const openExpanded = useCallback((opener: HTMLButtonElement) => {
     log.debug("player.expanded", { enabled: true });
     expandedOpener.current = opener;
+    rememberNowPlayingOrigin();
     setExpanded(true);
   }, []);
   const toggleMute = useMute();

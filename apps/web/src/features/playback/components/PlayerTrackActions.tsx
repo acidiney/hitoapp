@@ -6,10 +6,12 @@ import { useTrackActions } from "./TrackActionsProvider";
 export default function PlayerTrackActions({
   track,
   queueActions = false,
+  liking = true,
   onNavigate,
 }: {
   track: Track;
   queueActions?: boolean;
+  liking?: boolean;
   onNavigate?: () => void;
 }) {
   const actions = useTrackActions();
@@ -24,6 +26,7 @@ export default function PlayerTrackActions({
       playlists={actions.playlists}
       mutate={actions.mutate}
       queueActions={queueActions}
+      liking={liking}
       onNavigate={onNavigate}
     />
   );

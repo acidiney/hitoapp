@@ -29,10 +29,10 @@ test("Discover shows music featured by a connected service and every card opens 
       page.getByRole("heading", { level: 1, name: "Discover" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Search your services" }),
+      page.getByRole("heading", { name: "Outside your library" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "From your services" }),
+      page.getByRole("region", { name: /^Featured on/ }),
     ).toHaveCount(0);
 
     const offered = await page.request.post("/api/v1/plugins/services", {
@@ -56,11 +56,9 @@ test("Discover shows music featured by a connected service and every card opens 
     connection = await installed.json();
 
     await page.goto("/discover");
-    const shelf = page.getByRole("region", { name: "From your services" });
+    const shelf = page.getByRole("region", { name: /^Featured on/ });
     await expect(shelf.getByRole("listitem")).toHaveCount(2);
     await expect(shelf).toContainText(`${fixture.prefix} morning mix`);
-    await expect(shelf).toContainText("Playlist · 2 tracks");
-    await expect(shelf).toContainText("New release · 2 tracks");
     const cover = shelf.locator("img").first();
     await expect
       .poll(() =>
@@ -119,7 +117,9 @@ test("Discover shows music featured by a connected service and every card opens 
     ).toHaveLength(1);
 
     await shelf
-      .getByRole("button", { name: `Open ${fixture.prefix} fresh album` })
+      .getByRole("button", {
+        name: `Add ${fixture.prefix} fresh album to your playlists`,
+      })
       .click();
     await expect(page).toHaveURL(/\/playlists\/[0-9a-f-]{36}$/);
     await expect(
@@ -152,10 +152,10 @@ test("Discover shows music featured by a connected service and every card opens 
     expect((await automation(false)).ok()).toBe(true);
     await page.goto("/discover");
     await expect(
-      page.getByRole("heading", { name: "Search your services" }),
+      page.getByRole("heading", { name: "Outside your library" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "From your services" }),
+      page.getByRole("region", { name: /^Featured on/ }),
     ).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
     expect(fixture.featuredRequests().length).toBe(asked.length);

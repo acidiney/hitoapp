@@ -230,7 +230,7 @@ test("radio starts from one chosen artist with one request and plays the returne
     within(section).getByRole("button", { name: "Start radio from Bruma" }),
   );
   await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
-  const started = fetch.mock.calls
+  const started = (fetch.mock.calls as unknown as [string, RequestInit][])
     .slice(before)
     .filter(([path]) => String(path).includes("/g2/radio"));
   expect(started).toHaveLength(1);

@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { LyricsPanel } from "../components/NowPlayingPanels";
+import { LyricsPanel } from "../components/NowPlayingLyrics";
 
 const apis = vi.hoisted(() => ({
   providers: vi.fn(),
@@ -82,7 +82,7 @@ test("opening the tab loads lyrics from the first provider without a click", asy
   expect(screen.queryByText(/Nothing is sent/)).toBeNull();
 });
 
-test("Choose another provider loads the lyrics of the chosen one", async () => {
+test("Change loads the lyrics of the chosen one", async () => {
   apis.providers.mockResolvedValue({
     recording_id: "r1",
     items: [provider("a", "Lyrics A"), provider("b", "Lyrics B")],
@@ -92,9 +92,7 @@ test("Choose another provider loads the lyrics of the chosen one", async () => {
     .mockResolvedValueOnce(ready("b", "Other line"));
   open();
   await screen.findByText("First line");
-  fireEvent.click(
-    screen.getByRole("button", { name: "Choose another provider" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Change" }));
   fireEvent.click(screen.getByRole("button", { name: "Lyrics B" }));
   expect(await screen.findByText("Other line")).toBeTruthy();
   expect(apis.read.mock.calls[1][2].observation_id).toBe("obs-b");
@@ -165,12 +163,12 @@ test("with automatic loading off nothing is requested until the listener asks", 
   expect(await screen.findByText("Asked line")).toBeTruthy();
 });
 
-test("the provider is named in a muted line", async () => {
+test("the provider is named in the footer, with whether the lines are timed", async () => {
   apis.providers.mockResolvedValue({
     recording_id: "r1",
     items: [provider("a", "Lyrics A")],
   });
   apis.read.mockResolvedValue(ready("a", "Line"));
   open();
-  expect(await screen.findByText("Lyrics from Lyrics A")).toBeTruthy();
+  expect(await screen.findByText("Not synced · from Lyrics A")).toBeTruthy();
 });

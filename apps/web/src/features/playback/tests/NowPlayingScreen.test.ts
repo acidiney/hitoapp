@@ -73,7 +73,7 @@ afterEach(() => {
   openQueue.mockClear();
 });
 
-test("the full-screen player shows the track, transport and a tablist", () => {
+test("the full-screen player shows the track, transport, lyrics, up next and source together", () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   expect(
     within(dialog).getByRole("heading", { name: "Track 0", level: 1 }),
@@ -81,36 +81,21 @@ test("the full-screen player shows the track, transport and a tablist", () => {
   expect(within(dialog).getByRole("slider", { name: "Seek" })).toBeTruthy();
   for (const name of ["Shuffle", "Previous track", "Pause", "Next track"])
     expect(within(dialog).getByRole("button", { name })).toBeTruthy();
-  const tabs = within(dialog).getAllByRole("tab");
-  expect(tabs.map((tab) => tab.textContent)).toEqual([
-    "Up next",
-    "Lyrics",
-    "Source",
-  ]);
-  expect(tabs[0].getAttribute("aria-selected")).toBe("true");
-  expect(within(dialog).getByRole("tabpanel")).toBeTruthy();
+  expect(within(dialog).queryByRole("tablist")).toBeNull();
+  for (const name of ["Lyrics", "Up next", "This source", "Speed"])
+    expect(within(dialog).getByRole("region", { name })).toBeTruthy();
 });
 
-test("Up next lists the next four queued tracks and opens the full queue", async () => {
+test("Up next shows the next queued track and opens the full queue", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  await waitFor(() => expect(within(dialog).getByText("Track 4")).toBeTruthy());
-  expect(within(dialog).queryByText("Track 5")).toBeNull();
-  fireEvent.click(within(dialog).getByRole("link", { name: "See full queue" }));
+  await waitFor(() => expect(within(dialog).getByText("Track 1")).toBeTruthy());
+  expect(within(dialog).queryByText("Track 2")).toBeNull();
+  fireEvent.click(within(dialog).getByRole("link", { name: "Open queue" }));
   expect(openQueue).toHaveBeenCalledTimes(1);
-});
-
-test("arrow keys move between the tabs", () => {
-  const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  const [next, lyrics] = within(dialog).getAllByRole("tab");
-  next.focus();
-  fireEvent.keyDown(next, { key: "ArrowRight" });
-  expect(lyrics.getAttribute("aria-selected")).toBe("true");
-  expect(document.activeElement).toBe(lyrics);
 });
 
 test("Lyrics asks the account for a lyrics provider instead of waiting for a click", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
   expect(
     await within(dialog).findByText("No lyrics found for this track."),
   ).toBeTruthy();
@@ -121,7 +106,6 @@ test("Lyrics asks the account for a lyrics provider instead of waiting for a cli
 
 test("Source shows the speed the source plays at and sets the speed", () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
   const speed = within(dialog).getByRole("radiogroup", { name: "Speed" });
   expect(within(speed).getByRole("radio", { name: "1×" })).toHaveProperty(
     "ariaChecked",
@@ -136,7 +120,6 @@ test("Source shows the speed the source plays at and sets the speed", () => {
 
 test("Source names the service and its state in plain words", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
   const card = within(dialog).getByRole("region", { name: "This source" });
   expect(await within(card).findByText("YouTube Music")).toBeTruthy();
   expect(within(card).getByText("Ready")).toBeTruthy();
@@ -151,14 +134,14 @@ test("Source marks a best guess", async () => {
       match_kind: "best_guess",
     },
   ];
+  cleanup();
+  render(createElement(NowPlaying, { account: "alice", close, openQueue }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
   expect(await within(dialog).findByText("Best guess")).toBeTruthy();
 });
 
 test("Change source opens the Sources tab of the track and closes the player", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Change source" }),
   );
@@ -170,7 +153,6 @@ test("Change source opens the Sources tab of the track and closes the player", a
 
 test("rapid speed choices coalesce into one command", () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
   const speed = within(dialog).getByRole("radiogroup", { name: "Speed" });
   const command = vi.spyOn(player, "speed");
   vi.useFakeTimers();
@@ -194,7 +176,6 @@ test("following a link inside the player closes it and then focuses the new page
     within(dialog).getByRole("link", { name: "Owned performer" }),
   );
   expect(close).toHaveBeenCalledTimes(1);
-  fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
   fireEvent.click(
     await within(dialog).findByRole("link", { name: "Track details" }),
   );
@@ -214,7 +195,7 @@ test("following a link inside the player closes it and then focuses the new page
 
 test("position ticks do not fetch queue pages", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  await waitFor(() => expect(within(dialog).getByText("Track 4")).toBeTruthy());
+  await waitFor(() => expect(within(dialog).getByText("Track 1")).toBeTruthy());
   const pages = vi.spyOn(player, "queuePage");
   for (let tick = 1; tick <= 5; tick++)
     act(() => {
