@@ -109,7 +109,7 @@ At that boundary, CPAL callback timestamps are 39.869708 ms apart instead of the
 
 The capture lifecycle is checked separately: four zero-only controls distinguish normal stream teardown from premature removal, including the same exit code and stderr reason. Samples and accounting now export after joins before validation, with an initial unvalidated marker. A complete boundary marker still requires the original source assertions to pass.
 
-Successful ALSA writes do not establish physical presentation. Pulse record holes are converted to zero samples by `parec`, and both monitors share Pulse's observation path. This 538-frame observation does not locate the historical 189-frame loss or justify a playback-policy change. The diagnostic dependency copy and capture changes are unmerged; installed applications and the VPS are unchanged.
+Successful ALSA writes do not establish physical presentation: the pinned [ALSA Pulse writer](https://github.com/alsa-project/alsa-plugins/blob/v1.2.7.1/pulse/pcm_pulse.c#L407-L460) returns accepted frames after submitting data to Pulse. The pinned [`parec` record callback](https://github.com/pulseaudio/pulseaudio/blob/v16.1/src/utils/pacat.c#L212-L245) converts record holes to zero samples. Both monitors share Pulse's observation path, so this comparison cannot distinguish playback loss from a shared capture effect. This 538-frame observation does not locate the historical 189-frame loss or justify a playback-policy change. The diagnostic dependency copy and capture changes are unmerged; installed applications and the VPS are unchanged.
 
 ### Unresolved output startup failure
 
