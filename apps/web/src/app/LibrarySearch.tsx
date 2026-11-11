@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { Search } from "lucide-react";
 import { log } from "../shared/log";
-import type { PluginCounts } from "../features/plugins/model/pluginCounts";
 import PluginsPill from "./PluginsPill";
 import {
   SHELL_SEARCH_ID,
@@ -15,11 +14,9 @@ const shortcut = shortcutLabel(isApplePlatform());
 export default function LibrarySearch({
   query,
   target = "library",
-  plugins = null,
 }: {
   query: string;
   target?: "library" | "albums" | "artists" | "search";
-  plugins?: PluginCounts | null;
 }) {
   const [search, setSearch] = useState(query);
   useEffect(() => setSearch(query), [query]);
@@ -54,7 +51,7 @@ export default function LibrarySearch({
           Search
         </button>
       </form>
-      <PluginsPill counts={plugins} />
+      <PluginsPill />
     </header>
   );
 }

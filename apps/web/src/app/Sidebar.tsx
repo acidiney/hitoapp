@@ -2,7 +2,6 @@ import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Compass, Home, Library, Plug, Plus, Search } from "lucide-react";
 import BrandMark from "../shared/ui/BrandMark";
-import Artwork from "../features/artwork/components/Artwork";
 import FallbackCover from "../shared/ui/FallbackCover";
 
 import { log } from "../shared/log";
@@ -15,12 +14,10 @@ export default function Sidebar({
   playlists,
   path,
   search = "",
-  pluginsToReview = 0,
 }: {
   playlists: Schema<"Playlist">[];
   path: string;
   search?: string;
-  pluginsToReview?: number;
 }) {
   const destination = currentDestination(path, search);
   const mark = (route: string) => () =>
@@ -74,12 +71,6 @@ export default function Sidebar({
         >
           <Plug size={18} aria-hidden="true" />
           Plugins
-          {pluginsToReview > 0 && (
-            <span className="nav-badge">
-              {pluginsToReview}
-              <span className="sr-only"> to review</span>
-            </span>
-          )}
         </Link>
       </nav>
       <div className="sidebar-playlists">
@@ -103,15 +94,11 @@ export default function Sidebar({
         {playlists.slice(0, 12).map((playlist) => (
           <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
             <span className="playlist-swatch" aria-hidden="true">
-              <Artwork
-                playlistId={playlist.kind === "local" ? playlist.id : undefined}
-                fallback={{
-                  id: playlist.id,
-                  title: playlist.name,
-                  kind: "playlist",
-                  inline: false,
-                }}
-                playlist
+              <FallbackCover
+                id={playlist.id}
+                title={playlist.name}
+                kind="playlist"
+                inline={false}
               />
             </span>
             <span title={playlist.name}>{playlist.name}</span>

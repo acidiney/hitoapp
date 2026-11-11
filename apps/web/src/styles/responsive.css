@@ -127,16 +127,6 @@
   .account-name {
     display: none;
   }
-  .sidebar nav .nav-badge {
-    position: absolute;
-    top: 4px;
-    margin: 0 0 0 20px;
-    padding: 0 6px;
-    font-size: 11px;
-  }
-  .sidebar nav a {
-    position: relative;
-  }
   .plugins-pill,
   .search kbd {
     display: none;

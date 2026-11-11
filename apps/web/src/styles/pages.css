@@ -79,8 +79,8 @@
 }
 
 .tinted-header {
-  margin: -12px -48px 28px;
-  padding: 20px 48px 36px;
+  margin: -4px -40px 28px;
+  padding: 20px 40px 36px;
   background: var(--tint);
   color: #ffffff;
   display: flex;
@@ -695,6 +695,10 @@ section[aria-label="Discography"] > section > .button {
 }
 
 @media (max-width: 1000px) {
+  .tinted-header {
+    margin: -4px -24px 28px;
+    padding-inline: 24px;
+  }
   .artist-column {
     display: none;
   }

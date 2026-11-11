@@ -12,7 +12,6 @@ import LibrarySections from "./LibrarySections";
 import { searchPlacement } from "./searchPlacement";
 import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import Sidebar from "./Sidebar";
-import { usePluginCounts } from "../features/plugins/hooks/usePluginCounts";
 import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
@@ -33,10 +32,6 @@ export default function Shell({ children }: { children: ReactNode }) {
   const url = new URL(page.url, "http://hito.local");
   const placement = searchPlacement(page.component, useMediaQuery(PHONE_QUERY));
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const plugins = usePluginCounts(
-    user.id,
-    page.component === "SettingsPage" ? "settings" : "other",
-  );
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
@@ -65,7 +60,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                 playlists={playlists}
                 path={url.pathname}
                 search={url.search}
-                pluginsToReview={plugins?.review ?? 0}
               />
               <div className="workspace">
                 <AccountMenu
@@ -82,14 +76,12 @@ export default function Shell({ children }: { children: ReactNode }) {
                         : ""
                     }
                     target="search"
-                    plugins={plugins}
                   />
                 )}
                 {placement === "library" && (
                   <LibrarySearch
                     query={url.searchParams.get("q") ?? ""}
                     target={libraryTarget(page.component)}
-                    plugins={plugins}
                   />
                 )}
                 {!DETAIL_PAGES.has(page.component) && (

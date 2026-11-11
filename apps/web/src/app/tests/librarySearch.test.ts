@@ -40,24 +40,14 @@ test("the field shows the query of the page it sits on", () => {
   expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("glass");
 });
 
-test("the top bar shows the search shortcut and the plugins pill with what needs review", () => {
+test("the top bar shows the search shortcut and a plugins link", () => {
   const { container } = render(
-    createElement(LibrarySearch, {
-      query: "",
-      target: "search",
-      plugins: { installed: 2, review: 1 },
-    }),
+    createElement(LibrarySearch, { query: "", target: "search" }),
   );
   expect(container.querySelector(".search kbd")?.textContent).toMatch(
     /⌘K|Ctrl K/,
   );
-  const pill = screen.getByRole("link", { name: "2 plugins, 1 to review" });
-  expect(pill.getAttribute("href")).toBe("/settings?section=plugins");
-  expect(pill.textContent).toBe("2 plugins· 1 to review");
-});
-
-test("the plugins pill stays a plain link while the counts are unknown", () => {
-  render(createElement(LibrarySearch, { query: "", target: "search" }));
-  const pill = screen.getByRole("link", { name: "Plugins" });
-  expect(pill.textContent).toBe("Plugins");
+  expect(
+    screen.getByRole("link", { name: "Plugins" }).getAttribute("href"),
+  ).toBe("/settings?section=plugins");
 });

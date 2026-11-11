@@ -28,7 +28,7 @@ const playlists = [
   { id: "p2", name: "Running" },
 ];
 
-function sidebar(path: string, search = "", pluginsToReview = 0) {
+function sidebar(path: string, search = "") {
   render(
     createElement(
       NoticeProvider,
@@ -37,7 +37,6 @@ function sidebar(path: string, search = "", pluginsToReview = 0) {
         playlists: playlists as never,
         path,
         search,
-        pluginsToReview,
       }),
     ),
   );
@@ -213,18 +212,6 @@ test("each sidebar playlist name carries its full text as a tooltip", () => {
       link.querySelector("span:last-child")?.getAttribute("title"),
     );
   expect(names).toEqual(["Sunday calm", "Running"]);
-});
-
-test("the Plugins entry carries an amber count only when something needs review", () => {
-  const navigation = sidebar("/library", "", 2);
-  const link = within(navigation).getByRole("link", { name: /Plugins/ });
-  expect(link.querySelector(".nav-badge")?.textContent).toBe("2 to review");
-});
-
-test("the Plugins entry has no count when nothing needs review", () => {
-  const navigation = sidebar("/library");
-  const link = within(navigation).getByRole("link", { name: "Plugins" });
-  expect(link.querySelector(".nav-badge")).toBeNull();
 });
 
 test("the sidebar starts the playlists with Liked tracks", () => {
