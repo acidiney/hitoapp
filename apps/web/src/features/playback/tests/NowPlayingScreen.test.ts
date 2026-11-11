@@ -21,8 +21,8 @@ let playbackSources: unknown[] = [];
 const fetch = vi.fn(async (path: string) =>
   path.endsWith("/playback-sources")
     ? Response.json(playbackSources)
-    : path.endsWith("/lyrics/providers")
-      ? Response.json({ recording_id: "r0", items: [] })
+    : path.endsWith("/lyrics/candidates")
+      ? Response.json({ items: [] })
       : path.endsWith("/lyrics/identities")
         ? Response.json({ recording_id: "r0", items: [] })
         : Response.json({
@@ -108,7 +108,7 @@ test("Lyrics asks the account for a lyrics provider instead of waiting for a cli
     await within(dialog).findByText("No lyrics for this track yet"),
   ).toBeTruthy();
   expect(
-    within(dialog).getByRole("link", { name: "Track details" }),
+    within(dialog).getByRole("link", { name: "Find lyrics" }),
   ).toHaveProperty("pathname", "/recordings/r0");
 });
 
@@ -185,7 +185,7 @@ test("following a link inside the player closes it and then focuses the new page
   );
   expect(close).toHaveBeenCalledTimes(1);
   fireEvent.click(
-    await within(dialog).findByRole("link", { name: "Track details" }),
+    await within(dialog).findByRole("link", { name: "Find lyrics" }),
   );
   expect(close).toHaveBeenCalledTimes(2);
   const visit = vi.mocked(router.visit);

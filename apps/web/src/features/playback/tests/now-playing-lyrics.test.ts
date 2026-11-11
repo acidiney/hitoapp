@@ -8,14 +8,16 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { forgetAutoLookups } from "../../lyrics/api/autoIdentity";
 import { LyricsPanel } from "../components/NowPlayingLyrics";
 
 const apis = vi.hoisted(() => ({
   identities: vi.fn(),
   read: vi.fn(),
   services: vi.fn(),
-  providers: vi.fn(),
-  compatibleRead: vi.fn(),
+  candidates: vi.fn(),
+  review: vi.fn(),
+  retain: vi.fn(),
 }));
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
 vi.mock("../../lyrics/api/lyricsApi", () => ({
@@ -23,8 +25,9 @@ vi.mock("../../lyrics/api/lyricsApi", () => ({
     identities: apis.identities,
     readSelected: apis.read,
     services: apis.services,
-    providers: apis.providers,
-    read: apis.compatibleRead,
+    candidates: apis.candidates,
+    review: apis.review,
+    retain: apis.retain,
   },
 }));
 
@@ -74,7 +77,10 @@ const open = () =>
     }),
   );
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  forgetAutoLookups();
+});
 afterEach(cleanup);
 
 test("opening the tab loads lyrics from the first provider without a click", async () => {
@@ -112,7 +118,7 @@ test("Change loads the lyrics of the chosen one", async () => {
 
 test("without a lyrics provider the panel points to Settings plugins", async () => {
   apis.identities.mockResolvedValue(listed());
-  apis.providers.mockResolvedValue({ recording_id: "r1", items: [] });
+  apis.services.mockResolvedValue({ recording_id: "r1", items: [] });
   apis.services.mockResolvedValue({ recording_id: "r1", items: [] });
   open();
   expect(await screen.findByText("No lyrics provider connected")).toBeTruthy();
@@ -227,85 +233,105 @@ test("an unavailable saved identity is never read and counts as no provider when
   expect(apis.read).not.toHaveBeenCalled();
 });
 
-const compatibleProvider = {
-  installation_id: "inst-c",
-  installation_revision: 6,
-  label: "Compat lyrics",
-  observation_id: "obs-c",
-  provider_recording: { id: "rec-c", revision: null },
+const wanted = {
+  id: "rec-found",
+  title: "Song",
+  artist: "Shore",
+  duration_ms: 1000,
 };
-const compatibleReady = (lines: string[] | null) => ({
-  status: "ready",
+const lyricService = {
   recording_id: "r1",
-  observation_id: "obs-c",
-  document_digest: "d",
-  document: {
-    recording: { id: "rec-c", revision: null },
-    lyrics: lines && {
-      id: "l",
-      rendition_id: "x",
-      lines: lines.map((text) => ({ start_ms: 0, end_ms: 1, text })),
-      attribution: null,
+  items: [
+    { installation_id: "inst-s", installation_revision: 3, label: "Svc" },
+  ],
+};
+
+function autoMocks(found: object) {
+  apis.identities.mockResolvedValue(listed());
+  apis.services.mockResolvedValue(lyricService);
+  apis.candidates.mockResolvedValue({ items: [found] });
+  apis.review.mockResolvedValue({
+    candidate: { recording: wanted },
+    review_stamp: "stamp",
+  });
+  apis.retain.mockResolvedValue({
+    ...provider("found", "Svc"),
+    selector: { kind: "reviewed", identity_id: "i1", identity_revision: 1 },
+    installation_id: "inst-s",
+    installation_revision: 3,
+    provider_recording: { id: "rec-found", revision: null },
+  });
+  apis.read.mockResolvedValue({
+    ...ready("found", "Auto line"),
+    selector: { kind: "reviewed", identity_id: "i1", identity_revision: 1 },
+  });
+}
+
+test("with no saved identity and the setting on, a confident match is saved and read without a click", async () => {
+  autoMocks(wanted);
+  open();
+  expect(await screen.findByText("Auto line")).toBeTruthy();
+  expect(apis.candidates.mock.calls[0][2]).toEqual({
+    installation_id: "inst-s",
+    installation_revision: 3,
+    query: "Song Shore",
+  });
+  expect(apis.review.mock.calls[0][2]).toEqual({
+    installation_id: "inst-s",
+    installation_revision: 3,
+    provider_recording_id: "rec-found",
+  });
+  expect(apis.retain.mock.calls[0][2]).toEqual({
+    candidate: {
+      installation_id: "inst-s",
+      installation_revision: 3,
+      provider_recording_id: "rec-found",
     },
-  },
+    review_stamp: "stamp",
+  });
+  expect(apis.read.mock.calls[0][2].selector).toEqual({
+    kind: "reviewed",
+    identity_id: "i1",
+    identity_revision: 1,
+  });
 });
 
-test("with no saved identity the automatic setting looks up the first compatible provider without choosing or saving anything", async () => {
-  apis.identities.mockResolvedValue(listed());
-  apis.providers.mockResolvedValue({
-    recording_id: "r1",
-    items: [compatibleProvider],
-  });
-  apis.compatibleRead.mockResolvedValue(compatibleReady(["Found by lookup"]));
-  open();
-  expect(await screen.findByText("Found by lookup")).toBeTruthy();
-  expect(apis.compatibleRead.mock.calls[0][2]).toEqual({
-    observation_id: "obs-c",
-    installation_revision: 6,
-  });
-  expect(apis.read).not.toHaveBeenCalled();
-  expect(screen.getByText("Not synced · from Compat lyrics")).toBeTruthy();
-});
-
-test("a compatible lookup with no lyrics is None found with Look up again", async () => {
-  apis.identities.mockResolvedValue(listed());
-  apis.providers.mockResolvedValue({
-    recording_id: "r1",
-    items: [compatibleProvider],
-  });
-  apis.compatibleRead.mockResolvedValueOnce(compatibleReady(null));
-  apis.compatibleRead.mockResolvedValueOnce(compatibleReady(["Second time"]));
-  open();
+test("a weak match is never reviewed or retained and None found offers Find lyrics, once per session", async () => {
+  autoMocks({ ...wanted, title: "Song Remix Part 2" });
+  const first = open();
   expect(await screen.findByText("None found")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Look up again" }));
-  expect(await screen.findByText("Second time")).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Find lyrics" }).getAttribute("href"),
+  ).toContain("/recordings/r1");
+  expect(apis.review).not.toHaveBeenCalled();
+  expect(apis.retain).not.toHaveBeenCalled();
+  first.unmount();
+  open();
+  await screen.findByText("None found");
+  expect(apis.candidates).toHaveBeenCalledTimes(1);
 });
 
-test("a failing compatible lookup is Couldn't check with Retry", async () => {
-  apis.identities.mockResolvedValue(listed());
-  apis.providers.mockResolvedValue({
-    recording_id: "r1",
-    items: [compatibleProvider],
-  });
-  apis.compatibleRead.mockResolvedValueOnce({ status: "unavailable" });
-  apis.compatibleRead.mockResolvedValueOnce(compatibleReady(["Recovered"]));
+test("a failing automatic lookup is Couldn't check and Retry runs it again", async () => {
+  autoMocks(wanted);
+  apis.candidates.mockRejectedValueOnce(new Error("down"));
   open();
   expect(await screen.findByText("Couldn't check")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  expect(await screen.findByText("Recovered")).toBeTruthy();
+  expect(await screen.findByText("Auto line")).toBeTruthy();
 });
 
-test("a saved identity or the setting being off never uses the compatible path", async () => {
+test("a saved identity or the setting being off never searches", async () => {
   apis.identities.mockResolvedValue(listed(provider("a", "Lyrics A")));
   apis.read.mockResolvedValue(ready("a", "Saved line"));
   const first = open();
   expect(await screen.findByText("Saved line")).toBeTruthy();
-  expect(apis.providers).not.toHaveBeenCalled();
+  expect(apis.candidates).not.toHaveBeenCalled();
   first.unmount();
   localStorage.setItem("hito:lyrics-auto:alice", "off");
   apis.identities.mockResolvedValue(listed());
+  apis.services.mockResolvedValue(lyricService);
   open();
   fireEvent.click(await screen.findByRole("button", { name: "Load lyrics" }));
-  await screen.findByRole("region", { name: "Lyrics" });
-  expect(apis.providers).not.toHaveBeenCalled();
+  await screen.findByText("None found");
+  expect(apis.candidates).not.toHaveBeenCalled();
 });

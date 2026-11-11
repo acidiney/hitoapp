@@ -25,6 +25,7 @@ import {
 import {
   json,
   lyricServer,
+  openChange,
   openLyricsTab,
   renderLyricsPage,
 } from "../fixtures/lyricServer";
@@ -78,7 +79,7 @@ test("plain v2 lyrics keep blank stanza lines as static text and show provider a
   expect(link.getAttribute("href")).toBe("https://lyrics.example/track/1");
   expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   expect(lyrics.queryByRole("list", { name: "Creators" })).toBeNull();
-  expect(lyrics.getByText("Unsynced")).toBeTruthy();
+  expect(lyrics.getByText(/^Not synced · from/)).toBeTruthy();
 });
 
 test("anchored v2 lyrics render as static text without times, highlighting or fabricated blank lines", async () => {
@@ -132,8 +133,7 @@ test("v1 timed lyrics keep their existing synced rendering and creators", async 
   const lines = await lyrics.findByRole("list", { name: "Lyric lines" });
   expect(lines.getAttribute("data-synced")).toBe("true");
   expect(lines.querySelectorAll("[data-time]")).toHaveLength(2);
-  expect(lyrics.getByText("Synced")).toBeTruthy();
-  expect(lyrics.getByText("English")).toBeTruthy();
+  expect(lyrics.getByText(/^Synced · from/)).toBeTruthy();
   expect(
     within(lyrics.getByRole("list", { name: "Creators" })).getByText("Writer"),
   ).toBeTruthy();
@@ -166,11 +166,10 @@ test("a ready document with null lyrics is Not found and keeps the chosen identi
   );
   expect(await lyrics.findByText("None found")).toBeTruthy();
   expect(lyrics.queryByText(/Couldn't check/)).toBeNull();
+  expect(lyrics.getByRole("button", { name: "Look up again" })).toBeTruthy();
   expect(
-    lyrics.getByRole<HTMLInputElement>("radio", { name: /Open lyrics/ })
-      .checked,
-  ).toBe(true);
-  expect(lyrics.getByRole("button", { name: "Find lyrics" })).toBeTruthy();
+    lyrics.getByRole("button", { name: "Try another plugin" }),
+  ).toBeTruthy();
   expect(server.of("read")).toHaveLength(1);
 });
 
@@ -181,20 +180,20 @@ test("unsupported, unavailable and upstream errors each get their own message an
     await lyrics.findByText(/can't supply lyrics in a format Hito can read/),
   ).toBeTruthy();
   next = () => json({ status: "unavailable" });
-  fireEvent.click(lyrics.getByRole("button", { name: "Retry lyrics" }));
+  fireEvent.click(lyrics.getByRole("button", { name: "Look up again" }));
   const alert = await lyrics.findByRole("alert");
   expect(alert.textContent).toContain("Couldn't check");
   expect(lyrics.queryByText("None found")).toBeNull();
   next = () => json({ error: "Upstream is down" }, 502);
-  fireEvent.click(lyrics.getByRole("button", { name: "Retry lyrics" }));
+  fireEvent.click(lyrics.getByRole("button", { name: "Retry" }));
   await waitFor(() =>
     expect(lyrics.getByRole("alert").textContent).toContain(
-      "Lyrics could not be loaded. Try again.",
+      "Open lyrics didn't answer",
     ),
   );
   expect(lyrics.queryByText("None found")).toBeNull();
   next = () => json(readyV2(chosen, plainDocument(["Back again"])));
-  fireEvent.click(lyrics.getByRole("button", { name: "Retry lyrics" }));
+  fireEvent.click(lyrics.getByRole("button", { name: "Retry" }));
   expect(await lyrics.findByText("Back again")).toBeTruthy();
   expect(server.of("read")).toHaveLength(4);
 });
@@ -266,7 +265,11 @@ test.each([401, 403, 423])(
     const lyrics = openLyricsTab();
     fireEvent.click(await lyrics.findByRole("button", { name: "Show lyrics" }));
     await lyrics.findByText("Private words");
-    fireEvent.click(lyrics.getByRole("button", { name: "Retry lyrics" }));
+    const change = await openChange(lyrics);
+    fireEvent.click(change.getByRole("radio", { name: /Second lyrics/ }));
+    fireEvent.click(change.getByRole("button", { name: "Done" }));
+    expect(lyrics.queryByText("Private words")).toBeNull();
+    fireEvent.click(await lyrics.findByRole("button", { name: "Show lyrics" }));
     expect((await lyrics.findByRole("alert")).textContent).toContain(
       "Sign in again",
     );
@@ -303,12 +306,12 @@ test("removal sends the exact identity UUID and revision, clears the read, and a
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  await lyrics.findByRole("radio", { name: /Open lyrics/ });
-  fireEvent.click(lyrics.getByRole("button", { name: "Show lyrics" }));
+  fireEvent.click(await lyrics.findByRole("button", { name: "Show lyrics" }));
   await lyrics.findByText(/Text for/);
   present = [];
-  fireEvent.click(lyrics.getByRole("button", { name: "Remove Open lyrics" }));
-  await waitFor(() => expect(lyrics.queryByRole("radio")).toBeNull());
+  const change = await openChange(lyrics);
+  fireEvent.click(change.getByRole("button", { name: "Remove Open lyrics" }));
+  await lyrics.findByRole("button", { name: "Find lyrics" });
   const removal = server.of("remove")[0];
   expect(removal.method).toBe("DELETE");
   expect(removal.path).toBe(
@@ -325,7 +328,7 @@ test("removal sends the exact identity UUID and revision, clears the read, and a
     await screen.findByRole("button", { name: "Use these lyrics" }),
   );
   await waitFor(() =>
-    expect(lyrics.getByRole("radio", { name: /Open lyrics/ })).toBeTruthy(),
+    expect(lyrics.getByRole("button", { name: "Change" })).toBeTruthy(),
   );
   fireEvent.click(lyrics.getByRole("button", { name: "Show lyrics" }));
   await lyrics.findByText(/eeeeeeee-0000-4000-8000-000000000002/);
@@ -346,11 +349,12 @@ test("eight saved choices, including unavailable ones, explain the limit and off
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  await lyrics.findAllByRole("radio");
-  expect(lyrics.getAllByRole("radio")).toHaveLength(8);
-  expect(lyrics.getByRole("note").textContent).toContain("up to 8");
+  const change = await openChange(lyrics);
+  await change.findAllByRole("radio");
+  expect(change.getAllByRole("radio")).toHaveLength(8);
+  expect(change.getByRole("note").textContent).toContain("up to 8");
   expect(
-    lyrics.getAllByRole("button", { name: /^Remove Open lyrics/ }),
+    change.getAllByRole("button", { name: /^Remove Open lyrics/ }),
   ).toHaveLength(8);
-  expect(lyrics.getByRole("radio", { name: /Open lyrics \(1\)/ })).toBeTruthy();
+  expect(change.getByRole("radio", { name: /Open lyrics \(1\)/ })).toBeTruthy();
 });

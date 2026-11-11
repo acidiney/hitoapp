@@ -114,6 +114,11 @@ function TrackLyrics({
     account,
     track.id,
     automatic,
+    {
+      title: track.title,
+      artist: track.artist,
+      durationMs: track.duration_ms > 0 ? track.duration_ms : null,
+    },
   );
   const [choosing, setChoosing] = useState(false);
   const details = (
@@ -186,7 +191,13 @@ function TrackLyrics({
           <button type="button" className="np-pill" onClick={retry}>
             Look up again
           </button>
-          {details}
+          <RouteLink
+            className="np-link"
+            href={trackTabHref(track.id, "lyrics")}
+            onNavigate={leave}
+          >
+            Find lyrics
+          </RouteLink>
         </div>
       </StateCard>
     );

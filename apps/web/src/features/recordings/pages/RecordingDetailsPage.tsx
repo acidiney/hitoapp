@@ -124,6 +124,7 @@ function TrackTabs({
           )}
           {entry === "lyrics" && (
             <RecordingLyrics
+              recording={detail.recording_id}
               lyrics={lyrics}
               saved={{
                 title: detail.title.value,

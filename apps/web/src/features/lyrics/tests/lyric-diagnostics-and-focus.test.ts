@@ -17,6 +17,8 @@ import {
 import {
   json,
   lyricServer,
+  openChange,
+  openFinder,
   openLyricsTab,
   renderLyricsPage,
 } from "../fixtures/lyricServer";
@@ -52,7 +54,7 @@ test("lyric diagnostics carry correlation, outcome and timing but never queries,
   const lyrics = openLyricsTab();
   fireEvent.click(await lyrics.findByRole("button", { name: "Show lyrics" }));
   await lyrics.findByText("Secret lyric words");
-  fireEvent.click(lyrics.getByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   fireEvent.change(lyrics.getByRole("searchbox", { name: "Search text" }), {
     target: { value: "Secret query text" },
   });
@@ -95,7 +97,7 @@ test("the review dialog takes focus, closes on Escape and returns focus to the b
   };
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  fireEvent.click(await lyrics.findByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
   const opener = await lyrics.findByRole("button", {
     name: "Review lyrics for Focus candidate",
@@ -126,12 +128,12 @@ test("the saved choices are a keyboard radio group with visible names and the se
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  const radios = await lyrics.findAllByRole("radio");
+  const radios = await (await openChange(lyrics)).findAllByRole("radio");
   expect(radios.map((radio) => radio.getAttribute("name"))).toEqual([
     "lyric-choice",
     "lyric-choice",
   ]);
-  expect(lyrics.getByRole("group", { name: "Lyrics from" })).toBeTruthy();
+  expect(screen.getByRole("group", { name: "Lyrics from" })).toBeTruthy();
   fireEvent.click(radios[1]);
   expect((radios[1] as HTMLInputElement).checked).toBe(true);
 });

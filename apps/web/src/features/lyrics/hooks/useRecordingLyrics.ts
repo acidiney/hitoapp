@@ -14,7 +14,7 @@ import { useLyricRemoval } from "./useLyricRemoval";
 import { useLyricReview } from "./useLyricReview";
 import { useLyricSearch } from "./useLyricSearch";
 import { useSelectedLyrics } from "./useSelectedLyrics";
-import { useCompatibleLyrics } from "./useCompatibleLyrics";
+import { useAutoLyricIdentity } from "./useAutoLyricIdentity";
 
 type Chosen = { scope: string; id: string };
 type Notice = { scope: string; text: string };
@@ -50,7 +50,16 @@ export function useRecordingLyrics(
     onFailure,
   );
   const removal = useLyricRemoval(account, recording, onFailure);
-  const compatible = useCompatibleLyrics(account, recording, onFailure);
+  const auto = useAutoLyricIdentity(
+    account,
+    recording,
+    {
+      title: detail.title.value,
+      artist: detail.artist.value,
+      durationMs: detail.selected_observation?.duration_ms ?? null,
+    },
+    onFailure,
+  );
   const services = identities.services ?? [];
   const service =
     services.find(
@@ -70,7 +79,7 @@ export function useRecordingLyrics(
   resets.current = () => {
     identities.reset();
     read.cancel();
-    compatible.cancel();
+    auto.cancel();
     search.cancel();
     review.clear();
     removal.clear();
@@ -104,25 +113,32 @@ export function useRecordingLyrics(
     void reader.current();
   }, [automatic, lost, selectedKey, identities.origin, autoReadKey]);
 
-  const compatibleLoader = useRef(compatible.lookup);
-  compatibleLoader.current = compatible.lookup;
+  const autoLoader = useRef(auto.lookup);
+  autoLoader.current = auto.lookup;
+  const identitiesLoader = useRef(identities.load);
+  identitiesLoader.current = identities.load;
   const lookupAttempted = useRef<string | null>(null);
   const noSavedIdentity =
     identities.loaded &&
     !identities.failure &&
     identities.identities !== null &&
     identities.identities.length === 0;
+  const startLookup = () =>
+    void autoLoader.current((identity) =>
+      identitiesLoader.current({ prefer: identityKey(identity) }),
+    );
   useEffect(() => {
     if (
       !automatic ||
       lost ||
       !noSavedIdentity ||
+      auto.noMatch ||
       lookupAttempted.current === scopeKey
     )
       return;
     lookupAttempted.current = scopeKey;
-    void compatibleLoader.current();
-  }, [automatic, lost, noSavedIdentity, scopeKey]);
+    startLookup();
+  }, [automatic, lost, noSavedIdentity, auto.noMatch, scopeKey]);
 
   function accepted(identity: LyricIdentity) {
     setNotice({
@@ -149,7 +165,6 @@ export function useRecordingLyrics(
   const items = identities.identities ?? [];
   const atLimit = items.length >= lyricIdentityLimit;
   const outcome = read.outcome;
-  const shown = outcome ?? compatible.outcome;
   return {
     lost,
     retryAfterAccessLoss,
@@ -174,13 +189,15 @@ export function useRecordingLyrics(
       cancel: read.cancel,
     },
     lookup: {
-      engaged: noSavedIdentity && compatible.attempted,
-      pending: compatible.pending,
-      outcome: compatible.outcome,
-      failure: compatible.failure,
-      choices: compatible.choices,
-      chosenKey: compatible.chosenKey,
-      run: (key?: string) => void compatible.lookup(key),
+      engaged:
+        noSavedIdentity &&
+        (auto.pending ||
+          auto.noMatch ||
+          auto.failure !== null ||
+          identities.loading),
+      pending: auto.pending || identities.loading,
+      failure: auto.failure,
+      run: startLookup,
     },
     finder: {
       services: identities.services,
@@ -202,6 +219,6 @@ export function useRecordingLyrics(
           : false,
       notice: notice?.scope === scopeKey ? notice.text : null,
     },
-    preview: shown?.kind === "lyrics" ? previewLines(shown.view) : [],
+    preview: outcome?.kind === "lyrics" ? previewLines(outcome.view) : [],
   };
 }

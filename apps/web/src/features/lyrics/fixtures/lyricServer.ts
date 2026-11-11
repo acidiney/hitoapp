@@ -1,5 +1,11 @@
 import { createElement, type ReactNode } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
@@ -129,4 +135,30 @@ export function renderLyricsPage(
 export function openLyricsTab() {
   fireEvent.click(screen.getByRole("tab", { name: /^Lyrics/ }));
   return within(screen.getByRole("region", { name: "Lyrics" }));
+}
+
+export async function openChange(lyrics: ReturnType<typeof openLyricsTab>) {
+  fireEvent.click(await lyrics.findByRole("button", { name: "Change" }));
+  return within(
+    await screen.findByRole("dialog", { name: "Lyrics for this track" }),
+  );
+}
+
+export async function openFinder(lyrics: ReturnType<typeof openLyricsTab>) {
+  const opener = await waitFor(() => {
+    const found = lyrics.queryByRole("button", {
+      name: /^(Find lyrics|Change)$/,
+    });
+    if (!found) throw new Error("no way to find lyrics yet");
+    return found;
+  });
+  if (opener.textContent === "Find lyrics") {
+    fireEvent.click(opener);
+    return;
+  }
+  fireEvent.click(opener);
+  const dialog = within(
+    await screen.findByRole("dialog", { name: "Lyrics for this track" }),
+  );
+  fireEvent.click(dialog.getByRole("button", { name: "Find lyrics" }));
 }

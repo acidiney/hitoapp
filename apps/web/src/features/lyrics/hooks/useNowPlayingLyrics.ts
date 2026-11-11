@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../shared/log";
 import { lyricsApi } from "../api/lyricsApi";
 import {
-  listCompatibleChoices,
-  readCompatibleChoice,
-  type CompatibleChoice,
-} from "../api/compatibleLyrics";
+  autoLookupFinished,
+  findAutoIdentity,
+  rememberAutoLookup,
+} from "../api/autoIdentity";
+import type { RecordingFacts } from "../model/lyricMatch";
 import {
   readMatchesIdentity,
   selectedLyricsOutcome,
@@ -21,8 +22,7 @@ import {
 export type LyricChoice = {
   key: string;
   label: string;
-  identity: LyricIdentity | null;
-  compatible: CompatibleChoice | null;
+  identity: LyricIdentity;
 };
 
 export type NowPlayingLyricsState =
@@ -47,7 +47,6 @@ function identityChoices(identities: LyricIdentity[]): LyricChoice[] {
     key: identityKey(identity),
     label: names[identityKey(identity)],
     identity,
-    compatible: null,
   }));
 }
 
@@ -55,6 +54,7 @@ export function useNowPlayingLyrics(
   account: string,
   recording: string,
   automatic = true,
+  facts: RecordingFacts = { title: "", artist: "", durationMs: null },
 ) {
   const [state, setState] = useState<NowPlayingLyricsState>({
     status: "loading",
@@ -62,47 +62,33 @@ export function useNowPlayingLyrics(
   });
   const controller = useRef<AbortController | null>(null);
   const providers = useRef<LyricChoice[]>([]);
+  const factsRef = useRef(facts);
+  factsRef.current = facts;
 
   const read = useCallback(
     async (
       choice: LyricChoice,
       signal: AbortSignal,
     ): Promise<SelectedLyricsOutcome["kind"] | "changed"> => {
-      let outcome: SelectedLyricsOutcome;
-      if (choice.identity) {
-        const identity = choice.identity;
-        const result = await lyricsApi.readSelected(
-          account,
-          recording,
-          {
-            selector: identity.selector,
-            installation_revision: identity.installation_revision,
-          },
-          signal,
-        );
-        if (signal.aborted) return "cancelled";
-        if (
-          (result.status === "ready_v1" || result.status === "ready_v2") &&
-          !readMatchesIdentity(result, recording, identity)
-        ) {
-          setState({ status: "failed", providers: providers.current });
-          return "changed";
-        }
-        outcome = selectedLyricsOutcome(result);
-      } else {
-        const result = await readCompatibleChoice(
-          account,
-          recording,
-          choice.compatible!,
-          signal,
-        );
-        if (signal.aborted) return "cancelled";
-        if (result.kind === "changed") {
-          setState({ status: "failed", providers: providers.current });
-          return "changed";
-        }
-        outcome = result.outcome;
+      const identity = choice.identity;
+      const result = await lyricsApi.readSelected(
+        account,
+        recording,
+        {
+          selector: identity.selector,
+          installation_revision: identity.installation_revision,
+        },
+        signal,
+      );
+      if (signal.aborted) return "cancelled";
+      if (
+        (result.status === "ready_v1" || result.status === "ready_v2") &&
+        !readMatchesIdentity(result, recording, identity)
+      ) {
+        setState({ status: "failed", providers: providers.current });
+        return "changed";
       }
+      const outcome: SelectedLyricsOutcome = selectedLyricsOutcome(result);
       if (outcome.kind === "unavailable" || outcome.kind === "cancelled") {
         setState({
           status: outcome.kind === "cancelled" ? "idle" : "failed",
@@ -123,7 +109,7 @@ export function useNowPlayingLyrics(
   );
 
   const start = useCallback(
-    async (key?: string) => {
+    async (key?: string, force = false) => {
       controller.current?.abort();
       const own = new AbortController();
       controller.current = own;
@@ -150,22 +136,20 @@ export function useNowPlayingLyrics(
           );
           if (
             providers.current.length === 0 &&
+            listed.items.length === 0 &&
             automatic &&
-            listed.items.length === 0
+            (force || autoLookupFinished(account, recording) === null)
           ) {
-            const found = await listCompatibleChoices(
+            const found = await findAutoIdentity(
               account,
               recording,
+              factsRef.current,
               own.signal,
             );
             if (own.signal.aborted) return;
-            if (found === "changed") throw new Error("changed");
-            providers.current = found.map((item) => ({
-              key: item.key,
-              label: item.label,
-              identity: null,
-              compatible: item,
-            }));
+            if (found.kind === "none") rememberAutoLookup(account, recording);
+            if (found.kind === "saved")
+              providers.current = identityChoices([found.identity]);
           }
           if (providers.current.length === 0) {
             const services = await lyricsApi.services(
@@ -210,5 +194,9 @@ export function useNowPlayingLyrics(
     return () => controller.current?.abort();
   }, [start, automatic]);
 
-  return { state, choose: start, retry: () => void start() };
+  return {
+    state,
+    choose: (key: string) => start(key),
+    retry: () => void start(undefined, true),
+  };
 }

@@ -29,14 +29,14 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  min-height: 56px;
-  padding: 6px 16px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
 }
 .lyric-choices li[data-selected] {
-  border-color: var(--action);
+  border: 2px solid var(--action);
 }
 .lyric-choices label {
   display: flex;
@@ -219,4 +219,48 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--ink-soft);
+}
+
+.lyric-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.lyric-panel[data-synced] {
+  height: min(70vh, 560px);
+}
+.lyric-panel[data-synced] .np-lines {
+  min-height: 0;
+}
+.lyric-panel .lyric-source {
+  justify-content: space-between;
+}
+.lyric-action {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--np-tint);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lyric-panel .track-lyrics-body {
+  gap: 16px;
+}
+.lyric-panel .track-lyrics-body ol {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.45;
+  gap: 6px;
+  color: var(--ink);
+  max-width: none;
 }

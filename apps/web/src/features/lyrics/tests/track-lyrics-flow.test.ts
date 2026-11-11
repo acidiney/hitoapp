@@ -24,6 +24,8 @@ import {
 import {
   json,
   lyricServer,
+  openChange,
+  openFinder,
   openLyricsTab,
   renderLyricsPage,
 } from "../fixtures/lyricServer";
@@ -53,10 +55,10 @@ test("opening Lyrics lists saved choices and services locally without any search
   renderLyricsPage();
   expect(server.of("services")).toHaveLength(0);
   const lyrics = openLyricsTab();
-  await lyrics.findByRole("radio", { name: /Open lyrics/ });
+  await lyrics.findByRole("button", { name: "Show lyrics" });
   expect(server.of("services")).toHaveLength(1);
   expect(server.of("identities")).toHaveLength(1);
-  fireEvent.click(lyrics.getByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   fireEvent.click(lyrics.getByRole("combobox", { name: "Lyrics service" }));
   fireEvent.click(await screen.findByRole("option", { name: "Second lyrics" }));
   const search = lyrics.getByRole("searchbox", { name: "Search text" });
@@ -78,7 +80,7 @@ test("the search text is seeded from the committed title and artist and stays ed
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  fireEvent.click(await lyrics.findByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   const { title, artist } = lyricRecordingPage.detail;
   const field = lyrics.getByRole<HTMLInputElement>("searchbox", {
     name: "Search text",
@@ -103,24 +105,28 @@ test("saved choices show their service label, keep unavailable ones disabled wit
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  const gone = await lyrics.findByRole<HTMLInputElement>("radio", {
+  await lyrics.findByRole("button", { name: "Change" });
+  expect(lyrics.queryByRole("radio")).toBeNull();
+  expect(lyrics.queryByRole("button", { name: /^Remove/ })).toBeNull();
+  const dialog = await openChange(lyrics);
+  const gone = await dialog.findByRole<HTMLInputElement>("radio", {
     name: /Gone lyrics/,
   });
   expect(gone.disabled).toBe(true);
   expect(
-    lyrics
+    dialog
       .getByRole("button", { name: "Remove Gone lyrics" })
       .hasAttribute("disabled"),
   ).toBe(false);
   expect(
-    lyrics.getByRole("button", { name: "Remove Open lyrics" }),
+    dialog.getByRole("button", { name: "Remove Open lyrics" }),
   ).toBeTruthy();
   expect(
-    lyrics.queryByRole("button", { name: "Remove Second lyrics" }),
+    dialog.queryByRole("button", { name: "Remove Second lyrics" }),
   ).toBeNull();
-  expect(lyrics.getByText(/Service unavailable/)).toBeTruthy();
+  expect(dialog.getByText(/Service unavailable/)).toBeTruthy();
   expect(
-    lyrics.getByRole<HTMLInputElement>("radio", { name: /Open lyrics/ })
+    dialog.getByRole<HTMLInputElement>("radio", { name: /Open lyrics/ })
       .checked,
   ).toBe(true);
 });
@@ -152,7 +158,7 @@ test("choose service, explicit search, review, accept, local chooser and read us
   ).getByRole<HTMLInputElement>("textbox", { name: "Track title" });
   fireEvent.change(draftField, { target: { value: "Unsent draft" } });
   const lyrics = openLyricsTab();
-  fireEvent.click(await lyrics.findByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   fireEvent.click(lyrics.getByRole("combobox", { name: "Lyrics service" }));
   fireEvent.click(await screen.findByRole("option", { name: "Open lyrics" }));
   fireEvent.change(lyrics.getByRole("searchbox", { name: "Search text" }), {
@@ -191,10 +197,7 @@ test("choose service, explicit search, review, accept, local chooser and read us
     review_stamp: "opaque stamp/+=",
   });
   await waitFor(() =>
-    expect(
-      lyrics.getByRole<HTMLInputElement>("radio", { name: /Open lyrics/ })
-        .checked,
-    ).toBe(true),
+    expect(lyrics.getByText(/from Open lyrics/)).toBeTruthy(),
   );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(server.of("read")).toHaveLength(0);
@@ -225,7 +228,7 @@ test("with no connected lyric service the finder links to plugin settings and se
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  fireEvent.click(await lyrics.findByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   expect(
     lyrics
       .getByRole("link", { name: "Connect a lyrics service" })
@@ -252,7 +255,7 @@ test("an empty search shows a search-specific empty state and the query stays ed
   });
   renderLyricsPage();
   const lyrics = openLyricsTab();
-  fireEvent.click(await lyrics.findByRole("button", { name: "Find lyrics" }));
+  await openFinder(lyrics);
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
   expect(await lyrics.findByText(/No matches/)).toBeTruthy();
   fireEvent.change(lyrics.getByRole("searchbox", { name: "Search text" }), {

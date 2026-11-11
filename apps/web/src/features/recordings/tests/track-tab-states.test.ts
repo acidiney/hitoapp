@@ -118,7 +118,7 @@ test("the Lyrics tab names synced lyrics Synced", async () => {
   );
   const region = await screen.findByRole("region", { name: "Lyrics" });
   await within(region).findByRole("list", { name: "Lyric lines" });
-  expect(within(region).getByText("Synced")).toBeTruthy();
+  expect(within(region).getByText(/^Synced · from/)).toBeTruthy();
 });
 
 test("lyrics without timing are named Unsynced", async () => {
@@ -132,8 +132,7 @@ test("lyrics without timing are named Unsynced", async () => {
   );
   const region = await screen.findByRole("region", { name: "Lyrics" });
   await within(region).findByRole("list", { name: "Lyric lines" });
-  expect(within(region).getByText("Unsynced")).toBeTruthy();
-  expect(within(region).queryByText("Synced")).toBeNull();
+  expect(within(region).getByText(/^Not synced · from/)).toBeTruthy();
 });
 
 test("a provider with no lyrics for the track says so and the Overview offers a lookup", async () => {
@@ -162,9 +161,7 @@ test("a failed automatic lookup keeps the error and a retry in the Lyrics tab", 
   );
   const region = await screen.findByRole("region", { name: "Lyrics" });
   expect(await within(region).findByRole("alert")).toBeTruthy();
-  expect(
-    within(region).getByRole("button", { name: "Retry lyrics" }),
-  ).toBeTruthy();
+  expect(within(region).getByRole("button", { name: "Retry" })).toBeTruthy();
 });
 
 test("turning automatic lyrics off keeps the Lyrics tab waiting for an explicit request", async () => {

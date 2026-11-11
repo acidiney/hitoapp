@@ -1,22 +1,25 @@
 import { createElement, type ReactNode } from "react";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { forgetAutoLookups } from "../api/autoIdentity";
 import { setAutomaticLyrics } from "../fixtures/automaticLyrics";
+import { lyricRecordingPage } from "../fixtures/recordingLyrics";
 import {
-  compatibleProvider,
-  compatibleReady,
+  candidate,
+  review,
   identities,
   plainDocument,
-  providers,
   readyV2,
   reviewedIdentity,
   serviceA,
+  serviceB,
   services,
 } from "../fixtures/lyricIdentityWire";
 import {
   held,
   json,
   lyricServer,
+  openChange,
   openLyricsTab,
   renderLyricsPage,
 } from "../fixtures/lyricServer";
@@ -28,25 +31,39 @@ vi.mock("@inertiajs/react", () => ({
 }));
 
 afterEach(() => {
+  forgetAutoLookups();
   cleanup();
   vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
 });
 
-const forbidden = ["candidates", "review", "retain"] as const;
+const matched = reviewedIdentity("88880000-0000-4000-8000-000000000009", 1);
+const title = lyricRecordingPage.detail.title.value;
+const artist = lyricRecordingPage.detail.artist.value;
+const duration =
+  lyricRecordingPage.detail.selected_observation?.duration_ms ?? 0;
 
-function automaticServer(overrides: Parameters<typeof lyricServer>[0] = {}) {
+function automaticServer(
+  overrides: Parameters<typeof lyricServer>[0] = {},
+  found = { id: "auto-1", title, artist, duration_ms: duration },
+) {
+  let saved = false;
   return lyricServer({
-    services: () => json(services(serviceA)),
-    identities: () => json(identities()),
-    legacy_providers: () => json(providers(compatibleProvider)),
-    legacy_read: () =>
-      json(
-        compatibleReady(compatibleProvider, [
-          [0, "Auto one"],
-          [2000, "Auto two"],
-        ]),
-      ),
+    services: () => json(services(serviceA, serviceB)),
+    identities: () => json(identities(...(saved ? [matched] : []))),
+    candidates: () =>
+      json({
+        items: [
+          { ...candidate("weak-0", "Another song"), artist: "Nobody" },
+          { ...candidate(found.id, found.title), ...found },
+        ],
+      }),
+    review: () => json(review(found.id, "auto-stamp")),
+    retain: () => {
+      saved = true;
+      return json(matched);
+    },
+    read: () => json(readyV2(matched, plainDocument(["Auto found line"]))),
     ...overrides,
   });
 }
@@ -54,64 +71,117 @@ function automaticServer(overrides: Parameters<typeof lyricServer>[0] = {}) {
 describe("automatic lookup on", () => {
   setAutomaticLyrics(true);
 
-  test("a recording without a saved identity looks up lyrics through the compatible path without searching, reviewing or saving", async () => {
+  test("a recording without a saved identity finds, reviews, saves and reads a confident match with the exact bodies", async () => {
     const hold = held();
-    const server = automaticServer({ legacy_providers: () => hold.reply });
+    const server = automaticServer({ candidates: () => hold.reply });
     renderLyricsPage();
     const lyrics = openLyricsTab();
     const skeleton = await lyrics.findByRole("region", {
       name: "Looking up lyrics…",
     });
     expect(skeleton.getAttribute("aria-busy")).toBe("true");
-    hold.release(json(providers(compatibleProvider)));
-    expect(await lyrics.findByText("Auto one")).toBeTruthy();
-    expect(lyrics.getByText("Synced · from Open lyrics")).toBeTruthy();
-    expect(server.of("legacy_providers")).toHaveLength(1);
-    expect(server.of("legacy_read")[0].body).toEqual({
-      observation_id: compatibleProvider.observation_id,
-      installation_revision: compatibleProvider.installation_revision,
+    hold.release(
+      json({
+        items: [
+          { ...candidate("auto-1", title), artist, duration_ms: duration },
+        ],
+      }),
+    );
+    expect(await lyrics.findByText("Auto found line")).toBeTruthy();
+    expect(server.of("candidates")[0].body).toEqual({
+      installation_id: serviceA.installation_id,
+      installation_revision: serviceA.installation_revision,
+      query: `${title} ${artist}`,
     });
-    for (const route of forbidden) expect(server.of(route)).toHaveLength(0);
-    expect(server.of("read")).toHaveLength(0);
-    expect(lyrics.getByRole("button", { name: "Find lyrics" })).toBeTruthy();
+    const candidateBody = {
+      installation_id: serviceA.installation_id,
+      installation_revision: serviceA.installation_revision,
+      provider_recording_id: "auto-1",
+    };
+    expect(server.of("review")[0].body).toEqual(candidateBody);
+    expect(server.of("retain")[0].body).toEqual({
+      candidate: candidateBody,
+      review_stamp: "auto-stamp",
+    });
+    expect(server.of("read")[0].body).toEqual({
+      selector: matched.selector,
+      installation_revision: matched.installation_revision,
+    });
+    expect(lyrics.getByText(/from Open lyrics/)).toBeTruthy();
+    const change = await openChange(lyrics);
+    expect(
+      change.getByRole<HTMLInputElement>("radio", { name: /Open lyrics/ })
+        .checked,
+    ).toBe(true);
+    expect(change.getByRole("button", { name: "Find lyrics" })).toBeTruthy();
+    expect(
+      change.getByRole("button", { name: "Remove Open lyrics" }),
+    ).toBeTruthy();
   });
 
-  test("no provider lyrics shows None found, and Look up again repeats the lookup", async () => {
-    let reads = 0;
-    const server = automaticServer({
-      legacy_read: () => {
-        reads += 1;
-        return json(
-          compatibleReady(
-            compatibleProvider,
-            reads === 1 ? null : [[0, "Second try"]],
-          ),
-        );
+  test("a weak match is never reviewed, retained or read and shows None found with Find lyrics", async () => {
+    const server = automaticServer(
+      {},
+      {
+        id: "weak-1",
+        title: `${title} Remix Part 2`,
+        artist,
+        duration_ms: duration,
       },
-    });
+    );
     renderLyricsPage();
     const lyrics = openLyricsTab();
     expect(await lyrics.findByText("None found")).toBeTruthy();
-    fireEvent.click(lyrics.getByRole("button", { name: "Look up again" }));
-    expect(await lyrics.findByText("Second try")).toBeTruthy();
-    expect(server.of("legacy_providers")).toHaveLength(2);
+    expect(server.of("candidates")).toHaveLength(1);
+    for (const route of ["review", "retain", "read"] as const)
+      expect(server.of(route)).toHaveLength(0);
+    fireEvent.click(lyrics.getByRole("button", { name: "Find lyrics" }));
+    expect(
+      await lyrics.findByRole("searchbox", { name: "Search text" }),
+    ).toBeTruthy();
   });
 
-  test("an empty provider list is None found, not a failure", async () => {
-    automaticServer({ legacy_providers: () => json(providers()) });
+  test("a wrong artist or a duration more than 2 seconds away is a weak match too", async () => {
+    const server = automaticServer(
+      {},
+      { id: "far", title, artist, duration_ms: duration + 5000 },
+    );
     renderLyricsPage();
     const lyrics = openLyricsTab();
     expect(await lyrics.findByText("None found")).toBeTruthy();
-    expect(lyrics.queryByText("Couldn't check")).toBeNull();
+    expect(server.of("retain")).toHaveLength(0);
   });
 
-  test("a temporary failure is Couldn't check with Retry, never None found", async () => {
+  test("after None found the lookup does not repeat on the next open of the same recording", async () => {
+    const server = automaticServer(
+      {},
+      { id: "weak", title: "Totally different", artist, duration_ms: duration },
+    );
+    const first = renderLyricsPage();
+    const lyrics = openLyricsTab();
+    await lyrics.findByText("None found");
+    first.unmount();
+    renderLyricsPage();
+    const again = openLyricsTab();
+    expect(await again.findByText("None found")).toBeTruthy();
+    expect(server.of("candidates")).toHaveLength(1);
+  });
+
+  test("a temporary failure is Couldn't check with Retry that runs the lookup again", async () => {
     let fail = true;
-    automaticServer({
-      legacy_read: () =>
+    const server = automaticServer({
+      candidates: () =>
         fail
           ? json({ error: "down" }, 502)
-          : json(compatibleReady(compatibleProvider, [[0, "Recovered"]])),
+          : json({
+              items: [
+                {
+                  ...candidate("auto-1", title),
+                  artist,
+                  duration_ms: duration,
+                },
+              ],
+            }),
     });
     renderLyricsPage();
     const lyrics = openLyricsTab();
@@ -119,10 +189,19 @@ describe("automatic lookup on", () => {
     expect(lyrics.queryByText("None found")).toBeNull();
     fail = false;
     fireEvent.click(lyrics.getByRole("button", { name: "Retry" }));
-    expect(await lyrics.findByText("Recovered")).toBeTruthy();
+    expect(await lyrics.findByText("Auto found line")).toBeTruthy();
+    expect(server.of("candidates")).toHaveLength(2);
   });
 
-  test("a saved identity keeps the automatic read of the default selection and skips the compatible path", async () => {
+  test("no connected service is None found without any candidate request", async () => {
+    const server = automaticServer({ services: () => json(services()) });
+    renderLyricsPage();
+    const lyrics = openLyricsTab();
+    expect(await lyrics.findByText("None found")).toBeTruthy();
+    expect(server.of("candidates")).toHaveLength(0);
+  });
+
+  test("a saved identity skips the lookup and keeps the automatic read of the default selection", async () => {
     const saved = reviewedIdentity("88880000-0000-4000-8000-000000000001", 1);
     const server = automaticServer({
       identities: () => json(identities(saved)),
@@ -131,22 +210,21 @@ describe("automatic lookup on", () => {
     renderLyricsPage();
     const lyrics = openLyricsTab();
     expect(await lyrics.findByText("Saved text")).toBeTruthy();
-    expect(server.of("legacy_providers")).toHaveLength(0);
-    expect(server.of("legacy_read")).toHaveLength(0);
+    expect(server.of("candidates")).toHaveLength(0);
   });
 });
 
 describe("automatic lookup off", () => {
   setAutomaticLyrics(false);
 
-  test("nothing is looked up until the user chooses to find lyrics", async () => {
+  test("nothing is searched, reviewed or saved until the user chooses to find lyrics", async () => {
     const server = automaticServer();
     renderLyricsPage();
     const lyrics = openLyricsTab();
     await waitFor(() => expect(server.of("identities")).toHaveLength(1));
     await lyrics.findByRole("button", { name: "Find lyrics" });
-    expect(server.of("legacy_providers")).toHaveLength(0);
-    expect(server.of("legacy_read")).toHaveLength(0);
+    for (const route of ["candidates", "review", "retain", "read"] as const)
+      expect(server.of(route)).toHaveLength(0);
     expect(screen.queryByText("Looking up lyrics…")).toBeNull();
   });
 });
