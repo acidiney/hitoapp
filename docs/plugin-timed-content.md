@@ -1,6 +1,6 @@
 # Timed lyrics and backing-track contracts
 
-The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Static rendering is qualified below. The additive v2 contract and standalone LRCLIB reference service are qualified below. Independent identity integration, verified audio alignment and backing-track playback remain unfinished.
+The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Static rendering is qualified below. The additive v2 contract and standalone LRCLIB reference service are qualified below. Independent lyric identities have backend qualification below. Their UI integration, verified audio alignment and backing-track playback remain unfinished.
 
 ## Protocol and identities
 
@@ -46,7 +46,7 @@ A v2 document keeps document/rendition identity and unknown revision, language a
 
 The complete encoded response remains capped at 262,144 bytes, one to 2,000 lines and seven days. Raw line bounds and controls are checked before normalization. Exact identity echoes, known-duration coverage and canonical credential-free HTTPS backlinks remain enforced. Anchors belong to the provider rendition and do not establish alignment to Hito audio.
 
-[LRCLIB](plugin-lrclib.md) supplies this extension without audio or sources. Two independent review rounds and a fresh source build pass 20 service tests and all 145 schema-enabled SDK cases, strict checks, production default/schema feature checks and formatting. This is Linux Docker fixture qualification. Host choice/review integration and UI work remain separate; the [frontend specification](frontend-lyrics-integration.md) is available for parallel implementation.
+[LRCLIB](plugin-lrclib.md) supplies this extension without audio or sources. Two independent review rounds and a fresh source build pass 20 service tests and all 145 schema-enabled SDK cases, strict checks, production default/schema feature checks and formatting. This is Linux Docker fixture qualification. Host choice/review backend qualification is below; UI work remains separate; the [frontend specification](frontend-lyrics-integration.md) is available for parallel implementation.
 
 ## Host lyric lookup
 
@@ -69,7 +69,7 @@ Negotiation accepts at most 4,096 received bytes. A lyric response accepts at mo
 
 Lookup does not modify the library or collection, adopt a recording, resolve sources, fetch audio, prepare transfers or create a download. Structured completion events contain generated correlation IDs, safe outcomes and elapsed time. Provider identities, document text, revisions, credentials and private paths are excluded.
 
-An independent lyrics provider can serve a current attached provider identity. A lyrics-only service without a retained identity or review path cannot yet be selected for a local recording. That identity-review workflow remains unfinished. This lookup does not establish timeline alignment or enable synchronized highlighting.
+The legacy lookup serves current retained provider observations. The independent identity workflow below also supports authorized scanned local recordings. Neither workflow establishes audio alignment or enables synchronized highlighting.
 
 ## Document fingerprint
 
@@ -81,7 +81,7 @@ Actual Rust export and TypeScript generation add only the required ready-result 
 
 ## Current lyric providers
 
-`GET /api/v1/recordings/{id}/lyrics/providers` returns the caller's currently retained lyric-capable identities. Each item contains its observation, installation and current installation revision, exact provider recording reference and display label. Selected primary identity comes first, followed by current attached source-provider identities in stable order. Historical observations, inactive installations/services and unapproved lyric capabilities are excluded. A lyrics-only provider without a retained identity still needs the separate discovery/review workflow.
+`GET /api/v1/recordings/{id}/lyrics/providers` returns the caller's currently retained lyric-capable identities. Each item contains its observation, installation and current installation revision, exact provider recording reference and display label. Selected primary identity comes first, followed by current attached source-provider identities in stable order. Historical observations, inactive installations/services and unapproved lyric capabilities are excluded. Independent lyrics-only connections use the separate account-private identity workflow below.
 
 This is a local authorized read with a one-second lifetime and at most nine current identities, derived from the existing binding limit. It never contacts providers, reads audio, prepares a source or creates persistent state. Malformed recording IDs use the existing `422` validation response. Lookup still uses the original POST authority checks; listing choices does not authorize an old observation or installation revision.
 
@@ -177,7 +177,7 @@ Highlighting requires a host-owned association between the validated document di
 
 A changed source, metadata observation, playback generation or document digest must retire the old alignment. Hito owns rendering and navigation. Only the timed-text component should subscribe to position observations; catalog pages must not rerender on playback ticks. Independent lyric providers must work with local audio and metadata/audio supplied by different services.
 
-Independent-provider identity review, alignment, backing-recording adoption and end-to-end playback remain unfinished. Microphone mixing, vocal removal, scoring and performance recording remain outside this release.
+Independent-provider identity review has the backend qualification below. Its UI integration, alignment, backing-recording adoption and end-to-end playback remain unfinished. Microphone mixing, vocal removal, scoring and performance recording remain outside this release.
 
 ## Verification
 
@@ -188,3 +188,37 @@ Independent security, correctness and performance reviews pass. These checks qua
 Nine host HTTP/core cases pass against real temporary SQLite, owned HTTP protocol providers and a read-only original WAV. They cover exact retained identity and null results, unsupported versions, wrong identity echoes, received-byte limits, one total deadline, session revocation, explicit cancellation, peer denial and playback isolation. A held lyric response permits another recording in the same account to refresh its actual provider source and relay an exact WAV byte range. Public collection state, original bytes and metadata remain preserved, and lyric lookup creates no persistent download.
 
 One early concurrent two-case run missed an expected completion event. Later passing runs have not established its cause. Independent repeats of all nine host cases pass. A finite concurrent diagnostic also passes in one author invocation and one independent invocation, retaining the same strict assertions. Those passes do not explain the earlier missed event, so its cause remains open. Strict core/server all-target Clippy, formatting, actual Rust OpenAPI export and generated TypeScript reproduction pass. The contract adds one path and six schemas while preserving all prior 95 path objects and 223 schema objects. The host checks do not establish official-provider compatibility, rendering, timeline alignment or packaged platform acceptance.
+
+## Independent lyric identities
+
+An account can explicitly review a Search, Metadata and Lyrics connection for an authorized recording, including a scanned local WAV in a shared library. Core stores the association privately for that account. Another account with access to the same recording cannot list, read or remove it. No provider binding, metadata observation, release, source, audio, preparation, download or collection entry is created or changed by this workflow.
+
+These routes extend `/api/v1/recordings/{id}/lyrics`. Their request and response definitions come from the [registered Rust routes](../apps/server/src/api/lyric_identities.rs) and [Core wire types](../crates/core/src/catalog/timed_content/identity_types.rs).
+
+| Method and suffix | Purpose |
+| --- | --- |
+| `GET /services` | List the account's current approved connections locally. |
+| `POST /candidates` | Send an explicitly supplied query to one selected installation and revision. |
+| `POST /identities/review` | Fetch typed SDK recording metadata and return its review stamp. |
+| `POST /identities` | Refetch, check the same review evidence and retain the private association atomically. |
+| `GET /identities` | List current retained observations and reviewed identities without provider requests. |
+| `DELETE /identities/{identity_id}?revision=…` | Remove the account's reviewed association at its expected revision. |
+| `POST /identities/read` | Read the exact selected observation or reviewed identity at the selected installation revision. |
+
+Listing and opening a chooser make no upstream request. Search accepts at most 512 UTF-8 bytes and requests at most twenty candidates. Review uses only the Metadata protocol. Acceptance binds the exact session, library grant, current recording metadata and personal override operations, installation and service revisions, and refetched candidate metadata. The SDK metadata value has its own embedded review schema; it does not reuse the host's existing `RecordingMetadata` view schema.
+
+At most eight independent identities can be retained per account and recording. An exact duplicate returns the existing identity. Unavailable or revoked connections stay visible with `selectable: false`, count toward the limit, and can be removed locally. They cannot be read. Removing and retaining again creates a new identity UUID, so a deleted selector cannot address its replacement.
+
+A reviewed association also retains a missing shared-library recording. Normal missing-recording cleanup reports it as referenced and preserves the private association. After explicit unlink, cleanup can remove the recording if no other reference keeps it. Account erasure removes these private rows before their installation and account parents; it preserves a shared recording and other accounts' associations.
+
+Selected reads negotiate `GET v2/lyrics/capabilities` first. A missing or unimplemented extension, or an unsupported descriptor, permits independent negotiation of the existing v1 format. Invalid JSON, oversized bodies and other upstream failures remain unavailable. A fallback still validates its descriptor, exact provider reference and document; it never receives a new deadline. One dedicated lyric admission covers negotiation and the response body within the original ten-second deadline. Search, review and acceptance use that same dedicated quota, leaving ordinary playback source refresh and audio relay admission available. Descriptor bodies are bounded at 4,096 received bytes and lyric bodies at 262,144 received bytes before typed validation.
+
+The new read result is `ready_v1` or `ready_v2` with the actual selector, provider reference, validated SDK document and host digest. `unsupported`, `unavailable` and `cancelled` are separate results. A genuine valid `lyrics: null` remains a negative answer. Plain v2 lines carry no manufactured times; anchored v2 lines preserve provider anchors and clearing events. None of these associations establishes rendition alignment with local audio. Rendering remains static until separate alignment is accepted.
+
+Authority is checked during held replies and before publication. Session revocation, grant withdrawal and regrant, association deletion and replacement, personal metadata edits, plugin revisions, current PIN configuration and observed PIN locks retire stale work. PIN checks bind the current hash and idle policy. They do not promise durable history for a setup/remove or policy change and reversal completed entirely between observations while the same session is authorized again. Grant epochs, session identities and association UUIDs retain their stronger ABA protection.
+
+Nineteen new HTTP/core cases pass through real temporary SQLite, owned deterministic WAV files and HTTP protocol fixtures. They cover the private shared-recording workflow, approvals, the cap and unavailable entries, duplicate and deletion behavior, held authority, explicit cancellation and dropped HTTP requests with observed peer EOF, one total deadline, malicious bodies, static outcome logging, actual account erasure, missing-recording retention and the public schema collision regression. One case composes Hito with the actual LRCLIB router and an owned fake upstream. Connect and list make no upstream call; explicit search, review, acceptance and read make exactly one search GET and three record GETs, preserving the local recording, sources, private state and original audio.
+
+A fresh combined-source Docker repeat passes all nineteen new host cases and seventy-two affected regressions: seven missing-recording units, three account-erasure plan cases, twelve missing-recording capability cases, nine existing account-deletion cases, seven source-ranking cases, eleven provider-metadata cases, ten relevant catalog-audio cases and thirteen legacy lyric cases. Strict Core/server all-target checks, the production Core check and formatting pass; all 4,112 frozen inputs remain exact. The actual Rust contract adds six path objects and fifteen schemas without changing any existing path or schema. The two pre-existing ignored lyric diagnostics remain ignored. These are Linux Docker fixtures and backend evidence. They do not qualify a new browser workflow, live LRCLIB availability, packaged images, physical platforms, audio alignment or a public release.
+
+Account-deletion performance has a public Core regression with real migrated SQLite and valid peer identities. Before the installation-leading foreign-key index, deletion used 1,700 VM steps beside 64 peer identities and 50,100 beside 4,096. The indexed implementation uses 900 in both cases, preserves every peer association and keeps the parent-deletion probes selective. Two review rounds resolved this index and missing-recording retention. These counts describe the owned fixture, not release latency.

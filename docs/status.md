@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 independent lyric identity backend
+
+Development source now supports approved independent lyric providers for scanned local and shared-library recordings. Search and review retain an account-private identity without changing audio, primary metadata or collection state. Missing-recording cleanup preserves an explicitly reviewed association until unlink. Unavailable associations remain visible for removal. New reads negotiate plain/start-anchor v2 or a validated compatible v1 response under one deadline and a dedicated quota.
+
+Two review rounds resolved missing-recording retention and an installation foreign-key scan during account deletion. A fresh frozen-source Docker run passes all 19 new host cases and 72 affected regressions, strict Core/server and production Core checks, formatting and exact Rust API reproduction. Two existing lyric diagnostics remain ignored; all 4,112 inputs remain unchanged. The indexed deletion fixture uses 900 VM steps beside either 64 or 4,096 peer identities, versus 1,700 and 50,100 before the fix. All previous API paths and schemas remain identical; six paths and fifteen schemas are added.
+
+The backend code is committed in the development branch. The [canonical frontend contract](frontend-lyrics-integration.md) is ready for Opus; the new UI, `main` integration and local Hito rebuild await full-flow verification. The separate local LRCLIB service is running and has authenticated search verification. No normal Hito server, VPS or desktop package was updated by this slice. See [identity behavior and evidence](plugin-timed-content.md#independent-lyric-identities).
+
 ## 2026-11-11 standalone LRCLIB and lyric contract v2
 
 Development source now includes the separate LRCLIB service and additive plain/start-anchor SDK contract. The service supplies search, metadata and lyrics, preserves unknown album identities and authors, and exposes no audio. Two review rounds corrected raw-field absence handling and revision-dependent ID validation. Original failing controls remain preserved.
