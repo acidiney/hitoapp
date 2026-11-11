@@ -81,10 +81,13 @@
     display: none;
   }
   .unheard {
-    display: block;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
   .unheard-card {
     position: relative;
+    flex: none;
     flex-wrap: nowrap;
     gap: 14px;
     padding: 12px;
@@ -105,8 +108,18 @@
     line-height: 1.2;
   }
   .unheard-why {
+    display: -webkit-box;
+    overflow: hidden;
     font-size: 14px;
     color: var(--muted);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .unheard-what {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
   .unheard-actions {
     position: absolute;
@@ -151,6 +164,11 @@
   .home-grid > li {
     flex: none;
     width: 136px;
+  }
+  .home-grid .shelf-card-cover {
+    width: 136px;
+    height: 136px;
+    aspect-ratio: auto;
   }
   .home-grid .shelf-card-open {
     gap: 0;
@@ -957,5 +975,32 @@
   .sidebar nav {
     padding-right: max(4px, env(safe-area-inset-right));
     padding-left: max(4px, env(safe-area-inset-left));
+  }
+}
+@media (max-width: 767px) {
+  .settings-page .setting-line-main {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .settings-page .setting-line-copy {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .settings-page .setting-line-title,
+  .settings-page .setting-line-hint {
+    overflow-wrap: break-word;
+  }
+  .settings-page .setting-line-action:has(> :nth-child(2)),
+  .settings-page .setting-line-action:has(input, select, textarea) {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .settings-page
+    .setting-line-action:has(input, select, textarea)
+    :is(input, select) {
+    flex: 1 1 160px;
+    min-width: 0;
   }
 }
