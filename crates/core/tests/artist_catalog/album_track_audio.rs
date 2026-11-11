@@ -222,14 +222,20 @@ async fn a_catalog_without_a_usable_credit_or_length_is_reported_as_insufficient
         );
     }
     catalog.set_bonus("Owned album performer feat. Guest", Some(1000));
-    assert!(
-        matches!(
-            find(&album, BONUS_OCCURRENCE).await.unwrap(),
-            AlbumTrackAudio::NoMatch
-        ),
-        "A joined multi-artist credit is not equal to a single performer"
+    let AlbumTrackAudio::Saved { recording } = find(&album, BONUS_OCCURRENCE).await.unwrap() else {
+        panic!("A joined credit can only use the provider ranking as a best guess");
+    };
+    let sources = album
+        .hito
+        .catalog
+        .sources(&album.actor, &recording.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&sources[0]).unwrap()["match_kind"],
+        "best_guess"
     );
-    assert!(audio.requests("v1/search").await.len() <= 1);
+    assert_eq!(audio.requests("v1/search").await.len(), 1);
     audio.shutdown().await;
     assert!(catalog.finish().await);
 }
@@ -265,13 +271,7 @@ async fn a_second_search_while_one_runs_is_busy_and_the_first_still_completes() 
 }
 
 #[tokio::test]
-async fn uncertain_candidates_are_never_returned() {
-    let mut catalog = AlbumProvider::start().await;
-    let audio = audio_provider::ProviderServer::start().await;
-    let album = Album::prepare(&catalog).await;
-    connect_audio(&album, &audio).await;
-    let before = album.library().await;
-
+async fn uncertain_candidates_are_saved_only_as_best_guesses() {
     let wrong = [
         (
             "another title",
@@ -294,19 +294,32 @@ async fn uncertain_candidates_are_never_returned() {
         ),
     ];
     for (label, title, artist, duration) in wrong {
+        let mut catalog = AlbumProvider::start().await;
+        let audio = audio_provider::ProviderServer::start().await;
+        let album = Album::prepare(&catalog).await;
+        connect_audio(&album, &audio).await;
+        let total = album.total().await;
         offer(&audio, "audio-provider/uncertain", title, artist, duration).await;
-        assert!(
-            matches!(
-                find(&album, BONUS_OCCURRENCE).await.unwrap(),
-                AlbumTrackAudio::NoMatch
-            ),
-            "{label} must not match"
+        let AlbumTrackAudio::Saved { recording } = find(&album, BONUS_OCCURRENCE).await.unwrap()
+        else {
+            panic!("{label} must use the provider ranking after strict matching is exhausted");
+        };
+        let sources = album
+            .hito
+            .catalog
+            .sources(&album.actor, &recording.id)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&sources[0]).unwrap()["match_kind"],
+            "best_guess",
+            "{label} must not be labelled verified"
         );
+        assert_eq!(album.total().await, total + 1);
+        nothing_requested(&audio).await;
+        audio.shutdown().await;
+        assert!(catalog.finish().await);
     }
-    assert_eq!(album.library().await, before);
-    nothing_requested(&audio).await;
-    audio.shutdown().await;
-    assert!(catalog.finish().await);
 }
 
 #[tokio::test]

@@ -1,4 +1,4 @@
-use super::{Catalog, metadata, persist};
+use super::{Catalog, bindings, metadata, persist, resolution::CatalogDecision};
 use crate::{Actor, Error, Recording, Result};
 use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest};
 use serde::Deserialize;
@@ -14,6 +14,7 @@ pub struct AdoptProviderRecording {
 pub(crate) struct AcceptedRecording {
     pub details: ProviderRecording,
     pub sources: Vec<(String, bool)>,
+    pub decision: Option<CatalogDecision>,
 }
 
 impl Catalog {
@@ -74,7 +75,22 @@ impl Catalog {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
+        if let Some(decision) = accepted.and_then(|accepted| accepted.decision.as_ref()) {
+            decision.recheck(&mut tx).await?;
+        }
         let library = crate::identity::personal_library(&mut tx, actor.id()).await?;
+        if accepted.is_some_and(|accepted| accepted.decision.is_some())
+            && bindings::current(&mut tx, installation, &details.id)
+                .await?
+                .is_some()
+        {
+            tracing::debug!(
+                event = "provider_adoption_refused",
+                outcome = "became_bound",
+                "Provider recording became bound since it was accepted"
+            );
+            return Ok(None);
+        }
         let published = metadata::publish(
             &mut tx,
             &library,
@@ -96,6 +112,11 @@ impl Catalog {
                 sources,
             )
             .await?;
+        }
+        if let Some(decision) = accepted.and_then(|accepted| accepted.decision.as_ref()) {
+            decision
+                .persist(&mut tx, actor, &recording, &published.binding.id)
+                .await?;
         }
         crate::metadata::refresh_recording_credits(&mut tx, &recording).await?;
         if let Some(release) = &release {

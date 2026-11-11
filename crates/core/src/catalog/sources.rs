@@ -68,8 +68,10 @@ fn source_query(
     push_source_access(&mut query, host, account, SourceAccess::Playable);
     query.push(") AS ready, CASE WHEN s.provider = 'plugin' AND EXISTS(
         SELECT 1 FROM provider_sources remote
-        JOIN provider_items item ON item.id = remote.binding_id AND item.evidence = 'automatic_policy'
-            AND item.role = 'source' AND item.retired = 0
+        JOIN provider_items item ON item.id = remote.binding_id AND item.retired = 0
+            AND ((item.evidence = 'automatic_policy' AND item.role = 'source')
+                OR (item.evidence = 'provider_identity' AND item.role = 'primary'
+                    AND item.id = (SELECT metadata_binding_id FROM recordings WHERE id = s.recording_id)))
         WHERE remote.source_id = s.id AND remote.recording_id = s.recording_id
             AND NOT EXISTS(SELECT 1 FROM recording_source_choices choice
                 WHERE choice.user_id = ")

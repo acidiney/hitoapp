@@ -158,6 +158,12 @@ async fn a_failed_or_cancelled_search_leaves_the_row_unlinked() {
         1000,
     )
     .await;
+    audio
+        .reply(
+            "v1/sources",
+            json!({"items": [{"id": SOURCE, "label": "Owned audio", "ready": false}]}),
+        )
+        .await;
     assert!(matches!(
         find(&album, BONUS_OCCURRENCE).await.unwrap(),
         AlbumTrackAudio::NoMatch
