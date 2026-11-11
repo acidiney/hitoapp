@@ -52,7 +52,7 @@ The journal retains affected owners, not every former child key. After deleting 
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Recording      | Inherited fields, personal overrides, sources and source metadata, release appearances, ordered credits, validated identity contributions, source choice and outbound group edges | Release/artist roots, collection activity and aggregate summaries |
 | Release        | Inherited and account release fields, personal overrides and edition choice                                                                                                       | Track appearances and counts derived from recording families      |
-| Artist         | Primitive account artist and credit-key data, authorized photo observation and recheck time                                                                                       | Recording-derived eligibility, usage and group summaries          |
+| Artist         | Primitive account artist and credit-key data, authorized photo observation and recheck time, built-in photo suppression                                                           | Recording-derived eligibility, usage and group summaries          |
 | Account policy | Effective source preferences and approved-provider policy needed by catalog readers                                                                                               | Credentials, private configuration and collection operations      |
 
 A saved edition choice belongs to its release family. Preserve its revision and explicit clear, and capture the existing reader's Unset, Ready or NeedsChoice state at H. Safe fields can include currently readable Hito recording and account association references plus an owned provider reference. Do not copy the public saved-edition DTO into the catalog: its HTTP provider edition and release-group strings can contain private coordinates. Raw selections remain in Core.
@@ -76,7 +76,28 @@ flowchart LR
     Commit --> Read
 ```
 
-Primitive artist observations must not become an effective photo summary without its dependencies. Removing a recording credit can change the former artist's eligibility after that relationship has disappeared. The client derives eligibility and summaries from visible recording contributions and account policy. Any future independently stored derived summary needs explicit former/new parent invalidation and convergence tests.
+Recording families carry provider-photo candidates before built-in suppression. A candidate contains only the Hito artist identity and an account-owned typed provider reference. The canonical reader retains provider activity, artwork capability, current observation, binding and exact main-credit checks. Raw upstream artist coordinates stay in Core. The client combines these candidates with account artwork policy and the artist's built-in suppression observation.
+
+Built-in suppression is an explicit exception to deriving artist behavior from selected recording families. The canonical rule reads the account's retained choices, including choices for recordings outside the selected libraries. A selected artist can therefore change its provider-photo eligibility without any selected recording changing. Export one authoritative `BuiltinPhotoSuppression { blocked }` observation in that readable artist's family at H. Do not export the outside recording, association, identity group or MusicBrainz identifier to explain that bit.
+
+The shared Core predicate uses stored lookup state. A stored `missing` artist photo permits provider fallback even after its recheck time expires. Applying the effective time-based state to this rule would change existing behavior. The normal photo observation still carries its separate recheck time.
+
+```mermaid
+flowchart LR
+    Credit[Selected recording provider-photo candidates] --> Client[Client photo eligibility]
+    Choice[Account-wide retained identity choices] --> Rule[Canonical Core suppression rule at H]
+    Lookup[Stored artist photo lookup state] --> Rule
+    Rule --> Bit[Readable artist suppression bit]
+    Bit --> Client
+    Policy[Account artwork policy] --> Client
+    Choice --> Journal[Former and new artist invalidations]
+    Lookup --> Journal
+    Journal --> Replace[Complete affected artist family at H]
+```
+
+Choice insert, update, reset and deletion must invalidate the former and new artist parents before those relationships disappear. A private photo-policy scope must reach only those parents; ordinary artist-name invalidation also expands recording dependencies and is too broad for this purpose. Existing account scopes conservatively cover group and lookup changes. Keep those dependencies until a separately verified optimization replaces them.
+
+The isolated full-export candidate passes public behavior tests for an outside-library reset, stored lookup states and account/grant isolation. Incremental parent invalidation is under implementation. Full/changes convergence, complete scale qualification and client rendering remain unverified. This observation is a policy input with explicit dependencies, not a completed effective-photo summary. Recording-derived eligibility, usage and group summaries still require complete visible contributions and account policy.
 
 ## Transactional capture
 
