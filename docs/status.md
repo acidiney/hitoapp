@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 private catalog journal qualification
+
+The isolated journal candidate now has exact selected-library/grant bindings, private account access epochs, separate retained-page authority and history checks, protected cursor quotas, former/new identity-group invalidations and transactional account-erasure suppression. An independent Docker repeat passes 38 journal cases, two erasure-plan cases, nine account-deletion cases and two historical upgrade cases, followed by workspace formatting. All 2,467 Rust, SQL and Cargo inputs remain unchanged across that repeat. Fresh security, correctness and performance reviews pass against the same 26 frozen files.
+
+The predecessor checks populate 100,000 recording, account-release and account-artist rows and exercise bounded reads under absent, stale and fresh planner statistics. These qualify private indexed reads, not the full release workload. This candidate is not yet integrated with the complete normalized consumer. Its isolated build still reports unused private consumer APIs, so strict warning-free compilation, incremental delivery and convergence are not claimed. See [journal boundaries and qualification](catalog-journal-design.md#isolated-journal-qualification).
+
 ## 2026-11-11 normalized catalog work in progress
 
 The isolated implementation candidate can export a jointly selected set of libraries with one immutable cut, cursor and root-order stream. Twelve public catalog cases pass, followed by the ten unchanged lifecycle cases on the same joint-set implementation. The tests cover provider-only metadata, personal overrides/reset, safe identity references, source choice, exact global recording order, duplicate rejection, empty ordering, account/PIN/grant isolation, shared capacity and joined retirement.

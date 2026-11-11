@@ -86,7 +86,7 @@ An oversized changes batch can require a full bootstrap. If a full bootstrap its
 
 ## Opaque cursors and restored history
 
-A catalog cursor is a fresh random 32-byte base64url handle. Only its SHA-256 digest and private binding are persisted. The binding includes server lineage, semantic projection version, account, the complete selected library/grant set, availability context and journal sequence/anchor. Tokens and digests are excluded from logs.
+A catalog cursor is a fresh random 32-byte base64url handle. Only its SHA-256 digest and private binding are persisted. The binding includes server lineage, semantic projection version, account and its private access epoch, the complete selected library/grant set, availability context and journal sequence/anchor. Tokens and digests are excluded from logs.
 
 Every accepted export issues a fresh handle, including an empty export. Hash-only storage cannot recover a previous token, and token reuse only while the global head stays unchanged would expose unrelated write activity. Issuance is bounded by explicit row/byte quotas and retention, with active exports protected. Missing or evicted handles require an explicit fresh bootstrap. They do not erase the locally authorized cache or alter collection state.
 
@@ -104,9 +104,17 @@ The server checks current session, PIN and the complete exact grant set for crea
 
 A remote grant can change after the final authorized response and before local commit. The completed export can still become last-known cached data under the accepted offline policy. No final network request removes that window. A grant identity is a binding, not a revocation oracle. Locally retired work or an already-observed newer head/context must still be fenced before publication.
 
-Access changes must be inspected before filtering invalidations to the requested library. Revoking library B can remove a group reference exported from still-accessible library A. These actor visibility changes require account-wide expansion or explicit bootstrap. Library deletion also erases its scoped payload, so surviving account-only invalidation must remain available without retaining the deleted library's private keys. Account erasure still removes that account's private history. The private foundation is being changed to capture access through authoritative grant rows; complete behavior and convergence remain acceptance requirements.
+Access changes must be inspected before filtering invalidations to the requested library. Revoking library B can remove a group reference exported from still-accessible library A. These actor visibility changes require account-wide expansion or explicit bootstrap. Library deletion also erases its scoped payload, so surviving account-only invalidation must remain available without retaining the deleted library's private keys. Account erasure still removes that account's private history. The isolated foundation candidate captures access through authoritative grant rows and private actor epochs; complete consumer behavior and convergence remain acceptance requirements.
 
 Current audio catalog predicates and retained-download/podcast authority views are driven by rows and backend host identity. Artist-photo lookup state has a separate clock dependency: a missing/unavailable lookup becomes unknown after one day without a row change. Replication must carry observed state and a recheck time, or provide a scheduled invalidation, rather than promise a timeless derived state.
+
+## Isolated journal qualification
+
+On 11 November 2026, the isolated private foundation passes an independent Docker repeat of 38 journal cases, two account-erasure plan cases, nine public account-deletion cases and two historical playlist upgrades, plus workspace formatting. All 2,467 Rust, SQL and Cargo inputs match before and after the run. Fresh security, correctness and performance specialists independently review the same 26 frozen files without finding a confirmed defect.
+
+The cases cover exact selected sets, UTF-8 byte limits and integer ordinals, protected quotas, unselected-library revocation, regrant and rollback, history-only compaction, restart and divergent restore, former/new identity groups, correction erasure, and actual account-deletion rollback and cleanup. Three predecessor indexes are checked against 100,000-row tables under absent, stale and fresh planner statistics. Measured source-insert work in the common-producer fixture remains 586 VM steps per row at both 128 and 512 rows under stale and fresh statistics.
+
+This is private foundation qualification. The candidate is not yet integrated with the complete normalized consumer, and its standalone build has unused private APIs. Strict warning-free compilation, complete producer convergence, client application and the full release workload remain unproved. Existing SnapshotOnly behavior is preserved.
 
 ## Acceptance and implementation sequence
 
