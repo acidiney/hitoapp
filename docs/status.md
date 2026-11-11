@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 native benchmark commands and resource ownership
+
+Development source now checks Pause and other Player command receipts, shares original command and observation deadlines, and retires a controller after a rejected or uncertain command. An owned run closes Player, finishes children and sample output, drops Core callers and waits for SQLite worker-local resource retirement on normal completion, startup failure and work unwind. Partial measurements and cleanup failures remain visible; existing output artifacts prevent a new run from overwriting them.
+
+Three fresh specialist reviews pass, followed by an independent fresh-source Docker repeat of all 42 Rust controls and thirteen report CLI controls, strict example Clippy and formatting. All original 27 Rust controls remain, and all 3,944 source and support inputs stay exact. The Rust tests complete in 12.82 seconds with no failed, ignored or filtered cases. This is non-audio workflow qualification: the native-capable positive control has an empty queue and opens no audio Session or output. Actual recording start, recovery including zero-gap observation, full-runner threshold enforcement and the 900 measured attempts remain open. SQLite resource retirement does not establish an OS-thread join. See [command and resource evidence](performance.md#checked-commands-and-owned-resources). No running image, VPS, frontend or desktop package changed.
+
 ## 2026-11-11 compact catalog producer checkpoint
 
 The isolated compact producer now passes 45 public cases in its author's frozen Docker run. A complete rich fixture with 25,000 recordings and 25,000 distinct releases constructs in 5,894 ms with 33,076,100 SQLite VM steps. Its 38 public pages and base metadata total 9,707,994 bytes. The checks preserve source, genre, credit, provenance, release and explicit source-choice facts, selected public metadata and the owned original audio.
