@@ -6,6 +6,12 @@ import Artwork from "../../artwork/components/Artwork";
 import ArtistGroupPhoto from "../components/ArtistGroupPhoto";
 import { artistCounts } from "../model/artistCounts";
 import ArtistHeader from "../components/ArtistHeader";
+import { usePlayer } from "../../playback/components/PlaybackProvider";
+import { useArtistRadio } from "../../discovery/hooks/useArtistRadio";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import ArtistActions from "../components/ArtistActions";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -26,6 +32,8 @@ export default function ArtistIdentityGroupPage({
 }: Schema<"ArtistIdentityGroupPageProps">) {
   const { group, libraries, releases, recordings } = detail;
   const { mutate } = useMutation(user.id);
+  const phone = useMediaQuery(PHONE_QUERY);
+  const radio = useArtistRadio(user.id, usePlayer());
   const tracks = recordings.items.map(({ recording }) => ({
     ...recording,
     row_id: recording.id,
@@ -67,6 +75,15 @@ export default function ArtistIdentityGroupPage({
         more={{
           label: "More actions, including Correct this artist",
           items: [
+            ...(phone
+              ? [
+                  {
+                    label: "Start radio",
+                    disabled: radio.pending !== null,
+                    onSelect: () => void radio.start(group),
+                  },
+                ]
+              : []),
             {
               label: "Correct this artist",
               onSelect: () =>
@@ -76,10 +93,10 @@ export default function ArtistIdentityGroupPage({
         }}
         actions={
           <ArtistActions
-            account={user.id}
             tracks={tracks}
             listing={listing}
             group={group}
+            radio={radio}
           />
         }
       />

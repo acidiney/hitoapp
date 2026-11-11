@@ -71,11 +71,7 @@ export default function ArtistPage({
         }
         actions={
           tracks.length > 0 ? (
-            <ArtistActions
-              account={user.id}
-              tracks={tracks}
-              listing={listing}
-            />
+            <ArtistActions tracks={tracks} listing={listing} />
           ) : undefined
         }
       />

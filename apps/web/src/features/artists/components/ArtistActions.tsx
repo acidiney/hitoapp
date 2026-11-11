@@ -1,25 +1,27 @@
-import { Play } from "lucide-react";
+import { Play, Shuffle } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
-import { usePlayer } from "../../playback/components/PlaybackProvider";
 import type { Track } from "../../playback/model";
 import type { TrackListing } from "../../playback/api/trackListing";
 import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
-import { useArtistRadio } from "../../discovery/hooks/useArtistRadio";
+import type { useArtistRadio } from "../../discovery/hooks/useArtistRadio";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 
 export default function ArtistActions({
-  account,
   tracks,
   listing,
   group,
+  radio,
 }: {
-  account: string;
   tracks: Track[];
   listing?: TrackListing;
   group?: Schema<"ArtistIdentityGroup">;
+  radio?: ReturnType<typeof useArtistRadio>;
 }) {
   const play = usePlayTracks(tracks, listing);
-  const player = usePlayer();
-  const radio = useArtistRadio(account, player);
+  const phone = useMediaQuery(PHONE_QUERY);
   const empty = tracks.length === 0;
   return (
     <>
@@ -37,15 +39,15 @@ export default function ArtistActions({
           </button>
           <button
             type="button"
-            className="pill-action"
+            className={phone ? "pill-icon" : "pill-action"}
             aria-label="Shuffle tracks"
             onClick={() => void play.shuffleAll()}
           >
-            Shuffle
+            {phone ? <Shuffle size={18} aria-hidden="true" /> : "Shuffle"}
           </button>
         </>
       )}
-      {group && (
+      {group && radio && !phone && (
         <button
           type="button"
           className="pill-action"
@@ -56,7 +58,7 @@ export default function ArtistActions({
           Start radio
         </button>
       )}
-      {radio.notice && (
+      {radio?.notice && (
         <p
           className="artist-radio-notice"
           role={radio.notice.tone === "error" ? "alert" : "status"}
