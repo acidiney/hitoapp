@@ -144,3 +144,79 @@
     align-items: stretch;
   }
 }
+.lyric-card {
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.lyric-card .lyric-state {
+  color: var(--ink-soft);
+}
+.lyric-card .source-status[data-status="none"] {
+  color: var(--warning);
+}
+.lyric-card .source-status[data-status="failed"] {
+  color: var(--error);
+}
+.track-lyrics .lyric-card p.lyric-card-title {
+  margin-top: 16px;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--ink);
+}
+.track-lyrics .lyric-card p.lyric-card-note {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.lyric-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.track-lyrics .lyric-card-actions .button {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+.lyric-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 0;
+}
+.lyric-skeleton span {
+  height: 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.lyric-skeleton span:nth-child(1) {
+  width: 70%;
+}
+.lyric-skeleton span:nth-child(2) {
+  width: 52%;
+}
+.lyric-skeleton span:nth-child(3) {
+  width: 84%;
+  height: 24px;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.lyric-skeleton span:nth-child(4) {
+  width: 46%;
+}
+.lyric-skeleton span:nth-child(5) {
+  width: 62%;
+}
+.lyric-source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}

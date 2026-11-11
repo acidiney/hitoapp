@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { Track } from "../model";
 import { trackTabHref } from "../../recordings/model/trackTabs";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
-import { identityKey, identityNames } from "../../lyrics/model/lyricIdentity";
 import RouteLink from "../../../shared/ui/RouteLink";
 import FilterPills from "../../../shared/ui/FilterPills";
 import { useAccountSwitch } from "../../../shared/hooks/useAccountSwitch";
@@ -163,7 +162,7 @@ function TrackLyrics({
       >
         <div className="np-lyric-actions">
           <button type="button" className="np-pill" onClick={retry}>
-            Try again
+            Retry
           </button>
           <RouteLink
             className="np-link"
@@ -180,7 +179,7 @@ function TrackLyrics({
       <StateCard
         tone="none"
         label="None found"
-        title="No lyrics found for this track."
+        title="No lyrics for this track yet"
       >
         <div className="np-lyric-actions">
           <button type="button" className="np-pill" onClick={retry}>
@@ -191,7 +190,6 @@ function TrackLyrics({
       </StateCard>
     );
   const { lyrics, provider, providers } = state;
-  const names = identityNames(providers);
   if (!lyrics || lyrics.lines.length === 0)
     return (
       <StateCard
@@ -200,7 +198,7 @@ function TrackLyrics({
         title={
           state.unsupported
             ? "This provider has no lyrics for this track."
-            : "No lyrics found for this track."
+            : "No lyrics for this track yet"
         }
       >
         <div className="np-lyric-actions">
@@ -221,7 +219,7 @@ function TrackLyrics({
         {choosing && (
           <ProviderChoice
             providers={providers}
-            current={identityKey(provider)}
+            current={provider.key}
             onChoose={(key) => {
               setChoosing(false);
               void choose(key);
@@ -247,14 +245,14 @@ function TrackLyrics({
       <Footer
         track={track}
         leave={leave}
-        source={{ label: names[identityKey(provider)], synced }}
+        source={{ label: provider.label, synced }}
         providers={providers}
         choose={() => setChoosing(!choosing)}
       />
       {choosing && (
         <ProviderChoice
           providers={providers}
-          current={identityKey(provider)}
+          current={provider.key}
           onChoose={(key) => {
             setChoosing(false);
             void choose(key);
@@ -274,13 +272,12 @@ function ProviderChoice({
   current: string;
   onChoose: (key: string) => void;
 }) {
-  const names = identityNames(providers);
   return (
     <FilterPills
       label="Lyric provider"
       options={providers.map((item) => ({
-        value: identityKey(item),
-        label: names[identityKey(item)],
+        value: item.key,
+        label: item.label,
       }))}
       value={current}
       onChange={onChoose}

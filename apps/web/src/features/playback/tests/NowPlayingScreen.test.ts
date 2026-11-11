@@ -21,18 +21,20 @@ let playbackSources: unknown[] = [];
 const fetch = vi.fn(async (path: string) =>
   path.endsWith("/playback-sources")
     ? Response.json(playbackSources)
-    : path.endsWith("/lyrics/identities")
+    : path.endsWith("/lyrics/providers")
       ? Response.json({ recording_id: "r0", items: [] })
-      : Response.json({
-          recording_id: "r0",
-          items: [
-            {
-              installation_id: "i",
-              installation_revision: 1,
-              label: "Words",
-            },
-          ],
-        }),
+      : path.endsWith("/lyrics/identities")
+        ? Response.json({ recording_id: "r0", items: [] })
+        : Response.json({
+            recording_id: "r0",
+            items: [
+              {
+                installation_id: "i",
+                installation_revision: 1,
+                label: "Words",
+              },
+            ],
+          }),
 );
 const openQueue = vi.fn();
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
@@ -103,7 +105,7 @@ test("Up next shows the next queued track and opens the full queue", async () =>
 test("Lyrics asks the account for a lyrics provider instead of waiting for a click", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   expect(
-    await within(dialog).findByText("No lyrics found for this track."),
+    await within(dialog).findByText("No lyrics for this track yet"),
   ).toBeTruthy();
   expect(
     within(dialog).getByRole("link", { name: "Track details" }),

@@ -35,6 +35,11 @@ export function renderTrackPage(
         recording_id: page.detail.recording_id,
         items: [],
       } satisfies Schema<"RecordingLyricIdentities">);
+    if (path === `${base}/lyrics/providers`)
+      return Response.json({
+        recording_id: page.detail.recording_id,
+        items: [],
+      } satisfies Schema<"RecordingLyricsProviders">);
     if (path === `${base}/lyrics/services`)
       return Response.json({
         recording_id: page.detail.recording_id,

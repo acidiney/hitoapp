@@ -14,6 +14,7 @@ import { useLyricRemoval } from "./useLyricRemoval";
 import { useLyricReview } from "./useLyricReview";
 import { useLyricSearch } from "./useLyricSearch";
 import { useSelectedLyrics } from "./useSelectedLyrics";
+import { useCompatibleLyrics } from "./useCompatibleLyrics";
 
 type Chosen = { scope: string; id: string };
 type Notice = { scope: string; text: string };
@@ -49,6 +50,7 @@ export function useRecordingLyrics(
     onFailure,
   );
   const removal = useLyricRemoval(account, recording, onFailure);
+  const compatible = useCompatibleLyrics(account, recording, onFailure);
   const services = identities.services ?? [];
   const service =
     services.find(
@@ -68,6 +70,7 @@ export function useRecordingLyrics(
   resets.current = () => {
     identities.reset();
     read.cancel();
+    compatible.cancel();
     search.cancel();
     review.clear();
     removal.clear();
@@ -101,6 +104,26 @@ export function useRecordingLyrics(
     void reader.current();
   }, [automatic, lost, selectedKey, identities.origin, autoReadKey]);
 
+  const compatibleLoader = useRef(compatible.lookup);
+  compatibleLoader.current = compatible.lookup;
+  const lookupAttempted = useRef<string | null>(null);
+  const noSavedIdentity =
+    identities.loaded &&
+    !identities.failure &&
+    identities.identities !== null &&
+    identities.identities.length === 0;
+  useEffect(() => {
+    if (
+      !automatic ||
+      lost ||
+      !noSavedIdentity ||
+      lookupAttempted.current === scopeKey
+    )
+      return;
+    lookupAttempted.current = scopeKey;
+    void compatibleLoader.current();
+  }, [automatic, lost, noSavedIdentity, scopeKey]);
+
   function accepted(identity: LyricIdentity) {
     setNotice({
       scope: scopeKey,
@@ -126,6 +149,7 @@ export function useRecordingLyrics(
   const items = identities.identities ?? [];
   const atLimit = items.length >= lyricIdentityLimit;
   const outcome = read.outcome;
+  const shown = outcome ?? compatible.outcome;
   return {
     lost,
     retryAfterAccessLoss,
@@ -149,6 +173,15 @@ export function useRecordingLyrics(
       load: () => void read.load(),
       cancel: read.cancel,
     },
+    lookup: {
+      engaged: noSavedIdentity && compatible.attempted,
+      pending: compatible.pending,
+      outcome: compatible.outcome,
+      failure: compatible.failure,
+      choices: compatible.choices,
+      chosenKey: compatible.chosenKey,
+      run: (key?: string) => void compatible.lookup(key),
+    },
     finder: {
       services: identities.services,
       servicesFailure: identities.servicesFailure,
@@ -169,6 +202,6 @@ export function useRecordingLyrics(
           : false,
       notice: notice?.scope === scopeKey ? notice.text : null,
     },
-    preview: outcome?.kind === "lyrics" ? previewLines(outcome.view) : [],
+    preview: shown?.kind === "lyrics" ? previewLines(shown.view) : [],
   };
 }

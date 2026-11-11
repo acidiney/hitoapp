@@ -105,3 +105,40 @@ export const plainDocument = (
 });
 
 export const hostile = '<img src=x onerror="alert(1)"><script>boom()</script>';
+
+export const compatibleProvider: Schema<"RecordingLyricsProvider"> = {
+  installation_id: serviceA.installation_id,
+  installation_revision: serviceA.installation_revision,
+  label: serviceA.label,
+  observation_id: "99990000-0000-4000-8000-000000000001",
+  provider_recording: { id: "compatible-1", revision: null },
+};
+
+export const providers = (
+  ...items: Schema<"RecordingLyricsProvider">[]
+): Schema<"RecordingLyricsProviders"> => ({ recording_id: recordingId, items });
+
+export const compatibleReady = (
+  provider: Schema<"RecordingLyricsProvider">,
+  lines: [number, string][] | null,
+): Schema<"LyricsLookup"> => ({
+  status: "ready",
+  recording_id: recordingId,
+  observation_id: provider.observation_id,
+  document_digest: "digest-compatible",
+  document: {
+    recording: provider.provider_recording,
+    lyrics: lines
+      ? {
+          id: "l",
+          rendition_id: "r",
+          lines: lines.map(([start_ms, text]) => ({
+            start_ms,
+            end_ms: start_ms + 1000,
+            text,
+          })),
+          attribution: null,
+        }
+      : null,
+  },
+});

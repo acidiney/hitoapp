@@ -5,6 +5,7 @@ import type { useRecordingLyrics } from "../hooks/useRecordingLyrics";
 import { lyricLanguageName } from "../model/lyricLanguage";
 import LyricChoices from "./LyricChoices";
 import LyricFinder from "./LyricFinder";
+import LyricLookup from "./LyricLookup";
 import LyricState from "./LyricState";
 import LyricText from "./LyricText";
 
@@ -23,7 +24,7 @@ export default function RecordingLyrics({
   saved: SavedFacts;
 }) {
   const [finding, setFinding] = useState(false);
-  const { identities, reader, finder } = lyrics;
+  const { identities, reader, finder, lookup } = lyrics;
   const items = identities.items;
   const outcome = reader.outcome;
   const view = outcome?.kind === "lyrics" ? outcome.view : null;
@@ -78,8 +79,18 @@ export default function RecordingLyrics({
           )}
         </div>
       )}
-      {items && items.length === 0 && (
+      {items && items.length === 0 && !lookup.engaged && (
         <p className="track-muted">No lyrics are saved for this track yet.</p>
+      )}
+      {items && items.length === 0 && lookup.engaged && (
+        <LyricLookup
+          pending={lookup.pending}
+          outcome={lookup.outcome}
+          failure={lookup.failure}
+          choices={lookup.choices}
+          chosenKey={lookup.chosenKey}
+          onLookup={lookup.run}
+        />
       )}
       {items && items.length > 0 && (
         <LyricChoices

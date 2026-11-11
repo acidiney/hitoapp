@@ -60,26 +60,38 @@ function attributionOf(
     : null;
 }
 
+function timedView(lyrics: Schema<"TimedLyrics">): LyricView {
+  return {
+    kind: "timed",
+    synced: isSynced(lyrics.lines),
+    label: lyrics.rendition_label ?? null,
+    language: lyrics.language ?? null,
+    lines: lyrics.lines.map((line) => ({
+      text: line.text,
+      startMs: line.start_ms,
+      endMs: line.end_ms,
+    })),
+    attribution: null,
+    legacyAttribution: lyrics.attribution ?? null,
+  };
+}
+
+export function legacyLookupOutcome(
+  lookup: Schema<"LyricsLookup">,
+): SelectedLyricsOutcome {
+  if (lookup.status !== "ready") return { kind: lookup.status };
+  const lyrics = lookup.document.lyrics;
+  return lyrics
+    ? { kind: "lyrics", view: timedView(lyrics) }
+    : { kind: "not_found" };
+}
+
 export function selectedLyricsOutcome(lookup: Lookup): SelectedLyricsOutcome {
   if (lookup.status === "ready_v1") {
     const lyrics = lookup.document.lyrics;
-    if (!lyrics) return { kind: "not_found" };
-    return {
-      kind: "lyrics",
-      view: {
-        kind: "timed",
-        synced: isSynced(lyrics.lines),
-        label: lyrics.rendition_label ?? null,
-        language: lyrics.language ?? null,
-        lines: lyrics.lines.map((line) => ({
-          text: line.text,
-          startMs: line.start_ms,
-          endMs: line.end_ms,
-        })),
-        attribution: null,
-        legacyAttribution: lyrics.attribution ?? null,
-      },
-    };
+    return lyrics
+      ? { kind: "lyrics", view: timedView(lyrics) }
+      : { kind: "not_found" };
   }
   if (lookup.status === "ready_v2") {
     const lyrics = lookup.document.lyrics;
