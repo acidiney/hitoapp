@@ -484,3 +484,6 @@
   font-weight: 400;
   text-decoration: underline;
 }
+.search-bar input:focus-visible {
+  outline: none;
+}

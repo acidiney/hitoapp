@@ -34,6 +34,14 @@ test("Search leads with a top result, lists tracks with their availability and h
     .toBeGreaterThanOrEqual(2);
 
   await page.goto("/search?q=Fixture%20440%20Hz");
+  const field = page.getByRole("searchbox", { name: "Search", exact: true });
+  await field.focus();
+  const rings = await field.evaluate((input) => ({
+    inner: getComputedStyle(input).outlineStyle,
+    pill: getComputedStyle(input.closest("form")!).borderTopColor,
+  }));
+  expect(rings.inner).toBe("none");
+  expect(rings.pill).toBe("rgb(111, 134, 255)");
   const top = page.getByRole("region", { name: "Top result" });
   await expect(
     top.getByRole("link", { name: "Fixture 440 Hz", exact: true }),
