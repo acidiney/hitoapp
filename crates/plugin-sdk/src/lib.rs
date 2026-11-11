@@ -12,6 +12,7 @@ mod featured;
 mod health;
 mod isrc;
 mod lyrics;
+mod lyrics_v2;
 mod metadata;
 mod playlists;
 mod preparation;
@@ -69,6 +70,10 @@ pub use isrc::normalize_isrc;
 pub use lyrics::{
     LYRICS_CAPABILITIES_PATH, LYRICS_PATH, LYRICS_VERSION, LyricsCapabilities, LyricsRequest,
     LyricsResponse, MAX_LYRICS_RESPONSE_BYTES, TimedLyricLine, TimedLyrics,
+};
+pub use lyrics_v2::{
+    AnchoredLyricLine, LYRICS_V2_CAPABILITIES_PATH, LYRICS_V2_PATH, LYRICS_V2_VERSION,
+    LyricAttribution, LyricContent, LyricsCapabilitiesV2, LyricsDocument, LyricsResponseV2,
 };
 pub use metadata::{MAX_RECORDING_METADATA_BYTES, METADATA_PATH, RecordingMetadata};
 pub use playlists::{
