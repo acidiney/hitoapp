@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 installable web app backend
+
+Development source at `419b86d5` serves eleven exact public web-root assets through confined, nonblocking regular-file reads. GET and HEAD preserve typed content, the worker revalidates with root scope, and missing or unsafe files return 404. HTML includes the agreed viewport, icons, theme and standalone metadata. `/` selects Home while `/library` keeps the library page. Private API, audio and artwork cache policy remains intact. See [the server contract](web-app-installation.md).
+
+Two review rounds pass. A fresh independent Docker repeat on the current combined backend passes the same 36 named HTTP cases, server all-target Clippy with warnings denied, the production library/binary check and workspace formatting. All 2,630 backend and support inputs remain unchanged and match the integrated source. Only actual Cargo-executed test/example binaries qualify for the retained execution evidence. The actual Rust OpenAPI export remains byte-for-byte unchanged at SHA-256 `ac0cc1e3290410b59ba5865be6ed70436ad218e8ba362273abaefd4ad6229e2a`; no generated frontend model changed.
+
+The verification receipt hashes to `12110ef4af4934a058bb3aa243dedb5b0b678cca6c1fc128b8524c9e59fca151`. Two inactive Cargo targets were retired only after their source and executed binaries were verified outside the caches. The fresh target peaks at 2,353,284 KiB, with total accounted targets and reserve at 8,666,120 KiB. This is Linux backend source qualification. Deployment with the current frontend, browser installation, service-worker behavior, upgrades and platform/public-release acceptance remain open. No preview, normal server, VPS or `main` deployment changed in this slice.
+
 ## 2026-11-11 normal local backend update
 
 The normal local server on port 8080 now runs the qualified production backend from source `aabc37d1`, including automatic ephemeral lyric reads and retained playback lease HTTP routes. The deployed executable has SHA-256 `569d4c6167f15d87237d5a950e5ab36defa8b1a26a69d68bd9f48f4979655608`. Its Docker health is healthy. Ten credential-free status probes pass, including authentication on all six new method/route combinations and a true 404 for an unknown route. These deployment checks supplement the earlier 135-case backend qualification; they do not prove an authenticated browser workflow.
