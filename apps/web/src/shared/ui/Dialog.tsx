@@ -6,6 +6,40 @@ import {
   type RefObject,
 } from "react";
 
+const LEAVE_MS = 180;
+
+function leavingCopy(element: HTMLDialogElement) {
+  if (
+    !element.open ||
+    typeof window.matchMedia !== "function" ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+    return null;
+  const ghost = element.cloneNode(true) as HTMLDialogElement;
+  ghost.removeAttribute("open");
+  ghost.removeAttribute("id");
+  ghost.setAttribute("data-leaving", "");
+  ghost.setAttribute("aria-hidden", "true");
+  return {
+    show() {
+      document.body.append(ghost);
+      if (typeof ghost.showModal !== "function") {
+        ghost.remove();
+        return;
+      }
+      const focused = document.activeElement;
+      ghost.showModal();
+      ghost.setAttribute("inert", "");
+      if (focused instanceof HTMLElement)
+        focused.focus({ preventScroll: true });
+      window.setTimeout(() => {
+        ghost.close();
+        ghost.remove();
+      }, LEAVE_MS);
+    },
+  };
+}
+
 export default function Dialog({
   title,
   eyebrow,
@@ -48,7 +82,9 @@ export default function Dialog({
     element.showModal();
     return () => {
       element.removeEventListener("close", closed);
+      const ghost = leavingCopy(element);
       element.close();
+      ghost?.show();
       const target = returning.current?.current ?? opener;
       if (target?.isConnected) target.focus();
     };
