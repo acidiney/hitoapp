@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 artist photo invalidation qualification
+
+The private photo-policy dependency slice now passes an independent 86-case Docker repeat: 74 journal cases, two account-erasure plan cases, nine account-deletion cases and one actual playlist upgrade. Formatting passes; all 2,485 Rust, SQL and Cargo inputs remain exact. Three fresh specialist reviews pass against the same 46 frozen dependencies.
+
+Outside-library choice changes retain former and new artist parents without expanding their whole library. Existing group/photo scopes remain conservative, and peer or revoked-grant data stays excluded. The shared indexed canonical reader avoids the measured scan of 100,000 unrelated choices. The strict check still fails with 49 unused private-consumer APIs, so complete normalized integration and warning-free acceptance are not claimed. Full/changes convergence and release scale remain open. No running service or package changed. See [photo-policy evidence and limits](catalog-journal-design.md#artist-photo-dependency-qualification).
+
 ## 2026-11-11 affected catalog workset qualification
 
 The isolated affected-owner candidate passes an independent Docker repeat of 69 journal cases, two account-erasure plan cases, nine account-deletion cases and one actual historical playlist upgrade. Workspace formatting passes and all 2,482 Rust, SQL and Cargo inputs remain unchanged. Three fresh security, correctness and performance reviews pass against the same 42 frozen dependency files.

@@ -97,7 +97,7 @@ flowchart LR
 
 Choice insert, update, reset and deletion must invalidate the former and new artist parents before those relationships disappear. A private photo-policy scope must reach only those parents; ordinary artist-name invalidation also expands recording dependencies and is too broad for this purpose. Existing account scopes conservatively cover group and lookup changes. Keep those dependencies until a separately verified optimization replaces them.
 
-The isolated full-export candidate passes public behavior tests for an outside-library reset, stored lookup states and account/grant isolation. Incremental parent invalidation is under implementation. Full/changes convergence, complete scale qualification and client rendering remain unverified. This observation is a policy input with explicit dependencies, not a completed effective-photo summary. Recording-derived eligibility, usage and group summaries still require complete visible contributions and account policy.
+The isolated full-export candidate passes public behavior tests for an outside-library reset, stored lookup states and account/grant isolation. The separate private parent-invalidation slice now passes three fresh specialist reviews and an independent 86-case Docker repeat. Its account-only `artist_photo` scope retains former/new parents and enqueues Artist owners without recording expansion. Full/changes materialization, convergence, complete scale qualification and client rendering remain unverified. This observation is a policy input with explicit dependencies, not a completed effective-photo summary. Recording-derived eligibility, usage and group summaries still require complete visible contributions and account policy.
 
 ## Transactional capture
 
@@ -171,6 +171,14 @@ The workset borrows the caller's read transaction and returns at most 64 dedupli
 Qualification found and corrected two work-budget gaps. Unmatched source parents now count before observation expansion; a 100,001-source input returns a typed budget failure. Actor-prefixed release-credit lookups avoid scanning another account's 100,001 unrelated credits under absent, stale and fresh statistics. A partial TEMP output index keeps sparse selected output bounded after traversal through 99,998 internal owners. These are private workset checks, not complete catalog construction or release performance results.
 
 These candidates are not integrated with the complete normalized consumer. The later candidate's strict library check exits with exactly 46 unused-private-API errors and no other diagnostics; it is not a strict pass. Complete producer convergence, client application and the full release workload remain unproved. Existing SnapshotOnly behavior is preserved. The newly selected artist-photo policy observation needs its own parent-invalidation slice and convergence evidence.
+
+## Artist photo dependency qualification
+
+The frozen photo-policy slice passes an independent repeat of 74 journal cases, two account-erasure plan cases, nine account-deletion cases and one historical playlist upgrade. Formatting passes, and all 2,485 Rust, SQL and Cargo inputs remain unchanged. Fresh security, performance and correctness reviews pass against the same 46 dependency files. The strict library check still fails with exactly 49 unused private-consumer APIs and no other diagnostics.
+
+Five new cases cover outside-library reset, former/new artist moves and coalescence, retirement, deletion and reinsertion, stored photo/group changes, peer isolation and revoked/regranted outside-library access. A parent-only change emits one selected artist among 100,000 unrelated recordings and choices with 1,400 measured VM steps. The existing sparse-output case correctly gains that artist while retaining the exact 100,000 combined internal-key cap and its output-work guard.
+
+One shared canonical predicate uses the existing actor/artist index and the group's unique account/identity index. Negative lookup work fell from roughly 800,000 VM steps under adverse statistics to at most 1,800 in the tested distribution. That fixture has 100,000 unrelated choices and only two groups; it does not prove a full metadata-rich export or arbitrary group distributions. Complete normalized construction, changes delivery, client publication, p95 and physical deployment remain unfinished. No application image, VPS or package changed.
 
 ## Acceptance and implementation sequence
 
