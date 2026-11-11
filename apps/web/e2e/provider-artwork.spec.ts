@@ -476,7 +476,7 @@ test("existing independent playlist copies automatically retain private provider
     await loadedCopies(page, copies, recordingId, title, baseURL);
     for (const copy of copies) {
       await page.goto(`/playlists/${copy}`);
-      const cover = page.locator(".tinted-header .artwork img");
+      const cover = page.locator(".playlist-header .artwork img");
       await expect(cover).toHaveAttribute(
         "src",
         `/api/v1/playlists/${copy}/artwork`,
@@ -543,7 +543,7 @@ test("existing independent playlist copies automatically retain private provider
     await expect
       .poll(() =>
         page
-          .locator(".tinted-header .artwork img")
+          .locator(".playlist-header .artwork img")
           .evaluate(
             (element: HTMLImageElement) =>
               element.complete && element.naturalWidth > 0,

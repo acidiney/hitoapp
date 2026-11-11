@@ -111,9 +111,9 @@ test("retained playlists remain editable and known recordings resolve audio only
     const table = screen.getByRole("table", { name: "Playlist entries" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(screen.getByText(/2 entries/)).toBeTruthy();
+    expect(screen.getByText(/2 tracks/)).toBeTruthy();
     expect(screen.queryByText("This playlist is ready for music")).toBeNull();
-    expect(screen.getByText(/Curated by the fixture owner/)).toBeTruthy();
+    expect(screen.getAllByText(/Curated by the fixture owner/)[0]).toBeTruthy();
     const toolbar = screen.getByRole("button", { name: "Play playlist" });
     expect(toolbar.hasAttribute("disabled")).toBe(recordings.length === 0);
     for (const [index, entry] of props.detail.entries.entries()) {
@@ -220,7 +220,7 @@ test("retained playlists remain editable and known recordings resolve audio only
         name: `Remove ${removed.title} from playlist`,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
     await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
     expect(fetch).toHaveBeenCalledTimes(beforeRemoval + 1);
     expect(fetch.mock.calls[beforeRemoval][0]).toBe("/api/v1/sync");

@@ -172,7 +172,7 @@ test("packaged albums and independent imported copies retain exact private cover
         page.getByRole("heading", { name: titles.copies[index], exact: true }),
       ).toBeVisible();
       await decoded(
-        page.locator(".tinted-header .artwork img"),
+        page.locator(".playlist-header .artwork img"),
         paths.copies[index],
       );
       await expect(

@@ -411,7 +411,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         new URL(request.url()).pathname === "/api/v1/sync" &&
         request.method() === "POST",
     );
-    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("button", { name: "Done editing", exact: true }).click();
     const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
     expect(batch.operations).toEqual(
       removedEntries.map((entry) => ({
