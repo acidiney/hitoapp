@@ -508,9 +508,9 @@ test.describe("account switching", () => {
       await dialog
         .getByRole("button", { name: "Create account", exact: true })
         .click();
-      await expect(
-        page.getByRole("region", { name: "People" }),
-      ).toContainText("plugin-listener");
+      await expect(page.getByRole("region", { name: "People" })).toContainText(
+        "plugin-listener",
+      );
       await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
