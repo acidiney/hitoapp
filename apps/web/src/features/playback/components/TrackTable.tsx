@@ -264,7 +264,11 @@ export default function TrackTable({
                     />
                   ) : track ? (
                     <Artwork
-                      release={track.release_id ?? undefined}
+                      release={
+                        layout === "library"
+                          ? undefined
+                          : (track.release_id ?? undefined)
+                      }
                       recording={track.id}
                       fallback={{
                         id: track.release_id ?? track.id,

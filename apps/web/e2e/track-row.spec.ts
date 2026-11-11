@@ -130,8 +130,8 @@ test("the row menu opens from the keyboard, plays next, queues, adds to a playli
   await expect(entries.locator("thead th")).toHaveText([
     /Play/,
     "Title",
-    "Artist",
     "Album",
+    "Availability",
     "Time",
     /Actions/,
   ]);
@@ -152,7 +152,7 @@ test("the row menu opens from the keyboard, plays next, queues, adds to a playli
   await listed
     .locator("tbody tr")
     .filter({ hasText: second })
-    .locator('td.artist-column a[href^="/artists/"]')
+    .locator('.track-meta a[href^="/artists/"]')
     .click();
   await expect(page).toHaveURL(/\/artists\/[^/]+$/);
   await expect(page.locator("main")).toContainText(second);
