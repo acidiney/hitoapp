@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { Player, PlaybackOccurrence } from "../model";
 
-export const QUEUE_ROW = 60;
+export const QUEUE_ROW = 56;
 const BLOCK = 50;
 const OVERSCAN = 6;
 const FALLBACK_HEIGHT = 560;

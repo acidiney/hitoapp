@@ -433,20 +433,3 @@
     height: 112px;
   }
 }
-.radio-start,
-.genre-tile,
-.featured-action,
-.provider-result {
-  transition:
-    background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    filter 150ms ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .radio-start,
-  .genre-tile,
-  .featured-action,
-  .provider-result {
-    transition: none;
-  }
-}

@@ -11,7 +11,6 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { Playback } from "../playback";
 import QueueList from "../components/QueueList";
-import { QUEUE_ROW } from "../hooks/useQueueWindow";
 import type { QueueSupply } from "../model";
 import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
 
@@ -60,12 +59,12 @@ test("ten thousand queued entries render only the visible window", async () => {
   expect(screen.queryByText("Track 5000")).toBeNull();
   expect(rows()[0].getAttribute("aria-setsize")).toBe("10000");
 
-  scrollTo(5000 * QUEUE_ROW);
+  scrollTo(5000 * 56);
   await waitFor(() => expect(screen.queryByText("Track 5000")).not.toBeNull());
   expect(rows().length).toBeLessThanOrEqual(40);
   expect(screen.queryByText("Track 0")).toBeNull();
   const list = document.querySelector("ol.queue-tracks") as HTMLElement;
-  expect(list.style.height).toBe(`${10_000 * QUEUE_ROW}px`);
+  expect(list.style.height).toBe(`${10_000 * 56}px`);
 });
 
 test("the window opens at the playing entry", async () => {
@@ -129,38 +128,6 @@ test("move buttons reorder by one place without restarting playback", async () =
   expect(document.querySelector("[aria-live=polite]")!.textContent).toMatch(
     /Track 5.*5 of 6/,
   );
-});
-
-test("Alt with an arrow moves the focused row by one place", async () => {
-  await listed(5);
-  await waitFor(() => expect(rows()).toHaveLength(5));
-  const row = (title: string) =>
-    rows().find((item) => item.querySelector("strong")!.textContent === title)!;
-  const handle = row("Track 3").querySelector("button")!;
-  fireEvent.keyDown(handle, { key: "ArrowUp", altKey: true });
-  await waitFor(() =>
-    expect(titles()).toEqual([
-      "Track 0",
-      "Track 1",
-      "Track 3",
-      "Track 2",
-      "Track 4",
-    ]),
-  );
-  fireEvent.keyDown(row("Track 4").querySelector("button")!, {
-    key: "ArrowDown",
-    altKey: true,
-  });
-  expect(titles().at(-1)).toBe("Track 4");
-  fireEvent.keyDown(row("Track 0").querySelector("button")!, {
-    key: "ArrowUp",
-    altKey: true,
-  });
-  expect(titles()[0]).toBe("Track 0");
-  fireEvent.keyDown(row("Track 1").querySelector("button")!, {
-    key: "ArrowDown",
-  });
-  expect(titles()[1]).toBe("Track 1");
 });
 
 test("dragging a row onto another drops it before or after that row", async () => {

@@ -9,7 +9,6 @@ import {
 import { expect, test, vi } from "vitest";
 import { Playback } from "../playback";
 import PlayerDock from "../components/PlayerDock";
-import { QUEUE_ROW } from "../hooks/useQueueWindow";
 import QueueScreen from "../components/QueueScreen";
 
 let player: Playback;
@@ -61,7 +60,7 @@ test("position updates move the seek control without rendering any of a thousand
   expect(queue.querySelectorAll("li").length).toBeLessThanOrEqual(40);
   const window = queue.querySelector(".queue-window")!;
   Object.defineProperty(window, "scrollTop", {
-    value: 500 * QUEUE_ROW,
+    value: 500 * 56,
     configurable: true,
   });
   fireEvent.scroll(window);
