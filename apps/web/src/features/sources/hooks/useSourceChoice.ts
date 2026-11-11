@@ -204,10 +204,12 @@ export function useSourceChoice(
     void load();
   }
 
+  const latestInvalidateRead = useRef(invalidateRead);
+  latestInvalidateRead.current = invalidateRead;
   useEffect(
     () =>
       onInvalidated("resolved", (id) => {
-        if (id === recording || id === null) invalidateRead();
+        if (id === recording || id === null) latestInvalidateRead.current();
       }),
     [owner, recording],
   );
