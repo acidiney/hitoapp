@@ -86,7 +86,11 @@ The Linux fixture launcher now owns process groups, adopts and reaps orphaned de
 
 An independent final-source Docker repeat passes all thirteen launcher controls, 45 audio unit cases, nine PCM cases, one privacy case and both public recovery cases. Strict device all-target Clippy, workspace formatting and syntax checks also pass. The separate hardware witness calibration remains explicitly ignored.
 
-A later qualification of the official runner passes the first recovery case but times out in the concurrent-player correlation case. Its cause is still under investigation; the earlier two-case pass does not close that gate. The new runner integration remains unaccepted. Physical output, the unexplained missing frames, startup failure, other codecs/platforms and reference-hardware p95 remain open. No installed desktop or VPS changed.
+A later official-runner qualification timed out in the concurrent-player correlation case. An unchanged end-only diagnostic reproduced that failure with both players finished normally, zero xruns and no errors: the 200 ms backend pause had not induced the intended recovery. The concurrent fixture now suspends only its verified client while Pulse continues consuming. A separate pidfd watchdog resumes that client and its wrapper if the controller dies; both child processes are ready before the fault and joined on completion. Embedded controls cover cancellation before the fault and deliberate controller death after the client stops. The first backend-target test and the five-second recovery, progress, error and INFO-identity assertions remain unchanged.
+
+Fresh independent review passes. An independent final-source Docker repeat passes both recovery cases in 11.69 seconds, the default counter/monitor witness in 2.90 seconds and all thirteen launcher controls, with audio device all-target Clippy, workspace formatting and shell syntax checks. The official playback check now includes these cases. To run only recovery qualification, use `sh scripts/run-audio-test.sh hito-audio output_recovery --backend-fault-control --nocapture`; the explicit flag exposes only the launcher's owned private backend, and default invocation keeps fault control disabled.
+
+This qualifies the Linux fixture and runner. Physical output, the unexplained missing frames, startup failure, other codecs/platforms and reference-hardware p95 remain open. No installed desktop or VPS changed.
 
 ### Unresolved output startup failure
 
