@@ -10,11 +10,20 @@ const RECORDING: &str = "026fa041-3917-4c73-9079-ed16e36f20f8";
 const ISRC: &str = "GBAHT1600302";
 
 #[tokio::test]
-#[ignore = "Requires HITO_MUSICBRAINZ_LIVE=1 and the public MusicBrainz service"]
+#[ignore = "Requires HITO_MUSICBRAINZ_LIVE=1, HITO_METADATA_CONTACT and the public MusicBrainz service"]
 async fn official_genres_recording_corroboration_and_isrc_preserve_public_identity() {
     assert!(
         std::env::var("HITO_MUSICBRAINZ_LIVE").as_deref() == Ok("1"),
         "MusicBrainz live enrichment failed: stage=opt_in code=explicit_opt_in_required"
+    );
+    let contact = std::env::var("HITO_METADATA_CONTACT").unwrap_or_else(|_| {
+        panic!(
+            "MusicBrainz live enrichment failed: stage=configuration code=metadata_contact_required"
+        )
+    });
+    assert!(
+        !contact.trim().is_empty(),
+        "MusicBrainz live enrichment failed: stage=configuration code=metadata_contact_required"
     );
     let stage = Cell::new("configuration");
     let http_status = Cell::new(None);
@@ -29,9 +38,12 @@ async fn official_genres_recording_corroboration_and_isrc_preserve_public_identi
             "musicbrainz_live_enrichment",
             run_id = %Uuid::new_v4()
         );
-        tokio::time::timeout(Duration::from_secs(60), exercise(&stage, &http_status))
-            .instrument(span)
-            .await
+        tokio::time::timeout(
+            Duration::from_secs(60),
+            exercise(&stage, &http_status, contact.trim()),
+        )
+        .instrument(span)
+        .await
     }
     .with_subscriber(subscriber)
     .await;
@@ -62,6 +74,7 @@ async fn official_genres_recording_corroboration_and_isrc_preserve_public_identi
 async fn exercise(
     stage: &Cell<&'static str>,
     http_status: &Cell<Option<u16>>,
+    contact: &str,
 ) -> Result<(), &'static str> {
     let provider_error = |error| {
         if let Error::Status(status) = error {
@@ -69,7 +82,7 @@ async fn exercise(
         }
         error_code(error)
     };
-    let client = MusicBrainzClient::new(Some("contact@example.invalid")).map_err(provider_error)?;
+    let client = MusicBrainzClient::new(Some(contact)).map_err(provider_error)?;
 
     stage.set("artist_genres");
     let genres = client

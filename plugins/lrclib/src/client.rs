@@ -30,6 +30,12 @@ impl Client {
         if rustls::crypto::CryptoProvider::get_default().is_none() {
             let _ = rustls::crypto::ring::default_provider().install_default();
         }
+        let mut user_agent = concat!("HitoLRCLIB/", env!("CARGO_PKG_VERSION")).to_owned();
+        if let Some(contact) = &config.contact {
+            user_agent.push_str(" (");
+            user_agent.push_str(contact);
+            user_agent.push(')');
+        }
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -37,11 +43,7 @@ impl Client {
             .https_only(config.endpoint.scheme() == "https")
             .connect_timeout(Duration::from_secs(2))
             .timeout(DEADLINE)
-            .user_agent(concat!(
-                "HitoLRCLIB/",
-                env!("CARGO_PKG_VERSION"),
-                " (contact@example.invalid)"
-            ))
+            .user_agent(user_agent)
             .build()
             .map_err(|_| InitError::HttpClient)?;
         Ok(Self {

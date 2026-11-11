@@ -20,6 +20,7 @@ services:
     ports:
       - "127.0.0.1:${HITO_LRCLIB_PORT:-8101}:8101"
     environment:
+      HITO_METADATA_CONTACT: ${HITO_METADATA_CONTACT:-}
       RUST_LOG: ${HITO_LRCLIB_LOG_LEVEL:-info}
     volumes:
       - type: volume

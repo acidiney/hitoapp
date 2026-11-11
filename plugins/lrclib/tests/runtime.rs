@@ -19,6 +19,12 @@ impl Drop for Runtime {
 
 #[tokio::test]
 async fn standalone_runtime_authenticates_and_cancels_held_lyrics_before_joined_shutdown() {
+    for contact in [None, Some("  "), Some(" contact@example.invalid ")] {
+        exercise_runtime_contact(contact).await;
+    }
+}
+
+async fn exercise_runtime_contact(contact: Option<&str>) {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let directory = tempfile::tempdir().unwrap();
     let credential = directory.path().join("private-service-token");
@@ -37,6 +43,14 @@ async fn standalone_runtime_authenticates_and_cancels_held_lyrics_before_joined_
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let endpoint = format!("http://{}/", listener.local_addr().unwrap());
     let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let expected_agent = match contact.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(_) => concat!(
+            "HitoLRCLIB/",
+            env!("CARGO_PKG_VERSION"),
+            " (contact@example.invalid)"
+        ),
+        None => concat!("HitoLRCLIB/", env!("CARGO_PKG_VERSION")),
+    };
     let provider = tokio::spawn(async move {
         let (mut connection, _) = listener.accept().await.unwrap();
         let mut request = Vec::new();
@@ -47,11 +61,16 @@ async fn standalone_runtime_authenticates_and_cancels_held_lyrics_before_joined_
             request.push(byte[0]);
         }
         assert!(request.starts_with(b"GET /api/get/41 HTTP/1.1\r\n"));
+        let headers = String::from_utf8(request).unwrap();
+        assert!(!headers.to_ascii_lowercase().contains("authorization:"));
+        let agent = headers
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .find(|(name, _)| name.eq_ignore_ascii_case("user-agent"))
+            .map(|(_, value)| value.trim());
         assert!(
-            !String::from_utf8(request)
-                .unwrap()
-                .to_ascii_lowercase()
-                .contains("authorization:")
+            agent == Some(expected_agent),
+            "runtime contact configuration controls its upstream agent"
         );
         connection.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 10000\r\nConnection: close\r\n\r\n{\"id\":41").await.unwrap();
         started_tx.send(()).unwrap();
@@ -70,6 +89,8 @@ async fn standalone_runtime_authenticates_and_cancels_held_lyrics_before_joined_
             .arg(&credential)
             .arg("--endpoint")
             .arg(&endpoint)
+            .env_remove("HITO_METADATA_CONTACT")
+            .envs(contact.map(|value| ("HITO_METADATA_CONTACT", value)))
             .env("RUST_LOG", "trace")
             .stdin(Stdio::null())
             .stdout(Stdio::from(log.try_clone().unwrap()))
@@ -171,6 +192,7 @@ async fn standalone_runtime_authenticates_and_cancels_held_lyrics_before_joined_
         &endpoint,
         "Owned river",
         "Synthetic river",
+        "contact@example.invalid",
     ] {
         assert!(!logs.contains(private), "private runtime data was logged");
     }
@@ -238,6 +260,7 @@ fn unsafe_operator_credentials_and_arguments_are_refused_without_private_output(
         let mut child = Runtime(
             Command::new(env!("CARGO_BIN_EXE_hito-plugin-lrclib"))
                 .args(arguments)
+                .env_remove("HITO_METADATA_CONTACT")
                 .env("RUST_LOG", "trace")
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(log.try_clone().unwrap()))
@@ -267,6 +290,85 @@ fn unsafe_operator_credentials_and_arguments_are_refused_without_private_output(
             "owned\nprivate-runtime-token",
         ] {
             assert!(!logs.contains(private));
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn invalid_runtime_contacts_are_refused_without_values_or_readiness() {
+    use std::{
+        ffi::OsString,
+        os::unix::{ffi::OsStringExt, fs::PermissionsExt},
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let credential = directory.path().join("private-contact-service-token");
+    std::fs::write(&credential, TOKEN).unwrap();
+    std::fs::set_permissions(&credential, std::fs::Permissions::from_mode(0o600)).unwrap();
+    for (index, contact) in [
+        OsString::from("owned-invalid contact"),
+        OsString::from("owned-contact\nmarker"),
+        OsString::from("x".repeat(129)),
+        OsString::from_vec(vec![0xff]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let log_path = directory
+            .path()
+            .join(format!("invalid-contact-{index}.jsonl"));
+        let log = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&log_path)
+            .unwrap();
+        let mut child = Runtime(
+            Command::new(env!("CARGO_BIN_EXE_hito-plugin-lrclib"))
+                .arg("--service-token-file")
+                .arg(&credential)
+                .args([
+                    "--listen",
+                    "127.0.0.1:0",
+                    "--endpoint",
+                    "http://127.0.0.1:9/",
+                ])
+                .env("HITO_METADATA_CONTACT", &contact)
+                .env("RUST_LOG", "trace")
+                .stdin(Stdio::null())
+                .stdout(Stdio::from(log.try_clone().unwrap()))
+                .stderr(Stdio::from(log))
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        loop {
+            if let Some(status) = child.0.try_wait().unwrap() {
+                assert!(
+                    !status.success(),
+                    "invalid contact configuration fails before service admission"
+                );
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "invalid contact configuration was admitted"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let logs = std::fs::read_to_string(log_path).unwrap();
+        assert!(logs.contains("invalid_metadata_contact"));
+        assert!(!logs.contains("lrclib_service_ready"));
+        for value in [
+            TOKEN,
+            credential.to_str().unwrap(),
+            "owned-invalid contact",
+            "owned-contact\nmarker",
+            &"x".repeat(129),
+        ] {
+            assert!(
+                !logs.contains(value),
+                "invalid contact diagnostics contain only safe reason codes"
+            );
         }
     }
 }

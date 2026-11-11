@@ -59,7 +59,10 @@ async fn search_returns_lrclib_identities_without_audio_or_lyric_text() {
         vec![("q".into(), "Owned river Fixture ensemble".into())]
     );
     assert!(calls[0].2.contains("HitoLRCLIB/"));
-    assert!(calls[0].2.contains("contact@example.invalid"));
+    assert!(
+        calls[0].2 == concat!("HitoLRCLIB/", env!("CARGO_PKG_VERSION")),
+        "default upstream agent contains application identity only"
+    );
     assert_eq!(
         authorized(client.post(format!("{}v1/sources", service.url)))
             .json(&json!({"recording_id": "41"}))
@@ -70,6 +73,53 @@ async fn search_returns_lrclib_identities_without_audio_or_lyric_text() {
         404
     );
     assert_eq!(upstream.seen.lock().unwrap().len(), 1);
+    service.close().await;
+    upstream_server.close().await;
+}
+
+#[tokio::test]
+async fn an_explicit_contact_is_validated_and_sent_only_to_the_owned_upstream() {
+    for contact in [
+        "",
+        "with space",
+        "contact)@example.invalid",
+        "line\nbreak",
+        "é",
+        &"x".repeat(129),
+    ] {
+        assert!(
+            matches!(
+                Config::new(TOKEN).unwrap().with_contact(contact),
+                Err(hito_plugin_lrclib::InitError::MetadataContact)
+            ),
+            "unsafe contact configuration is refused"
+        );
+    }
+    let (upstream, upstream_server) = Upstream::start(json!([record(41)])).await;
+    let config = Config::new(TOKEN)
+        .unwrap()
+        .with_contact("contact@example.invalid")
+        .unwrap()
+        .with_endpoint(Url::parse(&upstream_server.url).unwrap())
+        .unwrap();
+    let service = Server::start(router(config).unwrap()).await;
+    let response = authorized(reqwest::Client::new().post(format!("{}v1/search", service.url)))
+        .json(&json!({"query":"Owned river","cursor":null,"limit":1}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let calls = upstream.seen.lock().unwrap().clone();
+    assert_eq!(calls.len(), 1);
+    assert!(
+        calls[0].2
+            == concat!(
+                "HitoLRCLIB/",
+                env!("CARGO_PKG_VERSION"),
+                " (contact@example.invalid)"
+            ),
+        "the upstream agent uses the explicitly configured fixture contact"
+    );
     service.close().await;
     upstream_server.close().await;
 }

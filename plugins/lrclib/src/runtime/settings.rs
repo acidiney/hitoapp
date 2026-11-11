@@ -59,6 +59,13 @@ impl Settings {
                 .map_err(|_| "invalid_endpoint")?,
             None => config,
         };
+        let config = match std::env::var("HITO_METADATA_CONTACT") {
+            Ok(contact) if !contact.trim().is_empty() => config
+                .with_contact(contact.trim())
+                .map_err(|_| "invalid_metadata_contact")?,
+            Ok(_) | Err(std::env::VarError::NotPresent) => config,
+            Err(std::env::VarError::NotUnicode(_)) => return Err("invalid_metadata_contact"),
+        };
         Ok(Self { listen, config })
     }
 }

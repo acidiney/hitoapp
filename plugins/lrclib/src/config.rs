@@ -5,6 +5,7 @@ pub struct Config {
     pub(crate) endpoint: Url,
     pub(crate) auth: ServiceAuth,
     pub(crate) shutdown: crate::Shutdown,
+    pub(crate) contact: Option<String>,
 }
 
 #[derive(Debug)]
@@ -12,6 +13,7 @@ pub enum InitError {
     ServiceCredential,
     Endpoint,
     HttpClient,
+    MetadataContact,
 }
 
 impl Config {
@@ -20,11 +22,25 @@ impl Config {
             endpoint: Url::parse("https://lrclib.net/").map_err(|_| InitError::Endpoint)?,
             auth: ServiceAuth::new(service_bearer).ok_or(InitError::ServiceCredential)?,
             shutdown: crate::Shutdown::new(),
+            contact: None,
         })
     }
 
     pub fn shutdown_handle(&self) -> crate::Shutdown {
         self.shutdown.clone()
+    }
+
+    pub fn with_contact(mut self, contact: &str) -> Result<Self, InitError> {
+        if contact.is_empty()
+            || contact.len() > 128
+            || !contact
+                .bytes()
+                .all(|byte| byte.is_ascii_graphic() && !matches!(byte, b'(' | b')'))
+        {
+            return Err(InitError::MetadataContact);
+        }
+        self.contact = Some(contact.to_owned());
+        Ok(self)
     }
 
     pub fn with_endpoint(mut self, endpoint: Url) -> Result<Self, InitError> {
