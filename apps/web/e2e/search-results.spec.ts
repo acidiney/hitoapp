@@ -38,10 +38,10 @@ test("Search leads with a top result, lists tracks with their availability and h
   await field.focus();
   const rings = await field.evaluate((input) => ({
     inner: getComputedStyle(input).outlineStyle,
-    pill: getComputedStyle(input.closest("form")!).borderTopColor,
+    pill: getComputedStyle(input.closest("form")!).borderTopWidth,
   }));
   expect(rings.inner).toBe("none");
-  expect(rings.pill).toBe("rgb(111, 134, 255)");
+  expect(rings.pill).toBe("2px");
   const top = page.getByRole("region", { name: "Top result" });
   await expect(
     top.getByRole("link", { name: "Fixture 440 Hz", exact: true }),
