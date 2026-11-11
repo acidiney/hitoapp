@@ -177,7 +177,8 @@ impl Native {
                 && self.crossed.is_none()
                 && snapshot.status == Status::Ready
                 && snapshot.track == self.track
-                && snapshot.position > Duration::ZERO
+                && (snapshot.position > Duration::ZERO
+                    || (target.playing && !self.controls.busy() && snapshot.buffer_ready))
                 && self.controls.configured()
         });
         let early = following.filter(|_| {
