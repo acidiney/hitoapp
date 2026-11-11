@@ -7,19 +7,28 @@ html[data-dialog-open] {
     inset: auto 0 var(--sheet-bottom, 0) 0;
     max-height: calc(var(--sheet-height, 100dvh) - 84px);
     margin: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: hidden;
   }
-  dialog.dialog > :is(h2, .dialog-head) {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    margin: -28px -16px 8px;
-    padding: 28px 16px 8px;
-    background: var(--surface);
+  dialog.dialog[open] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
   dialog.dialog:has(.dialog-actions) {
     padding-bottom: 0;
+  }
+  dialog.dialog > * {
+    flex: none;
+  }
+  dialog.dialog > :is(h2, .dialog-head) {
+    margin: 0 0 16px;
+    padding: 0;
+  }
+  dialog.dialog > :is(form, .dialog-body) {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   dialog.dialog .dialog-actions {
     position: sticky;
