@@ -71,6 +71,14 @@ impl Actor {
         &self.session_hash
     }
 
+    pub(crate) fn require_foreground_session(&self) -> Result<()> {
+        if self.background || self.unattended {
+            Err(Error::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn require_session(&self) -> Result<()> {
         if self.unattended {
             Err(Error::Forbidden)
@@ -177,3 +185,7 @@ pub struct SessionInfo {
 pub struct SessionsRevoked {
     pub revoked: u64,
 }
+
+#[cfg(test)]
+#[path = "../../tests/playback_leases/foreground.rs"]
+mod lease_foreground_tests;

@@ -127,10 +127,10 @@ pub use metadata::{
     TextMetadata,
 };
 pub use playback_access::{
-    AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, CandidatesEnd,
-    ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS, OpenedAudio,
-    PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates, PlaybackSource,
-    QualityAudio, QualityRequest, StreamPace, StreamQuality,
+    AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
+    CandidatesEnd, ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS,
+    OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
+    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, StreamPace, StreamQuality,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
@@ -299,6 +299,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         builtin_metadata,
     )?;
     let playback = PlaybackAccess {
+        leases: Default::default(),
         store: store.clone(),
         host: config.host_device.clone(),
         origins: playback_access::Origins::new(

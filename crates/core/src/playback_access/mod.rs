@@ -2,6 +2,7 @@ mod candidates;
 mod conversion;
 mod decoding;
 mod grant;
+mod leases;
 mod local;
 pub(crate) mod origin;
 mod preferred;
@@ -15,6 +16,7 @@ pub use conversion::{
 };
 pub use decoding::{PcmBlock, PcmFormat, PcmOpening, PcmStream};
 pub use grant::PlaybackSource;
+pub use leases::{BeginPlaybackLease, PlaybackLease};
 pub use relay::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, OpenedAudio, StreamPace,
 };
@@ -29,6 +31,7 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct PlaybackAccess {
+    pub(crate) leases: std::sync::Arc<leases::registry::Registry>,
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) origins: Origins,

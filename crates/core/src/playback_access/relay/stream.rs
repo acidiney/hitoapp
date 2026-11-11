@@ -6,6 +6,7 @@ use tokio::io::AsyncReadExt;
 enum Body {
     Local(Box<LocalAudio>),
     Remote(Box<super::remote::RemoteAudio>),
+    Lease(Box<crate::playback_access::leases::owner::LeaseBody>),
 }
 
 struct LocalAudio {
@@ -58,6 +59,12 @@ impl AudioStream {
     pub(crate) fn remote(body: super::remote::RemoteAudio, length: Option<u64>) -> Self {
         Self::new(Body::Remote(Box::new(body)), length)
     }
+    pub(crate) fn lease(
+        body: crate::playback_access::leases::owner::LeaseBody,
+        length: Option<u64>,
+    ) -> Self {
+        Self::new(Body::Lease(Box::new(body)), length)
+    }
     fn new(inner: Body, expected: Option<u64>) -> Self {
         Self {
             inner: Some(inner),
@@ -76,6 +83,7 @@ impl AudioStream {
         let result = match inner {
             Body::Local(body) => body.chunk().await,
             Body::Remote(body) => body.chunk().await,
+            Body::Lease(body) => body.chunk().await,
         };
         match result {
             Ok(Some(bytes)) => {
