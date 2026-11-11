@@ -1,0 +1,78 @@
+@media (max-width: 767px) {
+  .plugin-power ul {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 16px;
+  }
+  .plugin-power li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 2px 12px;
+    padding-block: 12px;
+  }
+  .plugin-power-name {
+    width: auto;
+    font-weight: 600;
+  }
+  .plugin-power-by {
+    justify-self: end;
+    align-items: flex-start;
+    text-align: right;
+  }
+  .plugin-power-by > span:last-child {
+    align-items: flex-end;
+  }
+  .plugin-power-what {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: 14px;
+    overflow-wrap: break-word;
+  }
+  .plugin-offered {
+    padding: 0 16px;
+  }
+  .plugin-offered > li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 2px 12px;
+    min-height: 0;
+    padding: 14px 0;
+  }
+  .plugin-offered-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .plugin-offered .plugin-address {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .plugin-offered .button.destructive {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    min-height: 44px;
+    margin: -10px -12px 0 0;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+  }
+  .plugin-offer {
+    padding: 16px;
+  }
+  .plugin-offer-row label {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .plugin-offer-row .button {
+    flex: 1 1 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
