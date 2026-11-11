@@ -14,11 +14,27 @@ pub struct Library {
 }
 impl Library {
     pub async fn prepare() -> Self {
+        Self::prepare_with_duration(1).await
+    }
+
+    pub async fn prepare_with_duration(seconds: u32) -> Self {
+        assert!((1..=180).contains(&seconds));
         let directory = tempfile::tempdir().unwrap();
         let music = directory.path().join("owned-local-music");
         fs::create_dir(&music).unwrap();
         let original = music.join("owned.wav");
-        let bytes = support::write_wav(&original);
+        let mut bytes = support::write_wav(&original);
+        if seconds > 1 {
+            let pcm = bytes[44..].to_vec();
+            for _ in 1..seconds {
+                bytes.extend_from_slice(&pcm);
+            }
+            let riff_length = (bytes.len() - 8) as u32;
+            let data_length = (bytes.len() - 44) as u32;
+            bytes[4..8].copy_from_slice(&riff_length.to_le_bytes());
+            bytes[40..44].copy_from_slice(&data_length.to_le_bytes());
+            fs::write(&original, &bytes).unwrap();
+        }
         let metadata = fs::metadata(&original).unwrap();
         let services = support::services(directory.path(), &music).await;
         let app = hito_server::router(services.clone());

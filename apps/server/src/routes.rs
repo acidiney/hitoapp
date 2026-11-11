@@ -217,6 +217,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::featured::open_playlist))
         .routes(routes!(api::lyrics::read))
         .routes(routes!(api::lyrics::providers))
+        .routes(routes!(api::automatic_lyrics::read))
         .routes(routes!(api::lyric_identities::services))
         .routes(routes!(api::lyric_identities::candidates))
         .routes(routes!(api::lyric_identities::review))

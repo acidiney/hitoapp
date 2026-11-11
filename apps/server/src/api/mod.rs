@@ -12,6 +12,7 @@ pub mod artist_review_queue;
 pub mod artist_similarity;
 pub mod artwork;
 pub mod audiobooks;
+pub mod automatic_lyrics;
 pub mod avatar;
 pub mod browsing;
 pub mod callback_page;
