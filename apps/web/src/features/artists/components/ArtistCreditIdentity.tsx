@@ -80,10 +80,7 @@ export default function ArtistCreditIdentity({
             <div key={chosen.group.id}>
               <p aria-live="polite">
                 {partly ? "Also listed as" : "Artist:"}{" "}
-                <span
-                  className="identity-name"
-                  title={chosen.group.name.value}
-                >
+                <span className="identity-name" title={chosen.group.name.value}>
                   {chosen.group.name.value}
                 </span>
                 {read.chosen.length > 1 &&
