@@ -1,6 +1,6 @@
 # LRCLIB lyrics service
 
-The standalone Rust service and its owned protocol tests are implemented. Twenty cases pass in an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity integration is a separate in-progress backend slice. No live provider or packaged-image acceptance is claimed.
+The standalone Rust service and its owned protocol tests are implemented. Twenty cases pass in an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity integration is a separate in-progress backend slice. A separate bounded live executable check also passes; packaged-image and Hito UI acceptance remain open.
 
 The service retrieves records from [LRCLIB's stable v1 API](https://lrclib.net/docs.txt), reviewed on 11 November 2026. It does not publish, flag or contribute lyrics. Anonymous upstream access requires no API key. Requests identify Hito with its name, version and maintenance contact. Optional LRCLIB application registration is a separate upstream concern.
 
@@ -32,8 +32,14 @@ Lyrics use the SDK's separate version 2 descriptor and endpoint. Version 1 endpo
 
 The implementation serializes upstream retrievals, spaces starts by at least one second, honors `429` and `503` `Retry-After` responses with bounded jitter, and preserves the cooldown after caller cancellation. An excessive retry delay rejects new work rather than clamping it and contacting LRCLIB early. Numeric delays and HTTP dates retain their full delay plus up to 30% positive jitter, capped at one second. An invalid, duplicate or overflowing retry header blocks upstream work and logs a safe restart instruction. Restarting the service is the operator recovery for that condition. Metadata and lyric reads share a six-second lifetime including cooldown and the complete received body. Stable v1 search returns at most twenty records and has no pagination; plugin search must not invent a cursor.
 
-Tests use owned synthetic lyrics and an isolated HTTP upstream. Live acceptance is a separate explicit opt-in check. Diagnostics may contain generated correlation IDs, safe outcomes, counts and elapsed times. They must exclude search terms, metadata text, lyrics, credentials, private paths and upstream response bodies.
+Tests use owned synthetic lyrics and an isolated HTTP upstream. Live checks are separate explicit opt-in work. Diagnostics may contain generated correlation IDs, safe outcomes, counts and elapsed times. They must exclude search terms, metadata text, lyrics, credentials, private paths and upstream response bodies.
 
+
+## Live compatibility check
+
+On 11 November 2026, one network-enabled Docker Compose tools run used the independently qualified executable against the official LRCLIB origin. One search, metadata read and lyric read each returned HTTP 200. Search returned five candidates; the selected identity was preserved through a valid anchored document with 39 lines. Logs contained no query, metadata text, lyrics or credentials. SIGTERM joined the service with exit 0, and the isolated process, private credential directory, container and network were removed.
+
+This is a single compatibility check, not availability, p95, packaged-image, Hito UI or platform acceptance. Search took 490 ms, metadata 1,094 ms and lyrics 1,102 ms, including the service's spacing. No raw lyric response or credential was retained with the evidence.
 
 ## Standalone executable
 

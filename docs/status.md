@@ -6,6 +6,8 @@ Development source now includes the separate LRCLIB service and additive plain/s
 
 An independent fresh-source Docker run passes all 20 service cases and 145 schema-enabled SDK cases, strict checks, production default/schema feature checks and formatting. All 4,085 frozen inputs remain unchanged during verification; 19 actual executables are preserved separately from Cargo caches. The optional hardened Compose configuration renders correctly but has not been built or launched. Host identity integration and the [Opus frontend specification](frontend-lyrics-integration.md) remain separate work. No VPS, running image, listener account, frontend or package changed. See [service behavior and limits](plugin-lrclib.md).
 
+A separate bounded live LRCLIB executable check now passes search, metadata and lyric retrieval against the official origin. All return HTTP 200, the selected identity remains exact, and the anchored document has 39 lines. Shutdown joins cleanly and removes the isolated probe resources. This does not qualify the packaged image, Hito UI or platform deployment. See [live compatibility evidence](plugin-lrclib.md#live-compatibility-check).
+
 ## 2026-11-11 catalog ranked audio fallback
 
 Development backend now applies the ordinary strict-first provider ranking to discography and album catalog tracks. A ready fallback saves its provenance atomically and appears as `best_guess` in Sources. Known occupied bindings are skipped; an original service-authority recheck prevents publishing stale evidence. Explicit choices and account privacy remain intact.
