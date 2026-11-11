@@ -1,4 +1,7 @@
-use crate::{Config, InitError, error::Error};
+use crate::{
+    Config, InitError,
+    error::{Error, UpstreamFailure},
+};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use std::{
@@ -70,7 +73,7 @@ impl Client {
         }
         tokio::time::timeout(DEADLINE, self.exchange(endpoint, maximum))
             .await
-            .map_err(|_| Error::Unavailable)?
+            .map_err(|_| Error::Upstream(UpstreamFailure::Deadline))?
     }
 
     async fn exchange<T: DeserializeOwned>(
@@ -96,17 +99,21 @@ impl Client {
             .header("accept-encoding", "identity")
             .send()
             .await
-            .map_err(|_| Error::Unavailable)?;
-        if matches!(response.status().as_u16(), 429 | 503) {
+            .map_err(|error| {
+                Error::Upstream(if error.is_timeout() {
+                    UpstreamFailure::Deadline
+                } else {
+                    UpstreamFailure::RequestTransport
+                })
+            })?;
+        let upstream_status = response.status().as_u16();
+        if matches!(upstream_status, 429 | 503) {
             let Some(delay) = crate::cooldown::retry_delay(response.headers(), SystemTime::now())
             else {
                 gate.blocked = true;
-                tracing::warn!(
-                    event = "lrclib_upstream_cooldown_blocked",
-                    reason = "invalid_retry_after",
-                    recovery = "restart_service"
-                );
-                return Err(Error::Busy);
+                return Err(Error::Upstream(UpstreamFailure::InvalidRetryAfter(
+                    upstream_status,
+                )));
             };
             let jitter = rand::thread_rng()
                 .gen_range(0..=(delay.as_millis().saturating_mul(3) / 10).min(1000) as u64);
@@ -115,46 +122,60 @@ impl Client {
                 Some(next) => gate.next = Some(next),
                 None => {
                     gate.blocked = true;
-                    tracing::warn!(
-                        event = "lrclib_upstream_cooldown_blocked",
-                        reason = "retry_after_overflow",
-                        recovery = "restart_service"
-                    );
+                    return Err(Error::Upstream(UpstreamFailure::RetryAfterOverflow(
+                        upstream_status,
+                    )));
                 }
             }
-            return Err(Error::Busy);
+            return Err(Error::Upstream(UpstreamFailure::Cooldown(upstream_status)));
         }
         match response.status().as_u16() {
             200 => {}
             404 => return Err(Error::NotFound),
-            _ => return Err(Error::Unavailable),
+            status => return Err(Error::Upstream(UpstreamFailure::HttpStatus(status))),
         }
         let headers = response.headers();
-        if headers.len() > 32
-            || headers.get_all("content-type").iter().count() != 1
+        let failure = if headers.len() > 32 {
+            Some(UpstreamFailure::HeaderCount)
+        } else if headers.get_all("content-type").iter().count() != 1
             || !headers
                 .get("content-type")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.split(';').next())
                 .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"))
-            || headers.get_all("content-encoding").iter().count() > 1
+        {
+            Some(UpstreamFailure::ContentType)
+        } else if headers.get_all("content-encoding").iter().count() > 1
             || headers
                 .get("content-encoding")
                 .is_some_and(|v| !v.as_bytes().eq_ignore_ascii_case(b"identity"))
-            || response
-                .content_length()
-                .is_some_and(|length| length > maximum as u64)
         {
-            return Err(Error::InvalidResponse);
+            Some(UpstreamFailure::ContentEncoding)
+        } else if response
+            .content_length()
+            .is_some_and(|length| length > maximum as u64)
+        {
+            Some(UpstreamFailure::AnnouncedBodyLimit)
+        } else {
+            None
+        };
+        if let Some(failure) = failure {
+            return Err(Error::Upstream(failure));
         }
         let mut body = Zeroizing::new(Vec::new());
-        while let Some(chunk) = response.chunk().await.map_err(|_| Error::Unavailable)? {
+        while let Some(chunk) = response.chunk().await.map_err(|error| {
+            Error::Upstream(if error.is_timeout() {
+                UpstreamFailure::Deadline
+            } else {
+                UpstreamFailure::BodyTransport
+            })
+        })? {
             if chunk.len() > maximum - body.len() {
-                return Err(Error::InvalidResponse);
+                return Err(Error::Upstream(UpstreamFailure::StreamedBodyLimit));
             }
             body.extend_from_slice(&chunk);
         }
         gate.next = Some(Instant::now() + INTERVAL);
-        serde_json::from_slice(&body).map_err(|_| Error::InvalidResponse)
+        serde_json::from_slice(&body).map_err(|_| Error::Upstream(UpstreamFailure::InvalidJson))
     }
 }

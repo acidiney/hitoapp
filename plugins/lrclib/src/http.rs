@@ -11,7 +11,16 @@ use hito_plugin_sdk::{
     SearchRequest,
     server::{RequestPolicy, observe_requests, with_manifest},
 };
-use std::sync::Arc;
+use std::{future::Future, sync::Arc, time::Instant};
+
+async fn observe<T>(
+    operation: &'static str,
+    work: impl Future<Output = Result<T, Error>>,
+) -> Result<T, Error> {
+    let started = Instant::now();
+    work.await
+        .map_err(|error| error.observe(operation, started))
+}
 
 pub fn router(config: Config) -> Result<Router, InitError> {
     let policy = Arc::new(RequestPolicy::new(
@@ -54,8 +63,11 @@ async fn metadata(
     State(upstream): State<Catalog>,
     payload: Result<Json<RecordingRequest>, JsonRejection>,
 ) -> Result<Json<RecordingMetadata>, Error> {
-    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    upstream.metadata(request).await.map(Json)
+    observe("metadata", async {
+        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+        upstream.metadata(request).await.map(Json)
+    })
+    .await
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(operation = "lyrics_v2", request_id = %uuid::Uuid::new_v4()))]
@@ -63,27 +75,36 @@ async fn lyrics(
     State(upstream): State<Catalog>,
     payload: Result<Json<LyricsRequest>, JsonRejection>,
 ) -> Result<Json<LyricsResponseV2>, Error> {
-    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    upstream.lyrics(request).await.map(Json)
+    observe("lyrics", async {
+        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+        upstream.lyrics(request).await.map(Json)
+    })
+    .await
 }
 
 async fn detail(
     State(upstream): State<Catalog>,
     payload: Result<Json<RecordingRequest>, JsonRejection>,
 ) -> Result<Json<ProviderRecording>, Error> {
-    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    request.validate().map_err(|_| Error::InvalidRequest)?;
-    upstream
-        .record(&request.recording_id)
-        .await?
-        .recording()
-        .map(Json)
+    observe("detail", async {
+        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+        request.validate().map_err(|_| Error::InvalidRequest)?;
+        upstream
+            .record(&request.recording_id)
+            .await?
+            .recording()
+            .map(Json)
+    })
+    .await
 }
 
 async fn search(
     State(upstream): State<Catalog>,
     payload: Result<Json<SearchRequest>, JsonRejection>,
 ) -> Result<Json<SearchPage>, Error> {
-    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    upstream.search(request).await.map(Json)
+    observe("search", async {
+        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+        upstream.search(request).await.map(Json)
+    })
+    .await
 }
