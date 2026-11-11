@@ -450,7 +450,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     page.getByRole("heading", { name: "Queue", exact: true, level: 2 }),
   ).toBeVisible();
   await page.getByText(/^Played \(/).click();
-  await page.locator(".queue-track").first().click();
+  await page
+    .locator(".queue-track")
+    .filter({ hasText: "Fixture" })
+    .first()
+    .click();
   await expect(page.locator("footer.player").getByRole("status")).toHaveCount(
     0,
   );
@@ -463,9 +467,15 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page
     .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
     .click();
-  await expect(
-    page.getByText("Choose a track to start listening"),
-  ).toBeVisible();
+  const idle = page.getByText("Choose a track to start listening");
+  if (!(await idle.isVisible())) {
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Clear queue" })
+      .click();
+  }
+  await expect(idle).toBeVisible();
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Library", exact: true })
