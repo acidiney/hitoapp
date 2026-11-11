@@ -164,7 +164,13 @@ On 11 November 2026, the isolated private foundation passes an independent Docke
 
 The cases cover exact selected sets, UTF-8 byte limits and integer ordinals, protected quotas, unselected-library revocation, regrant and rollback, history-only compaction, restart and divergent restore, former/new identity groups, correction erasure, and actual account-deletion rollback and cleanup. Three predecessor indexes are checked against 100,000-row tables under absent, stale and fresh planner statistics. Measured source-insert work in the common-producer fixture remains 586 VM steps per row at both 128 and 512 rows under stale and fresh statistics.
 
-This is private foundation qualification. The candidate is not yet integrated with the complete normalized consumer, and its standalone build has unused private APIs. Strict warning-free compilation, complete producer convergence, client application and the full release workload remain unproved. Existing SnapshotOnly behavior is preserved.
+A later frozen candidate adds the bounded affected-owner workset. An independent Docker repeat passes all 69 journal cases, two account-erasure plan cases, nine account-deletion cases and one actual historical playlist upgrade, plus workspace formatting. All 2,482 Rust, SQL and Cargo inputs remain exact. Three fresh specialist reviews pass against its 42 frozen dependency files.
+
+The workset borrows the caller's read transaction and returns at most 64 deduplicated owners per page. It traverses dependencies before filtering selected output, including retained identity groups and saved-edition releases. TEMP state enforces the interval, identity-byte, internal-key and aggregate-edge budgets. Cancellation settlement belongs to the outer transaction owner; dropping the Rust borrow does not claim asynchronous cleanup.
+
+Qualification found and corrected two work-budget gaps. Unmatched source parents now count before observation expansion; a 100,001-source input returns a typed budget failure. Actor-prefixed release-credit lookups avoid scanning another account's 100,001 unrelated credits under absent, stale and fresh statistics. A partial TEMP output index keeps sparse selected output bounded after traversal through 99,998 internal owners. These are private workset checks, not complete catalog construction or release performance results.
+
+These candidates are not integrated with the complete normalized consumer. The later candidate's strict library check exits with exactly 46 unused-private-API errors and no other diagnostics; it is not a strict pass. Complete producer convergence, client application and the full release workload remain unproved. Existing SnapshotOnly behavior is preserved. The newly selected artist-photo policy observation needs its own parent-invalidation slice and convergence evidence.
 
 ## Acceptance and implementation sequence
 

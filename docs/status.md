@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 affected catalog workset qualification
+
+The isolated affected-owner candidate passes an independent Docker repeat of 69 journal cases, two account-erasure plan cases, nine account-deletion cases and one actual historical playlist upgrade. Workspace formatting passes and all 2,482 Rust, SQL and Cargo inputs remain unchanged. Three fresh security, correctness and performance reviews pass against the same 42 frozen dependency files.
+
+The workset retains one read snapshot, traverses dependencies before selected-library filtering and returns bounded owner pages. Qualification corrected uncharged unmatched-source traversal and an actor lookup that scanned foreign release credits. Fixed interval, byte, key and edge caps remain unchanged. The strict library check still fails with 46 unused private-consumer APIs and no other diagnostics. Full/changes materialization, normalized client integration, the new artist-photo invalidation slice and release scale remain unfinished. No application image, VPS or package changed. See [workset evidence and limits](catalog-journal-design.md#isolated-journal-qualification).
+
 ## 2026-11-11 private catalog journal qualification
 
 The isolated journal candidate now has exact selected-library/grant bindings, private account access epochs, separate retained-page authority and history checks, protected cursor quotas, former/new identity-group invalidations and transactional account-erasure suppression. An independent Docker repeat passes 38 journal cases, two erasure-plan cases, nine account-deletion cases and two historical upgrade cases, followed by workspace formatting. All 2,467 Rust, SQL and Cargo inputs remain unchanged across that repeat. Fresh security, correctness and performance reviews pass against the same 26 frozen files.
