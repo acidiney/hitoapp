@@ -198,9 +198,17 @@ flowchart LR
     F --> G[Atomic catalog publication]
 ```
 
-This diagram describes the intended complete flow. The compact producer and semantic test decoder are being implemented; incremental delivery and the production client are unfinished. SQL and TEMP ownership remain inside Core's existing retained constructor. No per-use TEMP table, whole-catalog Rust dictionary or new construction pool is planned. Direct typed serialization and packing multiple bounded blocks into a page must preserve cancellation, privacy, exact counts and expanded family limits.
+This diagram describes the intended complete flow. The compact producer and semantic test decoder remain isolated candidates; incremental delivery and the production client are unfinished. SQL and TEMP ownership remain inside Core's existing retained constructor. No per-use TEMP table, whole-catalog Rust dictionary or new construction pool is planned. Direct typed serialization and packing multiple bounded blocks into a page must preserve cancellation, privacy, exact counts and expanded family limits.
 
-Acceptance requires public Core roundtrips over actual owned audio and adopted metadata, then null/reset, external-reference, shared-definition and malformed-input cases. Existing public expectations and independent lifecycle cases must remain intact. The original rich workload must pass its unchanged count, work, byte and deadline assertions. Complete transfer accounting must also include the base metadata envelope before the contract is frozen. No measured saving or release-gate pass is claimed for the selected implementation yet.
+Acceptance requires public Core roundtrips over actual owned audio and adopted metadata, then null/reset, external-reference, shared-definition and malformed-input cases. Existing public expectations and independent lifecycle cases must remain intact. The rich workload must pass its unchanged count, work, byte and deadline assertions. Complete transfer accounting must also include the base metadata envelope before the contract is frozen. The checkpoint below measures the compact producer; it does not qualify a production client or the complete release workload.
+
+### Compact producer checkpoint
+
+An author's frozen Docker run passes 45 public cases, with three older diagnostics ignored. A complete rich 25,000-recording fixture has 25,000 distinct releases, source metadata and local-file rows with valid foreign keys. Construction takes 5,894 ms and 33,076,100 SQLite VM steps. Reading all 38 public pages and including the base metadata envelope yields 9,707,994 encoded bytes. Exact fact counts, selected fields and credit order are checked against fixture cardinalities and public capability reads; the owned original audio remains exact. This differs from the earlier synthetic encoding prototype and is not a matched before/after comparison with it.
+
+On that same source, 100,000 recordings still exceed the fixed ten-second constructor budget. The run stops after 10,016 ms and 63,615,500 VM steps with 52,672 recording families processed, before completing recordings, releases and orders. No complete 100,000-recording transfer size or timing is inferred from the smaller fixture. The page, aggregate wire, semantic-family and TEMP limits remain unchanged.
+
+The source archive contains 2,573 pinned Rust, SQL and Cargo inputs. Its SHA-256 is `c2e044dd84631f48594205122077a851a4d3a7f7b326a5147e1cfec798bfab43`; the combined run log is `8a39fb19b137362a15acd262a140ff311cf064c3fe03cf007b33764ab9aed218`. Root verified those frozen artifacts and their reported outcomes, but has not independently repeated this candidate. Final review, strict warning-free integration, real malformed-wire client validation, changes delivery and convergence remain open. Nothing in this checkpoint is deployed.
 
 ## Acceptance and implementation sequence
 

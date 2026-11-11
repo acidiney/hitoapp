@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 compact catalog producer checkpoint
+
+The isolated compact producer now passes 45 public cases in its author's frozen Docker run. A complete rich fixture with 25,000 recordings and 25,000 distinct releases constructs in 5,894 ms with 33,076,100 SQLite VM steps. Its 38 public pages and base metadata total 9,707,994 bytes. The checks preserve source, genre, credit, provenance, release and explicit source-choice facts, selected public metadata and the owned original audio.
+
+The same-source 100,000-recording fixture still fails the unchanged ten-second construction deadline: it stops after 10,016 ms with 52,672 recording families processed, before the remaining stages complete. This is partial scale evidence, not the release workload or an accepted normalized client. Independent final-source review and repetition, production client validation, incremental convergence and HTTP delivery remain open. The candidate is unintegrated; no application image, VPS, frontend or desktop package changed. See [compact producer evidence](catalog-journal-design.md#compact-producer-checkpoint).
+
 ## 2026-11-11 native measurement prerequisites
 
 Development source now separates owned benchmark processes, PCM capture, provider protocol, measurement records and playback workflows. An independent fresh-source Docker repeat passes all 27 Rust controls and thirteen report CLI controls with exact names, no failures or ignored cases, strict example Clippy and formatting. All 3,934 source and support inputs remain exact. The original 25 Rust and ten CLI cases remain present.
