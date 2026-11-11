@@ -109,7 +109,7 @@ for (const mode of ["loading", "found", "none", "failed"] as const)
     );
     const requests = await mockAutomatic(page, recording, mode);
     await page.goto(`/recordings/${recording.id}?tab=lyrics`);
-    const panel = page.getByRole("region", { name: "Lyrics" });
+    const panel = page.getByRole("region", { name: "Lyrics", exact: true });
     const expected = {
       loading: "Looking up lyrics…",
       found: "Not synced · from Open lyrics",

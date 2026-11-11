@@ -74,7 +74,7 @@ test("the track page renders the mockup data screen by screen", async ({
   await shot(page, "p1-overview-phone", "phone-dark");
 
   await page.getByRole("tab", { name: /^Lyrics/ }).click();
-  await expect(page.getByRole("list", { name: "Lyric lines" })).toBeVisible();
+  await expect(page.locator('[aria-label="Lyric lines"]')).toBeVisible();
   await expect(page.getByText(/^Synced · from/)).toBeVisible();
   await shot(page, "03-lyrics-synced");
 

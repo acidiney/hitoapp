@@ -141,7 +141,7 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   );
   const requests = await mockLyrics(page, recording.id);
   await page.goto(`/recordings/${recording.id}?tab=lyrics`);
-  const panel = page.getByRole("region", { name: "Lyrics" });
+  const panel = page.getByRole("region", { name: "Lyrics", exact: true });
   await expect(panel.getByRole("radio")).toHaveCount(0);
   await panel.getByRole("button", { name: "Change" }).click();
   const choices = page.getByRole("dialog", { name: "Lyrics for this track" });

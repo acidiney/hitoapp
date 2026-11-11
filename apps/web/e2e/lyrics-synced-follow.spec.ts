@@ -97,7 +97,7 @@ test("Track Details lyrics follow the playing music when the durations match", a
   await page.goto(`/recordings/${recording.id}?tab=lyrics`);
   await mock(page, recording.id, recording.duration_ms);
   await page.reload();
-  const panel = page.getByRole("region", { name: "Lyrics" });
+  const panel = page.getByRole("region", { name: "Lyrics", exact: true });
   await expect(panel.getByText("Synced · from LRCLIB lyrics")).toBeVisible();
   const states = await panel
     .locator(".np-lines button")
@@ -151,7 +151,7 @@ test("Track Details lyrics stay static without a matching duration", async ({
   await page.goto(`/recordings/${recording.id}?tab=lyrics`);
   await mock(page, recording.id, 10_000);
   await page.reload();
-  const panel = page.getByRole("region", { name: "Lyrics" });
+  const panel = page.getByRole("region", { name: "Lyrics", exact: true });
   await expect(
     panel.getByText("Not synced · from LRCLIB lyrics"),
   ).toBeVisible();
@@ -185,7 +185,7 @@ test("Now playing follows the music with a matching duration", async ({
     .click();
   const lyrics = page
     .getByRole("dialog", { name: "Now playing" })
-    .getByRole("region", { name: "Lyrics" });
+    .getByRole("region", { name: "Lyrics", exact: true });
   await expect(lyrics.locator('[aria-current="true"]')).toHaveText(lines[0], {
     timeout: 15_000,
   });

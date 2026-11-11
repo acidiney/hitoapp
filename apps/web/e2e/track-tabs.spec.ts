@@ -255,7 +255,7 @@ test("a saved provider track without audio finds audio, reviews the match and sh
       page.getByRole("list", { name: "Lyrics preview" }),
     ).toBeVisible();
     await page.goto(`${base}?tab=lyrics`);
-    await expect(page.getByRole("list", { name: "Lyric lines" })).toBeVisible();
+    await expect(page.locator('[aria-label="Lyric lines"]')).toBeVisible();
     await expect(page.getByText(/^Synced · from/)).toBeVisible();
     await trackShot(page, "03-lyrics-synced");
 
