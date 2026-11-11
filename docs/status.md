@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 MusicBrainz enrichment live check
+
+Development source now has an ignored, explicit-opt-in check for artist genres, recording corroboration, recording artist identity and ISRC identity through the production MusicBrainz client. One bounded live run verified 18 artist genres, then failed with HTTP 503 at recording corroboration after 1,089 ms and two requests. The remaining identity stages were not reached. No retry or production change followed, and this does not qualify all enrichment paths or service availability.
+
+An independent Docker snapshot repeat passes 55 owned crate cases with both live cases ignored, plus strict all-target Clippy and formatting. Missing opt-in is independently rejected before client creation with external networking disabled. All 3,933 source and support inputs remain exact across verification. See [live enrichment evidence and reproduction](builtin-musicbrainz.md#live-enrichment-acceptance). No running image, VPS, frontend or desktop package changed.
+
 ## 2026-11-11 Jamendo host and SQLite fixture ownership
 
 Development source now verifies Jamendo through its actual HTTP router, an owned upstream fixture, Hito's HTTP router and temporary SQLite. The cases cover manifest acceptance, adoption, retained attribution after reopening, exact playback and byte-range relay, and rejection of direct or playlist downloads under `playback_only`. Metadata-only workflows request no audio. Fixture cleanup joins accepted HTTP connections and retains storage until Core's worker-local SQLite resources retire, including cancellation during startup. The optional Core owner is limited to test support and does not expose SQL or pool types to the plugin.
