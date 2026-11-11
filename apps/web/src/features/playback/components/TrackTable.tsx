@@ -38,6 +38,7 @@ export type CatalogRowView = {
   title: string;
   artist: string;
   album: string | null;
+  artistShown: boolean;
   durationMs: number | null;
   status: "idle" | "finding" | "found" | "not_found" | "failed";
   recording: TrackRow | null;
@@ -138,9 +139,11 @@ export default function TrackTable({
         : false,
   );
   const creditedElsewhere = (row: TrackTableRow) =>
-    artistPage === undefined ||
-    row.kind !== "recording" ||
-    row.track.artist_id !== artistPage;
+    row.kind === "catalog"
+      ? row.row.artistShown
+      : artistPage === undefined ||
+        row.kind !== "recording" ||
+        row.track.artist_id !== artistPage;
   const showArtist =
     !layout && !without.includes("artist") && rows.some(creditedElsewhere);
   const showAlbum =
@@ -235,6 +238,7 @@ export default function TrackTable({
                     <RowPlay
                       title={view.title}
                       number={view.number}
+                      state={playState}
                       onPlay={() => catalog.play(index)}
                     />
                   ) : track ? (

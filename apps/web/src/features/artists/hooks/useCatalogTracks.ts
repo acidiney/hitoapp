@@ -94,7 +94,8 @@ export function useCatalogTracks(
         number: row.number,
         title: row.title,
         artist: row.credit ?? album.credit ?? "",
-        album: group.title,
+        album: null,
+        artistShown: row.credit !== null,
         durationMs: row.durationMs,
         status: found ? "found" : state === "found" ? "idle" : state,
         recording: found

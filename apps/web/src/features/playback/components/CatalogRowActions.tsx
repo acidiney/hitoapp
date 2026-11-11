@@ -1,5 +1,5 @@
 import { router } from "@inertiajs/react";
-import { Heart, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import ActionMenu from "../../../shared/ui/ActionMenu";
 import StatusDot, { type SourceStatus } from "../../../shared/ui/StatusDot";
 import type { CatalogRowView } from "./TrackTable";
@@ -16,7 +16,13 @@ export function CatalogRowNote({
   status: CatalogRowView["status"];
 }) {
   const shown = statuses[status];
-  return shown ? <StatusDot status={shown} as="small" role="status" /> : null;
+  if (shown) return <StatusDot status={shown} as="small" role="status" />;
+  return (
+    <small className="source-status" data-status="absent">
+      <span className="source-status-dot" aria-hidden="true" />
+      Not in your library
+    </small>
+  );
 }
 
 export default function CatalogRowActions({
@@ -40,19 +46,10 @@ export default function CatalogRowActions({
         type="button"
         className="icon-button"
         disabled={finding}
-        aria-label={`Find audio and like ${title}`}
-        onClick={onLike}
-      >
-        <Heart size={17} />
-      </button>
-      <button
-        type="button"
-        className="icon-button"
-        disabled={finding}
         aria-label={`${retry ? "Try again to find" : "Find"} audio for ${title}`}
         onClick={onFind}
       >
-        <Search size={17} />
+        <Plus size={17} />
       </button>
       <ActionMenu
         label={`Actions for ${title}`}
@@ -68,6 +65,11 @@ export default function CatalogRowActions({
             label: retry ? "Try again to find audio" : "Find audio",
             disabled: finding,
             onSelect: onFind,
+          },
+          {
+            label: "Find audio and like",
+            disabled: finding,
+            onSelect: onLike,
           },
           ...(retry
             ? [

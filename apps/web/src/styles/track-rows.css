@@ -75,10 +75,15 @@
   color: var(--muted);
   border-radius: 10px;
 }
-.track-actions .icon-button:hover:not(:disabled),
 .track-actions .icon-button:focus-visible {
   color: var(--ink);
   background: var(--subtle);
+}
+@media (hover: hover) {
+  .track-actions .icon-button:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--subtle);
+  }
 }
 .track-actions .icon-button.selected {
   color: var(--action);
