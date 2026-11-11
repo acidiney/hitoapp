@@ -228,18 +228,20 @@
   gap: 16px;
   width: 100%;
   max-width: 720px;
-  padding: 24px 28px;
+  padding: 24px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  background: rgba(242, 241, 237, 0.06);
 }
 .lyric-panel[data-synced] {
+  padding: 24px 28px;
   height: min(70vh, 560px);
-}
-.lyric-panel[data-synced] .np-lines {
-  min-height: 0;
 }
 .lyric-panel .lyric-source {
   justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  color: var(--ink-soft);
 }
 .lyric-action {
   min-height: 44px;
@@ -253,6 +255,23 @@
   font-weight: 500;
   cursor: pointer;
 }
+.lyric-panel .np-lines {
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+  padding: 0;
+  justify-content: center;
+  line-height: 1.15;
+}
+.lyric-panel .np-lines button {
+  font-size: 24px;
+  font-weight: 700;
+}
+.lyric-panel .np-lines button[data-state="current"] {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.1;
+}
 .lyric-panel .track-lyrics-body {
   gap: 16px;
 }
@@ -263,4 +282,7 @@
   gap: 6px;
   color: var(--ink);
   max-width: none;
+}
+.lyric-panel .track-lyrics-body ol li[data-blank] {
+  height: 8px;
 }
