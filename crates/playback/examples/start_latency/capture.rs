@@ -34,7 +34,7 @@ impl Monitor {
         Self::start(command)
     }
 
-    fn start(command: Command) -> Result<Self, super::Failure> {
+    pub(super) fn start(command: Command) -> Result<Self, super::Failure> {
         let transitions = Arc::new(Mutex::new(Vec::new()));
         let armed = Arc::new(AtomicBool::new(false));
         let last_audible = Arc::new(Mutex::new(None));
@@ -58,7 +58,7 @@ impl Monitor {
         self.silent_until(quiet, deadline).await
     }
 
-    async fn silent_until(
+    pub(super) async fn silent_until(
         &mut self,
         quiet: Duration,
         deadline: Instant,
