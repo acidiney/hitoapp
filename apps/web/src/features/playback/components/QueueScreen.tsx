@@ -44,7 +44,17 @@ function useCurrentEntry(player: Player, view: QueueView) {
   return entry;
 }
 
-export default function QueueScreen() {
+const mac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
+
+export default function QueueScreen({
+  docked = false,
+  onClose,
+}: {
+  docked?: boolean;
+  onClose?: () => void;
+}) {
   const player = usePlayer();
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const playing = useSyncExternalStore(
@@ -65,23 +75,53 @@ export default function QueueScreen() {
     setConfirming(false);
   }
   return (
-    <div className="queue-screen">
-      <PageHeading
-        title="Queue"
-        description={`${count} · ${upNext.toLocaleString()} up next`}
-      >
-        <div className="queue-actions">
-          <Button
-            variant="destructive"
+    <div
+      className={docked ? "queue-screen queue-screen-docked" : "queue-screen"}
+    >
+      {docked ? (
+        <header className="queue-panel-head">
+          <h2 id="queue-title" tabIndex={-1} data-queue-heading>
+            Queue
+          </h2>
+          <button
+            type="button"
+            className="queue-clear"
             disabled={view.total === 0}
             onClick={() => setConfirming(true)}
           >
             Clear
-          </Button>
-        </div>
-      </PageHeading>
-      <section aria-labelledby="queue-now" className="queue-now">
-        <h2 id="queue-now">Now playing</h2>
+          </button>
+          <button
+            type="button"
+            className="queue-close"
+            aria-label="Close queue"
+            onClick={onClose}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+      ) : (
+        <PageHeading
+          title="Queue"
+          description={`${count} · ${upNext.toLocaleString()} up next`}
+        >
+          <div className="queue-actions">
+            <button
+              type="button"
+              className="queue-clear"
+              disabled={view.total === 0}
+              onClick={() => setConfirming(true)}
+            >
+              Clear
+            </button>
+          </div>
+        </PageHeading>
+      )}
+      <section
+        aria-labelledby={docked ? "queue-now-dock" : "queue-now"}
+        className="queue-now"
+      >
+        <h2 id={docked ? "queue-now-dock" : "queue-now"}>Now playing</h2>
         {current ? (
           <div className="queue-now-row">
             <Artwork
@@ -94,7 +134,7 @@ export default function QueueScreen() {
               <small>{current.artist}</small>
             </span>
             <NowClock />
-            <PlayerTrackActions track={current} />
+            <PlayerTrackActions track={current} liking={false} />
             {currentId && (
               <button
                 type="button"
@@ -119,12 +159,16 @@ export default function QueueScreen() {
           {playedOpen && <QueueList from={0} to={played} />}
         </details>
       )}
-      <section aria-labelledby="queue-next" className="queue-next">
-        <div className="queue-next-head">
-          <h2 id="queue-next">Up next</h2>
-          <span>Drag by the handle, or use the arrows, to reorder</span>
-        </div>
+      <section
+        aria-labelledby={docked ? "queue-next-dock" : "queue-next"}
+        className="queue-next"
+      >
+        <h2 id={docked ? "queue-next-dock" : "queue-next"}>Up next</h2>
         <QueueList from={(view.currentIndex ?? -1) + 1} />
+        <p className="queue-hint">
+          Tracks without a source are skipped. <kbd>{mac ? "⌥↑" : "Alt ↑"}</kbd>{" "}
+          <kbd>{mac ? "⌥↓" : "Alt ↓"}</kbd>
+        </p>
       </section>
       {confirming && (
         <Dialog title="Clear the queue?" onClose={() => setConfirming(false)}>

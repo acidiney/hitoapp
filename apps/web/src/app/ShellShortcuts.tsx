@@ -7,6 +7,8 @@ import { useTrackActions } from "../features/playback/components/TrackActionsPro
 import { requestNowPlaying } from "../features/playback/nowPlayingRequests";
 import { useMute } from "../features/playback/hooks/useMute";
 import { useToggleLike } from "../features/playback/hooks/useToggleLike";
+import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
+import { toggleQueuePanel } from "../features/playback/queuePanelState";
 import ShortcutsDialog from "./ShortcutsDialog";
 import { useSingleKeyShortcuts } from "./shortcutPreference";
 import {
@@ -36,6 +38,7 @@ export default function ShellShortcuts({
   );
   const [singleKeys, setSingleKeys] = useSingleKeyShortcuts();
   const toggleMute = useMute();
+  const phone = useMediaQuery(PHONE_QUERY);
   const handler = useRef<(command: ShortcutCommand) => void>(() => {});
   handler.current = (command) => {
     log.debug("shortcut.used", { action: command });
@@ -43,8 +46,10 @@ export default function ShellShortcuts({
     else if (command === "togglePlay") void player.toggle();
     else if (command === "next") void player.next();
     else if (command === "previous") void player.previous();
-    else if (command === "queue") visitFromPlayer("/queue");
-    else if (command === "nowPlaying") requestNowPlaying();
+    else if (command === "queue") {
+      if (phone) visitFromPlayer("/queue");
+      else toggleQueuePanel();
+    } else if (command === "nowPlaying") requestNowPlaying();
     else if (command === "home") router.visit("/home");
     else if (command === "library") router.visit("/library");
     else if (command === "plugins") router.visit("/settings?section=plugins");

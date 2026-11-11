@@ -34,7 +34,7 @@ async function openQueue(page: Page) {
     .getByRole("button", { name: "Open queue", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
+    page.getByRole("heading", { name: "Queue", exact: true, level: 2 }),
   ).toBeVisible();
 }
 

@@ -91,7 +91,7 @@ test("the player bar likes and manages the playing track, and a reload keeps the
 
   await bar.getByRole("button", { name: /^Open queue/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
+    page.getByRole("heading", { name: "Queue", exact: true, level: 2 }),
   ).toBeVisible();
   await expect(page.locator(".queue-now-row strong")).toHaveText(second);
   await expect(

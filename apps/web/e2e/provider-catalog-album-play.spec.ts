@@ -49,7 +49,7 @@ test("a catalog album plays like a library album: Play starts the first track, q
     ).not.toContainText("Not found");
 
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
-    await expect(page).toHaveURL(/\/queue$/);
+    await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
     const now = page.getByRole("region", { name: "Now playing", exact: true });
     await expect(now.locator("strong")).toHaveText(opening);
     const rows = page.locator("ol.queue-tracks > li");

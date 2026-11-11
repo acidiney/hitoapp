@@ -39,6 +39,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const rowMenu = (title: string) =>
+  screen.getByRole("button", {
+    name: `Actions for ${title}: move up, move down, remove`,
+  });
+function chooseItem(title: string, item: string) {
+  fireEvent.click(rowMenu(title));
+  fireEvent.click(screen.getByRole("menuitem", { name: item }));
+}
+
 const upNext = () =>
   [...document.querySelectorAll("ol.queue-tracks > li")].map(
     (row) => row.querySelector("strong")!.textContent,
@@ -59,20 +68,20 @@ test("the header counts the tracks and the playing track has its own row", async
 
 test("moving a track with the keyboard buttons reorders only the upcoming list", async () => {
   await waitFor(() => expect(upNext().length).toBe(3));
-  fireEvent.click(screen.getByRole("button", { name: "Move Track 4 up" }));
+  chooseItem("Track 4", "Move up");
   await waitFor(() =>
     expect(upNext()).toEqual(["Track 2", "Track 4", "Track 3"]),
   );
-  expect(
-    screen.getByRole("button", { name: "Move Track 2 up" }),
-  ).toHaveProperty("disabled", true);
+  fireEvent.click(rowMenu("Track 2"));
+  expect(screen.getByRole("menuitem", { name: "Move up" })).toHaveProperty(
+    "disabled",
+    true,
+  );
 });
 
 test("a track can be removed from the queue", async () => {
   await waitFor(() => expect(upNext().length).toBe(3));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Remove Track 3 from queue" }),
-  );
+  chooseItem("Track 3", "Remove");
   await waitFor(() => expect(upNext()).toEqual(["Track 2", "Track 4"]));
   expect(screen.getByText("4 tracks · 2 up next")).toBeTruthy();
 });
@@ -104,8 +113,11 @@ test("played tracks stay reachable in a collapsed section and can be removed", a
   fireEvent.click(screen.getByText("Played (1)"));
   await waitFor(() => expect(within(played).getByText("Track 0")).toBeTruthy());
   fireEvent.click(
-    within(played).getByRole("button", { name: "Remove Track 0 from queue" }),
+    within(played).getByRole("button", {
+      name: "Actions for Track 0: move up, move down, remove",
+    }),
   );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
   await waitFor(() => expect(player.queueSnapshot().total).toBe(4));
   expect(screen.queryByText(/^Played/)).toBeNull();
 });

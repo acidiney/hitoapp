@@ -434,9 +434,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   );
   await page.unroute("**/api/v1/recordings/*/playback-sources");
   await expanded.getByRole("link", { name: "Open queue" }).click();
-  await expect(page).toHaveURL(/\/queue$/);
+  await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
+    page.getByRole("heading", { name: "Queue", exact: true, level: 2 }),
   ).toBeVisible();
   await page.getByText(/^Played \(/).click();
   await page.locator(".queue-track").first().click();
@@ -444,11 +444,17 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     0,
   );
   await page
-    .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
+    .getByRole("button", {
+      name: "Actions for Fixture 660 Hz: move up, move down, remove",
+    })
     .click();
+  await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   await page
-    .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
+    .getByRole("button", {
+      name: "Actions for Fixture 440 Hz: move up, move down, remove",
+    })
     .click();
+  await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   await expect(
     page.getByText("Choose a track to start listening"),
   ).toBeVisible();

@@ -69,7 +69,7 @@ test("Clear on the queue asks first, keeps the queue when cancelled and empties 
 
   await page.goto("/queue");
   await expect(
-    page.getByRole("heading", { name: "Queue", level: 1 }),
+    page.getByRole("heading", { name: "Queue", level: 2 }),
   ).toBeVisible();
   const clear = page.getByRole("button", { name: "Clear", exact: true });
   await clear.click();

@@ -15,6 +15,9 @@ import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
 import { TrackActionsProvider } from "../features/playback/components/TrackActionsProvider";
+import QueuePanel from "../features/playback/components/QueuePanel";
+import { useQueuePanelOpen } from "../features/playback/queuePanelState";
+import { useQueueRoute } from "../features/playback/hooks/useQueueRoute";
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
@@ -27,7 +30,10 @@ export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<Schema<"SharedPageProps"> & PageProps>();
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
-  const placement = searchPlacement(page.component, useMediaQuery(PHONE_QUERY));
+  const phone = useMediaQuery(PHONE_QUERY);
+  const placement = searchPlacement(page.component, phone);
+  const queueOpen = useQueuePanelOpen();
+  useQueueRoute(url.pathname, url.search, phone);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
@@ -48,6 +54,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             </a>
             <div
               className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
+              data-queue={phone ? undefined : queueOpen ? "open" : "closed"}
             >
               <ShellShortcuts
                 open={shortcutsOpen}
@@ -87,6 +94,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   {children}
                 </main>
               </div>
+              {!phone && <QueuePanel />}
             </div>
             <PlayerDock
               account={user.id}

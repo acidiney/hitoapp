@@ -212,6 +212,6 @@ test("a service result can be queued from its row menu", async ({
   await page.getByRole("button", { name: "Actions for Night drive" }).click();
   await page.getByRole("menuitem", { name: "Add to queue" }).click();
   await page.getByRole("button", { name: "Open queue", exact: true }).click();
-  await expect(page).toHaveURL(/\/queue$/);
+  await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
   await expect(page.getByText(recordings[0].title).first()).toBeVisible();
 });

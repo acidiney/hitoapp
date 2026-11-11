@@ -17,6 +17,15 @@ import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
+import {
+  QUEUE_PANEL_ID,
+  toggleQueuePanel,
+  useQueuePanelOpen,
+} from "../queuePanelState";
 import { useMute } from "../hooks/useMute";
 import { onNowPlayingRequest } from "../nowPlayingRequests";
 import { rememberNowPlayingOrigin } from "../nowPlayingOrigin";
@@ -85,9 +94,12 @@ export default function PlayerDock({
     setExpanded(true);
   }, []);
   const toggleMute = useMute();
+  const phone = useMediaQuery(PHONE_QUERY);
+  const queueOpen = useQueuePanelOpen();
   function showQueue() {
     log.debug("player.queue", { enabled: true });
-    visitFromPlayer("/queue");
+    if (phone) visitFromPlayer("/queue");
+    else toggleQueuePanel();
   }
   return (
     <>
@@ -141,9 +153,12 @@ export default function PlayerDock({
         <div className="player-tools">
           <button
             ref={queueButton}
-            className={`icon-button queue-button ${queueActive ? "selected" : ""}`}
+            className={`icon-button queue-button ${phone ? (queueActive ? "selected" : "") : queueOpen ? "selected" : ""}`.trim()}
             aria-label="Open queue"
-            aria-current={queueActive ? "page" : undefined}
+            aria-current={phone && queueActive ? "page" : undefined}
+            aria-expanded={phone ? undefined : queueOpen}
+            aria-controls={phone ? undefined : QUEUE_PANEL_ID}
+            data-queue-toggle=""
             onClick={showQueue}
           >
             <ListMusic size={18} aria-hidden="true" />

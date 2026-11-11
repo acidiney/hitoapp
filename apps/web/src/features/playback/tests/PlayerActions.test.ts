@@ -193,17 +193,26 @@ test("now playing has the heart and menu and leaves the dialog for the track pag
   expect(router.visit).toHaveBeenCalledWith("/recordings/r0");
 });
 
-test("every queue row has a heart and a menu without queue actions", async () => {
+test("every queue row has a menu without queue actions and no heart", async () => {
   render(shell(createElement(QueueList, { from: 1 })));
   const row = await screen.findByText("Next up");
   const item = within(row.closest("li")!);
-  expect(item.getByRole("button", { name: "Like Next up" })).toBeTruthy();
-  const menu = await openMenu(item, "Next up");
+  expect(item.queryByRole("button", { name: "Like Next up" })).toBeNull();
+  fireEvent.click(
+    item.getByRole("button", {
+      name: "Actions for Next up: move up, move down, remove",
+    }),
+  );
   expect(
-    within(menu)
-      .getAllByRole("menuitem")
-      .map((entry) => entry.textContent),
-  ).toEqual(["Track details", "Add to playlist", "Fix source"]);
+    screen.getAllByRole("menuitem").map((entry) => entry.textContent),
+  ).toEqual([
+    "Move up",
+    "Move down",
+    "Remove",
+    "Track details",
+    "Add to playlist",
+    "Fix source",
+  ]);
 });
 
 test("without the actions provider the player bar renders no actions", () => {
