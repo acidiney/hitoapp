@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import RouteLink from "../../../shared/ui/RouteLink";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { longDuration } from "../../artists/model/catalogAlbumRows";
@@ -41,6 +42,10 @@ export default function AlbumPage({
     tracks.map((track) => track.artist),
   );
   const listing = releaseTracksListing(user.id, release.id, page);
+  const trackArtistIds = new Set(page.items.map((track) => track.artist_id));
+  const sharedTrackArtist =
+    trackArtistIds.size === 1 ? ([...trackArtistIds][0] ?? null) : null;
+  const artistId = release.artist_id ?? sharedTrackArtist;
   const duration = longDuration(release.duration_ms);
   return (
     <div className="detail-page">
@@ -58,16 +63,19 @@ export default function AlbumPage({
         }
         title={release.title}
         credit={
-          release.artist !== null && release.artist_id !== null ? (
-            <Link
+          credit &&
+          (artistId ? (
+            <RouteLink
               className="album-artist"
-              href={`/artists/${encodeURIComponent(release.artist_id)}`}
+              href={`/artists/${encodeURIComponent(artistId)}`}
             >
-              {release.artist}
-            </Link>
+              {credit}
+            </RouteLink>
           ) : (
-            credit && <span className="album-artist">{credit}</span>
-          )
+            <span className="album-artist" data-plain="">
+              {credit}
+            </span>
+          ))
         }
         stats={`${release.track_count} ${release.track_count === 1 ? "track" : "tracks"}${release.duration_ms >= 60_000 ? ` · ${duration}` : ""}`}
         actions={

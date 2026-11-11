@@ -7,7 +7,7 @@ import type { Schema } from "../../../shared/schema";
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
-  router: { reload: vi.fn() },
+  router: { reload: vi.fn(), visit: vi.fn() },
 }));
 
 const account = "10000000-0000-4000-8000-000000000001";

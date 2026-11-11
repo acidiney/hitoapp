@@ -80,6 +80,15 @@ export default function ArtistPage({
         }
       />
       <div className="detail-body">
+        {!artist.member_only && (
+          <ArtistCreditIdentity
+            account={user.id}
+            artist={artist}
+            searchRecording={
+              tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
+            }
+          />
+        )}
         {recordings.total > 0 && (
           <section
             className="detail-section"
@@ -148,15 +157,6 @@ export default function ArtistPage({
               label="Album pages"
             />
           </section>
-        )}
-        {!artist.member_only && (
-          <ArtistCreditIdentity
-            account={user.id}
-            artist={artist}
-            searchRecording={
-              tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
-            }
-          />
         )}
         <ArtistAppearances
           account={user.id}

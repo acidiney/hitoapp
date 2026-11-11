@@ -390,3 +390,20 @@
   font-size: 14px;
   color: var(--muted);
 }
+
+.identity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  margin: 0;
+  padding: 0 4px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.identity-row .text-action {
+  min-height: 44px;
+  padding: 0 8px;
+}

@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 import { useEffect, useRef, useState } from "react";
 import type { Schema } from "../../../shared/schema";
 import { useArtistCreditIdentity } from "../hooks/useArtistCreditIdentity";
@@ -51,6 +51,17 @@ export default function ArtistCreditIdentity({
   const busy = identity.step === "loading" || identity.step === "applying";
   const read = suggested.suggestions;
   const matched = read !== null && read.chosen.length > 0;
+  const identified =
+    read !== null && read.chosen.length === 1 && read.undecided_tracks === 0
+      ? read.chosen[0].group.id
+      : null;
+  useEffect(() => {
+    if (identified)
+      router.visit(`/artist-groups/${encodeURIComponent(identified)}`, {
+        replace: true,
+      });
+  }, [identified]);
+  const partly = matched && (read?.undecided_tracks ?? 0) > 0;
   const open = () => {
     setChoosing(true);
     identity.find();
@@ -68,7 +79,8 @@ export default function ArtistCreditIdentity({
           return (
             <div key={chosen.group.id}>
               <p aria-live="polite">
-                Artist: {chosen.group.name.value}
+                {partly ? "Also listed as" : "Artist:"}{" "}
+                {chosen.group.name.value}
                 {read.chosen.length > 1 &&
                   ` · ${plural(chosen.tracks, "track", "tracks")}`}{" "}
                 · {provenance(chosen)}{" "}
@@ -83,10 +95,24 @@ export default function ArtistCreditIdentity({
             </div>
           );
         })
-      ) : working ? (
-        <p aria-live="polite">Hito is identifying this artist…</p>
       ) : (
-        read && <p aria-live="polite">Not identified yet</p>
+        <p className="identity-row" aria-live="polite">
+          {working ? (
+            <span>Hito is identifying this artist…</span>
+          ) : (
+            read && <span>Not identified yet</span>
+          )}
+          {(working || read) && <span aria-hidden="true">·</span>}
+          <button
+            ref={opener}
+            id="choose-artist"
+            type="button"
+            className="text-action"
+            onClick={open}
+          >
+            Choose the artist
+          </button>
+        </p>
       )}
       {matched && read && read.undecided_tracks > 0 && (
         <p className="muted">
@@ -94,7 +120,7 @@ export default function ArtistCreditIdentity({
           matched yet.
         </p>
       )}
-      {(!matched || (read?.undecided_tracks ?? 0) > 0) && (
+      {partly && (
         <>
           <p className="muted">
             Say which artist this credit is, and Hito groups its tracks under

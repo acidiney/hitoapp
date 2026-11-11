@@ -150,3 +150,11 @@
 .release-card .album-body {
   padding: 0;
 }
+a.album-artist:hover,
+a.album-artist:focus-visible {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+.album-artist[data-plain] {
+  cursor: default;
+}
