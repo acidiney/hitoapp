@@ -29,9 +29,8 @@ type Proposal = Extract<
   Schema<"PluginDeclarationCheck">,
   { kind: "review_required" }
 >;
-const capabilities = (
-  values: Schema<"PluginInstallation">["manifest"]["capabilities"],
-) => values.map((value) => value.replaceAll("_", " ")).join(", ");
+const upperFirst = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 function news(
   plugin: Schema<"PluginInstallation">,
   proposal: Proposal,
@@ -189,7 +188,7 @@ export default function PluginConnection({
                 {waiting && !review && (
                   <li>
                     <span>
-                      <strong>{news(plugin, waiting)}</strong>
+                      <strong>{upperFirst(news(plugin, waiting))}</strong>
                       <small>
                         New in this version of the plugin. Stays off until you
                         review it.
@@ -284,58 +283,63 @@ export default function PluginConnection({
               </div>
             </div>
           )}
-          <dl className="plugin-facts">
-            <dt>Saved token</dt>
-            <dd>{plugin.credential_set ? "Token saved" : "No token saved"}</dd>
-            <dt>Declared capabilities</dt>
-            <dd>{capabilities(plugin.manifest.capabilities)}</dd>
-            <dt>Source persistence</dt>
-            <dd>
-              <PluginPersistencePolicy
-                policy={plugin.manifest.content_policy}
-              />
-            </dd>
-          </dl>
-          <h4>Connection settings</h4>
-          <form className="plugin-form" onSubmit={submit}>
-            <label>
-              New bearer token
-              <input
-                type="password"
-                autoComplete="off"
-                maxLength={4096}
-                value={token}
-                required
-                disabled={actions.pending || !storageReady}
-                onChange={(event) => {
-                  setToken(event.target.value);
-                  setReview(null);
-                  setStatus("");
-                }}
-              />
-            </label>
-            <div className="plugin-actions">
-              <Button type="submit" disabled={actions.pending || !storageReady}>
-                Save token
-              </Button>
-              {plugin.credential_set && (
-                <Button
-                  type="button"
-                  disabled={actions.pending}
-                  onClick={async () => {
-                    if (await actions.clearCredential(plugin)) {
-                      setToken("");
-                      setReview(null);
-                      setStatus("Saved token cleared.");
-                      focusAfterCommit("check");
-                    }
+          <section className="plugin-detail-card plugin-detail-settings">
+            <h4>Connection details</h4>
+            <dl className="plugin-facts">
+              <dt>Saved token</dt>
+              <dd>
+                {plugin.credential_set ? "Token saved" : "No token saved"}
+              </dd>
+              <dt>Source persistence</dt>
+              <dd>
+                <PluginPersistencePolicy
+                  policy={plugin.manifest.content_policy}
+                />
+              </dd>
+            </dl>
+            <form className="plugin-form" onSubmit={submit}>
+              <label>
+                New bearer token
+                <input
+                  type="password"
+                  autoComplete="off"
+                  maxLength={4096}
+                  value={token}
+                  required
+                  disabled={actions.pending || !storageReady}
+                  onChange={(event) => {
+                    setToken(event.target.value);
+                    setReview(null);
+                    setStatus("");
                   }}
+                />
+              </label>
+              <div className="plugin-actions">
+                <Button
+                  type="submit"
+                  disabled={actions.pending || !storageReady}
                 >
-                  Clear saved token
+                  Save token
                 </Button>
-              )}
-            </div>
-          </form>
+                {plugin.credential_set && (
+                  <Button
+                    type="button"
+                    disabled={actions.pending}
+                    onClick={async () => {
+                      if (await actions.clearCredential(plugin)) {
+                        setToken("");
+                        setReview(null);
+                        setStatus("Saved token cleared.");
+                        focusAfterCommit("check");
+                      }
+                    }}
+                  >
+                    Clear saved token
+                  </Button>
+                )}
+              </div>
+            </form>
+          </section>
         </div>
       )}
       {review && (

@@ -365,9 +365,10 @@ test("a connection says in plain words what it does and keeps the technical decl
   vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
   render(settingsPage("bob", false));
   await screen.findByText("Finds songs and plays them from Fixture provider.");
-  expect(screen.queryByText(/Declared capabilities/)).toBeNull();
+  expect(screen.queryByText("What it does for you")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Manage" }));
-  expect(screen.getByText(/Declared capabilities/)).toBeTruthy();
+  expect(screen.getByText("What it does for you")).toBeTruthy();
+  expect(screen.queryByText(/Declared capabilities/)).toBeNull();
   expect(screen.getByText(/No persistence declaration/)).toBeTruthy();
 });
 
