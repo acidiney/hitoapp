@@ -195,12 +195,11 @@ for (const size of [
     await page.setViewportSize({ width: size.width, height: size.height });
     const recording = await recordingOf(page);
     await mock(page, recording.id, "synced", recording.duration_ms);
-    await page.goto("/library?q=Hz");
-    if (size.name === "desktop")
-      await page
-        .getByRole("button", { name: "List view", exact: true })
-        .click();
-    await page.locator('[aria-label="Play Fixture 440 Hz"]').first().click();
+    await page.goto(`/recordings/${recording.id}`);
+    await page
+      .locator(".track-header")
+      .getByRole("button", { name: "Play", exact: true })
+      .click();
     await page
       .getByRole("button", { name: /Open now playing|Expand player/ })
       .first()
