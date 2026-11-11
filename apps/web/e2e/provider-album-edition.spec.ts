@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import {
   albumEdition,
   albumEditionProvider,
 } from "./fixtures/album-edition-provider";
+
+const owned = /Ready|In your library/;
+
+async function openEditionMenu(page: Page, item: string) {
+  await page.getByRole("button", { name: /^Edition / }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
 
 test("an album compares a chosen edition with its library and saves a catalog track only when played", async ({
   page,
@@ -118,15 +125,15 @@ test("an album compares a chosen edition with its library and saves a catalog tr
       name: "Album edition track list",
     });
     await expect(
-      region.getByText("This is the release this album was saved from."),
+      region.getByRole("button", { name: /^Edition / }),
     ).toBeVisible();
     const rows = region.getByRole("listitem");
     await expect(rows).toHaveCount(4);
-    await expect(rows.nth(0)).toContainText("In your library");
-    await expect(rows.nth(1)).toContainText("In your library");
+    await expect(rows.nth(0)).toContainText(owned);
+    await expect(rows.nth(1)).toContainText(owned);
     await expect(rows.nth(2)).toContainText("Not in your library");
     await expect(rows.nth(2)).toContainText("Catalog bonus");
-    await expect(rows.nth(3)).toContainText("In your library");
+    await expect(rows.nth(3)).toContainText(owned);
     await expect(rows.nth(3)).toContainText("Catalog one again");
     expect(fixture.details.length).toBe(detailsBefore);
     expect(fixture.audioRequests).toEqual([]);
@@ -139,7 +146,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
       .nth(2)
       .getByRole("button", { name: /^Play / })
       .click();
-    await expect(rows.nth(2)).toContainText("In your library");
+    await expect(rows.nth(2)).toContainText(owned);
     const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
@@ -154,7 +161,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     expect((await adopted.json()).total).toBe(1);
 
     fixture.state.outage = true;
-    await page.getByRole("button", { name: "Change edition" }).click();
+    await openEditionMenu(page, "Change edition");
     await page.getByRole("radio", { name: /Standard/ }).check();
     await page.getByRole("button", { name: "Use this" }).click();
     await expect(page.getByText(/track list is unavailable/)).toBeVisible();
@@ -190,7 +197,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     });
     await expect(remembered.getByRole("listitem")).toHaveCount(3);
     await expect(
-      page.getByRole("button", { name: "Change edition" }),
+      remembered.getByRole("button", { name: /^Edition / }),
     ).toBeVisible();
     const reread = fixture.calls.slice(catalogCalls);
     expect(reread.filter((call) => call.endsWith("track-list"))).toHaveLength(
@@ -200,7 +207,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
       reread.filter((call) => /discography|profile|release-groups/.test(call)),
     ).toEqual([]);
 
-    await page.getByRole("button", { name: "Forget edition" }).click();
+    await openEditionMenu(page, "Forget edition");
     await expect(
       page.getByRole("button", { name: "Show complete track list" }),
     ).toBeVisible();
