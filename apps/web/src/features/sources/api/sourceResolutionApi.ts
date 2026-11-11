@@ -72,7 +72,10 @@ export const sourceResolutionApi = {
       count: resolution.sources.length,
       duration_ms: Math.round(performance.now() - started),
     });
-    if (resolution.sources.length > 0) invalidate("sources", recording);
+    if (resolution.sources.length > 0) {
+      invalidate("resolved", recording);
+      invalidate("sources", recording);
+    }
     return resolution;
   },
 };

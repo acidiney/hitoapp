@@ -3,6 +3,7 @@ import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 import { sourceChoiceApi } from "../api/sourceChoiceApi";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
@@ -202,6 +203,14 @@ export function useSourceChoice(
     owner.read = null;
     void load();
   }
+
+  useEffect(
+    () =>
+      onInvalidated("resolved", (id) => {
+        if (id === recording || id === null) invalidateRead();
+      }),
+    [owner, recording],
+  );
 
   useEffect(() => {
     void load();

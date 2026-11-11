@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { sourcesApi } from "../api/sourcesApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -222,6 +223,17 @@ export function useSourceAvailability(
     });
     if (observed) void read(false);
   }, [owner, choiceRevision]);
+
+  useEffect(
+    () =>
+      onInvalidated("resolved", (id) => {
+        if (id !== recording && id !== null) return;
+        if (!owner.requested || owner.read || owner.confirmations.size > 0)
+          return;
+        void read(false);
+      }),
+    [owner, recording],
+  );
 
   useEffect(
     () => () => {
