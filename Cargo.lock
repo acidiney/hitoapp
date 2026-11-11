@@ -2554,6 +2554,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-plugin-lrclib"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "hito-plugin-sdk",
+ "http-body-util",
+ "httpdate",
+ "libc",
+ "rand 0.8.8",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "hito-plugin-premiumize"
 version = "0.1.0-dev"
 dependencies = [
