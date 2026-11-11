@@ -25,3 +25,18 @@ test("the library link can be left out", () => {
   );
   expect(screen.queryByRole("link", { name: "Go to library" })).toBeNull();
 });
+
+test("the empty state shows the three-circle motif for its situation and hides it from assistive technology", () => {
+  const view = render(
+    createElement(EmptyState, {
+      title: "Can't reach your server",
+      text: "Hito is retrying on its own.",
+      libraryLink: false,
+      motif: "unreachable",
+    }),
+  );
+  const motif = view.container.querySelector(".empty-motif");
+  expect(motif?.getAttribute("data-motif")).toBe("unreachable");
+  expect(motif?.getAttribute("aria-hidden")).toBe("true");
+  expect(motif?.children).toHaveLength(3);
+});

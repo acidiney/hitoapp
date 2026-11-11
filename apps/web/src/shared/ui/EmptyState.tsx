@@ -1,21 +1,28 @@
 import type { ReactNode } from "react";
 import { Link } from "@inertiajs/react";
-import { Music2 } from "lucide-react";
+
+export type EmptyMotif = "first-run" | "no-match" | "unreachable";
 
 export default function EmptyState({
   title,
   text,
   libraryLink = true,
+  motif = "first-run",
   children,
 }: {
   title: string;
   text: string;
   libraryLink?: boolean;
+  motif?: EmptyMotif;
   children?: ReactNode;
 }) {
   return (
     <div className="empty">
-      <Music2 size={40} strokeWidth={1.3} />
+      <span className="empty-motif" data-motif={motif} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
       <h2>{title}</h2>
       <p>{text}</p>
       {children}

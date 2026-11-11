@@ -1,32 +1,8 @@
-.playlist-import {
-  display: grid;
-  gap: 8px;
-}
-.playlist-import p {
-  max-width: 65ch;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.playlist-import-empty {
-  display: grid;
-  justify-items: start;
-  gap: 16px;
-}
-.dialog .playlist-import-form {
-  grid-template-columns: minmax(0, 1fr);
-}
-.dialog .playlist-import-form .button {
-  justify-self: start;
-}
 .page-heading-actions,
 .empty-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-.empty-actions {
-  justify-content: center;
 }
 @media (max-width: 767px) {
   .page-heading:has(> .page-heading-actions) {
@@ -39,46 +15,6 @@
   margin: 0;
   font-size: 13px;
   color: var(--muted);
-}
-.playlist-import-form {
-  display: grid;
-  grid-template-columns: minmax(140px, 0.8fr) minmax(0, 1.8fr) auto;
-  align-items: end;
-  gap: 16px;
-  margin-top: 16px;
-}
-.playlist-import-form label {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-.playlist-import-form :is(input, select) {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-}
-.playlist-import-form .button {
-  min-height: 44px;
-}
-.playlist-import-form [role="alert"] {
-  grid-column: 1 / -1;
-}
-.playlist-import-recovery {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-}
-@media (max-width: 760px) {
-  .playlist-import-form {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .playlist-import-form .button {
-    justify-self: start;
-  }
 }
 .playlist-list {
   display: grid;

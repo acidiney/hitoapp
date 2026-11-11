@@ -9,8 +9,11 @@
 @import "./styles/collections.css";
 @import "./styles/player.css";
 @import "./styles/immersive.css";
+@import "./styles/queue.css";
 @import "./styles/settings.css";
 @import "./styles/plugins.css";
+@import "./styles/states.css";
+@import "./styles/import.css";
 @import "./styles/discovery.css";
 @import "./styles/discover.css";
 @import "./styles/home.css";
@@ -25,3 +28,5 @@
 @import "./styles/track-page.css";
 @import "./styles/media.css";
 @import "./styles/library-pages.css";
+@import "./styles/artist.css";
+@import "./styles/album.css";

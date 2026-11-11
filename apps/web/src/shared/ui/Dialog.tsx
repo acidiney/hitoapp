@@ -8,6 +8,9 @@ import {
 
 export default function Dialog({
   title,
+  eyebrow,
+  lead,
+  className = "",
   description,
   wide = false,
   busy = false,
@@ -16,6 +19,9 @@ export default function Dialog({
   children,
 }: {
   title: string;
+  eyebrow?: string;
+  lead?: ReactNode;
+  className?: string;
   description?: string;
   wide?: boolean;
   busy?: boolean;
@@ -50,7 +56,7 @@ export default function Dialog({
   return (
     <dialog
       ref={dialog}
-      className={wide ? "dialog dialog-wide" : "dialog"}
+      className={`${wide ? "dialog dialog-wide" : "dialog"} ${className}`.trim()}
       aria-labelledby={id}
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
@@ -58,7 +64,17 @@ export default function Dialog({
         if (!busy) close.current();
       }}
     >
-      <h2 id={id}>{title}</h2>
+      {lead || eyebrow ? (
+        <div className="dialog-head">
+          {lead}
+          <div>
+            {eyebrow && <span className="dialog-eyebrow">{eyebrow}</span>}
+            <h2 id={id}>{title}</h2>
+          </div>
+        </div>
+      ) : (
+        <h2 id={id}>{title}</h2>
+      )}
       {description && (
         <p id={descriptionId} className="dialog-description">
           {description}
