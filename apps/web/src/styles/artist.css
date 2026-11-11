@@ -425,7 +425,11 @@
   border-radius: 10px;
   font-size: 14px;
 }
+.identity-row > * {
+  min-width: 0;
+}
 .identity-row .text-action {
+  align-self: center;
   min-height: 44px;
   padding: 0 8px;
 }
