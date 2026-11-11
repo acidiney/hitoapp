@@ -1,10 +1,8 @@
 services:
   bench-library:
-    profiles: [bench]
-    build:
-      context: .
-      dockerfile: docker/server.Dockerfile
-      target: rust-tools
+    profiles: [tools]
+    image: ${BENCH_NATIVE_TOOLS_IMAGE:-hito-benchmark-tools-unqualified:local}
+    pull_policy: never
     working_dir: /workspace
     volumes:
       - .:/workspace:ro
@@ -13,9 +11,12 @@ services:
       BENCH_TRACKS: ${BENCH_TRACKS:-10000}
     command: sh scripts/bench/generate-library.sh
   e2e-server:
-    build:
-      args:
-        HITO_SERVER_CACHE_ID: ${BENCH_SERVER_CACHE_ID:-hito-arch-latency-release}
+    container_name: ${COMPOSE_PROJECT_NAME}-benchmark-server-${BENCH_RUN_ID}
+    labels:
+      org.hito.benchmark.run: ${BENCH_RUN_ID:?Run scripts/bench-playback.sh}
+    image: ${BENCH_SERVER_IMAGE:-hito-benchmark-server-unqualified:local}
+    pull_policy: never
+    build: !reset null
     environment:
       HITO_STORAGE_MANIFEST: /music/storage.json
       RUST_LOG: info
@@ -23,27 +24,81 @@ services:
       - library:/music:ro
     tmpfs:
       - /data:uid=10001,gid=10001,mode=0700
+  node:
+    volumes:
+      - type: bind
+        source: ${BENCH_RESULTS_ABSOLUTE:?Run scripts/bench-playback.sh}
+        target: /benchmark-results
   browser:
     shm_size: 1gb
     volumes:
       - library:/music:ro
+      - type: bind
+        source: ${BENCH_RESULTS_ABSOLUTE:?Run scripts/bench-playback.sh}
+        target: /benchmark-results
     environment:
       BENCH_TRACKS: ${BENCH_TRACKS:-10000}
       BENCH_SAMPLES: ${BENCH_SAMPLES:-100}
+      BENCH_WARMUP: ${BENCH_WARMUP:-5}
       BENCH_RTT_MS: ${BENCH_RTT_MS:-40}
-      BENCH_OUT: /workspace/test-results/latency
+      BENCH_OUT: /benchmark-results
     command: npx playwright test -c playwright.latency.config.ts
   desktop:
+    profiles: !override [tools]
+    image: ${BENCH_NATIVE_TOOLS_IMAGE:-hito-benchmark-tools-unqualified:local}
+    pull_policy: never
+    build: !reset null
+    labels:
+      org.hito.benchmark.run: ${BENCH_RUN_ID:?Run scripts/bench-playback.sh}
     volumes:
+      - .:/workspace:ro
       - library:/music:ro
+      - type: bind
+        source: ${BENCH_RESULTS_ABSOLUTE:?Run scripts/bench-playback.sh}
+        target: /benchmark-results
+      - type: bind
+        source: ${BENCH_NATIVE_STAGING:-${BENCH_RESULTS_ABSOLUTE}}
+        target: /benchmark-native-staging
     environment:
+      CARGO_TARGET_DIR: /build/${BENCH_TARGET_NAMESPACE:?Run scripts/bench-playback.sh}
+      CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_RELEASE_DEBUG: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
       BENCH_TRACKS: ${BENCH_TRACKS:-10000}
       BENCH_SAMPLES: ${BENCH_SAMPLES:-100}
+      BENCH_WARMUP: ${BENCH_WARMUP:-5}
       BENCH_RTT_MS: ${BENCH_RTT_MS:-40}
-      BENCH_OUT: /workspace/test-results/latency
+      BENCH_OUT: /benchmark-results
+  bench-server-proof:
+    profiles: [tools]
+    image: ${BENCH_SERVER_IMAGE:-hito-benchmark-server-unqualified:local}
+    pull_policy: never
+    network_mode: none
+    entrypoint: [sha256sum, /usr/local/bin/hito-server]
+  bench-guard-probe:
+    profiles: [tools]
+    image: ${BENCH_NATIVE_TOOLS_IMAGE:-hito-benchmark-tools-unqualified:local}
+    pull_policy: never
+    network_mode: none
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:ro
+      - guard-target:/selected-target:ro
+    environment:
+      BENCH_TARGET_NAMESPACE: ${BENCH_TARGET_NAMESPACE:?Run scripts/bench-playback.sh}
+    entrypoint: [node, scripts/bench/resource-guard.mjs, probe]
+networks:
+  default:
+    labels:
+      org.hito.benchmark.run: ${BENCH_RUN_ID:?Run scripts/bench-playback.sh}
 volumes:
+  guard-target:
+    external: true
+    name: ${BENCH_GUARD_VOLUME:-hito-arch_rust-target}
   library:
-    name: ${BENCH_LIBRARY_VOLUME:-hito-arch-latency_library}
+    name: ${BENCH_LIBRARY_VOLUME:-${COMPOSE_PROJECT_NAME}_library}
   cargo-registry:
     external: true
     name: hito-arch_cargo-registry
@@ -51,7 +106,8 @@ volumes:
     external: true
     name: hito-arch_cargo-git
   rust-target:
-    name: hito-arch-latency_rust-target
+    external: true
+    name: hito-arch_rust-target
   node-modules:
     external: true
     name: hito-arch_node-modules
