@@ -149,13 +149,13 @@ export async function connectFixtures(page: Page, baseURL: string) {
   const libraries: Schema<"Library">[] = await (
     await page.request.get("/api/v1/libraries")
   ).json();
-  expect(libraries).toHaveLength(1);
+  expect(libraries.some((library) => !library.personal)).toBe(true);
   for (const [directory, name] of [
     ["fixture-music", "Music"],
     ["fixture-archive", "Archive"],
   ]) {
     const response = await page.request.post(
-      `/api/v1/libraries/${libraries[0].id}/folders`,
+      `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/folders`,
       {
         headers: { "x-hito-request": "1", origin: new URL(baseURL).origin },
         data: { directory: { directory_id: directory, components: [] }, name },

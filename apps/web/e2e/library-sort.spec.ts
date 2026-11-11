@@ -20,7 +20,7 @@ test("Albums and Library tracks sort from a listbox, keep the choice in the addr
     ["fixture-archive", "Archive"],
   ]) {
     const connected = await page.request.post(
-      `/api/v1/libraries/${libraries[0].id}/folders`,
+      `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/folders`,
       {
         headers: headers(baseURL!),
         data: { directory: { directory_id: id, components: [] }, name },

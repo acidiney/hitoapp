@@ -38,7 +38,7 @@ test("a member sets a display name that the menu, profile and the administrator'
   expect(
     (
       await page.request.put(
-        `/api/v1/libraries/${libraries[0].id}/members/${member.id}`,
+        `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/members/${member.id}`,
         { headers: headers(baseURL!) },
       )
     ).ok(),

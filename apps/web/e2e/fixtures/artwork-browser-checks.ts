@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { settled } from "./settled";
 import {
   expect,
   type Locator,
@@ -160,6 +161,7 @@ export async function layouts(
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
       await expect(control).toBeVisible();
+      await settled(page);
       const bounds = await control.boundingBox();
       const dock = await page
         .getByRole("contentinfo", { name: "Audio player" })

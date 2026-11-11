@@ -1,4 +1,5 @@
 import { openAllManage } from "./fixtures/plugin-ui";
+import { settled } from "./fixtures/settled";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
@@ -48,6 +49,7 @@ async function layouts(
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
       await expect(control).toBeVisible();
+      await settled(page);
       const box = await control.boundingBox();
       const dock = await page
         .getByRole("contentinfo", { name: "Audio player" })

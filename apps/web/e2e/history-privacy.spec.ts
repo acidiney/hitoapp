@@ -28,7 +28,7 @@ async function prepareListener(page: Page, baseURL: string) {
     ["fixture-archive", "Archive"],
   ]) {
     const connected = await page.request.post(
-      `/api/v1/libraries/${libraries[0].id}/folders`,
+      `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/folders`,
       {
         headers: headers(baseURL),
         data: { directory: { directory_id: id, components: [] }, name },
@@ -51,7 +51,7 @@ async function prepareListener(page: Page, baseURL: string) {
   expect(created.status()).toBe(201);
   const user: Schema<"User"> = await created.json();
   const granted = await page.request.put(
-    `/api/v1/libraries/${libraries[0].id}/members/${user.id}`,
+    `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/members/${user.id}`,
     { headers: headers(baseURL) },
   );
   expect(granted.ok()).toBe(true);
