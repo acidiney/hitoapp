@@ -437,21 +437,23 @@
   border-bottom: 0;
 }
 .settings-page :is(form, ol, ul):not(:last-child) > .setting-line:only-child,
-.settings-page :is(ol, ul) > li:not(:last-child) > .setting-line {
+.settings-page :is(ol, ul) > li:not(:last-child) > .setting-line,
+.settings-page :is(ol, ul):not(:last-child) > li:last-child > .setting-line {
   border-bottom: 1px solid var(--line);
+}
+.settings-page .setting-line {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 64px;
 }
 .settings-page .setting-line-main {
   box-sizing: border-box;
   display: flex;
+  flex: 1 0 auto;
   align-items: center;
   gap: 16px;
-  min-height: 63px;
   padding: 10px 0;
-}
-.settings-page .setting-line:last-child .setting-line-main,
-.settings-page :is(ol, ul) > li:last-child > .setting-line .setting-line-main,
-.settings-page form:last-child > .setting-line .setting-line-main {
-  min-height: 64px;
 }
 .settings-page .setting-line-copy,
 .settings-page .switch-copy {
@@ -464,6 +466,7 @@
 .settings-page .setting-line-title,
 .settings-page .switch-label {
   font-weight: 500;
+  line-height: 1.5;
   color: var(--ink);
 }
 .settings-page .setting-line-title :is(h3, h4, h5) {
@@ -751,7 +754,8 @@
 }
 @media (max-width: 767px) {
   .settings-page {
-    margin-top: 36px;
+    margin-top: 42px;
+    line-height: 1.45;
   }
   .settings-head {
     flex-direction: column;
@@ -806,6 +810,7 @@
     border-bottom: 0;
   }
   .settings-nav a {
+    box-sizing: content-box;
     gap: 12px;
     min-height: 60px;
     padding: 0;
@@ -828,6 +833,7 @@
   }
   .settings-nav-hint {
     display: block;
+    font-weight: 400;
     font-size: 14px;
     color: var(--muted);
   }
@@ -867,11 +873,8 @@
     border-radius: 50%;
     color: var(--ink);
   }
-  .settings-page .setting-line-main {
-    flex-wrap: wrap;
-  }
-  .settings-page .setting-line-copy {
-    flex-basis: 140px;
+  .settings-page .settings-card-hint {
+    display: none;
   }
 }
 .settings-card[data-highlight] {
