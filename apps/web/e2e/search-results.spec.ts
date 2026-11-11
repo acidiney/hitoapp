@@ -27,8 +27,11 @@ test("Search leads with a top result, lists tracks with their availability and h
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);
@@ -102,8 +105,11 @@ async function openSearchWithService(
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);
@@ -185,7 +191,7 @@ test("a service result can be queued from its row menu", async ({
 }) => {
   await openSearchWithService(page, baseURL!, false);
   const recordings = (
-    await (await page.request.get("/api/v1/recordings?limit=1")).json()
+    await (await page.request.get("/api/v1/recordings?q=Hz&limit=1")).json()
   ).items as { id: string; title: string }[];
   await page.route("**/api/v1/plugins/conn1/search", (route) =>
     route.fulfill({

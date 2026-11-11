@@ -13,6 +13,7 @@ const LEAVE_MS = 180;
 function leavingCopy(element: HTMLDialogElement) {
   if (
     !element.open ||
+    element.querySelector("input, select, textarea") !== null ||
     typeof window.matchMedia !== "function" ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   )

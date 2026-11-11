@@ -39,8 +39,11 @@ async function prepareListener(page: Page, baseURL: string) {
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);

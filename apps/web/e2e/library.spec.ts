@@ -141,7 +141,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   ).toBe(false);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openLibrarySection(page, "Artists");
-  await expect(page.locator(".artist-card")).toHaveCount(1);
+  await expect(
+    page.locator(".artist-card").filter({ hasText: "Hito test fixtures" }),
+  ).toHaveCount(1);
   await expect
     .poll(() =>
       page

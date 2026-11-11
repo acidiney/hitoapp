@@ -29,8 +29,11 @@ test("Discover offers the library's genres, opens one and plays it, and keeps th
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);
