@@ -1,5 +1,9 @@
 #![cfg(all(feature = "device", target_os = "linux"))]
 
+#[path = "output_recovery/client_starvation.rs"]
+mod client_starvation;
+
+use client_starvation::ClientStarvation;
 use hito_audio::{Player, test_support};
 use std::{
     io::Write,
@@ -313,6 +317,25 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         .with_writer(move || writer.clone())
         .finish();
     let _subscriber = tracing::subscriber::set_default(subscriber);
+    let cancelled = ClientStarvation::ready(false);
+    let cancelled_ids = cancelled.ids();
+    let outcome = cancelled.cancel();
+    assert!(outcome.controller.success() && outcome.watchdog.success());
+    assert!(
+        cancelled_ids
+            .iter()
+            .all(|pid| !std::path::Path::new(&format!("/proc/{pid}")).exists())
+    );
+    let killed = ClientStarvation::ready(true);
+    let killed_ids = killed.ids();
+    let outcome = killed.starve();
+    assert!(!outcome.controller.success() && outcome.watchdog.success());
+    assert!(
+        killed_ids
+            .iter()
+            .all(|pid| !std::path::Path::new(&format!("/proc/{pid}")).exists())
+    );
+    eprintln!("client_controller_lifecycle cancelled_joined=2 killed_controller_resumed=true");
     let mut first = Player::open(test_support::wave(RATE, 2, 3 * RATE, |_, _| 1000)).unwrap();
     let mut second = Player::open(test_support::wave(RATE, 2, 3 * RATE, |_, _| 2000)).unwrap();
     first.resume().unwrap();
@@ -322,17 +345,37 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
             && second.snapshot().position >= Duration::from_millis(200)
     });
     let positions = [first.snapshot().position, second.snapshot().position];
-    let backend = PausedBackend::stop();
-    std::thread::sleep(Duration::from_millis(200));
-    backend.resume();
-    wait(|| {
-        first.snapshot().error.is_some()
-            || second.snapshot().error.is_some()
-            || (first.snapshot().xruns > 0
-                && second.snapshot().xruns > 0
-                && first.snapshot().position > positions[0] + Duration::from_millis(100)
-                && second.snapshot().position > positions[1] + Duration::from_millis(100))
-    });
+    let outcome = ClientStarvation::ready(false).starve();
+    assert!(outcome.controller.success() && outcome.watchdog.success());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let a = first.snapshot();
+        let b = second.snapshot();
+        if a.error.is_some()
+            || b.error.is_some()
+            || (a.xruns > 0
+                && b.xruns > 0
+                && a.position > positions[0] + Duration::from_millis(100)
+                && b.position > positions[1] + Duration::from_millis(100))
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "concurrent recovery timeout: first_position_ns={} first_xruns={} first_underruns={} first_ended={} first_error={} second_position_ns={} second_xruns={} second_underruns={} second_ended={} second_error={}",
+            a.position.as_nanos(),
+            a.xruns,
+            a.underruns,
+            a.ended,
+            a.error.is_some(),
+            b.position.as_nanos(),
+            b.xruns,
+            b.underruns,
+            b.ended,
+            b.error.is_some()
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
     assert!(first.snapshot().error.is_none());
     assert!(second.snapshot().error.is_none());
     first.close().unwrap();
