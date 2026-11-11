@@ -23,6 +23,8 @@ type Props = {
   automatic: boolean;
   remembered: boolean;
   remember: (edition: Schema<"SavedAlbumEdition"> | null) => void;
+  forget?: () => void;
+  busy?: boolean;
   different: () => void;
   dismiss: () => void;
 };
@@ -34,6 +36,8 @@ export default function AlbumEditionStep({
   automatic,
   remembered,
   remember,
+  forget,
+  busy,
   different,
   dismiss,
 }: Props) {
@@ -87,21 +91,6 @@ export default function AlbumEditionStep({
   if (workflow.chosen && !changing)
     return (
       <div className="match-lined-up">
-        <p className="match-lined-up-line">
-          <span>
-            Lined up with {group.title}
-            {year ? ` (${year})` : ""}
-          </span>
-          <button
-            type="button"
-            className="text-action"
-            aria-label="Change edition"
-            disabled={comparison.pending}
-            onClick={() => setChanging(true)}
-          >
-            Change
-          </button>
-        </p>
         {remembered && (
           <p role="status" className="sr-only">
             This edition is remembered.
@@ -114,6 +103,11 @@ export default function AlbumEditionStep({
           pending={comparison.pending}
           error={comparison.error}
           retry={comparison.retry}
+          edition={{
+            change: () => setChanging(true),
+            forget,
+            busy: comparison.pending || busy === true,
+          }}
         />
       </div>
     );

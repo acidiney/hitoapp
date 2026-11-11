@@ -6,9 +6,11 @@ import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
 export default function AlbumPlayActions({
   tracks,
   listing,
+  shuffle = true,
 }: {
   tracks: Track[];
   listing?: TrackListing;
+  shuffle?: boolean;
 }) {
   const play = usePlayTracks(tracks, listing);
   const empty = tracks.length === 0;
@@ -25,15 +27,17 @@ export default function AlbumPlayActions({
         <Play size={16} fill="currentColor" aria-hidden="true" />
         Play
       </button>
-      <button
-        type="button"
-        className="pill-icon"
-        aria-label="Shuffle album"
-        disabled={empty}
-        onClick={() => void play.shuffleAll()}
-      >
-        <Shuffle size={18} aria-hidden="true" />
-      </button>
+      {shuffle && (
+        <button
+          type="button"
+          className="pill-icon"
+          aria-label="Shuffle album"
+          disabled={empty}
+          onClick={() => void play.shuffleAll()}
+        >
+          <Shuffle size={18} aria-hidden="true" />
+        </button>
+      )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { editionChip, editionMenuItem } from "../fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -123,8 +124,8 @@ test("a remembered edition opens with one action and no discography or edition b
   expect(within(region).getByText("Catalog only song")).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([savedRead]);
   expect(fetch.mock.calls[0][1]!.method).toBe("POST");
-  expect(screen.getByRole("button", { name: "Change edition" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
 });
 
 test("choosing an edition remembers it with the displayed revision and the next command uses the new one", async () => {
@@ -143,9 +144,9 @@ test("choosing an edition remembers it with the displayed revision and the next 
   });
   expect(calls(fetch, choose)[0][1]!.method).toBe("PUT");
   expect(await screen.findByText("This edition is remembered.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
+  fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
   expect(
     JSON.parse(calls(fetch, clear)[0][1]!.body as string).expected_revision,
@@ -159,7 +160,7 @@ test("forgetting the edition clears it and returns to an explicit choice", async
     screen.getByRole("button", { name: "Show complete track list" }),
   );
   await screen.findByRole("region", { name: "Album edition track list" });
-  fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
+  fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
   expect(JSON.parse(calls(fetch, clear)[0][1]!.body as string)).toEqual({
     request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
@@ -194,7 +195,7 @@ test("changing the edition opens the browser while the remembered one stays unti
     screen.getByRole("button", { name: "Show complete track list" }),
   );
   await screen.findByRole("region", { name: "Album edition track list" });
-  fireEvent.click(screen.getByRole("button", { name: "Change edition" }));
+  fireEvent.click(editionMenuItem("Change edition"));
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",
   });

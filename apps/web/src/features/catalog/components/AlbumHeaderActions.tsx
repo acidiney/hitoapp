@@ -9,6 +9,7 @@ import {
 import ArtworkRetryMenu, {
   useArtworkRetryItem,
 } from "../../artwork/components/ArtworkRetryMenu";
+import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
 import AlbumPlayActions from "./AlbumPlayActions";
 
 export default function AlbumHeaderActions({
@@ -23,13 +24,19 @@ export default function AlbumHeaderActions({
   const phone = useMediaQuery(PHONE_QUERY);
   const detailsHref = `/albums/${encodeURIComponent(release)}/details`;
   const retry = useArtworkRetryItem({ release });
+  const play = usePlayTracks(tracks, listing);
   const items: ActionMenuItem[] = [
+    {
+      label: "Shuffle album",
+      disabled: tracks.length === 0,
+      onSelect: () => void play.shuffleAll(),
+    },
     { label: "Edit album details", onSelect: () => router.visit(detailsHref) },
     ...(retry ? [retry] : []),
   ];
   return (
     <>
-      <AlbumPlayActions tracks={tracks} listing={listing} />
+      <AlbumPlayActions tracks={tracks} listing={listing} shuffle={!phone} />
       {phone ? (
         <ActionMenu
           label="More actions"

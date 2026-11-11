@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { editionChip, editionMenuItem } from "../fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   fireEvent,
@@ -115,7 +116,7 @@ test("an album with a tagged release id opens on that exact edition without brow
   expect(
     screen.getByText(/edition named by the release id in your file tags/),
   ).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Change edition" })).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull();
 });
 

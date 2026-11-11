@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { AlbumMergeContext } from "./AlbumMergeContext";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import AlbumReleaseMatch from "./AlbumReleaseMatch";
 
@@ -26,6 +27,7 @@ export default function AlbumCompleteTrackList({
   anchor,
   saved,
 }: Props) {
+  const merge = useContext(AlbumMergeContext);
   const edition = useAlbumEditionChoice(account, release, saved);
   const [view, setView] = useState<View>("closed");
   const [tagged, setTagged] = useState<Schema<"SavedAlbumEdition"> | null>(
@@ -103,7 +105,9 @@ export default function AlbumCompleteTrackList({
       )}
       {view === "tagged" && tagged && (
         <>
-          <p>This is the edition named by the release id in your file tags.</p>
+          <p className="sr-only">
+            This is the edition named by the release id in your file tags.
+          </p>
           <SavedEdition
             key={`${tagged.release_group_id}/${tagged.edition_id}`}
             account={account}
@@ -128,6 +132,7 @@ export default function AlbumCompleteTrackList({
           canChange={browseAnchor !== null}
           stale={stale}
           change={() => setView("browse")}
+          forget={() => void forget()}
         />
       )}
       {view === "browse" && browseAnchor && (
@@ -137,13 +142,15 @@ export default function AlbumCompleteTrackList({
           album={album}
           anchor={browseAnchor}
           dismiss={() => setView("closed")}
+          forget={linked ? () => void forget() : undefined}
+          busy={edition.pending}
           remembered={edition.remembered !== null}
           remember={(chosen) =>
             chosen ? void edition.choose(chosen) : edition.reading()
           }
         />
       )}
-      {linked && (
+      {linked && !merge.merged && (
         <button
           type="button"
           className="text-action"
@@ -165,6 +172,7 @@ function SavedEdition({
   canChange,
   stale,
   change,
+  forget,
   read: reader,
 }: {
   account: string;
@@ -174,37 +182,25 @@ function SavedEdition({
   canChange: boolean;
   stale: () => void;
   change: () => void;
+  forget?: () => void;
   read?: (
     signal: AbortSignal,
   ) => Promise<Schema<"AlbumEditionTrackListAvailability">>;
 }) {
   const read = useSavedAlbumEditionRead(account, release, stale, reader);
   return (
-    <>
-      {read.comparison && (
-        <p className="match-lined-up-line">
-          <span>Lined up with {read.comparison.edition.title}</span>
-          {canChange && (
-            <button
-              type="button"
-              className="text-action"
-              aria-label="Change edition"
-              disabled={pending}
-              onClick={change}
-            >
-              Change
-            </button>
-          )}
-        </p>
-      )}
-      <AlbumEditionTrackList
-        account={account}
-        source={{ release, recording }}
-        comparison={read.comparison}
-        pending={read.pending}
-        error={read.error}
-        retry={read.retry}
-      />
-    </>
+    <AlbumEditionTrackList
+      account={account}
+      source={{ release, recording }}
+      comparison={read.comparison}
+      pending={read.pending}
+      error={read.error}
+      retry={read.retry}
+      edition={{
+        change: canChange ? change : undefined,
+        forget,
+        busy: pending,
+      }}
+    />
   );
 }

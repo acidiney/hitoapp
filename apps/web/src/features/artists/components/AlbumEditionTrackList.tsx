@@ -1,12 +1,17 @@
 import type { Schema } from "../../../shared/schema";
+import { useState } from "react";
 import { time } from "../../../shared/format";
 
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
 import Button from "../../../shared/ui/Button";
-import EditionTrackRow from "./EditionTrackRow";
+import EditionTrackRow, { type EditionRowState } from "./EditionTrackRow";
+import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
 import TrackRowActions from "../../playback/components/TrackRowActions";
-import { useAlbumMerge } from "../../catalog/components/AlbumMergeContext";
+import {
+  useAlbumMerge,
+  useAlbumProgress,
+} from "../../catalog/components/AlbumMergeContext";
 import { creditText } from "../model/catalogAlbumRows";
 
 type Comparison = Extract<
@@ -17,6 +22,12 @@ type Occurrence = Comparison["edition"]["media"][number]["tracks"][number];
 
 const kinds = { audio: "Audio", pregap: "Pregap", data: "Data" };
 
+export type EditionControls = {
+  change?: () => void;
+  forget?: () => void;
+  busy: boolean;
+};
+
 export type AudioSource = { release: string; recording: string };
 
 export default function AlbumEditionTrackList({
@@ -26,6 +37,7 @@ export default function AlbumEditionTrackList({
   pending,
   error,
   retry,
+  edition,
 }: {
   account: string;
   source: AudioSource;
@@ -33,9 +45,11 @@ export default function AlbumEditionTrackList({
   pending: boolean;
   error: string;
   retry: () => Promise<void>;
+  edition?: EditionControls;
 }) {
   const player = usePlayer();
   const merge = useAlbumMerge(comparison !== null);
+  const [filter, setFilter] = useState<EditionFilter>("all");
   const catalog = useCatalogTrackPlay(
     account,
     comparison?.adoption ?? null,
@@ -62,6 +76,28 @@ export default function AlbumEditionTrackList({
     },
   });
 
+  function libraryFor(track: Occurrence) {
+    return (
+      linked.get(track.id) ??
+      (track.recording_id
+        ? catalog.saved.get(track.recording_id)
+        : undefined) ??
+      catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id))
+    );
+  }
+
+  const audio =
+    comparison?.edition.media.flatMap((medium) =>
+      medium.tracks.filter((track) => track.kind === "audio"),
+    ) ?? [];
+  const owned = audio.filter((track) => libraryFor(track)).length;
+  const absent = comparison?.library_only.length ?? 0;
+  useAlbumProgress(
+    comparison === null
+      ? null
+      : { owned, total: audio.length, elsewhere: absent },
+  );
+
   function libraryActions(recording: Schema<"Recording">) {
     if (!merge.mutate) return undefined;
     return (
@@ -78,20 +114,25 @@ export default function AlbumEditionTrackList({
     );
   }
 
+  function ownedState(recording: Schema<"Recording">): {
+    state: EditionRowState;
+    detail?: string;
+  } {
+    if (recording.available) return { state: "ready", detail: "Local" };
+    if (recording.plays_from_services)
+      return { state: "ready", detail: "from your services" };
+    return { state: "library" };
+  }
+
   function row(track: Occurrence) {
-    const library =
-      linked.get(track.id) ??
-      (track.recording_id
-        ? catalog.saved.get(track.recording_id)
-        : undefined) ??
-      catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id));
+    const library = libraryFor(track);
+    if (filter === "library" && !library) return null;
     const failure = catalog.failed?.id === track.id ? catalog.failed : null;
     const working = catalog.pending === track.id;
-    const credit = creditText(track.artist_credit);
     const common = {
       number: track.number ?? <span title="Track number not provided">–</span>,
       title: track.title,
-      credit,
+      credit: creditText(track.artist_credit),
       time: track.duration_ms == null ? "" : time(track.duration_ms / 1000),
       failure: failure?.message,
     };
@@ -100,11 +141,11 @@ export default function AlbumEditionTrackList({
         <EditionTrackRow
           key={track.id}
           {...common}
-          state="library"
+          {...ownedState(library)}
           actions={libraryActions(library)}
-          detail={library.title === track.title ? undefined : library.title}
           play={{
             label: `Play ${library.title}`,
+            menuLabel: "Play",
             disabled: false,
             onPlay: () => play(library),
           }}
@@ -148,6 +189,7 @@ export default function AlbumEditionTrackList({
           detail={detail}
           play={{
             label: `Play ${track.title}`,
+            menuLabel: "Play",
             disabled: catalog.pending !== null,
             onPlay: () => void catalog.play(track.id, track.recording_id!),
           }}
@@ -163,6 +205,7 @@ export default function AlbumEditionTrackList({
           comparison
             ? {
                 label: `Find audio for ${track.title}`,
+                menuLabel: "Find audio and play",
                 disabled: catalog.pending !== null,
                 onPlay: () => void catalog.findAndPlay(track.id, search(track)),
               }
@@ -171,6 +214,27 @@ export default function AlbumEditionTrackList({
       />
     );
   }
+
+  const menu = [
+    ...(edition?.change
+      ? [
+          {
+            label: "Change edition",
+            disabled: edition.busy,
+            onSelect: edition.change,
+          },
+        ]
+      : []),
+    ...(edition?.forget
+      ? [
+          {
+            label: "Forget edition",
+            disabled: edition.busy,
+            onSelect: edition.forget,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <section
@@ -189,10 +253,15 @@ export default function AlbumEditionTrackList({
       )}
       {comparison && (
         <>
-          {comparison.is_album_release && (
-            <p className="edition-note">
-              This is the release this album was saved from.
-            </p>
+          {edition && (
+            <EditionToolbar
+              name={comparison.edition.title}
+              total={audio.length}
+              owned={owned}
+              filter={filter}
+              onFilter={setFilter}
+              items={menu}
+            />
           )}
           {comparison.edition.media.map((medium) => (
             <section
@@ -217,9 +286,11 @@ export default function AlbumEditionTrackList({
               </ol>
             </section>
           ))}
-          {comparison.library_only.length > 0 && (
+          {filter === "all" && comparison.library_only.length > 0 && (
             <section aria-label="Not in this edition">
-              <h3 className="edition-group-title">Not on this edition</h3>
+              <h3 className="edition-group-title">
+                In your library, not in this edition
+              </h3>
               <ul
                 aria-label="In this album only"
                 className="edition-track-rows"
@@ -229,7 +300,7 @@ export default function AlbumEditionTrackList({
                     key={track.entry_id}
                     number="–"
                     title={track.title}
-                    state="library"
+                    {...ownedState(track)}
                     actions={libraryActions(track)}
                     credit={track.artist}
                     time={
@@ -237,6 +308,7 @@ export default function AlbumEditionTrackList({
                     }
                     play={{
                       label: `Play ${track.title}`,
+                      menuLabel: "Play",
                       disabled: false,
                       onPlay: () => play(track),
                     }}

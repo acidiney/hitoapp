@@ -52,14 +52,14 @@ test("on a phone, edit details and retry artwork live in one More actions menu",
   expect(router.visit).toHaveBeenCalledWith("/albums/album%201/details");
 });
 
-test("on a phone, a working cover leaves only the edit action in the menu", () => {
+test("on a phone, a working cover leaves shuffle and edit in the menu", () => {
   viewport(true);
   artwork.state = { imageFailed: false, phase: "ready", retry: vi.fn() };
   render(actions());
   fireEvent.click(screen.getByRole("button", { name: "More actions" }));
   expect(
     screen.getAllByRole("menuitem").map((item) => item.textContent),
-  ).toEqual(["Edit album details"]);
+  ).toEqual(["Shuffle album", "Edit album details"]);
 });
 
 test("on a wide screen, edit details stays a link in the header", () => {

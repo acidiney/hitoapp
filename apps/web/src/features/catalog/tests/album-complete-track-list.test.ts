@@ -109,7 +109,11 @@ const chooseEdition = async () => {
 function rowWith(region: HTMLElement, text: string) {
   return within(region)
     .getAllByRole("listitem")
-    .find((item) => item.textContent?.includes(text))!;
+    .find(
+      (item) =>
+        item.textContent?.includes(text) ||
+        item.querySelector(`[aria-label="Play ${text}"]`),
+    )!;
 }
 
 test("the complete track list is explicit, ordered, and distinguishes library tracks from catalog-only tracks", async () => {
@@ -132,30 +136,35 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   const rows = (disc: HTMLElement) =>
     within(disc)
       .getAllByRole("listitem")
-      .map((row) => row.textContent ?? "");
+      .map(
+        (row) =>
+          (row.textContent ?? "") +
+          [...row.querySelectorAll("[aria-label]")]
+            .map((node) => node.getAttribute("aria-label"))
+            .join(" "),
+      );
   const first = rows(discs[0]);
   expect(first[0]).toContain("Hidden intro");
   expect(first[0]).toContain("Pregap");
-  expect(first[1]).toContain("In your library");
+  expect(first[1]).toMatch(/Ready|In your library/);
   expect(first[1]).toContain(personalTitle);
   expect(first[1]).toContain("Catalog opening");
   expect(first[2]).toContain("Not in your library");
   expect(first[2]).toContain("Catalog only song");
   const second = rows(discs[1]);
-  expect(second[0]).toContain("In your library");
+  expect(second[0]).toMatch(/Ready|In your library/);
   expect(second[0]).toContain(personalTitle);
   expect(second[1]).toContain("Unidentified bonus");
   expect(second[1]).toContain("No provider identity for this track");
-  expect(
-    within(region).getByText("This is the release this album was saved from."),
-  ).toBeTruthy();
   expect(
     within(
       within(region).getByRole("list", { name: "In this album only" }),
     ).getAllByRole("listitem"),
   ).toHaveLength(1);
   expect(
-    within(region).getByRole("heading", { name: "Not on this edition" }),
+    within(region).getByRole("heading", {
+      name: "In your library, not in this edition",
+    }),
   ).toBeTruthy();
   expect(within(region).queryByText(/Find audio and play/)).toBeNull();
   await waitFor(() =>
@@ -189,7 +198,7 @@ test("play on a catalog-only track saves it through its provider once and then p
     provider_recording_id: "provider:two",
   });
   expect(player.playSelection).toHaveBeenCalledWith(savedRecording);
-  await waitFor(() => expect(row.textContent).toContain("In your library"));
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
 });
 
 test("a library track plays directly and never calls a provider", async () => {
@@ -351,4 +360,23 @@ test("opening the complete track list never renders the artist's whole discograp
   ).toBeNull();
   expect(screen.queryByRole("heading", { name: "Discography" })).toBeNull();
   expect(screen.queryByText(editionGroup.title)).toBeNull();
+});
+
+test("the edition lives in one chip row with filters and a menu, and the header reports how much is owned", async () => {
+  serve();
+  render(page());
+  const region = await chooseEdition();
+  expect(screen.getByRole("button", { name: /^All \d+$/ })).toBeTruthy();
+  const mine = screen.getByRole("button", { name: /^In my library \d+$/ });
+  fireEvent.click(mine);
+  expect(mine.getAttribute("aria-pressed")).toBe("true");
+  expect(within(region).queryByText("Catalog only song")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^Edition / }));
+  expect(
+    screen.getAllByRole("menuitem").map((item) => item.textContent),
+  ).toEqual(["Change edition"]);
+  expect(screen.queryByText(/^Lined up with/)).toBeNull();
+  expect(
+    screen.getByRole("img", { name: /tracks in your library$/ }),
+  ).toBeTruthy();
 });

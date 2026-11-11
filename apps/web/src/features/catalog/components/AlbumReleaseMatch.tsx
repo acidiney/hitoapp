@@ -14,6 +14,8 @@ type Props = {
   remembered: boolean;
   remember: (edition: Schema<"SavedAlbumEdition"> | null) => void;
   dismiss: () => void;
+  forget?: () => void;
+  busy?: boolean;
 };
 
 export default function AlbumReleaseMatch(props: Props) {
@@ -57,6 +59,8 @@ function ReleaseMatch({
   remembered,
   remember,
   dismiss,
+  forget,
+  busy,
   artist,
 }: Props & {
   artist: NonNullable<ReturnType<typeof useReviewedArtistProfile>["ready"]>;
@@ -93,6 +97,8 @@ function ReleaseMatch({
         automatic={picked === null && suggestion.unique}
         remembered={remembered}
         remember={remember}
+        forget={forget}
+        busy={busy}
         different={() => {
           setPicked(null);
           opens();

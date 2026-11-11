@@ -17,7 +17,30 @@ import { releaseCreditLabel } from "../model/albumCredit";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumHeader from "../components/AlbumHeader";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
-import { AlbumMergeContext } from "../components/AlbumMergeContext";
+import {
+  AlbumMergeContext,
+  type AlbumProgress,
+} from "../components/AlbumMergeContext";
+
+function AlbumProgressLine({ progress }: { progress: AlbumProgress }) {
+  const { owned, total, elsewhere } = progress;
+  const percent = total === 0 ? 0 : Math.round((owned / total) * 100);
+  return (
+    <span className="album-status" data-tone="progress">
+      <span
+        className="album-progress"
+        role="img"
+        aria-label={`${owned} of ${total} tracks in your library`}
+      >
+        <span style={{ width: `${percent}%` }} />
+      </span>
+      <span>
+        {owned} of {total} in your library
+        {elsewhere > 0 ? ` · ${elsewhere} more not in this edition` : ""}
+      </span>
+    </span>
+  );
+}
 
 export default function AlbumPage({
   user,
@@ -27,8 +50,9 @@ export default function AlbumPage({
   const { release, tracks: page } = detail;
   const { mutate } = useMutation(user.id);
   const [merged, setMerged] = useState(false);
+  const [progress, setProgress] = useState<AlbumProgress | null>(null);
   const merge = useMemo(
-    () => ({ playlists, mutate, setMerged, merged }),
+    () => ({ playlists, mutate, setMerged, merged, setProgress }),
     [playlists, mutate, merged],
   );
   const tracks = page.items.map((track) => ({
@@ -83,6 +107,7 @@ export default function AlbumPage({
           ))
         }
         stats={`${release.track_count} ${release.track_count === 1 ? "track" : "tracks"}${release.duration_ms >= 60_000 ? ` · ${duration}` : ""}`}
+        status={progress && <AlbumProgressLine progress={progress} />}
         actions={
           <AlbumHeaderActions
             release={release.id}

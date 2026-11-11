@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { editionChip, editionMenuItem } from "../fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -99,11 +100,8 @@ test("a release that is the only match with a single track list is used without 
   serve();
   render(page(matched));
   open();
-  const lined = await screen.findByText(
-    `Lined up with ${editionGroup.title} (2024)`,
-  );
-  expect(lined).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Change edition" })).toBeTruthy();
+  await screen.findByRole("region", { name: "Album edition track list" });
+  expect(await screen.findByRole("button", { name: /^Edition / })).toBeTruthy();
   await screen.findByRole("region", { name: "Album edition track list" });
   expect(
     screen.queryByRole("list", { name: "Releases to choose from" }),
@@ -195,7 +193,7 @@ test("editions that cannot be loaded leave only the album's tracks and offer Try
   );
   fail = false;
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-  await screen.findByText(`Lined up with ${editionGroup.title} (2024)`);
+  await screen.findByRole("button", { name: /^Edition / });
 });
 
 test("a release with no editions says so and offers no retry", async () => {
