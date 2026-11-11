@@ -380,6 +380,7 @@ fn application(
             "/assets",
             tower_http::services::ServeDir::new(config.web_dir.join("assets")),
         )
+        .merge(crate::web_assets::router())
         .merge(api)
         .fallback(inertia::fallback)
         .layer(axum::extract::DefaultBodyLimit::max(262144))

@@ -47,7 +47,7 @@ async fn home_page_reads_the_listening_summary_only_when_requested() {
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    let full = page(&app, "/home", Some(&token), None).await;
+    let full = page(&app, "/", Some(&token), None).await;
     assert_eq!(full["component"], "HomePage");
     let home = &full["props"]["home"];
     assert_eq!(home["has_music"], true);
@@ -58,12 +58,12 @@ async fn home_page_reads_the_listening_summary_only_when_requested() {
     assert_eq!(full["props"]["artists"]["items"], json!([]));
     assert_eq!(full["props"]["artists"]["limit"], 12);
 
-    let partial = page(&app, "/home", Some(&token), Some(("HomePage", "playlists"))).await;
+    let partial = page(&app, "/", Some(&token), Some(("HomePage", "playlists"))).await;
     assert!(partial["props"].get("home").is_none());
     assert!(partial["props"].get("artists").is_none());
     assert!(partial["props"].get("playlists").is_some());
 
-    let anonymous = page(&app, "/home", None, None).await;
+    let anonymous = page(&app, "/", None, None).await;
     assert_eq!(anonymous["component"], "LoginPage");
 }
 
@@ -100,11 +100,15 @@ async fn search_page_groups_library_results_and_lists_nothing_without_a_query() 
 }
 
 #[tokio::test]
-async fn home_is_its_own_route_and_the_library_routes_are_unchanged() {
+async fn root_and_home_share_home_while_library_keeps_catalog() {
     let (_dir, app) = app().await;
+    let setup = page(&app, "/", None, None).await;
+    assert_eq!(setup["component"], "LoginPage");
+    assert_eq!(setup["props"]["needs_setup"], true);
+    assert_eq!(setup["clearHistory"], true);
     let token = super::support::admin(&app).await;
     for (path, component) in [
-        ("/", "CatalogPage"),
+        ("/", "HomePage"),
         ("/library", "CatalogPage"),
         ("/home", "HomePage"),
         ("/search", "SearchPage"),
@@ -115,6 +119,10 @@ async fn home_is_its_own_route_and_the_library_routes_are_unchanged() {
             component
         );
     }
+    let anonymous = page(&app, "/", None, None).await;
+    assert_eq!(anonymous["component"], "LoginPage");
+    assert_eq!(anonymous["props"]["needs_setup"], false);
+    assert_eq!(anonymous["clearHistory"], true);
 }
 
 #[tokio::test]
@@ -138,7 +146,7 @@ async fn a_locked_session_gets_the_lock_page_for_home_and_search() {
     )
     .await;
     assert!(status.is_success(), "{status}");
-    for path in ["/home", "/search?q=Fixture"] {
+    for path in ["/", "/library", "/home", "/search?q=Fixture"] {
         let locked = page(&app, path, Some(&token), None).await;
         assert_eq!(locked["component"], "LockPage", "{path}");
         assert_eq!(locked["props"]["locked"], true);

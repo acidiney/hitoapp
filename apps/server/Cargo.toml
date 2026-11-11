@@ -6,6 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+cap-fs-ext.workspace = true
+cap-std.workspace = true
 tokio-util.workspace = true
 hito-core = { path = "../../crates/core" }
 hito-playback = { path = "../../crates/playback", features = ["schema"] }
