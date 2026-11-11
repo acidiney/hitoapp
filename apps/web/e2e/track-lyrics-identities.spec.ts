@@ -189,8 +189,8 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   await panel
     .getByRole("list", { name: "Lyric matches" })
     .scrollIntoViewIfNeeded();
-  await trackShot(page, "lyr-02b-candidates");
-  await trackShot(page, "lyr-02b-candidates-phone", "phone-dark");
+  await trackShot(page, "lyr-02b-candidates", "desktop-dark", true);
+  await trackShot(page, "lyr-02b-candidates-phone", "phone-dark", true);
   await panel
     .getByRole("button", { name: /^Matched title/ })
     .first()
