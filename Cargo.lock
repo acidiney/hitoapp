@@ -2767,6 +2767,7 @@ dependencies = [
  "futures-util",
  "hito-core",
  "hito-playback",
+ "hito-plugin-lrclib",
  "hito-plugin-sdk",
  "hito-testkit",
  "http-body-util",

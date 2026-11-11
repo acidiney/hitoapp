@@ -27,6 +27,7 @@ pub mod host_folders;
 pub mod identity;
 pub mod jobs;
 pub mod loopback_return;
+pub mod lyric_identities;
 pub mod lyrics;
 pub mod metadata;
 pub mod player;
