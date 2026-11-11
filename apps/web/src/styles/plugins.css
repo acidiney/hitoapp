@@ -79,6 +79,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  container: plugin-power / inline-size;
 }
 .plugins-page .plugin-power h2 {
   font-size: 18px;
@@ -100,6 +101,14 @@
   min-height: 53px;
   padding-block: 6px;
   border-bottom: 1px solid var(--line);
+}
+.plugin-power li:last-child {
+  border-bottom: 0;
+}
+@container plugin-power (min-width: 1040px) {
+  .plugin-power li:nth-last-child(2):nth-child(odd) {
+    border-bottom: 0;
+  }
 }
 .plugin-power-name {
   flex: none;
