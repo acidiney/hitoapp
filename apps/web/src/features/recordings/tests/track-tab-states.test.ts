@@ -386,7 +386,7 @@ test("a track with nothing playable shows Find audio expanded, no empty source b
     ).value,
   ).toBe(`${page.detail.title.value} ${page.detail.artist.value}`);
   expect(
-    within(find).getByRole("group", { name: "Music service" }),
+    within(find).getByRole("search", { name: "Music service search" }),
   ).toBeTruthy();
   expect(
     within(find).queryByRole("button", { name: "Find a source" }),

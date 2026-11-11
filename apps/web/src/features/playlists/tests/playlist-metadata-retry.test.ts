@@ -1,3 +1,4 @@
+import { entryText } from "../../../test/rows";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -133,7 +134,7 @@ test("a lost album lookup response retries its frozen operation while the provid
   );
   const table = screen.getByRole("table", { name: "Playlist entries" });
   const entries = within(table).getAllByRole("row").slice(1);
-  const originalEntries = entries.map((row) => row.textContent);
+  const originalEntries = entries.map(entryText);
   fireEvent.click(
     within(entries[3]).getByRole("button", { name: "Play Fixture A" }),
   );
@@ -208,7 +209,7 @@ test("a lost album lookup response retries its frozen operation while the provid
     within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.textContent),
+      .map(entryText),
   ).toEqual(originalEntries);
   expect(await player.queuePage(0, 10)).toEqual(originalQueue);
   expect(player.queueSnapshot()).toEqual(selection);

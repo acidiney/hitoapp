@@ -21,13 +21,14 @@ const context = {
   group: { id: "group" },
 } as unknown as ArtistEditionContext;
 const occurrences = ["one", "two", "three"];
+const remembered = new Map<string, never>();
 
 test("an unmatched track is asked once until the user retries it", async () => {
   const audio = vi
     .spyOn(artistEditionApi, "audio")
     .mockResolvedValue({ status: "no_match" } as never);
   const { result } = renderHook(() =>
-    useCatalogPlayback(context, "edition", occurrences, new Map()),
+    useCatalogPlayback(context, "edition", occurrences, remembered),
   );
   await act(async () => {
     await result.current.start(0);

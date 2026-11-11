@@ -1,3 +1,4 @@
+import { entryText } from "../../../test/rows";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -114,7 +115,7 @@ test("an imported copy finds missing albums only on request without changing its
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([downloadPath]);
   const table = screen.getByRole("table", { name: "Playlist entries" });
   const entries = within(table).getAllByRole("row").slice(1);
-  const originalEntries = entries.map((row) => row.textContent);
+  const originalEntries = entries.map(entryText);
   fireEvent.click(
     within(entries[3]).getByRole("button", { name: "Play Fixture A" }),
   );
@@ -181,7 +182,7 @@ test("an imported copy finds missing albums only on request without changing its
     within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.textContent),
+      .map(entryText),
   ).toEqual(originalEntries);
   expect(player).toBe(originalPlayer);
   expect(player.queueSnapshot()).toEqual(originalSelection);

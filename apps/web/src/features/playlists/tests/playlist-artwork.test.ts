@@ -1,3 +1,4 @@
+import { entryText } from "../../../test/rows";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -156,7 +157,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   const entries = within(table)
     .getAllByRole("row")
     .slice(1)
-    .map((row) => row.textContent);
+    .map(entryText);
   await act(async () => {
     fireEvent.click(
       within(table).getAllByRole("button", { name: "Play Fixture A" })[0],
@@ -211,7 +212,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
     within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.textContent),
+      .map(entryText),
   ).toEqual(entries);
 
   props = { ...props, user: { id: "bob", username: "Bob", admin: false } };
