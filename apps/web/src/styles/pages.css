@@ -387,43 +387,9 @@
   border-radius: 10px;
 }
 
-.discography-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 12px 0 16px;
-}
-.discography-controls .segmented {
-  max-width: 100%;
-  overflow-x: auto;
-}
-.discography-controls .segmented button {
-  white-space: nowrap;
-}
 .segmented button[aria-pressed="true"] {
   background: var(--surface);
   font-weight: 700;
-}
-.chip-toggle {
-  margin-left: auto;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 6px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  font-size: 13px;
-  font-weight: 600;
-}
-.chip-toggle[aria-pressed="true"] {
-  border-color: var(--ink);
-}
-section[aria-label="Discography"] > section > ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 22px;
-  padding: 0;
-  list-style: none;
 }
 .release-card {
   display: flex;

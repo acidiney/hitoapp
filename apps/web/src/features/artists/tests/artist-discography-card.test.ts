@@ -106,7 +106,7 @@ test("a release card shows the type and year only and links to the release page"
       .getByRole("heading", { name: "Hometown Glory" })
       .closest("li") as HTMLElement,
   );
-  expect(card.getByText("Single · 2008")).toBeTruthy();
+  expect(card.getByText("2008 · Single")).toBeTruthy();
   expect(card.queryByText(/2008-04-20/)).toBeNull();
   expect(
     card

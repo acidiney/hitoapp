@@ -70,7 +70,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   expect(
     screen.getByRole("heading", { name: group.name.value, level: 1 }),
   ).toBeTruthy();
-  expect(screen.getByText("Chosen artist", { exact: true })).toBeTruthy();
+  expect(screen.getByText("Artist", { exact: true })).toBeTruthy();
   const table = screen.getByRole("table", { name: "Tracks" });
   const rows = within(table).getAllByRole("row").slice(1);
   expect(rows).toHaveLength(2);

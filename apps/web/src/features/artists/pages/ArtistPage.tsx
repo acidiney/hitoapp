@@ -6,10 +6,8 @@ import ArtistAppearances from "../components/ArtistAppearances";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import ArtistPhoto from "../components/ArtistPhoto";
-import CollectionHeader from "../../../shared/ui/CollectionHeader";
-import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
-import { tintFor } from "../../../shared/ui/collectionTint";
-import PlayShuffle from "../../playback/components/PlayShuffle";
+import ArtistHeader from "../components/ArtistHeader";
+import ArtistActions from "../components/ArtistActions";
 import AlbumGrid from "../../catalog/components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -33,10 +31,10 @@ export default function ArtistPage({
   const path = `/artists/${encodeURIComponent(artist.id)}`;
   const listing = artistTracksListing(user.id, artist.id, recordings);
   return (
-    <>
-      <CollectionHeader
-        tint={tintFor(artist.id)}
-        cover={
+    <div className="detail-page">
+      <ArtistHeader
+        variant="credit"
+        photo={
           <ArtistPhoto
             kind="credited-artist"
             artist={artist.id}
@@ -50,112 +48,124 @@ export default function ArtistPage({
             />
           </ArtistPhoto>
         }
-        size="artist"
-        crumbs={
-          <Breadcrumbs
-            crumbs={[
-              { label: "Library", href: "/library" },
-              { label: "Artists", href: "/artists" },
-              { label: artist.name },
-            ]}
-          />
-        }
-        eyebrow={
-          artist.member_only
-            ? "Artist · appears in your library"
-            : "Artist · credit in your library"
-        }
-        title={artist.name}
+        name={artist.name}
         stats={artistCounts(
           artist.recording_count,
           artist.release_count,
           artist.featured_recording_count ?? 0,
+          "credit",
         )}
+        more={
+          artist.member_only
+            ? undefined
+            : {
+                label: "More actions, including Choose the artist",
+                items: [
+                  {
+                    label: "Choose the artist",
+                    onSelect: () =>
+                      document.getElementById("choose-artist")?.focus(),
+                  },
+                ],
+              }
+        }
         actions={
           tracks.length > 0 ? (
-            <PlayShuffle tracks={tracks} listing={listing} />
+            <ArtistActions
+              account={user.id}
+              tracks={tracks}
+              listing={listing}
+            />
           ) : undefined
         }
       />
-      {!artist.member_only && (
-        <ArtistCreditIdentity
+      <div className="detail-body">
+        {recordings.total > 0 && (
+          <section
+            className="detail-section"
+            aria-labelledby="artist-tracks-title"
+          >
+            <div className="detail-section-head">
+              <h2 id="artist-tracks-title">Tracks</h2>
+            </div>
+            {tracks.length ? (
+              <>
+                <TrackToolbar
+                  tracks={tracks}
+                  listing={listing}
+                  withPlay={false}
+                  description="Recording credits in your library"
+                />
+                <TrackTable
+                  rows={tracks.map<TrackTableRow>((track) => ({
+                    kind: "recording",
+                    track,
+                  }))}
+                  listing={listing}
+                  offset={recordings.offset}
+                  playlists={playlists}
+                  mutate={mutate}
+                  artistPage={artist.id}
+                />
+              </>
+            ) : (
+              <EmptyState
+                title="No tracks on this page"
+                text="Return to the previous page to listen to this artist."
+                libraryLink={false}
+              />
+            )}
+            <Pagination
+              page={recordings}
+              query=""
+              path={path}
+              parameter="recording_offset"
+              label="Track pages"
+            />
+          </section>
+        )}
+        {releases.total > 0 && (
+          <section
+            className="detail-section"
+            aria-labelledby="artist-albums-title"
+          >
+            <div className="detail-section-head">
+              <h2 id="artist-albums-title">Albums in your library</h2>
+            </div>
+            {releases.items.length ? (
+              <AlbumGrid releases={releases.items} />
+            ) : (
+              <EmptyState
+                title="No albums on this page"
+                text="Return to the previous page to browse this artist's collection."
+                libraryLink={false}
+              />
+            )}
+            <Pagination
+              page={releases}
+              query=""
+              path={path}
+              label="Album pages"
+            />
+          </section>
+        )}
+        {!artist.member_only && (
+          <ArtistCreditIdentity
+            account={user.id}
+            artist={artist}
+            searchRecording={
+              tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
+            }
+          />
+        )}
+        <ArtistAppearances
           account={user.id}
-          artist={artist}
-          searchRecording={
-            tracks[0]?.id ?? artist.artwork_recording_id ?? undefined
-          }
+          artist={artist.id}
+          appearances={featured_recordings}
+          playlists={playlists}
+          mutate={mutate}
         />
-      )}
-      {releases.total > 0 && (
-        <section aria-labelledby="artist-albums-title">
-          <h2 className="discography-heading" id="artist-albums-title">
-            Albums & appearances
-          </h2>
-          {releases.items.length ? (
-            <AlbumGrid releases={releases.items} />
-          ) : (
-            <EmptyState
-              title="No albums on this page"
-              text="Return to the previous page to browse this artist's collection."
-              libraryLink={false}
-            />
-          )}
-          <Pagination
-            page={releases}
-            query=""
-            path={path}
-            label="Album pages"
-          />
-        </section>
-      )}
-      {recordings.total > 0 && (
-        <section aria-labelledby="artist-tracks-title">
-          <h2 className="discography-heading" id="artist-tracks-title">
-            Tracks
-          </h2>
-          {tracks.length ? (
-            <>
-              <TrackToolbar
-                tracks={tracks}
-                listing={listing}
-                withPlay={false}
-                description="Recording credits in your library"
-              />
-              <TrackTable
-                rows={tracks.map<TrackTableRow>((track) => ({
-                  kind: "recording",
-                  track,
-                }))}
-                listing={listing}
-                offset={recordings.offset}
-                playlists={playlists}
-                mutate={mutate}
-                artistPage={artist.id}
-              />
-            </>
-          ) : (
-            <EmptyState
-              title="No tracks on this page"
-              text="Return to the previous page to listen to this artist."
-              libraryLink={false}
-            />
-          )}
-          <Pagination
-            page={recordings}
-            query=""
-            path={path}
-            parameter="recording_offset"
-            label="Track pages"
-          />
-        </section>
-      )}
-      <ArtistAppearances
-        account={user.id}
-        artist={artist.id}
-        appearances={featured_recordings}
-        playlists={playlists}
-        mutate={mutate}
-      />
-    </>
+      </div>
+    </div>
   );
 }

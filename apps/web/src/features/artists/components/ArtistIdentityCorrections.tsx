@@ -47,7 +47,11 @@ export default function ArtistIdentityCorrections({
   if (!opened)
     return (
       <div className="correction-action">
-        <Button type="button" onClick={() => setOpened(true)}>
+        <Button
+          id="correct-artist"
+          type="button"
+          onClick={() => setOpened(true)}
+        >
           Correct this artist
         </Button>
       </div>
@@ -55,9 +59,7 @@ export default function ArtistIdentityCorrections({
 
   return (
     <section aria-labelledby="group-corrections-title">
-      <h2 className="discography-heading" id="group-corrections-title">
-        Corrections
-      </h2>
+      <h2 id="group-corrections-title">Corrections</h2>
       <p>
         Move tracks that belong to a different artist. Recordings, playlists,
         likes, progress and your edits do not change, and every move can be

@@ -56,8 +56,12 @@ export default function ArtistCreditIdentity({
     identity.find();
   };
   return (
-    <section aria-label="Artist identity for this credit" aria-busy={busy}>
-      <h2 className="discography-heading">Artist identity</h2>
+    <section
+      className="detail-section"
+      aria-label="Artist identity for this credit"
+      aria-busy={busy}
+    >
+      <h2>Artist identity</h2>
       {read && read.chosen.length > 0 ? (
         read.chosen.map((chosen) => {
           const how = chosenEvidenceText(chosen.evidence);
@@ -96,9 +100,15 @@ export default function ArtistCreditIdentity({
             Say which artist this credit is, and Hito groups its tracks under
             that artist.
           </p>
-          <Button ref={opener} type="button" onClick={open}>
+          <button
+            ref={opener}
+            id="choose-artist"
+            type="button"
+            className="text-action"
+            onClick={open}
+          >
             Choose the artist
-          </Button>
+          </button>
         </>
       )}
       {choosing && (

@@ -135,7 +135,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
       within(initialRows[0]).getByRole("heading", { name: discographyTitle }),
     ).toBeTruthy();
     expect(
-      within(initialRows[0]).getByText("Album · Live · 2024", { exact: true }),
+      within(initialRows[0]).getByText("2024 · Live", { exact: true }),
     ).toBeTruthy();
     expect(posts()).toHaveLength(1);
     expect(posts()[0][0]).toBe(discographyPath);
@@ -169,7 +169,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
       expect(
         within(row).getByRole("heading", { name: discographyTitle }),
       ).toBeTruthy();
-    expect(within(rows[0]).getByText(/ · 2024$/)).toBeTruthy();
+    expect(within(rows[0]).getByText(/^2024 · /)).toBeTruthy();
     expect(within(rows[1]).getByText("Release", { exact: true })).toBeTruthy();
     expect(region.getAttribute("aria-busy")).not.toBe("true");
     expect(
