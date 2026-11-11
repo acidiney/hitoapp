@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 native measurement prerequisites
+
+Development source now separates owned benchmark processes, PCM capture, provider protocol, measurement records and playback workflows. An independent fresh-source Docker repeat passes all 27 Rust controls and thirteen report CLI controls with exact names, no failures or ignored cases, strict example Clippy and formatting. All 3,934 source and support inputs remain exact. The original 25 Rust and ten CLI cases remain present.
+
+The controls reject truncated or stale capture observations, late protocol or quiet-window acceptance, invalid report structure and private error output. They retain warmup failures, join child processes/readers and bound protocol output. This is non-audio prerequisite qualification. Checked Player commands, always-closed Core ownership, verified recovery including zero-gap cases, full-runner threshold enforcement and actual p95 measurement remain open. See [measurement scope and remaining work](performance.md#native-repeat-qualification). No running image, VPS, frontend or desktop package changed.
+
 ## 2026-11-11 MusicBrainz enrichment live check
 
 Development source now has an ignored, explicit-opt-in check for artist genres, recording corroboration, recording artist identity and ISRC identity through the production MusicBrainz client. One bounded live run verified 18 artist genres, then failed with HTTP 503 at recording corroboration after 1,089 ms and two requests. The remaining identity stages were not reached. No retry or production change followed, and this does not qualify all enrichment paths or service availability.

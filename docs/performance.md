@@ -34,18 +34,18 @@ flowchart LR
     Resolve --> Open[Open file or provider stream]
     Open --> Decode[Decode and output]
     Decode --> Sink[Null sink]
-    Sink --> Monitor[Monitor reads the first non-zero frame]
+    Sink --> Monitor[Detect audio after a completed monitor read]
   end
 ```
 
 Browser start: the clock starts in the page at the capture-phase `click` event of the real Play button. It stops at the first moment a tight in-page loop sees the player's media clock above zero while the element is not paused, after the `playing` event. The `playing` time is recorded too. The loop avoids the 250 ms granularity of `timeupdate`. This is the media clock, not measured sound: headless browsers have no audio device.
 
-Native start: the clock starts before the `Replace` command is submitted to the player owner, which the desktop UI follows with `Resume`. It stops at the first non-zero frame an independent `parec` process reads from the monitor of a PulseAudio null sink that the player's CPAL/ALSA output feeds. The commands are called in process; the desktop's local HTTP or IPC hop is not included.
+Native start: the clock starts before the `Replace` command is submitted to the player owner, which the desktop UI follows with `Resume`. It stops at the local monotonic timestamp taken after a `parec` monitor read containing a sample above an absolute amplitude of `1e-4`. Reads request up to 5 ms of 48 kHz stereo PCM from the PulseAudio null sink fed by CPAL/ALSA. This detects monitor output, with read buffering and scheduling delay; it does not timestamp the first audible frame or physical presentation. The commands are called in process; the desktop's local HTTP or IPC hop is not included.
 
 Recovery: the fake provider cuts the playing stream (it destroys the socket) and answers further requests for that source with 503. Two numbers are kept for each sample.
 
-- Failure to audible: from the cut to audible output again. This is the number compared with the 3 s target because it is the stricter reading.
-- Audible gap: from the moment the failure is seen (the browser raises a media error, or the native output falls silent) to audible output again. This is what a listener hears as an interruption.
+- Failure to audible: for native playback, from immediately before the socket-cut command is sent to the provider until a completed monitor read detects output again. This request-to-monitor interval is compared with the 3 s target. The provider's socket-cut timestamp has a separate clock and is not subtracted from the local monotonic clock.
+- Audible gap: from the moment the failure is seen (the browser raises a media error, or the native output falls silent) to audible output again. This is a monitor-level interruption estimate; physical presentation is not measured.
 
 The browser stops playing when it sees the error. The native player keeps playing audio it already buffered. The fake provider sends 1.5 s of audio at once and then at real-time speed, so about 1.2 s of buffered audio remains at the cut. That buffer inflates the native failure-to-audible number by a fixed amount, which is why both numbers are reported.
 
@@ -58,10 +58,22 @@ Two alternatives are measured. In the cached alternative the recording already h
 - Browser: Playwright 1.56.1 with headless Chromium 141 for FLAC, MP3 and provider MP3. Chromium from Playwright does not decode AAC, so M4A is measured with Playwright's WebKit. The same browser session stays open for a series; each sample searches the library box for one title and clicks its Play button, so the app is warm and the track is new.
 - Native: the `start_latency` example of `hito-playback`, built in release mode, with its own core instance on the same library. It runs in the desktop tools container under the same null-sink audio harness the native playback tests use.
 - Fake provider: `apps/web/e2e/latency/fake-provider.mjs`, a loopback HTTP service that implements the plugin protocol (manifest, search, detail, sources, ranged audio) for 630 recordings. The audio is one 60 second, 128 kb/s MP3. It delays every response by a settable number of milliseconds. 0 ms and 40 ms are used. 40 ms stands for a regional connection and is a stand-in for the round trip time, not a measured network.
-- Samples: 100 measured samples per series after 5 discarded warm-up samples. Every sample uses a different track or recording, picked by a fixed stride through the library. A failed sample (no audible output within 15 seconds) counts as an infinite latency in the percentiles and is listed.
+- Samples: 100 measured samples per series after 5 warm-up samples excluded from percentiles. Every sample uses a different track or recording, picked by a fixed stride through the library. A failed sample (no audible output within 15 seconds) counts as an infinite latency in the percentiles and is listed.
 - Statistics: nearest-rank percentiles (the value at rank ceil(p × n)).
 
 The provider delay applies to the provider only. Start scenarios apply it for the whole sample. Recovery scenarios apply it from the moment of the cut.
+
+## Native repeat qualification
+
+The results below remain the 6 November run. No new 100-sample native run has been made. A native repeat means nine series with 100 measured attempts each, plus five warmups per series, for 900 measured attempts and 45 warmups.
+
+The benchmark prerequisite work on 11 November has 27 focused Rust controls for owned streams, processes and CSV production, plus thirteen report CLI controls. Quiet-output controls require the full continuous interval in newly observed frames and reject acceptance after the original monotonic deadline. These controls also verify fragmented stereo PCM, recorder EOF/read errors/panic, joined cleanup, bounded provider output, request deadlines and late-ack rejection. Warmup outcomes are retained separately from measured samples. The explicit `--strict-native` report mode requires every measured index 0–99 in all nine series, all 45 warmups, finite successful timings and explicit failure counts. Failed warmups or measured attempts mark reliability failure; the nearest-rank percentile formula is unchanged. Strict-native rendering uses only the validated native snapshot. Rejected structure produces static failure output and safe counts; malformed configuration cannot define output identifiers, and unvalidated browser rows are excluded. Structurally valid data with failed attempts still renders its reliability result. File I/O failures emit static operation codes without original paths or stacks. Browser-only reports keep their existing mode.
+
+An independent fresh-source Docker repeat passes all 27 Rust and thirteen CLI controls with exact test-name sets, no failures and no ignored cases. The original 25 Rust and ten CLI names remain. Strict example Clippy and workspace formatting pass, and all 3,934 source and support inputs remain unchanged. The capture and protocol implementations have separate cohesive test modules. Two review rounds found and resolved stale silence, late acceptance and report privacy failures; their original failing observations remain recorded.
+
+These controls do not qualify playback latency. Public Player command/recovery controls, database cleanup ownership and focused private-audio verification remain pending before a new native p95 run. The provider command budget proof applies only to the pinned, owned benchmark protocol: a fresh stdin pipe, one outstanding command of at most 512 bytes including its newline, and a reply emitted after that line is consumed. Any timeout or protocol error retires the owner before another write. Reply payload validation runs inside this retirement boundary, with original-deadline checks after receipt and after validation. The deadline control proves rejection after validation crosses the original budget; it does not reproduce the precise queued-before-receive scheduler window.
+
+Strict-native mode currently checks data completeness and reliability. Wiring it into the full benchmark runner and enforcing the release p95 thresholds remain open. No new audio, release build or 900-attempt measurement was performed for this prerequisite qualification.
 
 ## Environment of the recorded run
 
