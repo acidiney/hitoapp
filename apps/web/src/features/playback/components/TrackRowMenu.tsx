@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import ActionMenu, { type ActionMenuItem } from "../../../shared/ui/ActionMenu";
@@ -27,7 +28,15 @@ export default function TrackRowMenu({
   onMutationAccepted,
   queueActions = true,
   onNavigate,
+  label,
+  icon,
+  leading = [],
+  triggerClassName = "icon-button",
 }: {
+  label?: string;
+  icon?: ReactNode;
+  leading?: ActionMenuItem[];
+  triggerClassName?: string;
   track: TrackRow;
   playlists: Schema<"Playlist">[];
   playlist?: Schema<"Playlist">;
@@ -72,6 +81,7 @@ export default function TrackRowMenu({
     });
 
   const items: ActionMenuItem[] = [
+    ...leading,
     {
       label: "Track details",
       onSelect: () => visit(trackHref(track.id)),
@@ -122,8 +132,9 @@ export default function TrackRowMenu({
 
   return (
     <ActionMenu
-      label={`Actions for ${track.title}`}
-      triggerClassName="icon-button"
+      label={label ?? `Actions for ${track.title}`}
+      triggerClassName={triggerClassName}
+      icon={icon}
       align="end"
       items={items}
     />

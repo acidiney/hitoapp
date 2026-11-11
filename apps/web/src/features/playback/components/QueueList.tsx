@@ -1,16 +1,10 @@
-import {
-  memo,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type DragEvent,
-} from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { PlaybackOccurrence } from "../model";
 import { usePlayer } from "./PlaybackProvider";
 import QueueRow from "./QueueRow";
+import { insertionIndex, shiftFor } from "../hooks/queueDrag";
+import { useQueueDrag } from "../hooks/useQueueDrag";
 import { QUEUE_ROW, useQueueWindow } from "../hooks/useQueueWindow";
-
-type Drag = { entry: string; index: number };
 
 const QueueList = memo(function QueueList({
   from = 0,
@@ -23,12 +17,11 @@ const QueueList = memo(function QueueList({
   const queue = useQueueWindow(player, from, to);
   const { view, start, end, scrolled } = queue;
   const scroller = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
-  const [dropAt, setDropAt] = useState<number | null>(null);
-  const refocus = useRef<{ entry: string; move: "up" | "down" } | null>(null);
+  const refocus = useRef<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const latest = useRef({ view, queue, player, from, to });
   latest.current = { view, queue, player, from, to };
+  const last = Math.min(to ?? view.total, view.total);
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -39,25 +32,15 @@ const QueueList = memo(function QueueList({
   }, [scrolled, from]);
 
   useLayoutEffect(() => {
-    const target = refocus.current;
+    const entry = refocus.current;
     const list = scroller.current;
-    if (!target || !list) return;
-    const row = list.querySelector(`li[data-entry="${target.entry}"]`);
-    const control =
-      row?.querySelector<HTMLButtonElement>(`[data-move="${target.move}"]`) ??
-      null;
-    const other = row?.querySelector<HTMLButtonElement>(
-      `[data-move="${target.move === "up" ? "down" : "up"}"]`,
-    );
-    const next = control && !control.disabled ? control : other;
-    if (!next) return;
+    if (!entry || !list) return;
+    const grip = [...list.querySelectorAll<HTMLElement>("li")]
+      .find((item) => item.dataset.entry === entry)
+      ?.querySelector<HTMLButtonElement>(".queue-handle");
+    if (!grip) return;
     const active = document.activeElement;
-    const lost =
-      !active ||
-      active === document.body ||
-      (active instanceof HTMLButtonElement && active.disabled);
-    if (active === next) return;
-    if (lost) next.focus();
+    if (!active || active === document.body) grip.focus();
     else refocus.current = null;
   });
 
@@ -76,7 +59,7 @@ const QueueList = memo(function QueueList({
     (entry: string, index: number, step: -1 | 1) => {
       const title =
         latest.current.queue.entryAt(index)?.recording.title ?? "track";
-      refocus.current = { entry, move: step === -1 ? "up" : "down" };
+      refocus.current = entry;
       void place(
         entry,
         step === -1 ? index - 1 : index + 2,
@@ -95,14 +78,20 @@ const QueueList = memo(function QueueList({
     [],
   );
 
-  function row(event: DragEvent<HTMLElement>) {
-    return (event.target as HTMLElement).closest<HTMLElement>("li[data-index]");
-  }
-  function edge(event: DragEvent<HTMLElement>, item: HTMLElement) {
-    const box = item.getBoundingClientRect();
-    const index = Number(item.dataset.index);
-    return event.clientY > box.top + box.height / 2 ? index + 1 : index;
-  }
+  const { drag, begin } = useQueueDrag(
+    scroller,
+    { first: from, last, row: QUEUE_ROW },
+    view.version,
+    useCallback(
+      (entry: string, origin: number, over: number) => {
+        const title =
+          latest.current.queue.entryAt(origin)?.recording.title ?? "track";
+        void place(entry, insertionIndex(origin, over), title, over + 1);
+      },
+      [place],
+    ),
+    (index: number) => queue.entryAt(index)?.id,
+  );
 
   if (!view.total)
     return (
@@ -110,34 +99,31 @@ const QueueList = memo(function QueueList({
         Choose a track to start listening. Your queue stays with this device.
       </p>
     );
-  const last = Math.min(to ?? view.total, view.total);
   if (last <= from && (to !== undefined || view.pending === 0))
     return <p className="queue-empty">Nothing is queued after this track.</p>;
+  const rowFor = (entry: PlaybackOccurrence, index: number) => (
+    <QueueRow
+      key={entry.id}
+      entry={entry}
+      index={index}
+      first={from}
+      total={last}
+      current={entry.id === view.currentEntry}
+      lifted={drag?.phase === "held" && drag.entry.id === entry.id}
+      shift={drag ? shiftFor(index, drag.from, drag.over, QUEUE_ROW) : 0}
+      select={select}
+      remove={remove}
+      move={move}
+      grab={begin}
+    />
+  );
   const items = [];
   for (let index = start; index < end; index++) {
     const entry = queue.entryAt(index);
-    if (!entry) continue;
-    items.push(
-      <QueueRow
-        key={entry.id}
-        entry={entry}
-        index={index}
-        first={from}
-        total={last}
-        current={entry.id === view.currentEntry}
-        marker={
-          dropAt === index
-            ? "before"
-            : dropAt === index + 1 && index === view.total - 1
-              ? "after"
-              : null
-        }
-        select={select}
-        remove={remove}
-        move={move}
-      />,
-    );
+    if (entry) items.push(rowFor(entry, index));
   }
+  if (drag && (drag.from < start || drag.from >= end))
+    items.push(rowFor(drag.entry, drag.from));
   return (
     <>
       {view.pending > 0 && (
@@ -155,6 +141,7 @@ const QueueList = memo(function QueueList({
       )}
       <div
         className="queue-window"
+        data-dragging={drag?.phase === "held" ? "" : undefined}
         ref={scroller}
         onScroll={(event) =>
           scrolled(
@@ -166,44 +153,21 @@ const QueueList = memo(function QueueList({
         <ol
           className="queue-tracks queue-virtual"
           style={{ height: Math.max(0, last - from) * QUEUE_ROW }}
-          onDragStart={(event) => {
-            const item = row(event);
-            const entry = item && queue.entryAt(Number(item.dataset.index));
-            if (!item || !entry) return;
-            drag.current = {
-              entry: entry.id,
-              index: Number(item.dataset.index),
-            };
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", entry.id);
-          }}
-          onDragOver={(event) => {
-            const item = row(event);
-            if (!drag.current || !item) return;
-            event.preventDefault();
-            setDropAt(edge(event, item));
-          }}
-          onDrop={(event) => {
-            const item = row(event);
-            const dragged = drag.current;
-            drag.current = null;
-            setDropAt(null);
-            if (!dragged || !item) return;
-            event.preventDefault();
-            const at = edge(event, item);
-            if (at === dragged.index || at === dragged.index + 1) return;
-            const title =
-              queue.entryAt(dragged.index)?.recording.title ?? "track";
-            void place(
-              dragged.entry,
-              at,
-              title,
-              at > dragged.index ? at : at + 1,
+          onKeyDown={(event) => {
+            if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key))
+              return;
+            const item = (event.target as HTMLElement).closest<HTMLElement>(
+              "li[data-index]",
             );
-          }}
-          onDragEnd={() => {
-            drag.current = null;
-            setDropAt(null);
+            const entry = item?.dataset.entry;
+            if (!item || !entry) return;
+            event.preventDefault();
+            const index = Number(item.dataset.index);
+            const step = event.key === "ArrowUp" ? -1 : 1;
+            if (index + step < latest.current.from) return;
+            const { view: now, to: end } = latest.current;
+            if (index + step >= Math.min(end ?? now.total, now.total)) return;
+            move(entry, index, step);
           }}
         >
           {items}

@@ -1,11 +1,10 @@
-import { memo } from "react";
-import { ChevronDown, ChevronUp, GripVertical, X } from "lucide-react";
+import { memo, type PointerEvent } from "react";
 import Artwork from "../../artwork/components/Artwork";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
-import { time } from "../../../shared/format";
 import type { PlaybackOccurrence } from "../model";
 import { QUEUE_ROW } from "../hooks/useQueueWindow";
-import PlayerTrackActions from "./PlayerTrackActions";
+import { GripIcon } from "./QueueIcons";
+import QueueRowMenu from "./QueueRowMenu";
 
 type Props = {
   entry: PlaybackOccurrence;
@@ -13,11 +12,25 @@ type Props = {
   first: number;
   total: number;
   current: boolean;
-  marker: "before" | "after" | null;
+  lifted: boolean;
+  shift: number;
   select(entry: string): void;
   remove(entry: string): void;
   move(entry: string, index: number, step: -1 | 1): void;
+  grab(
+    event: PointerEvent<HTMLElement>,
+    entry: PlaybackOccurrence,
+    index: number,
+  ): void;
 };
+
+function optionKey(): string {
+  const platform =
+    typeof navigator === "undefined"
+      ? ""
+      : navigator.platform || navigator.userAgent;
+  return /Mac|iPhone|iPad/i.test(platform) ? "Option" : "Alt";
+}
 
 const QueueRow = memo(function QueueRow({
   entry,
@@ -25,10 +38,12 @@ const QueueRow = memo(function QueueRow({
   first,
   total,
   current,
-  marker,
+  lifted,
+  shift,
   select,
   remove,
   move,
+  grab,
 }: Props) {
   const { id, recording: track } = entry;
   return (
@@ -36,20 +51,21 @@ const QueueRow = memo(function QueueRow({
       className={current ? "current" : ""}
       data-index={index}
       data-entry={id}
-      data-drop={marker ?? undefined}
+      data-lifted={lifted ? "" : undefined}
       aria-posinset={index - first + 1}
       aria-setsize={total - first}
-      style={{ transform: `translateY(${(index - first) * QUEUE_ROW}px)` }}
+      style={{
+        transform: `translateY(calc(${(index - first) * QUEUE_ROW + shift}px + var(--drag-y, 0px)))`,
+      }}
     >
       <button
+        type="button"
         className="queue-handle"
-        draggable
-        aria-label={`Drag ${track.title}`}
-        title="Drag to reorder"
+        aria-label={`Reorder ${track.title}: drag, or press ${optionKey()} and Up or Down`}
+        onPointerDown={(event) => grab(event, entry, index)}
       >
-        <GripVertical size={16} />
+        <GripIcon />
       </button>
-      <span className="queue-index">{index - first + 1}</span>
       <button className="queue-track" onClick={() => select(id)}>
         <Artwork
           release={track.release_id ?? undefined}
@@ -61,35 +77,14 @@ const QueueRow = memo(function QueueRow({
           <small>{track.artist}</small>
         </span>
       </button>
-      <span className="queue-duration">{time(track.duration_ms / 1000)}</span>
-      <PlayerTrackActions track={track} />
-      <span className="queue-order">
-        <button
-          className="icon-button"
-          data-move="up"
-          aria-label={`Move ${track.title} up`}
-          disabled={index === first}
-          onClick={() => move(id, index, -1)}
-        >
-          <ChevronUp size={14} />
-        </button>
-        <button
-          className="icon-button"
-          data-move="down"
-          aria-label={`Move ${track.title} down`}
-          disabled={index === total - 1}
-          onClick={() => move(id, index, 1)}
-        >
-          <ChevronDown size={14} />
-        </button>
-      </span>
-      <button
-        className="icon-button"
-        aria-label={`Remove ${track.title} from queue`}
-        onClick={() => remove(id)}
-      >
-        <X size={16} />
-      </button>
+      <QueueRowMenu
+        track={track}
+        canMoveUp={index > first}
+        canMoveDown={index < total - 1}
+        moveUp={() => move(id, index, -1)}
+        moveDown={() => move(id, index, 1)}
+        remove={() => remove(id)}
+      />
     </li>
   );
 });

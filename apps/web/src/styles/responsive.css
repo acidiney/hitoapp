@@ -290,7 +290,6 @@
     padding-right: 52px;
   }
   .queue-next-head span,
-  .queue-handle,
   .queue-index,
   .queue-duration {
     display: none;
