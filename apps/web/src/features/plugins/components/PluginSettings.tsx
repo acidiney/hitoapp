@@ -70,6 +70,7 @@ function PluginPanel({
         !data.installations.some((plugin) => plugin.service_id === service.id),
     ) ?? [];
   const connectingService = available.find((item) => item.id === connecting);
+  if (connecting && data && !connectingService) setConnecting(null);
   const showServer = admin && view === "server";
   const fresh = data && data.installations.length === 0;
   return (
