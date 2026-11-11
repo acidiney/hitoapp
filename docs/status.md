@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 catalog ranked audio fallback
+
+Development backend now applies the ordinary strict-first provider ranking to discography and album catalog tracks. A ready fallback saves its provenance atomically and appears as `best_guess` in Sources. Known occupied bindings are skipped; an original service-authority recheck prevents publishing stale evidence. Explicit choices and account privacy remain intact.
+
+Fresh independent review passes. A separate frozen-source Docker repeat passes all 86 offline catalog cases, seven existing resolver fallback cases and three artist/album HTTP cases, including `edition-track-audio`. Two live MusicBrainz cases remain ignored. Relevant strict Core/server checks, production Core checks and formatting pass; all 4,015 inputs remain exact. No frontend, running image, VPS or package changed. See [behavior and limits](automatic-sources.md#catalog-release-and-album-tracks).
+
 ## 2026-11-11 retained playback lease capability
 
 Development Core now retains an exact foreground session's source authority and original file descriptor or existing relay body across audio opens and ranges. Transient quotas cover creation before authorization SQL. Explicit closure joins owners and actual blocking reads; held unpolled bodies retain no Core or descriptor after retirement. Observed PIN or grant withdrawal cannot revive an old lease after unlock or regrant. No schema, download intent or ordinary library rows changed.
