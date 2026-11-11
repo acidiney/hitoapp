@@ -77,8 +77,12 @@
   padding: 0 8px;
   border-radius: 10px;
 }
-.provider-result:hover,
-.provider-result:focus-within {
+@media (hover: hover) {
+  .provider-result:hover {
+    background: var(--surface);
+  }
+}
+.provider-result:has(:focus-visible) {
   background: var(--surface);
 }
 .provider-result:focus-visible {
@@ -269,17 +273,43 @@
     min-height: 60px;
     padding: 0;
   }
-  .provider-result:hover,
-  .provider-result:focus-within,
-  .outside-library .provider-result:hover,
-  .outside-library .provider-result:focus-within {
+  .provider-result,
+  .outside-library .provider-result {
+    position: relative;
     background: transparent;
+  }
+  .provider-result:has(:focus-visible) {
+    background: transparent;
+  }
+  .provider-result .provider-play:not([data-unplayable]) {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: transparent;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .provider-result .provider-play:not([data-unplayable]) svg {
+    display: none;
+  }
+  .provider-result .provider-play:focus-visible {
+    outline-offset: -2px;
+  }
+  .provider-result .provider-menu {
+    position: relative;
+    z-index: 2;
   }
   .provider-result .artwork {
     width: 44px;
     height: 44px;
   }
-  .provider-result .provider-play,
   .provider-result .provider-result-action,
   .provider-result .provider-duration {
     display: none;

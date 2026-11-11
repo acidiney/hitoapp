@@ -330,8 +330,12 @@
   border: 0;
   border-radius: var(--radius-pill);
 }
-.outside-library .provider-result:hover,
-.outside-library .provider-result:focus-within {
+@media (hover: hover) {
+  .outside-library .provider-result:hover {
+    background: var(--bg);
+  }
+}
+.outside-library .provider-result:has(:focus-visible) {
   background: var(--bg);
 }
 .featured-block {
