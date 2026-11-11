@@ -19,6 +19,10 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
     .click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Music", exact: true })
+    .click();
   for (const folder of ["Music", "Archive"]) {
     await page.getByRole("button", { name: "Add music folder" }).click();
     const picker = page.getByRole("dialog", { name: "Add a music folder" });

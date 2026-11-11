@@ -104,7 +104,7 @@ test("a member uploads, replaces and removes a photo that the menu, profile and 
   });
   await expect(memberPage.getByText("Photo saved.")).toBeVisible();
   await loaded(memberPage, ".account-link .avatar img");
-  await loaded(memberPage, ".profile-identity .avatar img");
+  await loaded(memberPage, "#setting-account-photo .avatar img");
   await expect(menu).toHaveText("");
   await expect(
     memberPage.getByRole("button", { name: "Remove photo" }),
