@@ -26,6 +26,7 @@
 }
 .now-playing > span {
   flex: 1;
+  min-width: 0;
 }
 .now-playing strong {
   display: block;
@@ -37,6 +38,7 @@
   text-overflow: ellipsis;
 }
 .now-playing small {
+  display: block;
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
