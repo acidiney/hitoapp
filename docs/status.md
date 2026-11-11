@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 standalone LRCLIB and lyric contract v2
+
+Development source now includes the separate LRCLIB service and additive plain/start-anchor SDK contract. The service supplies search, metadata and lyrics, preserves unknown album identities and authors, and exposes no audio. Two review rounds corrected raw-field absence handling and revision-dependent ID validation. Original failing controls remain preserved.
+
+An independent fresh-source Docker run passes all 20 service cases and 145 schema-enabled SDK cases, strict checks, production default/schema feature checks and formatting. All 4,085 frozen inputs remain unchanged during verification; 19 actual executables are preserved separately from Cargo caches. The optional hardened Compose configuration renders correctly but has not been built or launched. Host identity integration and the [Opus frontend specification](frontend-lyrics-integration.md) remain separate work. No VPS, running image, listener account, frontend or package changed. See [service behavior and limits](plugin-lrclib.md).
+
 ## 2026-11-11 catalog ranked audio fallback
 
 Development backend now applies the ordinary strict-first provider ranking to discography and album catalog tracks. A ready fallback saves its provenance atomically and appears as `best_guess` in Sources. Known occupied bindings are skipped; an original service-authority recheck prevents publishing stale evidence. Explicit choices and account privacy remain intact.

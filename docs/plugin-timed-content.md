@@ -1,6 +1,6 @@
 # Timed lyrics and backing-track contracts
 
-The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Static rendering is qualified below. Verified audio alignment, reference providers and backing-track playback remain unfinished.
+The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Static rendering is qualified below. The additive v2 contract and standalone LRCLIB reference service are qualified below. Independent identity integration, verified audio alignment and backing-track playback remain unfinished.
 
 ## Protocol and identities
 
@@ -37,6 +37,16 @@ flowchart LR
 Intervals use milliseconds on the declared rendition timeline. They are half-open, ordered and nonoverlapping: `start_ms < end_ms`, and the next start is at least the previous end. Gaps and touching intervals are valid. No interval may exceed seven days. A known duration must cover every interval and cannot exceed seven days. Negative, fractional and overflowing times are rejected. Text limits apply before trimming or scanning; blank text and control characters are rejected.
 
 The complete encoded response, including recording reference, metadata, attribution, lines and JSON escaping, cannot exceed 262,144 bytes. `MAX_LYRICS_RESPONSE_BYTES` publishes that bound. Validation serializes into a bounded counting writer without allocating another complete response buffer. The HTTP host also bounds received bytes before decoding JSON and applies one total deadline to negotiation and response reading.
+
+## Plain lyrics and start anchors in version 2
+
+The additive extension uses `GET v2/lyrics/capabilities` with `lyrics_version: 2` and `POST v2/lyrics`, reusing the exact existing `LyricsRequest` provider reference. `LyricsResponseV2` returns a nullable `LyricsDocument`. Legacy v1 types and bytes remain unchanged.
+
+A v2 document keeps document/rendition identity and unknown revision, language and duration separate. `content.kind` is `plain`, with text lines, or `anchored`, with ordered integer `start_ms` and text. Plain blank stanza lines, simultaneous anchors and blank clear events are valid. There are no invented line ends. A dedicated optional attribution accepts an empty creator list; a recording performer does not become a lyric author.
+
+The complete encoded response remains capped at 262,144 bytes, one to 2,000 lines and seven days. Raw line bounds and controls are checked before normalization. Exact identity echoes, known-duration coverage and canonical credential-free HTTPS backlinks remain enforced. Anchors belong to the provider rendition and do not establish alignment to Hito audio.
+
+[LRCLIB](plugin-lrclib.md) supplies this extension without audio or sources. Two independent review rounds and a fresh source build pass 20 service tests and all 145 schema-enabled SDK cases, strict checks, production default/schema feature checks and formatting. This is Linux Docker fixture qualification. Host choice/review integration and UI work remain separate; the [frontend specification](frontend-lyrics-integration.md) is available for parallel implementation.
 
 ## Host lyric lookup
 
