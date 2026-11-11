@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 local lyric backend deployment and connection diagnosis
+
+The normal local server on port 8080 and the separate preview on port 8090 run the independently qualified lyric backend. Both returned a healthy response, expose the new routes behind authentication, and use the same verified release executable. The normal database upgrade from migration 91 to 95 preserved the existing application tables and migration receipts, with integrity and foreign-key checks passing. Its pre-upgrade backup is retained. A consistent online SQLite backup of the live preview also passes those checks; the earlier preview whole-volume archive was taken during concurrent writes and is not a trusted rollback artifact.
+
+The preview was adopted after its owner updated it concurrently. It was not restored over legitimate live writes. These are local development deployments, not a VPS update, a merge to `main`, platform packaging or a public release.
+
+A later LRCLIB search failure came from a saved connection without the plugin's service bearer. Public manifest access succeeded; protected unauthenticated search returned 401, mapped by Hito to 502. Authenticated service search returned 200. The connection can be updated without reinstalling or restarting the preview. The user subsequently reports that lyrics display. That report does not replace an isolated full-flow browser check. See [connecting the service](plugin-lrclib.md#connecting-hito-to-the-service).
+
 ## 2026-11-11 source-verified native measurement
 
 Development measurement code now accepts recovery only after a different source for the same recording and queue entry, Ready/playing state, later independent position progress and a fresh audible capture. An A-only negative rejects buffered original audio as replacement.

@@ -1,10 +1,26 @@
 # LRCLIB lyrics service
 
-The standalone Rust service and its owned protocol tests are implemented. Twenty cases pass in an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity integration is a separate in-progress backend slice. A separate bounded live executable check also passes; packaged-image and Hito UI acceptance remain open.
+The standalone Rust service and its owned protocol tests are implemented. Twenty cases pass in an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity backend is independently qualified and runs in the local development deployment. A separate bounded live executable check also passes. The full packaged UI workflow and public-release acceptance remain open.
 
 The service retrieves records from [LRCLIB's stable v1 API](https://lrclib.net/docs.txt), reviewed on 11 November 2026. It does not publish, flag or contribute lyrics. Anonymous upstream access requires no API key. Requests identify Hito with its name, version and maintenance contact. Optional LRCLIB application registration is a separate upstream concern.
 
 The plugin manifest declares search, metadata and lyrics. It exposes no audio, source, download, playlist or executable interface capability. A service bearer protects content requests between Hito and this service. That credential is separate from LRCLIB's anonymous API access.
+
+## Connecting Hito to the service
+
+LRCLIB itself needs no API key or account. The separately hosted Hito plugin requires its own service token, provisioned by its operator. These are different connections.
+
+```mermaid
+flowchart LR
+    Hito[Hito account connection] -->|Service bearer token| Plugin[Hosted LRCLIB plugin]
+    Plugin -->|Anonymous retrieval| LRCLIB[LRCLIB public API]
+```
+
+Offer the plugin address through Hito's plugin settings, then connect the listener account with the provisioned token. Paste only the token into the bearer-token field, without a `Bearer ` prefix. An existing connection can have its token updated without reinstalling the service or restarting Hito. Do not put the token into the service URL, documentation or logs.
+
+The public manifest may load even when this credential is missing. Protected search and lyric routes then refuse access. Hito currently maps an upstream authentication refusal to `502 upstream_failed`; that response can also have other causes, so verify the connection credential before changing protocol versions. An absent health declaration does not disable content routes. Manifest `protocol_version: 1` is compatible with the separately negotiated v2 lyrics descriptor and endpoint.
+
+The local development diagnosis on 11 November found an account connection with no saved credential. The same service accepted an authenticated search, while the controlled unauthenticated search returned 401. No reinstall, protocol change or preview restart was needed. This checks the authentication boundary, not the complete browser workflow.
 
 ## Identity and review
 
