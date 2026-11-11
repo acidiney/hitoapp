@@ -113,6 +113,7 @@ const states: [string, Reading][] = [
 for (const [name, reading] of states)
   test(`now playing lyrics state: ${name}`, async ({ page }) => {
     if (!sharedAdminSession) await enterAdmin(page);
+    await page.emulateMedia({ colorScheme: "dark" });
     await mockNowPlaying(page, reading);
     await page.goto("/library?q=Hz");
     await page.getByRole("button", { name: "List view", exact: true }).click();
