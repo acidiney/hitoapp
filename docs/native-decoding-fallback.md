@@ -123,6 +123,19 @@ The Pulse underflow callback is delivered to the original ALSA callback with an 
 
 Pre-execution review also corrected two diagnostic false-success paths. A clean counter cannot override a transport fault, failed close or missing completion, and both stereo channels must match before collapsing the capture for counter analysis. Fourteen independent Docker controls pass against the frozen controller without running audio. No playback buffer, recovery policy or dependency is changed by this experiment. A proposed correction must preserve startup, seek and recovery behavior and pass the original native continuity assertions.
 
+### Paired buffer diagnostic
+
+A new predeclared pair uses the same frozen executable and counter with only a closed 20 or 30 ms request argument. Both conditions move the induced write to the common source offset 230,400 and check divisibility by the measured period before starting the counter. Each condition runs once. The earlier 231,040-offset experiment stays immutable.
+
+| Request | Actual buffer / period / start threshold, frames | Completion gap | Source frames in each monitor | Internal zeros | Underflow callbacks |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 20 ms baseline | 1,920 / 640 / 1,280 | 42.101070 ms | 575,560 | 639 | 1 |
+| 30 ms candidate | 2,880 / 960 / 1,920 | 42.607693 ms | 576,000 | 0 | 0 |
+
+Both writes accept the entire 576,000-frame counter. The baseline's exact 440-frame omission starts at the induced boundary; its strict fidelity check returns nonzero. The candidate's accepted, client and sink traces contain the complete exact counter despite the slightly larger measured delay. Stereo equality, zero record holes, complete successful-drop/output byte accounting and joined process cleanup pass for both conditions. Independent raw reconstruction, artifact hashes and fresh source review confirm this limited result.
+
+This supports the scheduling cushion only in the pinned Linux ALSA/Pulse null-sink experiment. The negotiated 40 and 60 ms buffer durations describe geometry, not measured startup, seek, recovery or p95 latency. A development Rust policy candidate still needs a public-audio failure before its change, unchanged continuity assertions afterward, control-latency checks and independent review. The 100 ms producer ring and epoch readiness are separate and remain unchanged. Unfiltered underflow detection, other ALSA backends, macOS, Windows and physical-output acceptance remain open. The pair changes no production code, dependency or deployed application.
+
 ### Unresolved output startup failure
 
 An earlier thirteen-case native run failed once with `Native(Output)` during `Session::open`, before Resume. Subsequent twenty-open diagnostics, later fourteen- and fifteen-case runs and eleven existing native cases passed, including independent repeats. Those passes do not identify or fix the failure. It has not been classified as pre-existing. A diagnostic now reports static output failure categories and callback/xrun counts after worker join, outside the audio callback. No automatic retry was added.
