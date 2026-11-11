@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 controlled native recovery diagnostics
+
+Development source now correlates recovery events with the player at normal logging levels and includes one controlled public backend-fault fixture. Its launcher owns and reaps nested processes through startup, failure and cancellation, including stopped children and termination escalation. Two review rounds and targeted resolution corrected the process and diagnostic gaps. An independent final-source Docker run passes thirteen launcher controls, 55 audio/PCM/privacy cases and two public device cases, strict Clippy, formatting and syntax checks.
+
+The measured 40 ms replay follows the last observed presentation point; it does not explain the separate historical 189-frame loss. A subsequent official-runner qualification times out in the concurrent correlation case, so runner integration and that qualification remain open. The original assertions are preserved while the failure is diagnosed. The local running image, VPS and desktop packages are unchanged. See [controlled recovery evidence and limits](native-decoding-fallback.md#controlled-output-recovery-and-fixture-ownership).
+
 ## 2026-11-10 catalog installation scale and disk recovery
 
 The private catalog cache now has Linux Docker acceptance for 100,000 recording/source/release facts across 500 HTTP pages, followed by exact offline reads after restart. A dedicated 64 MiB tmpfs case reaches real ENOSPC through allocated regular-file writes. The replacement installation fails safely, every fact in the old committed catalog remains readable, and the identical replacement succeeds after removing only the owned filler. Original audio, standalone state, the exact pending operation, synchronization client identity and collection cursor remain intact.

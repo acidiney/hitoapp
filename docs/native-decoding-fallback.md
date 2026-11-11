@@ -76,6 +76,18 @@ Output now waits for the existing 100 ms ring to fill, or for the source end mar
 
 Four public PCM cases cover the delayed second block, joined cancellation while paused, seeking during buffering and short or empty sources. The four pass alongside five selected device cases, five tempo cases, seven gapless cases and 45 audio unit cases. The native integration repeat passes 15 PCM, 11 session and all 70 transport cases. Eight progress, fourteen saved-position, seven audiobook and one native logging case also pass. Strict audio and playback Clippy pass. These are Linux Docker monitor results, not physical-platform or p95 evidence.
 
+### Controlled output recovery and fixture ownership
+
+Development diagnostics now include a safe numeric player identity, recovery target, attempt and previous callback count on the recovery event. The identity remains visible with normal INFO/WARN filtering. Diagnostics execute outside the output callback.
+
+A controlled public Player fixture pauses only its verified private Pulse backend. At 48 kHz, callback and monitor both capture 193,920 frames from a 192,000-frame source. The additional 1,920 frames are 40 ms of already-heard audio. Recovery starts at 506,666,667 ns, exactly the last observed presentation position. This explains that run through the existing recovery policy. The separate historical 189-frame loss remains unclassified.
+
+The Linux fixture launcher now owns process groups, adopts and reaps orphaned descendants, signals verified pidfds and bounds termination. Thirteen repository controls cover default invocation, startup and cleanup cancellation, TERM/INT, stopped wrappers/backend, nested and escaped descendants, child failure, escalation and descriptor retirement. Review found and corrected delayed default cancellation, orphaned grandchildren, missing normal-level player correlation and interruption status lost during cleanup.
+
+An independent final-source Docker repeat passes all thirteen launcher controls, 45 audio unit cases, nine PCM cases, one privacy case and both public recovery cases. Strict device all-target Clippy, workspace formatting and syntax checks also pass. The separate hardware witness calibration remains explicitly ignored.
+
+A later qualification of the official runner passes the first recovery case but times out in the concurrent-player correlation case. Its cause is still under investigation; the earlier two-case pass does not close that gate. The new runner integration remains unaccepted. Physical output, the unexplained missing frames, startup failure, other codecs/platforms and reference-hardware p95 remain open. No installed desktop or VPS changed.
+
 ### Unresolved output startup failure
 
 An earlier thirteen-case native run failed once with `Native(Output)` during `Session::open`, before Resume. Subsequent twenty-open diagnostics, later fourteen- and fifteen-case runs and eleven existing native cases passed, including independent repeats. Those passes do not identify or fix the failure. It has not been classified as pre-existing. A diagnostic now reports static output failure categories and callback/xrun counts after worker join, outside the audio callback. No automatic retry was added.
