@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { continueFor } from "./artistChoice";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import type { Schema } from "../../../shared/schema";
 
@@ -57,9 +58,7 @@ async function open() {
       name: "Choose the artist",
     }),
   );
-  return screen.findByRole("button", {
-    name: "Use this identity for all tracks with this credit: C4 Pedro",
-  });
+  return continueFor("C4 Pedro");
 }
 
 test("a reviewed artist is applied only after confirmation and reports counted outcomes", async () => {
@@ -83,11 +82,7 @@ test("a reviewed artist is applied only after confirmation and reports counted o
   expect(screen.getByRole("group", { name: "Confirm artist identity" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(writes).toHaveLength(0);
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Use this identity for all tracks with this credit: C4 Pedro",
-    }),
-  );
+  fireEvent.click(await continueFor("C4 Pedro"));
   fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
   const summary = await screen.findByRole("status");
   expect(summary.textContent).toContain("2 tracks now use this artist");
@@ -227,11 +222,7 @@ test("a request that finishes after the credit changed cannot overwrite the new 
       name: "Choose the artist",
     }),
   );
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Use this identity for all tracks with this credit: C4 Pedro",
-    }),
-  );
+  fireEvent.click(await continueFor("C4 Pedro"));
   fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
   await waitFor(() => expect(fail).toBeTypeOf("function"));
   view.rerender(
@@ -293,9 +284,7 @@ test("only groups reviewed under exactly this credit name are offered", async ()
       name: "Choose the artist",
     }),
   );
-  await screen.findByRole("button", {
-    name: "Use this identity for all tracks with this credit: prince",
-  });
+  await continueFor("prince");
   expect(screen.queryByText(/Prince Royce/)).toBeNull();
 });
 

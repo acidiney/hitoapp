@@ -2,11 +2,11 @@ import type { Schema } from "../../../shared/schema";
 
 import Button from "../../../shared/ui/Button";
 
-function plural(count: number, one: string, many: string) {
+export function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-function evidence(item: Schema<"ArtistMatchSuggestion">) {
+export function evidence(item: Schema<"ArtistMatchSuggestion">) {
   const parts = ["same name"];
   if (item.shared_albums > 0)
     parts.push(plural(item.shared_albums, "shared album", "shared albums"));
@@ -28,6 +28,7 @@ export default function ArtistMatchSuggestionList({
   onChoose,
   onDismiss,
   onRestore,
+  activeShown = true,
 }: {
   items: Schema<"ArtistMatchSuggestion">[];
   dismissed: Schema<"ArtistMatchSuggestion">[];
@@ -35,6 +36,7 @@ export default function ArtistMatchSuggestionList({
   onChoose: (group: Schema<"ArtistIdentityGroup">) => void;
   onDismiss: (group: string) => void;
   onRestore: (group: string) => void;
+  activeShown?: boolean;
 }) {
   if (items.length === 0 && dismissed.length === 0) return null;
   return (
@@ -43,7 +45,7 @@ export default function ArtistMatchSuggestionList({
       aria-label="Suggested artists for this credit"
       aria-busy={busy}
     >
-      {items.length > 0 && (
+      {activeShown && items.length > 0 && (
         <>
           <h3 className="identity-heading">
             Looks like an artist you reviewed

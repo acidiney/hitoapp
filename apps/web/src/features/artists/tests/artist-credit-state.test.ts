@@ -131,7 +131,7 @@ test("an uncertain credit says so and keeps the manual choice behind a button", 
   );
   fireEvent.click(screen.getByRole("button", { name: "Choose the artist" }));
   expect(
-    await screen.findByRole("dialog", { name: "Choose the artist" }),
+    await screen.findByRole("dialog", { name: /^Which artist is / }),
   ).toBeTruthy();
   expect(
     await screen.findByText(/No artist you reviewed matches this credit yet/),

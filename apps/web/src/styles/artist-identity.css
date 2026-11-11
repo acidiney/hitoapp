@@ -1,60 +1,41 @@
-.identity-heading {
-  margin: 20px 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-}
-.identity-suggestions > p {
-  margin: 0 0 12px;
-}
-.identity-list {
+.choice-list {
   display: flex;
   flex-direction: column;
-  margin: 0;
+  gap: 8px;
+  min-width: 0;
+  margin: 16px 0 0;
   padding: 0;
-  list-style: none;
+  border: 0;
 }
-.identity-list > li {
+.choice-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
 }
-.identity-list > li:first-child {
-  border-top: 0;
+.choice-row:has(:checked) {
+  border-color: var(--action);
 }
-.identity-list-copy {
+.choice-row input {
+  margin: 4px 0 0;
+  accent-color: var(--action);
+}
+.choice-row-copy {
   display: flex;
-  flex: 1 1 220px;
   flex-direction: column;
   min-width: 0;
+  overflow-wrap: break-word;
 }
-.identity-list-copy strong {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.identity-list-copy span {
+.choice-row-copy > span:last-child {
   font-size: 14px;
   color: var(--muted);
 }
-.identity-list-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-}
-.identity-list-actions .button {
-  min-height: 44px;
-  max-width: 100%;
-  white-space: normal;
-  text-align: center;
-}
 @media (max-width: 767px) {
   dialog.dialog footer.credit-dialog-actions {
-    flex-direction: column;
+    flex-direction: column-reverse;
   }
 }

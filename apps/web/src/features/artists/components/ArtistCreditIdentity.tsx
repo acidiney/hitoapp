@@ -5,6 +5,7 @@ import { useArtistCreditIdentity } from "../hooks/useArtistCreditIdentity";
 import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
 import { useArtistMatchingStatus } from "../hooks/useArtistMatchingStatus";
 import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
+import ArtistChoiceOptions from "./ArtistChoiceOptions";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import { artistSearchHref } from "../model/artistSearchLink";
@@ -61,6 +62,16 @@ export default function ArtistCreditIdentity({
         replace: true,
       });
   }, [identified]);
+  const suggestionItems = suggested.suggestions?.items ?? [];
+  const showChoices =
+    (identity.step === "closed" || identity.step === "choosing") &&
+    (identity.step === "choosing" ||
+      suggestionItems.length > 0 ||
+      !!searchRecording);
+  const closeChoosing = () => {
+    setChoosing(false);
+    identity.cancel();
+  };
   const partly = matched && (read?.undecided_tracks ?? 0) > 0;
   const open = () => {
     setChoosing(true);
@@ -142,56 +153,51 @@ export default function ArtistCreditIdentity({
       {choosing && (
         <Dialog
           wide
-          title="Choose the artist"
-          description="Use an artist you already reviewed for another track. Equal names alone never merge artists."
+          title={`Which artist is ${artist.name}?`}
+          description="Pick the artist this credit means. Nothing changes until you confirm."
           busy={busy}
           returnFocus={opener}
-          onClose={() => {
-            setChoosing(false);
-            identity.cancel();
-          }}
+          onClose={closeChoosing}
         >
+          {identity.step === "loading" && (
+            <p role="status">Looking for artists you reviewed…</p>
+          )}
+          {showChoices && (
+            <ArtistChoiceOptions
+              credit={artist.name}
+              suggestions={suggestionItems}
+              groups={identity.step === "choosing" ? identity.groups : []}
+              busy={busy}
+              searchHref={
+                searchRecording ? artistSearchHref(searchRecording) : null
+              }
+              onSuggestion={identity.choose}
+              onGroup={identity.choose}
+              onSearch={(href) => router.visit(href)}
+              onNone={() =>
+                suggestionItems.forEach(
+                  (item) => void suggested.dismiss(item.group.id),
+                )
+              }
+              onCancel={closeChoosing}
+            />
+          )}
           {(identity.step === "closed" || identity.step === "choosing") &&
             suggested.suggestions && (
               <ArtistMatchSuggestionList
                 items={suggested.suggestions.items}
                 dismissed={suggested.suggestions.dismissed_items}
                 busy={suggested.busy}
+                activeShown={false}
                 onChoose={identity.choose}
                 onDismiss={(group) => void suggested.dismiss(group)}
                 onRestore={(group) => void suggested.restore(group)}
               />
             )}
-          {identity.step === "loading" && (
-            <p role="status">Looking for artists you reviewed…</p>
-          )}
           {identity.step === "choosing" && identity.groups.length === 0 && (
             <p className="dialog-empty">
               No artist you reviewed matches this credit yet.
             </p>
-          )}
-          {identity.step === "choosing" && identity.groups.length > 0 && (
-            <ul className="identity-list">
-              {identity.groups.map((group) => (
-                <li key={group.id}>
-                  <span className="identity-list-copy">
-                    <strong>{group.name.value}</strong>
-                    <span>
-                      {plural(group.recording_count, "track", "tracks")}
-                    </span>
-                  </span>
-                  <span className="identity-list-actions">
-                    <Button
-                      type="button"
-                      aria-label={`Use this identity for all tracks with this credit: ${group.name.value}`}
-                      onClick={() => identity.choose(group)}
-                    >
-                      Use for all tracks
-                    </Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
           )}
           {identity.step === "confirming" && identity.selected && (
             <div role="group" aria-label="Confirm artist identity">
@@ -221,28 +227,13 @@ export default function ArtistCreditIdentity({
               Retry the same artist identity request
             </Button>
           )}
-          <p className="credit-dialog-name" title={artist.name}>
-            Credit: {artist.name}
-          </p>
-          <footer className="review-actions credit-dialog-actions">
-            {searchRecording && (
-              <Link
-                className="button secondary"
-                href={artistSearchHref(searchRecording)}
-              >
-                Search for this artist
-              </Link>
-            )}
-            <Button
-              disabled={busy}
-              onClick={() => {
-                setChoosing(false);
-                identity.cancel();
-              }}
-            >
-              Close
-            </Button>
-          </footer>
+          {!showChoices && (
+            <footer className="review-actions credit-dialog-actions">
+              <Button disabled={busy} onClick={closeChoosing}>
+                Close
+              </Button>
+            </footer>
+          )}
         </Dialog>
       )}
       {identity.totals && identity.selected && (

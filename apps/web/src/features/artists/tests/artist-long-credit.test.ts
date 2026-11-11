@@ -45,7 +45,7 @@ test("short names keep the display size", () => {
   ).toBe("short");
 });
 
-test("the choose dialog uses a short search label and a truncated credit line", async () => {
+test("the choose dialog names the credit in its title and offers a short search option without a loose credit line", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string) => {
@@ -79,13 +79,16 @@ test("the choose dialog uses a short search label and a truncated credit line", 
   fireEvent.click(
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
-  const search = await screen.findByRole("link", {
-    name: "Search for this artist",
+  const search = await screen.findByRole("radio", {
+    name: /Search for another artist/,
   });
-  expect(search.textContent).not.toContain(longName);
-  const actions = search.closest("footer")!;
+  expect(search.closest("label")!.textContent).not.toContain(longName);
+  const actions = screen
+    .getByRole("button", { name: "Continue" })
+    .closest("footer")!;
   expect(actions.classList.contains("credit-dialog-actions")).toBe(true);
-  const credit = screen.getByText(`Credit: ${longName}`);
-  expect(credit.classList.contains("credit-dialog-name")).toBe(true);
-  expect(credit.getAttribute("title")).toBe(longName);
+  expect(screen.queryByText(`Credit: ${longName}`)).toBeNull();
+  expect(
+    screen.getByRole("dialog", { name: `Which artist is ${longName}?` }),
+  ).toBeTruthy();
 });
