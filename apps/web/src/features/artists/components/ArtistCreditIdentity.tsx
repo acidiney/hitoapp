@@ -171,18 +171,24 @@ export default function ArtistCreditIdentity({
             </p>
           )}
           {identity.step === "choosing" && identity.groups.length > 0 && (
-            <ul>
+            <ul className="identity-list">
               {identity.groups.map((group) => (
                 <li key={group.id}>
-                  {group.name.value} ·{" "}
-                  {plural(group.recording_count, "track", "tracks")}{" "}
-                  <Button
-                    type="button"
-                    aria-label={`Use this identity for all tracks with this credit: ${group.name.value}`}
-                    onClick={() => identity.choose(group)}
-                  >
-                    Use this identity for all tracks with this credit
-                  </Button>
+                  <span className="identity-list-copy">
+                    <strong>{group.name.value}</strong>
+                    <span>
+                      {plural(group.recording_count, "track", "tracks")}
+                    </span>
+                  </span>
+                  <span className="identity-list-actions">
+                    <Button
+                      type="button"
+                      aria-label={`Use this identity for all tracks with this credit: ${group.name.value}`}
+                      onClick={() => identity.choose(group)}
+                    >
+                      Use for all tracks
+                    </Button>
+                  </span>
                 </li>
               ))}
             </ul>

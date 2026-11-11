@@ -38,10 +38,16 @@ export default function ArtistMatchSuggestionList({
 }) {
   if (items.length === 0 && dismissed.length === 0) return null;
   return (
-    <section aria-label="Suggested artists for this credit" aria-busy={busy}>
+    <section
+      className="identity-suggestions"
+      aria-label="Suggested artists for this credit"
+      aria-busy={busy}
+    >
       {items.length > 0 && (
         <>
-          <h3>Looks like an artist you reviewed</h3>
+          <h3 className="identity-heading">
+            Looks like an artist you reviewed
+          </h3>
           <p>
             These are suggestions only. Nothing changes until you review and
             confirm.
@@ -49,28 +55,35 @@ export default function ArtistMatchSuggestionList({
               ? ` ${plural(dismissed.length, "suggestion is", "suggestions are")} dismissed.`
               : ""}
           </p>
-          <ul>
+          <ul className="identity-list">
             {items.map((item) => (
               <li key={item.group.id}>
-                {item.group.name.value} ·{" "}
-                {plural(item.undecided_tracks, "track", "tracks")} here would
-                use it · {evidence(item)}{" "}
-                <Button
-                  type="button"
-                  disabled={busy}
-                  aria-label={`Review suggested artist: ${item.group.name.value}`}
-                  onClick={() => onChoose(item.group)}
-                >
-                  Review suggestion
-                </Button>{" "}
-                <Button
-                  type="button"
-                  disabled={busy}
-                  aria-label={`Dismiss suggested artist: ${item.group.name.value}`}
-                  onClick={() => onDismiss(item.group.id)}
-                >
-                  Not the same artist
-                </Button>
+                <span className="identity-list-copy">
+                  <strong>{item.group.name.value}</strong>
+                  <span>
+                    {plural(item.undecided_tracks, "track", "tracks")} here
+                    would use it · {evidence(item)}
+                  </span>
+                </span>
+                <span className="identity-list-actions">
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    aria-label={`Review suggested artist: ${item.group.name.value}`}
+                    onClick={() => onChoose(item.group)}
+                  >
+                    Review suggestion
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="link"
+                    disabled={busy}
+                    aria-label={`Dismiss suggested artist: ${item.group.name.value}`}
+                    onClick={() => onDismiss(item.group.id)}
+                  >
+                    Not the same artist
+                  </Button>
+                </span>
               </li>
             ))}
           </ul>
@@ -79,20 +92,26 @@ export default function ArtistMatchSuggestionList({
       {dismissed.length > 0 && (
         <details>
           <summary>Dismissed suggestions ({dismissed.length})</summary>
-          <ul>
+          <ul className="identity-list">
             {dismissed.map((item) => (
               <li key={item.group.id}>
-                {item.group.name.value} ·{" "}
-                {plural(item.undecided_tracks, "track", "tracks")} here would
-                use it · {evidence(item)}{" "}
-                <Button
-                  type="button"
-                  disabled={busy}
-                  aria-label={`Restore suggested artist: ${item.group.name.value}`}
-                  onClick={() => onRestore(item.group.id)}
-                >
-                  Restore
-                </Button>
+                <span className="identity-list-copy">
+                  <strong>{item.group.name.value}</strong>
+                  <span>
+                    {plural(item.undecided_tracks, "track", "tracks")} here
+                    would use it · {evidence(item)}
+                  </span>
+                </span>
+                <span className="identity-list-actions">
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    aria-label={`Restore suggested artist: ${item.group.name.value}`}
+                    onClick={() => onRestore(item.group.id)}
+                  >
+                    Restore
+                  </Button>
+                </span>
               </li>
             ))}
           </ul>
