@@ -1,9 +1,14 @@
+import type { MouseEvent } from "react";
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { time } from "../../../shared/format";
 import type { PlaybackStart, Track } from "../model";
 
 import type { Mutate } from "../../../shared/hooks/useMutation";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import TrackRowActions from "./TrackRowActions";
 import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import EntryMoves from "./EntryMoves";
@@ -119,6 +124,7 @@ export default function TrackTable({
   artistPage?: string;
 }) {
   const nowPlaying = useNowPlaying();
+  const phone = useMediaQuery(PHONE_QUERY);
   const tracks = rows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
@@ -130,6 +136,14 @@ export default function TrackTable({
     const index = queuePositions.get(track.row_id);
     if (index !== undefined)
       void playTracks.playFrom(index, track.playback_start);
+  }
+  const rowTapPlays =
+    phone && !edit?.active && !(selection && selection.selected.size > 0);
+  function tapRow(event: MouseEvent<HTMLElement>, start: (() => void) | null) {
+    if (!rowTapPlays || !start) return;
+    const target = event.target as Element;
+    if (target.closest("a, button, input, label, [role='menu']")) return;
+    start();
   }
   const anyAlbum = rows.some((row) =>
     row.kind === "recording"
@@ -214,6 +228,16 @@ export default function TrackTable({
                 key={rowId}
                 onLongPress={
                   selection && track ? () => selection.toggle(rowId) : undefined
+                }
+                onClick={(event) =>
+                  tapRow(
+                    event,
+                    view && catalog
+                      ? () => catalog.play(index)
+                      : track
+                        ? () => play(track)
+                        : null,
+                  )
                 }
                 aria-current={playState ? "true" : undefined}
                 className={[

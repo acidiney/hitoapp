@@ -386,3 +386,12 @@
     align-self: center;
   }
 }
+
+@media (max-width: 767px) {
+  .track-table:not([data-editing]):not([data-selecting]) .track-copy a {
+    pointer-events: none;
+  }
+  .track-table:not([data-editing]):not([data-selecting]) tbody tr {
+    cursor: pointer;
+  }
+}

@@ -1,6 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import TrackTable, {
   type CatalogControls,
@@ -145,4 +151,48 @@ test("an unfound catalog row has one trailing control besides the menu", () => {
     "Actions for Valentim",
   ]);
   expect(within(row).queryByLabelText(/Find audio and like/)).toBeNull();
+});
+
+function onPhone(matches: boolean) {
+  window.matchMedia = ((query: string) => ({
+    matches,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+}
+
+test("on phone a click in the row plays it and a click on the menu does not", () => {
+  onPhone(true);
+  const play = vi.fn();
+  const [row] = (() => {
+    render(
+      createElement(TrackTable, {
+        rows: [catalogRow("occ-a", "Valentim")],
+        catalog: { ...controls, play },
+        playlists: [] as Schema<"Playlist">[],
+        mutate: vi.fn(async () => ({ ok: true as const })),
+      }),
+    );
+    return screen.getAllByRole("row").slice(1);
+  })();
+  fireEvent.click(within(row).getByRole("button", { name: "Actions for Valentim" }));
+  expect(play).not.toHaveBeenCalled();
+  fireEvent.click(row.querySelector("td.track-cell")!);
+  expect(play).toHaveBeenCalledWith(0);
+});
+
+test("off phone a click in the row does not play it", () => {
+  onPhone(false);
+  const play = vi.fn();
+  render(
+    createElement(TrackTable, {
+      rows: [catalogRow("occ-a", "Valentim")],
+      catalog: { ...controls, play },
+      playlists: [] as Schema<"Playlist">[],
+      mutate: vi.fn(async () => ({ ok: true as const })),
+    }),
+  );
+  fireEvent.click(screen.getAllByRole("row")[1].querySelector("td.track-cell")!);
+  expect(play).not.toHaveBeenCalled();
 });
