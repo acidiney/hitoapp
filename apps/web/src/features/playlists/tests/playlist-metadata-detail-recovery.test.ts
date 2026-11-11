@@ -181,12 +181,9 @@ test.each(["request", "network"] as const)(
     expect(
       screen.getByRole("heading", { name: metadataProps.detail.playlist.name }),
     ).toBeTruthy();
-    expect(
-      within(table)
-        .getAllByRole("row")
-        .slice(1)
-        .map(entryText),
-    ).toEqual(originalEntries);
+    expect(within(table).getAllByRole("row").slice(1).map(entryText)).toEqual(
+      originalEntries,
+    );
     expect(player).toBe(originalPlayer);
     expect(player.queueSnapshot()).toEqual(selection);
     expect(await player.queuePage(0, 10)).toEqual(queue);

@@ -7,7 +7,9 @@ import { invalidate } from "../invalidation";
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
 
 test("an announced change reloads only the named page props and stops after unmount", () => {
-  const view = renderHook(() => useReloadOnInvalidated("playlists", ["playlists"]));
+  const view = renderHook(() =>
+    useReloadOnInvalidated("playlists", ["playlists"]),
+  );
   act(() => invalidate("playlists"));
   expect(router.reload).toHaveBeenCalledWith({ only: ["playlists"] });
   act(() => invalidate("recording", "r1"));

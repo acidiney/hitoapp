@@ -178,12 +178,9 @@ test("an imported copy finds missing albums only on request without changing its
   expect(
     screen.getByRole("heading", { name: props.detail.playlist.name }),
   ).toBeTruthy();
-  expect(
-    within(table)
-      .getAllByRole("row")
-      .slice(1)
-      .map(entryText),
-  ).toEqual(originalEntries);
+  expect(within(table).getAllByRole("row").slice(1).map(entryText)).toEqual(
+    originalEntries,
+  );
   expect(player).toBe(originalPlayer);
   expect(player.queueSnapshot()).toEqual(originalSelection);
   expect(await player.queuePage(0, 10)).toEqual(originalQueue);

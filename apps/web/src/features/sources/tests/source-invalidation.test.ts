@@ -59,9 +59,7 @@ test("the availability panel rereads when a source for its track changes elsewhe
   const before = fetch.mock.calls.length;
   ready = false;
   await act(async () => invalidate("resolved", "saved"));
-  await waitFor(() =>
-    expect(fetch.mock.calls.length).toBeGreaterThan(before),
-  );
+  await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(before));
   await waitFor(() =>
     expect(screen.queryByText("Audio is ready to play.")).toBeNull(),
   );

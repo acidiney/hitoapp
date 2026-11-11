@@ -56,8 +56,14 @@ test("Now playing changes from No source to Ready when a source is resolved afte
   await shot(page, "before");
 
   resolved = true;
-  await player.getByRole("button", { name: /^(Pause|Play)$/ }).first().click();
-  await player.getByRole("button", { name: /^(Pause|Play)$/ }).first().click();
+  await player
+    .getByRole("button", { name: /^(Pause|Play)$/ })
+    .first()
+    .click();
+  await player
+    .getByRole("button", { name: /^(Pause|Play)$/ })
+    .first()
+    .click();
   await expect(card.getByText("YouTube Music")).toBeVisible();
   await expect(card.getByText("Ready")).toBeVisible();
   await expect(player.getByText("from YouTube Music").first()).toBeVisible();

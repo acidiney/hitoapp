@@ -205,12 +205,9 @@ test("a lost album lookup response retries its frozen operation while the provid
   expect(router.reload).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ only: ["detail", "playlists"] }),
   );
-  expect(
-    within(table)
-      .getAllByRole("row")
-      .slice(1)
-      .map(entryText),
-  ).toEqual(originalEntries);
+  expect(within(table).getAllByRole("row").slice(1).map(entryText)).toEqual(
+    originalEntries,
+  );
   expect(await player.queuePage(0, 10)).toEqual(originalQueue);
   expect(player.queueSnapshot()).toEqual(selection);
   expect(player.snapshot().current?.id).toBe(recordingA);

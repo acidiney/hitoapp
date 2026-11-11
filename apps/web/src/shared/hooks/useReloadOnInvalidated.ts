@@ -8,7 +8,8 @@ export function useReloadOnInvalidated(
 ) {
   const key = only.join("\u0000");
   useEffect(
-    () => onInvalidated(scope, () => router.reload({ only: key.split("\u0000") })),
+    () =>
+      onInvalidated(scope, () => router.reload({ only: key.split("\u0000") })),
     [scope, key],
   );
 }

@@ -14,7 +14,9 @@ import PluginSettings from "../../plugins/components/PluginSettings";
 import { artworkApprovalFixture } from "../fixtures/artworkApproval";
 
 import { findCheckConnection } from "../../plugins/fixtures/pluginInstallation";
-vi.mock("../../plugins/components/PluginPlaybackOrder", () => ({ default: () => null }));
+vi.mock("../../plugins/components/PluginPlaybackOrder", () => ({
+  default: () => null,
+}));
 test("accepting artwork capability retries a cached unavailable cover without reloading the account", async () => {
   const fixture = artworkApprovalFixture();
   const {
@@ -56,10 +58,10 @@ test("accepting artwork capability retries a cached unavailable cover without re
   rerender(
     accountPage(createElement(PluginSettings, { account, admin: false })),
   );
-  fireEvent.click(
-    await findCheckConnection(),
-  );
-  const accept = await screen.findByRole("button", { name: "Accept album covers" });
+  fireEvent.click(await findCheckConnection());
+  const accept = await screen.findByRole("button", {
+    name: "Accept album covers",
+  });
   expect(refreshes).toEqual([
     {
       revision: installed.revision,
@@ -128,9 +130,7 @@ test("an old account approval cannot refresh the new account's unavailable cover
       createElement(PluginSettings, { account, admin: false }),
     ),
   );
-  fireEvent.click(
-    await findCheckConnection(),
-  );
+  fireEvent.click(await findCheckConnection());
   fireEvent.click(
     await screen.findByRole("button", { name: "Accept album covers" }),
   );
