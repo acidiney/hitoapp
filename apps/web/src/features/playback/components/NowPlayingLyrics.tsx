@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Track } from "../model";
 import { trackTabHref } from "../../recordings/model/trackTabs";
+import { followableLines } from "../../lyrics/model/lyricContent";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
 import RouteLink from "../../../shared/ui/RouteLink";
 import FilterPills from "../../../shared/ui/FilterPills";
@@ -228,17 +229,12 @@ function TrackLyrics({
         )}
       </StateCard>
     );
-  const synced = lyrics.synced;
+  const followed = followableLines(lyrics, track.duration_ms);
+  const synced = followed !== null;
   return (
     <>
-      {synced ? (
-        <SyncedLines
-          lines={lyrics.lines.map((line) => ({
-            start_ms: line.startMs ?? 0,
-            end_ms: line.endMs ?? 0,
-            text: line.text,
-          }))}
-        />
+      {followed ? (
+        <SyncedLines lines={followed} />
       ) : (
         <PlainLines lines={lyrics.lines} />
       )}

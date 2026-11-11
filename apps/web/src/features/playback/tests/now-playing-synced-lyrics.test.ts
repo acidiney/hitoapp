@@ -181,3 +181,62 @@ test("while looking up, skeleton lines keep the layout and announce nothing fals
   expect(card.getAttribute("aria-busy")).toBe("true");
   expect(card.textContent).toContain("The music never waits for lyrics");
 });
+
+const anchoredLookup = (duration: number | null) => ({
+  status: "ready_v2",
+  recording_id: "r1",
+  selector: { kind: "observation", observation_id: "obs" },
+  provider_recording: { id: "p", revision: null },
+  document_digest: "d",
+  document: {
+    recording: { id: "p", revision: null },
+    lyrics: {
+      id: "l",
+      rendition_id: "x",
+      duration_ms: duration,
+      content: {
+        kind: "anchored",
+        lines: [
+          { start_ms: 0, text: "" },
+          { start_ms: 1000, text: "First anchored" },
+          { start_ms: 4000, text: "" },
+          { start_ms: 5000, text: "Second anchored" },
+          { start_ms: 8000, text: "" },
+        ],
+      },
+    },
+  },
+});
+
+test("anchored lyrics whose duration matches the audio follow the position, seek on click and never show clear events", async () => {
+  state.read.mockResolvedValue(anchoredLookup(10_900));
+  open();
+  const first = await screen.findByRole("button", { name: "First anchored" });
+  expect(screen.getAllByRole("button", { name: /anchored/ })).toHaveLength(2);
+  expect(first.getAttribute("aria-current")).toBeNull();
+  setPosition(1.5);
+  expect(first.getAttribute("aria-current")).toBe("true");
+  setPosition(5.5);
+  expect(
+    screen
+      .getByRole("button", { name: "Second anchored" })
+      .getAttribute("aria-current"),
+  ).toBe("true");
+  expect(first.getAttribute("data-state")).toBe("past");
+  fireEvent.click(screen.getByRole("button", { name: "Second anchored" }));
+  expect(state.seek).toHaveBeenCalledWith(5);
+  expect(screen.getByText("Synced · from Words")).toBeTruthy();
+});
+
+test("anchored lyrics with a missing or different duration stay static and never fake timing", async () => {
+  for (const duration of [null, 60_000]) {
+    state.read.mockResolvedValue(anchoredLookup(duration));
+    const view = open();
+    expect(await screen.findByText("First anchored")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "First anchored" })).toBeNull();
+    setPosition(5);
+    expect(document.querySelector("[aria-current]")).toBeNull();
+    expect(screen.getByText("Not synced · from Words")).toBeTruthy();
+    view.unmount();
+  }
+});

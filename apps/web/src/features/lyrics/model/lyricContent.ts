@@ -15,6 +15,8 @@ export type DisplayLine = {
   endMs: number | null;
 };
 
+export type TimedLine = Schema<"TimedLyricLine">;
+
 export type LyricAttributionView = {
   providerLabel: string;
   contentUrl: string;
@@ -26,6 +28,8 @@ export type LyricView = {
   label: string | null;
   language: string | null;
   lines: DisplayLine[];
+  durationMs: number | null;
+  timeline: TimedLine[] | null;
   attribution: LyricAttributionView | null;
   legacyAttribution: Schema<"RecordingAttribution"> | null;
 };
@@ -47,6 +51,38 @@ function withStanzaBreaks(lines: DisplayLine[]): DisplayLine[] {
   }
   while (kept.length > 0 && kept[kept.length - 1].text === "") kept.pop();
   return kept;
+}
+
+function anchoredTimeline(events: Schema<"AnchoredLyricLine">[]): TimedLine[] {
+  const lines: TimedLine[] = [];
+  events.forEach((event, index) => {
+    if (event.text.trim() === "") return;
+    const next = events
+      .slice(index + 1)
+      .find((later) => later.start_ms > event.start_ms);
+    lines.push({
+      start_ms: event.start_ms,
+      end_ms: next ? next.start_ms : event.start_ms,
+      text: event.text,
+    });
+  });
+  return lines;
+}
+
+export const alignmentToleranceMs = 2000;
+
+export function followableLines(
+  view: LyricView,
+  audioMs: number,
+): TimedLine[] | null {
+  if (!view.timeline || view.timeline.length < 2) return null;
+  const known = audioMs > 0 && view.durationMs !== null;
+  const aligned =
+    known && Math.abs(view.durationMs! - audioMs) <= alignmentToleranceMs;
+  if (view.kind === "anchored")
+    return aligned && isSynced(view.timeline) ? view.timeline : null;
+  if (known && !aligned) return null;
+  return isSynced(view.timeline) ? view.timeline : null;
 }
 
 function attributionOf(
@@ -71,6 +107,8 @@ function timedView(lyrics: Schema<"TimedLyrics">): LyricView {
       startMs: line.start_ms,
       endMs: line.end_ms,
     })),
+    durationMs: lyrics.duration_ms ?? null,
+    timeline: lyrics.lines,
     attribution: null,
     legacyAttribution: lyrics.attribution ?? null,
   };
@@ -113,6 +151,11 @@ export function selectedLyricsOutcome(lookup: Lookup): SelectedLyricsOutcome {
     return {
       kind: "lyrics",
       view: {
+        durationMs: lyrics.duration_ms ?? null,
+        timeline:
+          lyrics.content.kind === "anchored"
+            ? anchoredTimeline(lyrics.content.lines)
+            : null,
         kind: lyrics.content.kind,
         synced: false,
         label: lyrics.rendition_label ?? null,
