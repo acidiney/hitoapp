@@ -15,16 +15,18 @@ export default function SharedCorrectionsSettings({
   const { page } = corrections;
   const busy = corrections.pending !== null || corrections.retrying;
   return (
-    <SettingsCard setting={setting("shared-corrections")} busy={busy}>
+    <SettingsCard
+      setting={setting("shared-corrections")}
+      description="Corrections an administrator applied for every account."
+      busy={busy}
+    >
       {corrections.failed && (
         <SectionWarning
           tone="error"
           title="Hito could not read the shared corrections."
         />
       )}
-      {page && page.items.length === 0 && (
-        <p>No corrections are shared with every account.</p>
-      )}
+      {page && page.items.length === 0 && <p>None yet.</p>}
       {page && page.items.length > 0 && (
         <ul className="plain-list">
           {page.items.map((item) => (

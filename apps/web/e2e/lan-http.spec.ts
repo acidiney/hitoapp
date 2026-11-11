@@ -197,7 +197,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       .click();
     await expect(
       page
-        .getByRole("region", { name: "Accounts and access" })
+        .getByRole("region", { name: "People" })
         .getByText(listener, { exact: true }),
     ).toBeVisible();
 

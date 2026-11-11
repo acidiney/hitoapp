@@ -1,11 +1,8 @@
-import type { FormEvent } from "react";
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
-import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
 import { useCommunityRankingPreferences } from "../hooks/useCommunityRankingPreferences";
-import { setting } from "../../settings/model/settingsCatalog";
 
 export default function CommunityRankingSettings({
   account,
@@ -15,12 +12,8 @@ export default function CommunityRankingSettings({
   const preference = useCommunityRankingPreferences(account);
   const busy = preference.pending !== null;
   useReportUnsaved(preference.dirty);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    void preference.save();
-  }
   return (
-    <SettingsCard setting={setting("community-rankings")} busy={busy}>
+    <>
       {!preference.loaded && busy && (
         <p role="status">Loading source ranking preference…</p>
       )}
@@ -32,38 +25,37 @@ export default function CommunityRankingSettings({
         </SectionWarning>
       )}
       {preference.loaded && (
-        <form onSubmit={submit}>
-          <fieldset disabled={busy}>
-            <Switch
-              label="Use community source rankings"
-              disabled={busy}
-              checked={preference.enabled}
-              onChange={preference.edit}
-            />
-            <div className="form-actions">
+        <>
+          <Switch
+            id="community-rankings"
+            label="Use community source rankings"
+            hint="Helps choose between sources. Your own choices always win."
+            disabled={busy}
+            checked={preference.enabled}
+            onChange={preference.edit}
+          />
+          {preference.dirty && (
+            <div className="settings-save">
               <Button
-                type="submit"
-                variant="primary"
-                disabled={busy || !preference.dirty || preference.stale}
+                variant="action"
+                disabled={busy || preference.stale}
+                onClick={() => void preference.save()}
               >
                 Save source ranking preference
               </Button>
-              <Button
-                disabled={busy || !preference.dirty}
-                onClick={preference.cancel}
-              >
+              <Button disabled={busy} onClick={preference.cancel}>
                 Cancel changes
               </Button>
             </div>
-          </fieldset>
+          )}
           {preference.pending === "save" && (
             <p role="status">Saving source ranking preference…</p>
           )}
           {preference.saved && (
             <p role="status">Source ranking preference saved.</p>
           )}
-        </form>
+        </>
       )}
-    </SettingsCard>
+    </>
   );
 }

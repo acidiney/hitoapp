@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef, useState } from "react";
-import { Folder, FolderOpen, FolderPlus, FolderSync } from "lucide-react";
+import { Folder } from "lucide-react";
 
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
@@ -40,7 +40,7 @@ export default function MusicFolders({
   return (
     <SettingsCard
       setting={setting("music-folders")}
-      description={`${library.name} · Read-only access`}
+      description="Your originals stay exactly where they are."
       action={
         <div className="card-actions">
           {host.picker && (
@@ -48,18 +48,16 @@ export default function MusicFolders({
               disabled={busy || host.choosing}
               onClick={() => void host.choose()}
             >
-              <FolderOpen size={18} aria-hidden="true" />
               {host.choosing ? "Waiting for your choice…" : "Choose folder…"}
             </Button>
           )}
           <Button
             ref={addButton}
-            variant="primary"
             disabled={busy}
+            aria-label="Add music folder"
             onClick={() => pick(true)}
           >
-            <FolderPlus size={18} aria-hidden="true" />
-            Add music folder
+            Add folder
           </Button>
         </div>
       }
@@ -127,12 +125,15 @@ export default function MusicFolders({
       )}
       {!!folders.folders.length && (
         <SettingRow
-          title="Refresh your collection"
-          hint="Find new files and read changed tags in all connected folders."
+          title="Scan all folders"
+          hint="Finds new files and changed tags."
           action={
-            <Button disabled={busy} onClick={() => void folders.scanAll()}>
-              <FolderSync size={17} aria-hidden="true" />
-              Scan all folders
+            <Button
+              disabled={busy}
+              aria-label="Scan all folders"
+              onClick={() => void folders.scanAll()}
+            >
+              Scan all
             </Button>
           }
         />
@@ -144,8 +145,8 @@ export default function MusicFolders({
       />
       {!host.picker && (
         <p className="folder-host-help muted">
-          Looking for a folder on another drive? Open Hito Setup on the server
-          computer to share it, then choose it here.
+          Folder on another drive? Share it in Hito Setup on the server
+          computer, then add it here.
         </p>
       )}
       {picking && (

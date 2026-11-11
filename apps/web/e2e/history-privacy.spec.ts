@@ -152,7 +152,7 @@ test("pausing listening history stops new entries and deleting it empties Histor
     .getByRole("button", { name: "Delete listening history", exact: true })
     .click();
   const dialog = page.getByRole("dialog", {
-    name: "Delete listening history?",
+    name: "Delete your listening history?",
   });
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
@@ -161,7 +161,7 @@ test("pausing listening history stops new entries and deleting it empties Histor
     .getByRole("button", { name: "Delete listening history", exact: true })
     .click();
   await page
-    .getByRole("dialog", { name: "Delete listening history?" })
+    .getByRole("dialog", { name: "Delete your listening history?" })
     .getByRole("button", { name: "Delete history" })
     .click();
   await expect(page.getByText("1 entry removed.")).toBeVisible();

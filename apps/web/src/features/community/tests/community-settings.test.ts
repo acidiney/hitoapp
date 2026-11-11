@@ -13,6 +13,16 @@ import type { Schema } from "../../../shared/schema";
 
 type Preferences = Schema<"CommunityPreferences">;
 
+HTMLDialogElement.prototype.showModal = function () {
+  this.setAttribute("open", "");
+};
+HTMLDialogElement.prototype.close = function () {
+  this.removeAttribute("open");
+};
+
+const saveShown = () =>
+  screen.queryByRole("button", { name: "Save community preferences" }) !== null;
+
 test("community consent requires an explicit independent save and retires cancelled or foreign account work", async () => {
   const disabled: Preferences = {
     revision: 0,
@@ -43,7 +53,7 @@ test("community consent requires an explicit independent save and retires cancel
     const oldRead = fetch.mock.calls[0][1]?.signal;
     view.rerender(createElement(CommunitySettings, { account: "bob" }));
     expect(oldRead?.aborted).toBe(true);
-    await screen.findByRole("switch", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Report successful plays" });
     await act(async () => {
       releaseRead(
         Response.json({
@@ -57,7 +67,7 @@ test("community consent requires an explicit independent save and retires cancel
     });
     expect(isOn(playback())).toBe(false);
     expect(isOn(corrections())).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(document.querySelector('input[type="password"]')).toBeNull();
 
@@ -68,7 +78,7 @@ test("community consent requires an explicit independent save and retires cancel
     fireEvent.click(screen.getByRole("button", { name: "Cancel changes" }));
     expect(isOn(playback())).toBe(false);
     expect(isOn(corrections())).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(2);
 
     const reporting: Preferences = {
@@ -78,11 +88,9 @@ test("community consent requires an explicit independent save and retires cancel
     };
     fetch.mockResolvedValueOnce(Response.json(reporting));
     fireEvent.click(playback());
-    const form = save().closest("form");
-    expect(form).not.toBeNull();
     act(() => {
-      fireEvent.submit(form!);
-      fireEvent.submit(form!);
+      fireEvent.click(save());
+      fireEvent.click(save());
     });
     await screen.findByText("Community preferences saved.", { exact: true });
     expect(fetch).toHaveBeenCalledTimes(3);
@@ -99,7 +107,7 @@ test("community consent requires an explicit independent save and retires cancel
     expect(request).toEqual({ ...disabled, playback_reporting: true });
     expect(isOn(playback())).toBe(true);
     expect(isOn(corrections())).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
 
     fetch.mockResolvedValueOnce(
       Response.json(
@@ -134,7 +142,7 @@ test("community consent requires an explicit independent save and retires cancel
       expect(isOn(playback())).toBe(false);
     });
     expect(isOn(corrections())).toBe(true);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(screen.queryByRole("alert")).toBeNull();
 
     fetch
@@ -150,7 +158,7 @@ test("community consent requires an explicit independent save and retires cancel
     });
     view.rerender(createElement(CommunitySettings, { account: "carol" }));
     expect(oldSave?.aborted).toBe(true);
-    await screen.findByRole("switch", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Report successful plays" });
     await act(async () => {
       releaseSave(
         Response.json({
@@ -163,7 +171,7 @@ test("community consent requires an explicit independent save and retires cancel
     });
     expect(isOn(playback())).toBe(false);
     expect(isOn(corrections())).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(
       screen.queryByText("Community preferences saved.", { exact: true }),
     ).toBeNull();
@@ -193,13 +201,13 @@ test("community consent requires an explicit independent save and retires cancel
 
 function playback() {
   return screen.getByRole("switch", {
-    name: "Playback reporting",
+    name: "Report successful plays",
   }) as HTMLButtonElement;
 }
 
 function corrections() {
   return screen.getByRole("switch", {
-    name: "Metadata corrections",
+    name: "Share metadata corrections",
   }) as HTMLButtonElement;
 }
 
@@ -227,15 +235,15 @@ test("community credential recovery is explicit, preserves consent drafts, and r
   vi.stubGlobal("fetch", fetch);
   const view = render(createElement(CommunitySettings, { account: "alice" }));
   try {
-    await screen.findByRole("switch", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Report successful plays" });
     const reset = () =>
       screen.getByRole("button", {
         name: "Reset community credentials",
       }) as HTMLButtonElement;
+    const confirmReset = () =>
+      screen.getByRole("button", { name: "Reset credentials" });
     expect(reset().disabled).toBe(false);
-    expect(screen.getByText(/cancel unsent reports/i).textContent).toContain(
-      "accepted contributions",
-    );
+    expect(screen.getByText(/cancels unsent reports/i)).toBeTruthy();
     expect(fetch).toHaveBeenCalledTimes(1);
     fireEvent.click(corrections());
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -247,6 +255,7 @@ test("community credential recovery is explicit, preserves consent drafts, and r
       ),
     );
     fireEvent.click(reset());
+    fireEvent.click(confirmReset());
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Community reset could not finish. Try again.",
     );
@@ -266,9 +275,10 @@ test("community credential recovery is explicit, preserves consent drafts, and r
     fetch.mockResolvedValueOnce(
       Response.json({ reporters_removed: 2, reports_cancelled: 3 }),
     );
+    fireEvent.click(reset());
     act(() => {
-      fireEvent.click(reset());
-      fireEvent.click(reset());
+      fireEvent.click(confirmReset());
+      fireEvent.click(confirmReset());
     });
     await screen.findByText(
       "Community credentials reset. Privacy choices and accepted contributions are kept. Unsent reports canceled: 3.",
@@ -285,11 +295,12 @@ test("community credential recovery is explicit, preserves consent drafts, and r
         Response.json({ ...preferences, playback_reporting: false }),
       );
     fireEvent.click(reset());
+    fireEvent.click(confirmReset());
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
     const oldReset = fetch.mock.calls[3][1]?.signal;
     view.rerender(createElement(CommunitySettings, { account: "bob" }));
     expect(oldReset?.aborted).toBe(true);
-    await screen.findByRole("switch", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Report successful plays" });
     await act(async () => {
       releaseReset(
         Response.json({ reporters_removed: 9, reports_cancelled: 99 }),
@@ -307,6 +318,7 @@ test("community credential recovery is explicit, preserves consent drafts, and r
     ).toEqual(["alice", "alice", "alice", "alice", "bob"]);
     fetch.mockReturnValueOnce(new Promise<Response>(() => {}));
     fireEvent.click(reset());
+    fireEvent.click(confirmReset());
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(6));
     const currentReset = fetch.mock.calls[5][1]?.signal;
     view.unmount();

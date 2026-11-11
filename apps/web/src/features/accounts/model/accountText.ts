@@ -8,8 +8,8 @@ export function accountHint(
   const role = account.admin ? "Administrator" : "Member";
   const activity =
     account.last_active_at == null
-      ? "No open sessions"
-      : `Last active ${relativeTime(account.last_active_at, now)}`;
+      ? "no open sessions"
+      : `active ${relativeTime(account.last_active_at, now)}`;
   const identity = account.display_name ? `${account.username} · ` : "";
   return `${identity}${role} · ${activity}`;
 }

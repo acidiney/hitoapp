@@ -1,4 +1,3 @@
-import type { FormEvent } from "react";
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
@@ -16,13 +15,10 @@ function PreferencesForm(
   preferences: ReturnType<typeof useMetadataPreferences>,
 ) {
   useReportUnsaved(preferences.dirty);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    void preferences.save();
-  }
   return (
     <SettingsCard
       setting={setting("metadata-providers")}
+      description="File tags and your own edits are always kept."
       busy={preferences.pending}
     >
       {!preferences.loaded && preferences.pending && (
@@ -36,44 +32,45 @@ function PreferencesForm(
         </SectionWarning>
       )}
       {preferences.loaded && (
-        <form onSubmit={submit}>
-          <fieldset disabled={preferences.pending}>
-            <Switch
-              label="Use metadata providers"
-              disabled={preferences.pending}
-              checked={preferences.enabled}
-              onChange={preferences.setEnabled}
-            />
-            <MetadataProviderList
-              providers={preferences.providers}
-              connections={preferences.connections}
-              enabled={preferences.enabled}
-              pending={preferences.pending}
-              canAdd={preferences.canAddProvider}
-              onAdd={preferences.addProvider}
-              onRemove={preferences.removeProvider}
-              onMove={preferences.moveProvider}
-            />
-            <div className="form-actions">
+        <>
+          <Switch
+            label="Use metadata providers"
+            hint="Fills in artist profiles from the providers below, in this order."
+            disabled={preferences.pending}
+            checked={preferences.enabled}
+            onChange={preferences.setEnabled}
+          />
+          <MetadataProviderList
+            providers={preferences.providers}
+            connections={preferences.connections}
+            enabled={preferences.enabled}
+            pending={preferences.pending}
+            canAdd={preferences.canAddProvider}
+            onAdd={preferences.addProvider}
+            onRemove={preferences.removeProvider}
+            onMove={preferences.moveProvider}
+          />
+          {preferences.dirty && (
+            <div className="settings-save">
               <Button
-                type="submit"
-                variant="primary"
+                variant="action"
                 disabled={
-                  !preferences.dirty ||
+                  preferences.pending ||
                   (preferences.enabled && !preferences.providers.length)
                 }
+                onClick={() => void preferences.save()}
               >
                 Save metadata preferences
               </Button>
             </div>
-          </fieldset>
+          )}
           {preferences.pending && (
             <p role="status">Saving metadata preferences…</p>
           )}
           {preferences.saved && (
             <p role="status">Metadata preferences saved.</p>
           )}
-        </form>
+        </>
       )}
     </SettingsCard>
   );

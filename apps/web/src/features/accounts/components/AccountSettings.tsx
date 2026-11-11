@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
 import { accountName } from "../../../shared/accountName";
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import Avatar from "../../../shared/ui/Avatar";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
@@ -15,9 +15,11 @@ import { setting } from "../../settings/model/settingsCatalog";
 export default function AccountSettings({
   account,
   library,
+  libraryName = "this library",
 }: {
   account: string;
   library?: string;
+  libraryName?: string;
 }) {
   const { users, pending, create, remove, access } = useAccounts(account);
   const [creating, setCreating] = useState(false);
@@ -32,13 +34,9 @@ export default function AccountSettings({
   return (
     <SettingsCard
       setting={setting("accounts-access")}
+      description="Each account has its own playlists, likes and listening history."
       action={
-        <Button
-          ref={opener}
-          variant="primary"
-          onClick={() => setCreating(true)}
-        >
-          <UserPlus size={16} aria-hidden="true" />
+        <Button ref={opener} onClick={() => setCreating(true)}>
           Create account
         </Button>
       }
@@ -55,26 +53,35 @@ export default function AccountSettings({
             />
           }
           hint={accountHint(user)}
-          wide
           action={
-            <>
-              {!user.admin && library && (
-                <>
-                  <Button onClick={() => void access(library, user, true)}>
-                    Grant access
-                  </Button>
-                  <Button onClick={() => void access(library, user, false)}>
-                    Remove access
-                  </Button>
-                </>
-              )}
-              {user.id !== account && (
-                <Button onClick={() => setDeleting(user)}>
-                  <Trash2 size={16} aria-hidden="true" />
-                  Delete account
-                </Button>
-              )}
-            </>
+            user.id === account ? (
+              <span className="setting-line-note">You</span>
+            ) : (
+              <ActionMenu
+                label={`More for ${accountName(user)}`}
+                triggerClassName="more-button"
+                align="end"
+                items={[
+                  ...(!user.admin && library
+                    ? [
+                        {
+                          label: `Give access to ${libraryName}`,
+                          onSelect: () => void access(library, user, true),
+                        },
+                        {
+                          label: `Remove access to ${libraryName}`,
+                          onSelect: () => void access(library, user, false),
+                        },
+                      ]
+                    : []),
+                  {
+                    label: "Delete account…",
+                    destructive: true,
+                    onSelect: () => setDeleting(user),
+                  },
+                ]}
+              />
+            )
           }
         />
       ))}

@@ -77,6 +77,11 @@ function order() {
     .map((heading) => heading.textContent);
 }
 
+function menuItem(source: string, item: string) {
+  fireEvent.click(screen.getByRole("button", { name: `Move ${source}` }));
+  return screen.getByRole("menuitem", { name: item }) as HTMLButtonElement;
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(sourcePreferenceApi.settings).mockResolvedValue(initial);
@@ -92,21 +97,13 @@ test("lists local files, saved copies and each connected provider by name in pri
     "Jamendo",
     "YouTube",
   ]);
-  expect(screen.getByText("Priority 3")).toBeTruthy();
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Move up Local files",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Move down YouTube",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+  expect(screen.getByText("3")).toBeTruthy();
+  const topUp = menuItem("Local files", "Move up");
+  expect(topUp.disabled).toBe(true);
+  fireEvent.keyDown(topUp, { key: "Escape" });
+  const bottomDown = menuItem("YouTube", "Move down");
+  expect(bottomDown.disabled).toBe(true);
+  fireEvent.keyDown(bottomDown, { key: "Escape" });
   expect(
     isOn(
       screen.getByRole("switch", { name: "Try the next source if one fails" }),
@@ -129,11 +126,10 @@ test("moving a source changes only the draft until Save sends the exact order an
   vi.mocked(sourcePreferenceApi.update).mockResolvedValue(saved);
   render(createElement(SourcePreferences, { account: "alice" }));
   await screen.findByRole("list", { name: "Source order" });
-  const save = screen.getByRole("button", {
-    name: "Save source preference",
-  }) as HTMLButtonElement;
-  expect(save.disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Move up YouTube" }));
+  const saveButton = () =>
+    screen.queryByRole("button", { name: "Save source preference" });
+  expect(saveButton()).toBeNull();
+  fireEvent.click(menuItem("YouTube", "Move up"));
   expect(order()).toEqual([
     "Local files",
     "Saved copies",
@@ -141,8 +137,7 @@ test("moving a source changes only the draft until Save sends the exact order an
     "Jamendo",
   ]);
   expect(sourcePreferenceApi.update).not.toHaveBeenCalled();
-  expect(save.disabled).toBe(false);
-  fireEvent.click(save);
+  fireEvent.click(saveButton()!);
   await waitFor(() =>
     expect(sourcePreferenceApi.update).toHaveBeenCalledExactlyOnceWith(
       "alice",
@@ -157,7 +152,7 @@ test("moving a source changes only the draft until Save sends the exact order an
     "YouTube",
     "Jamendo",
   ]);
-  expect(save.disabled).toBe(true);
+  expect(saveButton()).toBeNull();
 });
 
 test("the fallback switch is saved with the order and a conflict keeps the draft until reload", async () => {
@@ -205,7 +200,7 @@ test("the fallback switch is saved with the order and a conflict keeps the draft
 test("another account does not see the previous account's draft", async () => {
   const view = render(createElement(SourcePreferences, { account: "alice" }));
   await screen.findByRole("list", { name: "Source order" });
-  fireEvent.click(screen.getByRole("button", { name: "Move up YouTube" }));
+  fireEvent.click(menuItem("YouTube", "Move up"));
   vi.mocked(sourcePreferenceApi.settings).mockResolvedValue({
     revision: 0,
     fallback: true,

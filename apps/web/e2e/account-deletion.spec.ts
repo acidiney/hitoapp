@@ -24,13 +24,14 @@ test("an administrator deletes an account by typing its name and that account's 
   expect((await departing.get("/api/v1/me")).status()).toBe(200);
 
   await page.goto("/settings?section=accounts");
-  const accounts = page.getByRole("region", { name: "Accounts and access" });
+  const accounts = page.getByRole("region", { name: "People" });
   const row = accounts
     .locator(".setting-line")
     .filter({ has: page.getByText(username, { exact: true }) });
   await expect(row).toBeVisible();
 
-  await row.getByRole("button", { name: "Delete account" }).click();
+  await row.getByRole("button", { name: /^More for / }).click();
+  await page.getByRole("menuitem", { name: "Delete account…" }).click();
   const dialog = page.getByRole("dialog", { name: "Delete account" });
   const confirm = dialog.getByRole("button", { name: "Delete account" });
   await expect(confirm).toBeDisabled();

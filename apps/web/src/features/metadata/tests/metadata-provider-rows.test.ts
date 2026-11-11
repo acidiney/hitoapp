@@ -55,11 +55,10 @@ test("each row names its provider, kind, status and priority", async () => {
   const [first, second] = rows();
   expect(within(first).getByText("MusicBrainz")).toBeTruthy();
   expect(within(first).getByText("Built in")).toBeTruthy();
-  expect(within(first).getByText("Priority 1")).toBeTruthy();
+  expect(within(first).getByText("1")).toBeTruthy();
   expect(within(second).getByText("Archive catalog")).toBeTruthy();
-  expect(within(second).getByText("Plugin")).toBeTruthy();
-  expect(within(second).getByText("Connected")).toBeTruthy();
-  expect(within(second).getByText("Priority 2")).toBeTruthy();
+  expect(within(second).getByText("Plugin · connected")).toBeTruthy();
+  expect(within(second).getByText("2")).toBeTruthy();
 });
 
 test("a saved plugin whose connection is gone is marked unavailable", async () => {
@@ -70,25 +69,26 @@ test("a saved plugin whose connection is gone is marked unavailable", async () =
   render(preferences());
   const [row] = await screen.findAllByRole("listitem");
   expect(within(row).getByText("Unavailable saved provider")).toBeTruthy();
-  expect(within(row).getByText("Not connected")).toBeTruthy();
+  expect(within(row).getByText("Plugin · not connected")).toBeTruthy();
 });
+
+function moveItem(row: HTMLElement, item: string) {
+  fireEvent.click(within(row).getByRole("button", { name: /^Move / }));
+  return screen.getByRole("menuitem", { name: item }) as HTMLButtonElement;
+}
 
 test("moving a row changes the priority numbers and the end rows cannot move outward", async () => {
   await show();
-  const earlier = (row: HTMLElement) =>
-    within(row).getByRole("button", {
-      name: /^Move earlier /,
-    }) as HTMLButtonElement;
-  const later = (row: HTMLElement) =>
-    within(row).getByRole("button", {
-      name: /^Move later /,
-    }) as HTMLButtonElement;
-  expect(earlier(rows()[0]).disabled).toBe(true);
-  expect(later(rows()[2]).disabled).toBe(true);
-  fireEvent.click(later(rows()[0]));
+  const first = moveItem(rows()[0], "Move earlier");
+  expect(first.disabled).toBe(true);
+  fireEvent.keyDown(first, { key: "Escape" });
+  fireEvent.click(moveItem(rows()[0], "Move later"));
   expect(names()).toEqual(["Archive catalog", "MusicBrainz", "Radio catalog"]);
-  expect(within(rows()[1]).getByText("Priority 2")).toBeTruthy();
-  fireEvent.click(earlier(rows()[2]));
+  expect(within(rows()[1]).getByText("2")).toBeTruthy();
+  const last = moveItem(rows()[2], "Move later");
+  expect(last.disabled).toBe(true);
+  fireEvent.keyDown(last, { key: "Escape" });
+  fireEvent.click(moveItem(rows()[2], "Move earlier"));
   expect(names()).toEqual(["Archive catalog", "Radio catalog", "MusicBrainz"]);
 });
 
@@ -130,10 +130,7 @@ test("cancelling the Add provider dialog changes nothing", async () => {
 
 test("removing a provider asks first and cancelling keeps the row", async () => {
   await show();
-  const remove = within(rows()[1]).getByRole("button", {
-    name: "Remove Archive catalog",
-  });
-  fireEvent.click(remove);
+  fireEvent.click(moveItem(rows()[1], "Remove"));
   const dialog = screen.getByRole("dialog", {
     name: "Remove Archive catalog?",
   });
@@ -141,16 +138,14 @@ test("removing a provider asks first and cancelling keeps the row", async () => 
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(names()).toHaveLength(3);
-  fireEvent.click(
-    within(rows()[1]).getByRole("button", { name: "Remove Archive catalog" }),
-  );
+  fireEvent.click(moveItem(rows()[1], "Remove"));
   fireEvent.click(
     within(
       screen.getByRole("dialog", { name: "Remove Archive catalog?" }),
     ).getByRole("button", { name: "Remove provider" }),
   );
   expect(names()).toEqual(["MusicBrainz", "Radio catalog"]);
-  expect(within(rows()[1]).getByText("Priority 2")).toBeTruthy();
+  expect(within(rows()[1]).getByText("2")).toBeTruthy();
   expect(metadataPreferencesApi.update).not.toHaveBeenCalled();
 });
 
@@ -159,12 +154,8 @@ test("with no provider selected the list says so and Save stays unavailable whil
   expect(screen.getByText("No metadata providers selected.")).toBeTruthy();
   expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   expect(
-    (
-      screen.getByRole("button", {
-        name: "Save metadata preferences",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+    screen.queryByRole("button", { name: "Save metadata preferences" }),
+  ).toBeNull();
 });
 
 test("when enrichment is off the rows stay editable and say the order is kept", async () => {

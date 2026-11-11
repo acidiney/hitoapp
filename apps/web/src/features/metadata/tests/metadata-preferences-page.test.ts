@@ -42,7 +42,7 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-test("the legacy Metadata deep link opens the real account preferences inside Music & providers", async () => {
+test("the legacy Metadata deep link opens the real account preferences inside Music", async () => {
   const read = Promise.resolve(settings());
   const pluginRead = Promise.resolve(connections());
   vi.mocked(metadataPreferencesApi.settings).mockReturnValue(read);
@@ -63,9 +63,9 @@ test("the legacy Metadata deep link opens the real account preferences inside Mu
       within(nav)
         .getAllByRole("link")
         .filter((link) => link.getAttribute("aria-current") === "page")
-        .map((link) => link.textContent),
-    ).toEqual(["Music & providers"]);
-    const panel = screen.getByRole("region", { name: "Metadata providers" });
+        .map((link) => link.querySelector(".settings-nav-label")?.textContent),
+    ).toEqual(["Music"]);
+    const panel = screen.getByRole("region", { name: "Artist details" });
     const enabled = (await within(panel).findByRole("switch", {
       name: "Use metadata providers",
     })) as HTMLButtonElement;
@@ -93,7 +93,7 @@ test("the legacy Metadata deep link opens the real account preferences inside Mu
 
     show("/settings?section=metadata");
     await within(
-      screen.getByRole("region", { name: "Metadata providers" }),
+      screen.getByRole("region", { name: "Artist details" }),
     ).findByRole("switch", { name: "Use metadata providers" });
     expect(metadataPreferencesApi.settings).toHaveBeenCalledTimes(2);
     expect(pluginsApi.settings).toHaveBeenCalledTimes(2);

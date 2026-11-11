@@ -137,9 +137,10 @@ test("personal provider libraries are excluded from folder administration", asyn
     expect.any(AbortSignal),
   );
   expect(screen.queryByRole("combobox", { name: "Library" })).toBeNull();
+  expect(screen.getByText("Tracks from your connected plugins")).toBeTruthy();
   expect(
-    screen.getByText("Your personal provider library is managed in Plugins."),
-  ).toBeTruthy();
+    screen.getByRole("link", { name: "Open Plugins" }).getAttribute("href"),
+  ).toBe("/settings?section=plugins");
 });
 
 test("failed folder connection preserves the selection and shows a retryable error", async () => {

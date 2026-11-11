@@ -36,15 +36,13 @@ test(
       fixtures.map((fixture) => fixture.recording),
     );
     await page.goto("/settings?section=playback");
-    const quality = page.getByRole("combobox", {
-      name: "Streaming quality",
-      exact: true,
-    });
-    await expect(quality).toHaveValue("original");
-    await expect(quality.getByRole("option")).toHaveCount(3);
-    await quality.selectOption("high");
+    const quality = page.getByRole("button", { name: /^Streaming quality:/ });
+    await expect(quality).toHaveAccessibleName("Streaming quality: Original");
+    await quality.click();
+    await expect(page.getByRole("menuitem")).toHaveCount(3);
+    await page.getByRole("menuitem", { name: /^High/ }).click();
     await page.reload();
-    await expect(quality).toHaveValue("high");
+    await expect(quality).toHaveAccessibleName(/High/);
 
     const high = convertedResponse(page, "high");
     await playFixture(page, "Fixture 440 Hz");
@@ -159,14 +157,12 @@ test(
       fixtures.map((fixture) => fixture.recording),
     );
     await page.goto("/settings?section=playback");
-    const quality = page.getByRole("combobox", {
-      name: "Streaming quality",
-      exact: true,
-    });
-    await expect(quality).toHaveValue("original");
-    await quality.selectOption("high");
+    const quality = page.getByRole("button", { name: /^Streaming quality:/ });
+    await expect(quality).toHaveAccessibleName("Streaming quality: Original");
+    await quality.click();
+    await page.getByRole("menuitem", { name: /^High/ }).click();
     await page.reload();
-    await expect(quality).toHaveValue("high");
+    await expect(quality).toHaveAccessibleName(/High/);
 
     const converted = convertedResponse(page, "high");
     const fallback = originalResponse(page, fixtures[0].path);

@@ -1,9 +1,9 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import Button from "../../../shared/ui/Button";
-import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
+import OrderHandle from "../../settings/components/OrderHandle";
 import {
   AddProviderDialog,
   RemoveProviderDialog,
@@ -92,55 +92,36 @@ export default function MetadataProviderList({
           return (
             <li key={key(provider)}>
               <SettingRow
+                leading={
+                  <OrderHandle
+                    label={label}
+                    position={index + 1}
+                    items={[
+                      {
+                        label: "Move earlier",
+                        disabled: pending || index === 0,
+                        onSelect: () => onMove(provider, -1),
+                      },
+                      {
+                        label: "Move later",
+                        disabled: pending || index === providers.length - 1,
+                        onSelect: () => onMove(provider, 1),
+                      },
+                      {
+                        label: "Remove",
+                        destructive: true,
+                        disabled: pending,
+                        onSelect: () =>
+                          setDialogue({ kind: "remove", provider }),
+                      },
+                    ]}
+                  />
+                }
                 title={<h3>{label}</h3>}
                 hint={
-                  <>
-                    <span>{builtin ? "Built in" : "Plugin"}</span>
-                    <span>{`Priority ${index + 1}`}</span>
-                  </>
-                }
-                status={
-                  builtin ? undefined : (
-                    <HealthDot
-                      tone={connected ? "success" : "warning"}
-                      label={connected ? "Connected" : "Not connected"}
-                    />
-                  )
-                }
-                wide
-                action={
-                  <>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Move earlier ${label}`}
-                      title="Move earlier"
-                      disabled={pending || index === 0}
-                      onClick={() => onMove(provider, -1)}
-                    >
-                      <ArrowUp size={18} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Move later ${label}`}
-                      title="Move later"
-                      disabled={pending || index === providers.length - 1}
-                      onClick={() => onMove(provider, 1)}
-                    >
-                      <ArrowDown size={18} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button provider-remove"
-                      aria-label={`Remove ${label}`}
-                      title="Remove"
-                      disabled={pending}
-                      onClick={() => setDialogue({ kind: "remove", provider })}
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </button>
-                  </>
+                  builtin
+                    ? "Built in"
+                    : `Plugin · ${connected ? "connected" : "not connected"}`
                 }
               />
             </li>
@@ -153,6 +134,7 @@ export default function MetadataProviderList({
       {available.length ? (
         <div className="provider-add">
           <Button
+            variant="link"
             disabled={pending || !canAdd}
             onClick={() => setDialogue({ kind: "add" })}
           >

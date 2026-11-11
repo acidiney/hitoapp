@@ -44,16 +44,18 @@ const view = () =>
 async function openDeletion() {
   view();
   await screen.findByText("listener");
-  fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+  fireEvent.click(screen.getByRole("button", { name: "More for listener" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete account…" }));
   return screen.findByRole("dialog", { name: "Delete account" });
 }
 
 test("only accounts other than the signed-in one offer deletion", async () => {
   view();
   await screen.findByText("listener");
+  expect(screen.getAllByRole("button", { name: /^More for / })).toHaveLength(1);
   expect(
-    screen.getAllByRole("button", { name: "Delete account" }),
-  ).toHaveLength(1);
+    screen.getByRole("button", { name: "More for listener" }),
+  ).toBeTruthy();
 });
 
 test("deleting needs the exact account name and then removes the row", async () => {

@@ -72,11 +72,9 @@ test("a retired initial read cannot overwrite an accepted save and duplicate sub
       vi.mocked(metadataPreferencesApi.settings).mock.calls[0][1].aborted,
     ).toBe(true);
     fireEvent.click(enabled());
-    const form = save().closest("form");
-    expect(form).not.toBeNull();
     act(() => {
-      fireEvent.submit(form!);
-      fireEvent.submit(form!);
+      fireEvent.click(save());
+      fireEvent.click(save());
     });
     expect(metadataPreferencesApi.update).toHaveBeenCalledExactlyOnceWith(
       "alice",

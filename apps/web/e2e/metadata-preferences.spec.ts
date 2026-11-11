@@ -165,10 +165,7 @@ test("account metadata preferences persist ordered personal providers without to
     expect(owned.calls.total).toBe(0);
 
     stage = "address-only offers and personal catalog approval";
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await page.goto("/settings?section=plugins");
     await page.getByRole("button", { name: /^This server/ }).click();
     const connections: Schema<"PluginInstallation">[] = [];
     for (const [index, address] of owned.addresses.entries()) {
@@ -254,13 +251,15 @@ test("account metadata preferences persist ordered personal providers without to
     await selected
       .getByRole("listitem")
       .nth(2)
-      .getByRole("button", { name: `Move earlier ${owned.name}`, exact: true })
+      .getByRole("button", { name: `Move ${owned.name}`, exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Move earlier" }).click();
     await selected
       .getByRole("listitem")
       .nth(1)
-      .getByRole("button", { name: `Move earlier ${owned.name}`, exact: true })
+      .getByRole("button", { name: `Move ${owned.name}`, exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Move earlier" }).click();
     await panel
       .getByRole("switch", { name: "Use metadata providers", exact: true })
       .check();
@@ -378,10 +377,7 @@ test("account metadata preferences persist ordered personal providers without to
       otherPlugins.installations.length === 0 &&
         otherPlugins.services.length === 2,
     ).toBe(true);
-    await other
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await other.goto("/settings?section=plugins");
     await expect(
       other.getByText("No plugins connected to this account.", { exact: true }),
     ).toBeVisible();
@@ -390,10 +386,7 @@ test("account metadata preferences persist ordered personal providers without to
     ).toHaveCount(0);
 
     stage = "disconnect selected provider and disable retained reference";
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await page.goto("/settings?section=plugins");
     const installedSettings =
       await read<Schema<"PluginSettings">>("/api/v1/plugins");
     const selectedIndex = installedSettings.installations.findIndex(

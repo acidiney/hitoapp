@@ -188,7 +188,7 @@ test("browsers show neither a picker nor a proposal", async () => {
   expect(
     screen.queryByRole("heading", { name: "Add your Music folder?" }),
   ).toBeNull();
-  expect(screen.getByText(/Open Hito Setup on the server/)).toBeTruthy();
+  expect(screen.getByText(/Share it in Hito Setup on the server/)).toBeTruthy();
 });
 
 test("a failed offer lookup leaves the browser behaviour", async () => {

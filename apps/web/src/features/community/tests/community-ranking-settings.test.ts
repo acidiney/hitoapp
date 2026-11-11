@@ -4,7 +4,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SettingsPage from "../../settings/pages/SettingsPage";
 import type { Schema } from "../../../shared/schema";
+import { NoticeProvider } from "../../../shared/ui/Notices";
 
+vi.mock("../../playback/components/PlaybackProvider", () => ({
+  usePlayer: () => ({ clear: vi.fn() }),
+}));
 vi.mock("@inertiajs/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/react")>();
   return { ...actual, usePage: () => ({ url: "/settings?section=privacy" }) };
@@ -93,27 +97,33 @@ test("Privacy saves source rankings independently and requires review after a st
     lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     native_playback: false,
   };
-  const view = render(createElement(SettingsPage, props));
+  const view = render(
+    createElement(NoticeProvider, null, createElement(SettingsPage, props)),
+  );
   try {
     const panel = screen.getByRole("region", { name: "Privacy & lock" });
     let ranking = (await within(panel).findByRole("switch", {
       name: "Use community source rankings",
     })) as HTMLButtonElement;
     const reporting = within(panel).getByRole("switch", {
-      name: "Playback reporting",
+      name: "Report successful plays",
     }) as HTMLButtonElement;
     const corrections = within(panel).getByRole("switch", {
-      name: "Metadata corrections",
+      name: "Share metadata corrections",
     }) as HTMLButtonElement;
     const save = () =>
       within(panel).getByRole("button", {
         name: "Save source ranking preference",
       }) as HTMLButtonElement;
-    const controls = () => within(save().closest("form")!);
+    const saveShown = () =>
+      within(panel).queryByRole("button", {
+        name: "Save source ranking preference",
+      }) !== null;
+    const controls = () => within(save().parentElement!);
     expect(isOn(ranking)).toBe(false);
     expect(isOn(reporting)).toBe(true);
     expect(isOn(corrections)).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(rankWrites).toHaveLength(0);
     expect(legacyWrites).toHaveLength(0);
     fireEvent.click(ranking);
@@ -122,12 +132,12 @@ test("Privacy saves source rankings independently and requires review after a st
     expect(rankWrites).toHaveLength(0);
     fireEvent.click(controls().getByRole("button", { name: "Cancel changes" }));
     expect(isOn(ranking)).toBe(false);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
 
     fireEvent.click(ranking);
     act(() => {
-      fireEvent.submit(save().closest("form")!);
-      fireEvent.submit(save().closest("form")!);
+      fireEvent.click(save());
+      fireEvent.click(save());
     });
     await vi.waitFor(() =>
       expect(rankWrites).toEqual([{ revision: 0, use_source_rankings: true }]),
@@ -147,7 +157,7 @@ test("Privacy saves source rankings independently and requires review after a st
     });
     expect(ranking.disabled).toBe(false);
     expect(isOn(ranking)).toBe(true);
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(legacy).toEqual(initial);
 
     holdSave = false;
@@ -185,7 +195,7 @@ test("Privacy saves source rankings independently and requires review after a st
     ranking = within(panel).getByRole("switch", {
       name: "Use community source rankings",
     }) as HTMLButtonElement;
-    expect(save().disabled).toBe(true);
+    expect(saveShown()).toBe(false);
     expect(
       screen.queryByText(
         "Source ranking preference changed. Reload it before saving.",

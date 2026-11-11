@@ -509,7 +509,7 @@ test.describe("account switching", () => {
         .getByRole("button", { name: "Create account", exact: true })
         .click();
       await expect(
-        page.getByRole("region", { name: "Accounts and access" }),
+        page.getByRole("region", { name: "People" }),
       ).toContainText("plugin-listener");
       await signOutFromShell(page);
       await expect(

@@ -108,10 +108,10 @@ export async function openPreferences(page: Page) {
   await expect(
     page
       .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Music & providers", exact: true }),
+      .getByRole("link", { name: "Music", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const panel = page.getByRole("region", {
-    name: "Metadata providers",
+    name: "Artist details",
     exact: true,
   });
   await expect(

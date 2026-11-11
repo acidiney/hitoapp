@@ -73,7 +73,7 @@ test("delete needs a confirmation, cancelling sends nothing and confirming delet
     screen.getByRole("button", { name: "Delete listening history" }),
   );
   const dialog = screen.getByRole("dialog", {
-    name: "Delete listening history?",
+    name: "Delete your listening history?",
   });
   expect(dialog.textContent).toContain("Likes, playlists, resume positions");
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
