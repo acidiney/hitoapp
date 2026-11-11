@@ -357,6 +357,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## UI and branding
 
+- [ ] Fix "Show complete track list" on library album pages: reported 2026-11-11 on a real album, it shows the artist's whole discography instead of the tracks of that release. The complete list must show only the selected release/edition's tracks in disc and track order (see the album-complete-track-list tests in apps/web/src/features/catalog/tests).
 - [ ] Show real thumbnails and, where the service supplies them, artist and length for unsaved source candidates: the YouTube flat music search returns neither, so candidates show a generated cover. This needs a plugin contract field for candidate artwork and a way to fetch it before the track is saved. Also move the remaining Previous and Next lists (library tracks, discovery, audiobooks) to infinite loading where playback queues allow.
 - [ ] Redesign the web app to the [design system](docs/design-system.md): Início / Pesquisar / Biblioteca shell, new tokens and fonts, shared components, and every screen.
   - [x] Phase 1, foundation: tokens (light and dark), bundled Geist fonts, shared primitives, new sidebar and phone tab bar, restyled player bar and mini player. Pages are restyled, not rebuilt; Início points at Discover until Home exists. See [status](docs/status.md#web-redesign-phase-1).
