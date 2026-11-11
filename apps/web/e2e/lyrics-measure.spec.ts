@@ -211,6 +211,7 @@ for (const size of [
     });
     await lyrics.getByRole("button", { name: lines[3] }).first().click();
     await expect(lyrics.locator('[aria-current="true"]')).toHaveText(lines[3]);
+    await lyrics.locator(".np-lines").dispatchEvent("wheel");
     await page.waitForTimeout(600);
     const result = await page.evaluate(`(() => {
       const props = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); const c = getComputedStyle(el);

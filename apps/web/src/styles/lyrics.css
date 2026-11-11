@@ -321,3 +321,35 @@
 .np-lines button {
   border-radius: 0;
 }
+@media (max-width: 767px) {
+  .np-lyrics {
+    position: relative;
+  }
+  .np-lyrics .np-lines[data-synced] {
+    gap: 14px;
+    padding: 0;
+    line-height: 1.15;
+  }
+  .np-lyrics .np-lines[data-synced] button {
+    font-size: 22px;
+  }
+  .np-lyrics .np-lines[data-synced] button[data-state="current"] {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .np-lyrics .np-rejoin {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    transform: translateX(-50%);
+  }
+  .np-lyrics .np-rejoin button {
+    padding: 0 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+  }
+  .np-lyrics .np-rejoin span {
+    display: none;
+  }
+}
