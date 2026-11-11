@@ -128,47 +128,57 @@ async function lyricsFor(
   page: Page,
   recording: string,
   installation: Schema<"PluginInstallation">,
-  lyrics: Schema<"LyricsLookup">,
+  lyrics: Schema<"TimedLyrics"> | null,
 ) {
-  await page.route("**/api/v1/plugins", async (route: Route) => {
-    if (route.request().method() !== "GET") return route.continue();
-    const response = await route.fetch();
-    const settings: Schema<"PluginSettings"> = await response.json();
-    await route.fulfill({
-      response,
+  const identity = {
+    selectable: true,
+    selector: { kind: "observation", observation_id: "obs-tabs" },
+    installation_id: installation.id,
+    installation_revision: installation.revision,
+    label: "LRCLIB",
+    provider_recording: { id: "tabs-lyrics", revision: null },
+  } satisfies Schema<"RecordingLyricIdentity">;
+  const base = `**/api/v1/recordings/${recording}/lyrics`;
+  await page.route(`${base}/identities`, (route: Route) =>
+    route.fulfill({
       json: {
-        ...settings,
-        installations: settings.installations.map((item) =>
-          item.id === installation.id
-            ? {
-                ...item,
-                manifest: {
-                  ...item.manifest,
-                  capabilities: [...item.manifest.capabilities, "lyrics"],
-                },
-              }
-            : item,
-        ),
-      },
-    });
-  });
-  await page.route(
-    `**/api/v1/recordings/${recording}/lyrics`,
-    async (route: Route) => {
-      if (route.request().method() !== "POST") return route.continue();
-      const body = route.request().postDataJSON();
-      await route.fulfill({
-        json:
-          lyrics.status === "ready"
-            ? {
-                ...lyrics,
-                recording_id: recording,
-                observation_id: body.observation_id,
-              }
-            : lyrics,
-      });
-    },
+        recording_id: recording,
+        items: [identity],
+      } satisfies Schema<"RecordingLyricIdentities">,
+    }),
   );
+  await page.route(`${base}/services`, (route: Route) =>
+    route.fulfill({
+      json: {
+        recording_id: recording,
+        items: [
+          {
+            installation_id: installation.id,
+            installation_revision: installation.revision,
+            label: "LRCLIB",
+          },
+        ],
+      } satisfies Schema<"RecordingLyricServices">,
+    }),
+  );
+  await page.route(`${base}/identities/read`, (route: Route) =>
+    route.fulfill({
+      json: {
+        status: "ready_v1",
+        recording_id: recording,
+        selector: identity.selector,
+        provider_recording: identity.provider_recording,
+        document_digest: "0".repeat(64),
+        document: { recording: identity.provider_recording, lyrics },
+      } satisfies Schema<"SelectedLyricsLookup">,
+    }),
+  );
+}
+
+async function clearLyrics(page: Page, recording: string) {
+  const base = `**/api/v1/recordings/${recording}/lyrics`;
+  for (const suffix of ["/identities", "/services", "/identities/read"])
+    await page.unroute(`${base}${suffix}`);
 }
 
 test("a saved provider track without audio finds audio, reviews the match and shows lyrics", async ({
@@ -218,32 +228,19 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     };
     const recording = await adopt(origin.recording.id);
     const without = await adopt(origin.second.id);
-    const ready: Schema<"LyricsLookup"> = {
-      status: "ready",
-      recording_id: recording.id,
-      observation_id: "pending",
-      document_digest: "0".repeat(64),
-      document: {
-        recording: { id: origin.recording.id, revision: null },
-        lyrics: {
-          id: "lyrics",
-          rendition_id: "rendition",
-          language: "pt",
-          lines: [
-            { start_ms: 0, end_ms: 4_000, text: "A maré vem devagar" },
-            {
-              start_ms: 4_000,
-              end_ms: 8_000,
-              text: "e leva o que ficou na areia",
-            },
-            { start_ms: 8_000, end_ms: 12_000, text: "e o silêncio fica" },
-          ],
-          attribution: {
-            creators: ["Nadia Ferreira"],
-            provider_label: "LRCLIB",
-            content_url: "https://lrclib.example/track",
-          },
-        },
+    const ready: Schema<"TimedLyrics"> = {
+      id: "lyrics",
+      rendition_id: "rendition",
+      language: "pt",
+      lines: [
+        { start_ms: 0, end_ms: 4_000, text: "A maré vem devagar" },
+        { start_ms: 4_000, end_ms: 8_000, text: "e leva o que ficou na areia" },
+        { start_ms: 8_000, end_ms: 12_000, text: "e o silêncio fica" },
+      ],
+      attribution: {
+        creators: ["Nadia Ferreira"],
+        provider_label: "LRCLIB",
+        content_url: "https://lrclib.example/track",
       },
     };
     await lyricsFor(page, recording.id, installed[0], ready);
@@ -262,34 +259,19 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     await expect(page.getByText("Synced", { exact: true })).toBeVisible();
     await trackShot(page, "03-lyrics-synced");
 
-    await page.unroute(`**/api/v1/recordings/${recording.id}/lyrics`);
+    await clearLyrics(page, recording.id);
     await lyricsFor(page, recording.id, installed[0], {
       ...ready,
-      document: {
-        ...ready.document,
-        lyrics: {
-          ...ready.document.lyrics!,
-          lines: ready.document.lyrics!.lines.map((line) => ({
-            ...line,
-            start_ms: 0,
-            end_ms: 0,
-          })),
-        },
-      },
-    } as Schema<"LyricsLookup">);
+      lines: ready.lines.map((line) => ({ ...line, start_ms: 0, end_ms: 0 })),
+    });
     await page.reload();
     await expect(page.getByText("Unsynced", { exact: true })).toBeVisible();
     await trackShot(page, "04-lyrics-unsynced");
 
-    await page.unroute(`**/api/v1/recordings/${recording.id}/lyrics`);
-    await lyricsFor(page, recording.id, installed[0], {
-      ...ready,
-      document: { ...ready.document, lyrics: null },
-    } as Schema<"LyricsLookup">);
+    await clearLyrics(page, recording.id);
+    await lyricsFor(page, recording.id, installed[0], null);
     await page.reload();
-    await expect(
-      page.getByText("No lyrics found for this recording."),
-    ).toBeVisible();
+    await expect(page.getByText("None found")).toBeVisible();
     await trackShot(page, "05-lyrics-none-choose-provider");
 
     const removed = await page.request.delete(
@@ -298,8 +280,7 @@ test("a saved provider track without audio finds audio, reviews the match and sh
     );
     expect(removed.status()).toBe(204);
     installed.shift();
-    await page.unroute(`**/api/v1/recordings/${recording.id}/lyrics`);
-    await page.unroute("**/api/v1/plugins");
+    await clearLyrics(page, recording.id);
     expect(without.id).not.toBe(recording.id);
     await page.goto(`/recordings/${without.id}`);
     await expect(header.getByRole("heading", { level: 1 })).toHaveText(

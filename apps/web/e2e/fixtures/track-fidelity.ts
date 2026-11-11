@@ -440,7 +440,23 @@ export async function stubTrackPage(
       ? route.fulfill({ json: fidelityPlugins })
       : route.continue(),
   );
-  await page.route(`**${base}/lyrics/providers`, (route) =>
+  const identity = {
+    selectable: true,
+    selector: { kind: "observation", observation_id: "obs-lrclib" },
+    installation_id: LRCLIB,
+    installation_revision: 1,
+    label: "LRCLIB",
+    provider_recording: { id: "lrclib:slow-tide", revision: null },
+  } satisfies Schema<"RecordingLyricIdentity">;
+  await page.route(`**${base}/lyrics/identities`, (route) =>
+    route.fulfill({
+      json: {
+        recording_id: recording,
+        items: [identity],
+      } satisfies Schema<"RecordingLyricIdentities">,
+    }),
+  );
+  await page.route(`**${base}/lyrics/services`, (route) =>
     route.fulfill({
       json: {
         recording_id: recording,
@@ -449,28 +465,25 @@ export async function stubTrackPage(
             installation_id: LRCLIB,
             installation_revision: 1,
             label: "LRCLIB",
-            observation_id: "obs-lrclib",
-            provider_recording: { id: "lrclib:slow-tide", revision: null },
           },
         ],
-      } satisfies Schema<"RecordingLyricsProviders">,
+      } satisfies Schema<"RecordingLyricServices">,
     }),
   );
-  await page.route(`**${base}/lyrics`, (route) =>
-    route.request().method() === "POST"
-      ? route.fulfill({
-          json: {
-            status: "ready",
-            recording_id: recording,
-            observation_id: route.request().postDataJSON().observation_id,
-            document_digest: "0".repeat(64),
-            document: {
-              recording: { id: "lrclib:slow-tide", revision: null },
-              lyrics: scenario.lyrics ?? null,
-            },
-          } satisfies Schema<"LyricsLookup">,
-        })
-      : route.continue(),
+  await page.route(`**${base}/lyrics/identities/read`, (route) =>
+    route.fulfill({
+      json: {
+        status: "ready_v1",
+        recording_id: recording,
+        selector: identity.selector,
+        provider_recording: identity.provider_recording,
+        document_digest: "0".repeat(64),
+        document: {
+          recording: identity.provider_recording,
+          lyrics: scenario.lyrics ?? null,
+        },
+      } satisfies Schema<"SelectedLyricsLookup">,
+    }),
   );
   await page.route("**/api/v1/plugins/*/search", (route) =>
     route.fulfill({

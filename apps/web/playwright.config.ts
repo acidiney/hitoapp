@@ -11,7 +11,6 @@ export default defineConfig({
     "**/latency/**",
     "**/collection-artwork.spec.ts",
     "**/community-ranking.spec.ts",
-    "**/recording-lyric-provider-choice.spec.ts",
     "**/plugin-authorization-callback.spec.ts",
     "**/plugin-connection-ui.spec.ts",
   ],
