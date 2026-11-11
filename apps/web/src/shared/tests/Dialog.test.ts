@@ -10,11 +10,11 @@ function Host() {
     null,
     createElement("button", { onClick: () => setOpen(true) }, "Open"),
     open &&
-      createElement(
-        Dialog,
-        { title: "Sample", onClose: () => setOpen(false) },
-        createElement("p", null, "Body"),
-      ),
+      createElement(Dialog, {
+        title: "Sample",
+        onClose: () => setOpen(false),
+        children: createElement("p", null, "Body"),
+      }),
   );
 }
 
