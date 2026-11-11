@@ -65,7 +65,7 @@ test("a populated page offers the same two actions in its header instead of two 
   ).toHaveLength(2);
 });
 
-test("New playlist opens a dialog that creates the playlist and reloads", async () => {
+test("New playlist opens a dialog that creates the playlist and closes", async () => {
   vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
   render(createElement(PlaylistIndexPage, empty), { wrapper });
   fireEvent.click(screen.getByRole("button", { name: "New playlist" }));
@@ -74,7 +74,7 @@ test("New playlist opens a dialog that creates the playlist and reloads", async 
     target: { value: "Evening" },
   });
   fireEvent.click(dialog.getByRole("button", { name: "Create playlist" }));
-  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(vi.mocked(change).mock.calls[0][1]).toMatchObject({
     kind: "playlist_create",
     name: "Evening",
@@ -111,7 +111,7 @@ test("a name you already use gets a gentle warning but can still be created", as
   }) as HTMLButtonElement;
   expect(create.disabled).toBe(false);
   fireEvent.click(create);
-  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(vi.mocked(change)).toHaveBeenCalledTimes(1));
 });
 
 test("Cancel closes the dialog without creating anything", () => {

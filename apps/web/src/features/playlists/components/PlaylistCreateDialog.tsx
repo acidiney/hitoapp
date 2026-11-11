@@ -1,7 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useState, type FormEvent } from "react";
-import { router } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
@@ -28,7 +27,6 @@ export default function PlaylistCreateDialog({
       name,
     });
     if (!result.ok) return;
-    router.reload();
     onClose();
   }
   return (
