@@ -71,13 +71,14 @@ export default function QueueScreen() {
         description={`${count} · ${upNext.toLocaleString()} up next`}
       >
         <div className="queue-actions">
-          <Button
-            variant="destructive"
+          <button
+            type="button"
+            className="queue-clear"
             disabled={view.total === 0}
             onClick={() => setConfirming(true)}
           >
             Clear
-          </Button>
+          </button>
         </div>
       </PageHeading>
       <section aria-labelledby="queue-now" className="queue-now">
@@ -94,7 +95,7 @@ export default function QueueScreen() {
               <small>{current.artist}</small>
             </span>
             <NowClock />
-            <PlayerTrackActions track={current} />
+            <PlayerTrackActions track={current} liking={false} />
             {currentId && (
               <button
                 type="button"
@@ -120,11 +121,12 @@ export default function QueueScreen() {
         </details>
       )}
       <section aria-labelledby="queue-next" className="queue-next">
-        <div className="queue-next-head">
-          <h2 id="queue-next">Up next</h2>
-          <span>Drag by the handle, or use the arrows, to reorder</span>
-        </div>
+        <h2 id="queue-next">Up next</h2>
         <QueueList from={(view.currentIndex ?? -1) + 1} />
+        <p className="queue-hint">
+          Tracks without a source are skipped. Drag the handle, or press Alt
+          with ↑ or ↓ on a row, to reorder.
+        </p>
       </section>
       {confirming && (
         <Dialog title="Clear the queue?" onClose={() => setConfirming(false)}>

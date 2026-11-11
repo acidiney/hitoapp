@@ -2,7 +2,6 @@ import { memo } from "react";
 import { ChevronDown, ChevronUp, GripVertical, X } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
-import { time } from "../../../shared/format";
 import type { PlaybackOccurrence } from "../model";
 import { QUEUE_ROW } from "../hooks/useQueueWindow";
 import PlayerTrackActions from "./PlayerTrackActions";
@@ -47,9 +46,8 @@ const QueueRow = memo(function QueueRow({
         aria-label={`Drag ${track.title}`}
         title="Drag to reorder"
       >
-        <GripVertical size={16} />
+        <GripVertical size={18} strokeWidth={3} />
       </button>
-      <span className="queue-index">{index - first + 1}</span>
       <button className="queue-track" onClick={() => select(id)}>
         <Artwork
           release={track.release_id ?? undefined}
@@ -61,8 +59,7 @@ const QueueRow = memo(function QueueRow({
           <small>{track.artist}</small>
         </span>
       </button>
-      <span className="queue-duration">{time(track.duration_ms / 1000)}</span>
-      <PlayerTrackActions track={track} />
+      <PlayerTrackActions track={track} liking={false} />
       <span className="queue-order">
         <button
           className="icon-button"

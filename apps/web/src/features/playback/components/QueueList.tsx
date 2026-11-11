@@ -166,6 +166,21 @@ const QueueList = memo(function QueueList({
         <ol
           className="queue-tracks queue-virtual"
           style={{ height: Math.max(0, last - from) * QUEUE_ROW }}
+          onKeyDown={(event) => {
+            if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key))
+              return;
+            const item = (event.target as HTMLElement).closest<HTMLElement>(
+              "li[data-index]",
+            );
+            const entry = item?.dataset.entry;
+            if (!item || !entry) return;
+            event.preventDefault();
+            const index = Number(item.dataset.index);
+            const step = event.key === "ArrowUp" ? -1 : 1;
+            if (index + step < latest.current.from) return;
+            if (index + step >= latest.current.view.total) return;
+            move(entry, index, step);
+          }}
           onDragStart={(event) => {
             const item = row(event);
             const entry = item && queue.entryAt(Number(item.dataset.index));

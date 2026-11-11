@@ -257,6 +257,15 @@
   border-radius: 10px;
   outline: none;
 }
+.result-row,
+.search-card,
+.search-source-toggle,
+.search-filters .pills button {
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
+}
 .result-row:hover,
 .result-row:focus,
 .result-row:focus-within {
@@ -363,6 +372,7 @@
   grid-row: 1;
   justify-self: end;
   opacity: 0;
+  transition: opacity 150ms ease-out;
 }
 .result-row:hover .action-menu,
 .result-row:focus-within .action-menu,
@@ -434,6 +444,16 @@
 .search-sent-note .text-link {
   font-weight: 400;
   text-decoration: underline;
+}
+@media (prefers-reduced-motion: reduce) {
+  .result-row,
+  .search-card,
+  .search-source-toggle,
+  .search-filters .pills button,
+  .result-row-cover > svg,
+  .result-row .action-menu {
+    transition: none;
+  }
 }
 @media (max-width: 767px) {
   .search-lead {

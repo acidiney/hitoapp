@@ -193,11 +193,11 @@ test("now playing has the heart and menu and leaves the dialog for the track pag
   expect(router.visit).toHaveBeenCalledWith("/recordings/r0");
 });
 
-test("every queue row has a heart and a menu without queue actions", async () => {
+test("every queue row has a menu without queue actions and no heart", async () => {
   render(shell(createElement(QueueList, { from: 1 })));
   const row = await screen.findByText("Next up");
   const item = within(row.closest("li")!);
-  expect(item.getByRole("button", { name: "Like Next up" })).toBeTruthy();
+  expect(item.queryByRole("button", { name: "Like Next up" })).toBeNull();
   const menu = await openMenu(item, "Next up");
   expect(
     within(menu)
