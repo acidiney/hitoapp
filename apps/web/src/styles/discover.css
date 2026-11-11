@@ -460,3 +460,36 @@
 .outside-library .discovery-query input:focus-visible {
   outline: none;
 }
+.genre-header .crumbs {
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.genre-header .crumbs a {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.genre-header .crumbs a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.genre-header .crumbs [aria-current] {
+  color: var(--ink);
+}
+.genre-section {
+  margin-top: 32px;
+}
+.genre-section > h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.genre-section > .muted {
+  margin: 0 0 12px;
+}
+@media (max-width: 767px) {
+  .genre-section {
+    margin-top: 24px;
+  }
+}
