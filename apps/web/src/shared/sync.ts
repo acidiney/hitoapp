@@ -60,7 +60,7 @@ export async function submitChange(
     });
     for (const operation of batch.operations)
       for (const event of invalidationsFor(operation.action))
-        invalidate(event.scope, event.id);
+        invalidate(event.scope, event.id, event.change);
     return receipt;
   } catch (error) {
     if (!signal?.aborted)
