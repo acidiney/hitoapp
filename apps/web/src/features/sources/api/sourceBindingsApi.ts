@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import { sourceStatusStore } from "../model/sourceStatusStore";
+import { invalidate } from "../../../shared/invalidation";
 
 export const sourceBindingsApi = {
   async review(
@@ -36,7 +36,7 @@ export const sourceBindingsApi = {
         signal,
       },
     );
-    sourceStatusStore.invalidate(account, recording);
+    invalidate("sources", recording);
     return attached;
   },
 };

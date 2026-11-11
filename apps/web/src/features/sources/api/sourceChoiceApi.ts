@@ -2,7 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { HttpError, request } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import { sourceStatusStore } from "../model/sourceStatusStore";
+import { invalidate } from "../../../shared/invalidation";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
@@ -156,7 +156,7 @@ export const sourceChoiceApi = {
       receipt.revision === 0
     )
       throw new Error("Hito returned a different source choice receipt");
-    sourceStatusStore.invalidate(account, recording);
+    invalidate("sources", recording);
     return receipt as Schema<"SourceChoiceReceipt">;
   },
   async reset(
@@ -187,7 +187,7 @@ export const sourceChoiceApi = {
       receipt.revision !== body.expected_revision + 1
     )
       throw new Error("Hito returned a different source choice reset receipt");
-    sourceStatusStore.invalidate(account, recording);
+    invalidate("sources", recording);
     return receipt as Schema<"SourceChoiceResetReceipt">;
   },
 };

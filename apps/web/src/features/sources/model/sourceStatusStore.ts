@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { onInvalidated } from "../../../shared/invalidation";
 import { sourcesApi } from "../api/sourcesApi";
 
 export type SourceStatus = {
@@ -89,3 +90,11 @@ export const sourceStatusStore = {
     entries.clear();
   },
 };
+
+onInvalidated("sources", (recording) => {
+  entries.forEach((_, key) => {
+    const [account, id] = key.split("\u0000");
+    if (recording === null || recording === id)
+      sourceStatusStore.invalidate(account, id);
+  });
+});

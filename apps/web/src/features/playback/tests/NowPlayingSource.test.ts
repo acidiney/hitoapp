@@ -12,6 +12,7 @@ import { Playback } from "../playback";
 import NowPlaying from "../components/NowPlaying";
 import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
 import { sourceStatusStore } from "../../sources/model/sourceStatusStore";
+import { invalidate } from "../../../shared/invalidation";
 
 let player: Playback;
 let media: QueueMedia;
@@ -140,4 +141,15 @@ test("a late reply for an earlier lookup is dropped", async () => {
   );
   await act(async () => release(Response.json([])));
   expect(within(card()).getByText("YouTube Music")).toBeTruthy();
+});
+
+test("a source change announced anywhere refreshes the open status", async () => {
+  await within(card()).findByText("This track has no playable source yet.");
+  playbackSources = [youtube("r0")];
+  await act(async () => {
+    invalidate("sources", "r0");
+  });
+  await waitFor(() =>
+    expect(within(card()).getByText("YouTube Music")).toBeTruthy(),
+  );
 });

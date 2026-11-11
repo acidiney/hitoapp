@@ -1,9 +1,10 @@
 import type { Schema } from "../shared/schema";
 import { useEffect, useState, type ReactNode } from "react";
-import { usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 
 import { log } from "../shared/log";
+import { onInvalidated } from "../shared/invalidation";
 import AccountMenu from "./AccountMenu";
 import ShellShortcuts from "./ShellShortcuts";
 import LibrarySearch from "./LibrarySearch";
@@ -42,6 +43,11 @@ export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
+  useEffect(
+    () =>
+      onInvalidated("playlists", () => router.reload({ only: ["playlists"] })),
+    [],
+  );
   useEffect(() => {
     const apple = isApplePlatform();
     const listen = (event: KeyboardEvent) => handleSearchShortcut(event, apple);
