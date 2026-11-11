@@ -80,6 +80,29 @@ During export, Core expands distinct scopes into one bounded indexed SQL work se
 
 A full export captures journal head H and its history anchor in the same SQLite read transaction as the facts. A changes export reads distinct affected owner keys in the interval from the accepted catalog cut through H, then returns complete family replacements or typed root tombstones as of H. Concurrent writes are wholly visible in that transaction or follow H. The final authority fence must also verify that required history and the export lease remain valid before publication.
 
+A new changes export must lease its input cut L before opening the fact snapshot. Leasing only H does not protect the interval that starts at L. The initial writer transaction resolves the input cursor, checks its complete authority and acquires the lower-cut lease. It commits before the read transaction begins. The read resolves L again, captures H and builds the affected-owner workset and complete replacements in that same snapshot.
+
+After the read ends, one final writer transaction checks the original lower-cut lease and current authority, then issues the result cursor at H before publication. If bounded retention expired the lower lease during construction, discard the candidate even when H and a lease at H are still valid. A historical snapshot can remain internally consistent after its input history is no longer publishable.
+
+```mermaid
+sequenceDiagram
+    participant Export as Core export owner
+    participant DB as Authoritative SQLite
+    Export->>DB: Writer fence: resolve L and lease L
+    DB-->>Export: Commit lower lease
+    Export->>DB: Read snapshot: revalidate L and capture H
+    Export->>DB: Read affected owners, complete families and order at H
+    DB-->>Export: End read snapshot
+    Export->>DB: Writer fence: check lower lease and authority
+    Export->>DB: Issue result cursor at H
+    DB-->>Export: Commit publication authorization
+    Export-->>Export: Publish immutable export
+```
+
+A ready retained export is different. Its request identity locates the already materialized result, whose cursor checks current authority, context and expiry. Retry must not resolve old input history again or consume a new construction lease. Compaction or expiry of L alone cannot invalidate that retained result.
+
+An isolated development workset test exercises this distinction with real journal appends and concurrent public collection writes. It advances retention beyond L but below H while the borrowed read still returns the original H facts. The final lower lease fails, the upper lease remains valid, and authority-only validation still passes. This is evidence for the fence requirement, not accepted changes delivery or client convergence; those remain unfinished.
+
 Pages are transport progress. The client advances its selected-set catalog cursor only when every fact/order page and all identity/count/binding checks commit atomically. It never acknowledges collection operations using a catalog cut or the old snapshot collection watermark.
 
 An oversized changes batch can require a full bootstrap. If a full bootstrap itself exceeds a documented budget, return a distinct capacity failure; repeated rebootstrap must not become an infinite recovery loop.
