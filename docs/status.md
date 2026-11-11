@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 Jamendo host and SQLite fixture ownership
+
+Development source now verifies Jamendo through its actual HTTP router, an owned upstream fixture, Hito's HTTP router and temporary SQLite. The cases cover manifest acceptance, adoption, retained attribution after reopening, exact playback and byte-range relay, and rejection of direct or playlist downloads under `playback_only`. Metadata-only workflows request no audio. Fixture cleanup joins accepted HTTP connections and retains storage until Core's worker-local SQLite resources retire, including cancellation during startup. The optional Core owner is limited to test support and does not expose SQL or pool types to the plugin.
+
+An independent final-source Docker repeat passes 24 Jamendo library cases and one real-child runtime case. All 162 Core unit cases pass across two invocations: 161 regressions in 92.43 seconds and the isolated chapter-admission work case in 119.61 seconds. That case exceeded the earlier supplementary run's 90-second outer deadline; the timeout is retained as evidence. Strict Jamendo checks and Core checks both with and without `test-support` pass, as does formatting. All 2,527 source and support inputs remain exact. Independent review accepts the new Core ownership boundary. See [host integration and remaining limits](plugin-jamendo.md#source-library-host-integration).
+
+This qualifies source-library integration with deterministic fixtures. Packaged host integration, active upstream-audio shutdown, broader codec acceptance and live Jamendo checks remain open. No running application image, VPS, frontend or desktop package changed.
+
 ## 2026-11-11 native follow-up and normalized encoding
 
 Development source now includes the bounded Linux ALSA output request, epoch-fenced successor readiness and reversible authority-outage fixture. The final independent standard run passes all 71 native transport cases in 331.83 seconds, with no failures or skips. All 2,519 pinned inputs remain exact: 2,455 Rust, SQL and Cargo files plus 64 support files. Original 70 case names remain, with one new held-seek negative control. Recovery tests now require presented progress before checking captured audio, preserving their deadlines and audio thresholds. The earlier failing results remain recorded; the narrow midstream diagnostic did not reproduce its historical amplitude failure. A separate four-case bounded Loom repeat passes. Physical output, p95, startup failure and historical missing-frame classification remain open. See [native evidence and limits](native-decoding-fallback.md#development-output-policy-candidate).
