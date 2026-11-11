@@ -452,6 +452,9 @@
   font-weight: 700;
   color: var(--ink);
 }
+.review-side.review-credit {
+  grid-template-columns: minmax(0, 1fr);
+}
 .review-photo {
   width: 72px;
   height: 72px;

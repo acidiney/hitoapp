@@ -33,7 +33,11 @@ export default function ArtistReviewDialog({
       onClose={onClose}
     >
       <div className="review-compare">
-        <div className="review-side" role="group" aria-label="Saved track">
+        <div
+          className="review-side review-credit"
+          role="group"
+          aria-label="Saved track"
+        >
           <h4>Saved track credit</h4>
           <p className="review-title">{credit}</p>
         </div>

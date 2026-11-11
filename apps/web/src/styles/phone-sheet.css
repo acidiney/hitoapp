@@ -19,6 +19,12 @@ html[data-dialog-open] {
   }
   dialog.dialog > * {
     flex: none;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+  dialog.dialog h2:focus {
+    outline: none;
   }
   dialog.dialog > :is(h2, .dialog-head) {
     margin: 0 0 16px;
@@ -29,6 +35,17 @@ html[data-dialog-open] {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+  dialog.dialog :is(.dialog-actions, footer) {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 8px;
+  }
+  dialog.dialog :is(.dialog-actions, footer) .button {
+    justify-content: center;
+    min-height: 48px;
+    border-radius: var(--radius-pill);
   }
   dialog.dialog .dialog-actions {
     position: sticky;

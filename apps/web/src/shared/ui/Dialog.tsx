@@ -37,6 +37,21 @@ function leavingCopy(element: HTMLDialogElement) {
   };
 }
 
+function settleFocus(element: HTMLDialogElement) {
+  const focused = document.activeElement;
+  const heading = element.querySelector<HTMLElement>("h2");
+  if (
+    heading &&
+    focused instanceof HTMLElement &&
+    element.contains(focused) &&
+    focused.matches("button, a[href]")
+  ) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+  element.scrollTop = 0;
+}
+
 export default function Dialog({
   title,
   eyebrow,
@@ -77,6 +92,7 @@ export default function Dialog({
     const closed = () => close.current();
     element.addEventListener("close", closed);
     element.showModal();
+    settleFocus(element);
     const unlock = lockPageScroll();
     const unfollow = followKeyboard(element);
     return () => {
