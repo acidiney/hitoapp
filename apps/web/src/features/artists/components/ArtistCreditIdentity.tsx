@@ -80,7 +80,12 @@ export default function ArtistCreditIdentity({
             <div key={chosen.group.id}>
               <p aria-live="polite">
                 {partly ? "Also listed as" : "Artist:"}{" "}
-                {chosen.group.name.value}
+                <span
+                  className="identity-name"
+                  title={chosen.group.name.value}
+                >
+                  {chosen.group.name.value}
+                </span>
                 {read.chosen.length > 1 &&
                   ` · ${plural(chosen.tracks, "track", "tracks")}`}{" "}
                 · {provenance(chosen)}{" "}
@@ -213,13 +218,16 @@ export default function ArtistCreditIdentity({
               Retry the same artist identity request
             </Button>
           )}
-          <footer className="review-actions">
+          <p className="credit-dialog-name" title={artist.name}>
+            Credit: {artist.name}
+          </p>
+          <footer className="review-actions credit-dialog-actions">
             {searchRecording && (
               <Link
                 className="button secondary"
                 href={artistSearchHref(searchRecording)}
               >
-                Search for {artist.name}
+                Search for this artist
               </Link>
             )}
             <Button

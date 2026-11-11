@@ -91,9 +91,8 @@ test("a credit matched automatically names its artist and offers no search", asy
     status("idle"),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
-  expect(
-    await screen.findByText(/Artist: Ed Sheeran · matched automatically/),
-  ).toBeTruthy();
+  const line = await screen.findByText(/Artist:.*matched automatically/);
+  expect(line.textContent).toContain("Artist: Ed Sheeran · matched");
   const open = screen.getByRole("link", { name: "Open artist" });
   expect(open.getAttribute("href")).toBe(`/artist-groups/${groupId}`);
   expect(

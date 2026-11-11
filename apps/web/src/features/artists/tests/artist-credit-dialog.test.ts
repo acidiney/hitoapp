@@ -82,7 +82,7 @@ test("the choice opens in a dialog with a search link when no reviewed artist ma
   await within(dialog).findByText(/No artist you reviewed matches/);
   expect(
     within(dialog)
-      .getByRole("link", { name: "Search for Ed Sheeran" })
+      .getByRole("link", { name: "Search for this artist" })
       .getAttribute("href"),
   ).toBe("/recordings/rec%201?review=artist");
   fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
