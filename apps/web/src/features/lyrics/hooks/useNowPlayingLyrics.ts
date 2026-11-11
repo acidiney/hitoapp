@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 import { lyricsApi } from "../api/lyricsApi";
 import {
   autoLookupFinished,
@@ -193,6 +194,19 @@ export function useNowPlayingLyrics(
     else setState({ status: "idle", providers: [] });
     return () => controller.current?.abort();
   }, [start, automatic]);
+
+  useEffect(() => {
+    if (!automatic) return;
+    const refresh = (id: string | null) => {
+      if (id === null || id === recording) void start(undefined, true);
+    };
+    const stopLyrics = onInvalidated("lyrics", refresh);
+    const stopPlugins = onInvalidated("plugins", () => void start());
+    return () => {
+      stopLyrics();
+      stopPlugins();
+    };
+  }, [start, recording, automatic]);
 
   return {
     state,

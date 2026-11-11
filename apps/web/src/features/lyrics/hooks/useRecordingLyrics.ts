@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { onInvalidated } from "../../../shared/invalidation";
 import type { Schema } from "../../../shared/schema";
 import type { LyricFailure } from "../model/lyricFailure";
 import {
@@ -94,6 +95,14 @@ export function useRecordingLyrics(
     if (wanted && !identities.loaded && !identities.loading)
       void loader.current();
   }, [wanted, identities.loaded, identities.loading, scopeKey]);
+
+  useEffect(
+    () =>
+      onInvalidated("plugins", () => {
+        if (wanted) void loader.current();
+      }),
+    [wanted],
+  );
 
   const attempted = useRef<string | null>(null);
   const reader = useRef(read.load);

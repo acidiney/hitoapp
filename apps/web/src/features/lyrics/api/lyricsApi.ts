@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { requestJson, request } from "../../../shared/http";
+import { invalidate } from "../../../shared/invalidation";
 
 function base(recording: string): string {
   return `/recordings/${encodeURIComponent(recording)}/lyrics`;
@@ -81,10 +82,12 @@ export const lyricsApi = {
     body: Schema<"RetainRecordingLyricIdentity">,
     signal: AbortSignal,
   ): Promise<Schema<"RecordingLyricIdentity">> {
-    return requestJson<Schema<"RecordingLyricIdentity">>(
+    const retained = await requestJson<Schema<"RecordingLyricIdentity">>(
       `${base(recording)}/identities`,
       { action: "lyrics.retain", method: "POST", account, body, signal },
     );
+    invalidate("lyrics", recording);
+    return retained;
   },
   async readSelected(
     account: string,
@@ -112,5 +115,6 @@ export const lyricsApi = {
         signal,
       },
     );
+    invalidate("lyrics", recording);
   },
 };
