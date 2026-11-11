@@ -185,7 +185,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await reference.fill(`  ${fixture.reference}  `);
     expect(fixture.requests).toHaveLength(1);
     expect(importRequests).toBe(0);
-    await expect(form).toContainText("without downloading audio");
+    await expect(form).toContainText("Yours to edit");
     await layouts(
       page,
       info,
