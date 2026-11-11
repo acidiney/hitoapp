@@ -101,6 +101,20 @@ impl Rig {
         Ok(())
     }
 
+    pub(super) fn finish(self) -> (Result<(), Failure>, Result<(usize, usize), Failure>) {
+        let Self {
+            player,
+            state,
+            monitor,
+            samples,
+            ..
+        } = self;
+        drop(player);
+        drop(state);
+        monitor.disarm();
+        (monitor.finish(), samples.finish())
+    }
+
     pub(super) async fn settle(&mut self) -> Result<(), Failure> {
         self.settle_until(Instant::now() + Duration::from_secs(10))
             .await

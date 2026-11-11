@@ -11,15 +11,17 @@ use provider::ProviderProcess;
 mod capture;
 #[path = "start_latency/process.rs"]
 mod process;
+#[path = "start_latency/resources.rs"]
+mod resources;
 use capture::Monitor;
 use hito_core::{
-    Actor, AdoptProviderRecording, CoreConfig, Credentials, HostDeviceId, InstallPlugin,
-    OfferPluginService, Search, Services,
+    Actor, AdoptProviderRecording, Credentials, InstallPlugin, OfferPluginService, Search, Services,
 };
 use hito_playback::Player;
-use serde_json::json;
+use resources::{Metadata, OwnedRun, RunOutput, SafeCode, safe_code};
 use std::{
     path::PathBuf,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -29,7 +31,7 @@ fn variable(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.into())
 }
 
-async fn find(services: &Services, actor: &Actor, title: &str) -> String {
+async fn find(services: &Services, actor: &Actor, title: &str) -> Result<String, Failure> {
     let page = services
         .catalog
         .recordings(
@@ -40,32 +42,114 @@ async fn find(services: &Services, actor: &Actor, title: &str) -> String {
                 ..Search::default()
             },
         )
-        .await
-        .unwrap();
-    page.items
+        .await?;
+    Ok(page
+        .items
         .into_iter()
         .find(|item| item.title == title)
-        .unwrap_or_else(|| panic!("{title} is missing from the library"))
-        .id
+        .ok_or(SafeCode("fixture_recording_missing"))?
+        .id)
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
-async fn main() -> Result<(), Failure> {
-    let samples: usize = variable("BENCH_SAMPLES", "100").parse()?;
-    let warmup: usize = variable("BENCH_WARMUP", "5").parse()?;
-    let rtt: u64 = variable("BENCH_RTT_MS", "40").parse()?;
-    let format_span = variable("BENCH_TRACKS", "10000").parse::<usize>()? / 3;
-    let out = PathBuf::from(variable("BENCH_OUT", "/workspace/test-results/latency"));
-    std::fs::create_dir_all(&out)?;
-    let group = samples + warmup;
+async fn main() -> std::process::ExitCode {
+    std::panic::set_hook(Box::new(|_| {
+        eprintln!("{{\"event\":\"benchmark_panic\",\"outcome\":\"failed\"}}")
+    }));
+    match launch().await {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!(
+                "{}",
+                serde_json::json!({"event":"benchmark_run", "outcome":"failed", "code":safe_code(&error)})
+            );
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
 
-    let directory = tempfile::tempdir_in("/dev/shm")?;
-    let config = CoreConfig::new(
-        directory.path().join("hito.db"),
-        PathBuf::from(variable("BENCH_LIBRARY", "/music/Music")),
-        HostDeviceId::new("bench-native")?,
+async fn launch() -> Result<(), Failure> {
+    let samples = variable("BENCH_SAMPLES", "100")
+        .parse::<usize>()
+        .map_err(|_| SafeCode("sample_count_invalid"))?;
+    let warmup = variable("BENCH_WARMUP", "5")
+        .parse::<usize>()
+        .map_err(|_| SafeCode("warmup_count_invalid"))?;
+    let rtt = variable("BENCH_RTT_MS", "40")
+        .parse::<u64>()
+        .map_err(|_| SafeCode("rtt_invalid"))?;
+    let format_span = variable("BENCH_TRACKS", "10000")
+        .parse::<usize>()
+        .map_err(|_| SafeCode("track_count_invalid"))?
+        / 3;
+    let group = samples
+        .checked_add(warmup)
+        .ok_or(SafeCode("sample_count_invalid"))?;
+    let remote_count = group
+        .checked_mul(6)
+        .ok_or(SafeCode("sample_count_invalid"))?;
+    if samples == 0 || format_span == 0 {
+        return Err(SafeCode("benchmark_configuration_invalid").into());
+    }
+    let out = PathBuf::from(variable("BENCH_OUT", "/workspace/test-results/latency"));
+    let mut output = RunOutput::open(out.clone())?;
+    let directory = match tempfile::tempdir_in("/dev/shm") {
+        Ok(directory) => Arc::new(directory),
+        Err(_) => {
+            output.failed("temporary_storage_failed")?;
+            return Err(SafeCode("temporary_storage_failed").into());
+        }
+    };
+    let settings = Settings {
+        samples,
+        warmup,
+        rtt,
+        format_span,
+        group,
+        remote_count,
+    };
+    let report = OwnedRun::retain(directory)
+        .execute(move |run| Box::pin(async move { pipeline(run, &out, settings).await }))
+        .await;
+    let successful = report.successful();
+    eprintln!(
+        "{}",
+        serde_json::json!({"event":"benchmark_resources", "work":report.work,
+        "cleanup_failures":report.cleanup_failures, "sqlite_resources_retired":report.sqlite_resources_retired,
+        "sqlite_deadline_exceeded":report.sqlite_deadline_exceeded, "elapsed_ms":report.elapsed_ms})
     );
-    let services = hito_core::open(config).await?;
+    output.finish(&report)?;
+    if !successful {
+        return Err(SafeCode("benchmark_run_failed").into());
+    }
+    Ok(())
+}
+
+struct Settings {
+    samples: usize,
+    warmup: usize,
+    rtt: u64,
+    format_span: usize,
+    group: usize,
+    remote_count: usize,
+}
+
+async fn pipeline(
+    run: &mut OwnedRun,
+    out: &std::path::Path,
+    settings: Settings,
+) -> Result<(), Failure> {
+    let Settings {
+        samples,
+        warmup,
+        rtt,
+        format_span,
+        group,
+        remote_count,
+    } = settings;
+    let config = run.config(PathBuf::from(variable("BENCH_LIBRARY", "/music/Music")))?;
+    run.services = Some(hito_core::open(config).await?);
+    let services = run.services.as_ref().unwrap().clone();
     let session = services
         .identity
         .setup(Credentials {
@@ -74,16 +158,29 @@ async fn main() -> Result<(), Failure> {
         })
         .await?;
     let actor = services.identity.authenticate(&session.token).await?;
-    let library = services.catalog.libraries(&actor).await?.remove(0).id;
+    let library = services
+        .catalog
+        .libraries(&actor)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(SafeCode("fixture_library_missing"))?
+        .id;
     let scan_started = Instant::now();
     let job = services
         .storage
         .enqueue_scan(&actor, &library)
         .await?
-        .remove(0);
-    assert!(services.storage.run_next_job().await?);
+        .into_iter()
+        .next()
+        .ok_or(SafeCode("scan_job_missing"))?;
+    if !services.storage.run_next_job().await? {
+        return Err(SafeCode("scan_job_not_run").into());
+    }
     let job = services.storage.job(&actor, &job.id).await?;
-    assert_eq!(job.state, "complete", "{:?}", job.error);
+    if job.state != "complete" {
+        return Err(SafeCode("scan_job_failed").into());
+    }
     let scan_seconds = scan_started.elapsed().as_secs_f64();
     let total = services
         .catalog
@@ -97,14 +194,22 @@ async fn main() -> Result<(), Failure> {
         .await?
         .total;
 
-    let mut provider = ProviderProcess::start(
+    run.metadata = Some(Metadata {
+        samples,
+        warmup,
+        rtt_ms: rtt,
+        library_scan_seconds: scan_seconds,
+        recordings_total: total,
+    });
+    run.provider = Some(ProviderProcess::start(
         &variable(
             "BENCH_PROVIDER",
             "/workspace/apps/web/e2e/latency/fake-provider.mjs",
         ),
         &variable("BENCH_AUDIO", "/music/remote/remote.mp3"),
-        group * 6,
-    )?;
+        remote_count,
+    )?);
+    let provider = run.provider.as_mut().unwrap();
     let offered = services
         .plugins
         .offer_service(
@@ -128,7 +233,7 @@ async fn main() -> Result<(), Failure> {
         )
         .await?;
     let mut adopted = Vec::new();
-    for index in 0..group * 6 {
+    for index in 0..remote_count {
         let name = format!("bench-remote-{index}");
         let sides: Vec<String> = if (2..4).contains(&(index / group)) {
             vec![format!("audio/{name}/a"), format!("audio/{name}/b")]
@@ -152,32 +257,37 @@ async fn main() -> Result<(), Failure> {
         );
     }
 
-    let monitor = Monitor::open()?;
+    run.monitor = Some(Monitor::open()?);
     tokio::time::sleep(Duration::from_millis(500)).await;
     let (player, owner) = Player::native(services.clone());
+    run.player_owner = Some(owner);
     let attached = player
         .claim(&actor, player.inspect(&actor).await?.epoch)
         .await?;
     let state = player.subscribe(&actor, attached.lease).await?;
-    let measurements = Measurements::open(&out, warmup)?;
-    let mut rig = Rig::new(
+    let measurements = Measurements::open(out, warmup)?;
+    run.rig = Some(Rig::new(
         player,
         actor.clone(),
         attached.lease,
         state,
-        monitor,
+        run.monitor.take().unwrap(),
         measurements,
-    );
+    ));
+    let rig = run.rig.as_mut().unwrap();
 
     for (format, offset) in [("FLAC", 0_usize), ("MP3", 1), ("M4A", 2)] {
         for n in 0..group {
             let index = ((n * 97 + 13) % format_span) * 3 + offset;
             let title = format!("Bench {format} {index:05}");
-            let id = find(&services, &actor, &title).await;
-            let result = rig.start_once(&id).await;
+            let id = find(&services, &actor, &title).await?;
+            let result = rig
+                .start_once(&id)
+                .await
+                .map_err(|error| SafeCode(safe_code(&error)).into());
             {
                 let sample = n;
-                let fields = start_fields("local_start", format, 0, sample, &title, &result, "");
+                let fields = start_fields("local_start", format, 0, sample, format, &result, "");
                 rig.samples.record(n, &fields)?;
             }
             rig.settle().await?;
@@ -189,15 +299,34 @@ async fn main() -> Result<(), Failure> {
         for n in 0..group {
             let id = adopted[block * group + n].clone();
             let before = provider.counters()?;
-            let result = rig.start_once(&id).await;
-            let after = provider.counters()?;
+            let result = rig
+                .start_once(&id)
+                .await
+                .map_err(|error| SafeCode(safe_code(&error)).into());
+            let observed = provider.counters();
+            let after = observed.as_ref().ok().copied();
+            let counters = after
+                .and_then(|after| {
+                    Some((
+                        after.0.checked_sub(before.0)?,
+                        after.1.checked_sub(before.1)?,
+                    ))
+                })
+                .ok_or(SafeCode("provider_observation_failed"));
+            let result = result.and_then(|started| {
+                counters
+                    .as_ref()
+                    .map(|_| started)
+                    .map_err(|_| SafeCode("provider_observation_failed").into())
+            });
             {
                 let sample = n;
-                let note = format!(
-                    "provider_sources={};provider_audio={}",
-                    after.0 - before.0,
-                    after.1 - before.1
-                );
+                let note = counters
+                    .as_ref()
+                    .map(|counts| {
+                        format!("provider_sources={};provider_audio={}", counts.0, counts.1)
+                    })
+                    .unwrap_or_default();
                 let fields = start_fields(
                     "remote_start",
                     "direct",
@@ -209,6 +338,7 @@ async fn main() -> Result<(), Failure> {
                 );
                 rig.samples.record(n, &fields)?;
             }
+            counters?;
             rig.settle().await?;
         }
         provider.latency(0)?;
@@ -240,15 +370,33 @@ async fn main() -> Result<(), Failure> {
                 refreshed,
                 latency,
             };
-            let outcome = recovery_once(&mut rig, &mut provider, &scenario).await;
-            let after = provider.counters()?;
+            let outcome = recovery_once(rig, provider, &scenario)
+                .await
+                .map_err(|error| SafeCode(safe_code(&error)).into());
+            let observed = provider.counters();
+            let after = observed.as_ref().ok().copied();
+            let counters = after
+                .and_then(|after| {
+                    Some((
+                        after.0.checked_sub(before.0)?,
+                        after.1.checked_sub(before.1)?,
+                    ))
+                })
+                .ok_or(SafeCode("provider_observation_failed"));
+            let outcome = outcome.and_then(|started| {
+                counters
+                    .as_ref()
+                    .map(|_| started)
+                    .map_err(|_| SafeCode("provider_observation_failed").into())
+            });
             {
                 let sample = n;
-                let note = format!(
-                    "provider_sources={};provider_audio={}",
-                    after.0 - before.0,
-                    after.1 - before.1
-                );
+                let note = counters
+                    .as_ref()
+                    .map(|counts| {
+                        format!("provider_sources={};provider_audio={}", counts.0, counts.1)
+                    })
+                    .unwrap_or_default();
                 let head = vec![
                     "recovery".to_string(),
                     variant.to_string(),
@@ -278,6 +426,7 @@ async fn main() -> Result<(), Failure> {
                 };
                 rig.samples.record(n, &[head, tail].concat())?;
             }
+            counters?;
             provider.drop_source(&a)?;
             provider.drop_source(&b)?;
             provider.latency(0)?;
@@ -285,26 +434,5 @@ async fn main() -> Result<(), Failure> {
         }
     }
 
-    rig.monitor.disarm();
-    owner.close().await?;
-    rig.monitor.finish()?;
-    provider.finish()?;
-    let (measured_failures, warmup_failures) = rig.samples.finish()?;
-    std::fs::write(
-        out.join("native-environment.json"),
-        serde_json::to_string_pretty(&json!({
-            "library_scan_seconds": scan_seconds,
-            "recordings_total": total,
-            "samples": samples,
-            "warmup": warmup,
-            "rtt_ms": rtt,
-            "measured_failures": measured_failures,
-            "warmup_failures": warmup_failures,
-        }))?,
-    )?;
-    drop(directory);
-    if measured_failures != 0 || warmup_failures != 0 {
-        return Err("benchmark_samples_failed".into());
-    }
     Ok(())
 }
