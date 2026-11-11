@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 LRCLIB search response bound
+
+An intermittent search failure was reproduced with a valid upstream HTTP 200 response of 1,389,699 bytes and twenty records. The plugin rejected that response at its former 1 MiB raw-search limit and returned 502. This failure was separate from upstream cooldown and from an older account connection returning 401.
+
+The raw-search cap is now 10 MiB, as requested. All existing metadata, individual-record and lyric-document limits remain unchanged. Two new HTTP cases reproduce the large valid response and verify inclusive acceptance at 10,485,760 bytes and rejection one byte over. All twenty earlier service cases still pass. Strict checks, formatting and the main executable build pass; fresh independent review approves the three-file change. Root repeated all twenty-two cases with the saved executables and verified the source and binary hashes.
+
+Only the local LRCLIB sidecar was replaced. The preview container, service credential volume and runtime restrictions were preserved. A bounded live check then returned 200 for search, metadata and lyrics, with 228 anchored lines. No raw lyric body or credential was saved. This verifies the reported local case; other failure causes, distinct credential diagnostics, the current packaged UI workflow and public-release qualification remain open.
+
 ## 2026-11-11 catalog build-profile comparison
 
 The isolated composed catalog candidate constructs the complete rich 25,000-recording fixture in 3,465 ms with a release build, versus 5,702 ms in the test profile. Both retain 34,802,500 SQLite VM steps, 325,004 facts, 38 pages and 9,707,994 encoded bytes. The release build still fails the unchanged 100,000-recording deadline at 10,018 ms, after 92,672 recording families and before release construction. No complete 100,000-recording result or release qualification is claimed.
