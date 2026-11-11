@@ -33,11 +33,15 @@ export function useAlbumMerge(active: boolean): AlbumMerge {
 
 export function useAlbumProgress(progress: AlbumProgress | null) {
   const { setProgress } = useContext(AlbumMergeContext);
-  const key = progress
-    ? `${progress.owned}/${progress.total}/${progress.elsewhere}`
-    : "";
+  const owned = progress?.owned;
+  const total = progress?.total;
+  const elsewhere = progress?.elsewhere;
   useEffect(() => {
-    setProgress(progress);
+    setProgress(
+      owned === undefined || total === undefined || elsewhere === undefined
+        ? null
+        : { owned, total, elsewhere },
+    );
     return () => setProgress(null);
-  }, [key, setProgress]);
+  }, [owned, total, elsewhere, setProgress]);
 }
