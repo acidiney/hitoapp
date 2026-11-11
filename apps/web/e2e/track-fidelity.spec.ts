@@ -74,7 +74,6 @@ test("the track page renders the mockup data screen by screen", async ({
   await shot(page, "p1-overview-phone", "phone-dark");
 
   await page.getByRole("tab", { name: /^Lyrics/ }).click();
-  await page.getByRole("button", { name: "Show lyrics" }).click();
   await expect(page.getByRole("list", { name: "Lyric lines" })).toBeVisible();
   await expect(page.getByText("Synced", { exact: true })).toBeVisible();
   await shot(page, "03-lyrics-synced");
@@ -105,7 +104,6 @@ test("the track page renders the mockup data screen by screen", async ({
   await page.unrouteAll({ behavior: "ignoreErrors" });
   await stubTrackPage(page, id, { audio: "local", lyrics: null });
   await page.goto(`${base}?tab=lyrics`);
-  await page.getByRole("button", { name: "Show lyrics" }).click();
   await expect(page.getByText("None found")).toBeVisible();
   await shot(page, "05-lyrics-none-choose-provider");
 
