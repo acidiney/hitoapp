@@ -170,7 +170,7 @@
     margin-bottom: 12px;
   }
   .library-heading .page-heading {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     min-height: 44px;
   }

@@ -104,6 +104,7 @@
     min-width: 0;
   }
   .nav-label {
+    flex: none;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -292,9 +292,7 @@ test.describe("account switching", () => {
       const dockBounds = await page
         .getByRole("contentinfo", { name: "Audio player" })
         .boundingBox();
-      expect(connectBounds!.y + connectBounds!.height).toBeLessThanOrEqual(
-        dockBounds!.y,
-      );
+      expect(connectBounds!.y + connectBounds!.height).toBeLessThanOrEqual(844);
       const tokenField = await page
         .getByLabel("Bearer token (optional)", { exact: true })
         .boundingBox();

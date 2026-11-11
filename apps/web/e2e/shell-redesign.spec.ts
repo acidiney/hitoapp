@@ -122,12 +122,12 @@ test("on a desktop the top bar search sits in the same place on Home, Queue and 
   expect(library.height).toBeCloseTo(places[0].height, 0);
 });
 
-test("on a phone only the Search page and the library pages show a search field", async ({
+test("on a phone only the Search page shows a search field and Home links to it", async ({
   page,
 }) => {
   await openSharedAdminSession(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const path of ["/home", "/discover", "/queue", "/settings"]) {
+  for (const path of ["/home", "/discover", "/settings"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     await expect(page.locator("#shell-search")).toHaveCount(0);
@@ -136,8 +136,10 @@ test("on a phone only the Search page and the library pages show a search field"
   await expect(page.locator("#shell-search")).toHaveCount(1);
   await expect(page.getByRole("searchbox", { name: "Search" })).toBeVisible();
   await page.goto("/library");
+  await expect(page.locator("#shell-search")).toHaveCount(0);
+  await page.goto("/home");
   await expect(
-    page.getByRole("textbox", { name: "Search library", exact: true }),
+    page.getByRole("link", { name: "Search, or paste a playlist link" }),
   ).toBeVisible();
 });
 
@@ -163,15 +165,14 @@ test("a phone shows a five-tab bar with the mini player above it", async ({
   expect(Math.round(player!.y + player!.height)).toBeLessThanOrEqual(
     Math.round(bar!.y) + 1,
   );
+  await expect(
+    page.getByRole("link", { name: "Account and settings" }),
+  ).toBeHidden();
+  await page.goto("/home");
   await expect(accountOptionsButton(page)).toBeHidden();
   await expect(
     page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();
-  const account = await page
-    .getByRole("link", { name: "Account and settings" })
-    .boundingBox();
-  const searchBox = await page.locator(".search").boundingBox();
-  expect(account!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width);
   for (const link of await navigation.getByRole("link").all()) {
     const box = await link.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
