@@ -2,9 +2,8 @@ import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
-import { time } from "../../../shared/format";
-import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
-import PlayShuffle from "../../playback/components/PlayShuffle";
+import { longDuration } from "../../artists/model/catalogAlbumRows";
+import AlbumPlayActions from "../components/AlbumPlayActions";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkRetryMenu from "../../artwork/components/ArtworkRetryMenu";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
@@ -42,18 +41,11 @@ export default function AlbumPage({
     tracks.map((track) => track.artist),
   );
   const listing = releaseTracksListing(user.id, release.id, page);
+  const duration = longDuration(release.duration_ms);
   return (
-    <>
+    <div className="detail-page">
       <AlbumHeader
-        crumbs={
-          <Breadcrumbs
-            crumbs={[
-              { label: "Library", href: "/library" },
-              { label: "Albums", href: "/albums" },
-              { label: release.title },
-            ]}
-          />
-        }
+        eyebrow={["Album", release.year].filter(Boolean).join(" · ")}
         cover={
           <Artwork
             release={release.id}
@@ -77,23 +69,12 @@ export default function AlbumPage({
             credit && <span className="album-artist">{credit}</span>
           )
         }
-        stats={
-          <>
-            {release.track_count}{" "}
-            {release.track_count === 1 ? "track" : "tracks"} ·{" "}
-            {time(release.duration_ms / 1000)}
-          </>
-        }
+        stats={`${release.track_count} ${release.track_count === 1 ? "track" : "tracks"}${release.duration_ms >= 60_000 ? ` · ${duration}` : ""}`}
         actions={
           <>
-            <PlayShuffle
-              tracks={tracks}
-              listing={listing}
-              label="album"
-              tone="plain"
-            />
+            <AlbumPlayActions tracks={tracks} listing={listing} />
             <Link
-              className="button"
+              className="pill-action"
               href={`/albums/${encodeURIComponent(release.id)}/details`}
             >
               Edit album details
@@ -102,49 +83,51 @@ export default function AlbumPage({
           </>
         }
       />
-      <ArtworkStatus release={release.id} />
-      {tracks.length ? (
-        <>
-          <TrackToolbar
-            tracks={tracks}
-            listing={listing}
-            label="album"
-            withPlay={false}
-          />
-          <TrackTable
-            rows={tracks.map<TrackTableRow>((track) => ({
-              kind: "recording",
-              track,
-            }))}
-            listing={listing}
-            offset={page.offset}
-            playlists={playlists}
-            mutate={mutate}
-            without={sharedArtist ? ["album", "artist"] : ["album"]}
-          />
-        </>
-      ) : (
-        <EmptyState
-          title="No tracks on this page"
-          text="Return to the previous page to listen to this album."
-        />
-      )}
-      {detail.saved_edition &&
-        (detail.catalog_anchor ||
-          detail.saved_edition.state.status !== "unset") && (
-          <AlbumCompleteTrackList
-            key={`${user.id}/${release.id}`}
-            account={user.id}
-            release={release.id}
-            anchor={detail.catalog_anchor}
-            saved={detail.saved_edition}
+      <div className="album-body">
+        <ArtworkStatus release={release.id} />
+        {tracks.length ? (
+          <>
+            <TrackToolbar
+              tracks={tracks}
+              listing={listing}
+              label="album"
+              withPlay={false}
+            />
+            <TrackTable
+              rows={tracks.map<TrackTableRow>((track) => ({
+                kind: "recording",
+                track,
+              }))}
+              listing={listing}
+              offset={page.offset}
+              playlists={playlists}
+              mutate={mutate}
+              without={sharedArtist ? ["album", "artist"] : ["album"]}
+            />
+          </>
+        ) : (
+          <EmptyState
+            title="No tracks on this page"
+            text="Return to the previous page to listen to this album."
           />
         )}
-      <Pagination
-        page={page}
-        query=""
-        path={`/albums/${encodeURIComponent(release.id)}`}
-      />
-    </>
+        {detail.saved_edition &&
+          (detail.catalog_anchor ||
+            detail.saved_edition.state.status !== "unset") && (
+            <AlbumCompleteTrackList
+              key={`${user.id}/${release.id}`}
+              account={user.id}
+              release={release.id}
+              anchor={detail.catalog_anchor}
+              saved={detail.saved_edition}
+            />
+          )}
+        <Pagination
+          page={page}
+          query=""
+          path={`/albums/${encodeURIComponent(release.id)}`}
+        />
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,152 @@
+.album-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 28px;
+  padding: 32px 40px;
+  background: var(--band);
+}
+.album-header-cover {
+  flex: none;
+  width: 200px;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.album-header-cover > .artwork {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+.album-header-copy {
+  flex: 1 1 360px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.album-eyebrow {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.album-header :is(h1, h4, h5) {
+  margin: 0;
+  font-size: 72px;
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.album-header :is(h1, h4, h5)[data-long] {
+  font-size: 40px;
+}
+.album-stats {
+  font-size: 14px;
+  color: var(--ink);
+}
+.album-artist {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.album-artist:hover {
+  text-decoration: underline;
+}
+.album-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.album-status[data-tone="progress"] {
+  color: var(--ink-soft);
+}
+.album-progress {
+  width: 160px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+.album-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+.album-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.album-actions .pill-action[data-primary] {
+  padding: 0 22px;
+}
+.album-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.album-note a {
+  color: var(--link);
+}
+.release-card[data-open] .album-header {
+  padding: 0;
+  background: transparent;
+}
+.release-card[data-open] .album-header :is(h4, h5) {
+  font-size: 28px;
+}
+
+.album-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.album-toolbar-note {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--muted);
+}
+.album-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 40px 40px;
+}
+.album-edition .listbox-control {
+  min-width: 0;
+  width: auto;
+  gap: 8px;
+  padding: 0 12px 0 16px;
+  border-color: var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.album-edition .listbox {
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+}
+.album-edition .listbox-label {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.album-edition .listbox-control > svg {
+  width: 14px;
+  height: 14px;
+  color: inherit;
+}
+.release-card .album-body {
+  padding: 0;
+}

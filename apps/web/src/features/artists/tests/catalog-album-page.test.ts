@@ -145,12 +145,6 @@ test("a catalog release opens as its own page with the ordered tracks in standar
         .getAttribute("aria-label"),
     ),
   ).toEqual(catalogAlbumTitles.map((title) => `Play ${title}`));
-  const { group } = artistIdentityBrowsing().detail.detail!;
-  expect(
-    within(screen.getByRole("navigation", { name: "Breadcrumb" }))
-      .getByRole("link", { name: group.name.value })
-      .getAttribute("href"),
-  ).toBe(`/artist-groups/${group.id}`);
 });
 
 test("playing a catalog row selects through the shared player queue", async () => {
@@ -216,10 +210,9 @@ test("a track with no confident match says so and lets the owner retry or connec
   expect(router.visit).toHaveBeenCalledWith("/settings?section=music");
 });
 
-test("the edition switcher is a listbox in the header and loads that edition's tracks", async () => {
+test("the edition switcher is a listbox above the tracks and loads that edition's tracks", async () => {
   await openPage();
-  const header = screen.getByRole("banner");
-  const control = within(header).getByRole("combobox", { name: "Edition" });
+  const control = screen.getByRole("combobox", { name: "Edition" });
   expect(document.querySelector("select[aria-label='Edition']")).toBeNull();
   choose(control, 1);
   await waitFor(() =>
