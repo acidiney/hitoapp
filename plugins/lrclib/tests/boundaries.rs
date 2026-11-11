@@ -91,6 +91,72 @@ async fn call(
 }
 
 #[tokio::test]
+async fn search_accepts_twenty_valid_summaries_with_large_unused_upstream_lyrics() {
+    let records = (1..=20)
+        .map(|id| {
+            let mut value = record(id);
+            value["lyricsfile"] = json!("x".repeat(69_000));
+            value
+        })
+        .collect::<Vec<_>>();
+    let upstream_bytes = serde_json::to_vec(&records).unwrap().len();
+    assert!(upstream_bytes > 1_048_576 && upstream_bytes < 10 * 1024 * 1024);
+    let (status, page) = call(
+        json!(records),
+        None,
+        "/v1/search",
+        json!({"query":"Owned river","cursor":null,"limit":20}),
+    )
+    .await;
+    assert_eq!(
+        status, 200,
+        "valid search metadata is independent of unused upstream lyric bytes"
+    );
+    let items = page["items"].as_array().unwrap();
+    assert_eq!(items.len(), 20);
+    for (index, item) in items.iter().enumerate() {
+        assert_eq!(item["id"], (index + 1).to_string());
+        assert_eq!(item["title"], "Owned river");
+        assert_eq!(item["artist"], "Fixture ensemble");
+        assert_eq!(item["duration_ms"], 123450);
+        assert!(
+            item.get("lyricsfile").is_none()
+                && item.get("plainLyrics").is_none()
+                && item.get("syncedLyrics").is_none()
+        );
+    }
+    assert!(page["next_cursor"].is_null());
+    hito_plugin_sdk::SearchPage::validate(&serde_json::from_value(page).unwrap(), 20).unwrap();
+}
+
+#[tokio::test]
+async fn search_keeps_an_exact_ten_mebibyte_upstream_boundary() {
+    for (extra, status) in [(0, 200), (1, 502)] {
+        let mut records = (1..=20).map(record).collect::<Vec<_>>();
+        let original = serde_json::to_vec(&records).unwrap().len();
+        records[0]["lyricsfile"] = json!("x".repeat(10 * 1024 * 1024 + extra - original));
+        assert_eq!(
+            serde_json::to_vec(&records).unwrap().len(),
+            10 * 1024 * 1024 + extra
+        );
+        let (actual, page) = call(
+            json!(records),
+            None,
+            "/v1/search",
+            json!({"query":"Owned river","cursor":null,"limit":20}),
+        )
+        .await;
+        assert_eq!(
+            actual, status,
+            "the raw upstream byte cap is inclusive and finite"
+        );
+        if status == 200 {
+            assert_eq!(page["items"].as_array().unwrap().len(), 20);
+        }
+    }
+}
+
+#[tokio::test]
 async fn hostile_upstream_metadata_pages_bodies_and_statuses_are_contained() {
     use axum::http::StatusCode;
     use support::Reply;

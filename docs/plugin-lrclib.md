@@ -74,7 +74,7 @@ The manifest is public for installation preview and health checks. All content a
 | `GET /v2/lyrics/capabilities` | `LyricsCapabilitiesV2` |
 | `POST /v2/lyrics` | `LyricsResponseV2` |
 
-Inbound bodies are bounded to 4,096 bytes. Upstream search receives at most 1,048,576 bytes and twenty records; individual metadata and lyric records receive at most 262,144 bytes. The SDK separately bounds the complete encoded lyric response, line count, raw line text and timeline anchors. Malformed timing with no genuine plain fallback returns an unavailable error, never a false empty answer. Explicit instrumental absence, upstream 404 and unsupported provider revisions return an exact echoed reference with null lyrics.
+Inbound bodies are bounded to 4,096 bytes. Upstream search receives at most 10 MiB (10,485,760 bytes) and twenty records; individual metadata and lyric records receive at most 262,144 bytes. The SDK separately bounds the complete encoded lyric response, line count, raw line text and timeline anchors. Malformed timing with no genuine plain fallback returns an unavailable error, never a false empty answer. Explicit instrumental absence, upstream 404 and unsupported provider revisions return an exact echoed reference with null lyrics.
 
 ## Optional Compose configuration
 

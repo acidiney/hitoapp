@@ -3,7 +3,7 @@ use hito_plugin_sdk::{
     LyricsRequest, LyricsResponseV2, RecordingMetadata, RecordingRequest, SearchPage, SearchRequest,
 };
 
-const MAX_SEARCH_BYTES: usize = 1_048_576;
+const MAX_SEARCH_BYTES: usize = 10 * 1024 * 1024;
 
 fn canonical_id(id: &str) -> Result<u64, Error> {
     let number = id.parse::<u64>().map_err(|_| Error::InvalidRequest)?;
