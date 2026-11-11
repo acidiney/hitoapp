@@ -6,6 +6,8 @@ import {
   type RefObject,
 } from "react";
 
+import { followKeyboard, lockPageScroll } from "./sheetViewport";
+
 const LEAVE_MS = 180;
 
 function leavingCopy(element: HTMLDialogElement) {
@@ -80,7 +82,11 @@ export default function Dialog({
     const closed = () => close.current();
     element.addEventListener("close", closed);
     element.showModal();
+    const unlock = lockPageScroll();
+    const unfollow = followKeyboard(element);
     return () => {
+      unlock();
+      unfollow();
       element.removeEventListener("close", closed);
       const ghost = leavingCopy(element);
       element.close();
