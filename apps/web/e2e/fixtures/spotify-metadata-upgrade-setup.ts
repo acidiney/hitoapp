@@ -45,7 +45,7 @@ export async function prepareSpotifyMetadataUpgrade(
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("link", { name: "Plugins", exact: true })
     .click();
-  await page.getByText("Services for this server", { exact: true }).click();
+  await page.getByRole("button", { name: /^This server/ }).click();
   await page.getByLabel("Service address", { exact: true }).fill(address);
   const offered = await creditPost<UpgradeSchema["PluginService"]>(
     page,
@@ -60,9 +60,10 @@ export async function prepareSpotifyMetadataUpgrade(
       service.name === manifest.name &&
       isDeepStrictEqual(offered.sent, { base_url: address }),
   );
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(service.id);
+    .getByRole("button", { name: `Connect ${service.name}`, exact: true })
+    .click();
   liveCheck(
     (await page
       .getByLabel("Bearer token (optional)", { exact: true })
@@ -96,7 +97,7 @@ export async function prepareSpotifyMetadataUpgrade(
     name: "Import a playlist",
     exact: true,
   });
-  await form.getByRole("radio", { name: "Import a copy", exact: true }).check();
+  await form.getByRole("radio", { name: /^Copy/ }).check();
   await form
     .getByRole("combobox", { name: "Playlist service", exact: true })
     .selectOption(connection.id);

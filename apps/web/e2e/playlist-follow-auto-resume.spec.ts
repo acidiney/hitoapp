@@ -1,3 +1,4 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { expect, test, type Page } from "@playwright/test";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
@@ -34,9 +35,7 @@ test.describe("isolated provider playlist connection revisions", () => {
         name: "Import a playlist",
         exact: true,
       });
-      await form
-        .getByRole("radio", { name: "Follow playlist", exact: true })
-        .check();
+      await form.getByRole("radio", { name: /^Follow/ }).check();
       await form
         .getByRole("textbox", { name: "Playlist link or identifier" })
         .fill(fixture.reference);
@@ -137,21 +136,18 @@ async function acceptChanges(page: Page, installation: string, name: string) {
       new URL(response.url()).pathname === path &&
       response.request().method() === "POST",
   );
+  await openAllManage(page);
   await card
     .getByRole("button", { name: "Check connection", exact: true })
     .click();
   expect((await checked).status()).toBe(200);
-  await expect(
-    card.getByRole("heading", { name: "Review plugin changes", exact: true }),
-  ).toBeVisible();
+  await expect(card.getByRole("dialog")).toBeVisible();
   const accepted = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === path &&
       response.request().method() === "POST",
   );
-  await card
-    .getByRole("button", { name: "Accept changes", exact: true })
-    .click();
+  await card.getByRole("button", { name: /^Accept / }).click();
   const body: Schema<"PluginRefresh"> = await (await accepted).json();
   expect(body.kind === "updated" && body.installation.manifest.name).toBe(name);
 }

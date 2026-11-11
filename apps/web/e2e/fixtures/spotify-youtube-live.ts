@@ -91,10 +91,10 @@ export async function connectLiveProvider(
     .getByRole("link", { name: "Plugins", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Your plugins", exact: true }),
+    page.getByRole("heading", { name: "Plugins", exact: true }),
   ).toBeVisible();
   if (!(await page.getByLabel("Service address", { exact: true }).isVisible()))
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByRole("button", { name: /^This server/ }).click();
   await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(0);
   await expect(
     page.getByLabel("Custom label (optional)", { exact: true }),
@@ -119,9 +119,10 @@ export async function connectLiveProvider(
   const service: Schema<"PluginService"> = await offer.json();
   offered(service);
   expect(service.name === name).toBe(true);
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(service.id);
+    .getByRole("button", { name: `Connect ${service.name}`, exact: true })
+    .click();
   await expect(
     page.getByLabel("Bearer token (optional)", { exact: true }),
   ).toHaveValue("");

@@ -1,3 +1,4 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import {
   expect,
   test,
@@ -262,6 +263,7 @@ test.describe("isolated provider playlist Resume", () => {
       });
       const refreshPath = `/api/v1/plugins/${connection.id}/refresh`;
       const checked = postResponse(page, refreshPath);
+      await openAllManage(page);
       await card
         .getByRole("button", { name: "Check connection", exact: true })
         .click();
@@ -276,16 +278,9 @@ test.describe("isolated provider playlist Resume", () => {
         settings,
       );
       same(await read<Schema<"PlaylistFollow">>(page, statusPath), ready);
-      await expect(
-        card.getByRole("heading", {
-          name: "Review plugin changes",
-          exact: true,
-        }),
-      ).toBeVisible();
+      await expect(card.getByRole("dialog")).toBeVisible();
       const acceptedResponse = postResponse(page, refreshPath);
-      await card
-        .getByRole("button", { name: "Accept changes", exact: true })
-        .click();
+      await card.getByRole("button", { name: /^Accept / }).click();
       const accepted = await acceptedResponse;
       expect(accepted.status()).toBe(200);
       const approved: Schema<"PluginRefresh"> = await accepted.json();

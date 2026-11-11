@@ -73,9 +73,7 @@ async function createFollow(
     name: "Import a playlist",
     exact: true,
   });
-  await form
-    .getByRole("radio", { name: "Follow playlist", exact: true })
-    .check();
+  await form.getByRole("radio", { name: /^Follow/ }).check();
   const refreshInterval = form.getByRole("combobox", {
     name: "Refresh interval",
     exact: true,

@@ -196,6 +196,8 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await reference.focus();
     await expect(reference).toBeFocused();
     await reference.press("Tab");
+    await expect(form.getByRole("radio", { checked: true })).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(submit).toBeFocused();
     const importResponse = page.waitForResponse(
       (response) =>

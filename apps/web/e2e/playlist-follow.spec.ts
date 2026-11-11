@@ -131,9 +131,7 @@ test.describe("isolated provider playlist Follow", () => {
         name: "Import a playlist",
         exact: true,
       });
-      await form
-        .getByRole("radio", { name: "Import a copy", exact: true })
-        .check();
+      await form.getByRole("radio", { name: /^Copy/ }).check();
       await form
         .getByRole("textbox", { name: "Playlist link or identifier" })
         .fill(fixture.reference);
@@ -227,9 +225,7 @@ test.describe("isolated provider playlist Follow", () => {
 
       phase = 4;
       await openPlaylists(page);
-      await form
-        .getByRole("radio", { name: "Follow playlist", exact: true })
-        .check();
+      await form.getByRole("radio", { name: /^Follow/ }).check();
       await form
         .getByRole("combobox", { name: "Refresh interval", exact: true })
         .selectOption({ label: "Every day" });

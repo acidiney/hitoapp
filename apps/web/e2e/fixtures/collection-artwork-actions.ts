@@ -1,3 +1,4 @@
+import { openAllManage } from "./plugin-ui";
 import { createHash, randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./playlist-dialogs";
 import { expect, type Locator, type Page } from "@playwright/test";
@@ -97,7 +98,7 @@ export async function installProvider(
   await page.goto("/settings?section=plugins");
   let service = existing;
   if (!service) {
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByRole("button", { name: /^This server/ }).click();
     await page
       .getByLabel("Service address", { exact: true })
       .fill(fixture.address);
@@ -108,9 +109,10 @@ export async function installProvider(
       page.getByRole("button", { name: "Offer service", exact: true }),
     );
   }
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(service.id);
+    .getByRole("button", { name: `Connect ${service.name}`, exact: true })
+    .click();
   await page
     .getByLabel("Bearer token (optional)", { exact: true })
     .fill(fixture.token);
@@ -152,6 +154,7 @@ export async function approveArtwork(
   await page.goto("/settings?section=plugins");
   const card = connectionCard(page, fixture);
   const path = `/api/v1/plugins/${installation.id}/refresh`;
+  await openAllManage(page);
   const review = await action<Schema<"PluginRefresh">>(
     page,
     path,
@@ -159,9 +162,7 @@ export async function approveArtwork(
     card.getByRole("button", { name: "Check connection", exact: true }),
   );
   expect(review.kind).toBe("review_required");
-  await expect(
-    card.getByRole("heading", { name: "Review plugin changes", exact: true }),
-  ).toBeVisible();
+  await expect(card.getByRole("dialog")).toBeVisible();
   return { card, path };
 }
 
@@ -172,7 +173,9 @@ export async function removeProvider(
 ) {
   await page.goto("/settings?section=plugins");
   const card = connectionCard(page, fixture);
+  await openAllManage(page);
   await card.getByRole("button", { name: "Remove", exact: true }).click();
+  await openAllManage(page);
   await action(
     page,
     `/api/v1/plugins/${installation.id}`,

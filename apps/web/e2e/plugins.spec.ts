@@ -83,6 +83,10 @@ test("an administrator offers only an address before connecting with the plugin 
     content_policy: { source_persistence: "playback_only" },
   };
   const service = createServer((request, response) => {
+    if (request.url === "/fixture/v1/health") {
+      response.writeHead(404).end();
+      return;
+    }
     requests.push({
       authorization: request.headers.authorization,
       cookie: request.headers.cookie,
@@ -187,6 +191,7 @@ test("an administrator offers only an address before connecting with the plugin 
         })),
       );
     expect(browserProviderRequests).toEqual([]);
+    await page.getByRole("button", { name: /^This server/ }).click();
     await page.getByRole("button", { name: /^Withdraw / }).click();
     await page
       .getByRole("button", { name: "Withdraw for everyone", exact: true })
@@ -222,6 +227,10 @@ test.describe("account switching", () => {
     let expectedToken: string | null = "browser-private-plugin-token";
     const requests: (string | undefined)[] = [];
     const service = createServer((request, response) => {
+      if (request.url === "/fixture/v1/health") {
+        response.writeHead(404).end();
+        return;
+      }
       requests.push(request.headers.authorization);
       if (
         request.url !== "/fixture/v1/manifest" ||
@@ -514,6 +523,12 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("button", { name: /^This server/ }),
       ).toHaveCount(0);
+      await page
+        .getByRole("button", {
+          name: `Connect ${offeredService.name}`,
+          exact: true,
+        })
+        .click();
       const listenerReview = await reviewPluginInstallation(
         page,
         offeredService,

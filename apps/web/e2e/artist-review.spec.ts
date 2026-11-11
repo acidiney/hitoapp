@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -136,7 +135,7 @@ test("an account reviews a namesake through its chosen metadata provider without
       .getByRole("navigation", { name: "Settings sections" })
       .getByRole("link", { name: "Plugins", exact: true })
       .click();
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByRole("button", { name: /^This server/ }).click();
     await page
       .getByLabel("Service address", { exact: true })
       .fill(owned.address);
@@ -153,10 +152,15 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toBe(true);
     if (!offered.body)
       throw new Error("The offered artist provider is missing");
-    await chooseOption(
-      page.getByRole("combobox", { name: "Service", exact: true }),
-      owned.manifest.name,
-    );
+    await page
+      .getByRole("button", { name: "Your plugins", exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `Connect ${owned.manifest.name}`,
+        exact: true,
+      })
+      .click();
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);

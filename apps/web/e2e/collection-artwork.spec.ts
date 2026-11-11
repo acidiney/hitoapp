@@ -147,10 +147,7 @@ test("packaged albums and independent imported copies retain exact private cover
       page,
       approval.path,
       200,
-      approval.card.getByRole("button", {
-        name: "Accept changes",
-        exact: true,
-      }),
+      approval.card.getByRole("button", { name: /^Accept / }),
     );
     if (accepted.kind !== "updated")
       throw new Error("Artwork must be explicitly approved");

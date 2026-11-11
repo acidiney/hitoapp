@@ -38,7 +38,7 @@ async function stubPlugin(name: string, health: Health | null) {
 async function openPlugins(page: Page) {
   await page.goto("/settings?section=plugins");
   await expect(
-    page.getByRole("heading", { name: "Your plugins", exact: true }),
+    page.getByRole("heading", { name: "Plugins", exact: true }),
   ).toBeVisible();
 }
 

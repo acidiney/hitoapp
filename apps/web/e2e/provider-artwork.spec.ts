@@ -1,6 +1,6 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
-import { chooseOption } from "./fixtures/listbox";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import { artworkFixture } from "./fixtures/artwork";
@@ -53,9 +53,9 @@ test("existing independent playlist copies automatically retain private provider
     phase = "copies";
     await page.goto("/settings?section=plugins");
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeVisible();
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByRole("button", { name: /^This server/ }).click();
     const address = page.getByLabel("Service address", { exact: true });
     await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(
       0,
@@ -81,20 +81,21 @@ test("existing independent playlist copies automatically retain private provider
     if (!service)
       throw new Error("Offering an address must return the reviewed service");
     expect(service.name).toBe(fixture.manifest.name);
-    const selector = page.getByRole("combobox", {
-      name: "Service",
-      exact: true,
-    });
-    await chooseOption(selector, fixture.manifest.name);
-    await expect(selector).toContainText(fixture.manifest.name);
+    await page
+      .getByRole("button", { name: "Your plugins", exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `Connect ${fixture.manifest.name}`,
+        exact: true,
+      })
+      .click();
     const token = page.getByLabel("Bearer token (optional)", { exact: true });
     const reviewButton = page.getByRole("button", {
       name: "Review connection",
       exact: true,
     });
     const targets = await layouts(page, info, "provider-artwork-connect", [
-      address,
-      selector,
       token,
       reviewButton,
     ]);
@@ -134,12 +135,14 @@ test("existing independent playlist copies automatically retain private provider
         exact: true,
       }),
     });
+    await openAllManage(page);
     await expect(
       connected.getByRole("button", {
         name: "Check connection",
         exact: true,
       }),
     ).toBeEnabled();
+    await openAllManage(page);
     await expect(
       connected.getByText("Token saved", { exact: true }),
     ).toBeVisible();
@@ -290,6 +293,7 @@ test("existing independent playlist copies automatically retain private provider
         new URL(response.url()).pathname === refreshPath &&
         response.request().method() === "POST",
     );
+    await openAllManage(page);
     await plugin
       .getByRole("button", { name: "Check connection", exact: true })
       .click();
@@ -297,18 +301,10 @@ test("existing independent playlist copies automatically retain private provider
     expect(reviewResponse.status()).toBe(200);
     const review: Schema<"PluginRefresh"> = await reviewResponse.json();
     expect(review.kind).toBe("review_required");
-    await expect(
-      plugin.getByRole("heading", {
-        name: "Review plugin changes",
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(plugin.getByRole("dialog")).toBeVisible();
     expect(jobs).toEqual([]);
     expect(artworkEnqueues).toEqual([]);
-    const accept = plugin.getByRole("button", {
-      name: "Accept changes",
-      exact: true,
-    });
+    const accept = plugin.getByRole("button", { name: /^Accept / });
     targets.push(
       ...(await layouts(page, info, "provider-artwork-review", [accept])),
     );
@@ -329,6 +325,7 @@ test("existing independent playlist copies automatically retain private provider
       );
     connection = refresh.installation;
     expect(connection.manifest.capabilities).toContain("artwork");
+    await openAllManage(page);
     await expect(
       plugin.getByRole("button", { name: "Check connection", exact: true }),
     ).toBeFocused();
@@ -516,7 +513,9 @@ test("existing independent playlist copies automatically retain private provider
       ])),
     );
     await page.goto("/settings?section=plugins");
+    await openAllManage(page);
     await plugin.getByRole("button", { name: "Remove", exact: true }).click();
+    await openAllManage(page);
     const remove = plugin.getByRole("button", {
       name: "Remove plugin",
       exact: true,
@@ -534,7 +533,7 @@ test("existing independent playlist copies automatically retain private provider
     connection = null;
     phase = "disconnected";
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeFocused();
     const callsAfterRemoval = fixture.requests.length;
     fixture.offline();
