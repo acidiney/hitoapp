@@ -60,7 +60,7 @@
   width: var(--np-width);
 }
 .np-cover .artwork {
-  border-radius: 18px;
+  border-radius: 16px;
 }
 .np-title {
   display: flex;
@@ -143,7 +143,7 @@
 }
 .now-playing-status {
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--subtle);
   font-size: 13px;
 }
@@ -160,13 +160,13 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--subtle);
 }
 .np-tabs button {
   min-height: 44px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   font-weight: 500;
 }
@@ -218,6 +218,7 @@
 }
 .np-next-row .mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
 .np-queue-link {
@@ -241,7 +242,7 @@
   gap: 12px;
   padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
 }
 .np-card h2 {
@@ -283,6 +284,7 @@
   display: flex;
   width: 100%;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
 }
 .np-card .segmented button {

@@ -53,7 +53,7 @@
   flex-shrink: 0;
 }
 .dock-artwork .artwork {
-  border-radius: 8px;
+  border-radius: 6px;
 }
 .transport {
   width: 100%;
@@ -109,6 +109,7 @@
 }
 .seek span {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -129,6 +130,7 @@
   border-radius: 10px;
   border: 1px solid var(--line);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--ink);
 }
@@ -192,13 +194,13 @@
   gap: 14px;
   align-items: center;
   padding: 10px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--subtle);
 }
 .queue-now-row .artwork {
   width: 56px;
   height: 56px;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 .queue-now-row strong {
   display: block;
@@ -211,6 +213,7 @@
 }
 .queue-now-row .mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 .queue-next {
   display: flex;
@@ -279,6 +282,7 @@
 .queue-index,
 .queue-duration {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -341,7 +345,7 @@
 .queue-tracks li > .icon-button[aria-label$="from queue"] {
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 9px;
+  border-radius: 10px;
   min-width: 40px;
   min-height: 40px;
 }

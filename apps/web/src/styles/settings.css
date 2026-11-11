@@ -281,7 +281,7 @@
 .setting-line-action .button {
   min-height: 36px;
   padding: 0 12px;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 13px;
 }
 .plain-list {
@@ -338,7 +338,7 @@
   margin: 12px 0;
   padding: 18px;
   border: 1px dashed var(--line-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--muted);
   text-align: center;
 }
@@ -398,6 +398,7 @@
 }
 .setting-line-path {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
 .password-form fieldset,

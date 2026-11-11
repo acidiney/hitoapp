@@ -10,7 +10,7 @@
 }
 .album-cover-link {
   display: block;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .album-card .artwork,
 .artist-card .artwork {
@@ -108,7 +108,7 @@
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .review-queue-credit {
   display: flex;

@@ -74,6 +74,7 @@
 }
 .auth-origin {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--panel-muted);
 }
@@ -119,6 +120,7 @@
 }
 .auth-form input[autocomplete="username"] {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 .auth-form input {
   width: 100%;
@@ -135,7 +137,7 @@
 }
 .auth-error {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--error-bg);
   border: 1px solid var(--error-line);
   color: var(--ink);

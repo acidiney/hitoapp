@@ -6,6 +6,18 @@
   --line: #e6e5e1;
   --line-strong: #d6d5d0;
   --line-soft: #efeeea;
+  --cover-tile: #e6e5e1;
+  --cover-glyph: #8a8984;
+  --sidebar-bg: #f3f3ef;
+  --dock: #ffffff;
+  --link: #2f4bff;
+  --link-hover: #1f38e0;
+  --focus: #2f4bff;
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --radius-cover: 6px;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --radius-pill: 999px;
   --control-off: #8a8984;
   --control-border: #8a8984;
   --ink: #141414;
@@ -28,9 +40,9 @@
   --error-bg: #fdeeea;
   --error-line: #efb8aa;
   --font-sans:
-    "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono:
-    "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
+    "Figtree Variable", "Figtree", system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-mono: var(--font-sans);
   --primary: var(--action);
   --border: var(--line-strong);
   --panel: var(--surface);
@@ -41,7 +53,7 @@
   font-family: var(--font-sans);
   color: var(--ink);
   background: var(--bg);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   font-synthesis: none;
 }
@@ -50,24 +62,31 @@
     --bg: #111110;
     --surface: #1b1b19;
     --subtle: #262624;
-    --line: #2e2e2b;
-    --line-strong: #3d3d39;
-    --line-soft: #242422;
+    --line: #2a2a27;
+    --line-strong: #3a3a36;
+    --line-soft: #222220;
+    --cover-tile: #2a2a28;
+    --cover-glyph: #8f8e88;
+    --sidebar-bg: #0c0c0b;
+    --dock: #161615;
     --control-off: #75746e;
     --control-border: #75746e;
     --ink: #f2f1ed;
     --ink-soft: #cfcec8;
     --on-ink: #111110;
     --ink-hover: #ffffff;
-    --action-hover: #8fa1ff;
+    --action-hover: #8fa2ff;
+    --link: #8fa2ff;
+    --link-hover: #b3c0ff;
+    --focus: #8fa2ff;
     --muted: #a3a29c;
     --action: #6f86ff;
-    --on-action: #0b0d1f;
+    --on-action: #0c0c0b;
     --success: #4cc38a;
-    --warning: #e8a23d;
+    --warning: #e5b567;
     --warning-bg: #2a2110;
     --warning-line: #5c4318;
-    --error: #ef7f68;
+    --error: #f0a08c;
     --error-bg: #2d1713;
     --error-line: #63352b;
   }
@@ -145,8 +164,8 @@ input::placeholder {
   color: var(--muted);
   opacity: 1;
 }
-:is(input, button, a, select, summary):focus-visible {
-  outline: 2px solid var(--action);
+:is(input, button, a, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 input[type="range"] {
@@ -215,22 +234,21 @@ p {
 h1 {
   font-size: 36px;
   line-height: 1.1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.01em;
   font-weight: 800;
   text-wrap: balance;
 }
 h2 {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.25;
-  letter-spacing: -0.02em;
-  font-weight: 800;
+  font-weight: 700;
 }
 h3 {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
 }
 small {
-  font-size: 12px;
+  font-size: 14px;
   display: block;
   color: var(--muted);
 }
@@ -325,9 +343,9 @@ small {
   color: var(--action);
 }
 .text-link {
-  color: var(--action);
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--link);
+  font-size: 14px;
+  font-weight: 600;
 }
 button.text-link {
   border: 0;
@@ -335,6 +353,7 @@ button.text-link {
   padding: 0;
 }
 .text-link:hover {
+  color: var(--link-hover);
   text-decoration: underline;
 }
 .notice {

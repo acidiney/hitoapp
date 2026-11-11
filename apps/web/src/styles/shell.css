@@ -80,6 +80,7 @@
 .sidebar nav kbd {
   margin-left: auto;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   color: var(--muted);
 }
@@ -134,7 +135,7 @@
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
-  border-radius: 5px;
+  border-radius: 6px;
 }
 .playlist-swatch::after {
   content: "";
@@ -228,7 +229,7 @@
   max-width: 380px;
   min-height: 44px;
   border: 1px solid var(--control-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--muted);
   padding: 0 6px 0 16px;

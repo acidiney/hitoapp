@@ -15,6 +15,7 @@
 }
 .media-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--muted);
 }
@@ -124,7 +125,7 @@
   gap: 8px;
   padding: 12px 16px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
 }
 .media-card-panel h3 {
@@ -219,7 +220,7 @@
   align-items: center;
   min-height: 48px;
   padding: 0 18px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
   color: #141414;
   font-size: 14px;
@@ -270,6 +271,7 @@
 }
 .episode-length {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--muted);
 }
@@ -341,6 +343,7 @@
 .chapter-number,
 .chapter-length {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--muted);
 }
@@ -358,6 +361,7 @@
 .chapter-state[data-current] {
   color: var(--action);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 .bookmark-list {
   display: flex;
@@ -370,7 +374,7 @@
   gap: 4px;
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
 }
 .bookmark-card strong {

@@ -27,8 +27,8 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
   expect(served.headers()["content-type"]).toContain("font/woff2");
   expect(
     await page.evaluate(async () => {
-      await document.fonts.load('16px "Geist Variable"');
-      return document.fonts.check('16px "Geist Variable"');
+      await document.fonts.load('16px "Figtree Variable"');
+      return document.fonts.check('16px "Figtree Variable"');
     }),
   ).toBe(true);
 
