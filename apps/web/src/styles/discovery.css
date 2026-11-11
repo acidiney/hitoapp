@@ -257,3 +257,46 @@
     -webkit-box-orient: vertical;
   }
 }
+
+.provider-result .provider-play[data-unplayable] {
+  display: none;
+}
+@media (max-width: 767px) {
+  .provider-result,
+  .outside-library .provider-result {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 0 12px;
+    min-height: 60px;
+    padding: 0;
+  }
+  .provider-result:hover,
+  .provider-result:focus-within,
+  .outside-library .provider-result:hover,
+  .outside-library .provider-result:focus-within {
+    background: transparent;
+  }
+  .provider-result .artwork {
+    width: 44px;
+    height: 44px;
+  }
+  .provider-result .provider-play,
+  .provider-result .provider-result-action,
+  .provider-result .provider-duration {
+    display: none;
+  }
+  .provider-result-copy h3 {
+    display: block;
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .provider-result-copy :is(p, small) {
+    line-height: 1.45;
+  }
+  .provider-result-error {
+    padding-left: 56px;
+  }
+}

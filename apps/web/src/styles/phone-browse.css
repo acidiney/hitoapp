@@ -944,3 +944,18 @@
     border-radius: var(--radius-pill);
   }
 }
+@media (max-width: 767px) {
+  main#main,
+  main#main:has(> .library-heading) {
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+  .player {
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+  }
+  .sidebar nav {
+    padding-right: max(4px, env(safe-area-inset-right));
+    padding-left: max(4px, env(safe-area-inset-left));
+  }
+}

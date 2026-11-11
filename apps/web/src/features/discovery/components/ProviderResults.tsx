@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef } from "react";
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 import { Play } from "lucide-react";
 
 import type { ProviderSelection, SelectionIntent } from "../hooks/useDiscovery";
@@ -110,6 +110,7 @@ function ProviderResult({
       </span>
       <button
         className="icon-button provider-play"
+        data-unplayable={canPlay ? undefined : ""}
         ref={play}
         aria-label={`Play ${hit.title}`}
         disabled={disabled || !canPlay}
@@ -145,6 +146,17 @@ function ProviderResult({
         triggerClassName="icon-button provider-menu"
         align="end"
         items={[
+          saved
+            ? {
+                label: "Open in library",
+                onSelect: () =>
+                  router.visit(`/recordings/${encodeURIComponent(saved.id)}`),
+              }
+            : {
+                label: "Add to library",
+                disabled,
+                onSelect: () => select("save"),
+              },
           {
             label: "Play next",
             disabled: disabled || !canPlay,
