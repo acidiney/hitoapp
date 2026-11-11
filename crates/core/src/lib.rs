@@ -63,9 +63,10 @@ pub use artist_catalog::{
 pub use catalog::{
     AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
-    Browse, Catalog, CatalogSort, ChooseSource, CoverArtKind, CoverArtLookup, CreditMember,
-    FeaturedEntry, FeaturedShelf, Genre, GenreDetail, LyricsLookup, Page, PlaylistArtworkFetch,
-    PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadRecordingLyrics,
+    AutomaticLyricsLookup, Browse, Catalog, CatalogSort, ChooseSource, CoverArtKind,
+    CoverArtLookup, CreditMember, FeaturedEntry, FeaturedShelf, Genre, GenreDetail, LyricsLookup,
+    Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
+    ProviderSourceReview, ReadAutomaticRecordingLyrics, ReadRecordingLyrics,
     ReadSelectedRecordingLyrics, Recording, RecordingCopies, RecordingCopy, RecordingGroupProof,
     RecordingLyricIdentities, RecordingLyricIdentity, RecordingLyricReview, RecordingLyricSelector,
     RecordingLyricService, RecordingLyricServices, RecordingLyricsProvider,

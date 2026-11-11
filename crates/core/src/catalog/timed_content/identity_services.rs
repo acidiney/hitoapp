@@ -34,6 +34,34 @@ fn approved(row: &Installation, capabilities: &[Capability]) -> Result<Option<Ma
     }
 }
 
+pub(super) async fn approved_services(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+) -> Result<Vec<RecordingLyricService>> {
+    let rows: Vec<Installation> = sqlx::query_as("SELECT installation.id AS installation_id,installation.revision AS installation_revision,
+        CASE WHEN length(CAST(installation.manifest AS BLOB))<=? THEN installation.manifest END AS manifest
+        FROM plugin_installations installation JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
+        WHERE installation.user_id=? AND installation.active=1 ORDER BY installation.id LIMIT 257")
+        .bind(MAX_MANIFEST_BYTES)
+        .bind(actor.id())
+        .fetch_all(&mut *connection)
+        .await?;
+    if rows.len() > 256 {
+        return Err(Error::Conflict("Too many lyric services to list".into()));
+    }
+    let mut items = Vec::new();
+    for row in rows {
+        if let Some(manifest) = approved(&row, REQUIRED)? {
+            items.push(RecordingLyricService {
+                installation_id: row.installation_id,
+                installation_revision: row.installation_revision,
+                label: manifest.name,
+            });
+        }
+    }
+    Ok(items)
+}
+
 impl Catalog {
     pub async fn recording_lyric_services(
         &self,
@@ -43,27 +71,7 @@ impl Catalog {
         workflow("lyric_services", Duration::from_secs(1), async {
             let mut tx = self.store.pool.begin().await?;
             let target = RecordingTarget::capture(&mut tx, actor, recording).await?;
-            let rows: Vec<Installation> = sqlx::query_as("SELECT installation.id AS installation_id,installation.revision AS installation_revision,
-                CASE WHEN length(CAST(installation.manifest AS BLOB))<=? THEN installation.manifest END AS manifest
-                FROM plugin_installations installation JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
-                WHERE installation.user_id=? AND installation.active=1 ORDER BY installation.id LIMIT 257")
-                .bind(MAX_MANIFEST_BYTES)
-                .bind(actor.id())
-                .fetch_all(&mut *tx)
-                .await?;
-            if rows.len() > 256 {
-                return Err(Error::Conflict("Too many lyric services to list".into()));
-            }
-            let mut items = Vec::new();
-            for row in rows {
-                if let Some(manifest) = approved(&row, REQUIRED)? {
-                    items.push(RecordingLyricService {
-                        installation_id: row.installation_id,
-                        installation_revision: row.installation_revision,
-                        label: manifest.name,
-                    });
-                }
-            }
+            let items = approved_services(&mut tx, actor).await?;
             target.recheck(&mut tx, actor, recording).await?;
             tx.commit().await?;
             actor.check_session(&self.store).await?;

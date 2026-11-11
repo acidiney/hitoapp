@@ -1,4 +1,8 @@
 mod authority;
+mod automatic;
+mod automatic_matching;
+mod automatic_types;
+pub use automatic_types::{AutomaticLyricsLookup, ReadAutomaticRecordingLyrics};
 mod identities;
 mod identity_authority;
 mod identity_read;

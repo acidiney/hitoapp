@@ -50,10 +50,11 @@ pub use source_preference::{SourcePreferenceEntry, SourcePreferences, UpdateSour
 mod sources;
 mod timed_content;
 pub use timed_content::{
-    LyricsLookup, ReadRecordingLyrics, ReadSelectedRecordingLyrics, RecordingLyricIdentities,
-    RecordingLyricIdentity, RecordingLyricReview, RecordingLyricSelector, RecordingLyricService,
-    RecordingLyricServices, RecordingLyricsProvider, RecordingLyricsProviders,
-    RetainRecordingLyricIdentity, SearchRecordingLyrics, SelectedLyricsLookup,
+    AutomaticLyricsLookup, LyricsLookup, ReadAutomaticRecordingLyrics, ReadRecordingLyrics,
+    ReadSelectedRecordingLyrics, RecordingLyricIdentities, RecordingLyricIdentity,
+    RecordingLyricReview, RecordingLyricSelector, RecordingLyricService, RecordingLyricServices,
+    RecordingLyricsProvider, RecordingLyricsProviders, RetainRecordingLyricIdentity,
+    SearchRecordingLyrics, SelectedLyricsLookup,
 };
 mod types;
 
