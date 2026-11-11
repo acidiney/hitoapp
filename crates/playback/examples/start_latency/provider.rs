@@ -12,8 +12,17 @@ pub(super) struct ProviderProcess {
     input: ChildStdin,
     events: mpsc::Receiver<Value>,
     poisoned: bool,
+    #[cfg(test)]
+    last_drop: Option<SourceDrop>,
     pub(super) address: String,
     pub(super) token: String,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct SourceDrop {
+    pub before: u64,
+    pub after: u64,
+    pub at_ms: f64,
 }
 
 impl ProviderProcess {
@@ -35,6 +44,8 @@ impl ProviderProcess {
             input,
             events,
             poisoned: false,
+            #[cfg(test)]
+            last_drop: None,
             address: String::new(),
             token: String::new(),
         };
@@ -173,9 +184,14 @@ impl ProviderProcess {
         )
     }
     pub(super) fn streams(&mut self, source: &str) -> Result<u64, Failure> {
-        self.ask(
+        self.streams_until(source, Instant::now() + Duration::from_secs(10))
+    }
+
+    fn streams_until(&mut self, source: &str, deadline: Instant) -> Result<u64, Failure> {
+        self.ask_until(
             json!({"cmd": "streams", "source": source}),
             "streams",
+            deadline,
             |value| {
                 value["count"]
                     .as_u64()
@@ -184,9 +200,45 @@ impl ProviderProcess {
         )
     }
     pub(super) fn drop_source(&mut self, source: &str) -> Result<(), Failure> {
-        self.ask(json!({"cmd": "drop", "source": source}), "dropped", |_| {
-            Ok(())
-        })
+        self.drop_source_until(source, Instant::now() + Duration::from_secs(10))
+            .map(|_| ())
+    }
+    pub(super) fn drop_source_until(
+        &mut self,
+        source: &str,
+        deadline: Instant,
+    ) -> Result<SourceDrop, Failure> {
+        #[cfg(test)]
+        {
+            self.last_drop = None;
+        }
+        let before = self.streams_until(source, deadline)?;
+        let at_ms = self.ask_until(
+            json!({"cmd": "drop", "source": source}),
+            "dropped",
+            deadline,
+            |value| {
+                value["at_ms"]
+                    .as_f64()
+                    .filter(|value| value.is_finite() && *value >= 0.)
+                    .ok_or_else(|| "provider_drop_time_invalid".into())
+            },
+        )?;
+        let after = self.streams_until(source, deadline)?;
+        let observed = SourceDrop {
+            before,
+            after,
+            at_ms,
+        };
+        #[cfg(test)]
+        {
+            self.last_drop = Some(observed);
+        }
+        Ok(observed)
+    }
+    #[cfg(test)]
+    pub(super) fn last_drop(&self) -> Option<SourceDrop> {
+        self.last_drop
     }
     pub(super) fn counters(&mut self) -> Result<(u64, u64), Failure> {
         self.ask(json!({"cmd": "stats"}), "stats", |stats| {

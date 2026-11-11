@@ -130,6 +130,18 @@ impl Monitor {
             .find(|(at, audible)| !*audible && *at >= after)
             .map(|(at, _)| *at)
     }
+
+    pub(super) fn audible_read_after(
+        &mut self,
+        mark: Instant,
+    ) -> Result<Option<Instant>, super::Failure> {
+        self.process.check_live()?;
+        let latest = *self
+            .last_audible
+            .lock()
+            .map_err(|_| "monitor_state_failed")?;
+        Ok(latest.filter(|read| *read > mark))
+    }
 }
 
 fn read_stream(

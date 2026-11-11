@@ -1,6 +1,9 @@
+use super::resources::SafeCode;
 use super::{Failure, capture::Monitor, measurement::Measurements, provider::ProviderProcess};
 use hito_core::Actor;
-use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerSnapshot};
+use hito_playback::{
+    Player, PlayerAction, PlayerCommand, PlayerEntryRef, PlayerPhase, PlayerSnapshot,
+};
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -206,12 +209,44 @@ pub(super) async fn recovery_once(
         latency,
     } = *scenario;
     rig.start_once(recording).await?;
-    let mut position = rig.player.subscribe_position(&rig.actor, rig.lease).await?;
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        position.wait_for(|position| position.position_ms >= 1500),
+    let input_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let recording_id = Uuid::parse_str(recording)?;
+    let initial = tokio::time::timeout_at(
+        input_deadline,
+        rig.state.wait_for(|state| {
+            state
+                .current
+                .is_some_and(|entry| entry.recording_id == recording_id)
+                && state
+                    .source_id
+                    .as_ref()
+                    .is_some_and(|source| !source.is_empty())
+                && state.playing
+                && state.phase == PlayerPhase::Ready
+        }),
     )
-    .await??;
+    .await
+    .map_err(|_| SafeCode("recovery_input_deadline"))?
+    .map_err(|_| SafeCode("player_observation_closed"))?
+    .clone();
+    let entry = initial.current.ok_or(SafeCode("recovery_input_missing"))?;
+    let original_source = initial
+        .source_id
+        .ok_or(SafeCode("recovery_input_missing"))?;
+    let selection = initial.selection;
+    let mut position = rig.player.subscribe_position(&rig.actor, rig.lease).await?;
+    tokio::time::timeout_at(
+        input_deadline,
+        position.wait_for(|position| {
+            position.position_ms >= 1500
+                && position.entry == Some(entry.id)
+                && position.selection == selection
+                && recovered_state(&rig.state.borrow(), entry, selection, &original_source)
+        }),
+    )
+    .await
+    .map_err(|_| SafeCode("recovery_input_deadline"))?
+    .map_err(|_| SafeCode("player_observation_closed"))?;
     let mut active = a;
     if refreshed {
         provider.sources(name, &[b])?;
@@ -224,23 +259,89 @@ pub(super) async fn recovery_once(
     provider.latency(latency)?;
     rig.monitor.arm();
     let dropped = Instant::now();
-    provider.drop_source(active)?;
-    let wait = Instant::now() + Duration::from_secs(15);
-    let mut silence = None;
+    let deadline = dropped + Duration::from_secs(15);
+    let fault = provider.drop_source_until(active, deadline)?;
+    tracing::debug!(
+        event = "benchmark_source_drop",
+        before = fault.before,
+        after = fault.after,
+        provider_epoch_ms = fault.at_ms
+    );
+    if Instant::now() >= deadline {
+        return Err(SafeCode("recovery_deadline").into());
+    }
+    if fault.before == 0 || fault.after != 0 {
+        return Err(SafeCode("recovery_fault_not_active").into());
+    }
+    let deadline_at = tokio::time::Instant::from_std(deadline);
+    let replacement = tokio::time::timeout_at(
+        deadline_at,
+        rig.state.wait_for(|state| {
+            state.source_id.as_deref().is_some_and(|source| {
+                source != original_source && recovered_state(state, entry, selection, source)
+            })
+        }),
+    )
+    .await
+    .map_err(|_| SafeCode("recovery_source_deadline"))?
+    .map_err(|_| SafeCode("player_observation_closed"))?
+    .source_id
+    .clone()
+    .ok_or(SafeCode("recovery_source_missing"))?;
+    let restored = position.borrow().position_ms;
+    tokio::time::timeout_at(
+        deadline_at,
+        position.wait_for(|position| {
+            position.position_ms > restored
+                && position.entry == Some(entry.id)
+                && position.selection == selection
+                && recovered_state(&rig.state.borrow(), entry, selection, &replacement)
+        }),
+    )
+    .await
+    .map_err(|_| SafeCode("recovery_progress_deadline"))?
+    .map_err(|_| SafeCode("player_observation_closed"))?;
+    let progress_mark = Instant::now();
     loop {
-        silence = silence.or_else(|| rig.monitor.first_silence_after(dropped));
-        if let Some(gap) = silence
-            && let Some(audible) = rig.monitor.first_audible_after(gap)?
-        {
-            return Ok((dropped, silence, audible));
+        if Instant::now() >= deadline {
+            return Err(SafeCode("recovery_audio_deadline").into());
         }
-        if Instant::now() > wait {
-            return Err("no recovered audio within 15 seconds".into());
+        if let Some(audible) = rig.monitor.audible_read_after(progress_mark)? {
+            let current = position.borrow();
+            if Instant::now() >= deadline {
+                return Err(SafeCode("recovery_audio_deadline").into());
+            }
+            if current.entry != Some(entry.id)
+                || current.selection != selection
+                || current.position_ms <= restored
+                || !recovered_state(&rig.state.borrow(), entry, selection, &replacement)
+            {
+                return Err(SafeCode("recovery_selection_changed").into());
+            }
+            return Ok((dropped, rig.monitor.first_silence_after(dropped), audible));
         }
         tokio::time::sleep(Duration::from_micros(500)).await;
     }
 }
 
+fn recovered_state(
+    state: &PlayerSnapshot,
+    entry: PlayerEntryRef,
+    selection: u64,
+    source: &str,
+) -> bool {
+    !source.is_empty()
+        && state.source_id.as_deref() == Some(source)
+        && state.current == Some(entry)
+        && state.selection == selection
+        && state.phase == PlayerPhase::Ready
+        && state.playing
+}
+
 #[cfg(test)]
 #[path = "workflow/tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "workflow/recovery_tests.rs"]
+mod recovery_tests;

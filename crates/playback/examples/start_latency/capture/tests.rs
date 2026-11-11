@@ -218,6 +218,57 @@ async fn frames_arrived(progress: &Arc<Mutex<Progress>>, frames: u64) -> bool {
 }
 
 #[tokio::test]
+async fn fresh_continuous_audible_reads_do_not_require_another_transition() {
+    let mut command = Command::new("python3");
+    command.args(["-c", "import sys; out=sys.stdout.buffer; pcm=bytes.fromhex('0000003f0000003f')*240; sys.stdin.readline(); out.write(pcm); out.flush(); sys.stdin.readline(); out.write(pcm); out.flush(); sys.stdin.read()"]);
+    let mut monitor = Monitor::start(command).unwrap();
+    let mut input = monitor.process.child.stdin.take().unwrap();
+    let pid = monitor.process.child.id();
+    monitor.arm();
+    let progress = monitor.progress.clone();
+    let observed: Result<(bool, bool), super::super::Failure> = async {
+        input
+            .write_all(b"first\n")
+            .map_err(|_| "control_write_failed")?;
+        if !frames_arrived(&progress, 240).await {
+            return Err("initial_audible_read_not_observed".into());
+        }
+        let mark = Instant::now();
+        let stale_rejected = monitor.audible_read_after(mark)?.is_none();
+        input
+            .write_all(b"next\n")
+            .map_err(|_| "control_write_failed")?;
+        let fresh = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                if monitor.audible_read_after(mark)?.is_some() {
+                    return Ok::<_, super::super::Failure>(());
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let fresh_observed = matches!(fresh, Ok(Ok(())));
+        let no_new_transition = monitor.first_audible_after(mark)?.is_none();
+        Ok((stale_rejected && no_new_transition, fresh_observed))
+    }
+    .await;
+    let cleanup = monitor.finish();
+    drop(input);
+    assert!(
+        cleanup.is_ok() && !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+        "continuous PCM control child and reader did not close"
+    );
+    assert!(
+        observed.as_ref().is_ok_and(|(controlled, _)| *controlled),
+        "control admitted stale audio or introduced another transition"
+    );
+    assert!(
+        observed.is_ok_and(|(_, fresh)| fresh),
+        "fresh continuous audible read required a new transition"
+    );
+}
+
+#[tokio::test]
 async fn a_new_quiet_window_requires_all_silent_frames_after_its_mark() {
     use std::{future::Future, task::Poll};
     let mut command = Command::new("python3");
