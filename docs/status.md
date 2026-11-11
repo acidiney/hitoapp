@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 catalog build-profile comparison
+
+The isolated composed catalog candidate constructs the complete rich 25,000-recording fixture in 3,465 ms with a release build, versus 5,702 ms in the test profile. Both retain 34,802,500 SQLite VM steps, 325,004 facts, 38 pages and 9,707,994 encoded bytes. The release build still fails the unchanged 100,000-recording deadline at 10,018 ms, after 92,672 recording families and before release construction. No complete 100,000-recording result or release qualification is claimed.
+
+A bulk dictionary preseed was rejected because its smaller-fixture gain did not improve the 100,000-recording result. The next architectural work targets bounded materialization and worker transport, preserving caller-validated numeric preflights, authority, canonical policy and existing limits. The candidate remains isolated and unintegrated. See [the comparison and constraints](catalog-journal-design.md#composed-producer-build-profile-comparison).
+
 ## 2026-11-11 local lyric backend deployment and connection diagnosis
 
 The normal local server on port 8080 and the separate preview on port 8090 run the independently qualified lyric backend. Both returned a healthy response, expose the new routes behind authentication, and use the same verified release executable. The normal database upgrade from migration 91 to 95 preserved the existing application tables and migration receipts, with integrity and foreign-key checks passing. Its pre-upgrade backup is retained. A consistent online SQLite backup of the live preview also passes those checks; the earlier preview whole-volume archive was taken during concurrent writes and is not a trusted rollback artifact.

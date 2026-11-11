@@ -210,6 +210,21 @@ On that same source, 100,000 recordings still exceed the fixed ten-second constr
 
 The source archive contains 2,573 pinned Rust, SQL and Cargo inputs. Its SHA-256 is `c2e044dd84631f48594205122077a851a4d3a7f7b326a5147e1cfec798bfab43`; the combined run log is `8a39fb19b137362a15acd262a140ff311cf064c3fe03cf007b33764ab9aed218`. Root verified those frozen artifacts and their reported outcomes, but has not independently repeated this candidate. Final review, strict warning-free integration, real malformed-wire client validation, changes delivery and convergence remain open. Nothing in this checkpoint is deployed.
 
+### Composed producer build-profile comparison
+
+A later isolated candidate includes the canonical lyric-identity migration and the private catalog journal. Its complete 25,000-recording comparison retains 325,004 facts, all 17 populated fact kinds, 38 public pages and 9,707,994 encoded bytes in both profiles. Docker runs use the same corpus, limits, two compiler jobs and disabled debug information and incremental compilation.
+
+| Profile | Complete 25,000-recording construction | SQLite VM steps |
+| --- | ---: | ---: |
+| Test profile | 5,702 ms | 34,802,500 |
+| Release profile | 3,465 ms | 34,802,500 |
+
+The release profile still fails the unchanged 100,000-recording gate. At 10,018 ms it has completed 92,672 recording families and has not reached release construction. This is an interrupted constructor, not a complete export measurement. The 128 MiB export limit, 64-owner batches and ten-second deadline are unchanged. Neither build profile qualifies the full scale workload.
+
+A bulk root-dictionary preseed was rejected and its production changes restored: a small 25,000-recording improvement did not improve the number of owners completed by the 100,000-recording deadline. A separate calibrated diagnostic counted 16,554 SQL worker executions and 633,309 returned rows for the complete 25,000-recording fixture. Worker elapsed time includes channel backpressure and excludes statement preparation, so it is not SQLite CPU time. The diagnostic run is not performance acceptance.
+
+The next candidate must reduce materialization overhead while retaining the same authorized read snapshot and canonical policies. Numeric size and count preflights must return to the caller and pass validation before the worker reads full strings. A multistatement request that advances directly from numeric preflight into data reads would bypass that boundary. Incremental delivery, the production client, independent final-source qualification and full release scale remain open. No running service was changed by these comparisons.
+
 ## Acceptance and implementation sequence
 
 The complete capability requires all of these steps:
