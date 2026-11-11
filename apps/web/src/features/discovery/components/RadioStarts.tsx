@@ -40,9 +40,7 @@ export default function RadioStarts({
                   />
                 </span>
                 <span className="radio-start-copy">
-                  <span className="radio-start-name" title={artist.name.value}>
-                    {artist.name.value}
-                  </span>
+                  <span className="radio-start-name">{artist.name.value}</span>
                   <span className="radio-start-why">
                     {busy
                       ? "Building your radio…"

@@ -222,7 +222,6 @@
   color: var(--muted);
 }
 .top-result-title {
-  overflow-wrap: anywhere;
   color: var(--ink);
   font-size: 30px;
   font-weight: 800;
@@ -385,12 +384,11 @@
   visibility: hidden;
 }
 .search-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 360px));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 .search-card {
-  min-width: 0;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -429,11 +427,6 @@
   min-width: 0;
   font-size: 14px;
   color: var(--muted);
-}
-.search-card-copy > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .search-card-copy strong {
   color: var(--ink);
@@ -490,7 +483,4 @@
   font-size: inherit;
   font-weight: 400;
   text-decoration: underline;
-}
-.search-bar input:focus-visible {
-  outline: none;
 }

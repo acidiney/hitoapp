@@ -24,15 +24,10 @@
   min-height: 44px;
   padding: 0 12px;
 }
-.brand-word {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: inherit;
-}
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.hito-logo img,
+.hito-mark img {
+  display: block;
+  width: auto;
 }
 .ring {
   display: inline-block;
@@ -50,9 +45,6 @@
 }
 .ring[data-ring="catalog"] {
   border: 2px dashed var(--muted);
-}
-.brand-mark .ring[data-ring="catalog"] {
-  border-style: dotted;
 }
 .sidebar nav {
   display: grid;
@@ -284,8 +276,8 @@
   outline: none;
 }
 .search:focus-within {
-  outline: none;
-  border-color: var(--action);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .search kbd {
   flex: none;

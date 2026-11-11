@@ -109,7 +109,9 @@ test.each([
 
 test("the mark names the product", () => {
   sidebar("/library");
-  expect(screen.getByRole("link", { name: /hito/ })).toBeTruthy();
+  const home = screen.getByRole("link", { name: "Hito home" });
+  expect(home.getAttribute("href")).toBe("/home");
+  expect(home.querySelector("img")?.getAttribute("src")).toMatch(/hito-logo/);
 });
 
 test("playlists are listed with a create link", () => {

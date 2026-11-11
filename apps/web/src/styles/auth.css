@@ -16,25 +16,6 @@
   padding: 0;
   gap: 10px;
 }
-.auth-intro .brand-word {
-  font-size: 26px;
-}
-.auth-intro .brand .ring {
-  width: 14px;
-  height: 14px;
-}
-.auth-intro .brand-mark {
-  gap: 4px;
-}
-.auth-intro .ring[data-ring="library"] {
-  background: var(--on-panel);
-}
-.auth-intro .ring[data-ring="available"] {
-  border: 3px solid var(--panel-action);
-}
-.auth-intro .ring[data-ring="catalog"] {
-  border: 3px dashed var(--control-off);
-}
 .auth-headline {
   font-size: 64px;
   font-weight: 800;
@@ -57,16 +38,6 @@
 }
 .auth-intro[data-tone="action"] .auth-headline {
   font-size: 56px;
-}
-.auth-intro[data-tone="action"] .ring[data-ring="library"] {
-  background: var(--on-action);
-}
-.auth-intro[data-tone="action"] .ring[data-ring="available"] {
-  border-color: var(--on-action);
-}
-.auth-intro[data-tone="action"] .ring[data-ring="catalog"] {
-  border-color: var(--on-action);
-  opacity: 0.7;
 }
 .auth-intro[data-tone="action"] .auth-origin {
   color: var(--on-action);

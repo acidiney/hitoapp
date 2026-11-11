@@ -1,7 +1,7 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Compass, Home, Library, Plug, Plus, Search } from "lucide-react";
-import BrandMark from "../shared/ui/BrandMark";
+import { HitoLogo } from "../shared/brand/HitoLogo";
 import FallbackCover from "../shared/ui/FallbackCover";
 
 import { log } from "../shared/log";
@@ -24,9 +24,8 @@ export default function Sidebar({
     log.info("navigation.requested", { route });
   return (
     <aside className="sidebar">
-      <Link href="/home" className="brand">
-        <BrandMark />
-        <span className="brand-word">hito</span>
+      <Link href="/home" className="brand" aria-label="Hito home">
+        <HitoLogo />
       </Link>
       <nav aria-label="Main navigation">
         <Link

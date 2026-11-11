@@ -77,9 +77,7 @@ test("the shell serves bundled fonts, offers five destinations and focuses searc
   await page.screenshot({
     path: "/workspace/test-results/discover-desktop.png",
   });
-  await expect(
-    page.getByRole("textbox", { name: "Search", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Search" })).toHaveCount(0);
   await page.keyboard.press("Control+K");
   await expect(page).toHaveURL(/\/search$/);
   await expect(page.getByRole("searchbox", { name: "Search" })).toBeFocused();
@@ -105,9 +103,7 @@ test("on a desktop the top bar search sits in the same place on Home, Queue and 
   await page.goto("/search");
   await expect(page.getByRole("searchbox", { name: "Search" })).toBeVisible();
   await page.goto("/discover");
-  await expect(
-    page.getByRole("searchbox", { name: "Search", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("searchbox", { name: "Search" })).toHaveCount(0);
   await page.goto("/library");
   const library = (await page
     .getByRole("textbox", { name: "Search library", exact: true })

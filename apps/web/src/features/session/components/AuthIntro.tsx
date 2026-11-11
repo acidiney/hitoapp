@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import BrandMark from "../../../shared/ui/BrandMark";
+import { HitoLogo } from "../../../shared/brand/HitoLogo";
 
 export default function AuthIntro({
   headline,
@@ -19,8 +19,7 @@ export default function AuthIntro({
       aria-hidden={decorative || undefined}
     >
       <div className="brand">
-        <BrandMark />
-        <span className="brand-word">hito</span>
+        <HitoLogo height={20} alwaysDark />
       </div>
       <div className="auth-message">
         <p className="auth-headline">{headline}</p>
