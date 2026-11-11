@@ -1,16 +1,17 @@
 @media (max-width: 767px) {
   :root {
+    --phone-top: max(56px, calc(env(safe-area-inset-top) + 16px));
     line-height: 1.45;
   }
   main#main {
-    padding: max(56px, calc(env(safe-area-inset-top) + 16px)) 16px 16px;
+    padding: var(--phone-top) 16px 16px;
   }
   .account {
     display: none;
   }
   .app-shell:has(.home-page) .account {
     display: flex;
-    top: max(56px, calc(env(safe-area-inset-top) + 16px));
+    top: var(--phone-top);
     right: 16px;
   }
   .app-shell:has(.home-page) .account-link {
@@ -389,7 +390,7 @@
     align-items: start;
     gap: 0 14px;
     margin: 0 -16px;
-    padding: max(56px, calc(env(safe-area-inset-top) + 16px)) 16px 16px;
+    padding: var(--phone-top) 16px 16px;
   }
   .playlist-header-cover,
   .playlist-header-cover > .artwork {
@@ -452,5 +453,353 @@
   }
   .playlist-body .pills {
     flex-wrap: wrap;
+  }
+}
+@media (max-width: 767px) {
+  .search-page {
+    gap: 14px;
+  }
+  .search-header {
+    gap: 14px;
+  }
+  .search-bar {
+    min-height: 48px;
+    padding: 0 4px 0 16px;
+  }
+  .search-bar input {
+    font-size: 16px;
+  }
+  .search-filters .pills,
+  .search-sources-label {
+    display: none;
+  }
+  .search-sources {
+    gap: 8px;
+  }
+  .search-results {
+    gap: 14px;
+  }
+  .search-lead {
+    gap: 14px;
+  }
+  .search-top {
+    position: relative;
+  }
+  .search-top .search-group-head {
+    position: absolute;
+    z-index: 1;
+    top: 12px;
+    left: 90px;
+  }
+  .search-top .search-group-head h2 {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--link);
+  }
+  .top-result {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+  }
+  .top-result-art {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-cover);
+  }
+  .top-result-art[data-shape="round"] {
+    border-radius: 50%;
+  }
+  .top-result-copy {
+    gap: 0;
+    padding-top: 17px;
+    line-height: 1.45;
+  }
+  .top-result-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+  .top-result-actions {
+    flex-wrap: nowrap;
+  }
+  .top-result-actions .button.action {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+  .top-result-actions .button.action svg {
+    width: 16px;
+    height: 16px;
+  }
+  .top-result-actions .button:not(.action) {
+    display: none;
+  }
+  .search-group-head h2 {
+    font-size: 18px;
+  }
+  .result-row {
+    grid-template-columns: 44px auto minmax(0, 1fr) 44px;
+    grid-template-rows: auto auto;
+    align-content: center;
+    gap: 0;
+    min-height: 60px;
+    padding: 0;
+  }
+  .result-row .track-actions {
+    align-self: center;
+  }
+  .result-row-cover {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 44px;
+    height: 44px;
+    margin-right: 12px;
+  }
+  .result-row-copy {
+    display: contents;
+  }
+  .result-row-title {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    align-self: end;
+    padding-left: 12px;
+    line-height: 1.45;
+  }
+  .result-row-sub {
+    display: none;
+  }
+  .result-row-state {
+    display: flex;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    padding-left: 12px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .result-row-time {
+    display: block;
+    grid-column: 3;
+    grid-row: 2;
+    align-self: start;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .result-row-time::before {
+    content: "\00b7\00a0";
+  }
+  .result-row .track-actions {
+    grid-column: 4;
+    grid-row: 1 / 3;
+  }
+  .result-row .action-menu {
+    display: block;
+    opacity: 1;
+  }
+  .result-row .track-actions .icon-button[aria-pressed] {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .detail-page {
+    margin: calc(-1 * var(--phone-top)) -16px -16px;
+  }
+  .detail-body {
+    padding: 20px 16px 16px;
+    gap: 24px;
+  }
+  .detail-section > h2,
+  .detail-section-head > h2 {
+    font-size: 20px;
+  }
+  .album-header,
+  .artist-header {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: start;
+    gap: 0 14px;
+    padding: var(--phone-top) 16px 16px;
+    background: transparent;
+  }
+  .album-header-cover,
+  .album-header-cover > .artwork,
+  .artist-header-photo {
+    width: 96px;
+    height: 96px;
+  }
+  .album-header-cover,
+  .artist-header-photo {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    box-shadow: none;
+  }
+  .album-header-copy,
+  .artist-header-copy {
+    display: contents;
+  }
+  .album-eyebrow,
+  .artist-header-eyebrow {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 2px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+  .album-header :is(h1, h4, h5),
+  .artist-header h1 {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 4px;
+    font-size: 22px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    -webkit-line-clamp: 3;
+  }
+  .album-header :is(h1, h4, h5)[data-long],
+  .artist-header h1[data-size] {
+    font-size: 22px;
+  }
+  .album-stats,
+  .artist-header-stats {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 4px;
+    color: var(--muted);
+  }
+  .album-status {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    margin-top: 14px;
+  }
+  .album-actions,
+  .artist-header-actions {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    margin-top: 14px;
+    gap: 8px;
+  }
+  .album-note {
+    grid-column: 1 / -1;
+    grid-row: 6;
+  }
+  .album-body {
+    padding: 4px 16px 16px;
+  }
+}
+@media (max-width: 767px) {
+  .track-table:not([data-layout]):not([data-editing]) thead {
+    display: none;
+  }
+  .track-table:not([data-layout]):not([data-editing]),
+  .track-table:not([data-layout]):not([data-editing]) tbody {
+    display: block;
+  }
+  .track-table:not([data-layout]):not([data-editing]) tbody tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-content: center;
+    align-items: center;
+    min-height: 60px;
+    border-radius: 10px;
+  }
+  .track-table:not([data-layout]):not([data-editing]) tbody tr td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.number-column {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.number-column .row-play {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 6px;
+    background: transparent;
+    color: transparent;
+  }
+  .track-table:not([data-layout]):not([data-editing])
+    td.number-column
+    .row-play
+    svg,
+  .track-table:not([data-layout]):not([data-editing])
+    td.number-column
+    .row-play:not([data-state])
+    span {
+    display: none;
+  }
+  .track-table:not([data-layout]):not([data-editing])
+    td.number-column
+    .row-play[data-state] {
+    background: rgba(0, 0, 0, 0.55);
+    color: var(--action);
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.track-cell,
+  .track-table:not([data-layout]):not([data-editing]) .track-copy {
+    display: contents;
+  }
+  .track-table:not([data-layout]):not([data-editing]) .track-cell > .artwork {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+  }
+  .track-table:not([data-layout]):not([data-editing]) .track-title {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+  .track-table:not([data-layout]):not([data-editing]) .track-copy > small,
+  .track-table:not([data-layout]):not([data-editing]) .track-meta {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.actions-column {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.actions-column {
+    padding: 0;
+  }
+  .track-table:not([data-layout]):not([data-editing])
+    tbody
+    tr:not(:hover):not(:focus-within)
+    .track-actions
+    > .action-menu:not(:has([aria-expanded="true"])) {
+    opacity: 1;
+  }
+  .track-table:not([data-layout]):not([data-editing]) td.artist-column,
+  .track-table:not([data-layout]):not([data-editing]) td.album-column,
+  .track-table:not([data-layout]):not([data-editing]) td.duration-column {
+    display: none;
   }
 }
