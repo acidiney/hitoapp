@@ -4,6 +4,10 @@ import { time } from "../../../shared/format";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
 import Button from "../../../shared/ui/Button";
+import EditionTrackRow from "./EditionTrackRow";
+import TrackRowActions from "../../playback/components/TrackRowActions";
+import { useAlbumMerge } from "../../catalog/components/AlbumMergeContext";
+import { creditText } from "../model/catalogAlbumRows";
 
 type Comparison = Extract<
   Schema<"AlbumEditionTrackListAvailability">,
@@ -31,6 +35,7 @@ export default function AlbumEditionTrackList({
   retry: () => Promise<void>;
 }) {
   const player = usePlayer();
+  const merge = useAlbumMerge(comparison !== null);
   const catalog = useCatalogTrackPlay(
     account,
     comparison?.adoption ?? null,
@@ -57,6 +62,22 @@ export default function AlbumEditionTrackList({
     },
   });
 
+  function libraryActions(recording: Schema<"Recording">) {
+    if (!merge.mutate) return undefined;
+    return (
+      <TrackRowActions
+        track={{
+          ...recording,
+          row_id: recording.id,
+          liked: (recording as { liked?: boolean }).liked ?? false,
+        }}
+        playlists={merge.playlists}
+        mutate={merge.mutate}
+        liking={false}
+      />
+    );
+  }
+
   function row(track: Occurrence) {
     const library =
       linked.get(track.id) ??
@@ -65,72 +86,89 @@ export default function AlbumEditionTrackList({
         : undefined) ??
       catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id));
     const failure = catalog.failed?.id === track.id ? catalog.failed : null;
+    const working = catalog.pending === track.id;
+    const credit = creditText(track.artist_credit);
+    const common = {
+      number: track.number ?? <span title="Track number not provided">–</span>,
+      title: track.title,
+      credit,
+      time: track.duration_ms == null ? "" : time(track.duration_ms / 1000),
+      failure: failure?.message,
+    };
+    if (library)
+      return (
+        <EditionTrackRow
+          key={track.id}
+          {...common}
+          state="library"
+          actions={libraryActions(library)}
+          detail={library.title === track.title ? undefined : library.title}
+          play={{
+            label: `Play ${library.title}`,
+            disabled: false,
+            onPlay: () => play(library),
+          }}
+        />
+      );
+    if (track.kind !== "audio")
+      return (
+        <EditionTrackRow
+          key={track.id}
+          {...common}
+          state="unplayable"
+          detail={kinds[track.kind]}
+        />
+      );
+    if (comparison?.attached_occurrences.includes(track.id))
+      return (
+        <EditionTrackRow
+          key={track.id}
+          {...common}
+          state="attached"
+          detail="Already attached as audio to another recording"
+        />
+      );
+    const missing =
+      track.recording_id == null
+        ? "No provider identity for this track"
+        : undefined;
+    const state = working ? "working" : "absent";
+    const adoptable = comparison?.adoption && track.recording_id != null;
+    const detail = working
+      ? adoptable
+        ? "Saving…"
+        : "Finding audio…"
+      : missing;
+    if (adoptable)
+      return (
+        <EditionTrackRow
+          key={track.id}
+          {...common}
+          state={state}
+          detail={detail}
+          play={{
+            label: `Play ${track.title}`,
+            disabled: catalog.pending !== null,
+            onPlay: () => void catalog.play(track.id, track.recording_id!),
+          }}
+        />
+      );
     return (
-      <li key={track.id}>
-        <p className={track.number ? "track-no" : "track-no placeholder"}>
-          {track.number ?? "Track number not provided"}
-        </p>
-        <p className="track-name">{track.title}</p>
-        {track.kind !== "audio" && (
-          <p className="track-kind">{kinds[track.kind]}</p>
-        )}
-        <p
-          className={
-            track.duration_ms == null ? "track-time placeholder" : "track-time"
-          }
-        >
-          {track.duration_ms == null
-            ? "Duration not provided"
-            : time(track.duration_ms / 1000)}
-        </p>
-        {library ? (
-          <>
-            <p>In your library as {library.title}</p>
-            <Button
-              type="button"
-              aria-label={`Play ${library.title}`}
-              onClick={() => play(library)}
-            >
-              Play
-            </Button>
-          </>
-        ) : track.kind !== "audio" ? (
-          <p>Not playable audio</p>
-        ) : (
-          <>
-            <p>Not in your library</p>
-            {track.recording_id == null && (
-              <p>No provider identity for this track</p>
-            )}
-            {comparison?.attached_occurrences.includes(track.id) ? (
-              <p>Already attached as audio to another recording</p>
-            ) : comparison?.adoption && track.recording_id != null ? (
-              <Button
-                type="button"
-                disabled={catalog.pending !== null}
-                aria-label={`Play ${track.title}`}
-                onClick={() => void catalog.play(track.id, track.recording_id!)}
-              >
-                {catalog.pending === track.id ? "Saving…" : "Play"}
-              </Button>
-            ) : comparison ? (
-              <Button
-                type="button"
-                disabled={catalog.pending !== null}
-                aria-label={`Find audio for ${track.title}`}
-                onClick={() =>
-                  void catalog.findAndPlay(track.id, search(track))
-                }
-              >
-                {catalog.pending === track.id
-                  ? "Finding audio…"
-                  : "Find audio and play"}
-              </Button>
-            ) : null}
-            {failure && <p role="alert">{failure.message}</p>}
-          </>
-        )}
-      </li>
+      <EditionTrackRow
+        key={track.id}
+        {...common}
+        state={state}
+        detail={detail}
+        play={
+          comparison
+            ? {
+                label: `Find audio for ${track.title}`,
+                disabled: catalog.pending !== null,
+                onPlay: () => void catalog.findAndPlay(track.id, search(track)),
+              }
+            : undefined
+        }
+      />
     );
   }
 
@@ -151,15 +189,11 @@ export default function AlbumEditionTrackList({
       )}
       {comparison && (
         <>
-          <h5>{comparison.edition.title}</h5>
           {comparison.is_album_release && (
-            <p>This is the release this album was saved from.</p>
+            <p className="edition-note">
+              This is the release this album was saved from.
+            </p>
           )}
-          <p>
-            Catalog tracks are saved to your library only when you play them.
-            Tracks that are not saved can look for audio in your approved
-            providers.
-          </p>
           {comparison.edition.media.map((medium) => (
             <section
               key={medium.position}
@@ -185,19 +219,28 @@ export default function AlbumEditionTrackList({
           ))}
           {comparison.library_only.length > 0 && (
             <section aria-label="Not in this edition">
-              <h6>In your album, not in this edition</h6>
-              <ul aria-label="In this album only">
+              <h3 className="edition-group-title">Not on this edition</h3>
+              <ul
+                aria-label="In this album only"
+                className="edition-track-rows"
+              >
                 {comparison.library_only.map((track) => (
-                  <li key={track.entry_id}>
-                    <p>{track.title}</p>
-                    <Button
-                      type="button"
-                      aria-label={`Play ${track.title}`}
-                      onClick={() => play(track)}
-                    >
-                      Play
-                    </Button>
-                  </li>
+                  <EditionTrackRow
+                    key={track.entry_id}
+                    number="–"
+                    title={track.title}
+                    state="library"
+                    actions={libraryActions(track)}
+                    credit={track.artist}
+                    time={
+                      track.duration_ms ? time(track.duration_ms / 1000) : ""
+                    }
+                    play={{
+                      label: `Play ${track.title}`,
+                      disabled: false,
+                      onPlay: () => play(track),
+                    }}
+                  />
                 ))}
               </ul>
             </section>

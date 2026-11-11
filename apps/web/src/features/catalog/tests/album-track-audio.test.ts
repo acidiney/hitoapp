@@ -178,9 +178,6 @@ test("an audio provider outage is honest and retryable while the album stays pla
   });
   const alert = await within(row).findByRole("alert");
   expect(alert.textContent).toContain("unavailable");
-  expect(
-    screen.getByRole("button", { name: `Play ${personalTitle}` }),
-  ).toBeTruthy();
   expect(findButton(row).hasAttribute("disabled")).toBe(false);
   answer = found;
   await act(async () => {

@@ -70,7 +70,6 @@ export default function AlbumCompleteTrackList({
 
   return (
     <section aria-label="Complete track list" className="complete-track-list">
-      {view !== "closed" && <h2>Complete track list</h2>}
       {state.status === "needs_choice" && (
         <p>
           Your saved edition can no longer be used. Choose an edition again.
@@ -91,9 +90,13 @@ export default function AlbumCompleteTrackList({
         </>
       )}
       {view === "closed" && (browseAnchor || ready) && (
-        <Button type="button" onClick={() => void open()}>
+        <button
+          type="button"
+          className="text-action"
+          onClick={() => void open()}
+        >
           Show complete track list
-        </Button>
+        </button>
       )}
       {view === "looking" && (
         <p role="status">Looking for the edition named in your file tags…</p>
@@ -141,13 +144,14 @@ export default function AlbumCompleteTrackList({
         />
       )}
       {linked && (
-        <Button
+        <button
           type="button"
+          className="text-action"
           disabled={edition.pending}
           onClick={() => void forget()}
         >
           Forget edition
-        </Button>
+        </button>
       )}
     </section>
   );

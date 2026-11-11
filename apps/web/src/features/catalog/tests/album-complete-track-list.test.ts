@@ -154,6 +154,19 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
       within(region).getByRole("list", { name: "In this album only" }),
     ).getAllByRole("listitem"),
   ).toHaveLength(1);
+  expect(
+    within(region).getByRole("heading", { name: "Not on this edition" }),
+  ).toBeTruthy();
+  expect(within(region).queryByText(/Find audio and play/)).toBeNull();
+  await waitFor(() =>
+    expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull(),
+  );
+  expect(
+    screen.queryByRole("heading", { name: "Complete track list" }),
+  ).toBeNull();
+  expect(
+    within(region).queryByText(/saved to your library only when/),
+  ).toBeNull();
   expect(fetch.mock.calls.some(([path]) => path === adoption)).toBe(false);
   expect(player.playQueue).not.toHaveBeenCalled();
 });
@@ -314,10 +327,8 @@ test("saving state and failures belong to the clicked occurrence, not to every r
       item.textContent?.includes("Catalog song again"),
   );
   fireEvent.click(within(first).getByRole("button", { name: /^Play / }));
-  await waitFor(() =>
-    expect(within(first).getByRole("button").textContent).toBe("Saving…"),
-  );
-  expect(within(second).getByRole("button").textContent).toBe("Play");
+  await waitFor(() => expect(first.textContent).toContain("Saving…"));
+  expect(second.textContent).not.toContain("Saving…");
   await act(async () =>
     fail(Response.json({ error: "Provider refused" }, { status: 500 })),
   );

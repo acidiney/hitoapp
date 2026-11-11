@@ -1,12 +1,11 @@
 import type { Schema } from "../../../shared/schema";
-import { Link } from "@inertiajs/react";
+import { useMemo, useState } from "react";
 import RouteLink from "../../../shared/ui/RouteLink";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { longDuration } from "../../artists/model/catalogAlbumRows";
-import AlbumPlayActions from "../components/AlbumPlayActions";
+import AlbumHeaderActions from "../components/AlbumHeaderActions";
 import Artwork from "../../artwork/components/Artwork";
-import ArtworkRetryMenu from "../../artwork/components/ArtworkRetryMenu";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
   type TrackTableRow,
@@ -18,6 +17,7 @@ import { releaseCreditLabel } from "../model/albumCredit";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumHeader from "../components/AlbumHeader";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
+import { AlbumMergeContext } from "../components/AlbumMergeContext";
 
 export default function AlbumPage({
   user,
@@ -26,6 +26,11 @@ export default function AlbumPage({
 }: Schema<"AlbumPageProps">) {
   const { release, tracks: page } = detail;
   const { mutate } = useMutation(user.id);
+  const [merged, setMerged] = useState(false);
+  const merge = useMemo(
+    () => ({ playlists, mutate, setMerged, merged }),
+    [playlists, mutate, merged],
+  );
   const tracks = page.items.map((track) => ({
     ...track,
     row_id: track.entry_id,
@@ -79,21 +84,16 @@ export default function AlbumPage({
         }
         stats={`${release.track_count} ${release.track_count === 1 ? "track" : "tracks"}${release.duration_ms >= 60_000 ? ` · ${duration}` : ""}`}
         actions={
-          <>
-            <AlbumPlayActions tracks={tracks} listing={listing} />
-            <Link
-              className="pill-action"
-              href={`/albums/${encodeURIComponent(release.id)}/details`}
-            >
-              Edit album details
-            </Link>
-            <ArtworkRetryMenu release={release.id} />
-          </>
+          <AlbumHeaderActions
+            release={release.id}
+            tracks={tracks}
+            listing={listing}
+          />
         }
       />
       <div className="album-body">
         <ArtworkStatus release={release.id} />
-        {tracks.length ? (
+        {tracks.length && merged ? null : tracks.length ? (
           <>
             <TrackToolbar
               tracks={tracks}
@@ -119,27 +119,31 @@ export default function AlbumPage({
             text="Return to the previous page to listen to this album."
           />
         )}
-        {detail.saved_edition &&
-          (detail.catalog_anchor ||
-            detail.saved_edition.state.status !== "unset") && (
-            <AlbumCompleteTrackList
-              key={`${user.id}/${release.id}`}
-              account={user.id}
-              release={release.id}
-              album={{
-                title: release.title,
-                year: release.year,
-                trackCount: release.track_count,
-              }}
-              anchor={detail.catalog_anchor}
-              saved={detail.saved_edition}
-            />
-          )}
-        <Pagination
-          page={page}
-          query=""
-          path={`/albums/${encodeURIComponent(release.id)}`}
-        />
+        <AlbumMergeContext.Provider value={merge}>
+          {detail.saved_edition &&
+            (detail.catalog_anchor ||
+              detail.saved_edition.state.status !== "unset") && (
+              <AlbumCompleteTrackList
+                key={`${user.id}/${release.id}`}
+                account={user.id}
+                release={release.id}
+                album={{
+                  title: release.title,
+                  year: release.year,
+                  trackCount: release.track_count,
+                }}
+                anchor={detail.catalog_anchor}
+                saved={detail.saved_edition}
+              />
+            )}
+        </AlbumMergeContext.Provider>
+        {!merged && (
+          <Pagination
+            page={page}
+            query=""
+            path={`/albums/${encodeURIComponent(release.id)}`}
+          />
+        )}
       </div>
     </div>
   );

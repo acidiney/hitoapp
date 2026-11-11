@@ -20,6 +20,33 @@ function plainTitle(title: string) {
     .trim();
 }
 
+const versionWords =
+  /\b(remix(?:es|ed)?|live|acoustic|remaster(?:ed)?|edit|version|mix|instrumental|sped up|slowed|karaoke)\b/g;
+
+function folded(title: string) {
+  return title.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function versionQualifiers(title: string) {
+  const text = folded(title);
+  const words = [...text.matchAll(versionWords)].map((match) =>
+    match[1].replace(/^remix.*/, "remix").replace(/^remaster.*/, "remaster"),
+  );
+  const featured = [
+    ...text.matchAll(
+      /(?:\(|\[|\s-\s)?\b(?:feat|ft|featuring)\b\.?\s*([^)\]]*)/g,
+    ),
+  ].map(
+    (match) =>
+      "feat:" +
+      match[1]
+        .replace(/\s-\s.*$/, "")
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim(),
+  );
+  return [...new Set([...words, ...featured])].sort().join("|");
+}
+
 export function releaseYear(group: ReleaseGroup) {
   return group.first_release_date?.slice(0, 4) ?? null;
 }
@@ -56,8 +83,13 @@ export function matchReleases(
   year: number | null,
 ) {
   const wanted = plainTitle(title);
+  const qualifiers = versionQualifiers(title);
   const same = wanted
-    ? groups.filter((group) => plainTitle(group.title) === wanted)
+    ? groups.filter(
+        (group) =>
+          plainTitle(group.title) === wanted &&
+          versionQualifiers(group.title) === qualifiers,
+      )
     : [];
   const rank = (group: ReleaseGroup) =>
     (year !== null && releaseYear(group) === String(year) ? 0 : 2) +

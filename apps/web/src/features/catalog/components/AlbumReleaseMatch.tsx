@@ -43,7 +43,7 @@ export default function AlbumReleaseMatch(props: Props) {
   if (!artist.ready)
     return (
       <MatchPanel title="Finding the release of this album" busy>
-        <p role="status">Loading the reviewed artist…</p>
+        <p role="status">Looking for this album's release…</p>
       </MatchPanel>
     );
   return <ReleaseMatch {...props} artist={artist.ready} />;

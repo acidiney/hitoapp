@@ -10,6 +10,12 @@ export default function MatchPanel({
   children: ReactNode;
 }) {
   const id = useId();
+  if (busy)
+    return (
+      <div className="match-inline" aria-busy="true">
+        {children}
+      </div>
+    );
   return (
     <section className="match-panel" aria-labelledby={id} aria-busy={busy}>
       <h3 id={id}>{title}</h3>

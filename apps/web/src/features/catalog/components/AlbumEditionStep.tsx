@@ -102,7 +102,11 @@ export default function AlbumEditionStep({
             Change
           </button>
         </p>
-        {remembered && <p role="status">This edition is remembered.</p>}
+        {remembered && (
+          <p role="status" className="sr-only">
+            This edition is remembered.
+          </p>
+        )}
         <AlbumEditionTrackList
           account={context.account}
           source={{ release, recording: context.recording }}

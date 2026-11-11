@@ -1,6 +1,5 @@
 import { useArtwork } from "./ArtworkProvider";
 import type { ArtworkSubject } from "./ArtworkRetryMenu";
-import Button from "../../../shared/ui/Button";
 
 export default function ArtworkStatus({
   recording,
@@ -23,8 +22,18 @@ export default function ArtworkStatus({
   if (!message) return null;
   return (
     <div className="artwork-status">
-      <p role="status">{message}</p>
-      <Button onClick={artwork.retry}>Retry artwork</Button>
+      <p role="status" className="source-status" data-status="failed">
+        <span className="source-status-dot" aria-hidden="true" />
+        {message}
+      </p>
+      <button
+        type="button"
+        className="text-action"
+        aria-label="Retry artwork"
+        onClick={artwork.retry}
+      >
+        Retry
+      </button>
     </div>
   );
 }

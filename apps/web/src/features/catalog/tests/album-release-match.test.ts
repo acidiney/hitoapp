@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -217,4 +218,59 @@ test("a release with no editions says so and offers no retry", async () => {
       screen.getByRole("button", { name: "Just show my tracks" }),
     ).toBeTruthy(),
   );
+});
+
+test("while the release lookup runs the album keeps its own track list and shows only a small status line", async () => {
+  serve({ [associations]: () => new Promise<Response>(() => {}) });
+  render(page(matched));
+  open();
+  const status = await screen.findByText("Looking for this album's release…");
+  expect(status.getAttribute("role")).toBe("status");
+  expect(
+    screen.queryByRole("heading", { name: "Complete track list" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("heading", {
+      name: "Finding the release of this album",
+    }),
+  ).toBeNull();
+  expect(screen.getByRole("table", { name: "Tracks" })).toBeTruthy();
+});
+
+test("a stalled artist lookup resolves to Showing only your tracks instead of loading forever", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    serve({ [associations]: () => new Promise<Response>(() => {}) });
+    render(page(matched));
+    open();
+    await screen.findByText("Looking for this album's release…");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_500);
+    });
+    await screen.findByRole("heading", { name: "Showing only your tracks" });
+    expect(screen.getByRole("alert").textContent).toContain("timed out");
+    expect(screen.getByRole("table", { name: "Tracks" })).toBeTruthy();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("an album whose title is a remix is not lined up with the original release automatically", async () => {
+  serve();
+  const remix = {
+    ...matched,
+    release: {
+      ...matched.release,
+      title: `${editionGroup.title} (feat. Someone) - Remix`,
+    },
+  };
+  render(page(remix));
+  open();
+  await screen.findByRole("heading", {
+    name: `Which release is ${remix.release.title}?`,
+  });
+  expect(screen.queryByText(/^Lined up with/)).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Choose the release" }),
+  ).toBeTruthy();
 });
