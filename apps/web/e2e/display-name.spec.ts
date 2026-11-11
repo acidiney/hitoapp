@@ -67,13 +67,13 @@ test("a member sets a display name that the menu, profile and the administrator'
   await expect(menu).not.toContainText("display-name-member");
   await expect(menu.locator(".avatar")).toHaveText("IA");
   await expect(
-    memberPage.locator(".profile-identity .setting-line-title"),
+    memberPage.locator("#setting-account-photo .setting-line-title"),
   ).toHaveText(hostile);
   await expect(
-    memberPage.locator(".profile-identity .setting-line-hint"),
+    memberPage.locator("#setting-account-photo .setting-line-hint"),
   ).toHaveText("display-name-member · Member");
   await expect(
-    memberPage.locator(".account-link i, .profile-identity i"),
+    memberPage.locator(".account-link i, #setting-account-photo i"),
   ).toHaveCount(0);
   await memberPage.reload();
   await expect(

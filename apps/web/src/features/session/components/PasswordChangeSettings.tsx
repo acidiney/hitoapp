@@ -1,10 +1,10 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
-import SettingsCard from "../../../shared/ui/SettingsCard";
+import Dialog from "../../../shared/ui/Dialog";
+import SettingRow from "../../../shared/ui/SettingRow";
 import { usePasswordChange } from "../hooks/usePasswordChange";
-import { setting } from "../../settings/model/settingsCatalog";
 
 export default function PasswordChangeSettings({
   account,
@@ -14,57 +14,104 @@ export default function PasswordChangeSettings({
   onChanged: () => void;
 }) {
   const form = usePasswordChange(account, onChanged);
+  const [open, setOpen] = useState(false);
   const id = useId();
   useReportUnsaved(form.dirty);
+  useEffect(() => {
+    if (form.message) setOpen(false);
+  }, [form.message]);
+  function cancel() {
+    form.setCurrent("");
+    form.setNext("");
+    form.setAgain("");
+    setOpen(false);
+  }
+  const ready =
+    form.current !== "" && form.next.length >= 12 && form.next === form.again;
   return (
-    <SettingsCard setting={setting("change-password")} busy={form.busy}>
-      <form
-        className="password-form"
-        onSubmit={(event) => void form.submit(event)}
-      >
-        <fieldset disabled={form.busy}>
-          <label htmlFor={`${id}-current`}>Current password</label>
-          <input
-            id={`${id}-current`}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={form.current}
-            onChange={(event) => form.setCurrent(event.target.value)}
-          />
-          <label htmlFor={`${id}-new`}>New password</label>
-          <input
-            id={`${id}-new`}
-            type="password"
-            autoComplete="new-password"
-            minLength={12}
-            required
-            value={form.next}
-            onChange={(event) => form.setNext(event.target.value)}
-          />
-          <small>Use at least 12 characters.</small>
-          <label htmlFor={`${id}-again`}>Repeat new password</label>
-          <input
-            id={`${id}-again`}
-            type="password"
-            autoComplete="new-password"
-            required
-            value={form.again}
-            onChange={(event) => form.setAgain(event.target.value)}
-          />
-          {form.message && <p role="status">{form.message}</p>}
-          {form.error && (
-            <p className="form-error" role="alert">
-              {form.error}
+    <SettingRow
+      id="change-password"
+      title="Password"
+      hint="Changing it signs out every other device."
+      action={
+        <Button
+          onClick={() => {
+            form.clearMessage();
+            setOpen(true);
+          }}
+        >
+          Change password
+        </Button>
+      }
+    >
+      {form.message && <p role="status">{form.message}</p>}
+      {open && (
+        <Dialog title="Change password" busy={form.busy} onClose={cancel}>
+          <form
+            className="dialog-form"
+            onSubmit={(event) => void form.submit(event)}
+          >
+            <div className="dialog-field">
+              <label htmlFor={`${id}-current`}>Current password</label>
+              <input
+                id={`${id}-current`}
+                type="password"
+                autoComplete="current-password"
+                required
+                disabled={form.busy}
+                value={form.current}
+                onChange={(event) => form.setCurrent(event.target.value)}
+              />
+            </div>
+            <div className="dialog-field">
+              <label htmlFor={`${id}-new`}>New password</label>
+              <input
+                id={`${id}-new`}
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                required
+                disabled={form.busy}
+                value={form.next}
+                onChange={(event) => form.setNext(event.target.value)}
+              />
+              <small>At least 12 characters.</small>
+            </div>
+            <div className="dialog-field">
+              <label htmlFor={`${id}-again`}>Repeat new password</label>
+              <input
+                id={`${id}-again`}
+                type="password"
+                autoComplete="new-password"
+                required
+                disabled={form.busy}
+                value={form.again}
+                onChange={(event) => form.setAgain(event.target.value)}
+              />
+            </div>
+            <p className="dialog-note">
+              Every other device is signed out. This one stays signed in.
             </p>
-          )}
-          <div>
-            <Button type="submit" variant="primary">
-              Change password
-            </Button>
-          </div>
-        </fieldset>
-      </form>
-    </SettingsCard>
+            {form.error && (
+              <p className="form-error" role="alert">
+                {form.error}
+              </p>
+            )}
+            <div className="dialog-actions">
+              <Button disabled={form.busy} onClick={cancel}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="action"
+                disabled={!ready || form.busy}
+              >
+                Change password
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </SettingRow>
   );
 }

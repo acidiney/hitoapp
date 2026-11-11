@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { createElement } from "react";
+import { createElement, useState } from "react";
 import {
   act,
   fireEvent,
@@ -9,7 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import AccountSecurity from "../components/AccountSecurity";
+import OpenSessionsSettings from "../components/OpenSessionsSettings";
+import PasswordChangeSettings from "../components/PasswordChangeSettings";
 import { accountApi } from "../api/accountApi";
 import { HttpError } from "../../../shared/http";
 import { NoticeProvider } from "../../../shared/ui/Notices";
@@ -46,7 +47,26 @@ const laptop: Schema<"SessionInfo"> = {
   current: false,
 };
 
+function AccountSecurity({ account }: { account: string }) {
+  const [version, setVersion] = useState(0);
+  return createElement(
+    "div",
+    null,
+    createElement(PasswordChangeSettings, {
+      account,
+      onChanged: () => setVersion((count) => count + 1),
+    }),
+    createElement(OpenSessionsSettings, { account, version }),
+  );
+}
+
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
   vi.mocked(accountApi.sessions).mockResolvedValue([here, phone, laptop]);
 });
 
@@ -60,7 +80,18 @@ function open() {
   );
 }
 
+function submitDialog() {
+  const form = within(screen.getByRole("dialog"))
+    .getByRole("button", {
+      name: "Change password",
+    })
+    .closest("form")!;
+  fireEvent.submit(form);
+}
+
 function fill(current: string, next: string, again = next) {
+  if (!screen.queryByRole("dialog"))
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
   fireEvent.change(screen.getByLabelText("Current password"), {
     target: { value: current },
   });
@@ -75,9 +106,9 @@ function fill(current: string, next: string, again = next) {
 test("the password form sends both passwords, clears itself and reloads the session list", async () => {
   vi.mocked(accountApi.changePassword).mockResolvedValue({ revoked: 2 });
   open();
-  await screen.findByText("This session");
+  await screen.findByText("This device");
   fill("old password here", "a new long password");
-  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   await waitFor(() =>
     expect(accountApi.changePassword).toHaveBeenCalledWith(
       "alice-id",
@@ -91,22 +122,17 @@ test("the password form sends both passwords, clears itself and reloads the sess
   expect((await screen.findByRole("status")).textContent).toContain(
     "2 other sessions were signed out",
   );
-  expect(
-    (screen.getByLabelText("Current password") as HTMLInputElement).value,
-  ).toBe("");
-  expect(
-    (screen.getByLabelText("New password") as HTMLInputElement).value,
-  ).toBe("");
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await waitFor(() => expect(accountApi.sessions).toHaveBeenCalledTimes(2));
 });
 
 test("a short or mismatched new password is refused before anything is sent", () => {
   open();
   fill("old password here", "short");
-  fireEvent.submit(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   expect(screen.getByRole("alert").textContent).toContain("at least 12");
   fill("old password here", "a new long password", "another long password");
-  fireEvent.submit(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   expect(screen.getByRole("alert").textContent).toContain("do not match");
   expect(accountApi.changePassword).not.toHaveBeenCalled();
 });
@@ -117,7 +143,7 @@ test("a wrong current password shows one plain message and keeps the typed new p
   );
   open();
   fill("not the password", "a new long password");
-  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   expect((await screen.findByRole("alert")).textContent).toBe(
     "The current password is not correct.",
   );
@@ -132,7 +158,7 @@ test("too many attempts show the server message", async () => {
   );
   open();
   fill("not the password", "a new long password");
-  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   expect((await screen.findByRole("alert")).textContent).toContain(
     "Too many attempts",
   );
@@ -150,29 +176,27 @@ test("a change that lost a race shows the server message", async () => {
   );
   open();
   fill("old password here", "a new long password");
-  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+  submitDialog();
   expect((await screen.findByRole("alert")).textContent).toBe(
     "Your password was just changed elsewhere. Sign in again.",
   );
 });
 
-test("the list marks this session and offers Revoke only for the others", async () => {
+test("the list marks this session and offers Sign out only for the others", async () => {
   open();
-  await screen.findByText("This session");
-  expect(screen.getAllByText(/Last active/)).toHaveLength(3);
+  await screen.findByText("This device");
+  expect(screen.getAllByText(/^Active /)).toHaveLength(3);
   expect(screen.getByText("Firefox on macOS")).toBeTruthy();
   expect(screen.getByText("Safari on iPhone")).toBeTruthy();
   expect(screen.getByText("Unknown browser")).toBeTruthy();
-  expect(screen.getByText(/^Last active just now · Signed in /)).toBeTruthy();
-  expect(
-    screen.getByText(/^Last active 5 minutes ago · Signed in /),
-  ).toBeTruthy();
-  expect(screen.getByText(/^Last active 3 days ago · Signed in /)).toBeTruthy();
-  const current = screen.getByText("This session");
+  expect(screen.getByText(/^Active just now · signed in /)).toBeTruthy();
+  expect(screen.getByText(/^Active 5 minutes ago · signed in /)).toBeTruthy();
+  expect(screen.getByText(/^Active 3 days ago · signed in /)).toBeTruthy();
+  const current = screen.getByText("This device");
   expect(current.closest(".setting-line-action")).toBeTruthy();
-  expect(screen.getAllByText("This session")).toHaveLength(1);
+  expect(screen.getAllByText("This device")).toHaveLength(1);
   expect(
-    screen.getAllByRole("button", { name: /^Revoke session/ }),
+    screen.getAllByRole("button", { name: /^Sign out .+, signed in / }),
   ).toHaveLength(2);
   expect(accountApi.sessions).toHaveBeenCalledWith(
     "alice-id",
@@ -183,8 +207,10 @@ test("the list marks this session and offers Revoke only for the others", async 
 test("revoking one session removes only that row", async () => {
   vi.mocked(accountApi.revokeSession).mockResolvedValue(undefined);
   open();
-  await screen.findByText("This session");
-  const buttons = screen.getAllByRole("button", { name: /^Revoke session/ });
+  await screen.findByText("This device");
+  const buttons = screen.getAllByRole("button", {
+    name: /^Sign out .+, signed in /,
+  });
   fireEvent.click(buttons[0]);
   await waitFor(() =>
     expect(accountApi.revokeSession).toHaveBeenCalledWith(
@@ -195,18 +221,18 @@ test("revoking one session removes only that row", async () => {
   );
   await waitFor(() =>
     expect(
-      screen.getAllByRole("button", { name: /^Revoke session/ }),
+      screen.getAllByRole("button", { name: /^Sign out .+, signed in / }),
     ).toHaveLength(1),
   );
-  expect(screen.getByText("This session")).toBeTruthy();
+  expect(screen.getByText("This device")).toBeTruthy();
 });
 
 test("Sign out other sessions keeps only this one", async () => {
   vi.mocked(accountApi.revokeOthers).mockResolvedValue({ revoked: 2 });
   open();
-  await screen.findByText("This session");
+  await screen.findByText("This device");
   fireEvent.click(
-    screen.getByRole("button", { name: "Sign out other sessions" }),
+    screen.getByRole("button", { name: "Sign out everywhere else" }),
   );
   await waitFor(() => expect(accountApi.revokeOthers).toHaveBeenCalled());
   await waitFor(() =>
@@ -216,7 +242,7 @@ test("Sign out other sessions keeps only this one", async () => {
   expect(
     (
       screen.getByRole("button", {
-        name: "Sign out other sessions",
+        name: "Sign out everywhere else",
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
@@ -234,14 +260,14 @@ test("a failed list load shows a retry and a failed revoke keeps the row", async
     new HttpError(404, "Resource not found"),
   );
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-  await screen.findByText("This session");
+  await screen.findByText("This device");
   fireEvent.click(
-    screen.getAllByRole("button", { name: /^Revoke session/ })[0],
+    screen.getAllByRole("button", { name: /^Sign out .+, signed in / })[0],
   );
   await waitFor(() => expect(accountApi.revokeSession).toHaveBeenCalled());
   await waitFor(() =>
     expect(
-      screen.getAllByRole("button", { name: /^Revoke session/ }),
+      screen.getAllByRole("button", { name: /^Sign out .+, signed in / }),
     ).toHaveLength(2),
   );
 });
@@ -265,9 +291,9 @@ test("leaving the page cancels an unfinished session load", async () => {
 
 test("the session list never prints a secret and the card names its purpose", async () => {
   open();
-  await screen.findByText("This session");
-  const card = screen.getByRole("region", { name: "Open sessions" });
-  expect(within(card).getAllByText(/Signed in/).length).toBe(3);
+  await screen.findByText("This device");
+  const card = screen.getByRole("region", { name: "Devices signed in" });
+  expect(within(card).getAllByText(/· signed in/).length).toBe(3);
 });
 
 test("a hostile client label is shown as plain text", async () => {
@@ -281,7 +307,5 @@ test("a hostile client label is shown as plain text", async () => {
   expect(row.textContent).toBe(hostile);
   expect(view.container.querySelector("img")).toBeNull();
   expect(view.container.querySelector("b")).toBeNull();
-  expect(
-    screen.getByRole("button", { name: /^Revoke session <img/ }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^Sign out <img/ })).toBeTruthy();
 });

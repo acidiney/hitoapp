@@ -13,5 +13,5 @@ export function sessionDetail(
   session: Schema<"SessionInfo">,
   now: number = Date.now(),
 ) {
-  return `Last active ${relativeTime(session.last_seen_at, now)} · Signed in ${signedIn(session)}`;
+  return `Active ${relativeTime(session.last_seen_at, now)} · signed in ${signedIn(session)}`;
 }
