@@ -4,12 +4,12 @@
   left: 0;
   right: 0;
   height: var(--player);
-  padding: 0 20px;
+  padding: 12px 20px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
   align-items: center;
-  gap: 20px;
-  background: var(--surface);
+  gap: 24px;
+  background: var(--dock);
   border-top: 1px solid var(--line);
   z-index: 30;
 }
@@ -19,7 +19,7 @@
 .now-playing {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 .now-playing > span {
@@ -27,15 +27,15 @@
 }
 .now-playing strong {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.4;
-  font-weight: 700;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .now-playing small {
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,15 +56,19 @@
   border-radius: 6px;
 }
 .transport {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   width: 100%;
-  max-width: 680px;
+  max-width: 560px;
   margin: auto;
 }
 .transport-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
 .transport-buttons .icon-button {
   min-width: 44px;
@@ -73,21 +77,21 @@
   color: var(--ink);
 }
 .transport-buttons .transport-optional {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
 }
 .transport-buttons .icon-button[aria-label="Shuffle"],
 .transport-buttons .icon-button[aria-label^="Repeat"] {
   color: var(--muted);
 }
 .transport-buttons .selected {
-  color: var(--action);
+  color: var(--link);
 }
 .play-button {
   border: 0;
   border-radius: 50%;
-  background: var(--ink);
-  color: var(--on-ink);
+  background: var(--action);
+  color: var(--on-action);
   width: 44px;
   height: 44px;
   display: grid;
@@ -95,62 +99,78 @@
   padding: 0;
 }
 .play-button:hover:not(:disabled) {
-  background: var(--ink-hover);
+  background: var(--action-hover);
 }
 .seek {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: -4px;
+  width: 100%;
 }
 .seek input {
+  --range-fill: var(--action);
   flex: 1;
   width: 100%;
+  height: 44px;
+  margin: -15px 0 -12px;
 }
 .seek span {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
   min-width: 30px;
 }
 .player-tools {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
   color: var(--muted);
 }
 .player-tools select {
   appearance: none;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   text-align: center;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 0;
+  background: transparent;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  color: var(--ink);
+  font-size: 14px;
+  color: var(--muted);
 }
 .player-tools .icon-button {
-  border: 1px solid var(--line);
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+.player-tools .icon-button:hover:not(:disabled) {
   background: var(--surface);
   color: var(--ink);
 }
-.player-tools .icon-button:hover:not(:disabled) {
-  background: var(--subtle);
+.player-tools .expand-player {
+  color: var(--ink);
 }
 .player-tools .queue-button {
   gap: 8px;
   padding: 0 12px;
+  border-radius: 10px;
+  color: var(--ink);
 }
 .queue-label {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
 }
 .volume {
-  width: 72px;
+  --range-fill: var(--ink);
+  width: 96px;
+  height: 44px;
+  margin: -12px 0;
 }
 .playback-status {
   position: absolute;
@@ -158,7 +178,7 @@
   left: 0;
   right: 0;
   padding: 8px 24px;
-  font-size: 12px;
+  font-size: 14px;
   background: var(--warning-bg);
   color: var(--warning);
 }
@@ -423,7 +443,7 @@
     display: none;
   }
   .player .now-playing .track-actions .icon-button {
-    color: var(--on-ink);
+    color: var(--ink);
     min-width: 36px;
     min-height: 44px;
   }

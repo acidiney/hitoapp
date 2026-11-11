@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
+import { ChevronUp, ListMusic, Volume2, VolumeX } from "lucide-react";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
@@ -17,6 +17,8 @@ import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
+import { useMute } from "../hooks/useMute";
+import { onNowPlayingRequest } from "../nowPlayingRequests";
 import PlayerTrackActions from "./PlayerTrackActions";
 import { ArtistNames, artistHref as knownArtistHref } from "./TrackNames";
 
@@ -60,6 +62,16 @@ export default function PlayerDock({
     if (document.activeElement !== opener)
       queueButton.current?.focus({ preventScroll: true });
   }, [expanded]);
+  useEffect(
+    () =>
+      onNowPlayingRequest(() => {
+        if (current && !expanded) {
+          expandedOpener.current = null;
+          setExpanded(true);
+        }
+      }),
+    [current, expanded],
+  );
   const closeExpanded = useCallback(() => {
     log.debug("player.expanded", { enabled: false });
     setExpanded(false);
@@ -69,6 +81,7 @@ export default function PlayerDock({
     expandedOpener.current = opener;
     setExpanded(true);
   }, []);
+  const toggleMute = useMute();
   function showQueue() {
     log.debug("player.queue", { enabled: true });
     visitFromPlayer("/queue");
@@ -124,7 +137,18 @@ export default function PlayerDock({
         <PlaybackControls />
         <div className="player-tools">
           <SpeedControl available={controlsAvailable} />
-          <Volume2 className="volume-icon" size={18} />
+          <button
+            className="icon-button mute-button"
+            aria-label="Mute"
+            aria-pressed={volume === 0}
+            onClick={toggleMute}
+          >
+            {volume === 0 ? (
+              <VolumeX size={18} aria-hidden="true" />
+            ) : (
+              <Volume2 size={18} aria-hidden="true" />
+            )}
+          </button>
           <input
             className="volume"
             aria-label="Volume"
@@ -142,7 +166,7 @@ export default function PlayerDock({
             disabled={!current}
             onClick={(event) => openExpanded(event.currentTarget)}
           >
-            <ChevronUp size={16} />
+            <ChevronUp size={18} aria-hidden="true" />
           </button>
           <button
             ref={queueButton}
@@ -151,7 +175,7 @@ export default function PlayerDock({
             aria-current={queueActive ? "page" : undefined}
             onClick={showQueue}
           >
-            <ListOrdered size={16} />
+            <ListMusic size={18} aria-hidden="true" />
             <span className="queue-label">
               Queue{queueTotal > 0 && ` · ${queueTotal}`}
             </span>

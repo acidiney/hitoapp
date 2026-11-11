@@ -82,7 +82,7 @@ export function TransportButtons() {
         aria-pressed={state.shuffle}
         onClick={() => player.shuffle()}
       >
-        <Shuffle size={16} />
+        <Shuffle size={18} />
       </button>
       <button
         className="icon-button transport-optional"
