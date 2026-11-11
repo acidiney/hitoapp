@@ -26,7 +26,9 @@ export default function SharedCorrectionsSettings({
           title="Hito could not read the shared corrections."
         />
       )}
-      {page && page.items.length === 0 && <p>None yet.</p>}
+      {page && page.items.length === 0 && (
+        <p className="settings-empty">None yet.</p>
+      )}
       {page && page.items.length > 0 && (
         <ul className="plain-list">
           {page.items.map((item) => (

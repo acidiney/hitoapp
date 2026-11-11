@@ -856,7 +856,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    margin: -4px 0 16px -12px;
+    margin: -4px 0 12px -12px;
   }
   .settings-section-heading h2 {
     font-size: 22px;
