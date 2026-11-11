@@ -43,6 +43,7 @@ pub(super) fn statements() -> Vec<String> {
         "INSERT INTO erased_download_files(file_id,attempt_id,host_device) SELECT id,attempt_id,host_device FROM download_files WHERE account_id=?1 AND state IN ('staging','ready','deleting') ON CONFLICT DO NOTHING".to_string(),
         format!("INSERT INTO correction_erasure_scopes(kind,subject) SELECT 'recording',id FROM {RECORDINGS}"),
     ];
+    plan.extend(owned(&["recording_lyric_identities"], "user_id"));
     plan.extend(account_statements());
     plan.extend(recording_statements(RECORDINGS));
     plan.push(delete_where(
@@ -423,5 +424,192 @@ mod tests {
                 .await
                 .unwrap_or_else(|error| panic!("{statement}: {error}"));
         }
+    }
+
+    #[tokio::test]
+    async fn erasing_installations_does_not_scan_other_accounts_lyric_identities() {
+        use crate::{
+            Credentials, DeleteAccount,
+            test_support::{support, work_meter::WorkMeter},
+        };
+        use hito_plugin_sdk::{
+            Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, RecordingMetadata,
+        };
+        use sqlx::Row;
+        use uuid::Uuid;
+
+        let installation_delete = statements()
+            .into_iter()
+            .find(|statement| statement.starts_with("DELETE FROM plugin_installations "))
+            .unwrap();
+        let mut measured = Vec::new();
+        let mut probes = Vec::new();
+        for foreign_count in [64, 4096] {
+            let (_directory, hito, actor, library, _music) =
+                support::library("erasure-fk-work").await;
+            let erased = hito
+                .identity
+                .create_user(
+                    &actor,
+                    Credentials {
+                        username: "erased-fk-owner".into(),
+                        password: "owned erased account password".into(),
+                    },
+                )
+                .await
+                .unwrap();
+            let peer = hito
+                .identity
+                .create_user(
+                    &actor,
+                    Credentials {
+                        username: "retained-fk-peer".into(),
+                        password: "owned retained account password".into(),
+                    },
+                )
+                .await
+                .unwrap();
+            hito.identity
+                .set_library_access(&actor, &library, &peer.id, true)
+                .await
+                .unwrap();
+            let pool = &hito.identity.store.pool;
+            let manifest = serde_json::to_string(&Manifest {
+                id: "org.hito.owned-erasure-fixture".into(),
+                name: "Owned erasure fixture".into(),
+                protocol_version: PROTOCOL_VERSION,
+                capabilities: [Capability::Search, Capability::Metadata, Capability::Lyrics].into(),
+                authorization: None,
+                content_policy: None,
+            })
+            .unwrap();
+            let peer_installation = Uuid::new_v4().to_string();
+            let mut tx = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+            for index in 0..4 {
+                let service = Uuid::new_v4().to_string();
+                sqlx::query(
+                    "INSERT INTO plugin_services(id,name,base_url) VALUES (?,'Owned FK fixture',?)",
+                )
+                .bind(&service)
+                .bind(format!("http://127.0.0.1:{}/", 32000 + index))
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+                sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest) VALUES (?,?,?,?)")
+                    .bind(Uuid::new_v4().to_string()).bind(&erased.id).bind(&service).bind(&manifest)
+                    .execute(&mut *tx).await.unwrap();
+                if index == 0 {
+                    sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest) VALUES (?,?,?,?)")
+                        .bind(&peer_installation).bind(&peer.id).bind(&service).bind(&manifest)
+                        .execute(&mut *tx).await.unwrap();
+                }
+            }
+            let mut recording = String::new();
+            for index in 0..foreign_count {
+                if index % 8 == 0 {
+                    recording = Uuid::new_v4().to_string();
+                    sqlx::query("INSERT INTO recordings(id,library_id,title,artist) VALUES (?,?,'Owned peer recording','Owned peer artist')")
+                        .bind(&recording).bind(&library).execute(&mut *tx).await.unwrap();
+                }
+                let provider_id = format!("owned-peer-recording-{index}");
+                let metadata = RecordingMetadata {
+                    recording: ProviderRecording {
+                        id: provider_id.clone(),
+                        title: "Owned peer recording".into(),
+                        artist: "Owned peer artist".into(),
+                        duration_ms: None,
+                        release: None,
+                        disc_number: None,
+                        track_number: None,
+                        revision: None,
+                        attribution: None,
+                        isrc: None,
+                        artist_urls: Vec::new(),
+                        artists: Vec::new(),
+                    },
+                    musical_title: None,
+                    album_title: None,
+                    source_ids: None,
+                };
+                metadata.validate().unwrap();
+                sqlx::query("INSERT INTO recording_lyric_identities(id,user_id,recording_id,installation_id,provider_recording_id,reviewed_metadata) VALUES (?,?,?,?,?,?)")
+                    .bind(Uuid::new_v4().to_string()).bind(&peer.id).bind(&recording)
+                    .bind(&peer_installation).bind(provider_id).bind(serde_json::to_string(&metadata).unwrap())
+                    .execute(&mut *tx).await.unwrap();
+            }
+            tx.commit().await.unwrap();
+            let mut tx = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+            sqlx::query("PRAGMA defer_foreign_keys = ON")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            for pragma in ["PRAGMA foreign_keys", "PRAGMA defer_foreign_keys"] {
+                let enabled: i64 = sqlx::query_scalar(pragma)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .unwrap();
+                assert_eq!(enabled, 1);
+            }
+            let plan = sqlx::query(&format!("EXPLAIN QUERY PLAN {installation_delete}"))
+                .bind(&erased.id)
+                .fetch_all(&mut *tx)
+                .await
+                .unwrap();
+            let references: Vec<String> = plan
+                .iter()
+                .map(|row| row.get::<String, _>("detail"))
+                .filter(|detail| detail.contains("recording_lyric_identities"))
+                .collect();
+            assert!(
+                !references.is_empty(),
+                "The actual parent DELETE must check lyric foreign keys"
+            );
+            probes.extend(references);
+            tx.rollback().await.unwrap();
+            let meter = WorkMeter::install(pool).await;
+            let (result, work) = meter
+                .measure(hito.identity.delete_account(
+                    &actor,
+                    &erased.id,
+                    DeleteAccount {
+                        username: erased.username.clone(),
+                    },
+                ))
+                .await;
+            meter.remove(pool).await;
+            result.unwrap();
+            measured.push(work);
+            let retained: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM recording_lyric_identities WHERE user_id=?",
+            )
+            .bind(&peer.id)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            assert_eq!(retained, foreign_count);
+            let erased_installations: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM plugin_installations WHERE user_id=?")
+                    .bind(&erased.id)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap();
+            assert_eq!(erased_installations, 0);
+        }
+        eprintln!(
+            "Account erasure lyric FK VM_steps small={} large={}",
+            measured[0], measured[1]
+        );
+        assert!(
+            probes
+                .iter()
+                .all(|detail| detail.contains("SEARCH") && !detail.contains("SCAN")),
+            "Parent installation deletion must probe referenced identities selectively rather than scan other accounts: {probes:?}"
+        );
+        assert!(
+            measured[1] <= measured[0] + 2000,
+            "Deleting one account used {} VM steps beside 4096 foreign identities after {} beside 64",
+            measured[1],
+            measured[0]
+        );
     }
 }

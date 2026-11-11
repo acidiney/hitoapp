@@ -105,11 +105,21 @@ impl ControlClient {
         token: Option<&str>,
         request: &SearchRequest,
     ) -> Result<SearchPage> {
+        let _admission = self.admit(account)?;
+        self.search_admitted(base_url, token, request).await
+    }
+
+    pub(super) async fn search_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &SearchRequest,
+    ) -> Result<SearchPage> {
         let body = serde_json::to_value(request)
             .map_err(|_| Error::Internal("Provider search could not be encoded".into()))?;
+        let mut remaining = 262144;
         let page: SearchPage = self
-            .exchange(
-                account,
+            .exchange_admitted(
                 base_url,
                 token,
                 Call {
@@ -117,6 +127,7 @@ impl ControlClient {
                     body: Some(body),
                     maximum: 262144,
                 },
+                &mut remaining,
             )
             .await?;
         page.validate(request.limit)
@@ -165,11 +176,22 @@ impl ControlClient {
         token: Option<&str>,
         request: &RecordingRequest,
     ) -> Result<RecordingMetadata> {
+        let _admission = self.admit(account)?;
+        self.recording_metadata_admitted(base_url, token, request)
+            .await
+    }
+
+    pub(super) async fn recording_metadata_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &RecordingRequest,
+    ) -> Result<RecordingMetadata> {
         let body = serde_json::to_value(request)
             .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
+        let mut remaining = MAX_RECORDING_METADATA_BYTES;
         let metadata: RecordingMetadata = self
-            .exchange(
-                account,
+            .exchange_admitted(
                 base_url,
                 token,
                 Call {
@@ -177,6 +199,7 @@ impl ControlClient {
                     body: Some(body),
                     maximum: MAX_RECORDING_METADATA_BYTES,
                 },
+                &mut remaining,
             )
             .await?;
         metadata

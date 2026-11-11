@@ -13,6 +13,7 @@ mod catalog_similarity;
 mod featured;
 mod health;
 mod timed_content;
+pub(crate) use timed_content::LyricsDocumentResponse;
 
 pub(crate) struct Operation {
     pub(crate) provider: String,
