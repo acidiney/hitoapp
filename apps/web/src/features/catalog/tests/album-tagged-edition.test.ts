@@ -129,7 +129,9 @@ test("without a usable tagged edition the discography browser opens as before", 
     fireEvent.click(
       screen.getByRole("button", { name: "Show complete track list" }),
     );
-    await screen.findByRole("list", { name: "Discography releases" });
+    await screen.findByRole("heading", {
+      name: "Which release is Catalog album?",
+    });
     expect(paths(fetch)[0]).toBe(tagged);
     expect(paths(fetch)).not.toContain(comparison);
     view.unmount();

@@ -103,13 +103,16 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     await page
       .getByRole("button", { name: "Show complete track list" })
       .click();
-    const groups = page.getByRole("list", { name: "Discography releases" });
-    await expect(groups).toBeVisible();
-    await groups.getByRole("button", { name: "Browse editions" }).click();
-    const editions = page.getByRole("list", { name: "Available editions" });
-    await expect(editions).toBeVisible();
-    const deluxe = editions.getByRole("listitem").filter({ hasText: "Deluxe" });
-    await deluxe.getByRole("button", { name: "Choose edition" }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: `Is this ${albumEdition.releaseTitle}?`,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Discography releases" }),
+    ).toHaveCount(0);
+    await page.getByRole("radio", { name: /Deluxe/ }).check();
+    await page.getByRole("button", { name: "Use this" }).click();
 
     const region = page.getByRole("region", {
       name: "Album edition track list",
@@ -151,10 +154,9 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     expect((await adopted.json()).total).toBe(1);
 
     fixture.state.outage = true;
-    const standard = editions
-      .getByRole("listitem")
-      .filter({ hasText: "Standard" });
-    await standard.getByRole("button", { name: "Choose edition" }).click();
+    await page.getByRole("button", { name: "Change edition" }).click();
+    await page.getByRole("radio", { name: /Standard/ }).check();
+    await page.getByRole("button", { name: "Use this" }).click();
     await expect(page.getByText(/track list is unavailable/)).toBeVisible();
     await expect(
       page.getByRole("table", { name: "Tracks" }).getByRole("row"),

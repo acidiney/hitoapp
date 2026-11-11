@@ -126,6 +126,11 @@ export default function AlbumPage({
               key={`${user.id}/${release.id}`}
               account={user.id}
               release={release.id}
+              album={{
+                title: release.title,
+                year: release.year,
+                trackCount: release.track_count,
+              }}
               anchor={detail.catalog_anchor}
               saved={detail.saved_edition}
             />

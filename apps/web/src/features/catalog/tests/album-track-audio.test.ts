@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
+import { openFromAlbum } from "../fixtures/albumEditionSteps";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import {
   albumDetail,
@@ -90,23 +91,7 @@ function page() {
   });
 }
 
-async function chooseEdition() {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  const group = within(groups).getAllByRole("listitem")[0];
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Browse editions" }),
-  );
-  await within(group).findByRole("list", { name: "Available editions" });
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
-  return screen.findByRole("region", { name: "Album edition track list" });
-}
+const chooseEdition = openFromAlbum;
 
 function rowWith(region: HTMLElement, text: string) {
   return within(region)

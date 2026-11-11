@@ -184,3 +184,128 @@ a.album-artist:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.complete-track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.complete-track-list > h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.complete-track-list > .button {
+  align-self: flex-start;
+}
+.match-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.match-panel > h3 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.match-panel > p {
+  margin: 0;
+}
+.match-alert {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.match-note {
+  font-size: 14px;
+  color: var(--muted);
+}
+.match-release {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+.match-release-cover {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: var(--radius-cover);
+}
+.match-release-cover > .artwork {
+  width: 100%;
+  height: 100%;
+}
+.match-release-text,
+.match-option-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.match-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.match-options > legend {
+  padding: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.match-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.match-option[data-selected] {
+  border-color: var(--action);
+}
+.match-option > input {
+  margin: 4px 0 0;
+  accent-color: var(--action);
+}
+.match-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.match-actions > .pill-action {
+  min-height: 44px;
+  padding: 0 22px;
+}
+.match-actions > .text-action {
+  align-self: center;
+}
+.match-lined-up {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.match-lined-up-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}

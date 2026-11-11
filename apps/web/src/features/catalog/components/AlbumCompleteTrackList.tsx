@@ -1,18 +1,19 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
-import ArtistDiscography from "../../artists/components/ArtistDiscography";
-import { useReviewedArtistProfile } from "../../artists/hooks/useReviewedArtistProfile";
+import AlbumReleaseMatch from "./AlbumReleaseMatch";
 
 import { useAlbumEditionChoice } from "../hooks/useAlbumEditionChoice";
 import { useSavedAlbumEditionRead } from "../hooks/useSavedAlbumEditionRead";
 import { useTaggedAlbumEdition } from "../hooks/useTaggedAlbumEdition";
 import { albumEditionApi } from "../../artists/api/albumEditionApi";
 import Button from "../../../shared/ui/Button";
+import type { AlbumFacts } from "./AlbumEditionStep";
 
 type Props = {
   account: string;
   release: string;
+  album: AlbumFacts;
   anchor: Schema<"AlbumCatalogAnchor"> | null;
   saved: Schema<"AlbumEditionChoice">;
 };
@@ -21,6 +22,7 @@ type View = "closed" | "saved" | "looking" | "tagged" | "browse";
 export default function AlbumCompleteTrackList({
   account,
   release,
+  album,
   anchor,
   saved,
 }: Props) {
@@ -67,7 +69,8 @@ export default function AlbumCompleteTrackList({
   }
 
   return (
-    <section aria-label="Complete track list">
+    <section aria-label="Complete track list" className="complete-track-list">
+      {view !== "closed" && <h2>Complete track list</h2>}
       {state.status === "needs_choice" && (
         <p>
           Your saved edition can no longer be used. Choose an edition again.
@@ -125,10 +128,12 @@ export default function AlbumCompleteTrackList({
         />
       )}
       {view === "browse" && browseAnchor && (
-        <AlbumCatalogBrowser
+        <AlbumReleaseMatch
           account={account}
           release={release}
+          album={album}
           anchor={browseAnchor}
+          dismiss={() => setView("closed")}
           remembered={edition.remembered !== null}
           remember={(chosen) =>
             chosen ? void edition.choose(chosen) : edition.reading()
@@ -172,7 +177,22 @@ function SavedEdition({
   const read = useSavedAlbumEditionRead(account, release, stale, reader);
   return (
     <>
-      <h2>Complete track list</h2>
+      {read.comparison && (
+        <p className="match-lined-up-line">
+          <span>Lined up with {read.comparison.edition.title}</span>
+          {canChange && (
+            <button
+              type="button"
+              className="text-action"
+              aria-label="Change edition"
+              disabled={pending}
+              onClick={change}
+            >
+              Change
+            </button>
+          )}
+        </p>
+      )}
       <AlbumEditionTrackList
         account={account}
         source={{ release, recording }}
@@ -181,62 +201,6 @@ function SavedEdition({
         error={read.error}
         retry={read.retry}
       />
-      {canChange && (
-        <Button type="button" disabled={pending} onClick={change}>
-          Change edition
-        </Button>
-      )}
     </>
-  );
-}
-
-function AlbumCatalogBrowser({
-  account,
-  release,
-  anchor,
-  remembered,
-  remember,
-}: {
-  account: string;
-  release: string;
-  anchor: Schema<"AlbumCatalogAnchor">;
-  remembered: boolean;
-  remember: (edition: Schema<"SavedAlbumEdition"> | null) => void;
-}) {
-  const artist = useReviewedArtistProfile(account, anchor);
-  return (
-    <div aria-busy={artist.pending}>
-      <h2>Complete track list</h2>
-      <p>
-        Choose the release and edition to compare with this album. Choosing an
-        edition remembers it for this album. Nothing else is saved until you
-        play a catalog track.
-      </p>
-      {remembered && <p role="status">This edition is remembered.</p>}
-      {artist.pending && <p role="status">Loading the reviewed artist…</p>}
-      {artist.error && (
-        <>
-          <p role="alert">{artist.error}</p>
-          <Button
-            type="button"
-            disabled={artist.pending}
-            onClick={() => void artist.retry()}
-          >
-            Try again
-          </Button>
-        </>
-      )}
-      {artist.ready && (
-        <ArtistDiscography
-          account={account}
-          recording={anchor.recording_id}
-          association={artist.ready.association}
-          profile={artist.ready.profile}
-          browseOnMount
-          release={release}
-          onAlbumEdition={remember}
-        />
-      )}
-    </div>
   );
 }

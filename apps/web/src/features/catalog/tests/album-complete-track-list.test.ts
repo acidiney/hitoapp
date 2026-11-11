@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
+import { pickRelease, confirmEdition } from "../fixtures/albumEditionSteps";
 
 import {
   albumDetail,
@@ -97,24 +98,13 @@ async function openEditions() {
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  const group = within(groups).getAllByRole("listitem")[0];
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Browse editions" }),
-  );
-  await within(group).findByRole("list", { name: "Available editions" });
-  return group;
+  await pickRelease();
 }
 
-async function chooseEdition() {
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
-  return screen.findByRole("region", { name: "Album edition track list" });
-}
+const chooseEdition = async () => {
+  await openEditions();
+  return confirmEdition();
+};
 
 function rowWith(region: HTMLElement, text: string) {
   return within(region)
@@ -206,10 +196,8 @@ test("a library track plays directly and never calls a provider", async () => {
 test("a provider outage is honest and leaves the album's library tracks playable", async () => {
   serve({ [comparison]: () => Response.json({ status: "unavailable" }) });
   render(page());
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
+  await openEditions();
+  fireEvent.click(screen.getByRole("button", { name: "Use this" }));
   const alert = await screen.findByText(/track list is unavailable/);
   expect(alert.getAttribute("role")).toBe("alert");
   expect(
@@ -248,10 +236,8 @@ test("leaving the album cancels a held comparison without updating or playing", 
     },
   });
   const view = render(page());
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
+  await openEditions();
+  fireEvent.click(screen.getByRole("button", { name: "Use this" }));
   await waitFor(() => expect(signals).toHaveLength(1));
   const errors = vi.spyOn(console, "error");
   view.unmount();
@@ -337,4 +323,21 @@ test("saving state and failures belong to the clicked occurrence, not to every r
   );
   await waitFor(() => expect(within(first).getByRole("alert")).toBeTruthy());
   expect(within(second).queryByRole("alert")).toBeNull();
+});
+
+test("opening the complete track list never renders the artist's whole discography", async () => {
+  serve();
+  render(page());
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show complete track list" }),
+  );
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
+  expect(screen.queryByRole("region", { name: "Discography" })).toBeNull();
+  expect(
+    screen.queryByRole("list", { name: "Discography releases" }),
+  ).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Discography" })).toBeNull();
+  expect(screen.queryByText(editionGroup.title)).toBeNull();
 });
