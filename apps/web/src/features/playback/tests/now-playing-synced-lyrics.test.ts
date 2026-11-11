@@ -13,7 +13,7 @@ const state = vi.hoisted(() => ({
   position: 0,
   listeners: new Set<() => void>(),
   seek: vi.fn(),
-  providers: vi.fn(),
+  identities: vi.fn(),
   read: vi.fn(),
 }));
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
@@ -28,10 +28,7 @@ vi.mock("../components/PlaybackProvider", () => ({
   }),
 }));
 vi.mock("../../lyrics/api/lyricsApi", () => ({
-  lyricsApi: { providers: state.providers, read: state.read },
-}));
-vi.mock("../../plugins/api/pluginsApi", () => ({
-  pluginsApi: { settings: vi.fn() },
+  lyricsApi: { identities: state.identities, readSelected: state.read },
 }));
 
 const track = {
@@ -43,9 +40,10 @@ const track = {
   available: true,
 };
 const lyricsOf = (lines: [number, string][]) => ({
-  status: "ready",
+  status: "ready_v1",
   recording_id: "r1",
-  observation_id: "obs",
+  selector: { kind: "observation", observation_id: "obs" },
+  provider_recording: { id: "p", revision: null },
   document_digest: "d",
   document: {
     recording: { id: "p", revision: null },
@@ -72,14 +70,15 @@ function setPosition(seconds: number) {
 
 beforeEach(() => {
   state.position = 0;
-  state.providers.mockResolvedValue({
+  state.identities.mockResolvedValue({
     recording_id: "r1",
     items: [
       {
+        selectable: true,
+        selector: { kind: "observation", observation_id: "obs" },
         installation_id: "i",
         installation_revision: 1,
         label: "Words",
-        observation_id: "obs",
         provider_recording: { id: "p", revision: null },
       },
     ],
@@ -176,7 +175,7 @@ test("lines without timing show at one size with no highlight and no buttons", a
 });
 
 test("while looking up, skeleton lines keep the layout and announce nothing false", () => {
-  state.providers.mockReturnValue(new Promise(() => {}));
+  state.identities.mockReturnValue(new Promise(() => {}));
   open();
   const card = screen.getByRole("region", { name: "Looking up lyrics…" });
   expect(card.getAttribute("aria-busy")).toBe("true");

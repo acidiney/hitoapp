@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Track } from "../model";
 import { trackTabHref } from "../../recordings/model/trackTabs";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
-import { isSynced } from "../../lyrics/model/lineTiming";
+import { identityKey, identityNames } from "../../lyrics/model/lyricIdentity";
 import RouteLink from "../../../shared/ui/RouteLink";
 import FilterPills from "../../../shared/ui/FilterPills";
 import { useAccountSwitch } from "../../../shared/hooks/useAccountSwitch";
@@ -191,6 +191,7 @@ function TrackLyrics({
       </StateCard>
     );
   const { lyrics, provider, providers } = state;
+  const names = identityNames(providers);
   if (!lyrics || lyrics.lines.length === 0)
     return (
       <StateCard
@@ -220,37 +221,43 @@ function TrackLyrics({
         {choosing && (
           <ProviderChoice
             providers={providers}
-            current={provider.observation_id}
-            onChoose={(id) => {
+            current={identityKey(provider)}
+            onChoose={(key) => {
               setChoosing(false);
-              void choose(id);
+              void choose(key);
             }}
           />
         )}
       </StateCard>
     );
-  const synced = isSynced(lyrics.lines);
+  const synced = lyrics.synced;
   return (
     <>
       {synced ? (
-        <SyncedLines lines={lyrics.lines} />
+        <SyncedLines
+          lines={lyrics.lines.map((line) => ({
+            start_ms: line.startMs ?? 0,
+            end_ms: line.endMs ?? 0,
+            text: line.text,
+          }))}
+        />
       ) : (
         <PlainLines lines={lyrics.lines} />
       )}
       <Footer
         track={track}
         leave={leave}
-        source={{ label: provider.label, synced }}
+        source={{ label: names[identityKey(provider)], synced }}
         providers={providers}
         choose={() => setChoosing(!choosing)}
       />
       {choosing && (
         <ProviderChoice
           providers={providers}
-          current={provider.observation_id}
-          onChoose={(id) => {
+          current={identityKey(provider)}
+          onChoose={(key) => {
             setChoosing(false);
-            void choose(id);
+            void choose(key);
           }}
         />
       )}
@@ -265,14 +272,15 @@ function ProviderChoice({
 }: {
   providers: Lyrics["state"]["providers"];
   current: string;
-  onChoose: (observation: string) => void;
+  onChoose: (key: string) => void;
 }) {
+  const names = identityNames(providers);
   return (
     <FilterPills
       label="Lyric provider"
       options={providers.map((item) => ({
-        value: item.observation_id,
-        label: item.label,
+        value: identityKey(item),
+        label: names[identityKey(item)],
       }))}
       value={current}
       onChange={onChoose}

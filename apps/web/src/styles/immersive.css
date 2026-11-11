@@ -276,6 +276,9 @@
   font-weight: 600;
   line-height: 1.45;
 }
+.np-lines:not([data-synced]) span[data-blank] {
+  height: 6px;
+}
 .np-rejoin {
   display: flex;
   flex-wrap: wrap;

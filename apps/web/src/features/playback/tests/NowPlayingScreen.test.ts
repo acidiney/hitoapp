@@ -21,11 +21,17 @@ let playbackSources: unknown[] = [];
 const fetch = vi.fn(async (path: string) =>
   path.endsWith("/playback-sources")
     ? Response.json(playbackSources)
-    : path.endsWith("/lyrics/providers")
+    : path.endsWith("/lyrics/identities")
       ? Response.json({ recording_id: "r0", items: [] })
       : Response.json({
-          installations: [{ manifest: { capabilities: ["lyrics"] } }],
-          services: [],
+          recording_id: "r0",
+          items: [
+            {
+              installation_id: "i",
+              installation_revision: 1,
+              label: "Words",
+            },
+          ],
         }),
 );
 const openQueue = vi.fn();

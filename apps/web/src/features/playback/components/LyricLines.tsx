@@ -62,7 +62,7 @@ export function SyncedLines({ lines }: { lines: Line[] }) {
   );
 }
 
-export function PlainLines({ lines }: { lines: Line[] }) {
+export function PlainLines({ lines }: { lines: { text: string }[] }) {
   return (
     <div
       className="np-lines"
@@ -70,9 +70,13 @@ export function PlainLines({ lines }: { lines: Line[] }) {
       role="group"
       tabIndex={0}
     >
-      {lines.map((line, index) => (
-        <span key={index}>{line.text}</span>
-      ))}
+      {lines.map((line, index) =>
+        line.text === "" ? (
+          <span key={index} data-blank="" aria-hidden="true" />
+        ) : (
+          <span key={index}>{line.text}</span>
+        ),
+      )}
     </div>
   );
 }
