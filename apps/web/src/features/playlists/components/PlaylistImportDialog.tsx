@@ -23,10 +23,10 @@ export default function PlaylistImportDialog({
   onClose: () => void;
 }) {
   const [fetched, setLoaded] = useState<Loaded | null>(null);
-  const supplied = connections && names ? { connections, names } : null;
-  const loaded = supplied ?? fetched;
+  const isSupplied = Boolean(connections && names);
+  const loaded = connections && names ? { connections, names } : fetched;
   useEffect(() => {
-    if (supplied) return;
+    if (isSupplied) return;
     const controller = new AbortController();
     void pluginsApi
       .settings(account, controller.signal)
@@ -43,7 +43,7 @@ export default function PlaylistImportDialog({
           setLoaded({ connections: [], names: {} });
       });
     return () => controller.abort();
-  }, [account, supplied]);
+  }, [account, isSupplied]);
   return (
     <Dialog
       title="Import a playlist"
