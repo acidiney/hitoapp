@@ -126,7 +126,7 @@
     border: 0;
     background: transparent;
   }
-  .account > .icon-button {
+  .account > .action-menu {
     display: none;
   }
   .account-link {
