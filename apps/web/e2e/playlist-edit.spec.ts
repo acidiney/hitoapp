@@ -43,7 +43,7 @@ test("Edit stages the name, order and removals; Cancel reverts them and Done sav
   await addFixtureTracks(page, name);
 
   const link = page.locator(".sidebar-playlists").getByRole("link", { name });
-  const label = link.locator("span").last();
+  const label = link.locator("[title]");
   await expect(label).toHaveAttribute("title", name);
   const clipped = await label.evaluate((element) => ({
     overflow: getComputedStyle(element).textOverflow,

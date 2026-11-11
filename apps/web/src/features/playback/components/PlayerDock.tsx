@@ -136,6 +136,18 @@ export default function PlayerDock({
         </div>
         <PlaybackControls />
         <div className="player-tools">
+          <button
+            ref={queueButton}
+            className={`icon-button queue-button ${queueActive ? "selected" : ""}`}
+            aria-label="Open queue"
+            aria-current={queueActive ? "page" : undefined}
+            onClick={showQueue}
+          >
+            <ListMusic size={18} aria-hidden="true" />
+            <span className="queue-label">
+              Queue{queueTotal > 0 && ` · ${queueTotal}`}
+            </span>
+          </button>
           <SpeedControl available={controlsAvailable} />
           <button
             className="icon-button mute-button"
@@ -167,18 +179,6 @@ export default function PlayerDock({
             onClick={(event) => openExpanded(event.currentTarget)}
           >
             <ChevronUp size={18} aria-hidden="true" />
-          </button>
-          <button
-            ref={queueButton}
-            className={`icon-button queue-button ${queueActive ? "selected" : ""}`}
-            aria-label="Open queue"
-            aria-current={queueActive ? "page" : undefined}
-            onClick={showQueue}
-          >
-            <ListMusic size={18} aria-hidden="true" />
-            <span className="queue-label">
-              Queue{queueTotal > 0 && ` · ${queueTotal}`}
-            </span>
           </button>
         </div>
         <PlaybackStatus />

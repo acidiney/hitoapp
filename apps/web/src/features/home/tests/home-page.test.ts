@@ -125,7 +125,7 @@ test("unheard tracks explain why they are offered and play on request", () => {
     name: "Unheard, near what you like",
   });
   expect(
-    within(section).getByText("You played 3 tracks from Tide."),
+    within(section).getByText(/^You played 3 tracks from this album\./),
   ).toBeTruthy();
   expect(within(section).getByText("4 more tracks from Tide")).toBeTruthy();
   fireEvent.click(
@@ -270,7 +270,7 @@ test("shelves with nothing to show are left out", () => {
   expect(screen.queryByRole("region", { name: "Your artists" })).toBeNull();
 });
 
-test("a shelf that has albums scrolls through the shared shelf row with buttons", () => {
+test("a shelf of albums is a wrapping grid", () => {
   render(
     createElement(
       HomePage,
@@ -285,6 +285,6 @@ test("a shelf that has albums scrolls through the shared shelf row with buttons"
     ),
   );
   const added = screen.getByRole("region", { name: "Recently added" });
-  expect(added.querySelector(".shelf")).toBeTruthy();
-  expect(added.querySelector("ul.shelf-row")).toBeTruthy();
+  expect(added.querySelector("ul.home-grid")).toBeTruthy();
+  expect(added.querySelector(".shelf-row")).toBeNull();
 });

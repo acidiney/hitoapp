@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
-import ShelfRow from "../../../shared/ui/ShelfRow";
 import MediaCard from "../../../shared/ui/MediaCard";
 import type { ShelfCard } from "../model/homeShelves";
 
@@ -48,7 +47,7 @@ export default function HomeShelf({
       {cards.length === 0 && empty ? (
         <p className="home-hint">{empty}</p>
       ) : (
-        <ShelfRow label={title}>
+        <ul className="home-grid" data-kind={cards[0]?.cover.kind}>
           {cards.map((card) => (
             <li key={card.key}>
               <MediaCard
@@ -60,7 +59,7 @@ export default function HomeShelf({
               />
             </li>
           ))}
-        </ShelfRow>
+        </ul>
       )}
     </section>
   );

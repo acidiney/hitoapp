@@ -9,6 +9,7 @@
   --range-track: #d6d5d0;
   --cover-tile: #e6e5e1;
   --cover-glyph: #8a8984;
+  --nav-current: #e9e8e3;
   --sidebar-bg: #f3f3ef;
   --dock: #ffffff;
   --link: #2f4bff;
@@ -48,7 +49,7 @@
   --border: var(--line-strong);
   --panel: var(--surface);
   --hover: var(--subtle);
-  --sidebar: 240px;
+  --sidebar: 233px;
   --player: 88px;
   --tabs: 0px;
   font-family: var(--font-sans);
@@ -69,6 +70,7 @@
     --range-track: #4a4a46;
     --cover-tile: #2a2a28;
     --cover-glyph: #8f8e88;
+    --nav-current: #1f1f1d;
     --sidebar-bg: #0c0c0b;
     --dock: #161615;
     --control-off: #75746e;

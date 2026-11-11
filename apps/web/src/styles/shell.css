@@ -5,6 +5,7 @@
   padding-bottom: var(--player);
 }
 .sidebar {
+  line-height: 1.4;
   position: fixed;
   inset: 0 auto var(--player) 0;
   width: var(--sidebar);
@@ -26,7 +27,7 @@
 .brand-word {
   font-size: 20px;
   font-weight: 700;
-  line-height: 1;
+  line-height: inherit;
 }
 .brand-mark {
   display: inline-flex;
@@ -78,12 +79,12 @@
   text-align: left;
 }
 .sidebar nav :is(a, button):hover:not(:disabled) {
-  background: var(--surface);
+  background: var(--nav-current);
 }
 .sidebar nav a[aria-current="page"] {
   font-weight: 600;
   color: var(--ink);
-  background: var(--surface);
+  background: var(--nav-current);
 }
 .sidebar nav a[aria-current="page"] svg {
   color: var(--action);
@@ -131,13 +132,24 @@
   color: var(--ink);
 }
 .sidebar-playlists > a:hover {
-  background: var(--surface);
+  background: var(--nav-current);
 }
-.sidebar-playlists > a > span:last-child {
+.sidebar-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+.sidebar-row-text > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sidebar-row-text > small {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
 }
 .playlist-swatch {
   position: relative;
@@ -163,15 +175,15 @@
   font-size: 14px;
 }
 .account {
+  line-height: 1.4;
   position: fixed;
-  left: 0;
-  bottom: var(--player);
+  left: 12px;
+  bottom: calc(var(--player) + 12px);
   z-index: 2;
-  width: var(--sidebar);
+  width: calc(var(--sidebar) - 25px);
   padding: 8px 4px 8px 12px;
   background: var(--sidebar-bg);
   border-top: 1px solid var(--line);
-  border-right: 1px solid var(--line);
   display: flex;
   align-items: center;
   gap: 0;
@@ -184,12 +196,12 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0;
   border-radius: 10px;
 }
 .account-link:hover,
 .account-link[aria-current="page"] {
-  background: var(--surface);
+  background: var(--nav-current);
 }
 .account-name {
   flex: 1;
@@ -260,11 +272,13 @@
 .search input {
   flex: 1;
   width: 100%;
-  padding: 0;
+  padding: 1px 2px;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--ink);
   font-size: 16px;
+  line-height: 1.5;
 }
 .search input:focus-visible {
   outline: none;
@@ -283,6 +297,7 @@
   color: var(--muted);
 }
 .plugins-pill {
+  box-sizing: content-box;
   margin-left: auto;
   display: flex;
   align-items: center;

@@ -474,6 +474,7 @@
   position: relative;
   aspect-ratio: 1;
   margin-bottom: 8px;
+  width: 100%;
   overflow: hidden;
   border-radius: 10px;
 }

@@ -36,8 +36,8 @@ export default function UnheardNearby({
               {album.title}
             </h2>
             <p className="unheard-why">
-              You played {album.played} {plural(album.played)} from{" "}
-              {album.title}.
+              You played {album.played} {plural(album.played)} from this album.
+              These are the ones you haven&apos;t heard yet.
             </p>
             <div className="unheard-actions">
               <Button

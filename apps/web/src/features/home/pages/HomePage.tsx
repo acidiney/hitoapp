@@ -32,6 +32,17 @@ export default function HomePage({
       ) : (
         <>
           {tiles.length > 0 && <QuickAccess tiles={tiles} />}
+          {home.unheard.length > 0 && (
+            <UnheardNearby albums={home.unheard} onListen={listen} />
+          )}
+          {home.recently_added.length > 0 && (
+            <HomeShelf
+              id="home-added"
+              title="Recently added"
+              cards={addedShelf(home.recently_added)}
+              more={{ href: "/albums", label: "See all albums" }}
+            />
+          )}
           <HomeShelf
             id="home-played"
             title="Recently played"
@@ -45,17 +56,6 @@ export default function HomePage({
               </>
             }
           />
-          {home.unheard.length > 0 && (
-            <UnheardNearby albums={home.unheard} onListen={listen} />
-          )}
-          {home.recently_added.length > 0 && (
-            <HomeShelf
-              id="home-added"
-              title="Recently added"
-              cards={addedShelf(home.recently_added)}
-              more={{ href: "/albums", label: "See all albums" }}
-            />
-          )}
           {artists.items.length > 0 && (
             <HomeShelf
               id="home-artists"

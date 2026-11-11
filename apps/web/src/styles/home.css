@@ -3,7 +3,6 @@
   display: flex;
   flex-direction: column;
   gap: 36px;
-  padding-top: 8px;
 }
 .home-header,
 .search-header {
@@ -118,7 +117,6 @@
 }
 .unheard-card {
   flex: 2 1 480px;
-  max-width: 920px;
   min-width: 0;
   box-sizing: border-box;
   display: flex;
@@ -156,6 +154,12 @@
 .unheard-why {
   max-width: 44ch;
   color: var(--ink-soft);
+}
+.unheard-actions .button.action {
+  border: 0;
+}
+.unheard-actions .button.secondary {
+  padding: 0 18px;
 }
 .unheard-actions {
   display: flex;
@@ -375,4 +379,33 @@
   .home-shelf-head h2 {
     font-size: 18px;
   }
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-grid[data-kind="artist"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
+}
+.home-grid > li {
+  min-width: 0;
+}
+.home-grid .shelf-card-title {
+  line-height: 1.3;
+}
+.home-grid[data-kind="artist"] .shelf-card-title {
+  font-weight: 400;
+  line-height: 1.5;
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.home-grid[data-kind="artist"] .shelf-card-open {
+  gap: 0;
 }

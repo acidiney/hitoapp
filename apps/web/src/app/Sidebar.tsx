@@ -89,7 +89,9 @@ export default function Sidebar({
               inline={false}
             />
           </span>
-          <span title="Liked tracks">Liked tracks</span>
+          <span className="sidebar-row-text">
+            <span title="Liked tracks">Liked tracks</span>
+          </span>
         </Link>
         {playlists.slice(0, 12).map((playlist) => (
           <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
@@ -101,7 +103,14 @@ export default function Sidebar({
                 inline={false}
               />
             </span>
-            <span title={playlist.name}>{playlist.name}</span>
+            <span className="sidebar-row-text">
+              <span title={playlist.name}>{playlist.name}</span>
+              <small>
+                {playlist.kind === "followed"
+                  ? "Followed playlist"
+                  : "Your playlist"}
+              </small>
+            </span>
           </Link>
         ))}
         {playlists.length === 0 && (

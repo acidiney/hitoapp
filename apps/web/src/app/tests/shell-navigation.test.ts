@@ -122,7 +122,7 @@ test("playlists are listed with a create link", () => {
   ).toBe("/playlists#new-playlist");
   expect(
     within(list)
-      .getByRole("link", { name: "Sunday calm" })
+      .getByRole("link", { name: /^Sunday calm/ })
       .getAttribute("href"),
   ).toBe("/playlists/p1");
 });
@@ -208,9 +208,7 @@ test("each sidebar playlist name carries its full text as a tooltip", () => {
   const names = within(navigation.parentElement as HTMLElement)
     .getAllByRole("link")
     .filter((link) => link.getAttribute("href")?.startsWith("/playlists/"))
-    .map((link) =>
-      link.querySelector("span:last-child")?.getAttribute("title"),
-    );
+    .map((link) => link.querySelector("[title]")?.getAttribute("title"));
   expect(names).toEqual(["Sunday calm", "Running"]);
 });
 
