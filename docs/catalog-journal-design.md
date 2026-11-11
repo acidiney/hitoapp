@@ -12,6 +12,7 @@ flowchart LR
     Triggers --> Journal[Journal, anchors and retention floor]
     Journal --> Export[Core immutable full or changes export]
     Policy[Current catalog and account policy] --> Export
+    Scope[Complete selected library and grant set] --> Export
     Export --> HTTP[Authenticated typed HTTP]
     HTTP --> Owner[Retained replica refresh owner]
     Owner --> Stage[Private staged facts]
@@ -25,16 +26,34 @@ Provider IDs can contain filesystem coordinates and must not be exported indiscr
 
 Membership alone does not reproduce recording-card behavior. That policy also depends on personal edits, likes, progress, bookmarks, choices and downloads. Complete rendering still needs the separately planned populated collection projection and its pending-operation overlay.
 
+Safe catalog inputs also include source genre contributions and their validated fallback, selected observation provenance, and extracted audio/release facts used by Details and album-year views. Raw tags and full observation history remain behind their authenticated inspection API. Library names/personal descriptors, podcast subscription/episode descriptors and durable edition/adoption links need named connection or content projections. Audiobook chapters, bookmarks, continuation and playback preferences remain collection state. These boundaries preserve the full release scope; catalog membership alone does not implement them.
+
+## Joint selected-library scope
+
+The normalized format uses an explicit selected set of zero to sixteen exact library identities. It canonicalizes their order and rejects duplicates. Every selected library binds its exact current grant. An empty set exports only the actor's policy and empty ordering streams. The existing snapshot-only API remains single-library.
+
+One read transaction captures the catalog cut, all selected facts, ordering and group-label observations. One retained export and cursor describe that complete set. Every page and final publication checks the whole binding. The client stages and publishes the selected set atomically, preserving the previous complete generation if refresh fails. This is the selected implementation contract, not completed HTTP or desktop behavior.
+
+Authorized references can point outside the selected set. Every such reference checks the target's current readability. A private account access epoch changes whenever that account's library grants change, including grants outside the selected set. Construction leases and cursors capture that epoch so a revoked reference cannot survive merely because the selected grants stayed unchanged. The epoch never leaves Core.
+
+Independent library snapshots cannot preserve the current global Recent view. Recordings use recording row order; releases and artists use their account-row order. Raw rowids or receipt counters would reveal unrelated activity. The normalized format instead streams typed exact root IDs in server order and carries final predecessor placements for affected surviving roots. Root deletion splices the existing sequence. The client validates root coverage, completion, missing anchors, duplicate placements and cycles before committing facts, sequence links and cursor together. It never renumbers surviving roots from local arrival order.
+
+The server keeps numeric ordering private. Scoped indexes and bounded keyset/merge reads provide the ordered streams and predecessor lookups. Ordering is a separate typed stream, with its own root-kind counts and chunk completion; it does not turn a 100,000-root sequence into an oversized ordinary entity family.
+
+Group labels also depend on the whole selected scope. A safe winner descriptor contains Hito references for the selected-set winner. Per-library winner inputs preserve the existing library-filtered view. Current receipt ordering stays in Core; the client derives list sorting from the appropriate label and complete visible contributions. Accepted identity choices retain their existing eligibility after provider removal; provider availability separately controls new lookups and photo rules.
+
+Recording and artist invalidations expand through retained choice groups before current eligibility filters. Destructive choice changes also capture the former and new account-owned group IDs, so a removed winner can update surviving contributions. Account-wide access invalidation remains the fallback after library deletion or permission changes.
+
 ## Complete family replacement
 
 The journal retains affected owners, not every former child key. After deleting a source or credit member, a reader cannot recover its old child identity from current rows. Sending only current child upserts would therefore leave stale facts on the client. The selected contract replaces the complete affected family instead.
 
-| Owner | Complete owned facts | Derived or separately owned facts |
-| --- | --- | --- |
-| Recording | Inherited fields, personal overrides, sources and source metadata, release appearances, ordered credits, validated identity contributions, source choice and outbound group edges | Release/artist roots, collection activity and aggregate summaries |
-| Release | Inherited and account release fields, personal overrides and edition choice | Track appearances and counts derived from recording families |
-| Artist | Primitive account artist and credit-key data, authorized photo observation and recheck time | Recording-derived eligibility, usage and group summaries |
-| Account policy | Effective source preferences and approved-provider policy needed by catalog readers | Credentials, private configuration and collection operations |
+| Owner          | Complete owned facts                                                                                                                                                              | Derived or separately owned facts                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Recording      | Inherited fields, personal overrides, sources and source metadata, release appearances, ordered credits, validated identity contributions, source choice and outbound group edges | Release/artist roots, collection activity and aggregate summaries |
+| Release        | Inherited and account release fields, personal overrides and edition choice                                                                                                       | Track appearances and counts derived from recording families      |
+| Artist         | Primitive account artist and credit-key data, authorized photo observation and recheck time                                                                                       | Recording-derived eligibility, usage and group summaries          |
+| Account policy | Effective source preferences and approved-provider policy needed by catalog readers                                                                                               | Credentials, private configuration and collection operations      |
 
 An outbound member-to-canonical edge belongs to the member recording. A split pair uses the schema's canonical sorted identity pair and belongs to the smaller recording ID. Both endpoints must be currently readable. An authorized reference into another library may remain unresolved when that library is not cached; the client must not fabricate a recording. Identity-group descriptors come from validated recording contributions. The client tracks each contribution's ownership so replacing one family cannot remove a descriptor still used by another.
 
@@ -61,15 +80,17 @@ During export, Core expands distinct scopes into one bounded indexed SQL work se
 
 A full export captures journal head H and its history anchor in the same SQLite read transaction as the facts. A changes export reads distinct affected owner keys in the interval from the accepted catalog cut through H, then returns complete family replacements or typed root tombstones as of H. Concurrent writes are wholly visible in that transaction or follow H. The final authority fence must also verify that required history and the export lease remain valid before publication.
 
-Pages are transport progress. The client advances its catalog cursor only when every page and all identity/count/binding checks commit atomically. It never acknowledges collection operations using a catalog cut or the old snapshot collection watermark.
+Pages are transport progress. The client advances its selected-set catalog cursor only when every fact/order page and all identity/count/binding checks commit atomically. It never acknowledges collection operations using a catalog cut or the old snapshot collection watermark.
 
 An oversized changes batch can require a full bootstrap. If a full bootstrap itself exceeds a documented budget, return a distinct capacity failure; repeated rebootstrap must not become an infinite recovery loop.
 
 ## Opaque cursors and restored history
 
-A catalog cursor is a fresh random 32-byte base64url handle. Only its SHA-256 digest and private binding are persisted. The binding includes server lineage, semantic projection version, account, library, exact access-grant identity, availability context and journal sequence/anchor. Tokens and digests are excluded from logs.
+A catalog cursor is a fresh random 32-byte base64url handle. Only its SHA-256 digest and private binding are persisted. The binding includes server lineage, semantic projection version, account, the complete selected library/grant set, availability context and journal sequence/anchor. Tokens and digests are excluded from logs.
 
 Every accepted export issues a fresh handle, including an empty export. Hash-only storage cannot recover a previous token, and token reuse only while the global head stays unchanged would expose unrelated write activity. Issuance is bounded by explicit row/byte quotas and retention, with active exports protected. Missing or evicted handles require an explicit fresh bootstrap. They do not erase the locally authorized cache or alter collection state.
+
+Retained immutable pages check current authority, the account access epoch, context and expiry without requiring old journal rows to remain retained. Resuming incremental changes separately validates the history anchor and retention floor. History compaction alone must not make an already published immutable page unreadable.
 
 Each durable journal sequence has a random history anchor. The retention floor preserves its anchor separately. Validation requires an exact binding, a cut within the retained interval and the matching anchor. A server UUID and numeric sequence alone cannot detect restoration followed by sequence reuse. Divergent or missing restored history requires bootstrap.
 
@@ -79,7 +100,7 @@ Retention has explicit work, row and byte budgets. Slow replication must not tur
 
 ## Authority and time
 
-The server checks current session, PIN and exact grant for creation and each page response. Local publication checks current local session, activation, connection generation and expected catalog head through profile COMMIT and queued rollback settlement.
+The server checks current session, PIN and the complete exact grant set for creation and each page response. Local publication checks current local session, activation, connection generation and expected catalog head through profile COMMIT and queued rollback settlement.
 
 A remote grant can change after the final authorized response and before local commit. The completed export can still become last-known cached data under the accepted offline policy. No final network request removes that window. A grant identity is a binding, not a revocation oracle. Locally retired work or an already-observed newer head/context must still be fenced before publication.
 
