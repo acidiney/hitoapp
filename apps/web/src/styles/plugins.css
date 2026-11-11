@@ -518,9 +518,6 @@
   border-color: var(--danger-line);
   color: var(--danger-ink);
 }
-.plugin-offered .plugin-confirm {
-  flex: 1 1 100%;
-}
 .plugin-offer {
   display: flex;
   flex-direction: column;
@@ -675,9 +672,80 @@
   color: var(--muted);
   text-align: right;
 }
-.plugin-review h4 {
-  font-size: 16px;
-  margin-bottom: 12px;
+.dialog-connect .plugin-form,
+.plugin-review {
+  display: grid;
+  gap: 16px;
+  max-width: none;
+  margin: 0;
+}
+.dialog-connect .plugin-form label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.dialog-connect .plugin-address {
+  margin: -8px 0 0;
+}
+.dialog-connect h2:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.plugin-field-box {
+  display: flex;
+  min-height: 44px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.plugin-field-box:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.plugin-field-box input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+}
+.plugin-field-box input:focus-visible {
+  outline: none;
+}
+.plugin-review-intro {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.plugin-review-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plugin-review-list li {
+  display: grid;
+  grid-template-columns: auto minmax(110px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--line-soft);
+}
+.plugin-review-list li > span:last-child {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.plugin-review-list .plugin-power-dot[data-on="true"] {
+  border-color: var(--ink-soft);
+  background: var(--ink-soft);
+}
+.plugin-review-policy-line {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.dialog-connect .plugin-dialog-error {
+  margin: 0;
+  font-size: 14px;
 }
 .plugin-form {
   display: grid;
@@ -732,6 +800,14 @@
 @media (max-width: 767px) {
   .plugin-review-compare {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .plugin-review-list li {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 12px;
+    padding: 10px 12px;
+  }
+  .plugin-review-list li > span:last-child {
+    grid-column: 2;
   }
   .plugin-card-actions .button {
     min-height: 44px;

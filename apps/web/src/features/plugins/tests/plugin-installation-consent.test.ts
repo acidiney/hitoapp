@@ -82,16 +82,16 @@ test.each<{ policy?: Persistence; disclosure: RegExp }>([
   {
     policy: "playback_only",
     disclosure:
-      /Playback only\. No new offline downloads\. Completed copies are retained\./,
+      /It only plays audio\. Hito won't save new copies, and copies you already have stay\./,
   },
   {
     policy: "explicit_download",
     disclosure:
-      /Explicit downloads declared, subject to Hito's checks\. This does not grant a licence\./,
+      /It allows saving audio when you ask\. Hito still checks before saving anything, and this isn't a licence\./,
   },
   {
     disclosure:
-      /No persistence declaration\. Download permission is unknown; Hito's checks still apply\./,
+      /It doesn't say whether its audio may be saved\. Hito still asks before saving anything\./,
   },
 ])(
   "reviews the $policy declaration before installing with the exact accepted digest",
@@ -100,13 +100,19 @@ test.each<{ policy?: Persistence; disclosure: RegExp }>([
     fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
       target: { value: installationToken },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
-    const heading = await screen.findByRole("heading", {
-      name: "Review connection",
-    });
-    const review = within(heading.parentElement!);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Before you connect" });
+    const review = within(screen.getByRole("dialog"));
     expect(review.getByText(installationManifest().name)).toBeTruthy();
-    expect(review.getByText("search, sources")).toBeTruthy();
+    expect(review.getByText("Search")).toBeTruthy();
+    expect(review.getByText("Playback")).toBeTruthy();
+    expect(review.getByText("Find music beyond your library.")).toBeTruthy();
+    expect(review.queryByText(/search, sources/)).toBeNull();
+    expect(review.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Accept and connect",
+      "Back",
+    ]);
+    expect(review.queryByLabelText("Bearer token (optional)")).toBeNull();
     expect(review.getByText(disclosure)).toBeTruthy();
     expect(requests).toEqual([
       { path: "/api/v1/plugins", method: "GET", body: undefined },
@@ -128,7 +134,7 @@ test.each<{ policy?: Persistence; disclosure: RegExp }>([
     await findCheckConnection();
     await waitFor(() =>
       expect(
-        screen.queryByRole("heading", { name: "Review connection" }),
+        screen.queryByRole("heading", { name: "Before you connect" }),
       ).toBeNull(),
     );
     expect(requests[2]).toEqual({
@@ -153,13 +159,9 @@ async function reviewConnection(token?: string) {
     fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
       target: { value: token },
     });
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Review connection" }),
-  );
-  const heading = await screen.findByRole("heading", {
-    name: "Review connection",
-  });
-  return within(heading.parentElement!);
+  fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+  await screen.findByRole("heading", { name: "Before you connect" });
+  return within(screen.getByRole("dialog"));
 }
 
 function installs(requests: ReturnType<typeof installationHttp>["requests"]) {
@@ -173,7 +175,7 @@ test("going back declines the declaration without installing or persisting its c
   const review = await reviewConnection(installationToken);
   fireEvent.click(review.getByRole("button", { name: "Back" }));
   expect(
-    screen.queryByRole("heading", { name: "Review connection" }),
+    screen.queryByRole("heading", { name: "Before you connect" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Accept and connect" }),
@@ -218,9 +220,8 @@ test("the review renders the provider's declaration as text without embedding pr
   };
   const review = await reviewConnection();
   expect(review.getByText(name)).toBeTruthy();
-  const heading = screen.getByRole("heading", { name: "Review connection" });
   expect(
-    heading.parentElement?.querySelector("img, iframe, script, a, audio"),
+    screen.getByRole("dialog").querySelector("img, iframe, script, a, audio"),
   ).toBeNull();
   expect(http.requests).toHaveLength(2);
   expect(installs(http.requests)).toEqual([]);
@@ -230,12 +231,13 @@ test("the review renders the provider's declaration as text without embedding pr
 
 test("changing the token invalidates a reviewed declaration and previews only the current draft", async () => {
   const http = await workflow("playback_only");
-  await reviewConnection(installationToken);
+  const review = await reviewConnection(installationToken);
+  fireEvent.click(review.getByRole("button", { name: "Back" }));
   fireEvent.change(screen.getByLabelText("Bearer token (optional)"), {
     target: { value: replacementInstallationToken },
   });
   expect(
-    screen.queryByRole("heading", { name: "Review connection" }),
+    screen.queryByRole("heading", { name: "Before you connect" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Accept and connect" }),
@@ -254,11 +256,12 @@ test("changing the token invalidates a reviewed declaration and previews only th
 
 test("opening another service discards its predecessor's review and credential", async () => {
   const http = await workflow("explicit_download");
-  await reviewConnection(installationToken);
+  const review = await reviewConnection(installationToken);
+  fireEvent.click(review.getByRole("button", { name: "Back" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   await openConnect(otherService);
   expect(
-    screen.queryByRole("heading", { name: "Review connection" }),
+    screen.queryByRole("heading", { name: "Before you connect" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Accept and connect" }),
@@ -310,7 +313,7 @@ test("a changed service revision invalidates review without removing an unrelate
     ).toBe(""),
   );
   expect(
-    screen.queryByRole("heading", { name: "Review connection" }),
+    screen.queryByRole("heading", { name: "Before you connect" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Accept and connect" }),
@@ -343,12 +346,12 @@ test("an unavailable preview retains the private draft and cannot install until 
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: installationToken },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   const alert = await screen.findByRole("alert");
   expect(alert.textContent).toContain("Service declaration unavailable.");
   expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(
-    screen.queryByRole("heading", { name: "Review connection" }),
+    screen.queryByRole("heading", { name: "Before you connect" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Accept and connect" }),
@@ -390,7 +393,7 @@ test.each([503, 409, "lost response"] as const)(
         : "Service declaration changed. Review it again.",
     );
     expect(
-      screen.queryByRole("heading", { name: "Review connection" }),
+      screen.queryByRole("heading", { name: "Before you connect" }),
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Accept and connect" }),
@@ -412,9 +415,7 @@ test.each([503, 409, "lost response"] as const)(
       digest: replacementInstallationDigest,
     };
     const freshReview = await reviewConnection();
-    expect(
-      freshReview.getByText(/Playback only\. No new offline downloads/),
-    ).toBeTruthy();
+    expect(freshReview.getByText(/It only plays audio/)).toBeTruthy();
     expect(installs(http.requests)).toHaveLength(1);
     fireEvent.click(
       freshReview.getByRole("button", { name: "Accept and connect" }),
@@ -471,7 +472,7 @@ test("fresh previews replace only the failed installation's alert while preservi
     path === "/api/v1/plugins/preview"
       ? Response.json({ error: previewError }, { status: 503 })
       : undefined;
-  fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await waitFor(() =>
     expect(
       screen.getAllByRole("alert").map((alert) => alert.textContent),
@@ -499,18 +500,12 @@ test("fresh previews replace only the failed installation's alert while preservi
   };
   const freshReview = await reviewConnection();
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(
-    freshReview.getByText(/Playback only\. No new offline downloads/),
-  ).toBeTruthy();
+  expect(freshReview.getByText(/It only plays audio/)).toBeTruthy();
   expect(
     screen.getByRole("heading", { name: unrelated.manifest.name }),
   ).toBeTruthy();
   await openManage();
   expect(screen.getByText("Token saved")).toBeTruthy();
-  expect(
-    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
-      .value,
-  ).toBe(installationToken);
   expect(installs(http.requests)).toHaveLength(1);
   fireEvent.click(
     freshReview.getByRole("button", { name: "Accept and connect" }),
@@ -560,7 +555,7 @@ test.each(["token", "service"] as const)(
     fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
       target: { value: installationToken },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(http.calls).toHaveLength(2));
     const signal = http.calls[1].signal;
     if (change === "token")
@@ -574,7 +569,7 @@ test.each(["token", "service"] as const)(
     await waitFor(() => expect(signal?.aborted).toBe(true));
     await act(async () => held.release());
     expect(
-      screen.queryByRole("heading", { name: "Review connection" }),
+      screen.queryByRole("heading", { name: "Before you connect" }),
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Accept and connect" }),
@@ -608,7 +603,7 @@ test.each(ownerChanges)(
     fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
       target: { value: installationToken },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(http.calls).toHaveLength(2));
     const signal = http.calls[1].signal;
     if (change === "account") {
@@ -619,7 +614,7 @@ test.each(ownerChanges)(
     await waitFor(() => expect(signal?.aborted).toBe(true));
     await act(async () => held.release());
     expect(
-      screen.queryByRole("heading", { name: "Review connection" }),
+      screen.queryByRole("heading", { name: "Before you connect" }),
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Accept and connect" }),

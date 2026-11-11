@@ -359,10 +359,9 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await openAllManage(page);
     await plugin.getByRole("button", { name: "Remove", exact: true }).click();
     await openAllManage(page);
-    const removePlugin = plugin.getByRole("button", {
-      name: "Remove plugin",
-      exact: true,
-    });
+    const removePlugin = page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove", exact: true });
     await removePlugin.focus();
     await expect(removePlugin).toBeFocused();
     const uninstall = page.waitForResponse(

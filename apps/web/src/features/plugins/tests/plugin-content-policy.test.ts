@@ -101,9 +101,7 @@ function acceptedDisclosure() {
 
 function reviewDisclosure(label: "Current" | "Proposed") {
   const term = screen.getByText(
-    label === "Current"
-      ? "Source persistence today"
-      : "Source persistence if you accept",
+    label === "Current" ? "Saving audio today" : "Saving audio if you accept",
   );
   expect(term.tagName).toBe("DT");
   const definition = term.nextElementSibling;
@@ -114,17 +112,17 @@ function reviewDisclosure(label: "Current" | "Proposed") {
 function expectPolicy(element: Element, policy?: Persistence) {
   const text = element.textContent ?? "";
   if (policy === "playback_only") {
-    expect(text).toMatch(/playback only/i);
-    expect(text).toMatch(/no new offline downloads/i);
-    expect(text).toMatch(/completed copies.*retained/i);
+    expect(text).toMatch(/only plays audio/i);
+    expect(text).toMatch(/won't save new copies/i);
+    expect(text).toMatch(/copies you already have stay/i);
   } else if (policy === "explicit_download") {
-    expect(text).toMatch(/explicit downloads declared/i);
-    expect(text).toMatch(/subject to Hito's checks/i);
-    expect(text).toMatch(/does not grant a licen[cs]e/i);
+    expect(text).toMatch(/allows saving audio when you ask/i);
+    expect(text).toMatch(/still checks before saving/i);
+    expect(text).toMatch(/isn't a licen[cs]e/i);
   } else {
-    expect(text).toMatch(/no persistence declaration/i);
-    expect(text).toMatch(/download permission is unknown/i);
-    expect(text).not.toMatch(/explicit downloads declared|playback only/i);
+    expect(text).toMatch(/doesn't say whether its audio may be saved/i);
+    expect(text).toMatch(/still asks before saving/i);
+    expect(text).not.toMatch(/allows saving audio|only plays audio/i);
   }
 }
 

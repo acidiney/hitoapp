@@ -97,13 +97,13 @@ export default function PluginReviewDialog({
         ))}
         {policyChanged(plugin.manifest, proposal) && (
           <dl className="plugin-review-policy">
-            <dt>Source persistence today</dt>
+            <dt>Saving audio today</dt>
             <dd>
               <PluginPersistencePolicy
                 policy={plugin.manifest.content_policy}
               />
             </dd>
-            <dt>Source persistence if you accept</dt>
+            <dt>Saving audio if you accept</dt>
             <dd>
               <PluginPersistencePolicy policy={proposal.content_policy} />
             </dd>

@@ -19,6 +19,7 @@ import {
   serviceSummary,
 } from "../model/pluginSummary";
 import PluginAuthorization from "./PluginAuthorization";
+import PluginConfirmDialog from "./PluginConfirmDialog";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 import PluginReviewDialog from "./PluginReviewDialog";
 import PluginTile from "./PluginTile";
@@ -62,6 +63,7 @@ export default function PluginConnection({
   const [review, setReview] = useState<Review | null>(null);
   const [waiting, setWaiting] = useState<Proposal | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [removeAttempted, setRemoveAttempted] = useState(false);
   const [manage, setManage] = useState(false);
   const [status, setStatus] = useState("");
   const [focus, focusAfterCommit] = useState<"check" | "remove" | null>(null);
@@ -256,32 +258,24 @@ export default function PluginConnection({
             </div>
           </div>
           {confirm && (
-            <div className="plugin-confirm">
-              <p>
-                Remove {plugin.manifest.name} from your account? Its saved token
-                will be cleared.
-              </p>
-              <div className="plugin-actions">
-                <Button
-                  variant="destructive"
-                  disabled={actions.pending}
-                  onClick={async () => {
-                    if (await actions.remove(plugin)) onRemoved();
-                  }}
-                >
-                  Remove plugin
-                </Button>
-                <Button
-                  disabled={actions.pending}
-                  onClick={() => {
-                    setConfirm(false);
-                    focusAfterCommit("remove");
-                  }}
-                >
-                  Cancel removal
-                </Button>
-              </div>
-            </div>
+            <PluginConfirmDialog
+              title={`Remove ${plugin.manifest.name}?`}
+              consequence="Its saved token is cleared. Your library, playlists and saved copies stay; tracks that only play from it will show No source."
+              confirmLabel="Remove"
+              pendingLabel="Removing…"
+              error={
+                removeAttempted && actions.errorAction === "remove"
+                  ? actions.error
+                  : ""
+              }
+              pending={actions.pending}
+              returnFocus={removeButton}
+              onCancel={() => setConfirm(false)}
+              onConfirm={async () => {
+                setRemoveAttempted(true);
+                if (await actions.remove(plugin)) onRemoved();
+              }}
+            />
           )}
           <section className="plugin-detail-card plugin-detail-settings">
             <h4>Connection details</h4>

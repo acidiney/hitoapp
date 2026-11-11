@@ -78,12 +78,9 @@ async function openServerTab() {
 }
 
 async function reviewAndAccept() {
-  if (!screen.queryByRole("button", { name: "Review connection" }))
-    await openConnect();
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Review connection" }),
-  );
-  await screen.findByRole("heading", { name: "Review connection" });
+  if (!screen.queryByRole("button", { name: "Continue" })) await openConnect();
+  fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+  await screen.findByRole("heading", { name: "Before you connect" });
   fireEvent.click(screen.getByRole("button", { name: "Accept and connect" }));
 }
 
@@ -166,9 +163,7 @@ test("invalid nonempty custom labels reach server validation and retain the draf
     screen.queryByRole("button", { name: "Reload connections" }),
   ).toBeNull();
   expect((label as HTMLInputElement).value).toBe(name);
-  expect(
-    screen.queryByRole("button", { name: "Review connection" }),
-  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Withdraw/ })).toBeNull();
   expect(pluginsApi.install).not.toHaveBeenCalled();
 });
@@ -210,9 +205,7 @@ test("an offered service opens its own connection dialog", async () => {
   const dialog = await screen.findByRole("dialog", {
     name: `Connect ${service.name}`,
   });
-  expect(
-    within(dialog).getByRole("button", { name: "Review connection" }),
-  ).toBeTruthy();
+  expect(within(dialog).getByRole("button", { name: "Continue" })).toBeTruthy();
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
@@ -379,7 +372,9 @@ test("a connection says in plain words what it does and keeps the technical decl
   fireEvent.click(screen.getByRole("button", { name: "Manage" }));
   expect(screen.getByText("What it does for you")).toBeTruthy();
   expect(screen.queryByText(/Declared capabilities/)).toBeNull();
-  expect(screen.getByText(/No persistence declaration/)).toBeTruthy();
+  expect(
+    screen.getByText(/doesn't say whether its audio may be saved/),
+  ).toBeTruthy();
 });
 
 test("new capabilities waiting for approval are announced without pressing Check connection", async () => {
@@ -508,4 +503,81 @@ test("a connection that declares nothing shows no chip list", async () => {
   render(settingsPage("bob", false));
   await screen.findByRole("heading", { name: "Fixture provider" });
   expect(screen.queryByRole("list", { name: "Capabilities" })).toBeNull();
+});
+
+test("the connection dialog shows one step and one action row at a time", async () => {
+  render(settingsPage("bob", false));
+  await openConnect();
+  const dialog = await screen.findByRole("dialog", {
+    name: `Connect ${service.name}`,
+  });
+  expect(
+    within(dialog)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["Continue", "Cancel"]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+  const review = await screen.findByRole("dialog", {
+    name: "Before you connect",
+  });
+  expect(
+    within(review)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["Accept and connect", "Back"]);
+  expect(within(review).queryByLabelText("Bearer token (optional)")).toBeNull();
+  expect(review.textContent).not.toMatch(
+    /\b(source_preparation|backing_tracks)\b/,
+  );
+  expect(document.activeElement).toBe(
+    within(review).getByRole("heading", { name: "Before you connect" }),
+  );
+});
+
+test("removing a plugin asks in a dialog, keeps it open on failure and closes on cancel", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  vi.mocked(pluginsApi.checkDeclaration).mockResolvedValue({ kind: "current" });
+  vi.mocked(pluginsApi.remove).mockRejectedValue(new Error("Remove failed"));
+  render(settingsPage("bob", false));
+  const card = (
+    await screen.findByRole("heading", { name: "Fixture provider" })
+  ).closest("li") as HTMLElement;
+  fireEvent.click(within(card).getByRole("button", { name: "Manage" }));
+  fireEvent.click(within(card).getByRole("button", { name: "Remove" }));
+  expect(within(card).queryByText(/Cancel removal/)).toBeNull();
+  const dialog = await screen.findByRole("dialog", {
+    name: "Remove Fixture provider?",
+  });
+  expect(
+    within(dialog)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["Cancel", "Remove"]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+  const alert = await within(dialog).findByRole("alert");
+  expect(alert.textContent).toContain("Remove failed");
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("withdrawing a service asks in a dialog", async () => {
+  render(settingsPage("admin", true));
+  await openServerTab();
+  fireEvent.click(
+    await screen.findByRole("button", { name: `Withdraw ${service.name}` }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: `Withdraw ${service.name} for everyone?`,
+  });
+  expect(
+    within(dialog)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["Cancel", "Withdraw"]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

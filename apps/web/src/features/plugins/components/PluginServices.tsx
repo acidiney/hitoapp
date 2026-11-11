@@ -1,3 +1,4 @@
+import PluginConfirmDialog from "./PluginConfirmDialog";
 import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import Button from "../../../shared/ui/Button";
@@ -72,37 +73,21 @@ export default function PluginServices({
                   Withdraw
                 </Button>
                 {confirm === service.id && (
-                  <div className="plugin-confirm">
-                    {withdrawError && (
-                      <p role="alert" className="plugin-inline-error">
-                        {withdrawError}
-                      </p>
-                    )}
-                    <p>
-                      Withdraw {service.name} for everyone? This disconnects all
-                      its installations and clears their saved credentials.
-                    </p>
-                    <div className="plugin-actions">
-                      <Button
-                        variant="destructive"
-                        disabled={actions.pending}
-                        onClick={async () => {
-                          if (await actions.withdraw(service)) {
-                            setConfirm(null);
-                            onWithdrawn();
-                          }
-                        }}
-                      >
-                        Withdraw for everyone
-                      </Button>
-                      <Button
-                        disabled={actions.pending}
-                        onClick={() => setConfirm(null)}
-                      >
-                        Keep service
-                      </Button>
-                    </div>
-                  </div>
+                  <PluginConfirmDialog
+                    title={`Withdraw ${service.name} for everyone?`}
+                    consequence="Everyone on this server is disconnected from it and their saved tokens are cleared. Libraries, playlists and saved copies stay."
+                    confirmLabel="Withdraw"
+                    pendingLabel="Withdrawing…"
+                    error={withdrawError}
+                    pending={actions.pending}
+                    onCancel={() => setConfirm(null)}
+                    onConfirm={async () => {
+                      if (await actions.withdraw(service)) {
+                        setConfirm(null);
+                        onWithdrawn();
+                      }
+                    }}
+                  />
                 )}
               </li>
             );

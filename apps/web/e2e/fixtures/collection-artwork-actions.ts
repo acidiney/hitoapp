@@ -180,7 +180,9 @@ export async function removeProvider(
     page,
     `/api/v1/plugins/${installation.id}`,
     204,
-    card.getByRole("button", { name: "Remove plugin", exact: true }),
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove", exact: true }),
     "DELETE",
   );
 }

@@ -8,20 +8,21 @@ export default function PluginPersistencePolicy({
   if (policy?.source_persistence === "playback_only")
     return (
       <>
-        Playback only. No new offline downloads. Completed copies are retained.
+        It only plays audio. Hito won't save new copies, and copies you already
+        have stay.
       </>
     );
   if (policy?.source_persistence === "explicit_download")
     return (
       <>
-        Explicit downloads declared, subject to Hito's checks. This does not
-        grant a licence.
+        It allows saving audio when you ask. Hito still checks before saving
+        anything, and this isn't a licence.
       </>
     );
   return (
     <>
-      No persistence declaration. Download permission is unknown; Hito's checks
-      still apply.
+      It doesn't say whether its audio may be saved. Hito still asks before
+      saving anything.
     </>
   );
 }

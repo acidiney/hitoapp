@@ -195,7 +195,8 @@ test("an administrator offers only an address before connecting with the plugin 
     await page.getByRole("button", { name: /^This server/ }).click();
     await page.getByRole("button", { name: /^Withdraw / }).click();
     await page
-      .getByRole("button", { name: "Withdraw for everyone", exact: true })
+      .getByRole("dialog")
+      .getByRole("button", { name: "Withdraw", exact: true })
       .click();
     await expect(page.getByRole("button", { name: /^Withdraw / })).toHaveCount(
       0,
@@ -283,7 +284,7 @@ test.describe("account switching", () => {
       expect(requests).toEqual([]);
       await page.setViewportSize({ width: 390, height: 844 });
       const reviewButton = page.getByRole("button", {
-        name: "Review connection",
+        name: "Continue",
         exact: true,
       });
       await reviewButton.scrollIntoViewIfNeeded();
@@ -353,7 +354,7 @@ test.describe("account switching", () => {
       ).toBe(false);
       await page.getByRole("button", { name: "Back", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Review connection", exact: true }),
+        page.getByRole("heading", { name: "Before you connect", exact: true }),
       ).toHaveCount(0);
       expect(installationRequests.total).toBe(0);
       expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
@@ -555,7 +556,8 @@ test.describe("account switching", () => {
       await page.getByRole("button", { name: "Remove", exact: true }).click();
       await openAllManage(page);
       await page
-        .getByRole("button", { name: "Remove plugin", exact: true })
+        .getByRole("dialog")
+        .getByRole("button", { name: "Remove", exact: true })
         .click();
       await expect(
         page.getByRole("heading", {
@@ -580,7 +582,8 @@ test.describe("account switching", () => {
       await page.getByRole("button", { name: /^This server/ }).click();
       await page.getByRole("button", { name: /^Withdraw / }).click();
       await page
-        .getByRole("button", { name: "Withdraw for everyone", exact: true })
+        .getByRole("dialog")
+        .getByRole("button", { name: "Withdraw", exact: true })
         .click();
       await expect(
         page.getByRole("heading", {

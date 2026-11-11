@@ -410,7 +410,9 @@ test("account metadata preferences persist ordered personal providers without to
     await openAllManage(page);
     const removed = await preferencesAction(
       page,
-      connection.getByRole("button", { name: "Remove plugin", exact: true }),
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Remove", exact: true }),
       "DELETE",
       `/api/v1/plugins/${connections[1].id}`,
       204,

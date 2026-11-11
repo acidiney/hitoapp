@@ -92,7 +92,7 @@ test("existing independent playlist copies automatically retain private provider
       .click();
     const token = page.getByLabel("Bearer token (optional)", { exact: true });
     const reviewButton = page.getByRole("button", {
-      name: "Review connection",
+      name: "Continue",
       exact: true,
     });
     const targets = await layouts(page, info, "provider-artwork-connect", [
@@ -516,10 +516,9 @@ test("existing independent playlist copies automatically retain private provider
     await openAllManage(page);
     await plugin.getByRole("button", { name: "Remove", exact: true }).click();
     await openAllManage(page);
-    const remove = plugin.getByRole("button", {
-      name: "Remove plugin",
-      exact: true,
-    });
+    const remove = page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove", exact: true });
     await remove.focus();
     await expect(remove).toBeFocused();
     const removed = page.waitForResponse(

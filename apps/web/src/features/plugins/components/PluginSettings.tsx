@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import Skeleton from "../../../shared/ui/Skeleton";
@@ -62,11 +62,18 @@ function PluginPanel({
   const heading = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState<View>("mine");
   const [connecting, setConnecting] = useState<string | null>(null);
-  const restoreFocus = () => heading.current?.focus();
+  const [focusRequest, setFocusRequest] = useState(0);
+  const restoreFocus = () => setFocusRequest((count) => count + 1);
+  useEffect(() => {
+    if (focusRequest > 0) heading.current?.focus();
+  }, [focusRequest]);
   const { data, error, errorAction, pending } = actions;
   const serverError =
     errorAction === "offer" || errorAction === "withdraw" ? error : "";
-  const pageError = serverError ? "" : error;
+  const pageError =
+    serverError || errorAction === "install" || errorAction === "remove"
+      ? ""
+      : error;
   const available =
     data?.services.filter(
       (service) =>
