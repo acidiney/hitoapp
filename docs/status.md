@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 normal local backend update
+
+The normal local server on port 8080 now runs the qualified production backend from source `aabc37d1`, including automatic ephemeral lyric reads and retained playback lease HTTP routes. The deployed executable has SHA-256 `569d4c6167f15d87237d5a950e5ab36defa8b1a26a69d68bd9f48f4979655608`. Its Docker health is healthy. Ten credential-free status probes pass, including authentication on all six new method/route combinations and a true 404 for an unknown route. These deployment checks supplement the earlier 135-case backend qualification; they do not prove an authenticated browser workflow.
+
+A consistent online SQLite recovery snapshot passed integrity, foreign-key and all 95 migration-checksum checks before replacement. The guarded update preserved the current data volume, identity, environment, mounts, published ports and complete previous web build. Read-only postchecks confirm the same successful 95-migration prefix. The snapshot covers the database and separately stable identity files, not an atomic copy of all managed media. No database restore ran.
+
+The operator's stopped-replacement rollback and lexical path checks were corrected with failing/passing controls. An independent repeat passes 30 guard cases, seven public symlink/path cases and six backup/operator cases. The exact image also passed isolated startup with tmpfs data and no application volumes before replacement. Preview and its watcher retain their original container identities and start times. PWA support, the newer frontend, current packaged full-flow acceptance, timed-first lyric selection, VPS deployment, `main` integration and public-release gates remain separate unfinished work.
+
 ## 2026-11-11 LRCLIB failure diagnostics
 
 Development source at `101553b0` now emits one safe WARN at info level for actual upstream transport, deadline, status, header, body, JSON and semantic-validation failures. Static reason/stage fields, optional upstream status and timings distinguish failure causes. Each event has an honestly local failure UUID; it is not a Hito request ID. Success, not found, authentication rejection, cancellation and repeated local busy/cooldown polling stay quiet or debug. The existing one-time invalid Retry-After recovery event remains.
