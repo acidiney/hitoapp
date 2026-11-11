@@ -173,7 +173,13 @@ pub struct Services {
 #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = config.host_device.as_str()))]
 pub async fn open(config: CoreConfig) -> Result<Services> {
     let directories = library_storage::Directories::new(config.storage)?;
+    #[cfg(not(any(test, feature = "test-support")))]
     let store = Store::open(&config.database).await?;
+    #[cfg(any(test, feature = "test-support"))]
+    let store = match config.database_owner.as_ref() {
+        Some(owner) => Store::open_owned(&config.database, owner).await?,
+        None => Store::open(&config.database).await?,
+    };
     let media_tools = config.media_tools.clone();
     let storage = LibraryStorage {
         store: store.clone(),

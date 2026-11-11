@@ -1,3 +1,4 @@
+pub mod database_owner;
 #[cfg(test)]
 pub(crate) mod work_meter;
 
