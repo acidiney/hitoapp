@@ -30,6 +30,16 @@ export function renderTrackPage(
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const handled = extra?.(path, options);
     if (handled) return handled;
+    if (path === `${base}/lyrics/identities`)
+      return Response.json({
+        recording_id: page.detail.recording_id,
+        items: [],
+      } satisfies Schema<"RecordingLyricIdentities">);
+    if (path === `${base}/lyrics/services`)
+      return Response.json({
+        recording_id: page.detail.recording_id,
+        items: [],
+      } satisfies Schema<"RecordingLyricServices">);
     if (path === `${base}/download`)
       return Response.json({ error: "Not found" }, { status: 404 });
     if (path === `${base}/source-choice`)

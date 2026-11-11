@@ -1,5 +1,4 @@
 import type { Schema } from "../../../shared/schema";
-import { router } from "@inertiajs/react";
 import type { ReactNode } from "react";
 
 import MetadataObservations from "../../metadata/components/MetadataObservations";
@@ -52,7 +51,12 @@ function TrackTabs({
   const { tab, select, reveal } = useTrackTab(detail.recording_id);
   const download = useRecordingDownload(user.id, detail.recording_id);
   const [automaticLyrics] = useAccountSwitch("lyrics-auto", user.id);
-  const lyrics = useRecordingLyrics(user.id, detail, automaticLyrics);
+  const lyrics = useRecordingLyrics(
+    user.id,
+    detail,
+    automaticLyrics,
+    tab === "lyrics",
+  );
   const choice = useSourceChoice(
     user.id,
     detail.recording_id,
@@ -113,26 +117,20 @@ function TrackTabs({
               status={status}
               localFile={localFile}
               choice={choice.choice}
-              lyrics={lyrics.result}
+              lyricPreview={lyrics.preview.filter((line) => line.trim() !== "")}
               onSelect={select}
               onReveal={reveal}
             />
           )}
           {entry === "lyrics" && (
             <RecordingLyrics
-              providers={lyrics.providers}
-              available={lyrics.available}
-              pending={lyrics.pending}
-              result={lyrics.result}
-              error={lyrics.error}
-              refresh={lyrics.refresh}
-              onLoad={() => void lyrics.load()}
-              onCancel={lyrics.cancel}
-              onRefreshDetails={
-                lyrics.providers.engaged
-                  ? lyrics.refreshProviders
-                  : () => router.reload()
-              }
+              lyrics={lyrics}
+              saved={{
+                title: detail.title.value,
+                artist: detail.artist.value,
+                album: source?.album,
+                durationMs: source?.duration_ms,
+              }}
             />
           )}
           {entry === "sources" && (

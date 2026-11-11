@@ -1,168 +1,178 @@
-import type { Schema } from "../../../shared/schema";
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
-
-import RecordingCredits from "../../metadata/components/RecordingCredits";
 import Button from "../../../shared/ui/Button";
-import { time } from "../../../shared/format";
+import type { useRecordingLyrics } from "../hooks/useRecordingLyrics";
+import { lyricLanguageName } from "../model/lyricLanguage";
+import LyricChoices from "./LyricChoices";
+import LyricFinder from "./LyricFinder";
+import LyricState from "./LyricState";
+import LyricText from "./LyricText";
 
-type Props = {
-  providers: {
-    pending: boolean;
-    items: Schema<"RecordingLyricsProvider">[] | null;
-    selected: Schema<"RecordingLyricsProvider"> | null;
-    error: string;
-    refresh: boolean;
-    load: () => void;
-    select: (observation: string) => void;
-    cancel: () => void;
-  };
-  available: boolean;
-  pending: boolean;
-  result: Schema<"LyricsLookup"> | null;
-  error: string;
-  refresh: boolean;
-  onLoad: () => void;
-  onCancel: () => void;
-  onRefreshDetails: () => void;
+type SavedFacts = {
+  title: string;
+  artist: string;
+  album: string | null | undefined;
+  durationMs: number | null | undefined;
 };
 
-function languageName(code: string) {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
 export default function RecordingLyrics({
-  providers,
-  available,
-  pending,
-  result,
-  error,
-  refresh,
-  onLoad,
-  onCancel,
-  onRefreshDetails,
-}: Props) {
-  const lyrics = result?.status === "ready" ? result.document.lyrics : null;
-  const synced = lyrics?.lines.some((line) => line.start_ms > 0) ?? false;
-  const none = result?.status === "ready" && !lyrics;
+  lyrics,
+  saved,
+}: {
+  lyrics: ReturnType<typeof useRecordingLyrics>;
+  saved: SavedFacts;
+}) {
+  const [finding, setFinding] = useState(false);
+  const { identities, reader, finder } = lyrics;
+  const items = identities.items;
+  const outcome = reader.outcome;
+  const view = outcome?.kind === "lyrics" ? outcome.view : null;
+  const selected = identities.selected;
+
+  if (lyrics.lost)
+    return (
+      <section className="track-lyrics" aria-label="Lyrics">
+        <p role="alert">
+          Your account access changed. Sign in again to use lyrics.
+        </p>
+        <Button onClick={lyrics.retryAfterAccessLoss}>Try again</Button>
+      </section>
+    );
+
   return (
     <section
       className="track-lyrics"
       aria-label="Lyrics"
-      aria-busy={pending || providers.pending}
+      aria-busy={reader.pending || identities.loading}
     >
-      <div className="track-toolbar">
-        {lyrics && (
-          <span
-            className="track-chip"
-            data-tone={synced ? "success" : "neutral"}
-          >
-            {synced ? "Synced" : "Unsynced"}
-          </span>
-        )}
-        {lyrics?.language && (
-          <span className="track-chip">{languageName(lyrics.language)}</span>
-        )}
-        {none && (
-          <span className="track-chip" data-tone="warning">
-            No lyrics
-          </span>
-        )}
-        {providers.items && providers.items.length > 0 && (
-          <label className="track-field track-listbox">
-            <span className="sr-only">Lyric provider</span>
-            <select
-              value={providers.selected?.observation_id ?? ""}
-              onChange={(event) => providers.select(event.target.value)}
-            >
-              {providers.items.map((provider) => (
-                <option
-                  key={provider.observation_id}
-                  value={provider.observation_id}
-                >
-                  {provider.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {providers.pending ? (
-          <Button type="button" onClick={providers.cancel}>
-            Cancel provider request
-          </Button>
-        ) : (
-          !providers.items && (
-            <Button type="button" onClick={providers.load}>
-              Choose lyric provider
-            </Button>
-          )
-        )}
-        {available &&
-          (pending ? (
-            <Button type="button" onClick={onCancel}>
-              Cancel lyric request
-            </Button>
-          ) : (
-            <Button type="button" onClick={onLoad}>
-              <RefreshCw size={14} aria-hidden="true" />
-              {result || error ? "Retry lyrics" : "Show lyrics"}
-            </Button>
-          ))}
-      </div>
-      {providers.pending && <p role="status">Loading lyric providers…</p>}
-      {providers.error && <p role="alert">{providers.error}</p>}
-      {(providers.refresh || (available && refresh)) && (
-        <Button type="button" onClick={onRefreshDetails}>
-          Refresh track details
-        </Button>
-      )}
-      {providers.items?.length === 0 && (
-        <p className="track-muted">
-          No connected lyric providers are available for this track.
+      {identities.loading && !items && (
+        <p role="status">
+          <LyricState tone="checking">Loading lyric choices…</LyricState>
         </p>
       )}
-      {!available &&
-        !providers.pending &&
-        !providers.items &&
-        !providers.error && <p className="track-muted">No lyrics yet.</p>}
-      {available && (
+      {identities.failure && (
         <>
-          {pending && <p role="status">Loading lyrics…</p>}
-          {error && <p role="alert">{error}</p>}
-          {result?.status === "unsupported" && (
-            <p className="track-empty">
-              This provider does not offer lyrics for this track.
-            </p>
+          <p role="alert">{identities.failure.message}</p>
+          <Button onClick={identities.reload}>Try again</Button>
+        </>
+      )}
+      {items && (
+        <div className="track-toolbar">
+          {view && (
+            <span
+              className="track-chip"
+              data-tone={view.synced ? "success" : "neutral"}
+            >
+              {view.synced ? "Synced" : "Unsynced"}
+            </span>
           )}
-          {result?.status === "unavailable" && (
-            <p className="track-empty">
-              Lyrics are unavailable right now. Try again.
-            </p>
+          {view?.language && (
+            <span className="track-chip">
+              {lyricLanguageName(view.language)}
+            </span>
           )}
-          {result?.status === "cancelled" && (
-            <p className="track-empty">The lyric request was cancelled.</p>
+          {outcome?.kind === "not_found" && (
+            <span className="track-chip" data-tone="warning">
+              No lyrics
+            </span>
           )}
-          {none && (
-            <p className="track-empty">No lyrics found for this recording.</p>
+        </div>
+      )}
+      {items && items.length === 0 && (
+        <p className="track-muted">No lyrics are saved for this track yet.</p>
+      )}
+      {items && items.length > 0 && (
+        <LyricChoices
+          items={items}
+          selected={selected}
+          atLimit={identities.atLimit}
+          removing={identities.removing}
+          removalFailure={identities.removalFailure}
+          onSelect={identities.select}
+          onRemove={identities.remove}
+        />
+      )}
+      {finder.notice && <p role="status">{finder.notice}</p>}
+      {items && selected && (
+        <div className="track-toolbar">
+          {reader.pending ? (
+            <Button onClick={reader.cancel}>Cancel lyric request</Button>
+          ) : (
+            <Button variant="primary" onClick={reader.load}>
+              <RefreshCw size={14} aria-hidden="true" />
+              {outcome || reader.failure ? "Retry lyrics" : "Show lyrics"}
+            </Button>
           )}
-          {lyrics && (
-            <div className="track-lyrics-body">
-              {lyrics.rendition_label && <h3>{lyrics.rendition_label}</h3>}
-              <ol aria-label="Lyric lines" data-synced={synced}>
-                {lyrics.lines.map((line, index) => (
-                  <li
-                    key={index}
-                    data-time={synced ? time(line.start_ms / 1000) : undefined}
-                  >
-                    {line.text}
-                  </li>
-                ))}
-              </ol>
-              <RecordingCredits attribution={lyrics.attribution} />
-            </div>
+        </div>
+      )}
+      {reader.pending && (
+        <p role="status">
+          <LyricState tone="checking">Loading lyrics…</LyricState>
+        </p>
+      )}
+      {reader.failure && (
+        <>
+          <p role="alert">
+            <LyricState tone="failed">Couldn't check</LyricState>{" "}
+            {reader.failure.message}
+          </p>
+        </>
+      )}
+      {outcome?.kind === "unsupported" && (
+        <p className="track-empty">
+          This connected service can't supply lyrics in a format Hito can read.
+        </p>
+      )}
+      {outcome?.kind === "unavailable" && (
+        <p className="track-empty" role="alert">
+          <LyricState tone="failed">Couldn't check</LyricState> Lyrics are
+          unavailable right now. Try again.
+        </p>
+      )}
+      {outcome?.kind === "not_found" && (
+        <p className="track-empty">
+          <LyricState tone="none">None found</LyricState> No lyrics found for
+          this choice. It is kept, so you can also find lyrics from another
+          match.
+        </p>
+      )}
+      {view && <LyricText view={view} />}
+      {items && (
+        <>
+          <Button
+            variant={items.length === 0 ? "primary" : "secondary"}
+            aria-expanded={finding}
+            onClick={() => setFinding(!finding)}
+          >
+            Find lyrics
+          </Button>
+          {finding && (
+            <LyricFinder
+              services={finder.services}
+              servicesFailure={finder.servicesFailure}
+              service={finder.service}
+              query={finder.query}
+              search={finder.search}
+              review={{
+                saved,
+                candidate: finder.review.candidate,
+                phase: finder.review.phase,
+                review: finder.review.review,
+                failure: finder.review.failure,
+                duplicate: finder.duplicate,
+                atLimit: identities.atLimit,
+                onAccept: finder.accept,
+                onReviewAgain: () =>
+                  finder.review.candidate &&
+                  void finder.review.choose(finder.review.candidate),
+                onClose: finder.review.clear,
+              }}
+              onService={finder.chooseService}
+              onQuery={finder.setQuery}
+              onSearch={() => void finder.search.search(finder.query)}
+              onCancelSearch={finder.search.cancel}
+              onReview={(candidate) => void finder.review.choose(candidate)}
+            />
           )}
         </>
       )}

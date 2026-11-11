@@ -30,15 +30,7 @@ function Fact({
   );
 }
 
-function LyricsPreview({
-  lyrics,
-  onOpen,
-}: {
-  lyrics: Schema<"LyricsLookup"> | null;
-  onOpen(): void;
-}) {
-  const lines =
-    lyrics?.status === "ready" ? (lyrics.document.lyrics?.lines ?? []) : [];
+function LyricsPreview({ lines, onOpen }: { lines: string[]; onOpen(): void }) {
   return (
     <div className="track-block">
       <div className="track-block-head">
@@ -50,7 +42,7 @@ function LyricsPreview({
       {lines.length > 0 ? (
         <ol className="track-lyrics-preview" aria-label="Lyrics preview">
           {lines.slice(0, 4).map((line, index) => (
-            <li key={index}>{line.text}</li>
+            <li key={index}>{line}</li>
           ))}
         </ol>
       ) : (
@@ -66,7 +58,7 @@ export default function TrackOverview({
   status,
   localFile,
   choice,
-  lyrics,
+  lyricPreview,
   onSelect,
   onReveal,
 }: {
@@ -75,7 +67,7 @@ export default function TrackOverview({
   status: TrackStatus;
   localFile: boolean;
   choice: Schema<"SourceChoice"> | null;
-  lyrics: Schema<"LyricsLookup"> | null;
+  lyricPreview: string[];
   onSelect(tab: TrackTab): void;
   onReveal(anchor: TrackAnchor): void;
 }) {
@@ -183,7 +175,7 @@ export default function TrackOverview({
           </Fact>
           {lastPlayed && <Fact label="Last played">{lastPlayed}</Fact>}
         </dl>
-        <LyricsPreview lyrics={lyrics} onOpen={() => onSelect("lyrics")} />
+        <LyricsPreview lines={lyricPreview} onOpen={() => onSelect("lyrics")} />
       </div>
       {hasRail && (
         <aside className="track-rail" aria-label="Related">
