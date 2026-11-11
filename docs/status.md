@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 normalized catalog work in progress
+
+The isolated implementation candidate can export a jointly selected set of libraries with one immutable cut, cursor and root-order stream. Twelve public catalog cases pass, followed by the ten unchanged lifecycle cases on the same joint-set implementation. The tests cover provider-only metadata, personal overrides/reset, safe identity references, source choice, exact global recording order, duplicate rejection, empty ordering, account/PIN/grant isolation, shared capacity and joined retirement.
+
+This candidate is not yet integrated or exposed through HTTP or desktop. Cross-library reference authorization and retained-page access fencing, complete Details/photo inputs, strict checks and final independent review remain unfinished. The earlier rich 100,000-root candidate exceeded the unchanged ten-second construction budget; the smaller public cases do not close that gate. Incremental changes, normalized client installation, populated collections and remote audio remain open. The local running image, VPS and packages are unchanged. See [the implementation contract](catalog-journal-design.md).
+
 ## 2026-11-11 controlled native recovery diagnostics
 
 Development source now correlates recovery events with the player at normal logging levels and includes one controlled public backend-fault fixture. Its launcher owns and reaps nested processes through startup, failure and cancellation, including stopped children and termination escalation. Two review rounds and targeted resolution corrected the process and diagnostic gaps. An independent final-source Docker run passes thirteen launcher controls, 55 audio/PCM/privacy cases and two public device cases, strict Clippy, formatting and syntax checks.
