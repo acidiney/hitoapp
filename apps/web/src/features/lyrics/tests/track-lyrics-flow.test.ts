@@ -171,9 +171,7 @@ test("choose service, explicit search, review, accept, local chooser and read us
     installation_revision: serviceA.installation_revision,
     query: "my query",
   });
-  fireEvent.click(
-    lyrics.getByRole("button", { name: "Review lyrics for Found title" }),
-  );
+  fireEvent.click(lyrics.getByRole("button", { name: /^Found title/ }));
   const dialog = within(
     await screen.findByRole("dialog", {
       name: "Are these the lyrics you want?",
@@ -262,6 +260,50 @@ test("an empty search shows a search-specific empty state and the query stays ed
     target: { value: "better words" },
   });
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
-  await lyrics.findByRole("button", { name: "Review lyrics for Later hit" });
+  await lyrics.findByRole("button", { name: /^Later hit/ });
   expect(lyrics.queryByText(/No matches/)).toBeNull();
+});
+
+test("duplicate candidates collapse, exact matches rank first, rows are single buttons and the first duplicate's exact id is reviewed", async () => {
+  const { title, artist } = lyricRecordingPage.detail;
+  const duration =
+    lyricRecordingPage.detail.selected_observation?.duration_ms ?? 0;
+  const make = (id: string, name: string, ms: number) => ({
+    ...candidate(id, name),
+    artist: artist.value,
+    duration_ms: ms,
+  });
+  const server = lyricServer({
+    services: () => json(services(serviceA)),
+    identities: () => json(identities()),
+    candidates: () =>
+      json({
+        items: [
+          make("visual", `${title.value} (Visualizer)`, duration + 1500),
+          make("dup-a", "Unrelated Song", duration + 7000),
+          make("exact-first", title.value, duration + 400),
+          make("exact-dup", title.value.toUpperCase(), duration + 450),
+        ],
+      }),
+    review: () => json(review("exact-first")),
+  });
+  renderLyricsPage();
+  const lyrics = openLyricsTab();
+  await openFinder(lyrics);
+  fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
+  const list = await lyrics.findByRole("list", { name: "Lyric matches" });
+  const rows = within(list).getAllByRole("button");
+  expect(rows).toHaveLength(3);
+  expect(rows.map((row) => row.textContent)).toEqual([
+    expect.stringContaining(title.value),
+    expect.stringContaining("(Visualizer)"),
+    expect.stringContaining("Unrelated Song"),
+  ]);
+  expect(lyrics.queryByRole("button", { name: /Review lyrics/ })).toBeNull();
+  fireEvent.click(rows[0]);
+  await waitFor(() => expect(server.of("review")).toHaveLength(1));
+  expect(
+    (server.of("review")[0].body as { provider_recording_id: string })
+      .provider_recording_id,
+  ).toBe("exact-first");
 });

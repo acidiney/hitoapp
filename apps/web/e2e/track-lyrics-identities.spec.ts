@@ -83,7 +83,25 @@ async function mockLyrics(page: Page, recording: string) {
   await page.route(`${base}/candidates`, (route) => {
     note(route);
     return route.fulfill({
-      json: { items: [found] } satisfies Schema<"SearchPage">,
+      json: {
+        items: [
+          found,
+          { ...found, id: "duplicate-of-match" },
+          {
+            ...found,
+            id: "visualizer",
+            title:
+              "Matched title (Visualizer) | A very long channel title that must truncate in one line",
+            duration_ms: 213_000,
+          },
+          {
+            ...found,
+            id: "other",
+            title: "Another song",
+            duration_ms: 400_000,
+          },
+        ],
+      } satisfies Schema<"SearchPage">,
     });
   });
   await page.route(`${base}/identities/review`, (route) => {
@@ -165,8 +183,14 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   await trackShot(page, "lyr-02-find");
   expect(requests).toHaveLength(2);
   await panel.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(
+    panel.getByRole("list", { name: "Lyric matches" }).getByRole("button"),
+  ).toHaveCount(3);
+  await trackShot(page, "lyr-02b-candidates");
+  await trackShot(page, "lyr-02b-candidates-phone", "phone-dark");
   await panel
-    .getByRole("button", { name: "Review lyrics for Matched title" })
+    .getByRole("button", { name: /^Matched title/ })
+    .first()
     .click();
   const dialog = page.getByRole("dialog", {
     name: "Are these the lyrics you want?",

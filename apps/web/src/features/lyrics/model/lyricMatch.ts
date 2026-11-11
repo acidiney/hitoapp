@@ -50,3 +50,51 @@ export function confidentMatch(
     distance(item) < distance(best) ? item : best,
   );
 }
+
+const noisyTitle = /\b(visuali[sz]er|video|live|karaoke|cover|remix)\b/i;
+
+function dedupeKey(item: LyricCandidate): string {
+  return JSON.stringify([
+    normalizeLyricText(item.title),
+    normalizeLyricText(item.artist),
+    item.duration_ms == null ? null : Math.round(item.duration_ms / 1000),
+  ]);
+}
+
+export function rankLyricCandidates(
+  candidates: LyricCandidate[],
+  facts: RecordingFacts,
+): LyricCandidate[] {
+  const seen = new Set<string>();
+  const unique = candidates.filter((item) => {
+    const key = dedupeKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const title = normalizeLyricText(facts.title);
+  const score = (item: LyricCandidate, index: number) => {
+    const exact =
+      title !== "" &&
+      normalizeLyricText(item.title) === title &&
+      artistMatches(item.artist, facts.artist);
+    const distance =
+      facts.durationMs !== null && item.duration_ms != null
+        ? Math.abs(item.duration_ms - facts.durationMs)
+        : Number.MAX_SAFE_INTEGER;
+    return [
+      exact ? 0 : 1,
+      noisyTitle.test(item.title) ? 1 : 0,
+      distance,
+      index,
+    ];
+  };
+  return unique
+    .map((item, index) => ({ item, key: score(item, index) }))
+    .sort((a, b) => {
+      for (let step = 0; step < 4; step += 1)
+        if (a.key[step] !== b.key[step]) return a.key[step] - b.key[step];
+      return 0;
+    })
+    .map((entry) => entry.item);
+}

@@ -10,6 +10,7 @@ import {
 import type { LyricFailure } from "../model/lyricFailure";
 import type { LyricService } from "../model/lyricIdentity";
 import type { LyricCandidate } from "../hooks/useLyricSearch";
+import { rankLyricCandidates } from "../model/lyricMatch";
 import LyricReviewDialog, { type LyricReviewProps } from "./LyricReviewDialog";
 
 export type LyricFinderProps = {
@@ -35,7 +36,6 @@ export type LyricFinderProps = {
 function candidateFacts(candidate: LyricCandidate): string {
   return [
     candidateArtist(candidate.artist),
-    candidate.release?.title,
     candidateLength(candidate.duration_ms),
   ]
     .filter(Boolean)
@@ -85,30 +85,32 @@ export default function LyricFinder(props: LyricFinderProps) {
           ) : (
             <p className="lyric-service-name">Searching {service.label}</p>
           )}
-          <label>
-            Search text
-            <span className="discovery-query">
-              <Search size={18} aria-hidden="true" />
-              <input
-                type="search"
-                value={query}
-                maxLength={512}
-                placeholder="Track and artist"
-                onChange={(event) => props.onQuery(event.target.value)}
-              />
-            </span>
-          </label>
-          <div className="discovery-search-actions">
-            <Button
-              variant="action"
-              type="submit"
-              disabled={search.pending || query.trim() === ""}
-            >
-              {search.pending ? "Searching…" : "Search"}
-            </Button>
-            {search.pending && (
-              <Button onClick={props.onCancelSearch}>Cancel</Button>
-            )}
+          <div className="lyric-search-row">
+            <label>
+              <span className="sr-only">Search text</span>
+              <span className="discovery-query">
+                <Search size={18} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={query}
+                  maxLength={512}
+                  placeholder="Track and artist"
+                  onChange={(event) => props.onQuery(event.target.value)}
+                />
+              </span>
+            </label>
+            <div className="discovery-search-actions">
+              <Button
+                variant="action"
+                type="submit"
+                disabled={search.pending || query.trim() === ""}
+              >
+                {search.pending ? "Searching…" : "Search"}
+              </Button>
+              {search.pending && (
+                <Button onClick={props.onCancelSearch}>Cancel</Button>
+              )}
+            </div>
           </div>
         </form>
       )}
@@ -120,22 +122,30 @@ export default function LyricFinder(props: LyricFinderProps) {
       )}
       {search.candidates && search.candidates.length > 0 && (
         <ul className="rd-rows lyric-candidates" aria-label="Lyric matches">
-          {search.candidates.map((candidate, index) => (
-            <li className="rd-row lyric-candidate" key={index}>
-              <div className="lyric-candidate-copy">
-                <h3>{candidate.title}</h3>
-                <p>{candidateFacts(candidate)}</p>
-              </div>
-              <Button
-                aria-label={`Review lyrics for ${candidate.title}`}
+          {rankLyricCandidates(search.candidates, {
+            title: review.saved.title ?? "",
+            artist: review.saved.artist ?? "",
+            durationMs: review.saved.durationMs ?? null,
+          }).map((candidate, index) => (
+            <li key={index}>
+              <button
+                type="button"
+                className="lyric-candidate"
                 disabled={search.pending}
                 onClick={(event) => {
                   opener.current = event.currentTarget;
                   props.onReview(candidate);
                 }}
               >
-                Review lyrics
-              </Button>
+                <span className="lyric-candidate-copy">
+                  <span className="lyric-candidate-title">
+                    {candidate.title}
+                  </span>
+                  <span className="lyric-candidate-facts">
+                    {candidateFacts(candidate)}
+                  </span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>

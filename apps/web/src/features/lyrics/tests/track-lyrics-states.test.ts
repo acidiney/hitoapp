@@ -323,9 +323,7 @@ test("removal sends the exact identity UUID and revision, clears the read, and a
   expect(lyrics.queryByText(/Text for/)).toBeNull();
   fireEvent.click(lyrics.getByRole("button", { name: "Find lyrics" }));
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
-  fireEvent.click(
-    await lyrics.findByRole("button", { name: "Review lyrics for Again hit" }),
-  );
+  fireEvent.click(await lyrics.findByRole("button", { name: /^Again hit/ }));
   fireEvent.click(
     await screen.findByRole("button", { name: "Use these lyrics" }),
   );

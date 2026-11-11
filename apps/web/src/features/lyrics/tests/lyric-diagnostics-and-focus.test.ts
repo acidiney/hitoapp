@@ -60,7 +60,7 @@ test("lyric diagnostics carry correlation, outcome and timing but never queries,
   });
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
   await lyrics.findByRole("button", {
-    name: "Review lyrics for Secret candidate title",
+    name: /^Secret candidate title/,
   });
   const events = logged.flatMap((spy) => spy.mock.calls);
   const lyricEvents = events.filter(([event]) => event.startsWith("lyrics."));
@@ -100,7 +100,7 @@ test("the review dialog takes focus, closes on Escape and returns focus to the b
   await openFinder(lyrics);
   fireEvent.click(lyrics.getByRole("button", { name: "Search" }));
   const opener = await lyrics.findByRole("button", {
-    name: "Review lyrics for Focus candidate",
+    name: /^Focus candidate/,
   });
   opener.focus();
   fireEvent.click(opener);

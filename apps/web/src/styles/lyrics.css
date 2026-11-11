@@ -99,33 +99,64 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  gap: 0;
 }
-.lyric-candidate {
-  display: flex;
+.lyric-candidates > li {
+  display: block;
+}
+.track-lyrics .lyric-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.track-lyrics .lyric-candidate:hover:not(:disabled) {
+  background: var(--hover, rgba(242, 241, 237, 0.06));
 }
 .lyric-candidate-copy {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
-.lyric-candidate-copy h3,
-.lyric-candidate-copy p {
-  margin: 0;
-  overflow-wrap: anywhere;
+.lyric-candidate-title {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.lyric-candidate-copy h3 {
+.lyric-candidate-facts {
+  overflow: hidden;
   font-size: 14px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.lyric-candidate-copy p {
-  font-size: 13px;
-  color: var(--ink-soft);
+.lyric-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.track-lyrics .lyric-candidate > .button {
-  min-height: 44px;
-  flex-shrink: 0;
+.lyric-search-row > label {
+  flex: 1;
+  min-width: 0;
+}
+.lyric-finder .lyric-service-name {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
 }
 .track-lyrics-body ol li[data-blank] {
   height: 12px;
@@ -137,12 +168,6 @@
 .track-lyrics-body .lyric-credit a {
   color: var(--action);
   font-weight: 500;
-}
-@media (max-width: 600px) {
-  .lyric-candidate {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 .lyric-card {
   box-sizing: border-box;
