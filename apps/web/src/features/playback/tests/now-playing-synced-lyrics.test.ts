@@ -159,6 +159,37 @@ test("scrolling by hand pauses following until Back to current line", async () =
   ).toBeNull();
 });
 
+test("following puts the current line at the panel's follow anchor, centred by default", async () => {
+  state.read.mockResolvedValue(
+    lyricsOf([
+      [0, "First"],
+      [2000, "Second"],
+      [4000, "Third"],
+    ]),
+  );
+  open();
+  const lines = await screen.findByRole("group", { name: "Lyric lines" });
+  const box = (top: number, height: number) =>
+    ({ top, height, bottom: top + height }) as DOMRect;
+  lines.getBoundingClientRect = () => box(100, 400);
+  const third = screen.getByRole("button", { name: "Third" });
+  third.getBoundingClientRect = () => box(300, 40);
+  const scroll = vi.mocked(Element.prototype.scrollBy);
+  scroll.mockClear();
+  setPosition(4.5);
+  expect(scroll).toHaveBeenLastCalledWith(
+    expect.objectContaining({ top: 320 - 300 }),
+  );
+  lines.style.setProperty("--np-follow", "0.2");
+  scroll.mockClear();
+  setPosition(4.6);
+  fireEvent.wheel(lines);
+  fireEvent.click(screen.getByRole("button", { name: "Back to current line" }));
+  expect(scroll).toHaveBeenLastCalledWith(
+    expect.objectContaining({ top: 320 - 180 }),
+  );
+});
+
 test("lines without timing show at one size with no highlight and no buttons", async () => {
   state.read.mockResolvedValue(
     lyricsOf([

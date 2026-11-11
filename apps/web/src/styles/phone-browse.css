@@ -242,9 +242,21 @@
     width: 44px;
     height: 44px;
   }
+  .track-table[data-layout]:not([data-editing], [data-selecting])
+    td.number-column:has(.row-select):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .track-table[data-layout]:not([data-editing])
-    td.number-column:has(.row-select) {
-    display: none;
+    td.number-column:has(.row-select):focus-within {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-radius: 6px;
   }
   .track-table[data-layout]:not([data-editing]) td.number-column .row-play {
     width: 44px;
@@ -901,5 +913,34 @@
     height: auto;
     white-space: normal;
     text-align: center;
+  }
+}
+@media (max-width: 767px) {
+  .selection-bar {
+    position: fixed;
+    right: 8px;
+    bottom: calc(var(--tabs) + 8px);
+    left: 8px;
+    z-index: 33;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 8px 8px 8px 16px;
+    border-radius: var(--radius-panel);
+    background: var(--select-bg);
+    box-shadow: var(--shadow);
+  }
+  .selection-bar .selection-divider,
+  .selection-bar .selection-spacer {
+    display: none;
+  }
+  .selection-bar .selection-count {
+    flex: 1;
+    font-weight: 700;
+  }
+  .selection-bar button,
+  .selection-bar .selection-menu {
+    min-height: 44px;
+    border-radius: var(--radius-pill);
   }
 }

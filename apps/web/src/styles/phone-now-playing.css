@@ -174,9 +174,16 @@
     font-size: 12px;
     color: var(--ink-soft);
   }
+  .np-body:not([data-panel="player"]) {
+    overflow: hidden;
+  }
   .np-body:not([data-panel="player"]) .np-lyrics {
     flex: 1;
+    min-height: 0;
     max-height: none;
+  }
+  .np-lyrics .np-lines[data-synced] {
+    --np-follow: 0.2;
   }
   .np-lyrics {
     --np-past: #a08f84;

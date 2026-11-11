@@ -8,6 +8,7 @@ import TrackRowActions from "./TrackRowActions";
 import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import EntryMoves from "./EntryMoves";
 import RowPlay from "./RowPlay";
+import LongPressRow from "./LongPressRow";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
 import TrackRowSource from "./TrackRowSource";
 import CatalogRowActions, { CatalogRowNote } from "./CatalogRowActions";
@@ -206,8 +207,11 @@ export default function TrackTable({
                   : null;
             const playState = rowPlayState(nowPlaying, track);
             return (
-              <tr
+              <LongPressRow
                 key={rowId}
+                onLongPress={
+                  selection && track ? () => selection.toggle(rowId) : undefined
+                }
                 aria-current={playState ? "true" : undefined}
                 className={[
                   playState ? "playing-row" : "",
@@ -402,7 +406,7 @@ export default function TrackTable({
                     </div>
                   ) : null}
                 </td>
-              </tr>
+              </LongPressRow>
             );
           })}
         </tbody>

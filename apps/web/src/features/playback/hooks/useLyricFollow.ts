@@ -16,6 +16,13 @@ function reducedMotion(): boolean {
   );
 }
 
+function followAnchor(root: HTMLElement): number {
+  const value = parseFloat(
+    getComputedStyle(root).getPropertyValue("--np-follow"),
+  );
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
+}
+
 export function useLyricFollow(
   lines: Timing[],
   scroller: RefObject<HTMLElement | null>,
@@ -34,7 +41,9 @@ export function useLyricFollow(
       const lineBox = line.getBoundingClientRect();
       root.scrollBy?.({
         top:
-          lineBox.top + lineBox.height / 2 - (rootBox.top + rootBox.height / 2),
+          lineBox.top +
+          lineBox.height / 2 -
+          (rootBox.top + rootBox.height * followAnchor(root)),
         behavior: reducedMotion() ? "auto" : "smooth",
       });
     },
