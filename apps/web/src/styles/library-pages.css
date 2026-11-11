@@ -833,7 +833,9 @@ main#main:has(> .playlist-header) {
   background: transparent;
   color: var(--ink);
 }
-.library-heading-actions .button.icon-only:not(.primary):not(.heading-action) > svg {
+.library-heading-actions
+  .button.icon-only:not(.primary):not(.heading-action)
+  > svg {
   display: block;
   width: 20px;
   height: 20px;

@@ -176,7 +176,9 @@ test("on phone a click in the row plays it and a click on the menu does not", ()
     );
     return screen.getAllByRole("row").slice(1);
   })();
-  fireEvent.click(within(row).getByRole("button", { name: "Actions for Valentim" }));
+  fireEvent.click(
+    within(row).getByRole("button", { name: "Actions for Valentim" }),
+  );
   expect(play).not.toHaveBeenCalled();
   fireEvent.click(row.querySelector("td.track-cell")!);
   expect(play).toHaveBeenCalledWith(0);
@@ -193,6 +195,8 @@ test("off phone a click in the row does not play it", () => {
       mutate: vi.fn(async () => ({ ok: true as const })),
     }),
   );
-  fireEvent.click(screen.getAllByRole("row")[1].querySelector("td.track-cell")!);
+  fireEvent.click(
+    screen.getAllByRole("row")[1].querySelector("td.track-cell")!,
+  );
   expect(play).not.toHaveBeenCalled();
 });

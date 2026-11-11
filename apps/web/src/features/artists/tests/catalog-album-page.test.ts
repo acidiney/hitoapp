@@ -226,12 +226,16 @@ test("an unfound row has details and like buttons that find audio first", async 
   const table = await openPage();
   const title = catalogAlbumTitles[3];
   expect(
-    within(table).queryByRole("button", { name: `Find audio and like ${title}` }),
+    within(table).queryByRole("button", {
+      name: `Find audio and like ${title}`,
+    }),
   ).toBeNull();
   fireEvent.click(
     within(table).getByRole("button", { name: `Actions for ${title}` }),
   );
-  fireEvent.click(screen.getByRole("menuitem", { name: "Find audio and like" }));
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "Find audio and like" }),
+  );
   await waitFor(() =>
     expect(mutate).toHaveBeenCalledWith({
       kind: "like_set",

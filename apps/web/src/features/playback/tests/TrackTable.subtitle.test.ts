@@ -28,7 +28,6 @@ afterEach(() => {
   store.state = { current: null, playing: true };
 });
 
-
 function recording(id: string, title: string): TrackRow {
   return {
     id,
