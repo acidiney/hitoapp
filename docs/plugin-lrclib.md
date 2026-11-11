@@ -1,6 +1,6 @@
 # LRCLIB lyrics service
 
-The standalone Rust service and its owned protocol tests are implemented. Twenty cases pass in an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity backend is independently qualified and runs in the local development deployment. A separate bounded live executable check also passes. The full packaged UI workflow and public-release acceptance remain open.
+The standalone Rust service and its owned protocol tests are implemented. The initial twenty-case checkpoint passed an independent frozen-source Linux Docker repeat against synthetic upstream responses and private temporary credentials. The current diagnostics qualification below passes 32 cases, preserving all 24 previously accepted names. They cover search, metadata, plain lyrics, bounded LRC anchors, throttling, cancellation, complete-body deadlines, safe logs and joined executable shutdown. Both strict plugin/SDK checks and formatting pass. All 145 schema-enabled SDK tests pass independently, including the legacy server, authentication, logging and cancellation cases, alongside production default and schema-only builds. Two review rounds resolved raw absence-validation and canonical-ID gaps; their original HTTP failures remain preserved. Hito's reviewed lyric-identity backend is independently qualified and runs in the local development deployment. A separate bounded live executable check also passes. The full packaged UI workflow and public-release acceptance remain open.
 
 The service retrieves records from [LRCLIB's stable v1 API](https://lrclib.net/docs.txt), reviewed on 11 November 2026. It does not publish, flag or contribute lyrics. Anonymous upstream access requires no API key. Requests identify Hito with its name and version. Operators may supply a contact through `HITO_METADATA_CONTACT`; no personal contact is built in. Optional LRCLIB application registration is a separate upstream concern.
 
@@ -50,6 +50,33 @@ The implementation serializes upstream retrievals, spaces starts by at least one
 
 Tests use owned synthetic lyrics and an isolated HTTP upstream. Live checks are separate explicit opt-in work. Diagnostics may contain generated correlation IDs, safe outcomes, counts and elapsed times. They must exclude search terms, metadata text, lyrics, credentials, private paths and upstream response bodies.
 
+
+## Failure diagnostics
+
+Source at `101553b0` emits one WARN at `RUST_LOG=info` when an actual upstream exchange fails, or its returned data fails semantic validation. The event uses static `operation`, `reason` and `stage` values, optional numeric `upstream_status`, `elapsed_ms` and a fresh local `failure_id` UUID. That UUID identifies this plugin failure; it is not Hito's request ID. Existing debug request/workflow spans provide parent correlation when enabled.
+
+Transport failures distinguish request admission from body reads. Other reasons identify deadlines, HTTP status, invalid headers, announced or streamed body limits, malformed JSON and invalid records. For example, these excerpts contain only static diagnostic fields:
+
+```json
+{"event":"lrclib_upstream_failed","operation":"search","reason":"invalid_json","stage":"decode","upstream_status":200}
+{"event":"lrclib_upstream_failed","operation":"lyrics","reason":"transport","stage":"body","upstream_status":200}
+```
+
+Success, genuine not-found results, authentication rejection, cancellation and repeated local busy/cooldown polls stay quiet at info or use debug logs. A real upstream cooldown response warns once. Invalid or overflowing Retry-After emits `lrclib_upstream_cooldown_blocked` once with `recovery=restart_service`; subsequent blocked polls do not repeat it. Inspect the service logs without copying search terms, titles, lyric bodies, URLs, contacts or credentials into reports:
+
+```sh
+docker compose -f compose.yaml -f deploy/compose/lrclib.yaml --profile plugins logs --since 10m plugin-lrclib
+```
+
+Fresh independent R1 review passes. Root's independent sanitized current-source Docker repeat passes all 32 actual named cases with all 24 previous names retained and zero failures, ignored or filtered cases. Strict all-target Clippy, production library/CLI checks without default features and workspace formatting pass; all 4,211 source and support inputs remain unchanged. Ten current ELF executable families are preserved outside Cargo caches. Seven author behavioral failing/passing controls remain recorded separately from formatter stdout handling and retention-name audit corrections. Those verification-setup corrections changed no application test assertion.
+
+This changes observability, not HTTP responses, cooldown policy, body limits, the six-second deadline or the 10 MiB search cap. It does not fix older-account credential refusals or implement timed-first lyric priority. Current frontend/full-flow and platform acceptance remain open.
+
+## Local diagnostics deployment
+
+Only the local LRCLIB sidecar was replaced with the qualified content-addressed executable. Its actual bytes match SHA-256 `a6118b5328fa148c819edd3d070eb58740a64aa4b3a680c0ead3fb0c776b06d1`, and its manifest returns HTTP 200. The service address, credential volume, environment and runtime hardening remain unchanged. The preview and normal Hito server also remain unchanged.
+
+This is a local diagnostics deployment. It includes no Hito backend image, VPS, `main` or public-release update, and does not establish that all provider failures are fixed. See [the qualification and rollout receipt](status.md#2026-11-11-lrclib-failure-diagnostics).
 
 ## Live compatibility check
 

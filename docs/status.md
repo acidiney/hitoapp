@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 LRCLIB failure diagnostics
+
+Development source at `101553b0` now emits one safe WARN at info level for actual upstream transport, deadline, status, header, body, JSON and semantic-validation failures. Static reason/stage fields, optional upstream status and timings distinguish failure causes. Each event has an honestly local failure UUID; it is not a Hito request ID. Success, not found, authentication rejection, cancellation and repeated local busy/cooldown polling stay quiet or debug. The existing one-time invalid Retry-After recovery event remains.
+
+Fresh independent R1 review passes. Root's fresh sanitized Docker repeat passes all 32 actual named cases, retaining all 24 previous names with zero failures, ignored or filtered cases. Strict all-target Clippy, production library/CLI checks without default features and workspace formatting pass; all 4,211 inputs stay unchanged. Ten current executable families are preserved. Seven behavioral failing/passing controls remain separate from formatter stdout handling and a fully qualified retention-name audit correction; those setup corrections changed no application assertion. The verification receipt has SHA-256 `0a8b5567971c8f5ed50807da3a74817a6cac98eefe25eb4927ee1469407398dd`.
+
+Only the local LRCLIB sidecar was replaced with the qualified content-addressed binary. Actual bytes and manifest HTTP 200 pass verification; its credential volume, environment, hardening and service address are preserved. Preview and normal Hito remain unchanged. HTTP responses, limits, the six-second deadline and 10 MiB cap are unchanged. This is observability, not a credential-401 or timed-first fix. Current frontend/full-flow, platform and full-release gates remain open. No Hito backend image, VPS, `main` or public-release deployment changed. See [diagnostic fields and log inspection](plugin-lrclib.md#failure-diagnostics).
+
 ## 2026-11-11 combined automatic lyrics and playback lease backend
 
 Development source now supports ephemeral automatic lyric reads from committed authorized metadata and authenticated retained playback leases with runtime closure. Automatic reads use one approved connected service, preserve explicit manual choices and retain no identity. Lease routes preserve exact-session authority and original-audio policy, including locked-owner retirement. The exact qualified source is integrated in `4f16bf08`, `385b2969` and `25e42acb`.
