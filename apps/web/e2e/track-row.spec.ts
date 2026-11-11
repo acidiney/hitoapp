@@ -16,6 +16,7 @@ async function openLibraryList(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Grid view", exact: true }).click();
   const grid = page.locator(".track-grid .track-card");
   if ((await grid.filter({ hasText: second }).count()) === 0)
     throw new Error("The scanned fixture library is required");

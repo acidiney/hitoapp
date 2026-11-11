@@ -4,7 +4,7 @@ import { Link } from "@inertiajs/react";
 import { Link2, Plus } from "lucide-react";
 
 import EmptyState from "../../../shared/ui/EmptyState";
-import PageHeading from "../../../shared/ui/PageHeading";
+import LibraryHeading from "../../../app/LibraryHeading";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import Artwork from "../../artwork/components/Artwork";
@@ -40,14 +40,15 @@ export default function PlaylistIndexPage({
   );
   return (
     <>
-      <PageHeading
+      <LibraryHeading
+        path="/playlists"
         title="Playlists"
         description={`${playlists.length} ${playlists.length === 1 ? "playlist" : "playlists"}`}
       >
         {playlists.length > 0 && (
           <div className="page-heading-actions">{actions}</div>
         )}
-      </PageHeading>
+      </LibraryHeading>
       {playlists.length > 0 ? (
         <div className="playlist-list">
           {playlists.map((playlist) => (

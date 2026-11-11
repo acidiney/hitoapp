@@ -6,7 +6,10 @@ import Pagination from "../../../shared/ui/Pagination";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
-import TrackToolbar from "../../playback/components/TrackToolbar";
+import PlayShuffle from "../../playback/components/PlayShuffle";
+import LibraryHeading from "../../../app/LibraryHeading";
+import SelectionBar from "./SelectionBar";
+import { useTrackSelection } from "../hooks/useTrackSelection";
 import { useState, type ReactNode } from "react";
 import { Grid2X2, List } from "lucide-react";
 import TrackGrid from "../../playback/components/TrackGrid";
@@ -16,6 +19,9 @@ import SortControl from "../../../shared/ui/SortControl";
 import type { SortOption } from "../../../shared/hooks/useCatalogSort";
 
 export default function CatalogResults({
+  title,
+  description,
+  headingActions,
   user,
   playlists,
   query,
@@ -30,6 +36,9 @@ export default function CatalogResults({
   Schema<"CatalogPageProps">,
   "user" | "playlists" | "query" | "recordings"
 > & {
+  title: string;
+  description: string;
+  headingActions?: ReactNode;
   path: string;
   emptyTitle: string;
   emptyText: string;
@@ -42,7 +51,9 @@ export default function CatalogResults({
   };
 }) {
   const { mutate } = useMutation(user.id);
-  const [view, setView] = useState<"grid" | "list">(browse ? "grid" : "list");
+  const rowIds = recordings.items.map((track) => track.id);
+  const selection = useTrackSelection(rowIds);
+  const [view, setView] = useState<"grid" | "list">("list");
   function changeView(mode: "grid" | "list") {
     log.debug("catalog.view", { mode, account_id: user.id });
     setView(mode);
@@ -59,24 +70,26 @@ export default function CatalogResults({
   );
   return (
     <>
+      <LibraryHeading path={path} title={title} description={description}>
+        <div className="library-heading-actions">
+          {headingActions}
+          {tracks.length > 0 && (
+            <PlayShuffle
+              tracks={tracks}
+              listing={listing}
+              label="tracks"
+              tone="plain"
+            />
+          )}
+        </div>
+      </LibraryHeading>
       {tracks.length > 0 ? (
         <>
-          <TrackToolbar
-            tracks={tracks}
-            listing={listing}
-            description={
-              recordings.total > recordings.limit
-                ? `Showing ${recordings.offset + 1}–${recordings.offset + tracks.length}`
-                : ""
-            }
+          <div
+            role="group"
+            aria-label="Sort tracks"
+            className="library-filters"
           >
-            {sort && (
-              <SortControl
-                options={sort.options}
-                value={sort.value}
-                onChange={sort.onChange}
-              />
-            )}
             <div className="view-toggle" role="group" aria-label="Library view">
               <button
                 className="icon-button"
@@ -95,7 +108,20 @@ export default function CatalogResults({
                 <List size={19} />
               </button>
             </div>
-          </TrackToolbar>
+            {sort && (
+              <SortControl
+                options={sort.options}
+                value={sort.value}
+                onChange={sort.onChange}
+              />
+            )}
+          </div>
+          <SelectionBar
+            account={user.id}
+            playlists={playlists}
+            tracks={tracks}
+            selection={selection}
+          />
           {view === "grid" ? (
             <TrackGrid
               tracks={tracks}
@@ -111,6 +137,8 @@ export default function CatalogResults({
               }))}
               listing={listing}
               offset={recordings.offset}
+              layout="library"
+              selection={browse ? selection : undefined}
               playlists={playlists}
               mutate={mutate}
             />

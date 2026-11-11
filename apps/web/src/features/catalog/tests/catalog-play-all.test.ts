@@ -76,6 +76,8 @@ function library(total: number, offset: number, query = "", path = "/library") {
     query,
     recordings: page,
     path,
+    title: "Library",
+    description: "",
     emptyTitle: "Empty",
     emptyText: "Empty",
   });

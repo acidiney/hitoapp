@@ -1,3 +1,4 @@
+import LibrarySections from "../../../app/LibrarySections";
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { friendlyTime } from "../../../shared/format";
@@ -43,6 +44,7 @@ export default function PodcastIndexPage({
           retry={workflow.retry}
         />
       </header>
+      <LibrarySections path="/podcasts" />
       {workflow.statusError && (
         <div>
           <p role="alert">{workflow.statusError}</p>

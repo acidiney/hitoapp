@@ -258,7 +258,7 @@ test("group detail stays within Artists navigation", () => {
   ).toBe("page");
   expect(
     within(sections)
-      .getByRole("link", { name: "Library" })
+      .getByRole("link", { name: "Tracks" })
       .getAttribute("aria-current"),
   ).toBeNull();
   expect(

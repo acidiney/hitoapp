@@ -3,11 +3,11 @@ import type { Schema } from "../../../shared/schema";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
-import PageHeading from "../../../shared/ui/PageHeading";
+import LibraryHeading from "../../../app/LibraryHeading";
+import PlayShuffle from "../../playback/components/PlayShuffle";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
-import TrackToolbar from "../../playback/components/TrackToolbar";
 import { setting } from "../../settings/model/settingsCatalog";
 import { settingHref } from "../../settings/model/settingsSearch";
 
@@ -28,10 +28,17 @@ export default function HistoryPage({
   }));
   return (
     <>
-      <PageHeading
+      <LibraryHeading
+        path="/history"
         title="Listening history"
         description={`${tracks.length} recently played ${tracks.length === 1 ? "track" : "tracks"}`}
-      />
+      >
+        {tracks.length > 0 && (
+          <div className="library-heading-actions">
+            <PlayShuffle tracks={tracks} label="tracks" tone="plain" />
+          </div>
+        )}
+      </LibraryHeading>
       {tracks.length > 0 ? (
         <>
           {!history_enabled && (
@@ -45,12 +52,12 @@ export default function HistoryPage({
               </Link>
             </p>
           )}
-          <TrackToolbar tracks={tracks} />
           <TrackTable
             rows={tracks.map<TrackTableRow>((track) => ({
               kind: "recording",
               track,
             }))}
+            layout="library"
             playlists={playlists}
             mutate={mutate}
           />

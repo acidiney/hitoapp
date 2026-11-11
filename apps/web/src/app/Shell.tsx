@@ -8,7 +8,6 @@ import AccountMenu from "./AccountMenu";
 import ShellShortcuts from "./ShellShortcuts";
 import LibrarySearch from "./LibrarySearch";
 import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
-import LibrarySections from "./LibrarySections";
 import { searchPlacement } from "./searchPlacement";
 import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import Sidebar from "./Sidebar";
@@ -18,8 +17,6 @@ import { PlaybackProvider } from "../features/playback/components/PlaybackProvid
 import { TrackActionsProvider } from "../features/playback/components/TrackActionsProvider";
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
-
-const DETAIL_PAGES = new Set(["RecordingDetailsPage"]);
 
 function libraryTarget(component: string): "albums" | "artists" | "library" {
   if (component === "AlbumIndexPage") return "albums";
@@ -83,9 +80,6 @@ export default function Shell({ children }: { children: ReactNode }) {
                     query={url.searchParams.get("q") ?? ""}
                     target={libraryTarget(page.component)}
                   />
-                )}
-                {!DETAIL_PAGES.has(page.component) && (
-                  <LibrarySections path={url.pathname} />
                 )}
                 <ConnectionNotice />
                 <NoticeBanner />

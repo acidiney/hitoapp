@@ -188,7 +188,6 @@ test("library sections keep every collection page reachable from Library", () =>
     "/playlists",
     "/podcasts",
     "/audiobooks",
-    "/likes",
     "/history",
   ]);
   expect(

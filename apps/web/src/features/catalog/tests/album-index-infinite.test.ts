@@ -100,8 +100,8 @@ test("the albums page offers a sort control and asks the server for the chosen o
   );
   vi.stubGlobal("fetch", fetch);
   render(createElement(AlbumIndexPage, props()));
-  expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe(
-    "Year, newest first",
+  expect(screen.getByRole("combobox", { name: "Sort" }).textContent).toBe(
+    "SortYear",
   );
   fireEvent.click(screen.getByRole("button", { name: "Load more" }));
   await waitFor(() =>

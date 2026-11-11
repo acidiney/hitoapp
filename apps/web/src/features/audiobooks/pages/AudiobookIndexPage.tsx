@@ -1,3 +1,4 @@
+import LibrarySections from "../../../app/LibrarySections";
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
@@ -28,6 +29,7 @@ export default function AudiobookIndexPage({
         </div>
         <AudiobookCreate {...grouping} />
       </header>
+      <LibrarySections path="/audiobooks" />
       <AudiobookPagination
         {...navigation}
         limit={book_pagination.limit}

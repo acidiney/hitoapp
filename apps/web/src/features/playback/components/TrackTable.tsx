@@ -11,6 +11,7 @@ import PlaylistEntryRemove from "./PlaylistEntryRemove";
 import EntryMoves from "./EntryMoves";
 import RowPlay from "./RowPlay";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
+import TrackRowSource from "./TrackRowSource";
 import CatalogRowActions, { CatalogRowNote } from "./CatalogRowActions";
 import TrackNames, { artistHref, albumHref } from "./TrackNames";
 import { trackHref } from "./TrackRowMenu";
@@ -70,6 +71,11 @@ export type PlaylistEdit = {
 
 export type TrackColumn = "artist" | "album";
 
+export type RowSelection = {
+  selected: ReadonlySet<string>;
+  toggle(id: string): void;
+};
+
 function trackNumber(track: TrackRow, fallback: number): string | number {
   if (track.track_number == null) return fallback;
   const disc =
@@ -94,7 +100,11 @@ export default function TrackTable({
   catalog,
   without = [],
   artistPage,
+  layout,
+  selection,
 }: {
+  layout?: "library" | "playlist";
+  selection?: RowSelection;
   catalog?: CatalogControls;
   edit?: PlaylistEdit;
   rows: TrackTableRow[];
@@ -135,23 +145,32 @@ export default function TrackTable({
     row.kind !== "recording" ||
     row.track.artist_id !== artistPage;
   const showArtist =
-    !without.includes("artist") && rows.some(creditedElsewhere);
-  const showAlbum = !without.includes("album") && anyAlbum;
+    !layout && !without.includes("artist") && rows.some(creditedElsewhere);
+  const showAlbum =
+    !without.includes("album") && anyAlbum && !(layout && edit?.active);
   return (
     <div className="table-scroll">
       <table
         className="track-table"
         data-editing={edit?.active || undefined}
+        data-layout={layout}
         aria-label={playlist ? "Playlist entries" : "Tracks"}
       >
         <thead>
           <tr>
             <th className="number-column">
-              <span className="sr-only">Play</span>#
+              {selection ? (
+                "Select"
+              ) : (
+                <>
+                  <span className="sr-only">Play</span>#
+                </>
+              )}
             </th>
             <th>Title</th>
             {showArtist && <th className="artist-column">Artist</th>}
             {showAlbum && <th className="album-column">Album</th>}
+            {layout && <th className="source-column">Availability</th>}
             <th className="duration-column">Time</th>
             <th>
               <span className="sr-only">Actions</span>
@@ -194,12 +213,22 @@ export default function TrackTable({
                 className={[
                   track !== null && currentId === track.id ? "playing-row" : "",
                   edit?.removed.has(rowId) ? "removed-row" : "",
+                  selection?.selected.has(rowId) ? "selected-row" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
                 <td className="number-column">
-                  {view && catalog ? (
+                  {selection && track ? (
+                    <label className="row-select">
+                      <input
+                        type="checkbox"
+                        checked={selection.selected.has(rowId)}
+                        aria-label={`Select ${track.title}`}
+                        onChange={() => selection.toggle(rowId)}
+                      />
+                    </label>
+                  ) : view && catalog ? (
                     <RowPlay
                       title={view.title}
                       number={view.number}
@@ -216,6 +245,15 @@ export default function TrackTable({
                   )}
                 </td>
                 <td className="track-cell">
+                  {selection && track && (
+                    <span className="cover-play">
+                      <RowPlay
+                        title={track.title}
+                        number=""
+                        onPlay={() => play(track)}
+                      />
+                    </span>
+                  )}
                   {view && !track ? (
                     <Artwork
                       fallback={{
@@ -251,19 +289,19 @@ export default function TrackTable({
                       <CatalogRowNote status={view.status} />
                     ) : row.kind === "retained" ? (
                       <small>{retainedNote(row.entry.origin)}</small>
-                    ) : (
+                    ) : layout ? null : (
                       <TrackAvailabilityNote track={track!} />
                     )}
                     <TrackNames
                       className="track-meta"
                       artist={
-                        showArtist && creditedElsewhere(row)
+                        (showArtist || layout) && creditedElsewhere(row)
                           ? display.artist
                           : undefined
                       }
                       artistHref={artistLink}
                       credited={track?.credited_artists}
-                      album={showAlbum ? album : null}
+                      album={showAlbum && !layout ? album : null}
                       albumHref={albumLink}
                     />
                   </div>
@@ -282,6 +320,13 @@ export default function TrackTable({
                 {showAlbum && (
                   <td className="album-column muted">
                     <TrackNames album={album} albumHref={albumLink} />
+                  </td>
+                )}
+                {layout && (
+                  <td className="source-column">
+                    <TrackRowSource
+                      track={row.kind === "retained" ? null : track}
+                    />
                   </td>
                 )}
                 <td className="duration-column muted">

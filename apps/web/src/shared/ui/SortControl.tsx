@@ -12,7 +12,8 @@ export default function SortControl({
   return (
     <div className="sort-control">
       <Listbox
-        label="Sort by"
+        label="Sort"
+        inlineLabel
         options={options}
         value={value}
         onChange={onChange}

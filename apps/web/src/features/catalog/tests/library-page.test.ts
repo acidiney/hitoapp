@@ -180,10 +180,10 @@ test("library descriptions", () => {
 test("library tracks offer a sort control that defaults to recently added and writes the choice to the address", () => {
   window.history.replaceState(null, "", "/library?q=blue");
   page(props());
-  const control = screen.getByRole("combobox", { name: "Sort by" });
-  expect(control.textContent).toBe("Recently added");
+  const control = screen.getByRole("combobox", { name: "Sort" });
+  expect(control.textContent).toBe("SortRecently added");
   fireEvent.click(control);
-  fireEvent.click(screen.getByRole("option", { name: "Artist A–Z" }));
+  fireEvent.click(screen.getByRole("option", { name: "Artist" }));
   expect(router.get).toHaveBeenCalledWith(
     "/library",
     { q: "blue", sort: "artist" },
@@ -194,5 +194,5 @@ test("library tracks offer a sort control that defaults to recently added and wr
 
 test("an empty library shows no sort control", () => {
   page(props({ tracks: 0 }));
-  expect(screen.queryByRole("combobox", { name: "Sort by" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Sort" })).toBeNull();
 });

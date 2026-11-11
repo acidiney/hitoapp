@@ -9,16 +9,18 @@ function SectionStrip({ current }: { current: string }) {
   useScrollFade(strip);
   return (
     <nav ref={strip} className="library-sections" aria-label="Library sections">
-      {LIBRARY_SECTIONS.map(({ href, label }) => (
-        <Link
-          key={href}
-          href={href}
-          aria-current={href === current ? "page" : undefined}
-          onClick={() => log.info("navigation.requested", { route: href })}
-        >
-          {label}
-        </Link>
-      ))}
+      {LIBRARY_SECTIONS.filter((section) => section.tab !== false).map(
+        ({ href, label }) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={href === current ? "page" : undefined}
+            onClick={() => log.info("navigation.requested", { route: href })}
+          >
+            {label}
+          </Link>
+        ),
+      )}
     </nav>
   );
 }

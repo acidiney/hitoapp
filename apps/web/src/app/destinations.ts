@@ -7,16 +7,16 @@ export type Destination =
   | "settings"
   | null;
 
-export type LibrarySection = { href: string; label: string };
+export type LibrarySection = { href: string; label: string; tab?: false };
 
 export const LIBRARY_SECTIONS: LibrarySection[] = [
-  { href: "/library", label: "Library" },
+  { href: "/library", label: "Tracks" },
   { href: "/albums", label: "Albums" },
   { href: "/artists", label: "Artists" },
   { href: "/playlists", label: "Playlists" },
   { href: "/podcasts", label: "Podcasts" },
   { href: "/audiobooks", label: "Audiobooks" },
-  { href: "/likes", label: "Liked tracks" },
+  { href: "/likes", label: "Liked tracks", tab: false },
   { href: "/history", label: "History" },
 ];
 

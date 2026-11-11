@@ -42,8 +42,8 @@ afterEach(() => visit(""));
 test("tracks, albums and artists offer their own sort choices, newest first by default", () => {
   expect(TRACK_SORTS.map((option) => option.label)).toEqual([
     "Recently added",
-    "Title A–Z",
-    "Artist A–Z",
+    "Title",
+    "Artist",
   ]);
   expect(ALBUM_SORTS.map((option) => option.value)).toEqual([
     "recent",
@@ -70,16 +70,16 @@ test("an unknown or unsupported sort in the address falls back to recently added
 test("the sort control is a labelled listbox that shows the chosen sort", () => {
   visit("?sort=title");
   render(createElement(Harness, { path: "/albums", options: ALBUM_SORTS }));
-  const control = screen.getByRole("combobox", { name: "Sort by" });
-  expect(control.textContent).toBe("Title A–Z");
+  const control = screen.getByRole("combobox", { name: "Sort" });
+  expect(control.textContent).toBe("SortTitle");
   fireEvent.click(control);
   expect(
     screen.getAllByRole("option").map((option) => option.textContent),
   ).toEqual([
     "Recently added",
-    "Title A–Z",
-    "Artist A–Z",
-    "Year, newest first",
+    "Title",
+    "Artist",
+    "Year",
   ]);
   expect(document.querySelector("select")).toBeNull();
 });
@@ -87,8 +87,8 @@ test("the sort control is a labelled listbox that shows the chosen sort", () => 
 test("choosing a sort keeps the other filters, restarts paging and records the sort in the address", () => {
   visit("?q=moon&offset=60");
   render(createElement(Harness, { path: "/albums", options: ALBUM_SORTS }));
-  fireEvent.click(screen.getByRole("combobox", { name: "Sort by" }));
-  fireEvent.click(screen.getByRole("option", { name: "Year, newest first" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "Sort" }));
+  fireEvent.click(screen.getByRole("option", { name: "Year" }));
   expect(get).toHaveBeenCalledWith(
     "/albums",
     { q: "moon", sort: "year" },
@@ -99,7 +99,7 @@ test("choosing a sort keeps the other filters, restarts paging and records the s
 test("choosing the default sort removes it from the address", () => {
   visit("?sort=artist&q=moon");
   render(createElement(Harness, { path: "/albums", options: ALBUM_SORTS }));
-  fireEvent.click(screen.getByRole("combobox", { name: "Sort by" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "Sort" }));
   fireEvent.click(screen.getByRole("option", { name: "Recently added" }));
   expect(get).toHaveBeenCalledWith(
     "/albums",

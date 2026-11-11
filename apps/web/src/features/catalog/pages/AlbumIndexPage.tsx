@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 
-import PageHeading from "../../../shared/ui/PageHeading";
+import LibraryHeading from "../../../app/LibraryHeading";
 import AlbumGrid from "../components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import LoadMore from "../../../shared/ui/LoadMore";
@@ -32,18 +32,16 @@ export default function AlbumIndexPage({
   });
   return (
     <>
-      <PageHeading
-        title="Albums"
-        description={`${releases.total} ${releases.total === 1 ? "album" : "albums"}`}
-      >
+      <LibraryHeading path="/albums" title="Albums" />
+      <div className="library-filters">
         <SortControl
           options={order.options}
           value={order.sort}
           onChange={order.change}
         />
-      </PageHeading>
+      </div>
       {loaded.items.length ? (
-        <AlbumGrid releases={loaded.items} />
+        <AlbumGrid releases={loaded.items} layout="library" />
       ) : (
         <EmptyState
           title={query ? "No matching albums" : "Your albums will be here"}

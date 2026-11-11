@@ -4,7 +4,6 @@ import { FolderPlus, FolderSync } from "lucide-react";
 
 import { useScanJob } from "../../library/hooks/useScanJob";
 import CatalogResults from "../components/CatalogResults";
-import PageHeading from "../../../shared/ui/PageHeading";
 import Button from "../../../shared/ui/Button";
 import { libraryDescription } from "../model/libraryCounts";
 import {
@@ -22,28 +21,27 @@ export default function CatalogPage(props: Schema<"CatalogPageProps">) {
     (props.recordings.total > 0 || Boolean(props.query));
   return (
     <>
-      <PageHeading
+      <CatalogResults
+        {...props}
         title="Your library"
         description={libraryDescription({
           total: props.recordings.total,
           files: props.files,
           query: props.query,
         })}
-      >
-        {canScan && (
-          <Button
-            className="heading-action"
-            aria-label={scanLabel}
-            disabled={scanning}
-            onClick={() => void scan()}
-          >
-            <FolderSync size={17} />
-            <span className="button-label">{scanLabel}</span>
-          </Button>
-        )}
-      </PageHeading>
-      <CatalogResults
-        {...props}
+        headingActions={
+          canScan && (
+            <Button
+              className="heading-action"
+              aria-label={scanLabel}
+              disabled={scanning}
+              onClick={() => void scan()}
+            >
+              <FolderSync size={17} />
+              <span className="button-label">{scanLabel}</span>
+            </Button>
+          )
+        }
         path="/library"
         browse
         sort={{

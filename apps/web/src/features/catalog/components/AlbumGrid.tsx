@@ -6,11 +6,13 @@ import { releaseCreditLabel } from "../model/albumCredit";
 
 export default function AlbumGrid({
   releases,
+  layout,
 }: {
   releases: Schema<"Release">[];
+  layout?: "library";
 }) {
   return (
-    <div className="album-grid">
+    <div className="album-grid" data-layout={layout}>
       {releases.map((release) => (
         <article className="album-card" key={release.id}>
           <Link
@@ -46,11 +48,13 @@ export default function AlbumGrid({
           ) : (
             <CreditText release={release} />
           )}
-          <small>
-            {release.year !== null && `${release.year} · `}
-            {release.track_count}{" "}
-            {release.track_count === 1 ? "track" : "tracks"}
-          </small>
+          {layout !== "library" && (
+            <small>
+              {release.year !== null && `${release.year} · `}
+              {release.track_count}{" "}
+              {release.track_count === 1 ? "track" : "tracks"}
+            </small>
+          )}
         </article>
       ))}
     </div>

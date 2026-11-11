@@ -78,10 +78,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
   await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
-  await chooseOption(
-    page.getByRole("combobox", { name: "Sort by" }),
-    "Title A–Z",
-  );
+  await chooseOption(page.getByRole("combobox", { name: "Sort" }), "Title");
   await expect(page).toHaveURL(/\/library\?sort=title$/);
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
@@ -146,11 +143,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     )
     .toBeGreaterThan(before);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
-  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await expect(page.getByText("Made by you")).toHaveCount(0);
   await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "List view", exact: true }).click();
-  await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
   await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
   await trackTitleLink(page.locator(".track-grid"), "Fixture 440 Hz").click();
@@ -405,7 +400,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     expanded.getByRole("heading", { name: "Fixture 440 Hz", exact: true }),
   ).toBeVisible();
-  await expect(expanded.locator(".np-next li")).toHaveCount(1);
+  await expect(expanded.locator(".np-next-row")).toHaveCount(1);
   await page.screenshot({
     path: "/workspace/test-results/now-playing-desktop.png",
   });
@@ -437,7 +432,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     "Audio is unavailable",
   );
   await page.unroute("**/api/v1/recordings/*/playback-sources");
-  await expanded.getByRole("link", { name: "See full queue" }).click();
+  await expanded.getByRole("link", { name: "Open queue" }).click();
   await expect(page).toHaveURL(/\/queue$/);
   await expect(
     page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
