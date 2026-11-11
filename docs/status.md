@@ -2,11 +2,11 @@
 
 ## 2026-11-11 native follow-up and normalized encoding
 
-The isolated native candidate's latest independent standard run passes 70 of 71 cases. The earlier 2× gapless and authority-history failures pass after an epoch-fenced readiness correction and a reversible outage-fixture correction. The expired-link seek case now waits for matching post-seek progress and passes, alongside a new held-recovery negative control. A different case fails its captured-tone assertion after a playing source is withdrawn. It is under investigation; the complete transport gate remains failing. A separate four-case bounded Loom repeat passes, without closing physical-output requirements. See [native evidence and limits](native-decoding-fallback.md#development-output-policy-candidate).
+Development source now includes the bounded Linux ALSA output request, epoch-fenced successor readiness and reversible authority-outage fixture. The final independent standard run passes all 71 native transport cases in 331.83 seconds, with no failures or skips. All 2,519 Rust, SQL and Cargo inputs remain exact. Original 70 case names remain, with one new held-seek negative control. Recovery tests now require presented progress before checking captured audio, preserving their deadlines and audio thresholds. The earlier failing results remain recorded; the narrow midstream diagnostic did not reproduce its historical amplitude failure. A separate four-case bounded Loom repeat passes. Physical output, p95, startup failure and historical missing-frame classification remain open. See [native evidence and limits](native-decoding-fallback.md#development-output-policy-candidate).
 
 The frozen normalized full-export candidate passes 40 public behavior cases and ten lifecycle cases, plus selected legacy regressions. A separate typed encoding prototype covers all 33 fact kinds structurally, but its largest synthetic 100,000-recording projection uses 149,979,061 bytes, exceeding 128 MiB by 15,761,333 bytes, and takes 87.6 seconds. Those are encoding-cost measurements, not a coherent public Core export or constructor benchmark. Direct typed encoding, exact aliases and page packing are now being implemented with public semantic-roundtrip tests. The original capacity and ten-second construction gates remain unchanged. See [the representation decision](catalog-journal-design.md#normalized-encoding-development).
 
-Both candidates remain isolated. No application image, VPS or desktop package changed.
+The normalized candidate remains isolated. Native changes are integrated in the development branch; no application image, VPS or desktop package changed.
 
 ## 2026-11-11 artist photo invalidation qualification
 
