@@ -11,6 +11,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Playback } from "../playback";
 import QueueScreen from "../components/QueueScreen";
 import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
+import { forgetQueuedByYouForTests } from "../queuedByYou";
 
 let player: Playback;
 vi.mock("../components/PlaybackProvider", () => ({ usePlayer: () => player }));
@@ -138,4 +139,28 @@ test("the heading separates the total from what is up next", () => {
 
 test("Save as playlist is not offered without a capability", () => {
   expect(screen.queryByRole("button", { name: /Save as playlist/ })).toBeNull();
+});
+
+test("a track sent with Play next sits in its own group until it plays", async () => {
+  forgetQueuedByYouForTests();
+  await waitFor(() => expect(upNext().length).toBe(3));
+  expect(screen.queryByText("Queued by you · plays first")).toBeNull();
+  await player.playNext(queueTrack("x", "Sent next"));
+  const first = await screen.findByRole("region", {
+    name: "Queued by you · plays first",
+  });
+  await waitFor(() =>
+    expect(within(first).getByText("Sent next")).toBeTruthy(),
+  );
+  const rest = screen.getByRole("region", { name: "Up next" });
+  expect(within(rest).queryByText("Sent next")).toBeNull();
+  await waitFor(() =>
+    expect(within(rest).getAllByRole("listitem").length).toBe(3),
+  );
+  forgetQueuedByYouForTests();
+});
+
+test("the Played disclosure shows a chevron and the count in one label", async () => {
+  const summary = screen.getByText("Played (1)").closest("summary")!;
+  expect(summary.querySelector("svg")).toBeTruthy();
 });

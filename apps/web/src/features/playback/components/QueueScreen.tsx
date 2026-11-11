@@ -8,7 +8,8 @@ import Dialog from "../../../shared/ui/Dialog";
 import PageHeading from "../../../shared/ui/PageHeading";
 import { time } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import { X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
+import { useQueuedFirst } from "../hooks/useQueuedFirst";
 import PlayerTrackActions from "./PlayerTrackActions";
 import type { Player, PlaybackOccurrence, QueueView } from "../model";
 
@@ -65,6 +66,8 @@ export default function QueueScreen({
   const current = entry?.recording ?? playing;
   const currentId = entry?.id ?? view.currentEntry;
   const played = view.currentIndex ?? 0;
+  const queuedFirst = useQueuedFirst(player, view);
+  const firstOfNext = (view.currentIndex ?? -1) + 1;
   const upNext = Math.max(0, view.total - (view.currentIndex ?? -1) - 1);
   const [playedOpen, setPlayedOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -155,16 +158,30 @@ export default function QueueScreen({
           className="queue-played"
           onToggle={(event) => setPlayedOpen(event.currentTarget.open)}
         >
-          <summary>{`Played (${played.toLocaleString()})`}</summary>
+          <summary>
+            <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" />
+            <span>{`Played (${played.toLocaleString()})`}</span>
+          </summary>
           {playedOpen && <QueueList from={0} to={played} />}
         </details>
+      )}
+      {queuedFirst > 0 && (
+        <section
+          aria-labelledby={docked ? "queue-first-dock" : "queue-first"}
+          className="queue-first"
+        >
+          <h2 id={docked ? "queue-first-dock" : "queue-first"}>
+            Queued by you · plays first
+          </h2>
+          <QueueList from={firstOfNext} to={firstOfNext + queuedFirst} />
+        </section>
       )}
       <section
         aria-labelledby={docked ? "queue-next-dock" : "queue-next"}
         className="queue-next"
       >
         <h2 id={docked ? "queue-next-dock" : "queue-next"}>Up next</h2>
-        <QueueList from={(view.currentIndex ?? -1) + 1} />
+        <QueueList from={firstOfNext + queuedFirst} />
         <p className="queue-hint">
           Tracks without a source are skipped. <kbd>{mac ? "⌥↑" : "Alt ↑"}</kbd>{" "}
           <kbd>{mac ? "⌥↓" : "Alt ↓"}</kbd>

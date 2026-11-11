@@ -1,3 +1,4 @@
+import { rememberQueuedByYou } from "./queuedByYou";
 import type { Schema } from "../../shared/schema";
 import {
   MAX_QUEUE_ENTRIES,
@@ -541,6 +542,7 @@ export class Playback implements Player {
     const following = this.queue.at(this.state.index + 1);
     if (following && following.id !== added)
       this.moveEntry(added, following.id);
+    rememberQueuedByYou(added);
   }
 
   continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
