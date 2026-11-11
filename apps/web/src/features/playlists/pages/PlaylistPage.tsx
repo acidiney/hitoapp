@@ -12,6 +12,9 @@ import PlaylistEditPanel from "../components/PlaylistEditPanel";
 import DiscardEditsDialog from "../components/DiscardEditsDialog";
 import { usePlaylistEdit } from "../hooks/usePlaylistEdit";
 import Artwork from "../../artwork/components/Artwork";
+import PlaylistMosaic, {
+  mosaicCovers,
+} from "../../artwork/components/PlaylistMosaic";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import TrackTable, {
@@ -89,6 +92,7 @@ export default function PlaylistPage({
   const tracks = savedRows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
+  const covers = mosaicCovers(tracks);
   const entryCount = detail.entries.length;
   async function remove() {
     const result = await mutate({
@@ -121,16 +125,20 @@ export default function PlaylistPage({
           />
         }
         cover={
-          <Artwork
-            playlistId={copied ? detail.playlist.id : undefined}
-            recording={copied ? undefined : tracks[0]?.id}
-            fallback={{
-              id: headerCoverId(detail.playlist.id),
-              title: detail.playlist.name,
-              artist: "Playlist",
-            }}
-            playlist
-          />
+          !copied && covers.length > 1 ? (
+            <PlaylistMosaic covers={covers} />
+          ) : (
+            <Artwork
+              playlistId={copied ? detail.playlist.id : undefined}
+              recording={copied ? undefined : tracks[0]?.id}
+              fallback={{
+                id: headerCoverId(detail.playlist.id),
+                title: detail.playlist.name,
+                artist: "Playlist",
+              }}
+              playlist
+            />
+          )
         }
         eyebrow={
           followed

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import Artwork from "../components/Artwork";
 import { ArtworkProvider } from "../components/ArtworkProvider";
+import { mosaicCovers } from "../components/PlaylistMosaic";
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -50,4 +51,22 @@ test("a failed image leaves only the generated cover", () => {
   fireEvent.error(container.querySelector("img")!);
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelectorAll(".fallback-cover")).toHaveLength(1);
+});
+
+test("a playlist mosaic takes the first four distinct covers", () => {
+  const track = (id: string, release: string | null) => ({
+    id,
+    release_id: release,
+    album: release ? `Album ${release}` : null,
+    title: `Track ${id}`,
+  });
+  const covers = mosaicCovers([
+    track("t1", "a"),
+    track("t2", "a"),
+    track("t3", "b"),
+    track("t4", null),
+    track("t5", "c"),
+    track("t6", "d"),
+  ]);
+  expect(covers.map((cover) => cover.key)).toEqual(["a", "b", "t4", "c"]);
 });

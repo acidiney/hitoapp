@@ -284,7 +284,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
           .getByRole("link", { name: fixture.recording.title, exact: true }),
       ).toBeVisible();
       await expect(
-        rows.nth(index).getByText("Not playable yet", { exact: true }),
+        rows.nth(index).getByText("No source", { exact: true }),
       ).toBeVisible();
     }
     for (const [index, status] of [

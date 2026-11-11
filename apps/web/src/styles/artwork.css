@@ -31,3 +31,13 @@
 .artwork img:not([src]) {
   visibility: hidden;
 }
+
+.playlist-mosaic {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  place-items: stretch;
+}
+.playlist-mosaic > .artwork {
+  border-radius: 0;
+}

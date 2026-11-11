@@ -154,7 +154,7 @@ const props = (
 test("library results are grouped by kind with availability and one action each", () => {
   render(createElement(SearchPage, props()));
   const tracks = screen.getByRole("region", { name: "Tracks" });
-  expect(within(tracks).getByText("Not playable yet")).toBeTruthy();
+  expect(within(tracks).getByText("No source")).toBeTruthy();
   fireEvent.click(
     within(tracks).getByRole("button", { name: "Play Tide one" }),
   );

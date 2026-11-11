@@ -139,7 +139,7 @@ test("retained playlists remain editable and known recordings resolve audio only
           name: `Play ${entry.title}`,
         });
         expect(rowPlay.hasAttribute("disabled")).toBe(false);
-        expect(row.getByText("Plays from your services")).toBeTruthy();
+        expect(row.getByText("Ready · from your services")).toBeTruthy();
         expect(
           row.getByRole("link", { name: entry.title }).getAttribute("href"),
         ).toBe(`/recordings/${entry.recording_id}`);

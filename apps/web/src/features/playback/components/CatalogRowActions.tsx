@@ -1,12 +1,13 @@
 import { router } from "@inertiajs/react";
 import { Heart, Search } from "lucide-react";
 import ActionMenu from "../../../shared/ui/ActionMenu";
+import StatusDot, { type SourceStatus } from "../../../shared/ui/StatusDot";
 import type { CatalogRowView } from "./TrackTable";
 
-const notes: Partial<Record<CatalogRowView["status"], string>> = {
-  finding: "Finding audio…",
-  not_found: "Not found on your services",
-  failed: "Couldn't search right now",
+const statuses: Partial<Record<CatalogRowView["status"], SourceStatus>> = {
+  finding: "checking",
+  not_found: "none",
+  failed: "failed",
 };
 
 export function CatalogRowNote({
@@ -14,14 +15,8 @@ export function CatalogRowNote({
 }: {
   status: CatalogRowView["status"];
 }) {
-  const note = notes[status];
-  if (!note) return null;
-  return (
-    <small role="status" className="availability" data-state="catalog">
-      <span className="ring" data-ring="catalog" aria-hidden="true" />
-      {note}
-    </small>
-  );
+  const shown = statuses[status];
+  return shown ? <StatusDot status={shown} as="small" role="status" /> : null;
 }
 
 export default function CatalogRowActions({

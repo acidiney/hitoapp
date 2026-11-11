@@ -43,7 +43,7 @@ test("a catalog album plays like a library album: Play starts the first track, q
     expect(artist.provider.audioRequests.length).toBeGreaterThan(0);
 
     const unfound = table.getByRole("row").filter({ hasText: hidden });
-    await expect(unfound).toContainText("Not found on your services");
+    await expect(unfound).toContainText("No source");
     await expect(
       table.getByRole("row").filter({ hasText: closing }),
     ).not.toContainText("Not found");

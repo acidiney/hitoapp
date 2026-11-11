@@ -221,9 +221,7 @@ test("Play resolves only the first track now, queues it and lets the rest follow
     const skipped = card
       .getAllByRole("row")
       .find((row) => row.textContent?.includes(catalogAlbumTitles[2]))!;
-    expect(
-      within(skipped).getByText("Not found on your services"),
-    ).toBeTruthy();
+    expect(within(skipped).getByText("No source")).toBeTruthy();
   });
   expect(selection.more.remaining()).toBe(0);
   expect(fetch).toHaveBeenCalled();
@@ -268,7 +266,7 @@ test("clicking a track row plays from that track and a first track that is not f
   ]);
   const selection = player.selected.mock.calls[0][0] as { queue: unknown[] };
   expect(selection.queue).toEqual([foundRecording(2)]);
-  expect(card.getByText("Not found on your services")).toBeTruthy();
+  expect(card.getByText("No source")).toBeTruthy();
 });
 
 test("without the automatic service search choice Play explains itself, links to the setting and Shuffle leaves the player's shuffle alone", async () => {

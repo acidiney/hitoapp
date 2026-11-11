@@ -439,9 +439,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
       const row = page.getByRole("row").filter({
         has: page.getByRole("button", { name: `Play ${title}`, exact: true }),
       });
-      await expect(
-        row.getByText("Not playable yet", { exact: true }),
-      ).toBeVisible();
+      await expect(row.getByText("No source", { exact: true })).toBeVisible();
     }
     expect(errors).toEqual([]);
   } finally {

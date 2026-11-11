@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Disc3, ListMusic } from "lucide-react";
 import { useArtwork } from "./ArtworkProvider";
 import FallbackCover from "../../../shared/ui/FallbackCover";
-import type { CoverArtKind } from "../../../shared/ui/coverArt";
+import type { FallbackCoverKind } from "../../../shared/ui/FallbackCover";
 
 export type CoverIdentity = {
   id: string;
   title: string;
   artist?: string | null;
-  kind?: CoverArtKind;
+  kind?: FallbackCoverKind;
   inline?: boolean;
 };
 

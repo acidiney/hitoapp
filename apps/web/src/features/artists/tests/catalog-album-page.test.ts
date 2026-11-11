@@ -203,9 +203,7 @@ test("a track with no confident match says so and lets the owner retry or connec
   fireEvent.click(
     within(table).getByRole("button", { name: `Find audio for ${title}` }),
   );
-  expect(
-    await within(table).findByText("Not found on your services"),
-  ).toBeTruthy();
+  expect(await within(table).findByText("No source")).toBeTruthy();
   expect(
     within(table).getByRole("button", {
       name: `Try again to find audio for ${title}`,

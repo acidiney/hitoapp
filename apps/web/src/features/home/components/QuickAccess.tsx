@@ -10,7 +10,7 @@ function TileCover({ tile }: { tile: QuickTile }) {
     artist: tile.coverArtist,
   };
   if (tile.kind === "likes")
-    return <FallbackCover {...fallback} kind="playlist" />;
+    return <FallbackCover {...fallback} kind="liked" />;
   return tile.kind === "release" ? (
     <Artwork release={tile.coverId} fallback={fallback} />
   ) : (
