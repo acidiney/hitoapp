@@ -186,6 +186,9 @@ test("track details Lyrics: choose service, search, review, accept, then read, w
   await expect(
     panel.getByRole("list", { name: "Lyric matches" }).getByRole("button"),
   ).toHaveCount(3);
+  await panel
+    .getByRole("list", { name: "Lyric matches" })
+    .scrollIntoViewIfNeeded();
   await trackShot(page, "lyr-02b-candidates");
   await trackShot(page, "lyr-02b-candidates-phone", "phone-dark");
   await panel
