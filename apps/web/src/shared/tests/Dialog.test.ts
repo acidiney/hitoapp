@@ -18,9 +18,14 @@ function Host() {
   );
 }
 
-test("closing a dialog with leave motion returns focus to the opener once the leaving copy is gone", () => {
+test("closing a dialog shows a non-modal leaving copy and returns focus to the opener at once", () => {
   vi.useFakeTimers();
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  const showPopover = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "showPopover", {
+    value: showPopover,
+    configurable: true,
+  });
   render(createElement(Host));
   const opener = screen.getByRole("button", { name: "Open" });
   opener.focus();
@@ -32,6 +37,7 @@ test("closing a dialog with leave motion returns focus to the opener once the le
   act(() => {
     vi.advanceTimersByTime(200);
   });
+  expect(showPopover).toHaveBeenCalled();
   expect(document.activeElement).toBe(opener);
   expect(document.querySelector("dialog[data-leaving]")).toBeNull();
 });

@@ -54,6 +54,11 @@ export async function registerServiceWorker(
   const container = environment.container;
   if (!canRegisterServiceWorker(environment) || !container) return false;
   try {
+    const served = await fetch("/sw.js", { method: "HEAD", cache: "no-store" });
+    if (!served.ok) {
+      log.info("service_worker.not_served");
+      return false;
+    }
     const registration = await container.register("/sw.js", { scope: "/" });
     const announce = (worker: ServiceWorker) =>
       onUpdateReady(() => applyUpdate(worker, container, reload));

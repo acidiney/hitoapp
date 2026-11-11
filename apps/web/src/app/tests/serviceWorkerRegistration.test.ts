@@ -1,12 +1,19 @@
 import { createElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import {
   canRegisterServiceWorker,
   registerServiceWorker,
   type ServiceWorkerEnvironment,
 } from "../serviceWorker";
 import UpdateNotice from "../UpdateNotice";
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 200 })),
+  );
+});
 
 type Listener = () => void;
 
@@ -73,6 +80,20 @@ test("a blocked environment never calls register", async () => {
   const fake = fakeContainer({ controller: true });
   const registered = await registerServiceWorker(
     environment({ production: false, container: fake.container }),
+    vi.fn(),
+  );
+  expect(registered).toBe(false);
+  expect(fake.register).not.toHaveBeenCalled();
+});
+
+test("a server that does not serve the worker script is left unregistered", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 404 })),
+  );
+  const fake = fakeContainer({ controller: true });
+  const registered = await registerServiceWorker(
+    environment({ container: fake.container }),
     vi.fn(),
   );
   expect(registered).toBe(false);
