@@ -205,8 +205,6 @@ for (const size of [
       .first()
       .click();
     const dialog = page.getByRole("dialog", { name: "Now playing" });
-    if (size.name === "phone")
-      await dialog.getByRole("tab", { name: "Lyrics" }).click();
     const lyrics = dialog.getByRole("region", { name: "Lyrics", exact: true });
     await expect(lyrics.locator('[aria-current="true"]')).toBeVisible({
       timeout: 15_000,
