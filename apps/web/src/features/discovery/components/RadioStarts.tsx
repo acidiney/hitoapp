@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { Play } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
 import type { RadioState } from "../hooks/useArtistRadio";
 
@@ -14,7 +15,7 @@ export default function RadioStarts({
   if (artists.length === 0) return null;
   return (
     <section className="discover-section" aria-labelledby="discover-radio">
-      <h2 id="discover-radio">Radio from…</h2>
+      <h2 id="discover-radio">Start a radio from an artist</h2>
       <ul className="radio-starts">
         {artists.map((artist) => {
           const busy = radio.pending === artist.id;
@@ -46,21 +47,25 @@ export default function RadioStarts({
                       : `${artist.recording_count} ${artist.recording_count === 1 ? "track" : "tracks"} in your library`}
                   </span>
                 </span>
+                <Play size={16} fill="currentColor" aria-hidden="true" />
               </button>
             </li>
           );
         })}
       </ul>
-      {radio.notice &&
-        (radio.notice.tone === "error" ? (
-          <p className="radio-notice" role="alert" data-tone="error">
-            {radio.notice.text}
-          </p>
-        ) : (
-          <p className="radio-notice" role="status">
-            {radio.notice.text}
-          </p>
-        ))}
     </section>
+  );
+}
+
+export function RadioNotice({ notice }: { notice: RadioState["notice"] }) {
+  if (!notice) return null;
+  return notice.tone === "error" ? (
+    <p className="radio-notice" role="alert" data-tone="error">
+      {notice.text}
+    </p>
+  ) : (
+    <p className="radio-notice" role="status">
+      {notice.text}
+    </p>
   );
 }

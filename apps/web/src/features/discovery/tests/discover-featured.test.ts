@@ -125,7 +125,7 @@ test("the shelf says next to the cards, not in the page intro, that playing or o
   stub(shelfOf(entry("a")));
   render(createElement(DiscoverPage, props));
   const region = await screen.findByRole("region", {
-    name: "From your services",
+    name: /^Featured on/,
   });
   expect(
     within(region).getByText(
@@ -134,7 +134,7 @@ test("the shelf says next to the cards, not in the page intro, that playing or o
   ).toBeTruthy();
 });
 
-test("the shelf lists provider items with kind, count and a cover from the approved connection", async () => {
+test("the shelf lists provider items with their credit and a cover from the approved connection", async () => {
   stub(
     shelfOf(
       entry("a"),
@@ -148,20 +148,19 @@ test("the shelf lists provider items with kind, count and a cover from the appro
   );
   const { container } = render(createElement(DiscoverPage, props));
   const region = await screen.findByRole("region", {
-    name: "From your services",
+    name: /^Featured on/,
   });
   const cards = within(region).getAllByRole("listitem");
   expect(cards).toHaveLength(2);
   expect(cards[0].textContent).toContain("Featured a");
   expect(cards[0].textContent).toContain("By a");
-  expect(cards[0].textContent).toContain("Playlist · 12 tracks");
-  expect(cards[1].textContent).toContain("New release · 1 track");
-  const covers = container.querySelectorAll(".shelf-card img");
+  expect(cards[1].textContent).toContain("New release");
+  const covers = container.querySelectorAll(".featured-card img");
   expect(covers).toHaveLength(1);
   expect(covers[0].getAttribute("src")).toBe(
     "/api/v1/plugins/install-1/featured-artwork?revision=4&artwork=art-a",
   );
-  expect(within(cards[1]).getByRole("img", { name: /Cover of/ })).toBeTruthy();
+  expect(cards[1].querySelector(".fallback-cover")).toBeTruthy();
 });
 
 test.each([
@@ -180,12 +179,10 @@ test.each([
     ),
   );
   await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(
-    screen.queryByRole("region", { name: "From your services" }),
-  ).toBeNull();
+  expect(screen.queryByRole("region", { name: /^Featured on/ })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(
-    screen.getByRole("heading", { name: "Search your services" }),
+    screen.getByRole("heading", { name: "Outside your library" }),
   ).toBeTruthy();
 });
 
@@ -215,11 +212,13 @@ test("Play on a card imports a copy, queues its recordings and keeps the page", 
   expect(status.textContent).toContain("Playlists");
 });
 
-test("Open on a card imports a copy and shows its playlist page", async () => {
+test("Add on a card imports a copy and shows its playlist page", async () => {
   stub(shelfOf(entry("a")));
   render(createElement(DiscoverPage, props));
   fireEvent.click(
-    await screen.findByRole("button", { name: "Open Featured a" }),
+    await screen.findByRole("button", {
+      name: "Add Featured a to your playlists",
+    }),
   );
   await waitFor(() =>
     expect(router.visit).toHaveBeenCalledWith("/playlists/pl-1"),
@@ -263,7 +262,9 @@ test("only one card imports at a time", async () => {
   const first = await screen.findByRole("button", { name: "Play Featured a" });
   fireEvent.click(first);
   fireEvent.click(first);
-  fireEvent.click(screen.getByRole("button", { name: "Open Featured b" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Add Featured b to your playlists" }),
+  );
   await waitFor(() => expect(player.playQueue).toHaveBeenCalled());
   expect(calls.filter((call) => call.url.endsWith("/open"))).toHaveLength(1);
 });
@@ -296,7 +297,9 @@ test("a card that already has a copy skips the import and a second action reuses
 
   fireEvent.click(screen.getByRole("button", { name: "Play Featured b" }));
   await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(2));
-  fireEvent.click(screen.getByRole("button", { name: "Open Featured b" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Add Featured b to your playlists" }),
+  );
   await waitFor(() =>
     expect(router.visit).toHaveBeenCalledWith("/playlists/pl-1"),
   );
@@ -322,7 +325,7 @@ test("a timed out import says a copy may already exist", async () => {
 test("the shelf empties when the account changes and the new answer has nothing", async () => {
   stub(shelfOf(entry("a")));
   const view = render(createElement(DiscoverPage, props));
-  await screen.findByRole("region", { name: "From your services" });
+  await screen.findByRole("region", { name: /^Featured on/ });
   stub({ status: "unsupported" });
   view.rerender(
     createElement(DiscoverPage, {
@@ -331,9 +334,7 @@ test("the shelf empties when the account changes and the new answer has nothing"
     }),
   );
   await waitFor(() =>
-    expect(
-      screen.queryByRole("region", { name: "From your services" }),
-    ).toBeNull(),
+    expect(screen.queryByRole("region", { name: /^Featured on/ })).toBeNull(),
   );
 });
 
@@ -342,19 +343,19 @@ test("a cover that fails to load is asked for once more before the generated cov
   vi.useFakeTimers({ toFake: ["setTimeout"], shouldAdvanceTime: true });
   try {
     const { container } = render(createElement(DiscoverPage, props));
-    await screen.findByRole("region", { name: "From your services" });
-    fireEvent.error(container.querySelector(".shelf-card img")!);
-    expect(container.querySelector(".shelf-card img")).toBeNull();
+    await screen.findByRole("region", { name: /^Featured on/ });
+    fireEvent.error(container.querySelector(".featured-card img")!);
+    expect(container.querySelector(".featured-card img")).toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);
     });
-    const retry = container.querySelector(".shelf-card img");
+    const retry = container.querySelector(".featured-card img");
     expect(retry).not.toBeNull();
     fireEvent.error(retry!);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
-    expect(container.querySelector(".shelf-card img")).toBeNull();
+    expect(container.querySelector(".featured-card img")).toBeNull();
   } finally {
     vi.useRealTimers();
   }

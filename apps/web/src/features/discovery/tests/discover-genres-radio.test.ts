@@ -87,8 +87,13 @@ afterEach(() => {
 test("genre tiles come from the library and open their genre page without any request", () => {
   const fetch = vi.fn();
   vi.stubGlobal("fetch", skippingFeatured(fetch));
-  render(createElement(DiscoverPage, props()));
-  const section = screen.getByRole("region", { name: "By genre" });
+  render(
+    createElement(
+      DiscoverPage,
+      props({ artists: { items: [], total: 0, offset: 0, limit: 6 } }),
+    ),
+  );
+  const section = screen.getByRole("region", { name: "Genres you own" });
   const links = within(section).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
     "Fado3 tracks",
@@ -103,20 +108,47 @@ test("genre tiles come from the library and open their genre page without any re
   expect(fetch).not.toHaveBeenCalled();
 });
 
-test("genre tiles are drawn with generated cover art in calm colours and no inline colour", () => {
+test("genre tiles are flat calm colours chosen by position and no inline colour", () => {
   vi.stubGlobal("fetch", skippingFeatured(vi.fn()));
-  render(createElement(DiscoverPage, props()));
-  const tiles = within(
-    screen.getByRole("region", { name: "By genre" }),
-  ).getAllByRole("link");
-  for (const tile of tiles) {
-    expect(tile.querySelector("svg.cover-art")).toBeTruthy();
-    expect(tile.getAttribute("style")).toBeNull();
-  }
-  const bases = tiles.map((tile) =>
-    tile.querySelector("svg.cover-art stop")?.getAttribute("stop-color"),
+  render(
+    createElement(
+      DiscoverPage,
+      props({ artists: { items: [], total: 0, offset: 0, limit: 6 } }),
+    ),
   );
-  expect(new Set(bases).size).toBeGreaterThan(1);
+  const tiles = within(
+    screen.getByRole("region", { name: "Genres you own" }),
+  ).getAllByRole("link");
+  expect(tiles.map((tile) => tile.getAttribute("data-tone"))).toEqual([
+    "0",
+    "1",
+    "2",
+  ]);
+  for (const tile of tiles) expect(tile.getAttribute("style")).toBeNull();
+});
+
+test("only twelve genres show at first and Show all reveals the rest", () => {
+  vi.stubGlobal("fetch", skippingFeatured(vi.fn()));
+  const many = Array.from({ length: 14 }, (_, index) => ({
+    key: `g${index}`,
+    label: `Genre ${index}`,
+    track_count: 1,
+  }));
+  render(
+    createElement(
+      DiscoverPage,
+      props({
+        genres: many,
+        artists: { items: [], total: 0, offset: 0, limit: 6 },
+      }),
+    ),
+  );
+  const section = screen.getByRole("region", { name: "Genres you own" });
+  expect(within(section).getAllByRole("link")).toHaveLength(12);
+  fireEvent.click(within(section).getByRole("button", { name: "Show all 14" }));
+  expect(within(section).getAllByRole("link")).toHaveLength(14);
+  fireEvent.click(within(section).getByRole("button", { name: "Show fewer" }));
+  expect(within(section).getAllByRole("link")).toHaveLength(12);
 });
 
 test("sections with nothing to show are left out and the provider search stays", () => {
@@ -129,47 +161,99 @@ test("sections with nothing to show are left out and the provider search stays",
       }),
     ),
   );
-  expect(screen.queryByRole("region", { name: "By genre" })).toBeNull();
-  expect(screen.queryByRole("region", { name: "Radio from…" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Genres you own" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Suggested radio" })).toBeNull();
+  expect(
+    screen.queryByRole("region", { name: "Start a radio from an artist" }),
+  ).toBeNull();
   expect(
     screen.getByRole("link", { name: "Connect a music service" }),
   ).toBeTruthy();
 });
 
-test("radio starts from one chosen artist with one request and plays the returned queue", async () => {
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        artist: "Ana Moura",
-        similar_artists: 2,
-        tracks: [track("t1", "One"), track("t2", "Two")],
-      }),
-    ),
+const radioFetch = (reply: (group: string) => Response) =>
+  vi.fn(async (path: string) => {
+    const group = /artist-identity-groups\/([^/]+)\/radio/.exec(path)?.[1];
+    return group ? reply(group) : new Response("{}", { status: 404 });
+  });
+
+test("the most owned artist leads with a radio preview of what plays first", async () => {
+  const fetch = radioFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          artist: "Ana Moura",
+          similar_artists: 2,
+          tracks: [track("t1", "One"), track("t2", "Two")],
+        }),
+      ),
   );
   vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props()));
-  const section = screen.getByRole("region", { name: "Radio from…" });
+  const hero = screen.getByRole("region", { name: "Suggested radio" });
+  expect(
+    within(hero).getByRole("heading", { name: "Ana Moura radio" }),
+  ).toBeTruthy();
+  expect(await within(hero).findByText("One")).toBeTruthy();
+  expect(within(hero).getByText("Two")).toBeTruthy();
+  expect(
+    within(hero).getByText(
+      "Starts with 2 ready tracks, then 2 nearby artists in your library.",
+    ),
+  ).toBeTruthy();
+  fireEvent.click(within(hero).getByRole("button", { name: "Start radio" }));
+  await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
+  expect(
+    player.playQueue.mock.calls[0][0].map((t: { id: string }) => t.id),
+  ).toEqual(["t1", "t2"]);
+});
+
+test("radio starts from one chosen artist with one request and plays the returned queue", async () => {
+  const fetch = radioFetch(
+    (group) =>
+      new Response(
+        JSON.stringify({
+          artist: group === "g2" ? "Bruma" : "Ana Moura",
+          similar_artists: 2,
+          tracks: [track("t1", "One"), track("t2", "Two")],
+        }),
+      ),
+  );
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
+  render(createElement(DiscoverPage, props()));
+  const section = screen.getByRole("region", {
+    name: "Start a radio from an artist",
+  });
   expect(within(section).getByText("12 tracks in your library")).toBeTruthy();
+  const before = fetch.mock.calls.length;
   fireEvent.click(
-    within(section).getByRole("button", { name: "Start radio from Ana Moura" }),
+    within(section).getByRole("button", { name: "Start radio from Bruma" }),
   );
   await waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
-  expect(fetch).toHaveBeenCalledTimes(1);
-  const [url, init] = fetch.mock.calls[0];
-  expect(url).toBe("/api/v1/artist-identity-groups/g1/radio");
+  const started = fetch.mock.calls
+    .slice(before)
+    .filter(([path]) => String(path).includes("/g2/radio"));
+  expect(started).toHaveLength(1);
+  const [url, init] = started[0];
+  expect(url).toBe("/api/v1/artist-identity-groups/g2/radio");
   expect(init.method).toBe("POST");
   expect(
     player.playQueue.mock.calls[0][0].map((t: { id: string }) => t.id),
   ).toEqual(["t1", "t2"]);
   expect(await screen.findByRole("status")).toHaveProperty(
     "textContent",
-    "Playing a mix of Ana Moura and 2 similar artists from your library.",
+    "Playing a mix of Bruma and 2 similar artists from your library.",
   );
 });
 
 test("a radio with no playable tracks or a failed request says so and keeps the page", async () => {
   const fetch = vi
     .fn()
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ artist: "Ana Moura", similar_artists: 0, tracks: [] }),
+      ),
+    )
     .mockResolvedValueOnce(
       new Response(
         JSON.stringify({ artist: "Bruma", similar_artists: 0, tracks: [] }),
@@ -182,6 +266,7 @@ test("a radio with no playable tracks or a failed request says so and keeps the 
     );
   vi.stubGlobal("fetch", skippingFeatured(fetch));
   render(createElement(DiscoverPage, props()));
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   fireEvent.click(
     screen.getByRole("button", { name: "Start radio from Bruma" }),
   );
@@ -197,5 +282,5 @@ test("a radio with no playable tracks or a failed request says so and keeps the 
     ),
   );
   expect(player.playQueue).not.toHaveBeenCalled();
-  expect(screen.getByRole("region", { name: "By genre" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Genres you own" })).toBeTruthy();
 });

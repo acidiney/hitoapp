@@ -1,6 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import ShelfRow from "../../../shared/ui/ShelfRow";
-import MediaCard from "../../../shared/ui/MediaCard";
+import { Play, Plus } from "lucide-react";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { useArtworkRetry } from "../../../shared/hooks/useArtworkRetry";
 import { featuredApi } from "../api/featuredApi";
@@ -15,10 +14,10 @@ const KIND_LABEL: Record<Schema<"FeaturedKind">, string> = {
   new_release: "New release",
 };
 
-function meta(entry: Schema<"FeaturedEntry">): string {
-  const kind = KIND_LABEL[entry.kind];
-  if (entry.item_count == null) return kind;
-  return `${kind} · ${entry.item_count} ${entry.item_count === 1 ? "track" : "tracks"}`;
+function meta(entry: Schema<"FeaturedEntry">, service: string): string {
+  return [entry.subtitle || KIND_LABEL[entry.kind], service]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 const COVER_RETRY_MS = [1000];
@@ -49,45 +48,71 @@ function FeaturedCover({ entry }: { entry: Schema<"FeaturedEntry"> }) {
 
 export default function FeaturedShelf({
   items,
+  services,
   playback,
   onPlay,
   onOpen,
 }: {
   items: Schema<"FeaturedEntry">[];
+  services: Record<string, string>;
   playback: FeaturedPlaybackState;
   onPlay: (entry: Schema<"FeaturedEntry">) => void;
   onOpen: (entry: Schema<"FeaturedEntry">) => void;
 }) {
   if (items.length === 0) return null;
+  const names = [
+    ...new Set(items.map((entry) => services[entry.installation_id])),
+  ].filter(Boolean);
+  const anywhere = names.length === 0 ? "your services" : names.join(" and ");
   return (
-    <section className="discover-section" aria-labelledby="discover-featured">
-      <h2 id="discover-featured">From your services</h2>
-      <p className="discover-caption">
-        Playing or opening a card saves it to your Playlists.
-      </p>
-      <ShelfRow label="From your services">
+    <section className="featured-block" aria-labelledby="discover-featured">
+      <div className="featured-head">
+        <h3 id="discover-featured">Featured on {anywhere}</h3>
+        <span>Chosen by the plugin, not by Hito.</span>
+        <span>Playing or opening a card saves it to your Playlists.</span>
+      </div>
+      <ul className="featured-grid">
         {items.map((entry) => {
           const key = featuredKey(entry);
           const busy = playback.pending === key;
+          const service = services[entry.installation_id] ?? "";
           return (
-            <li key={key} aria-busy={busy || undefined}>
-              <MediaCard
-                title={entry.title}
-                subtitle={
-                  busy
-                    ? "Adding a copy…"
-                    : [meta(entry), entry.subtitle].filter(Boolean).join(" · ")
-                }
-                cover={<FeaturedCover entry={entry} />}
-                openLabel={`Open ${entry.title}`}
-                onOpen={() => onOpen(entry)}
-                onPlay={() => onPlay(entry)}
+            <li
+              key={key}
+              className="featured-card"
+              aria-busy={busy || undefined}
+            >
+              <span className="featured-cover" aria-hidden="true">
+                <FeaturedCover entry={entry} />
+              </span>
+              <span className="featured-copy">
+                <span className="featured-title">{entry.title}</span>
+                <span className="featured-sub">
+                  {busy ? "Adding a copy…" : meta(entry, service)}
+                </span>
+              </span>
+              <button
+                type="button"
+                className="featured-action"
+                aria-label={`Play ${entry.title}`}
                 disabled={playback.pending !== null}
-              />
+                onClick={() => onPlay(entry)}
+              >
+                <Play size={14} fill="currentColor" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="featured-action"
+                aria-label={`Add ${entry.title} to your playlists`}
+                disabled={playback.pending !== null}
+                onClick={() => onOpen(entry)}
+              >
+                <Plus size={16} aria-hidden="true" />
+              </button>
             </li>
           );
         })}
-      </ShelfRow>
+      </ul>
       {playback.notice &&
         (playback.notice.tone === "error" ? (
           <p className="radio-notice" role="alert" data-tone="error">

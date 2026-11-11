@@ -12,6 +12,7 @@ const DETAIL_PAGES = new Set([
   "ArtistIdentityGroupPage",
   "CatalogAlbumPage",
   "AlbumPage",
+  "PlaylistPage",
 ]);
 const OWN_SEARCH_PAGES = new Set(["SearchPage", "DiscoverPage"]);
 
