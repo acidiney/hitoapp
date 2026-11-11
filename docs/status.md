@@ -1,5 +1,15 @@
 # Implementation status
 
+## 2026-11-11 combined automatic lyrics and playback lease backend
+
+Development source now supports ephemeral automatic lyric reads from committed authorized metadata and authenticated retained playback leases with runtime closure. Automatic reads use one approved connected service, preserve explicit manual choices and retain no identity. Lease routes preserve exact-session authority and original-audio policy, including locked-owner retirement. The exact qualified source is integrated in `4f16bf08`, `385b2969` and `25e42acb`.
+
+An independent fresh combined-source Docker repeat passes 135 actual named cases: 21 automatic lyric, 19 manual identity, 14 legacy lyric, 12 HTTP lease, four runtime, thirteen audio-quality, seven source-ranking, eleven provider-metadata, ten catalog-audio and twenty-four LRCLIB service cases. Two pre-existing lyric diagnostics remain ignored. Exact names match, all 4,201 source and support inputs stay unchanged, and strict Core/server all-target checks, production Core checking and workspace formatting pass. Twenty actual ELF executable families are preserved outside Cargo caches. The first runtime filters targeted the library and ran zero cases; those logs are retained and excluded. Corrected runtime-test invocations pass the exact two connection and two embedded-runtime cases without source or assertion changes.
+
+The actual Rust API adds four paths and four schemas, preserving all 177 prior paths and 424 prior schemas. The combined export has SHA-256 `ac0cc1e3290410b59ba5865be6ed70436ad218e8ba362273abaefd4ad6229e2a`; the verification receipt hashes to `102d33f2947d744dbcfbdf8660a9bc8aaee342c0818ccd0755a030f1209ca913`.
+
+This qualifies development backend behavior with owned SQLite, audio and protocol fixtures. Current frontend integration and packaged full-flow checks, live-provider availability, lease creation-response resumption, the full remote client, metadata/offline synchronization, physical output, p95 and platform/public-release gates remain open. Timed-first lyric priority across candidates remains TODO. No runtime, VPS, preview, `main` or deployment changed. See [automatic reads](plugin-timed-content.md#automatic-ephemeral-lyric-reads), [frontend contract](frontend-lyrics-integration.md#automatic-ephemeral-read) and [lease delivery](playback-leases.md#http-and-runtime-contract).
+
 ## 2026-11-11 native runner acceptance gate
 
 Development source at `87b10d584` now invokes `--gate-native` automatically after native collection and for retained native reports. It requires all nine series, 900 measured attempts and 45 warmups with exact indices, finite successful timings, complete work and cleanup, consistent failure counts and inclusive nearest-rank p95 limits of 250/2,000/3,000 ms. Browser rows remain visual evidence only; default and strict-native report behavior stay intact. Failed and partial evidence is retained.
