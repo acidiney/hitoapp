@@ -189,141 +189,15 @@
   background: var(--warning-bg);
   color: var(--warning);
 }
-.queue-screen {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 980px;
-}
 .queue-actions {
   display: flex;
   gap: 8px;
-}
-.queue-screen h2 {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-.queue-now {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.queue-now h2 {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0;
-  color: var(--muted);
-}
-.queue-now-row {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--subtle);
-}
-.queue-now-row .artwork {
-  width: 56px;
-  height: 56px;
-  border-radius: 6px;
-}
-.queue-now-row strong {
-  display: block;
-  font-weight: 800;
-}
-.queue-now-row small,
-.queue-now-row .mono {
-  font-size: 13px;
-  color: var(--muted);
-}
-.queue-now-row .mono {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-.queue-next {
-  display: flex;
-  flex-direction: column;
-}
-.queue-next-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--ink);
-}
-.queue-next-head span {
-  font-size: 13px;
-  color: var(--muted);
 }
 .queue-tracks {
   list-style: none;
   padding: 0;
   margin: 0;
   min-height: 0;
-}
-.queue-tracks li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--line);
-}
-.queue-track {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-}
-.queue-track .artwork {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 6px;
-}
-.queue-track > span {
-  min-width: 0;
-}
-.queue-track strong {
-  display: block;
-  font-size: 15px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.queue-track small {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.queue-index,
-.queue-duration {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.queue-index {
-  min-width: 24px;
-  text-align: right;
-}
-.queue-duration {
-  min-width: 44px;
-  text-align: right;
-}
-.queue-tracks .current strong {
-  color: var(--action);
 }
 .queue-window {
   flex: 1 1 auto;
@@ -351,30 +225,6 @@
 }
 .queue-virtual > li[data-drop="after"] {
   box-shadow: inset 0 -2px 0 var(--action);
-}
-.queue-handle {
-  flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: grab;
-  padding: 12px 4px;
-}
-.queue-order {
-  display: flex;
-  flex-shrink: 0;
-}
-.queue-order .icon-button {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-}
-.queue-tracks li > .icon-button[aria-label$="from queue"] {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 10px;
-  min-width: 40px;
-  min-height: 40px;
 }
 .queue-loading {
   font-size: 13px;
@@ -405,45 +255,12 @@
   background: var(--panel);
   color: var(--muted);
 }
-.queue-played summary {
-  cursor: pointer;
-  font-weight: 700;
-  color: var(--muted);
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
-.queue-now-row {
-  grid-template-columns: 56px minmax(0, 1fr) auto auto auto;
-}
 .now-playing .track-actions {
   flex-shrink: 0;
 }
 .now-playing .track-actions .icon-button {
   min-width: 40px;
   min-height: 40px;
-}
-.queue-now-row .track-actions {
-  justify-content: flex-end;
-}
-.queue-tracks li > .track-actions {
-  flex-shrink: 0;
-}
-.queue-tracks li > .track-actions .icon-button {
-  min-width: 40px;
-  min-height: 40px;
-}
-.np-next li {
-  display: flex;
-  align-items: center;
-}
-.np-next li > .np-next-row {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-}
-.np-next li > .track-actions {
-  flex-shrink: 0;
 }
 @media (max-width: 767px) {
   .player .now-playing .track-actions .action-menu {
