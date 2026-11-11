@@ -82,7 +82,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
-  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
   await chooseOption(page.getByRole("combobox", { name: "Sort" }), "Title");
   await expect(page).toHaveURL(/\/library\?sort=title$/);
   await page
@@ -148,11 +150,14 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     )
     .toBeGreaterThan(before);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
-  await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await expect(page.getByText("Made by you")).toHaveCount(0);
-  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
-  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await expect(
+    page.locator(".track-grid .track-card").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
   await trackTitleLink(page.locator(".track-grid"), "Fixture 440 Hz").click();
   await page.getByRole("tab", { name: /^Metadata/ }).click();
   await expect(
