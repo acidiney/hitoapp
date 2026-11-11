@@ -22,6 +22,9 @@
   list-style: none;
 }
 .lyric-choices li {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -37,7 +40,7 @@
 }
 .lyric-choices label {
   display: flex;
-  flex: 1 1 240px;
+  flex: 1 1 160px;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
