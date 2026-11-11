@@ -494,3 +494,26 @@
 .search-bar input:focus-visible {
   outline: none;
 }
+
+.result-row.playing-row {
+  background: var(--subtle);
+}
+.result-row.playing-row .result-row-title {
+  color: var(--link);
+}
+.result-row-cover .playing-bars {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  z-index: 1;
+}
+.result-row-cover:has(.playing-bars)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.result-row.playing-row .result-row-cover > svg {
+  display: none;
+}

@@ -246,3 +246,98 @@
   outline-offset: -2px;
   border-radius: 3px;
 }
+
+.playing-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 18px;
+  height: 18px;
+}
+.playing-bars > span {
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--action);
+  transform-origin: bottom;
+}
+.playing-bars > span:nth-child(1) {
+  transform: scaleY(0.5);
+}
+.playing-bars > span:nth-child(2) {
+  transform: scaleY(0.9);
+}
+.playing-bars > span:nth-child(3) {
+  transform: scaleY(0.7);
+}
+@keyframes playing-bars {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .playing-bars > span {
+    animation: playing-bars 0.9s ease-in-out infinite;
+  }
+  .playing-bars > span:nth-child(2) {
+    animation-delay: -0.3s;
+  }
+  .playing-bars > span:nth-child(3) {
+    animation-delay: -0.6s;
+  }
+  .playing-bars[data-state="paused"] > span {
+    animation-play-state: paused;
+  }
+}
+.track-table tbody tr.playing-row td,
+.track-table[data-layout] tbody tr.playing-row:hover td {
+  background: var(--subtle);
+}
+.track-table tbody tr.playing-row .track-title {
+  color: var(--link);
+}
+.row-play[data-state] > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (hover: none) {
+  .row-play[data-state] svg {
+    display: none;
+  }
+  .row-play[data-state] span {
+    display: flex;
+  }
+}
+.track-table tr:is(:hover, :focus-within) .row-play[data-state] svg {
+  display: none;
+}
+.track-table tr:is(:hover, :focus-within) .row-play[data-state] span {
+  display: flex;
+}
+.track-table tr .row-play[data-state]:hover svg,
+.track-table tr .row-play[data-state]:focus-visible svg {
+  display: block;
+}
+.track-table tr .row-play[data-state]:hover span,
+.track-table tr .row-play[data-state]:focus-visible span {
+  display: none;
+}
+.track-table[data-layout] .cover-bars {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  transform: translateY(-50%);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}

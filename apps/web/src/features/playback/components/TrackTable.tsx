@@ -1,8 +1,6 @@
 import type { Schema } from "../../../shared/schema";
-import { useSyncExternalStore } from "react";
 import { Link } from "@inertiajs/react";
 import { time } from "../../../shared/format";
-import { usePlayer } from "./PlaybackProvider";
 import type { PlaybackStart, Track } from "../model";
 
 import type { Mutate } from "../../../shared/hooks/useMutation";
@@ -18,6 +16,8 @@ import { trackHref } from "./TrackRowMenu";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
+import { PlayingBars, PlayingStatus } from "./PlayingBars";
+import { rowPlayState, useNowPlaying } from "../hooks/useNowPlaying";
 
 export type TrackRow = Track & {
   row_id: string;
@@ -116,11 +116,7 @@ export default function TrackTable({
   without?: TrackColumn[];
   artistPage?: string;
 }) {
-  const player = usePlayer();
-  const currentId = useSyncExternalStore(
-    player.subscribe,
-    () => player.snapshot().current?.id,
-  );
+  const nowPlaying = useNowPlaying();
   const tracks = rows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
@@ -207,11 +203,13 @@ export default function TrackTable({
                 : view !== null
                   ? view.durationMs
                   : null;
+            const playState = rowPlayState(nowPlaying, track);
             return (
               <tr
                 key={rowId}
+                aria-current={playState ? "true" : undefined}
                 className={[
-                  track !== null && currentId === track.id ? "playing-row" : "",
+                  playState ? "playing-row" : "",
                   edit?.removed.has(rowId) ? "removed-row" : "",
                   selection?.selected.has(rowId) ? "selected-row" : "",
                 ]
@@ -238,6 +236,7 @@ export default function TrackTable({
                     <RowPlay
                       title={track.title}
                       number={trackNumber(track, index + 1 + offset)}
+                      state={playState}
                       onPlay={() => play(track)}
                     />
                   ) : (
@@ -245,6 +244,12 @@ export default function TrackTable({
                   )}
                 </td>
                 <td className="track-cell">
+                  {selection && playState && (
+                    <span className="cover-bars">
+                      <PlayingBars state={playState} />
+                      <PlayingStatus state={playState} />
+                    </span>
+                  )}
                   {selection && track && (
                     <span className="cover-play">
                       <RowPlay

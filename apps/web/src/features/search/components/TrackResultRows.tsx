@@ -12,6 +12,14 @@ import TrackNames, {
 import TrackRowActions from "../../playback/components/TrackRowActions";
 import { trackHref } from "../../playback/components/TrackRowMenu";
 import StatusDot from "../../../shared/ui/StatusDot";
+import {
+  rowPlayState,
+  useNowPlaying,
+} from "../../playback/hooks/useNowPlaying";
+import {
+  PlayingBars,
+  PlayingStatus,
+} from "../../playback/components/PlayingBars";
 import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
 import type { TrackRow } from "../../playback/components/TrackTable";
 import { findAudioHref } from "../../recordings/model/trackTabs";
@@ -44,67 +52,75 @@ export default function TrackResultRows({
 }) {
   const player = usePlayer();
   const playTracks = usePlayTracks(tracks);
+  const nowPlaying = useNowPlaying();
   return (
     <ul className="result-rows" aria-label="Tracks">
-      {tracks.map((track, index) => (
-        <li
-          key={track.row_id}
-          className="result-row"
-          tabIndex={-1}
-          {...{ [RESULT_ROW]: "" }}
-          onKeyDown={(event) => {
-            if (event.target !== event.currentTarget || event.key !== "Enter")
-              return;
-            event.preventDefault();
-            if (event.metaKey || event.ctrlKey) void player.addToQueue?.(track);
-            else void playTracks.playFrom(index, track.playback_start);
-          }}
-        >
-          <button
-            type="button"
-            className="result-row-cover"
-            aria-label={`Play ${track.title}`}
-            onClick={() =>
-              void playTracks.playFrom(index, track.playback_start)
-            }
+      {tracks.map((track, index) => {
+        const playState = rowPlayState(nowPlaying, track);
+        return (
+          <li
+            key={track.row_id}
+            aria-current={playState ? "true" : undefined}
+            className={playState ? "result-row playing-row" : "result-row"}
+            tabIndex={-1}
+            {...{ [RESULT_ROW]: "" }}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget || event.key !== "Enter")
+                return;
+              event.preventDefault();
+              if (event.metaKey || event.ctrlKey)
+                void player.addToQueue?.(track);
+              else void playTracks.playFrom(index, track.playback_start);
+            }}
           >
-            <Artwork
-              release={track.release_id ?? undefined}
-              recording={track.id}
-              fallback={{
-                id: track.release_id ?? track.id,
-                title: track.album ?? track.title,
-                artist: track.artist,
-              }}
+            <button
+              type="button"
+              className="result-row-cover"
+              aria-label={`Play ${track.title}`}
+              onClick={() =>
+                void playTracks.playFrom(index, track.playback_start)
+              }
+            >
+              <Artwork
+                release={track.release_id ?? undefined}
+                recording={track.id}
+                fallback={{
+                  id: track.release_id ?? track.id,
+                  title: track.album ?? track.title,
+                  artist: track.artist,
+                }}
+              />
+              {playState && <PlayingBars state={playState} />}
+              <Play size={16} fill="currentColor" aria-hidden="true" />
+            </button>
+            {playState && <PlayingStatus state={playState} />}
+            <span className="result-row-copy">
+              <Link className="result-row-title" href={trackHref(track.id)}>
+                {track.title}
+              </Link>
+              <TrackNames
+                className="result-row-sub"
+                artist={track.artist}
+                artistHref={artistHref(track)}
+                credited={track.credited_artists}
+                album={track.album ?? null}
+                albumHref={albumHref(track)}
+              />
+            </span>
+            <span className="result-row-state">
+              <Availability track={track} />
+            </span>
+            <span className="result-row-time">
+              <span>{time(track.duration_ms / 1000)}</span>
+            </span>
+            <TrackRowActions
+              track={track}
+              playlists={playlists}
+              mutate={mutate}
             />
-            <Play size={16} fill="currentColor" aria-hidden="true" />
-          </button>
-          <span className="result-row-copy">
-            <Link className="result-row-title" href={trackHref(track.id)}>
-              {track.title}
-            </Link>
-            <TrackNames
-              className="result-row-sub"
-              artist={track.artist}
-              artistHref={artistHref(track)}
-              credited={track.credited_artists}
-              album={track.album ?? null}
-              albumHref={albumHref(track)}
-            />
-          </span>
-          <span className="result-row-state">
-            <Availability track={track} />
-          </span>
-          <span className="result-row-time">
-            <span>{time(track.duration_ms / 1000)}</span>
-          </span>
-          <TrackRowActions
-            track={track}
-            playlists={playlists}
-            mutate={mutate}
-          />
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

@@ -277,7 +277,8 @@ main#main:has(> .library-heading) {
   line-height: 1.5;
 }
 .track-table[data-layout] .duration-column {
-  width: 66px;
+  width: 100px;
+  text-align: right;
   padding-right: 8px;
   border-radius: 0 10px 10px 0;
   font-family: var(--font-sans);
@@ -350,7 +351,7 @@ main#main:has(> .library-heading) {
 .track-table[data-layout] td.actions-column > .track-actions {
   position: absolute;
   top: 50%;
-  right: 70px;
+  right: 8px;
   transform: translateY(-50%);
   border-radius: 10px;
   background: var(--surface);
@@ -368,6 +369,20 @@ main#main:has(> .library-heading) {
 }
 .track-table[data-layout] tbody tr:hover .track-actions {
   opacity: 1;
+}
+.track-table[data-layout]:not([data-editing])
+  tbody
+  tr:is(:hover, :focus-within)
+  td.duration-column {
+  color: transparent;
+}
+@media (hover: none) {
+  .track-table[data-layout] tbody tr .track-actions {
+    opacity: 1;
+  }
+  .track-table[data-layout]:not([data-editing]) tbody tr td.duration-column {
+    color: transparent;
+  }
 }
 
 .album-grid[data-layout="library"] {
@@ -652,8 +667,34 @@ main#main:has(> .playlist-header) {
     display: none;
   }
   .track-table[data-layout] .source-column {
-    width: 132px;
+    width: 104px;
     white-space: normal;
+  }
+  .track-table[data-layout]:not([data-editing]) th.duration-column,
+  .track-table[data-layout]:not([data-editing]) td.duration-column {
+    display: none;
+  }
+  .track-table[data-layout]:not([data-editing]) td.actions-column {
+    position: static;
+    width: 52px;
+    padding: 0 4px 0 0;
+    border-radius: 0 10px 10px 0;
+  }
+  .track-table[data-layout]:not([data-editing])
+    td.actions-column
+    .icon-button[aria-pressed] {
+    display: none;
+  }
+  .track-table[data-layout]:not([data-editing]) th:last-child {
+    width: 52px;
+  }
+  .track-table[data-layout]:not([data-editing])
+    td.actions-column
+    > .track-actions {
+    position: static;
+    transform: none;
+    background: transparent;
+    opacity: 1;
   }
   .track-table[data-layout] td.source-column .source-status {
     align-items: flex-start;

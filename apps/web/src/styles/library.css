@@ -160,9 +160,6 @@
   text-decoration: underline;
   background: none;
 }
-.playing-row .track-title {
-  color: var(--primary);
-}
 .duration-column {
   width: 54px;
   font-variant-numeric: tabular-nums;
