@@ -175,107 +175,113 @@ test("library results are grouped by kind with availability and one action each"
   ).toBe("/artists/shore");
 });
 
-test("scope pills narrow the results to the library or to providers", () => {
-  stubServices();
-  render(
-    createElement(
-      SearchPage,
-      props({ connections: [connection], service_names: { service: "Home" } }),
-    ),
-  );
+const connected = {
+  connections: [connection],
+  service_names: { service: "Home" },
+};
+const SERVICE = /Home · Fixture service/;
+const emptyPage = { items: [], total: 0, offset: 0, limit: 8 };
+const nothing = (query: string) =>
+  props({
+    query,
+    recordings: emptyPage,
+    releases: emptyPage,
+    artists: emptyPage,
+  });
+
+test("scope pills narrow the results to one kind", () => {
+  render(createElement(SearchPage, props()));
   const scope = screen.getByRole("group", { name: "Search scope" });
   expect(
     within(scope)
       .getAllByRole("button")
       .map((b) => b.textContent),
-  ).toEqual(["All", "Library", "Providers"]);
+  ).toEqual(["All", "Tracks", "Albums", "Artists"]);
   expect(
     within(scope)
       .getByRole("button", { name: "All" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
-  fireEvent.click(within(scope).getByRole("button", { name: "Providers" }));
+  fireEvent.click(within(scope).getByRole("button", { name: "Albums" }));
   expect(screen.queryByRole("region", { name: "Tracks" })).toBeNull();
-  fireEvent.click(within(scope).getByRole("button", { name: "Library" }));
+  expect(screen.getByRole("region", { name: "Albums" })).toBeTruthy();
+  fireEvent.click(within(scope).getByRole("button", { name: "Tracks" }));
   expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Albums" })).toBeNull();
 });
 
-test("a plain search sends nothing to a provider until the listener asks", async () => {
+test("a plain search sends nothing to a service until the listener turns it on", async () => {
   const hit = { id: "remote", title: "Provider tide", artist: "Remote" };
   const searches = stubServices({ items: [hit] });
-  render(
-    createElement(
-      SearchPage,
-      props({ connections: [connection], service_names: { service: "Home" } }),
-    ),
-  );
+  render(createElement(SearchPage, props(connected)));
   await settled();
   expect(searches).toEqual([]);
-  expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
+  const toggle = screen.getByRole("button", { name: SERVICE });
+  expect(toggle.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(toggle);
   expect(
     await screen.findByRole("button", { name: "Play Provider tide" }),
   ).toBeTruthy();
+  expect(toggle.getAttribute("aria-pressed")).toBe("true");
   expect(searches.map((body) => body.query)).toEqual(["tide"]);
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-pressed")).toBe("false");
+  expect(
+    screen.queryByRole("button", { name: "Play Provider tide" }),
+  ).toBeNull();
 });
 
-test("provider results use the connected service with explicit listen and add actions", async () => {
+test("service results name the service and offer explicit listen and add actions", async () => {
   const hit = {
     id: "remote",
     title: "Provider tide",
     artist: "Remote",
     duration_ms: 1000,
   };
-  const searches = stubServices({ items: [hit] });
-  render(
-    createElement(
-      SearchPage,
-      props({ connections: [connection], service_names: { service: "Home" } }),
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Providers" }));
+  stubServices({ items: [hit] });
+  render(createElement(SearchPage, props(connected)));
+  fireEvent.click(screen.getByRole("button", { name: SERVICE }));
   expect(
     await screen.findByRole("button", { name: "Play Provider tide" }),
   ).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Add Provider tide to library" }),
   ).toBeTruthy();
-  expect(searches.map((body) => body.query)).toEqual(["tide"]);
+  expect(screen.getByRole("heading", { name: "From Home" })).toBeTruthy();
+  expect(screen.getByText(/Remote · Home · not in your library/)).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "Change what gets sent" })
+      .getAttribute("href"),
+  ).toBe("/settings?section=privacy");
 });
 
-test("a provider outage warns inside its section and keeps library results", async () => {
+test("a service outage warns inside its section and keeps library results", async () => {
   stubServices({ status: 502 });
-  render(
-    createElement(
-      SearchPage,
-      props({ connections: [connection], service_names: { service: "Home" } }),
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
+  render(createElement(SearchPage, props(connected)));
+  fireEvent.click(screen.getByRole("button", { name: SERVICE }));
   expect((await screen.findByRole("alert")).textContent).toContain(
     "unavailable",
   );
   expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
 });
 
-test("providers scope without a connected service points to Settings", () => {
+test("without a connected service the library is the only place searched", () => {
   render(createElement(SearchPage, props()));
-  fireEvent.click(screen.getByRole("button", { name: "Providers" }));
-  expect(
-    screen
-      .getByRole("link", { name: "Connect a music service" })
-      .getAttribute("href"),
-  ).toBe("/settings?section=plugins");
+  const sources = screen.getByRole("group", { name: "Searching in" });
+  expect(within(sources).getByText("Your library")).toBeTruthy();
+  expect(within(sources).queryAllByRole("button")).toHaveLength(0);
 });
 
-test("the best match is listed once, in its own section, with that section first", () => {
+test("the best match leads in a top result and is not repeated as a section", () => {
   render(createElement(SearchPage, props()));
-  expect(screen.queryByRole("heading", { name: "Top result" })).toBeNull();
-  expect(screen.getAllByText("Tide one")).toHaveLength(1);
-  const order = screen
-    .getAllByRole("heading", { level: 2 })
-    .map((heading) => heading.textContent);
-  expect(order.slice(0, 3)).toEqual(["Tracks", "Albums", "Artists"]);
+  const top = screen.getByRole("region", { name: "Top result" });
+  expect(within(top).getByRole("link", { name: "Tide one" })).toBeTruthy();
+  fireEvent.click(within(top).getByRole("button", { name: "Play" }));
+  expect(player.playQueue).toHaveBeenCalled();
+  expect(
+    screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+  ).toEqual(["Top result", "Tracks", "Albums", "Artists"]);
   cleanup();
   render(
     createElement(
@@ -286,13 +292,16 @@ test("the best match is listed once, in its own section, with that section first
       }),
     ),
   );
-  const exact = screen
-    .getAllByRole("heading", { level: 2 })
-    .map((heading) => heading.textContent);
-  expect(exact.slice(0, 3)).toEqual(["Artists", "Tracks", "Albums"]);
+  const exact = screen.getByRole("region", { name: "Top result" });
+  expect(
+    within(exact).getByRole("link", { name: "Shore" }).getAttribute("href"),
+  ).toBe("/artist-groups/g-shore");
+  expect(
+    screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+  ).toEqual(["Top result", "Tracks", "Albums"]);
 });
 
-test("every section says how many results it has and when it shows only some", () => {
+test("the tracks section offers every match when it shows only some", () => {
   render(
     createElement(
       SearchPage,
@@ -309,67 +318,31 @@ test("every section says how many results it has and when it shows only some", (
       }),
     ),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Show all 24" }));
   expect(
-    within(screen.getByRole("region", { name: "Tracks" })).getByText(
-      "Showing 2 of 24",
-    ),
-  ).toBeTruthy();
-  expect(
-    within(screen.getByRole("region", { name: "Albums" })).getByText(
-      "1 result",
-    ),
-  ).toBeTruthy();
-  expect(
-    within(screen.getByRole("region", { name: "Artists" })).getByText(
-      "1 result",
-    ),
-  ).toBeTruthy();
+    screen.getByRole("button", { name: "Tracks" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(screen.queryByRole("button", { name: "Show all 24" })).toBeNull();
 });
 
-test("no results suggests checking the spelling and offers to search the connected services", async () => {
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+test("no results suggests checking the spelling and offers to search the connected service", async () => {
   const searches = stubServices({ automatic: false, items: [] });
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "zzz",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-        connections: [connection],
-        service_names: { service: "Home" },
-      }),
-    ),
-  );
+  render(createElement(SearchPage, { ...nothing("zzz"), ...connected }));
   expect(
     screen.getByText("Nothing in your library matches “zzz”"),
   ).toBeTruthy();
   expect(screen.getByText(/Check the spelling/)).toBeTruthy();
   await settled();
   expect(searches).toEqual([]);
-  const buttons = screen.getAllByRole("button", {
-    name: "Search your services",
-  });
-  expect(buttons).toHaveLength(1);
-  fireEvent.click(buttons[0]);
+  const offer = screen.getByRole("button", { name: "Search Home" });
+  fireEvent.click(offer);
   await settled();
   expect(searches.map((body) => body.query)).toEqual(["zzz"]);
+  expect(screen.queryByRole("button", { name: "Search Home" })).toBeNull();
 });
 
 test("no results without a connected service points to Settings", () => {
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "zzz",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-      }),
-    ),
-  );
+  render(createElement(SearchPage, nothing("zzz")));
   expect(screen.getByText(/Check the spelling/)).toBeTruthy();
   expect(
     screen
@@ -378,86 +351,53 @@ test("no results without a connected service points to Settings", () => {
   ).toBe("/settings?section=plugins");
 });
 
-test("the Library scope with no results offers the services without sending anything itself", async () => {
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  const searches = stubServices({ automatic: false, items: [] });
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "zzz",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-        connections: [connection],
-        service_names: { service: "Home" },
-      }),
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Library" }));
-  await settled();
-  expect(searches).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
-  await settled();
-  expect(searches.map((body) => body.query)).toEqual(["zzz"]);
-  expect(
-    screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed"),
-  ).toBe("true");
-});
-
 test("an empty query asks for a search and no match says so", () => {
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
   const { unmount } = render(
-    createElement(
-      SearchPage,
-      props({ query: "", recordings: empty, releases: empty, artists: empty }),
-    ),
+    createElement(SearchPage, { ...nothing(""), query: "" }),
   );
   expect(
     screen.getByText("Search your library and connected services"),
   ).toBeTruthy();
   unmount();
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "zzz",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-      }),
-    ),
-  );
+  render(createElement(SearchPage, nothing("zzz")));
   expect(
     screen.getByText("Nothing in your library matches “zzz”"),
   ).toBeTruthy();
 });
 
-function phoneScreen() {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      matches: query === "(max-width: 767px)",
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })),
-  );
-}
-
-test("on a phone the page owns the field and submitting it searches again", () => {
-  phoneScreen();
+test("the field has the focus target id and submitting searches at once", () => {
   render(createElement(SearchPage, props()));
   const field = screen.getByRole("searchbox", { name: "Search" });
   expect(field.id).toBe("shell-search");
   expect((field as HTMLInputElement).value).toBe("tide");
   fireEvent.change(field, { target: { value: "glass" } });
   fireEvent.submit(field.closest("form") as HTMLFormElement);
-  expect(router.get).toHaveBeenCalledWith("/search", { q: "glass" });
+  expect(router.get).toHaveBeenCalledWith(
+    "/search",
+    { q: "glass" },
+    expect.objectContaining({ replace: false }),
+  );
 });
 
-test("on a desktop the field lives in the top bar, so the page adds none", () => {
-  render(createElement(SearchPage, props()));
-  expect(screen.queryByRole("searchbox")).toBeNull();
+test("typing updates the results after a short pause without adding history", () => {
+  vi.useFakeTimers();
+  try {
+    router.get.mockClear();
+    render(createElement(SearchPage, props()));
+    const field = screen.getByRole("searchbox", { name: "Search" });
+    fireEvent.change(field, { target: { value: "gl" } });
+    fireEvent.change(field, { target: { value: "glass" } });
+    expect(router.get).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(router.get).toHaveBeenCalledTimes(1);
+    expect(router.get).toHaveBeenCalledWith(
+      "/search",
+      { q: "glass" },
+      expect.objectContaining({ replace: true, preserveState: true }),
+    );
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
@@ -470,7 +410,7 @@ const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
   library_count: 1,
 });
 
-test("chosen artists come from the server in its order and an exact match comes first", () => {
+test("an exact artist match leads and the other artists follow in the server's order", () => {
   render(
     createElement(
       SearchPage,
@@ -484,13 +424,16 @@ test("chosen artists come from the server in its order and an exact match comes 
       }),
     ),
   );
-  expect(screen.queryByRole("heading", { name: "Top result" })).toBeNull();
+  const top = screen.getByRole("region", { name: "Top result" });
+  expect(
+    within(top).getByRole("link", { name: "Shore" }).getAttribute("href"),
+  ).toBe("/artist-groups/g-shore");
   const artists = screen.getByRole("region", { name: "Artists" });
   expect(
     within(artists)
       .getAllByRole("link")
       .map((link) => link.getAttribute("href")),
-  ).toEqual(["/artist-groups/g-shore", "/artist-groups/g-band"]);
+  ).toEqual(["/artist-groups/g-band"]);
 });
 
 test("library credits follow the chosen artists without repeating a chosen name", () => {
@@ -524,97 +467,64 @@ test("library credits follow the chosen artists without repeating a chosen name"
     within(artists)
       .getAllByRole("link")
       .map((link) => link.getAttribute("href")),
-  ).toEqual(["/artist-groups/g-shore", "/artists/shore-band"]);
+  ).toEqual(["/artists/shore-band"]);
 });
 
-test("few library results search the connected services without another click", async () => {
+const fewResults = () => ({
+  ...nothing("joe"),
+  ...connected,
+  artists: page([
+    {
+      id: "joe",
+      library_id: "library",
+      name: "Joe",
+      recording_count: 1,
+      release_count: 1,
+    },
+  ]),
+});
+
+test("few library results search the connected service without another click", async () => {
   const hit = { id: "remote", title: "Provider joe", artist: "Remote" };
   const searches = stubServices({ items: [hit] });
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "joe",
-        recordings: empty,
-        releases: empty,
-        artists: page([
-          {
-            id: "joe",
-            library_id: "library",
-            name: "Joe",
-            recording_count: 1,
-            release_count: 1,
-          },
-        ]),
-        connections: [connection],
-        service_names: { service: "Home" },
-      }),
-    ),
-  );
+  render(createElement(SearchPage, fewResults()));
   expect(
     await screen.findByRole("button", { name: "Play Provider joe" }),
   ).toBeTruthy();
   expect(searches.map((body) => body.query)).toEqual(["joe"]);
   expect(
-    screen.getByText(/query is sent to your connected services/i),
+    screen.getByText(/because your library has few matches/i),
   ).toBeTruthy();
   expect(
     screen
-      .getAllByRole("link", { name: "Change in Settings" })
+      .getAllByRole("link", { name: /Change (in Settings|what gets sent)/ })
       .every(
         (link) => link.getAttribute("href") === "/settings?section=privacy",
       ),
   ).toBe(true);
   expect(
-    screen.queryByRole("button", { name: "Search your services" }),
-  ).toBeNull();
+    screen.getByRole("button", { name: SERVICE }).getAttribute("aria-pressed"),
+  ).toBe("true");
 });
 
-const fewResults = () => {
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  return props({
-    query: "joe",
-    recordings: empty,
-    releases: empty,
-    artists: empty,
-    connections: [connection],
-    service_names: { service: "Home" },
-  });
-};
-
-test("the server turning automatic service search off restores the explicit button", async () => {
+test("the server turning automatic service search off leaves the service off", async () => {
   const searches = stubServices({ automatic: false });
   render(createElement(SearchPage, fewResults()));
   await settled();
   expect(searches).toEqual([]);
   expect(
-    screen.getByRole("button", { name: "Search your services" }),
-  ).toBeTruthy();
-  expect(screen.queryByText(/query is sent to your connected/i)).toBeNull();
+    screen.getByRole("button", { name: SERVICE }).getAttribute("aria-pressed"),
+  ).toBe("false");
+  expect(
+    screen.queryByText(/because your library has few matches/i),
+  ).toBeNull();
 });
 
-test("the Library scope never sends the query to a service", async () => {
+test("the Albums and Artists scopes never send the query to a service", async () => {
   const searches = stubServices();
-  const connected = {
-    connections: [connection],
-    service_names: { service: "Home" },
-  };
   const view = render(createElement(SearchPage, props(connected)));
-  fireEvent.click(screen.getByRole("button", { name: "Library" }));
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  view.rerender(
-    createElement(
-      SearchPage,
-      props({
-        ...connected,
-        query: "joe",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-      }),
-    ),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Albums" }));
+  view.rerender(createElement(SearchPage, fewResults()));
   await settled();
   expect(searches).toEqual([]);
 });
@@ -625,8 +535,8 @@ test("when the choice cannot be read automatic service search stays off", async 
   await settled();
   expect(searches).toEqual([]);
   expect(
-    screen.getByRole("button", { name: "Search your services" }),
-  ).toBeTruthy();
+    screen.getByRole("button", { name: SERVICE }).getAttribute("aria-pressed"),
+  ).toBe("false");
 });
 
 test("nothing is sent before the choice has been read", async () => {

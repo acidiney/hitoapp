@@ -1,13 +1,11 @@
 import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
-import { Check, Play, Plus } from "lucide-react";
+import { Play } from "lucide-react";
 
 import type { ProviderSelection } from "../hooks/useDiscovery";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
-import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import Button from "../../../shared/ui/Button";
 
 type SelectionIntent = "play" | "save";
 type ResultProps = {
@@ -16,6 +14,7 @@ type ResultProps = {
   selection: ProviderSelection | null;
   disabled: boolean;
   canPlay: boolean;
+  service: string;
   onSelect: (hit: Schema<"ProviderRecording">, intent: SelectionIntent) => void;
 };
 function ProviderResult({
@@ -24,6 +23,7 @@ function ProviderResult({
   selection,
   disabled,
   canPlay,
+  service,
   onSelect,
 }: ResultProps) {
   const play = useRef<HTMLButtonElement>(null);
@@ -55,17 +55,9 @@ function ProviderResult({
   const current = selection?.id === hit.id ? selection : null;
   const duration =
     hit.duration_ms == null ? null : time(hit.duration_ms / 1000);
+  const where = saved ? "in your library" : "not in your library";
   return (
-    <li className="provider-result">
-      <button
-        className="icon-button provider-play"
-        ref={play}
-        aria-label={`Play ${hit.title}`}
-        disabled={disabled || !canPlay}
-        onClick={() => select("play")}
-      >
-        <Play size={18} fill="currentColor" />
-      </button>
+    <li className="provider-result" tabIndex={-1} data-search-row="">
       <Artwork
         recording={saved?.id}
         fallback={{
@@ -76,8 +68,7 @@ function ProviderResult({
       />
       <div className="provider-result-copy">
         <h3>{hit.title}</h3>
-        <p>{hit.artist}</p>
-        {hit.release && <small>{hit.release.title}</small>}
+        <p>{[hit.artist, service, where].filter(Boolean).join(" · ")}</p>
         {current?.pending && (
           <small role="status">
             {current.intent === "play"
@@ -92,11 +83,15 @@ function ProviderResult({
       >
         {duration ?? "—"}
       </span>
-      <div className="provider-result-state">
-        <AvailabilityLabel
-          state={saved ? "library" : canPlay ? "available" : "catalog"}
-        />
-      </div>
+      <button
+        className="icon-button provider-play"
+        ref={play}
+        aria-label={`Play ${hit.title}`}
+        disabled={disabled || !canPlay}
+        onClick={() => select("play")}
+      >
+        <Play size={14} fill="currentColor" />
+      </button>
       <div className="provider-result-action">
         {saved ? (
           <Link
@@ -105,19 +100,19 @@ function ProviderResult({
             href={`/recordings/${encodeURIComponent(saved.id)}`}
             aria-label={`View ${hit.title} in library`}
           >
-            <Check size={16} />
             Open
           </Link>
         ) : (
-          <Button
+          <button
+            type="button"
+            className="text-link"
             ref={save}
             aria-label={`Add ${hit.title} to library`}
             disabled={disabled}
             onClick={() => select("save")}
           >
-            <Plus size={16} />
-            Add
-          </Button>
+            Add to library
+          </button>
         )}
       </div>
       {current?.error && (
@@ -144,6 +139,7 @@ export default function ProviderResults({
   selection,
   pending,
   canPlay,
+  service,
   onSelect,
 }: {
   items: Schema<"ProviderRecording">[];
@@ -151,6 +147,7 @@ export default function ProviderResults({
   selection: ProviderSelection | null;
   pending: boolean;
   canPlay: boolean;
+  service: string;
   onSelect: ResultProps["onSelect"];
 }) {
   const disabled = pending || Boolean(selection?.pending);
@@ -168,6 +165,7 @@ export default function ProviderResults({
           selection={selection}
           disabled={disabled}
           canPlay={canPlay}
+          service={service}
           onSelect={onSelect}
         />
       ))}

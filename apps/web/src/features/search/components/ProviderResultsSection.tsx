@@ -2,107 +2,53 @@ import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 
 import ProviderResults from "../../discovery/components/ProviderResults";
-import Button from "../../../shared/ui/Button";
-import EmptyState from "../../../shared/ui/EmptyState";
-import FilterPills from "../../../shared/ui/FilterPills";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import type { useProviderSearch } from "../hooks/useProviderSearch";
 
 const PREVIEW = 5;
 
-export function serviceLabel(
-  connection: Schema<"PluginInstallation">,
-  names: Record<string, string>,
-) {
-  const name = names[connection.service_id];
-  return name && name !== connection.manifest.name
-    ? `${name} · ${connection.manifest.name}`
-    : connection.manifest.name;
-}
-
 export default function ProviderResultsSection({
   search,
   names,
-  query,
   full,
-  requested,
   automatic,
-  prompt,
-  onRequest,
   onSeeAll,
 }: {
   search: ReturnType<typeof useProviderSearch>;
   names: Record<string, string>;
-  query: string;
   full: boolean;
-  requested: boolean;
   automatic: boolean;
-  prompt: boolean;
-  onRequest: () => void;
   onSeeAll: () => void;
 }) {
-  const { providers, selected, discovery } = search;
-  if (!selected)
-    return full ? (
-      <div className="search-providers-empty">
-        <EmptyState
-          title="No music service to search"
-          text="Connect a music service to search beyond your library."
-          libraryLink={false}
-        />
-        <Link className="button primary" href="/settings?section=plugins">
-          Connect a music service
-        </Link>
-      </div>
-    ) : null;
-  if (!query) return null;
-  if (!requested)
-    return !prompt ? null : (
-      <section className="search-group" aria-labelledby="search-providers">
-        <h2 id="search-providers">From your services</h2>
-        <p className="muted">
-          Your search is sent to a connected service only when you ask.
-        </p>
-        <div>
-          <Button onClick={onRequest}>Search your services</Button>
-        </div>
-      </section>
-    );
+  const { selected, discovery } = search;
+  if (!selected) return null;
+  const service = names[selected.service_id] ?? selected.manifest.name;
   const items = full ? discovery.items : discovery.items.slice(0, PREVIEW);
+  const quiet =
+    !discovery.pending && !discovery.error && discovery.items.length === 0;
   return (
     <section className="search-group" aria-labelledby="search-providers">
-      <h2 id="search-providers">From your services</h2>
-      {automatic && (
-        <p className="muted">
-          Your query is sent to your connected services because your library has
-          few matches.{" "}
-          <Link className="text-link" href="/settings?section=privacy">
-            Change in Settings
-          </Link>
-        </p>
-      )}
-      {full && providers.length > 1 && (
-        <FilterPills
-          label="Music service"
-          options={providers.map((provider) => ({
-            value: provider.id,
-            label: serviceLabel(provider, names),
-          }))}
-          value={selected.id}
-          onChange={search.choose}
-        />
-      )}
+      <div className="search-group-head" data-caption="">
+        <h2 id="search-providers">From {service}</h2>
+        {discovery.items.length > 0 && (
+          <span className="muted">
+            {discovery.items.length}{" "}
+            {discovery.items.length === 1 ? "result" : "results"} outside your
+            library. Matches you already own are shown once, above.
+          </span>
+        )}
+      </div>
       {discovery.error && (
         <SectionWarning
           tone="error"
-          title={`${names[selected.service_id] ?? selected.manifest.name} could not be searched.`}
+          title={`${service} could not be searched.`}
         >
           {discovery.error} Your library results are unaffected.
         </SectionWarning>
       )}
       {discovery.pending && items.length === 0 && (
         <p className="muted" role="status">
-          Searching {names[selected.service_id] ?? selected.manifest.name}…
+          Searching {service}…
         </p>
       )}
       {items.length > 0 && (
@@ -112,20 +58,27 @@ export default function ProviderResultsSection({
           selection={discovery.selection}
           pending={discovery.pending}
           canPlay={selected.manifest.capabilities.includes("sources")}
+          service={service}
           onSelect={(hit, intent) => void discovery.select(hit, intent)}
         />
       )}
       {!full && discovery.items.length > PREVIEW && (
         <button type="button" className="text-link" onClick={onSeeAll}>
-          See all results from your services
+          See all results from {service}
         </button>
       )}
-      {!discovery.pending &&
-        !discovery.error &&
-        discovery.query &&
-        discovery.items.length === 0 && (
-          <p className="muted">No matching tracks from this service.</p>
-        )}
+      {quiet && discovery.query && (
+        <p className="muted">No matching tracks from {service}.</p>
+      )}
+      <p className="search-sent-note">
+        {automatic
+          ? `This search was sent to ${service} because your library has few matches.`
+          : `This search was sent to ${service} because you turned it on above.`}{" "}
+        Results stay outside your library until you add them.{" "}
+        <Link className="text-link" href="/settings?section=privacy">
+          Change what gets sent
+        </Link>
+      </p>
     </section>
   );
 }

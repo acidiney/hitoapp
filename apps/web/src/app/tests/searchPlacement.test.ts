@@ -1,33 +1,27 @@
 import { expect, test } from "vitest";
 import { searchPlacement } from "../searchPlacement";
 
-test.each([
-  "HomePage",
-  "SearchPage",
-  "DiscoverPage",
-  "GenrePage",
-  "SettingsPage",
-  "QueuePage",
-])("%s gets the global search in the top bar on a desktop", (page) => {
-  expect(searchPlacement(page, false)).toBe("global");
-});
+test.each(["HomePage", "GenrePage", "SettingsPage", "QueuePage"])(
+  "%s gets the global search in the top bar on a desktop",
+  (page) => {
+    expect(searchPlacement(page, false)).toBe("global");
+  },
+);
 
-test.each([
-  "HomePage",
-  "DiscoverPage",
-  "GenrePage",
-  "SettingsPage",
-  "QueuePage",
-])(
+test.each(["HomePage", "GenrePage", "SettingsPage", "QueuePage"])(
   "%s has no top bar search on a phone, the Search tab leads there",
   (page) => {
     expect(searchPlacement(page, true)).toBe("none");
   },
 );
 
-test("the Search page owns its field on a phone, so the top bar adds none", () => {
-  expect(searchPlacement("SearchPage", true)).toBe("none");
-});
+test.each(["SearchPage", "DiscoverPage"])(
+  "%s owns its field on every screen, so the top bar adds none",
+  (page) => {
+    expect(searchPlacement(page, false)).toBe("none");
+    expect(searchPlacement(page, true)).toBe("none");
+  },
+);
 
 test.each([
   "LibraryPage",

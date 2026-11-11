@@ -123,6 +123,9 @@ export default function ProviderSearch({
               selection={discovery.selection}
               pending={discovery.pending}
               canPlay={selected.manifest.capabilities.includes("sources")}
+              service={
+                service_names[selected.service_id] ?? selected.manifest.name
+              }
               onSelect={(hit, intent) => void discovery.select(hit, intent)}
             />
           ) : discovery.pending ? (
