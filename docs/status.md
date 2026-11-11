@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 retained playback lease capability
+
+Development Core now retains an exact foreground session's source authority and original file descriptor or existing relay body across audio opens and ranges. Transient quotas cover creation before authorization SQL. Explicit closure joins owners and actual blocking reads; held unpolled bodies retain no Core or descriptor after retirement. Observed PIN or grant withdrawal cannot revive an old lease after unlock or regrant. No schema, download intent or ordinary library rows changed.
+
+Two specialist review rounds resolved the held-read PIN race. An independent combined-source Docker run passes all 174 Core unit cases, 19 public lease cases, 51 playback regressions and 42 non-audio native controls, with exact names and no failures, ignored or filtered cases. Strict Core all-target and production-only checks, strict native-example checks and formatting pass; all 3,963 inputs remain exact. See [ownership, limits and evidence](playback-leases.md).
+
+HTTP/runtime integration, lost-creation-response resumption and remote-client playback remain open. These checks do not qualify the full listener, codec, platform or p95 release workload. No running image, VPS, frontend or desktop package changed in this backend slice.
+
 ## 2026-11-11 native benchmark commands and resource ownership
 
 Development source now checks Pause and other Player command receipts, shares original command and observation deadlines, and retires a controller after a rejected or uncertain command. An owned run closes Player, finishes children and sample output, drops Core callers and waits for SQLite worker-local resource retirement on normal completion, startup failure and work unwind. Partial measurements and cleanup failures remain visible; existing output artifacts prevent a new run from overwriting them.
