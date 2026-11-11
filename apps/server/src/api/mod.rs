@@ -30,6 +30,7 @@ pub mod loopback_return;
 pub mod lyric_identities;
 pub mod lyrics;
 pub mod metadata;
+pub mod playback_leases;
 pub mod player;
 pub mod playlist_artwork;
 pub mod playlist_follow;

@@ -113,10 +113,11 @@ async fn serve_owned(
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let replicas = services.replicas.clone();
     let snapshots = services.catalog_replication.clone();
+    let playback = services.playback.clone();
     let mut capability_stop = stopped.clone();
     let capability_shutdown = async move {
         let _ = capability_stop.wait_for(|stopped| *stopped).await;
-        tokio::join!(replicas.close(), snapshots.close())
+        tokio::join!(replicas.close(), snapshots.close(), playback.close())
     };
     let indexing = indexing::worker(services.storage.clone(), stopped.clone());
     let watching = indexing::folder_watching(services.storage.clone(), stopped.clone());
@@ -182,9 +183,10 @@ async fn serve_owned(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),
     );
-    let (replicas_closed, snapshots_closed) = capabilities_closed;
+    let (replicas_closed, snapshots_closed, playback_closed) = capabilities_closed;
     replicas_closed?;
     snapshots_closed?;
+    playback_closed?;
     downloads_finished?;
     indexing_finished?;
     tracing::info!(event = "server_stopped", "Hito stopped");

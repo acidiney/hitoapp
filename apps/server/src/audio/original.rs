@@ -5,6 +5,8 @@ use axum::{
     response::Response,
 };
 use hito_core::{Actor, AudioRequest, ByteRange, OpenedAudio, PlaybackAccess};
+use tracing::Instrument;
+use uuid::Uuid;
 
 pub(super) async fn response(
     playback: &PlaybackAccess,
@@ -12,6 +14,23 @@ pub(super) async fn response(
     source: &str,
     request: Request<Body>,
 ) -> ApiResult<Response> {
+    let (request, invalid) = audio_request(&request);
+    let opened = playback.open_audio(actor, source, request).await?;
+    content(opened, invalid)
+}
+
+pub(crate) async fn lease_response(
+    playback: &PlaybackAccess,
+    actor: &Actor,
+    id: Uuid,
+    request: Request<Body>,
+) -> ApiResult<Response> {
+    let (request, invalid) = audio_request(&request);
+    let opened = playback.open_lease_audio(actor, id, request).await?;
+    content(opened, invalid)
+}
+
+fn audio_request(request: &Request<Body>) -> (AudioRequest, bool) {
     let head = request.method() == Method::HEAD;
     let parsed = if head || request.headers().contains_key(header::IF_RANGE) {
         Ok(None)
@@ -19,17 +38,13 @@ pub(super) async fn response(
         range(request.headers())
     };
     let invalid = parsed.is_err();
-    let opened = playback
-        .open_audio(
-            actor,
-            source,
-            AudioRequest {
-                head: head || invalid,
-                range: parsed.unwrap_or(None),
-            },
-        )
-        .await?;
-    content(opened, invalid)
+    (
+        AudioRequest {
+            head: head || invalid,
+            range: parsed.unwrap_or(None),
+        },
+        invalid,
+    )
 }
 
 pub(super) fn content(opened: OpenedAudio, invalid: bool) -> ApiResult<Response> {
@@ -67,13 +82,29 @@ pub(super) fn content(opened: OpenedAudio, invalid: bool) -> ApiResult<Response>
         .body
         .take()
         .map(|stream| {
+            let span = tracing::Span::current();
+            let started = std::time::Instant::now();
             Body::from_stream(futures_util::stream::try_unfold(
                 stream,
-                |mut stream| async move {
-                    stream
-                        .chunk()
-                        .await
-                        .map(|chunk| chunk.map(|bytes| (bytes, stream)))
+                move |mut stream| {
+                    let span = span.clone();
+                    async move {
+                        stream
+                            .chunk()
+                            .await
+                            .map(|chunk| chunk.map(|bytes| (bytes, stream)))
+                            .map_err(|error| {
+                                tracing::debug!(
+                                    event = "audio_original_body_failed",
+                                    outcome = "failed",
+                                    error_kind = error.code(),
+                                    elapsed_ms = started.elapsed().as_millis() as u64,
+                                    "Original audio delivery failed"
+                                );
+                                std::io::Error::other("Audio stream could not finish")
+                            })
+                    }
+                    .instrument(span)
                 },
             ))
         })

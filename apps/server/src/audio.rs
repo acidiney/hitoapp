@@ -1,5 +1,7 @@
 mod original;
 
+pub(crate) use original::lease_response;
+
 use crate::error::ApiResult;
 use axum::{
     body::Body,

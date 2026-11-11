@@ -117,6 +117,13 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
+        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::status,
+            api::playback_leases::release
+        ))
+        .routes(routes!(api::playback_leases::audio))
+        .routes(routes!(api::playback_leases::audio_head))
         .routes(routes!(catalog::recordings))
         .routes(routes!(catalog::recordings_lookup))
         .routes(routes!(progress::saved_playback))
