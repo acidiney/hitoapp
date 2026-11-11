@@ -251,3 +251,34 @@ test("a service without sources offers adding to the library but not playing", a
   ).toBe(true);
   expect(screen.getByText(/provides no audio/)).toBeTruthy();
 });
+
+test("a result without artist or duration prints only what is known and keeps the duration cell", async () => {
+  const fetch = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        items: [
+          { id: "a", title: "Bare hit", artist: "Unknown artist" },
+          { id: "b", title: "Full hit", artist: "Known", duration_ms: 63000 },
+        ],
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", skippingFeatured(fetch));
+  const { container } = render(createElement(DiscoverPage, props));
+  fireEvent.change(screen.getByRole("searchbox", { name: "Search music" }), {
+    target: { value: "hit" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByRole("button", { name: "Play Bare hit" });
+  expect(screen.queryByText(/Unknown artist/)).toBeNull();
+  expect(screen.queryByText("—")).toBeNull();
+  expect(
+    screen.getByText(/^Home collection · not in your library$/),
+  ).toBeTruthy();
+  const rows = container.querySelectorAll(".provider-result");
+  expect(rows).toHaveLength(2);
+  for (const row of rows)
+    expect(row.querySelectorAll(".provider-duration")).toHaveLength(1);
+  expect(rows[0].querySelector(".provider-duration")!.textContent).toBe("");
+  expect(rows[1].querySelector(".provider-duration")!.textContent).toBe("1:03");
+});

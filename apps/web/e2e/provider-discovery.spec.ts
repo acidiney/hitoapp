@@ -32,7 +32,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
       .getByRole("link", { name: "Connect a music service", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeVisible();
     const offered = await page.request.post("/api/v1/plugins/services", {
       headers,
@@ -72,6 +72,19 @@ test("provider discovery saves, pages and plays privately with stale selection p
         exact: true,
       }),
     ).toBeEnabled();
+    const columns = await page.locator(".provider-result").evaluateAll((rows) =>
+      rows.map((row) => {
+        const x = (selector: string) =>
+          Math.round(row.querySelector(selector)!.getBoundingClientRect().x);
+        return [
+          x(".provider-duration"),
+          x(".provider-play"),
+          x(".provider-result-action"),
+        ];
+      }),
+    );
+    expect(columns.length).toBeGreaterThan(1);
+    for (const row of columns) expect(row).toEqual(columns[0]);
     const listed = await page.request.get("/api/v1/recordings?q=Discovery");
     expect((await listed.json()).total).toBe(0);
     await page.screenshot({

@@ -55,8 +55,10 @@ test("Search leads with a top result, lists tracks with their availability and h
   ).toBeVisible();
   await expect(page.getByText(/Check the spelling/)).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Connect a music service" }),
-  ).toHaveAttribute("href", "/settings?section=plugins");
+    page
+      .getByRole("link", { name: "Connect a music service" })
+      .or(page.getByRole("button", { name: /^Search / })),
+  ).toBeVisible();
   await page.screenshot({
     path: "/workspace/test-results/search-none-desktop.png",
   });

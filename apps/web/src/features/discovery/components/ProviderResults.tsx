@@ -7,6 +7,9 @@ import type { ProviderSelection } from "../hooks/useDiscovery";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
 
+const knownArtist = (artist: string | null | undefined) =>
+  artist && artist.trim().toLowerCase() !== "unknown artist" ? artist : "";
+
 type SelectionIntent = "play" | "save";
 type ResultProps = {
   hit: Schema<"ProviderRecording">;
@@ -68,7 +71,11 @@ function ProviderResult({
       />
       <div className="provider-result-copy">
         <h3>{hit.title}</h3>
-        <p>{[hit.artist, service, where].filter(Boolean).join(" · ")}</p>
+        <p>
+          {[knownArtist(hit.artist), service, where]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
         {current?.pending && (
           <small role="status">
             {current.intent === "play"
@@ -79,9 +86,10 @@ function ProviderResult({
       </div>
       <span
         className="provider-duration"
-        aria-label={duration ? `Duration ${duration}` : "Duration unknown"}
+        aria-label={duration ? `Duration ${duration}` : undefined}
+        aria-hidden={duration ? undefined : true}
       >
-        {duration ?? "—"}
+        {duration}
       </span>
       <button
         className="icon-button provider-play"

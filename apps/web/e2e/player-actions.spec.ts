@@ -100,7 +100,7 @@ test("the player bar likes and manages the playing track, and a reload keeps the
   await expect(
     page
       .locator(".queue-next li")
-      .getByRole("button", { name: new RegExp(`^(Un)?[Ll]ike ${first}$`) }),
+      .getByRole("button", { name: `Actions for ${first}` }),
   ).toBeVisible();
 
   await bar.getByRole("button", { name: "Play", exact: true }).click();
