@@ -70,7 +70,7 @@
 }
 .provider-result {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 64px 44px 128px;
+  grid-template-columns: 40px minmax(0, 1fr) 64px 44px 128px 44px;
   align-items: center;
   gap: 0 12px;
   min-height: 56px;
@@ -80,6 +80,16 @@
 .provider-result:hover,
 .provider-result:focus-within {
   background: var(--surface);
+}
+.provider-result:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.provider-result .provider-menu {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
 }
 .provider-result .artwork {
   flex: none;
@@ -230,7 +240,7 @@
     flex: 1;
   }
   .provider-result {
-    grid-template-columns: 40px minmax(0, 1fr) 44px;
+    grid-template-columns: 40px minmax(0, 1fr) 44px 44px;
     row-gap: 0;
   }
   .provider-duration {

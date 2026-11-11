@@ -3,14 +3,14 @@ import { useLayoutEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
 
-import type { ProviderSelection } from "../hooks/useDiscovery";
+import type { ProviderSelection, SelectionIntent } from "../hooks/useDiscovery";
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
 
 const knownArtist = (artist: string | null | undefined) =>
   artist && artist.trim().toLowerCase() !== "unknown artist" ? artist : "";
 
-type SelectionIntent = "play" | "save";
 type ResultProps = {
   hit: Schema<"ProviderRecording">;
   saved?: Schema<"Recording">;
@@ -60,7 +60,22 @@ function ProviderResult({
     hit.duration_ms == null ? null : time(hit.duration_ms / 1000);
   const where = saved ? "in your library" : "not in your library";
   return (
-    <li className="provider-result" tabIndex={-1} data-search-row="">
+    <li
+      className="provider-result"
+      tabIndex={-1}
+      data-search-row=""
+      onKeyDown={(event) => {
+        if (
+          event.target !== event.currentTarget ||
+          event.key !== "Enter" ||
+          disabled ||
+          !canPlay
+        )
+          return;
+        event.preventDefault();
+        select(event.metaKey || event.ctrlKey ? "queue" : "play");
+      }}
+    >
       <Artwork
         recording={saved?.id}
         fallback={{
@@ -80,7 +95,9 @@ function ProviderResult({
           <small role="status">
             {current.intent === "play"
               ? "Preparing playback…"
-              : "Adding to your library…"}
+              : current.intent === "save"
+                ? "Adding to your library…"
+                : "Adding to your queue…"}
           </small>
         )}
       </div>
@@ -123,6 +140,23 @@ function ProviderResult({
           </button>
         )}
       </div>
+      <ActionMenu
+        label={`Actions for ${hit.title}`}
+        triggerClassName="icon-button provider-menu"
+        align="end"
+        items={[
+          {
+            label: "Play next",
+            disabled: disabled || !canPlay,
+            onSelect: () => select("play_next"),
+          },
+          {
+            label: "Add to queue",
+            disabled: disabled || !canPlay,
+            onSelect: () => select("queue"),
+          },
+        ]}
+      />
       {current?.error && (
         <p className="provider-result-error" role="alert">
           {current.error}{" "}

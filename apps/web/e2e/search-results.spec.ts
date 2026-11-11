@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const headers = (baseURL: string) => ({
   "x-hito-request": "1",
@@ -70,4 +70,148 @@ test("Search leads with a top result, lists tracks with their availability and h
   await page.screenshot({
     path: "/workspace/test-results/search-none-desktop.png",
   });
+});
+
+const connection = {
+  checked_at: 0,
+  credential_set: true,
+  id: "conn1",
+  revision: 1,
+  service_id: "svc1",
+  manifest: { name: "YouTube", capabilities: ["search", "sources"] },
+};
+
+async function openSearchWithService(
+  page: Page,
+  baseURL: string,
+  unsourced: boolean,
+) {
+  await page.goto("/home");
+  const libraries = await (await page.request.get("/api/v1/libraries")).json();
+  const connected = await page.request.post(
+    `/api/v1/libraries/${libraries[0].id}/folders`,
+    {
+      headers: headers(baseURL),
+      data: {
+        directory: { directory_id: "fixture-music", components: [] },
+        name: "Music",
+      },
+    },
+  );
+  expect([201, 409]).toContain(connected.status());
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
+          .total,
+      { timeout: 30000 },
+    )
+    .toBeGreaterThanOrEqual(2);
+  await page.route("**/search**", async (route) => {
+    if (route.request().headers()["x-inertia"] !== "true")
+      return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    body.props.connections = [connection];
+    body.props.service_names = { svc1: "YouTube" };
+    if (unsourced)
+      for (const recording of body.props.recordings?.items ?? []) {
+        recording.available = false;
+        recording.plays_from_services = false;
+      }
+    await route.fulfill({ response, json: body });
+  });
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: /^Search/ })
+    .click();
+  await page
+    .getByRole("searchbox", { name: "Search", exact: true })
+    .fill("Fixture");
+}
+
+for (const width of [1440, 1100, 800]) {
+  test(`Find stays fully visible and clickable on a hovered unsourced row at ${width}px`, async ({
+    page,
+    baseURL,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openSearchWithService(page, baseURL!, true);
+    const row = page.locator(".result-row:has(.result-row-action)").first();
+    await expect(row).toBeVisible();
+    for (const reveal of ["hover", "focus"] as const) {
+      if (reveal === "hover") await row.hover();
+      else await row.getByRole("link", { name: "Find" }).focus();
+      const find = row.getByRole("link", { name: "Find" });
+      await expect(find).toBeVisible();
+      const clipped = await find.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        const rowBox = link.closest(".result-row")!.getBoundingClientRect();
+        const stateBox = link.parentElement!.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        );
+        const others = [
+          ...link
+            .closest(".result-row")!
+            .querySelectorAll(".action-menu, .track-actions .icon-button"),
+        ].some((other) => {
+          const rect = other.getBoundingClientRect();
+          return rect.right > box.left && rect.left < box.right;
+        });
+        return {
+          covered: hit !== link,
+          overlapped: others,
+          outside:
+            box.right > stateBox.right + 0.5 || box.right > rowBox.right + 0.5,
+        };
+      });
+      expect(clipped).toEqual({
+        covered: false,
+        overlapped: false,
+        outside: false,
+      });
+    }
+    await row.hover();
+    await row.getByRole("link", { name: "Find" }).click();
+    await expect(page).not.toHaveURL(/\/search/);
+  });
+}
+
+test("a service result can be queued from its row menu", async ({
+  page,
+  baseURL,
+}) => {
+  await openSearchWithService(page, baseURL!, false);
+  const recordings = (
+    await (await page.request.get("/api/v1/recordings?limit=1")).json()
+  ).items as { id: string; title: string }[];
+  await page.route("**/api/v1/plugins/conn1/search", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            id: "y1",
+            title: "Night drive",
+            artist: "Someone",
+            duration_ms: 1000,
+          },
+        ],
+        next_cursor: null,
+      },
+    }),
+  );
+  await page.route("**/api/v1/plugins/conn1/recordings", (route) =>
+    route.fulfill({
+      json: { ...recordings[0], available: true, plays_from_services: true },
+    }),
+  );
+  await page.getByRole("button", { name: "YouTube" }).click();
+  await expect(page.getByText("Night drive")).toBeVisible();
+  await page.getByRole("button", { name: "Actions for Night drive" }).click();
+  await page.getByRole("menuitem", { name: "Add to queue" }).click();
+  await page.getByRole("button", { name: "Open queue", exact: true }).click();
+  await expect(page).toHaveURL(/\/queue$/);
+  await expect(page.getByText(recordings[0].title).first()).toBeVisible();
 });
