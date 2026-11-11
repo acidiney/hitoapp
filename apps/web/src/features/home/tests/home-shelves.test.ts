@@ -1,34 +1,6 @@
 import { expect, test } from "vitest";
 import type { Schema } from "../../../shared/schema";
-import { addedShelf, artistShelf, playedShelf } from "../model/homeShelves";
-
-const played = (id: string, artist: string | null): Schema<"HomeAlbum"> => ({
-  id,
-  title: `Album ${id}`,
-  artist,
-  inferred_artist: artist ? null : { kind: "various" },
-  last_played_at: 1,
-  played: 3,
-});
-
-test("recently played albums link to the album with their credit", () => {
-  expect(playedShelf([played("a", "Shore"), played("b", null)])).toEqual([
-    {
-      key: "played-a",
-      href: "/albums/a",
-      title: "Album a",
-      subtitle: "Shore",
-      cover: { kind: "release", id: "a", artist: "Shore" },
-    },
-    {
-      key: "played-b",
-      href: "/albums/b",
-      title: "Album b",
-      subtitle: "Various artists",
-      cover: { kind: "release", id: "b", artist: "Various artists" },
-    },
-  ]);
-});
+import { addedShelf, artistShelf } from "../model/homeShelves";
 
 test("recently added albums keep the server's order and ids are encoded", () => {
   const cards = addedShelf([

@@ -8,7 +8,7 @@ import QuickAccess from "../components/QuickAccess";
 import UnheardNearby from "../components/UnheardNearby";
 import HomeEmpty from "../components/HomeEmpty";
 import HomeShelf from "../components/HomeShelf";
-import { addedShelf, artistShelf, playedShelf } from "../model/homeShelves";
+import { addedShelf, artistShelf } from "../model/homeShelves";
 
 export default function HomePage({
   user,
@@ -32,19 +32,6 @@ export default function HomePage({
       ) : (
         <>
           {tiles.length > 0 && <QuickAccess tiles={tiles} />}
-          <HomeShelf
-            id="home-played"
-            title="Recently played"
-            cards={playedShelf(home.recent_albums)}
-            empty={
-              <>
-                Play something and it will show up here.{" "}
-                <Link className="text-link" href="/library">
-                  Open your library
-                </Link>
-              </>
-            }
-          />
           {home.unheard.length > 0 && (
             <UnheardNearby albums={home.unheard} onListen={listen} />
           )}

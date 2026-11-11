@@ -20,7 +20,7 @@ function TileCover({ tile }: { tile: QuickTile }) {
 
 export default function QuickAccess({ tiles }: { tiles: QuickTile[] }) {
   return (
-    <section className="quick-access" aria-label="Quick access">
+    <section className="quick-access" aria-label="Jump back in">
       {tiles.map((tile) => (
         <Link key={tile.key} href={tile.href} className="quick-tile">
           <span className="quick-tile-cover">

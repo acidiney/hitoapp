@@ -125,7 +125,7 @@ export default function PlaylistPage({
           />
         }
         cover={
-          !copied && covers.length > 1 ? (
+          !copied && covers.length === 4 ? (
             <PlaylistMosaic covers={covers} />
           ) : (
             <Artwork

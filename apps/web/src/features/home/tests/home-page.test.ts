@@ -82,7 +82,7 @@ test("quick access shows only real listening: recent albums, likes and playlists
     { id: "p3", name: "Extra", kind: "local" },
   ];
   render(createElement(HomePage, data));
-  const quick = screen.getByRole("region", { name: "Quick access" });
+  const quick = screen.getByRole("region", { name: "Jump back in" });
   const links = within(quick).getAllByRole("link");
   expect(links).toHaveLength(6);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
@@ -158,7 +158,7 @@ test("an empty library offers folders, playlist import and services", () => {
       .getByRole("link", { name: "Connect a service" })
       .getAttribute("href"),
   ).toBe("/settings?section=plugins");
-  expect(screen.queryByRole("region", { name: "Quick access" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Jump back in" })).toBeNull();
 });
 
 test("home greets the display name and falls back to the username", () => {
@@ -209,7 +209,7 @@ const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
   release_count: 1,
 });
 
-test("home shows recently played, recently added and chosen artists as shelves", () => {
+test("home shows recently added and chosen artists as shelves", () => {
   const data = props({
     recent_albums: albums(2),
     recently_added: [
@@ -223,12 +223,6 @@ test("home shows recently played, recently added and chosen artists as shelves",
     limit: 12,
   };
   render(createElement(HomePage, data));
-  const played = screen.getByRole("region", { name: "Recently played" });
-  expect(
-    within(played)
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href")),
-  ).toEqual(["/albums/album-0", "/albums/album-1"]);
   const added = screen.getByRole("region", { name: "Recently added" });
   expect(
     within(added).getByRole("link", { name: /Fresh/ }).getAttribute("href"),
@@ -245,23 +239,6 @@ test("home shows recently played, recently added and chosen artists as shelves",
       .getByRole("link", { name: "Discover music from your services" })
       .getAttribute("href"),
   ).toBe("/discover");
-});
-
-test("an account that has played nothing still sees a Recently played heading that explains the gap", () => {
-  render(createElement(HomePage, props({ liked_count: 2 })));
-  const played = screen.getByRole("region", { name: "Recently played" });
-  expect(
-    within(played).getByRole("heading", { level: 2, name: "Recently played" }),
-  ).toBeTruthy();
-  expect(
-    within(played).getByText("Play something and it will show up here."),
-  ).toBeTruthy();
-  expect(
-    within(played)
-      .getByRole("link", { name: "Open your library" })
-      .getAttribute("href"),
-  ).toBe("/library");
-  expect(within(played).queryByRole("list")).toBeNull();
 });
 
 test("shelves with nothing to show are left out", () => {

@@ -30,10 +30,6 @@ function albumCard(
   };
 }
 
-export function playedShelf(albums: Schema<"HomeAlbum">[]): ShelfCard[] {
-  return albums.map((album) => albumCard("played", album));
-}
-
 export function addedShelf(albums: Schema<"AddedAlbum">[]): ShelfCard[] {
   return albums.map((album) => albumCard("added", album));
 }
