@@ -633,3 +633,71 @@ main#main:has(> .playlist-header) {
 .track-table[data-layout] .cover-play .row-play svg {
   display: block;
 }
+
+.album-grid[data-layout="library"] .album-card {
+  text-align: left;
+  align-items: stretch;
+}
+
+@media (max-width: 767px) {
+  .library-heading .page-heading h1 {
+    font-size: 30px;
+  }
+  .library-sections {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .track-table[data-layout] th.album-column,
+  .track-table[data-layout] td.album-column {
+    display: none;
+  }
+  .track-table[data-layout] .source-column {
+    width: 132px;
+    white-space: normal;
+  }
+  .track-table[data-layout] td.source-column .source-status {
+    align-items: flex-start;
+    font-size: 12px;
+    white-space: normal;
+  }
+  .track-table[data-layout] .number-column {
+    width: 52px;
+  }
+  .track-table[data-layout] .duration-column {
+    width: 52px;
+  }
+  .track-table[data-layout] .track-title {
+    font-size: 14px;
+  }
+  .track-table[data-layout] .track-meta {
+    font-size: 12px;
+  }
+  .playlist-header {
+    margin: 0 -16px;
+    padding: 24px 16px;
+    gap: 20px;
+  }
+  .playlist-header-cover,
+  .playlist-header-cover > .artwork {
+    width: 140px;
+    height: 140px;
+  }
+  .playlist-header h1 {
+    font-size: 36px;
+  }
+  .playlist-name-field input {
+    font-size: 28px;
+    min-height: 52px;
+  }
+}
+.album-grid[data-layout="library"] .album-cover-link {
+  display: block;
+  width: 100%;
+}
+.album-grid[data-layout="library"] .artwork {
+  width: 100%;
+  aspect-ratio: 1;
+}
+.sort-control .listbox-control[aria-expanded="true"] > svg {
+  transform: none;
+}

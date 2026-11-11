@@ -75,12 +75,7 @@ test("the sort control is a labelled listbox that shows the chosen sort", () => 
   fireEvent.click(control);
   expect(
     screen.getAllByRole("option").map((option) => option.textContent),
-  ).toEqual([
-    "Recently added",
-    "Title",
-    "Artist",
-    "Year",
-  ]);
+  ).toEqual(["Recently added", "Title", "Artist", "Year"]);
   expect(document.querySelector("select")).toBeNull();
 });
 

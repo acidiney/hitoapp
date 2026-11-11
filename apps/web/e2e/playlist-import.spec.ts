@@ -1,3 +1,4 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
@@ -353,7 +354,9 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         exact: true,
       }),
     });
+    await openAllManage(page);
     await plugin.getByRole("button", { name: "Remove", exact: true }).click();
+    await openAllManage(page);
     const removePlugin = plugin.getByRole("button", {
       name: "Remove plugin",
       exact: true,
@@ -370,7 +373,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     expect((await uninstall).status()).toBe(204);
     connection = null;
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeFocused();
     await page.goto(copyPath);
     await expect(rows).toHaveCount(4);
@@ -411,7 +414,9 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         new URL(request.url()).pathname === "/api/v1/sync" &&
         request.method() === "POST",
     );
-    await page.getByRole("button", { name: "Done editing", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Done editing", exact: true })
+      .click();
     const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
     expect(batch.operations).toEqual(
       removedEntries.map((entry) => ({

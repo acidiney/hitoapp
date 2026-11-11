@@ -268,11 +268,8 @@
   color: var(--ink);
   text-wrap: balance;
 }
-.np-lyrics:has(> .np-lyric-card) {
-  justify-content: center;
-}
 .np-lines:not([data-synced]) {
-  justify-content: safe center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 8px 0;
   font-size: 19px;

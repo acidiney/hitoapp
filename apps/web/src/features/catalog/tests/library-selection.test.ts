@@ -85,15 +85,21 @@ test("tracks show where they play from and offer Find when no source exists", ()
 
 test("choosing rows shows a count, can select every loaded row and clears again", () => {
   open();
-  expect(screen.queryByRole("toolbar", { name: "Selection actions" })).toBeNull();
+  expect(
+    screen.queryByRole("toolbar", { name: "Selection actions" }),
+  ).toBeNull();
   fireEvent.click(screen.getByRole("checkbox", { name: "Select Track 1" }));
   const bar = screen.getByRole("toolbar", { name: "Selection actions" });
   expect(bar.textContent).toContain("1 selected");
   fireEvent.click(screen.getByRole("button", { name: "Select the 3 loaded" }));
   expect(bar.textContent).toContain("3 selected");
-  expect(screen.queryByRole("button", { name: /Select the 3 loaded/ })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /Select the 3 loaded/ }),
+  ).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
-  expect(screen.queryByRole("toolbar", { name: "Selection actions" })).toBeNull();
+  expect(
+    screen.queryByRole("toolbar", { name: "Selection actions" }),
+  ).toBeNull();
 });
 
 test("Add to queue adds the chosen rows in order and clears the choice", async () => {
@@ -107,7 +113,9 @@ test("Add to queue adds the chosen rows in order and clears the choice", async (
     "r2",
   ]);
   await vi.waitFor(() =>
-    expect(screen.queryByRole("toolbar", { name: "Selection actions" })).toBeNull(),
+    expect(
+      screen.queryByRole("toolbar", { name: "Selection actions" }),
+    ).toBeNull(),
   );
 });
 

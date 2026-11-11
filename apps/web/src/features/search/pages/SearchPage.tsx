@@ -109,17 +109,16 @@ export default function SearchPage({
           onChange={live.change}
           onSubmit={live.submit}
         />
-        <SearchHints>
-          {automatic && connections.length > 0 && (
-            <span>
-              With few matches in your library, your search is sent to your
-              connected services.{" "}
-              <Link className="text-link" href="/settings?section=privacy">
-                Change in Settings
-              </Link>
-            </span>
-          )}
-        </SearchHints>
+        <SearchHints />
+        {automatic && connections.length > 0 && (
+          <p className="search-disclosure">
+            With few matches in your library, your search is sent to your
+            connected services.{" "}
+            <Link className="text-link" href="/settings?section=privacy">
+              Change in Settings
+            </Link>
+          </p>
+        )}
         <SearchFilters
           scope={scope}
           onScope={setScope}
