@@ -366,10 +366,6 @@
   .queue-virtual > li {
     gap: 6px;
   }
-  .playlist-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px 16px;
-  }
   .collection-hero {
     gap: 18px;
     align-items: center;
