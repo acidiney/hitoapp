@@ -78,6 +78,7 @@ export function useCatalogPlayback(
   });
 
   useEffect(() => {
+    const pending = finders.current;
     saved.current = new Map();
     missed.current = new Map();
     setRows(new Map());
@@ -88,8 +89,8 @@ export function useCatalogPlayback(
       life.retire();
       running.current?.abort();
       running.current = null;
-      for (const finder of finders.current) finder.abort();
-      finders.current.clear();
+      for (const finder of pending) finder.abort();
+      pending.clear();
     };
   }, [life, account, recording, association.id, group.id, edition]);
 

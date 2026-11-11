@@ -18,12 +18,13 @@ export function useRadioPreview(
     key: string;
     value: RadioPreview;
   } | null>(null);
-  const key = `${account}:${group?.id ?? ""}`;
+  const groupId = group?.id;
+  const key = `${account}:${groupId ?? ""}`;
   useEffect(() => {
-    if (!group) return;
+    if (!groupId) return;
     const request = scope.capture();
     radioApi
-      .start(account, group.id, request.signal)
+      .start(account, groupId, request.signal)
       .then((radio) => {
         if (request.active())
           setPreview({ key, value: { status: "ready", radio } });
@@ -33,6 +34,6 @@ export function useRadioPreview(
         log.debug("artist_radio.preview_failed", { reason: "request" });
         setPreview({ key, value: { status: "failed" } });
       });
-  }, [account, group?.id, key, scope]);
+  }, [account, groupId, key, scope]);
   return preview?.key === key ? preview.value : { status: "loading" };
 }
