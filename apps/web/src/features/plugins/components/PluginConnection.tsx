@@ -10,6 +10,8 @@ import {
 import type { PluginActions } from "../hooks/usePlugins";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
+import { declaredCapabilities } from "../model/capabilityRows";
+import { friendlyTime } from "../../../shared/format";
 import { pluginHealthNotice } from "../model/pluginHealth";
 import {
   capabilityChips,
@@ -169,22 +171,90 @@ export default function PluginConnection({
       />
       {manage && (
         <div className="plugin-manage" id={panelId}>
-          <div className="plugin-card-actions">
-            <Button
-              disabled={actions.pending}
-              ref={checkButton}
-              onClick={() => void check()}
-            >
-              Check connection
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={actions.pending}
-              ref={removeButton}
-              onClick={() => setConfirm(true)}
-            >
-              Remove
-            </Button>
+          <div className="plugin-detail">
+            <section className="plugin-detail-card">
+              <h4>What it does for you</h4>
+              <ul>
+                {declaredCapabilities(plugin.manifest.capabilities).map(
+                  (row) => (
+                    <li key={row.key}>
+                      <span>
+                        <strong>{row.name}</strong>
+                        <small>{row.what}</small>
+                      </span>
+                      <span className="plugin-on">On</span>
+                    </li>
+                  ),
+                )}
+                {waiting && !review && (
+                  <li>
+                    <span>
+                      <strong>{news(plugin, waiting)}</strong>
+                      <small>
+                        New in this version of the plugin. Stays off until you
+                        review it.
+                      </small>
+                    </span>
+                    <span className="plugin-needs">
+                      <span aria-hidden="true" />
+                      Needs review
+                    </span>
+                    <Button
+                      variant="action"
+                      aria-label={`Review ${news(plugin, waiting)} for ${plugin.manifest.name}`}
+                      disabled={actions.pending}
+                      onClick={() => setReview(waiting)}
+                    >
+                      Review
+                    </Button>
+                  </li>
+                )}
+              </ul>
+            </section>
+            <div className="plugin-detail-side">
+              <section className="plugin-detail-card">
+                <h4>Recent trouble</h4>
+                {notice ? (
+                  <div className="plugin-trouble">
+                    <span aria-hidden="true" />
+                    <span>{notice.title}</span>
+                  </div>
+                ) : (
+                  <p>Nothing to report.</p>
+                )}
+              </section>
+              <section className="plugin-detail-card plugin-detail-connection">
+                <h4>Connection</h4>
+                <div>
+                  <Button
+                    disabled={actions.pending}
+                    ref={checkButton}
+                    onClick={() => void check()}
+                  >
+                    Check connection
+                  </Button>
+                  <small>
+                    {plugin.checked_at
+                      ? `Last checked ${friendlyTime(new Date(plugin.checked_at * 1000))}.`
+                      : "Not checked yet."}
+                  </small>
+                </div>
+                <div>
+                  <Button
+                    variant="destructive"
+                    disabled={actions.pending}
+                    ref={removeButton}
+                    onClick={() => setConfirm(true)}
+                  >
+                    Remove
+                  </Button>
+                  <small>
+                    Tracks that only play from {plugin.manifest.name} will show
+                    No source. Your library, playlists and saved copies stay.
+                  </small>
+                </div>
+              </section>
+            </div>
           </div>
           {confirm && (
             <div className="plugin-confirm">

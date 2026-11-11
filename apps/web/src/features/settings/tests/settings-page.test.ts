@@ -151,7 +151,7 @@ test("native playback settings keep the browser quality choice out of the native
 });
 
 test("the navigation groups every section as a deep link", async () => {
-  open("/settings?section=plugins");
+  open("/settings?section=music");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });
   expect(
     within(nav)
@@ -170,9 +170,17 @@ test("the navigation groups every section as a deep link", async () => {
   ]);
   for (const group of ["Your account", "Listening", "Server"])
     expect(within(nav).getByText(group)).toBeTruthy();
-  expect(current()).toEqual(["Plugins"]);
+  expect(current()).toEqual(["Music & providers"]);
+  expect(await screen.findByText("Music folders stub")).toBeTruthy();
+  expect(screen.queryByText("Plugins stub")).toBeNull();
+});
+
+test("the Plugins section opens as its own page without the settings navigation", async () => {
+  open("/settings?section=plugins");
   expect(await screen.findByText("Plugins stub")).toBeTruthy();
-  expect(screen.queryByText("Music folders stub")).toBeNull();
+  expect(
+    screen.queryByRole("navigation", { name: "Settings sections" }),
+  ).toBeNull();
 });
 
 test("members never see the Accounts section or reach it by URL", () => {

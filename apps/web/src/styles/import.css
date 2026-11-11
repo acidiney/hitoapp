@@ -334,3 +334,49 @@
   font-size: 14px;
   color: var(--muted);
 }
+.follow-strip {
+  min-height: 52px;
+  margin-bottom: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+.follow-strip .status-strip-line strong {
+  font-weight: 600;
+}
+.follow-strip .health {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.follow-strip .health-dot {
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--ink-soft);
+  background: transparent;
+}
+.follow-strip .health[data-tone="success"] .health-dot {
+  background: var(--ink-soft);
+}
+.follow-strip .health[data-tone="action"] .health-dot {
+  border-style: dashed;
+  border-color: var(--muted);
+}
+.follow-strip .health[data-tone="warning"] .health-dot {
+  border-color: var(--warning);
+}
+.follow-strip .status-strip-actions .button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font-size: 14px;
+}
+.follow-strip .status-strip-actions .button:disabled {
+  background: transparent;
+  color: var(--muted);
+}

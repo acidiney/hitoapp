@@ -98,3 +98,27 @@ export function connectionBenefits(capabilities: Capability[]) {
     (value) => BENEFITS[value]!,
   );
 }
+
+const EXTRA: Partial<Record<Capability, { name: string; what: string }>> = {
+  catalog: {
+    name: "Browse",
+    what: "Lists albums and artists from the service.",
+  },
+  source_preparation: {
+    name: "Faster playback",
+    what: "Gets songs ready to play sooner.",
+  },
+  dashboard: { name: "Dashboard", what: "Shows the service's own page." },
+  backing_tracks: { name: "Backing tracks", what: "Offers backing tracks." },
+  featured: { name: "Featured", what: "Features music on Discover." },
+};
+
+export function declaredCapabilities(capabilities: Capability[]) {
+  const rows = ROWS.filter((row) => capabilities.includes(row.capability)).map(
+    ({ key, name, what }) => ({ key, name, what }),
+  );
+  const extra = (Object.keys(EXTRA) as Capability[])
+    .filter((value) => capabilities.includes(value))
+    .map((value) => ({ key: value, ...EXTRA[value]! }));
+  return [...rows, ...extra];
+}
