@@ -1,12 +1,13 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
-import { Keyboard, Lock, LogOut } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useSignOut } from "../features/session/hooks/useSignOut";
 import { useLockSession } from "../features/session/hooks/useLockSession";
 import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
 import { clearStoredQueues } from "../features/playback/browser/QueueStorage";
 
+import ActionMenu, { type ActionMenuItem } from "../shared/ui/ActionMenu";
 import Avatar from "../shared/ui/Avatar";
 import { accountName } from "../shared/accountName";
 import { log } from "../shared/log";
@@ -30,6 +31,21 @@ export default function AccountMenu({
   });
   const locking = useLockSession(user.id, () => player.clear());
   useIdleLock(user.id, lock, () => player.clear());
+  const options: ActionMenuItem[] = [
+    ...(onShowShortcuts
+      ? [{ label: "Keyboard shortcuts", onSelect: onShowShortcuts }]
+      : []),
+    ...(lock.pin_enabled
+      ? [
+          {
+            label: "Lock",
+            disabled: locking.busy,
+            onSelect: () => void locking.lock(),
+          },
+        ]
+      : []),
+    { label: "Sign out", disabled: busy, onSelect: () => void signOut() },
+  ];
   return (
     <div className="account">
       <Link
@@ -51,34 +67,13 @@ export default function AccountMenu({
           <small>{user.admin ? "Administrator" : "Account and settings"}</small>
         </span>
       </Link>
-      {onShowShortcuts && (
-        <button
-          className="icon-button"
-          aria-label="Keyboard shortcuts"
-          aria-keyshortcuts="?"
-          onClick={onShowShortcuts}
-        >
-          <Keyboard size={17} />
-        </button>
-      )}
-      {lock.pin_enabled && (
-        <button
-          className="icon-button"
-          aria-label="Lock"
-          disabled={locking.busy}
-          onClick={() => void locking.lock()}
-        >
-          <Lock size={17} />
-        </button>
-      )}
-      <button
-        className="icon-button"
-        aria-label="Sign out"
-        disabled={busy}
-        onClick={() => void signOut()}
-      >
-        <LogOut size={17} />
-      </button>
+      <ActionMenu
+        label="Account options"
+        triggerClassName="icon-button"
+        icon={<SlidersHorizontal size={17} aria-hidden="true" />}
+        align="end"
+        items={options}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { openNewPlaylist } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
@@ -101,7 +102,7 @@ test("the live Spotify to YouTube entry point refuses an initialized server befo
         new URL(response.url()).pathname === "/api/v1/logout" &&
         response.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signOutFromShell(page);
     expect((await logoutResponse).status()).toBe(204);
     await expect(
       page.getByRole("button", { name: "Sign in", exact: true }),

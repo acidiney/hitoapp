@@ -1,3 +1,8 @@
+import {
+  accountOptionsButton,
+  openAccountOptions,
+  openShortcutsFromShell,
+} from "./fixtures/account";
 import { expect, test } from "@playwright/test";
 import { openSharedAdminSession } from "./fixtures/admin-session";
 
@@ -158,9 +163,7 @@ test("a phone shows a five-tab bar with the mini player above it", async ({
   expect(Math.round(player!.y + player!.height)).toBeLessThanOrEqual(
     Math.round(bar!.y) + 1,
   );
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeHidden();
+  await expect(accountOptionsButton(page)).toBeHidden();
   await expect(
     page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();
@@ -173,4 +176,32 @@ test("a phone shows a five-tab bar with the mini player above it", async ({
     const box = await link.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test("the account bar shows the whole role and one options menu above the player", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openSharedAdminSession(page);
+  await page.goto("/library");
+  const role = page.locator(".account-name small");
+  await expect(role).toHaveText("Administrator");
+  expect(
+    await role.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await expect(page.locator(".account").getByRole("button")).toHaveCount(1);
+  const menu = await openAccountOptions(page);
+  const items = menu.getByRole("menuitem");
+  await expect(items.first()).toBeFocused();
+  await expect(items.filter({ hasText: "Sign out" })).toBeVisible();
+  const box = await menu.boundingBox();
+  const trigger = await accountOptionsButton(page).boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(trigger!.y);
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(accountOptionsButton(page)).toBeFocused();
+  await openShortcutsFromShell(page);
+  await expect(
+    page.getByRole("dialog", { name: "Keyboard shortcuts" }),
+  ).toBeVisible();
 });

@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { expect, test } from "@playwright/test";
 import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { enterAdmin } from "./fixtures/admin-session";
@@ -613,7 +614,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect
     .poll(() => delayedTab.locator("script[data-page=app]").textContent())
     .toContain("Docker favorites");
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutFromShell(page);
   await expect(
     page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();

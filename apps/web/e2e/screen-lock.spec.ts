@@ -1,3 +1,8 @@
+import {
+  accountOptionsButton,
+  lockFromShell,
+  openAccountOptions,
+} from "./fixtures/account";
 import { expect, test, type Page } from "@playwright/test";
 import { adminCredentials } from "./fixtures/admin-session";
 
@@ -20,9 +25,15 @@ test("locking shows a lock screen in every tab and the PIN restores the same ses
 }) => {
   try {
     await page.goto("/settings?section=privacy");
+    const options = await openAccountOptions(page);
     await expect(
-      page.getByRole("button", { name: "Lock", exact: true }),
+      options.getByRole("menuitem", { name: "Sign out", exact: true }),
+    ).toBeVisible();
+    await expect(
+      options.getByRole("menuitem", { name: "Lock", exact: true }),
     ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(accountOptionsButton(page)).toBeFocused();
     await page.getByLabel("PIN", { exact: true }).fill(pin);
     await page
       .getByLabel("Current password", { exact: true })
@@ -38,7 +49,7 @@ test("locking shows a lock screen in every tab and the PIN restores the same ses
       other.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Lock", exact: true }).click();
+    await lockFromShell(page);
     const lockScreen = page.getByRole("heading", { name: "Locked" });
     await expect(lockScreen).toBeVisible();
     await expect(page.getByText(adminCredentials.username)).toBeVisible();

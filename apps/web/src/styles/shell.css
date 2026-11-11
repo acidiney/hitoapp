@@ -203,7 +203,8 @@
   white-space: nowrap;
   font-weight: 600;
 }
-.account .icon-button {
+.account .icon-button,
+.account .action-menu-trigger {
   min-width: 44px;
   min-height: 44px;
   border-radius: 50%;
@@ -229,9 +230,14 @@
   height: 100%;
   object-fit: cover;
 }
-.account small {
+.account-name > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 400;
+  color: var(--muted);
 }
 .workspace {
   grid-column: 2;

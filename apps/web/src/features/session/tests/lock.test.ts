@@ -69,7 +69,9 @@ function sidebar(lock: typeof unlocked) {
 
 test("the account menu offers Lock only when the account has a PIN", () => {
   sidebar({ pin_enabled: false, idle_minutes: 0, locked: false });
-  expect(screen.queryByRole("button", { name: "Lock" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Account options" }));
+  expect(screen.queryByRole("menuitem", { name: "Lock" })).toBeNull();
+  expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
 });
 
 test("locking stops playback for the account before the lock screen replaces the page", async () => {
@@ -80,7 +82,8 @@ test("locking stops playback for the account before the lock screen replaces the
     order.push("lock");
     return locked;
   });
-  fireEvent.click(screen.getByRole("button", { name: "Lock" }));
+  fireEvent.click(screen.getByRole("button", { name: "Account options" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Lock" }));
   await waitFor(() => expect(reload).toHaveBeenCalled());
   expect(order).toEqual(["stop", "lock"]);
   expect(router.clearHistory).toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { openAllManage } from "./fixtures/plugin-ui";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -509,7 +510,7 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("region", { name: "Accounts and access" }),
       ).toContainText("plugin-listener");
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
@@ -565,7 +566,7 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeFocused();
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();

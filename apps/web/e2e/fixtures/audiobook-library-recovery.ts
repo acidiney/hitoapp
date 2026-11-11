@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./account";
 import { expect, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import type { LibraryFixture } from "./audiobook-library-state";
@@ -105,7 +106,7 @@ export async function recoverLibrary(
     .click();
   await expect.poll(() => delivery.counts.held).toBe(2);
   delivery.sessions(fixture.owner.user.id);
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutFromShell(page);
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();

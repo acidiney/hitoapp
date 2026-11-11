@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import type { Schema } from "../src/shared/schema";
 import { openNewPlaylist } from "./fixtures/playlist-dialogs";
 import { expect, test, type Page } from "@playwright/test";
@@ -281,7 +282,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     ).toBeVisible();
     await checkHistory(page, false);
     await page.getByRole("button", { name: "Pause", exact: true }).click();
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signOutFromShell(page);
     await signIn(page, listener, listenerPassword);
     await expect(page.getByText("0 tracks", { exact: true })).toBeVisible();
     await expect(page.getByText(privatePlaylist, { exact: true })).toHaveCount(
@@ -300,7 +301,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     ).toBe(true);
     expect(await page.locator("audio").getAttribute("src")).toBeNull();
     await checkHistory(page, false);
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signOutFromShell(page);
     await signIn(page, admin, adminPassword);
     if (process.env.HITO_TEST_MOBILE === "1") {
       await openLibrarySection(page, "Playlists");
@@ -334,9 +335,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
         .getByText(privatePlaylist, { exact: true }),
     ).toBeVisible();
     await checkHistory(localPage, true);
-    await localPage
-      .getByRole("button", { name: "Sign out", exact: true })
-      .click();
+    await signOutFromShell(localPage);
     await expect(
       localPage.getByRole("heading", { name: "Sign in", exact: true }),
     ).toBeVisible();
