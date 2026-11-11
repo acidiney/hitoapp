@@ -8,7 +8,8 @@ export type InvalidationScope =
   | "playlist"
   | "playlists"
   | "lyrics"
-  | "plugins";
+  | "plugins"
+  | "catalog";
 
 export type RecordingChange =
   | { liked: boolean }

@@ -53,6 +53,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
   const detail = http.hold("body", tracksOfEdition(standardEdition, lateTitle));
   http.reply({ error: "The catalog continuation is invalid." }, 400);
   http.reply({ error: "The catalog is temporarily unavailable." }, 503);
+  http.reply({ error: "The catalog is temporarily unavailable." }, 503);
   const restart = http.hold("headers", lastEditionPage);
   http.reply(tracksOfEdition(bonusEdition));
   const before = structuredClone(props);
@@ -78,7 +79,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
         "The catalog is temporarily unavailable.",
       ),
     );
-    for (const index of [2, 3])
+    for (const index of [2, 3, 4])
       expect(
         JSON.parse(http.fetch.mock.calls[index][1]?.body as string),
       ).toEqual({
@@ -90,7 +91,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
     await act(async () => {
       await restart.entered;
     });
-    expect(JSON.parse(http.fetch.mock.calls[4][1]?.body as string)).toEqual({
+    expect(JSON.parse(http.fetch.mock.calls[5][1]?.body as string)).toEqual({
       release_group_id: editionGroup.id,
       limit: 20,
       continuation: null,
@@ -115,7 +116,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
     ).not.toContain("Standard edition");
     expect(screen.queryByText(lateTitle)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(http.fetch).toHaveBeenCalledTimes(6);
+    expect(http.fetch).toHaveBeenCalledTimes(7);
     expect(http.responses.every((response) => response.bodyUsed)).toBe(true);
     expect(props).toEqual(before);
     expect(push).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { longDuration, totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
+import CatalogFailure from "./CatalogFailure";
 import CatalogEditionSwitch from "./CatalogEditionSwitch";
 import LibraryAvailability from "./LibraryAvailability";
 
@@ -191,37 +192,28 @@ export default function CatalogAlbum({
         {(editions.pending || tracks.pending) && (
           <p role="status">Loading tracks…</p>
         )}
-        {editions.error && <p role="alert">{editions.error}</p>}
-        {editions.error && !editions.restartRequired && (
-          <Button
-            type="button"
-            disabled={editions.pending}
-            onClick={() => void editions.retry()}
-          >
-            Try editions again
-          </Button>
-        )}
-        {(editions.restartRequired ||
-          (editions.error && editions.pages > 0)) && (
-          <Button
-            type="button"
-            disabled={editions.pending}
-            onClick={() => void editions.restart()}
-          >
-            Restart editions
-          </Button>
+        {editions.error && (
+          <CatalogFailure
+            message={editions.error}
+            retryLabel="Try editions again"
+            pending={editions.pending}
+            onRetry={
+              editions.restartRequired ? undefined : () => void editions.retry()
+            }
+            onRestart={
+              editions.restartRequired || editions.pages > 0
+                ? () => void editions.restart()
+                : undefined
+            }
+          />
         )}
         {tracks.error && (
-          <>
-            <p role="alert">{tracks.error}</p>
-            <Button
-              type="button"
-              disabled={tracks.pending}
-              onClick={() => void tracks.retry()}
-            >
-              Try track list again
-            </Button>
-          </>
+          <CatalogFailure
+            message={tracks.error}
+            retryLabel="Try track list again"
+            pending={tracks.pending}
+            onRetry={() => void tracks.retry()}
+          />
         )}
         {editions.pages > 0 &&
           editions.editions.length === 0 &&

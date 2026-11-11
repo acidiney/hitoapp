@@ -344,6 +344,23 @@ a.album-artist:focus-visible {
   padding: 0 8px;
 }
 
+.catalog-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.catalog-failure > .source-status {
+  margin: 0;
+  font-size: 14px;
+  white-space: normal;
+  color: var(--ink-soft);
+}
+.catalog-failure > .text-action {
+  align-self: center;
+  padding: 0 8px;
+}
+
 .album-body > .list-toolbar:empty {
   display: none;
 }
