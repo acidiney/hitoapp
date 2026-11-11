@@ -124,6 +124,7 @@ test("every member of a collaboration lists it and a featured artist lists it as
       ).toHaveAttribute("href", `/artists/${named(credits.cy).id}`);
       await page.screenshot({ path: `${SHOTS}/after-cy-${size}.png` });
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/artists/${named(credits.cy).id}`);
     await expect(page.getByRole("row")).toHaveCount(61);
     await expect(page.getByText("Showing 60 of 62 appearances")).toBeVisible();

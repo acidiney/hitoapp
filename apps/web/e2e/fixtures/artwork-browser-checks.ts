@@ -155,6 +155,7 @@ export async function layouts(
   ]) {
     await page.setViewportSize(viewport);
     for (const control of controls) {
+      if (viewport.width < 768 && (await control.count()) === 0) continue;
       await control.evaluate((element) =>
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
