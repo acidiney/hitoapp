@@ -200,6 +200,9 @@ a.album-artist:focus-visible {
 .complete-track-list > .button {
   align-self: flex-start;
 }
+.complete-track-list .edition-tracks {
+  margin-top: 0;
+}
 .match-panel {
   display: flex;
   flex-direction: column;
@@ -208,6 +211,10 @@ a.album-artist:focus-visible {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-panel);
   background: var(--surface);
+  max-width: 568px;
+}
+.match-panel:has(.release-grid) {
+  max-width: none;
 }
 .match-panel > h3 {
   margin: 0;
@@ -294,6 +301,14 @@ a.album-artist:focus-visible {
 }
 .match-actions > .text-action {
   align-self: center;
+}
+.match-actions > .text-action:first-child {
+  margin-left: -12px;
+}
+.match-lined-up > p[role="status"] {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
 }
 .match-lined-up {
   display: flex;

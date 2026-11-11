@@ -692,23 +692,6 @@ section[aria-label="Discography"] > section > .button {
   }
 }
 
-section[aria-label="Complete track list"] {
-  margin-bottom: 18px;
-  padding: 14px 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 14px;
-  font-size: 13px;
-}
-section[aria-label="Complete track list"] > h2 {
-  flex: 1 1 100%;
-  font-size: 18px;
-  font-weight: 800;
-}
 .status-strip {
   display: flex;
   flex-wrap: wrap;
