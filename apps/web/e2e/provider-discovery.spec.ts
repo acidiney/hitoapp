@@ -111,7 +111,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
     const last = page
       .locator(".provider-result")
       .last()
-      .getByRole("button", { name: /Add .* to library/ });
+      .getByRole("button", { name: /^Actions for / });
     await last.evaluate((element) =>
       element.scrollIntoView({ block: "center" }),
     );
