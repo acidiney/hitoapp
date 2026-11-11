@@ -1,8 +1,9 @@
-import LibrarySections from "../../../app/LibrarySections";
+import LibraryHeading from "../../../app/LibraryHeading";
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { friendlyTime } from "../../../shared/format";
 import Button from "../../../shared/ui/Button";
+import EmptyState from "../../../shared/ui/EmptyState";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import PodcastSubscribe from "../components/PodcastSubscribe";
 import { checkedAt } from "../components/PodcastStatus";
@@ -28,23 +29,22 @@ export default function PodcastIndexPage({
   const count = workflow.subscriptions.length;
   return (
     <>
-      <header className="media-index-head">
-        <div>
-          <h1>Podcasts</h1>
-          <span className="media-mono">
-            {count} {count === 1 ? "subscription" : "subscriptions"}
-          </span>
+      <LibraryHeading
+        path="/podcasts"
+        title="Podcasts"
+        description={`${count} ${count === 1 ? "subscription" : "subscriptions"}`}
+      >
+        <div className="library-heading-actions">
+          <PodcastSubscribe
+            key={user.id}
+            pending={workflow.pending}
+            hasAttempt={workflow.hasAttempt}
+            error={workflow.error}
+            subscribe={workflow.subscribe}
+            retry={workflow.retry}
+          />
         </div>
-        <PodcastSubscribe
-          key={user.id}
-          pending={workflow.pending}
-          hasAttempt={workflow.hasAttempt}
-          error={workflow.error}
-          subscribe={workflow.subscribe}
-          retry={workflow.retry}
-        />
-      </header>
-      <LibrarySections path="/podcasts" />
+      </LibraryHeading>
       {workflow.statusError && (
         <div>
           <p role="alert">{workflow.statusError}</p>
@@ -87,13 +87,11 @@ export default function PodcastIndexPage({
         </ul>
       )}
       {count === 0 && (
-        <div className="media-empty">
-          <h2>No podcast subscriptions yet</h2>
-          <p>
-            Subscribe with a feed address to follow a show. New episodes appear
-            on its page after a feed check.
-          </p>
-        </div>
+        <EmptyState
+          title="No podcast subscriptions yet"
+          text="Subscribe with a feed address to follow a show. New episodes appear on its page after a feed check."
+          libraryLink={false}
+        />
       )}
     </>
   );

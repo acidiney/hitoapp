@@ -48,8 +48,8 @@
   margin-top: 4px;
 }
 .playlist-list {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 28px 20px;
+  grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr));
+  gap: 24px 20px;
 }
 .playlist-list > a {
   display: flex;
@@ -57,15 +57,24 @@
   gap: 2px;
 }
 .playlist-list .artwork {
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .playlist-list strong {
-  font-size: 14px;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 16px;
   font-weight: 600;
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .playlist-list small {
-  font-size: 12px;
+  margin-top: 0;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--muted);
 }
 .badge {
@@ -475,61 +484,6 @@ section[aria-label="Discography"] > section > .button {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
-.edition-track-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.edition-track-rows > li {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  grid-template-areas:
-    "no name time"
-    "no credit time";
-  column-gap: 12px;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-}
-.edition-track-rows > li:hover {
-  background: var(--subtle);
-}
-.edition-track-rows .track-no {
-  grid-area: no;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--muted);
-}
-.edition-track-rows .track-name {
-  grid-area: name;
-  font-weight: 700;
-  font-size: 15px;
-}
-.edition-track-rows .track-credit {
-  grid-area: credit;
-  font-size: 13px;
-  color: var(--muted);
-}
-.edition-track-rows .track-time {
-  grid-area: time;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--muted);
-  text-align: right;
-}
-.edition-track-rows .track-kind {
-  grid-area: name;
-  justify-self: end;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  color: var(--muted);
-}
-.edition-track-rows > li > :is(.button, .availability, p:not([class])) {
-  grid-column: 2 / -1;
-}
 .release-cover {
   width: 100%;
   border-radius: 10px;
@@ -644,43 +598,67 @@ section[aria-label="Discography"] > section > .button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px 14px;
   }
-  .album-grid,
   .artist-grid,
   .playlist-list {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
-  .album-card,
   .artist-card,
+  .artist-card.round,
   .playlist-list > a {
     display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr);
     column-gap: 12px;
+    align-content: center;
     align-items: center;
+    min-height: 60px;
     padding: 8px 0;
-    border-bottom: 1px solid var(--line);
     text-align: left;
   }
-  .album-card .album-cover-link,
   .artist-card .artwork,
-  .playlist-list .artwork,
-  .album-card .artwork {
-    grid-row: 1 / span 3;
-    width: 56px;
-    height: 56px;
+  .playlist-list .artwork {
+    grid-row: 1 / span 2;
+    width: 44px;
+    height: 44px;
     margin: 0;
     border-radius: 6px;
   }
   .artist-card.round .artwork {
     border-radius: 50%;
   }
-  .album-card .artwork {
-    border-radius: 6px;
-  }
-  .album-card > :not(.album-cover-link),
   .artist-card > :not(.artwork),
   .playlist-list > a > :not(.artwork) {
     grid-column: 2;
+  }
+  .artist-card h2,
+  .playlist-list strong {
+    display: block;
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-line-clamp: unset;
+  }
+  .artist-card small,
+  .playlist-list small {
+    margin: 0;
+    overflow: hidden;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .playlist-list .badge {
+    padding: 0;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
   }
   .track-table td,
   .track-table th {

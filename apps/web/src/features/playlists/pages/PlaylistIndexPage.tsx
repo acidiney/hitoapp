@@ -3,6 +3,11 @@ import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import { Link2, Plus } from "lucide-react";
 
+import ActionMenu from "../../../shared/ui/ActionMenu";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import EmptyState from "../../../shared/ui/EmptyState";
 import LibraryHeading from "../../../app/LibraryHeading";
 import Button from "../../../shared/ui/Button";
@@ -21,6 +26,27 @@ export default function PlaylistIndexPage({
 }: Schema<"PlaylistIndexPageProps">) {
   const [panel, setPanel] = useState<Panel>(() =>
     window.location.hash === "#new-playlist" ? "create" : null,
+  );
+  const phone = useMediaQuery(PHONE_QUERY);
+  const compactActions = (
+    <>
+      <Button
+        className="icon-only"
+        aria-haspopup="dialog"
+        aria-label="New playlist"
+        onClick={() => setPanel("create")}
+      >
+        <Plus size={18} aria-hidden="true" />
+      </Button>
+      <ActionMenu
+        label="More actions"
+        align="end"
+        triggerClassName="icon-only"
+        items={[
+          { label: "Import from a link", onSelect: () => setPanel("import") },
+        ]}
+      />
+    </>
   );
   const actions = (
     <>
@@ -46,7 +72,9 @@ export default function PlaylistIndexPage({
         description={`${playlists.length} ${playlists.length === 1 ? "playlist" : "playlists"}`}
       >
         {playlists.length > 0 && (
-          <div className="page-heading-actions">{actions}</div>
+          <div className="library-heading-actions">
+            {phone ? compactActions : actions}
+          </div>
         )}
       </LibraryHeading>
       {playlists.length > 0 ? (

@@ -161,3 +161,19 @@ test("without a playlist service the import dialog only offers to connect one", 
     within(region).getByRole("link", { name: "Connect a playlist service" }),
   ).toBeTruthy();
 });
+
+test("on a phone the header keeps a compact New playlist and moves Import into one menu", () => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("767px"),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+  render(createElement(PlaylistIndexPage, populated), { wrapper });
+  expect(screen.getByRole("button", { name: "New playlist" })).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Import from a link" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Import from a link" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});

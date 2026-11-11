@@ -1,4 +1,5 @@
-import LibrarySections from "../../../app/LibrarySections";
+import LibraryHeading from "../../../app/LibraryHeading";
+import EmptyState from "../../../shared/ui/EmptyState";
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
@@ -17,19 +18,19 @@ export default function AudiobookIndexPage({
   const grouping = useAudiobookGrouping(user.id, grouping_playlists, books);
   return (
     <>
-      <header className="media-index-head">
-        <div>
-          <h1>Audiobooks</h1>
-          <span className="media-mono">
-            {books.length} {books.length === 1 ? "audiobook" : "audiobooks"}
-            {book_pagination.next_cursor || book_pagination.previous_cursor
-              ? " on this page"
-              : ""}
-          </span>
+      <LibraryHeading
+        path="/audiobooks"
+        title="Audiobooks"
+        description={`${books.length} ${books.length === 1 ? "audiobook" : "audiobooks"}${
+          book_pagination.next_cursor || book_pagination.previous_cursor
+            ? " on this page"
+            : ""
+        }`}
+      >
+        <div className="library-heading-actions">
+          <AudiobookCreate {...grouping} />
         </div>
-        <AudiobookCreate {...grouping} />
-      </header>
-      <LibrarySections path="/audiobooks" />
+      </LibraryHeading>
       <AudiobookPagination
         {...navigation}
         limit={book_pagination.limit}
@@ -62,16 +63,15 @@ export default function AudiobookIndexPage({
         </ul>
       )}
       {books.length === 0 && (
-        <div className="media-empty">
-          <h2>No audiobooks yet</h2>
-          <p>
-            Group an editable playlist into ordered chapters and it will appear
-            here.
-          </p>
+        <EmptyState
+          title="No audiobooks yet"
+          text="Group an editable playlist into ordered chapters and it will appear here."
+          libraryLink={false}
+        >
           <Link className="button" href="/playlists">
             Browse playlists
           </Link>
-        </div>
+        </EmptyState>
       )}
     </>
   );
