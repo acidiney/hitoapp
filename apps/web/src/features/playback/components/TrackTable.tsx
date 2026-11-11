@@ -299,25 +299,27 @@ export default function TrackTable({
                     ) : (
                       <span className="retained-title">{display.title}</span>
                     )}
-                    {view && !track ? (
-                      <CatalogRowNote status={view.status} />
-                    ) : row.kind === "retained" ? (
-                      <small>{retainedNote(row.entry.origin)}</small>
-                    ) : layout ? null : (
-                      <TrackAvailabilityNote track={track!} />
-                    )}
-                    <TrackNames
-                      className="track-meta"
-                      artist={
-                        (showArtist || layout) && creditedElsewhere(row)
-                          ? display.artist
-                          : undefined
-                      }
-                      artistHref={artistLink}
-                      credited={track?.credited_artists}
-                      album={showAlbum && !layout ? album : null}
-                      albumHref={albumLink}
-                    />
+                    <div className="track-sub">
+                      {view && !track ? (
+                        <CatalogRowNote status={view.status} />
+                      ) : row.kind === "retained" ? (
+                        <small>{retainedNote(row.entry.origin)}</small>
+                      ) : layout ? null : (
+                        <TrackAvailabilityNote track={track!} />
+                      )}
+                      <TrackNames
+                        className="track-meta"
+                        artist={
+                          (showArtist || layout) && creditedElsewhere(row)
+                            ? display.artist
+                            : undefined
+                        }
+                        artistHref={artistLink}
+                        credited={track?.credited_artists}
+                        album={showAlbum && !layout ? album : null}
+                        albumHref={albumLink}
+                      />
+                    </div>
                   </div>
                 </td>
                 {showArtist && (

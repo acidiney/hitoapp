@@ -342,3 +342,42 @@
   background: rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
+
+.track-sub {
+  display: contents;
+}
+.source-status[data-status="absent"] .source-status-dot {
+  border-color: var(--muted);
+}
+@media (max-width: 767px) {
+  .track-table:not([data-layout]):not([data-editing]) .track-sub {
+    display: flex;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .track-table:not([data-layout]):not([data-editing]) .track-sub > small {
+    flex: none;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .track-table:not([data-layout]):not([data-editing])
+    .track-sub
+    > small
+    + .track-meta::before {
+    content: "\00b7";
+    margin: 0 6px;
+  }
+  .track-table:not([data-layout]):not([data-editing])
+    tbody
+    tr:not(:has(.track-sub > *))
+    .track-title {
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+}
