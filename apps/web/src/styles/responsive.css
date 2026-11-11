@@ -49,15 +49,13 @@
 @media (max-width: 767px) {
   :root {
     --sidebar: 0px;
-    --tabs: 64px;
-    --player: 64px;
+    --tabs: calc(57px + max(env(safe-area-inset-bottom), 20px));
+    --player: 71px;
   }
   .app-shell {
     display: block;
     padding-right: 0;
-    padding-bottom: calc(
-      var(--player) + var(--tabs) + env(safe-area-inset-bottom)
-    );
+    padding-bottom: calc(var(--player) + var(--tabs));
   }
   .sidebar {
     position: static;
@@ -78,12 +76,10 @@
     right: 0;
     bottom: 0;
     z-index: 31;
-    height: calc(var(--tabs) + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
+    height: var(--tabs);
+    padding: 4px 4px max(env(safe-area-inset-bottom), 20px);
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
-    padding-left: 8px;
-    padding-right: 8px;
     background: var(--sidebar-bg);
     border-top: 1px solid var(--line);
   }
@@ -91,21 +87,26 @@
     flex-direction: column;
     justify-content: center;
     gap: 4px;
+    min-height: 52px;
     padding: 0;
     border-radius: 0;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.45;
     color: var(--muted);
     background: transparent;
+  }
+  .sidebar nav svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 2;
   }
   .sidebar nav :is(a, button):hover:not(:disabled) {
     background: transparent;
   }
   .sidebar nav a[aria-current="page"] {
     background: transparent;
+    font-weight: 700;
     color: var(--ink);
-  }
-  .sidebar nav a[aria-current="page"] svg {
-    stroke-width: 2.4;
   }
   .sidebar nav kbd {
     display: none;
@@ -242,48 +243,102 @@
     display: grid;
     left: 8px;
     right: 8px;
-    bottom: calc(var(--tabs) + env(safe-area-inset-bottom));
-    height: 56px;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    padding: 0 0 0 8px;
-    gap: 4px;
+    bottom: calc(var(--tabs) + 8px);
+    height: 63px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 11px 8px 8px 10px;
+    gap: 12px;
+    overflow: hidden;
     border: 0;
-    border-radius: 16px;
+    border-radius: var(--radius-panel);
     background: var(--subtle);
     color: var(--ink);
+    line-height: 1.45;
+  }
+  .player .now-playing {
+    flex: none;
+    gap: 12px;
   }
   .player .now-playing small {
     color: var(--ink-soft);
   }
+  .player .now-playing .track-actions,
+  .player-tools,
+  .transport-optional,
+  .player .seek span {
+    display: none;
+  }
+  .player .transport {
+    display: contents;
+  }
+  .player .transport-buttons {
+    gap: 12px;
+  }
   .player .transport-buttons .icon-button,
-  .player .player-tools .icon-button {
+  .player .transport-buttons .play-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .player .transport-buttons .icon-button {
+    border: 0;
     color: var(--ink);
     background: transparent;
   }
-  .player-tools :is(.speed-select, .mute-button, .volume, .expand-player),
-  .transport-optional,
-  .seek,
-  .queue-label {
-    display: none;
+  .player .transport-buttons .icon-button svg {
+    width: 20px;
+    height: 20px;
+  }
+  .player .transport-buttons .play-button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .player .seek {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: block;
+    width: auto;
+    max-width: none;
+    height: 3px;
+  }
+  .player .seek input {
+    --range-rest: var(--line-strong);
+    display: block;
+    width: 100%;
+    height: 3px;
+    margin: 0;
+    pointer-events: none;
+  }
+  .player .seek input::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 0;
+  }
+  .player .seek input::-webkit-slider-thumb {
+    width: 0;
+    height: 0;
+    margin: 0;
+  }
+  .player .seek input::-moz-range-thumb {
+    width: 0;
+    height: 0;
+    border: 0;
   }
   .dock-artwork {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
   .dock-artwork .artwork {
     border-radius: 6px;
   }
   .now-playing strong {
-    font-size: 14px;
+    font-size: 16px;
   }
   .now-playing small {
-    font-size: 12px;
-  }
-  .transport {
-    margin: 0;
-  }
-  .player-tools .icon-button {
-    border: 0;
+    font-size: 14px;
   }
   .queue-screen .page-heading {
     flex-wrap: wrap;

@@ -16,6 +16,7 @@ import TrackGrid from "../../playback/components/TrackGrid";
 import { log } from "../../../shared/log";
 import { recordingsListing } from "../api/trackListings";
 import SortControl from "../../../shared/ui/SortControl";
+import { PHONE_QUERY, useMediaQuery } from "../../../shared/hooks/useMediaQuery";
 import type { SortOption } from "../../../shared/hooks/useCatalogSort";
 
 export default function CatalogResults({
@@ -58,6 +59,14 @@ export default function CatalogResults({
     log.debug("catalog.view", { mode, account_id: user.id });
     setView(mode);
   }
+  const phone = useMediaQuery(PHONE_QUERY);
+  const sortControl = sort && (
+    <SortControl
+      options={sort.options}
+      value={sort.value}
+      onChange={sort.onChange}
+    />
+  );
   const tracks = recordings.items.map((track) => ({
     ...track,
     row_id: track.id,
@@ -73,6 +82,7 @@ export default function CatalogResults({
       <LibraryHeading path={path} title={title} description={description}>
         <div className="library-heading-actions">
           {headingActions}
+          {phone && tracks.length > 0 && sortControl}
           {tracks.length > 0 && (
             <PlayShuffle
               tracks={tracks}
@@ -108,13 +118,7 @@ export default function CatalogResults({
                 <List size={19} />
               </button>
             </div>
-            {sort && (
-              <SortControl
-                options={sort.options}
-                value={sort.value}
-                onChange={sort.onChange}
-              />
-            )}
+            {!phone && sortControl}
           </div>
           <SelectionBar
             account={user.id}

@@ -409,3 +409,7 @@
 .home-grid[data-kind="artist"] .shelf-card-open {
   gap: 0;
 }
+
+.home-search {
+  display: none;
+}

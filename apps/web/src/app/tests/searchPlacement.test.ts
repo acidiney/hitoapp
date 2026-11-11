@@ -37,10 +37,10 @@ test.each([
   "ArtistIndexPage",
   "PlaylistIndexPage",
 ])(
-  "%s keeps the library filter in the top bar on every screen size",
+  "%s keeps the library filter in the top bar on desktop and leaves search to the Search tab on a phone",
   (page) => {
     expect(searchPlacement(page, false)).toBe("library");
-    expect(searchPlacement(page, true)).toBe("library");
+    expect(searchPlacement(page, true)).toBe("none");
   },
 );
 

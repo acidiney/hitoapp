@@ -150,6 +150,7 @@ export default function TrackTable({
         className="track-table"
         data-editing={edit?.active || undefined}
         data-layout={layout}
+        data-selecting={(selection && selection.selected.size > 0) || undefined}
         aria-label={playlist ? "Playlist entries" : "Tracks"}
       >
         <thead>

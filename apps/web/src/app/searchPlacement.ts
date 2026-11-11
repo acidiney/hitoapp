@@ -24,6 +24,6 @@ export function searchPlacement(
     return section === "plugins" && !phone ? "global" : "none";
   if (DETAIL_PAGES.has(component) || OWN_SEARCH_PAGES.has(component))
     return "none";
-  if (!GLOBAL_PAGES.has(component)) return "library";
+  if (!GLOBAL_PAGES.has(component)) return phone ? "none" : "library";
   return phone ? "none" : "global";
 }

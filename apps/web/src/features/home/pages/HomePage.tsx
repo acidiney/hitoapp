@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import { Search } from "lucide-react";
 
 import { accountName } from "../../../shared/accountName";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
@@ -27,6 +28,10 @@ export default function HomePage({
       <header className="home-header">
         <h1>{greeting(new Date().getHours(), accountName(user))}</h1>
       </header>
+      <Link href="/search" className="home-search">
+        <Search size={18} aria-hidden="true" />
+        Search, or paste a playlist link
+      </Link>
       {empty ? (
         <HomeEmpty admin={user.admin} />
       ) : (
