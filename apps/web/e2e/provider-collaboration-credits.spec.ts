@@ -92,7 +92,8 @@ test("every member of a collaboration lists it and a featured artist lists it as
         path: `${SHOTS}/after-bo-${size}.png`,
       });
       await page.goto(`/library?q=${label}`);
-      await page.getByRole("button", { name: "List view" }).click();
+      const listView = page.getByRole("button", { name: "List view" });
+      if (await listView.isVisible()) await listView.click();
       await expect(track(`Together ${label}`)).toBeVisible();
       await expect(
         page

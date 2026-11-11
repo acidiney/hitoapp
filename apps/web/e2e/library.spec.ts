@@ -454,11 +454,8 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .click();
   await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   await page
-    .getByRole("button", {
-      name: "Actions for Fixture 440 Hz: move up, move down, remove",
-    })
+    .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
     .click();
-  await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   await expect(
     page.getByText("Choose a track to start listening"),
   ).toBeVisible();
@@ -496,7 +493,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     main.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
   ).toBeVisible();
   await addToPlaylistFromRow(
-    page.locator(".track-grid"),
+    page.locator(".track-table"),
     "Fixture 440 Hz",
     "Docker favorites",
   );

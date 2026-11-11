@@ -271,9 +271,10 @@ test("existing independent playlist copies automatically retain private provider
     phase = "approval";
     fixture.enableArtwork();
     await page
-      .getByRole("link", { name: "Account and settings", exact: true })
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Plugins", exact: true })
       .click();
-    await page.goto("/settings?section=plugins");
+    await expect(page).toHaveURL(/\/settings\?section=plugins$/);
     await expect(page.locator("html")).toHaveAttribute(
       "data-artwork-approval-document",
       documentToken,

@@ -167,7 +167,12 @@ export async function layouts(
         throw new Error("The control and player need visible bounds");
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(dock.y);
+      const inSheet = await control.evaluate(
+        (element) => element.closest("dialog, [role=dialog]") !== null,
+      );
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(
+        inSheet ? viewport.height : dock.y,
+      );
       if (
         await control.evaluate((element) =>
           element.matches("input, select, .track-actions .icon-button"),

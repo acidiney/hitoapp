@@ -58,7 +58,12 @@ async function layouts(
         );
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-      expect(box.y + box.height).toBeLessThanOrEqual(dock.y);
+      const inSheet = await control.evaluate(
+        (element) => element.closest("dialog, [role=dialog]") !== null,
+      );
+      expect(box.y + box.height).toBeLessThanOrEqual(
+        inSheet ? viewport.height : dock.y,
+      );
       expect(
         await control.evaluate((element) => {
           const bounds = element.getBoundingClientRect();

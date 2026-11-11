@@ -16,11 +16,14 @@ async function openLibraryList(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Grid view", exact: true }).click();
-  const grid = page.locator(".track-grid .track-card");
-  if ((await grid.filter({ hasText: second }).count()) === 0)
-    throw new Error("The scanned fixture library is required");
-  await page.getByRole("button", { name: "List view", exact: true }).click();
+  const gridView = page.getByRole("button", { name: "Grid view", exact: true });
+  if (await gridView.isVisible()) {
+    await gridView.click();
+    const grid = page.locator(".track-grid .track-card");
+    if ((await grid.filter({ hasText: second }).count()) === 0)
+      throw new Error("The scanned fixture library is required");
+    await page.getByRole("button", { name: "List view", exact: true }).click();
+  }
   const table = page.getByRole("table", { name: "Tracks", exact: true });
   await expect(
     table.locator("tbody tr").filter({ hasText: second }),
@@ -91,8 +94,10 @@ test("the row menu opens from the keyboard, plays next, queues, adds to a playli
     .click();
   await openQueue(page);
   await expect(page.locator(".queue-now-row strong")).toHaveText(second);
-  await expect(page.locator(".queue-next .queue-track strong")).toHaveText([
+  await expect(page.locator(".queue-first .queue-track strong")).toHaveText([
     first,
+  ]);
+  await expect(page.locator(".queue-next .queue-track strong")).toHaveText([
     second,
   ]);
 

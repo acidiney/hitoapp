@@ -90,12 +90,12 @@ test("the shell serves bundled fonts, offers five destinations and focuses searc
   await expect(page.getByRole("searchbox", { name: "Search" })).toBeFocused();
 });
 
-test("on a desktop the top bar search sits in the same place on Home, Queue and Settings, while Search owns its field and Discover has none", async ({
+test("on a desktop the top bar search sits in the same place on Home and Queue, while Settings and Search own their fields and Discover has none", async ({
   page,
 }) => {
   await openSharedAdminSession(page);
   const places: { x: number; y: number; width: number; height: number }[] = [];
-  for (const path of ["/home", "/queue", "/settings"]) {
+  for (const path of ["/home", "/queue"]) {
     await page.goto(path);
     const field = page.getByRole("textbox", { name: "Search", exact: true });
     await expect(field).toBeVisible();
@@ -107,6 +107,13 @@ test("on a desktop the top bar search sits in the same place on Home, Queue and 
     expect(place.y).toBeCloseTo(places[0].y, 0);
     expect(place.height).toBeCloseTo(places[0].height, 0);
   }
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("combobox", { name: "Search settings" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Search", exact: true }),
+  ).toHaveCount(0);
   await page.goto("/search");
   await expect(page.getByRole("searchbox", { name: "Search" })).toBeVisible();
   await page.goto("/discover");
