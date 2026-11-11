@@ -32,7 +32,7 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make web-build` | `npm run build` |
 | `make contracts` | `scripts/check-contracts.sh` |
 | `make setup-check` | `scripts/check-setup.sh` |
-| `make e2e` | Generate the e2e audio fixtures, recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server. `E2E_SCRIPT=<npm script>` picks another Playwright run, for example `make e2e E2E_SCRIPT=e2e:lyric-provider-choice` |
+| `make e2e` | Generate the e2e audio fixtures, recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server. `E2E_SCRIPT=<npm script>` picks another Playwright run, for example `make e2e E2E_SCRIPT=e2e:plugin-authorization` |
 | `make desktop` | `scripts/check-desktop.sh` |
 | `make verify` | `scripts/verify.sh`, the full check. The script only calls the targets above |
 
