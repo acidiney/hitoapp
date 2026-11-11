@@ -128,7 +128,7 @@ test("the sidebar's create link opens the dialog", () => {
   expect(screen.getByRole("dialog", { name: "New playlist" })).toBeTruthy();
 });
 
-test("Import from a link opens the import form with its explanation in short separate paragraphs", () => {
+test("Import from a link opens the import dialog with a link field and a hint about the link", () => {
   render(createElement(PlaylistIndexPage, empty), { wrapper });
   fireEvent.click(screen.getByRole("button", { name: "Import from a link" }));
   const dialog = screen.getByRole("dialog", { name: "Import a playlist" });
@@ -140,13 +140,10 @@ test("Import from a link opens the import form with its explanation in short sep
       name: "Playlist link or identifier",
     }),
   ).toBeTruthy();
-  const paragraphs = [...region.querySelectorAll("p")].map(
-    (paragraph) => paragraph.textContent,
-  );
-  expect(paragraphs.slice(0, 2)).toEqual([
-    "Create an editable copy. Changes at the provider will not update it.",
-    "Hito adds track details, without downloading audio. Tracks need an available source to play.",
-  ]);
+  expect(
+    within(region).getByText(/A link looks like open\.spotify\.com\/playlist/),
+  ).toBeTruthy();
+  expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeTruthy();
 });
 
 test("without a playlist service the import dialog only offers to connect one", () => {

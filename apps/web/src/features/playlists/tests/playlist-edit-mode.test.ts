@@ -140,7 +140,9 @@ test("renaming is saved by Done as one rename and one reload", async () => {
 test("the name cannot be saved empty", () => {
   open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.change(screen.getByLabelText("Playlist name"), { target: { value: " " } });
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
+    target: { value: " " },
+  });
   expect(
     (screen.getByRole("button", { name: "Done editing" }) as HTMLButtonElement)
       .disabled,
@@ -238,9 +240,9 @@ test("Cancel with changes asks first, then reverts the name, order and removals 
   );
   fireEvent.click(dialog.getByRole("button", { name: "Keep editing" }));
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect((screen.getByLabelText("Playlist name") as HTMLInputElement).value).toBe(
-    "Other",
-  );
+  expect(
+    (screen.getByLabelText("Playlist name") as HTMLInputElement).value,
+  ).toBe("Other");
   expect(rowTitles()[0]).toBe("Unknown provider item");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(
@@ -256,9 +258,9 @@ test("Cancel with changes asks first, then reverts the name, order and removals 
     "Fixture A",
   ]);
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  expect((screen.getByLabelText("Playlist name") as HTMLInputElement).value).toBe(
-    props.detail.playlist.name,
-  );
+  expect(
+    (screen.getByLabelText("Playlist name") as HTMLInputElement).value,
+  ).toBe(props.detail.playlist.name);
   expect(
     screen.getByRole("button", { name: "Remove Fixture B from playlist" }),
   ).toBeTruthy();

@@ -9,7 +9,7 @@ import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import Artwork from "../../artwork/components/Artwork";
 import PlaylistCreateDialog from "../components/PlaylistCreateDialog";
-import PlaylistImport from "../components/PlaylistImport";
+import PlaylistImportDialog from "../components/PlaylistImportDialog";
 
 type Panel = "create" | "import" | null;
 
@@ -91,17 +91,12 @@ export default function PlaylistIndexPage({
         />
       )}
       {panel === "import" && (
-        <Dialog title="Import a playlist" wide onClose={() => setPanel(null)}>
-          <PlaylistImport
-            key={user.id}
-            account={user.id}
-            connections={connections}
-            names={service_names}
-          />
-          <div className="dialog-actions">
-            <Button onClick={() => setPanel(null)}>Close</Button>
-          </div>
-        </Dialog>
+        <PlaylistImportDialog
+          account={user.id}
+          connections={connections}
+          names={service_names}
+          onClose={() => setPanel(null)}
+        />
       )}
     </>
   );
