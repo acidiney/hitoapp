@@ -21,6 +21,7 @@ export default defineConfig({
     baseURL: process.env.HITO_TEST_URL ?? "http://e2e-server:8080",
     storageState: sharedAdminSession ? adminSessionPath : undefined,
     headless: true,
+    serviceWorkers: "block",
     viewport: { width: 1440, height: 1000 },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
