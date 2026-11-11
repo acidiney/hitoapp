@@ -4,9 +4,7 @@ export type SectionId =
   | "music"
   | "plugins"
   | "playback"
-  | "downloads"
   | "accounts"
-  | "updates"
   | "about";
 
 export type SettingsSection = {
@@ -14,90 +12,64 @@ export type SettingsSection = {
   label: string;
   description: string;
   admin?: boolean;
+  tab?: false;
 };
 
-export type SectionGroup = { label: string; sections: SettingsSection[] };
+export const DEFAULT_SECTION: SectionId = "profile";
 
-export const DEFAULT_SECTION: SectionId = "music";
-
-const GROUPS: SectionGroup[] = [
+const SECTIONS: SettingsSection[] = [
   {
-    label: "Your account",
-    sections: [
-      {
-        id: "profile",
-        label: "Profile",
-        description: "Who you are on this server.",
-      },
-      {
-        id: "privacy",
-        label: "Privacy & lock",
-        description:
-          "What stays with you, and how you protect this session when you step away.",
-      },
-    ],
+    id: "profile",
+    label: "Profile",
+    description: "Name, photo, password, devices",
   },
   {
-    label: "Listening",
-    sections: [
-      {
-        id: "music",
-        label: "Music & providers",
-        description:
-          "Where your audio and metadata come from. The order decides which provider is used first.",
-      },
-      {
-        id: "plugins",
-        label: "Plugins",
-        description:
-          "Connect services offered by your administrator. Each account keeps its own connections.",
-      },
-      {
-        id: "playback",
-        label: "Playback",
-        description: "How this device plays music.",
-      },
-      {
-        id: "downloads",
-        label: "Downloads & storage",
-        description: "Where your music lives and how it is kept.",
-      },
-    ],
+    id: "privacy",
+    label: "Privacy & lock",
+    description: "PIN, history, what Hito sends out",
   },
   {
-    label: "Server",
-    sections: [
-      {
-        id: "accounts",
-        label: "Accounts",
-        description:
-          "Each account has private playlists, likes and listening history.",
-        admin: true,
-      },
-      {
-        id: "updates",
-        label: "Updates",
-        description: "Keep this server current.",
-      },
-      {
-        id: "about",
-        label: "About",
-        description: "What this server is running.",
-      },
-    ],
+    id: "music",
+    label: "Music",
+    description: "Folders, libraries, artist details",
+  },
+  {
+    id: "plugins",
+    label: "Plugins",
+    description: "Connect services offered by your administrator",
+    tab: false,
+  },
+  {
+    id: "playback",
+    label: "Playback",
+    description: "Quality and source order",
+  },
+  {
+    id: "accounts",
+    label: "Accounts",
+    description: "People on this server",
+    admin: true,
+  },
+  {
+    id: "about",
+    label: "About",
+    description: "Version and updates",
   },
 ];
 
 const LEGACY: Record<string, SectionId> = {
   library: "music",
   metadata: "music",
+  downloads: "music",
+  updates: "about",
 };
 
-export function visibleGroups(admin: boolean): SectionGroup[] {
-  return GROUPS.map((group) => ({
-    ...group,
-    sections: group.sections.filter((section) => admin || !section.admin),
-  }));
+export function visibleSections(admin: boolean): SettingsSection[] {
+  return SECTIONS.filter((section) => admin || !section.admin);
+}
+
+export function tabSections(admin: boolean): SettingsSection[] {
+  return visibleSections(admin).filter((section) => section.tab !== false);
 }
 
 export function resolveSection(
@@ -106,16 +78,12 @@ export function resolveSection(
 ): SectionId {
   if (requested === null) return DEFAULT_SECTION;
   const id = Object.hasOwn(LEGACY, requested) ? LEGACY[requested] : requested;
-  const match = visibleGroups(admin)
-    .flatMap((group) => group.sections)
-    .find((section) => section.id === id);
+  const match = visibleSections(admin).find((section) => section.id === id);
   return match?.id ?? DEFAULT_SECTION;
 }
 
 export function sectionMeta(id: SectionId): SettingsSection {
-  const found = GROUPS.flatMap((group) => group.sections).find(
-    (section) => section.id === id,
-  );
+  const found = SECTIONS.find((section) => section.id === id);
   if (!found) throw new Error(`Unknown settings section: ${id}`);
   return found;
 }

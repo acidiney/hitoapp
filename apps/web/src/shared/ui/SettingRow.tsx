@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 export default function SettingRow({
+  id,
   title,
   hint,
   leading,
@@ -10,6 +11,7 @@ export default function SettingRow({
   compact = false,
   children,
 }: {
+  id?: string;
   title: ReactNode;
   hint?: ReactNode;
   leading?: ReactNode;
@@ -27,19 +29,15 @@ export default function SettingRow({
   );
   return (
     <div
+      id={id && `setting-${id}`}
+      tabIndex={id ? -1 : undefined}
       className="setting-line"
       data-wide={wide || undefined}
       data-compact={compact || undefined}
     >
       <div className="setting-line-main">
-        {leading ? (
-          <div className="setting-line-identity">
-            {leading}
-            {copy}
-          </div>
-        ) : (
-          copy
-        )}
+        {leading}
+        {copy}
         {!compact && <div className="setting-line-status">{status}</div>}
         <div className="setting-line-action">{action}</div>
       </div>

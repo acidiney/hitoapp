@@ -7,12 +7,14 @@ export default function AccountsSection({
   user,
   libraries,
 }: Schema<"SettingsPageProps">) {
+  const shared = libraries.find((library) => !library.personal);
   return (
     <>
       <AccountSettings
         key={user.id}
         account={user.id}
-        library={libraries.find((library) => !library.personal)?.id}
+        library={shared?.id}
+        libraryName={shared?.name}
       />
       <SharedCorrectionsSettings
         key={`shared-corrections:${user.id}`}

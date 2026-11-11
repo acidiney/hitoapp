@@ -1,63 +1,51 @@
-import { useState } from "react";
+import { useId } from "react";
 import { Link } from "@inertiajs/react";
 import { ChevronRight } from "lucide-react";
 import { log } from "../../../shared/log";
 import {
   sectionHref,
-  type SectionGroup,
   type SectionId,
+  type SettingsSection,
 } from "../model/sections";
-import type { SearchHit } from "../model/settingsSearch";
-import SettingsSearch from "./SettingsSearch";
 
 export default function SettingsNav({
-  groups,
+  sections,
   current,
-  admin,
-  onChoose,
 }: {
-  groups: SectionGroup[];
+  sections: SettingsSection[];
   current: SectionId;
-  admin: boolean;
-  onChoose: (hit: SearchHit) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const searching = query.trim() !== "";
-
+  const key = useId();
   return (
     <nav className="settings-nav" aria-label="Settings sections">
-      <SettingsSearch
-        admin={admin}
-        query={query}
-        onQuery={setQuery}
-        onChoose={(hit) => {
-          setQuery("");
-          onChoose(hit);
-        }}
-      />
-      {!searching &&
-        groups.map((group) => (
-          <div key={group.label} role="group" aria-label={group.label}>
-            <p className="settings-nav-group" aria-hidden="true">
-              {group.label}
-            </p>
-            {group.sections.map((section) => (
-              <Link
-                key={section.id}
-                href={sectionHref(section.id)}
-                preserveState
-                preserveScroll
-                aria-current={current === section.id ? "page" : undefined}
-                onClick={() =>
-                  log.debug("settings.section", { mode: section.id })
-                }
-              >
-                {section.label}
-                <ChevronRight size={16} aria-hidden="true" />
-              </Link>
-            ))}
-          </div>
-        ))}
+      {sections.map((section) => (
+        <Link
+          key={section.id}
+          href={sectionHref(section.id)}
+          preserveState
+          preserveScroll
+          aria-current={current === section.id ? "page" : undefined}
+          aria-labelledby={`${key}-${section.id}-label`}
+          aria-describedby={`${key}-${section.id}-hint`}
+          onClick={() => log.debug("settings.section", { mode: section.id })}
+        >
+          <span className="settings-nav-copy">
+            <span
+              id={`${key}-${section.id}-label`}
+              className="settings-nav-label"
+            >
+              {section.label}
+            </span>
+            <span
+              id={`${key}-${section.id}-hint`}
+              className="settings-nav-hint"
+            >
+              {section.description}
+            </span>
+          </span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </Link>
+      ))}
     </nav>
   );
 }

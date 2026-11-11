@@ -12,11 +12,8 @@ const settingsSections = [
   "profile",
   "privacy",
   "music",
-  "plugins",
   "playback",
-  "downloads",
   "accounts",
-  "updates",
   "about",
 ];
 

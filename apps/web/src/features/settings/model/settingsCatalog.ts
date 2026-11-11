@@ -7,6 +7,9 @@ export type SettingId =
   | "change-password"
   | "open-sessions"
   | "screen-lock"
+  | "pin"
+  | "lock-idle"
+  | "lock-now"
   | "listening-history"
   | "automatic-lookups"
   | "lyrics"
@@ -21,10 +24,8 @@ export type SettingId =
   | "playback-engine"
   | "streaming-quality"
   | "source-preference"
-  | "downloads-storage"
   | "accounts-access"
   | "shared-corrections"
-  | "update-checks"
   | "about-hito";
 
 export type SettingEntry = {
@@ -33,6 +34,7 @@ export type SettingEntry = {
   label: string;
   description?: string;
   keywords?: string;
+  within?: string;
   admin?: boolean;
 };
 
@@ -40,8 +42,9 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "account",
     section: "profile",
-    label: "Account",
-    keywords: "username role administrator member avatar who am i",
+    label: "You",
+    keywords:
+      "account username role administrator member photo avatar who am i",
   },
   {
     id: "display-name",
@@ -54,7 +57,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "session",
     section: "profile",
-    label: "Session",
+    label: "Sign out",
     keywords: "sign out log out logout lock now pin",
   },
   {
@@ -68,7 +71,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "open-sessions",
     section: "profile",
-    label: "Open sessions",
+    label: "Devices signed in",
     description:
       "Every browser or device signed in to your account. Revoke one you do not recognise.",
     keywords: "sign out other sessions devices revoke last active",
@@ -82,6 +85,27 @@ const ENTRIES: SettingEntry[] = [
     keywords: "pin idle timeout lock",
   },
   {
+    id: "pin",
+    section: "privacy",
+    label: "PIN",
+    within: "Screen lock",
+    keywords: "set change remove four digits password",
+  },
+  {
+    id: "lock-idle",
+    section: "privacy",
+    label: "Lock when idle",
+    within: "Screen lock",
+    keywords: "pin timeout minutes inactive",
+  },
+  {
+    id: "lock-now",
+    section: "privacy",
+    label: "Lock now",
+    within: "Screen lock",
+    keywords: "pin step away",
+  },
+  {
     id: "listening-history",
     section: "privacy",
     label: "Listening history",
@@ -92,13 +116,13 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "automatic-lookups",
     section: "privacy",
-    label: "Automatic lookups",
+    label: "What Hito sends out",
     keywords: "metadata online artist profiles background musicbrainz",
   },
   {
     id: "lyrics",
     section: "privacy",
-    label: "Lyrics",
+    label: "Load lyrics automatically",
     keywords: "automatic lookup words song",
   },
   {
@@ -112,7 +136,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "community-rankings",
     section: "privacy",
-    label: "Community source rankings",
+    label: "Use community source rankings",
     description:
       "Use community results to choose among suitable available music sources. Your saved sources and personal source choices keep priority. This requires a configured community service; receiving rankings does not enable playback reporting.",
     keywords: "sources consent",
@@ -120,7 +144,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "libraries",
     section: "music",
-    label: "Connected libraries",
+    label: "Libraries you can listen to",
     description:
       "Libraries this account can listen to. Your originals stay exactly where they are.",
     keywords: "collection personal shared",
@@ -135,7 +159,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "metadata-providers",
     section: "music",
-    label: "Metadata providers",
+    label: "Artist details",
     description:
       "Control providers for artist profiles. File tags and your personal edits are kept.",
     keywords: "priority order add provider plugin musicbrainz",
@@ -168,7 +192,7 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "playback-engine",
     section: "playback",
-    label: "Playback engine",
+    label: "This device",
     keywords: "desktop app browser output audio source rankings",
   },
   {
@@ -180,22 +204,16 @@ const ENTRIES: SettingEntry[] = [
   {
     id: "source-preference",
     section: "playback",
-    label: "Source preference",
+    label: "Source order",
     description:
       "Which source plays first when a track has several. A source you choose for one track always wins.",
     keywords:
       "source order priority provider local files saved copies fallback next source fails",
   },
   {
-    id: "downloads-storage",
-    section: "downloads",
-    label: "Downloads and storage",
-    keywords: "offline playlist music folders",
-  },
-  {
     id: "accounts-access",
     section: "accounts",
-    label: "Accounts and access",
+    label: "People",
     description: "People who can sign in to this server.",
     keywords: "create account delete grant access member administrator users",
     admin: true,
@@ -210,16 +228,10 @@ const ENTRIES: SettingEntry[] = [
     admin: true,
   },
   {
-    id: "update-checks",
-    section: "updates",
-    label: "Update checks",
-    keywords: "version upgrade release",
-  },
-  {
     id: "about-hito",
     section: "about",
-    label: "About Hito",
-    keywords: "version libraries signed in",
+    label: "About",
+    keywords: "version libraries server update check upgrade release",
   },
 ];
 

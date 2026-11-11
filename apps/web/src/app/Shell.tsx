@@ -31,7 +31,11 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
   const phone = useMediaQuery(PHONE_QUERY);
-  const placement = searchPlacement(page.component, phone);
+  const placement = searchPlacement(
+    page.component,
+    phone,
+    url.searchParams.get("section"),
+  );
   const queueOpen = useQueuePanelOpen();
   useQueueRoute(url.pathname, url.search, phone);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);

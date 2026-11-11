@@ -1,11 +1,12 @@
 import { settingEntries, type SettingEntry } from "./settingsCatalog";
-import { sectionHref, visibleGroups, type SectionId } from "./sections";
+import { sectionHref, visibleSections, type SectionId } from "./sections";
 
 export type SearchHit = {
   key: string;
   kind: "section" | "setting";
   section: SectionId;
   sectionLabel: string;
+  place: string;
   label: string;
   description?: string;
   href: string;
@@ -29,7 +30,7 @@ function normalise(text: string): string {
 type Candidate = { hit: SearchHit; title: string; rest: string };
 
 function candidates(admin: boolean): Candidate[] {
-  const sections = visibleGroups(admin).flatMap((group) => group.sections);
+  const sections = visibleSections(admin);
   const labels = new Map(
     sections.map((section) => [section.id, section.label]),
   );
@@ -39,6 +40,7 @@ function candidates(admin: boolean): Candidate[] {
       kind: "section",
       section: section.id,
       sectionLabel: section.label,
+      place: "Section",
       label: section.label,
       description: section.description,
       href: sectionHref(section.id),
@@ -55,6 +57,9 @@ function candidates(admin: boolean): Candidate[] {
         kind: "setting",
         section: entry.section,
         sectionLabel,
+        place: entry.within
+          ? `${sectionLabel} · ${entry.within}`
+          : sectionLabel,
         label: entry.label,
         description: entry.description,
         href: settingHref(entry),

@@ -50,7 +50,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   });
   await page
     .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Music & providers", exact: true })
+    .getByRole("link", { name: "Music", exact: true })
     .click();
   await expect(page).toHaveURL(/section=music$/);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -521,11 +521,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   const settingsNav = page.getByRole("navigation", {
     name: "Settings sections",
   });
-  const musicLink = settingsNav.getByRole("link", {
-    name: "Music & providers",
+  const profileLink = settingsNav.getByRole("link", {
+    name: "Profile",
     exact: true,
   });
-  await expect(musicLink).toHaveAttribute("aria-current", "page");
+  await expect(profileLink).toHaveAttribute("aria-current", "page");
   const privacyLink = settingsNav.getByRole("link", {
     name: "Privacy & lock",
     exact: true,
@@ -535,7 +535,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(privacyLink).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("region", { name: "Privacy & lock", exact: true }),
-  ).toContainText("Playback reporting");
+  ).toContainText("Report successful plays");
   await expect(
     page.getByRole("heading", { name: "Privacy & lock", level: 2 }),
   ).toBeFocused();
@@ -555,7 +555,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .click();
   await expect(
     page
-      .getByRole("region", { name: "Accounts and access" })
+      .getByRole("region", { name: "People" })
       .getByText("listener", { exact: true }),
   ).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
