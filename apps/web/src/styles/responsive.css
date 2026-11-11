@@ -325,36 +325,9 @@
   .notice {
     padding: 10px 18px;
   }
-  .auth-page {
-    display: block;
-  }
-  .auth-intro {
-    padding: 28px;
-    gap: 40px;
-  }
-  .auth-headline,
-  .auth-intro[data-tone="action"] .auth-headline {
-    font-size: 44px;
-  }
-  .auth-detail {
-    font-size: 15px;
-  }
-  .auth-origin {
-    display: none;
-  }
-  .auth-form {
-    padding: 38px 28px;
-  }
-  .auth-form form {
-    max-width: none;
-  }
 }
 @media (max-width: 480px) {
   .duration-column {
     display: none;
-  }
-  .auth-headline,
-  .auth-intro[data-tone="action"] .auth-headline {
-    font-size: 36px;
   }
 }

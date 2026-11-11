@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import AuthIntro from "../components/AuthIntro";
+import AuthPage from "../components/AuthPage";
 import SetupForm from "../components/SetupForm";
 import SignInForm from "../components/SignInForm";
 import { useSignIn } from "../hooks/useSignIn";
@@ -9,29 +9,8 @@ export default function LoginPage({
 }: Schema<"LoginPageProps">) {
   const flow = useSignIn(setup);
   return (
-    <main className="auth-page">
-      {setup ? (
-        <AuthIntro
-          decorative
-          tone="action"
-          headline="Welcome to your server."
-          detail="After you create the account, you choose your music folders."
-        />
-      ) : (
-        <AuthIntro
-          decorative
-          headline={
-            <>
-              Your music.
-              <br />
-              Your server.
-            </>
-          }
-        />
-      )}
-      <div className="auth-form" data-mode={setup ? "setup" : "sign-in"}>
-        {setup ? <SetupForm {...flow} /> : <SignInForm {...flow} />}
-      </div>
-    </main>
+    <AuthPage>
+      {setup ? <SetupForm {...flow} /> : <SignInForm {...flow} />}
+    </AuthPage>
   );
 }

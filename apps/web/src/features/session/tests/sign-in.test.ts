@@ -43,3 +43,35 @@ test("a rejected sign-in keeps the form and shows the error", async () => {
     ).toBe(false),
   );
 });
+
+test("a rejected sign-in clears the password and returns focus to it", async () => {
+  vi.mocked(sessionApi.signIn).mockRejectedValueOnce(new Error("Wrong login"));
+  render(
+    createElement(LoginPage, { needs_setup: false } as Parameters<
+      typeof LoginPage
+    >[0]),
+  );
+  fillAndSubmit();
+  await screen.findByRole("alert");
+  const password = screen.getByLabelText("Password") as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(password));
+  expect(password.value).toBe("");
+  expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe(
+    "alice",
+  );
+});
+
+test("Caps Lock is announced while typing a password", () => {
+  render(
+    createElement(LoginPage, { needs_setup: false } as Parameters<
+      typeof LoginPage
+    >[0]),
+  );
+  fireEvent.keyDown(screen.getByLabelText("Password"), {
+    key: "A",
+    modifierCapsLock: true,
+  });
+  expect(screen.getByText("Caps Lock is on")).toBeTruthy();
+  fireEvent.blur(screen.getByLabelText("Password"));
+  expect(screen.queryByText("Caps Lock is on")).toBeNull();
+});

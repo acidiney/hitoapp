@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import type { SignInFlow } from "../hooks/useSignIn";
 import Button from "../../../shared/ui/Button";
+import { AuthAlert, AuthField, DotSpinner, ServerLine } from "./AuthFields";
 
 export default function SignInForm({
   username,
@@ -10,41 +12,57 @@ export default function SignInForm({
   error,
   submit,
 }: SignInFlow) {
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (!error) return;
+    setPassword("");
+    form.current?.querySelector<HTMLInputElement>("#sign-in-password")?.focus();
+  }, [error, setPassword]);
   return (
-    <form onSubmit={submit}>
-      <h1>Sign in</h1>
-      <label>
-        Username
-        <input
-          value={username}
-          maxLength={64}
-          autoComplete="username"
-          autoFocus
-          required
-          onChange={(event) => setUsername(event.target.value)}
-        />
-      </label>
-      <label>
-        Password
-        <input
-          value={password}
-          type="password"
-          autoComplete="current-password"
-          required
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
-      <Button variant="primary" type="submit" disabled={busy}>
-        {busy ? "Connecting…" : "Sign in"}
+    <form
+      ref={form}
+      className="auth-form"
+      aria-label="Sign in"
+      onSubmit={submit}
+    >
+      <div className="auth-heading">
+        <h1>Sign in</h1>
+        <ServerLine busy={busy} />
+      </div>
+      <AuthField
+        label="Username"
+        value={username}
+        onValue={setUsername}
+        maxLength={64}
+        autoComplete="username"
+        autoFocus
+        required
+        disabled={busy}
+      />
+      <AuthField
+        label="Password"
+        id="sign-in-password"
+        value={password}
+        onValue={setPassword}
+        type="password"
+        autoComplete="current-password"
+        required
+        disabled={busy}
+        reveal
+      />
+      {error && <AuthAlert>{error}</AuthAlert>}
+      <Button variant="action" type="submit" disabled={busy}>
+        {busy ? (
+          <>
+            <DotSpinner />
+            Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </Button>
-      {error && (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      )}
       <p className="auth-note">
-        Forgot your password? Ask whoever manages this server for a new access
-        link.
+        Forgot your password? Ask whoever runs this server to set a new one.
       </p>
     </form>
   );

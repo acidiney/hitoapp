@@ -101,6 +101,10 @@ test("the lock screen shows only the account name and unlocks with the PIN", asy
     }),
   );
   expect(screen.getByText("alice")).toBeTruthy();
+  expect(screen.getByText("Music stopped when this locked")).toBeTruthy();
+  expect(screen.getByLabelText("PIN").getAttribute("aria-describedby")).toBe(
+    "pin-hint",
+  );
   expect(document.body.textContent).not.toMatch(/Library|Playlists/);
   fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "1234" } });
   fireEvent.submit(screen.getByRole("button", { name: "Unlock" }));
@@ -163,6 +167,12 @@ test("signing out stays available on the lock screen", async () => {
 });
 
 test("PIN settings need the password and can remove the PIN", async () => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
   vi.mocked(lockApi.setPin).mockResolvedValue(unlocked);
   vi.mocked(lockApi.removePin).mockResolvedValue({
     pin_enabled: false,
@@ -179,24 +189,23 @@ test("PIN settings need the password and can remove the PIN", async () => {
       }),
     ),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Set a PIN" }));
   fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "2468" } });
-  fireEvent.change(screen.getByLabelText("Current password"), {
+  fireEvent.change(screen.getByLabelText("Your password"), {
     target: { value: "a long test password" },
   });
-  fireEvent.click(
-    within(
-      screen.getByRole("radiogroup", { name: "Lock when idle" }),
-    ).getByRole("radio", { name: "15 min" }),
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save PIN" }).closest("form")!,
   );
-  fireEvent.submit(screen.getByRole("button", { name: "Save PIN" }));
   await waitFor(() =>
     expect(lockApi.setPin).toHaveBeenCalledWith("alice-id", {
       password: "a long test password",
       pin: "2468",
-      idle_minutes: 15,
+      idle_minutes: 0,
     }),
   );
-  fireEvent.change(await screen.findByLabelText("Current password"), {
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+  fireEvent.change(await screen.findByLabelText("Your password"), {
     target: { value: "a long test password" },
   });
   fireEvent.click(await screen.findByRole("button", { name: "Remove PIN" }));
