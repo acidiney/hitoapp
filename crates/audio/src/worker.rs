@@ -55,7 +55,8 @@ pub(crate) fn run(
     ));
     let format = decoder.format();
     let channels = usize::from(format.channels);
-    let (mut producer, output) = Output::start(format, state.clone())?;
+    let mut output_generation = 1;
+    let (mut producer, output) = Output::start(format, state.clone(), audio_id, output_generation)?;
     let mut output = Some(output);
     let mut buffering = Buffering::new(producer.buffer().capacity());
     let _ = ready.send(Ok(format));
@@ -149,7 +150,9 @@ pub(crate) fn run(
             state.output_failure.store(0, Ordering::Release);
             epoch = reposition(&mut decoder, &state, target)?;
             finished = false;
-            let (next, replacement) = Output::start(format, state.clone())?;
+            output_generation += 1;
+            let (next, replacement) =
+                Output::start(format, state.clone(), audio_id, output_generation)?;
             producer = next;
             buffering = Buffering::new(producer.buffer().capacity());
             output = Some(replacement);

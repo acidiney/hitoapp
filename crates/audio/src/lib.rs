@@ -19,6 +19,8 @@ pub use symphonia::core::io::MediaSource as Input;
 pub mod test_support;
 
 #[cfg(feature = "device")]
+mod buffer_policy;
+#[cfg(feature = "device")]
 mod buffering;
 #[cfg(feature = "device")]
 mod device;
