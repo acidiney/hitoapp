@@ -63,7 +63,10 @@ function PluginPanel({
   const [view, setView] = useState<View>("mine");
   const [connecting, setConnecting] = useState<string | null>(null);
   const restoreFocus = () => heading.current?.focus();
-  const { data, error, pending } = actions;
+  const { data, error, errorAction, pending } = actions;
+  const serverError =
+    errorAction === "offer" || errorAction === "withdraw" ? error : "";
+  const pageError = serverError ? "" : error;
   const available =
     data?.services.filter(
       (service) =>
@@ -99,8 +102,8 @@ function PluginPanel({
           Working on plugin connection…
         </p>
       )}
-      {error && (
-        <SectionWarning tone="error" title={error}>
+      {pageError && (
+        <SectionWarning tone="error" title={pageError}>
           <Button disabled={pending} onClick={actions.reload}>
             Reload connections
           </Button>
@@ -119,6 +122,8 @@ function PluginPanel({
           services={data.services}
           installations={data.installations}
           actions={actions}
+          error={serverError}
+          errorAction={errorAction}
           onWithdrawn={restoreFocus}
         />
       )}

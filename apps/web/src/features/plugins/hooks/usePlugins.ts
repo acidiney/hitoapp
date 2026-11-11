@@ -124,6 +124,7 @@ export function usePlugins(account: string) {
     checkDeclaration,
     data: snapshot?.owner === owner ? snapshot.data : null,
     error: failure?.owner === owner ? failure.message : "",
+    errorAction: failure?.owner === owner ? failure.action : "",
     pending: pending === owner,
     reload: () => {
       if (busy.current !== owner) reload((value) => value + 1);

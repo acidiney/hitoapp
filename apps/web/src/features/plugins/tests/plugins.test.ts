@@ -154,7 +154,17 @@ test("invalid nonempty custom labels reach server validation and retain the draf
     { base_url: service.base_url, name },
     expect.any(AbortSignal),
   );
-  expect(screen.getByRole("alert").textContent).toContain(validationError);
+  const alert = screen.getByRole("alert");
+  expect(alert.textContent).toContain(validationError);
+  expect(alert.closest(".plugin-offer")).not.toBeNull();
+  expect(
+    screen
+      .getByRole("textbox", { name: "Service address" })
+      .getAttribute("aria-invalid"),
+  ).toBe("true");
+  expect(
+    screen.queryByRole("button", { name: "Reload connections" }),
+  ).toBeNull();
   expect((label as HTMLInputElement).value).toBe(name);
   expect(
     screen.queryByRole("button", { name: "Review connection" }),

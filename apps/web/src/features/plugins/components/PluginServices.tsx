@@ -9,16 +9,22 @@ export default function PluginServices({
   services,
   installations,
   actions,
+  error = "",
+  errorAction = "",
   onWithdrawn,
 }: {
   services: Schema<"PluginService">[];
   installations: Schema<"PluginInstallation">[];
   actions: PluginActions;
+  error?: string;
+  errorAction?: string;
   onWithdrawn: () => void;
 }) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
+  const offerError = errorAction === "offer" ? error : "";
+  const withdrawError = errorAction === "withdraw" ? error : "";
   async function offer(event: FormEvent) {
     event.preventDefault();
     if (
@@ -67,6 +73,11 @@ export default function PluginServices({
                 </Button>
                 {confirm === service.id && (
                   <div className="plugin-confirm">
+                    {withdrawError && (
+                      <p role="alert" className="plugin-inline-error">
+                        {withdrawError}
+                      </p>
+                    )}
                     <p>
                       Withdraw {service.name} for everyone? This disconnects all
                       its installations and clears their saved credentials.
@@ -116,6 +127,8 @@ export default function PluginServices({
                 placeholder="https://music.example/plugins/"
                 value={address}
                 disabled={actions.pending}
+                aria-invalid={offerError ? true : undefined}
+                aria-describedby={offerError ? "plugin-offer-error" : undefined}
                 onChange={(event) => setAddress(event.target.value)}
               />
             </label>
@@ -123,6 +136,15 @@ export default function PluginServices({
               Offer service
             </Button>
           </div>
+          {offerError && (
+            <p
+              id="plugin-offer-error"
+              role="alert"
+              className="plugin-inline-error"
+            >
+              {offerError}
+            </p>
+          )}
           <details>
             <summary>Advanced settings</summary>
             <label>
