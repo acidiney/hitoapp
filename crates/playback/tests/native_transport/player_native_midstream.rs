@@ -65,8 +65,9 @@ async fn withdrawing_the_playing_copy_recovers_another_source_near_the_observed_
         .remove_folder(&f.actor, &f.first.id, f.first.revision)
         .await
         .unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(3),
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    tokio::time::timeout_at(
+        deadline,
         state.wait_for(|state| {
             state
                 .source_id
@@ -90,6 +91,23 @@ async fn withdrawing_the_playing_copy_recovers_another_source_near_the_observed_
     );
     assert_eq!(state.borrow().selection, 1);
     assert_eq!(state.borrow().revision, queued.revision);
+    let recovered_source = state.borrow().source_id.clone().unwrap();
+    tokio::time::timeout_at(
+        deadline,
+        position.wait_for(|position| {
+            let latest = state.borrow();
+            position.position_ms > recovered
+                && position.selection == 1
+                && recovered_source != original
+                && latest.source_id.as_ref() == Some(&recovered_source)
+                && latest.selection == 1
+                && latest.playing
+                && latest.phase == PlayerPhase::Ready
+        }),
+    )
+    .await
+    .expect("the replacement source must advance past its restored position")
+    .unwrap();
     capture.after(capture.mark(), 0.1);
     assert!(capture::amplitude(&capture.recent(0.05), 440.) > 0.2);
     owner.close().await.unwrap();
