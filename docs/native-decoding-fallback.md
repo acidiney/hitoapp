@@ -92,6 +92,25 @@ Fresh independent review passes. An independent final-source Docker repeat passe
 
 This qualifies the Linux fixture and runner. Physical output, the unexplained missing frames, startup failure, other codecs/platforms and reference-hardware p95 remain open. No installed desktop or VPS changed.
 
+### Accepted writes and monitored audio
+
+A separate diagnostic checkout adds bounded observations around the pinned CPAL 0.18.2 ALSA writes and captures the owned Pulse client alongside the existing sink monitor. The original removal-case assertions remain unchanged. The second attempt fails those assertions with complete joined witnesses; this is diagnostic evidence, not an accepted playback correction.
+
+| Observation | Ordered nonzero source frames | Internal zero samples |
+| --- | ---: | ---: |
+| Rendered callback data | 576,000 | 0 |
+| Successful ALSA writes | 576,000 | 0 |
+| Owned Pulse client monitor | 575,462 | 639 |
+| Pulse sink monitor | 575,462 | 639 |
+
+The rendered and reconstructed accepted buffers are byte-identical. All 914 writes accept their full 640 frames without errors or short writes. The two monitor recordings have identical active bytes. Their prefix matches the accepted source through offset 231,040; the remaining heard sequence matches a single 538-frame omission followed by the exact suffix. Independent reconstruction confirms those comparisons. The first observed divergence in this run is therefore between ALSA acceptance and the client monitor.
+
+At that boundary, CPAL callback timestamps are 39.869708 ms apart instead of the nominal 13.333333 ms period, and reported delay falls from 26.041667 ms to zero. The corresponding ledger invocation interval is a separate observation clock. Neither measurement distinguishes scheduling, polling, status work or Pulse lock waits, and reported delay is not independent proof of fresh server buffer state. Producer underruns, reported xruns, recovery events and boundary waits remain zero.
+
+The capture lifecycle is checked separately: four zero-only controls distinguish normal stream teardown from premature removal, including the same exit code and stderr reason. Samples and accounting now export after joins before validation, with an initial unvalidated marker. A complete boundary marker still requires the original source assertions to pass.
+
+Successful ALSA writes do not establish physical presentation. Pulse record holes are converted to zero samples by `parec`, and both monitors share Pulse's observation path. This 538-frame observation does not locate the historical 189-frame loss or justify a playback-policy change. The diagnostic dependency copy and capture changes are unmerged; installed applications and the VPS are unchanged.
+
 ### Unresolved output startup failure
 
 An earlier thirteen-case native run failed once with `Native(Output)` during `Session::open`, before Resume. Subsequent twenty-open diagnostics, later fourteen- and fifteen-case runs and eleven existing native cases passed, including independent repeats. Those passes do not identify or fix the failure. It has not been classified as pre-existing. A diagnostic now reports static output failure categories and callback/xrun counts after worker join, outside the audio callback. No automatic retry was added.
