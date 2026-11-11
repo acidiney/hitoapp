@@ -1,5 +1,11 @@
 # Implementation status
 
+## 2026-11-11 source-verified native measurement
+
+Development measurement code now accepts recovery only after a different source for the same recording and queue entry, Ready/playing state, later independent position progress and a fresh audible capture. An A-only negative rejects buffered original audio as replacement.
+
+A fresh combined-source Docker repeat passes 43 ordinary controls, both explicitly run native audio controls, thirteen CLI cases, strict example checks and formatting. All 4,121 inputs stay exact. The fixed Debug main completes all nine single-attempt series with clean retirement; Root separately repeats the CLI controls. This is measurement correctness and bounded smoke evidence, not 900 attempts, p95, physical gaplessness or platform acceptance. Code is integrated in the development branch without changing a running image, VPS or desktop package. See [measurements and remaining gates](performance.md#source-verified-recovery-measurements).
+
 ## 2026-11-11 independent lyric identity backend
 
 Development source now supports approved independent lyric providers for scanned local and shared-library recordings. Search and review retain an account-private identity without changing audio, primary metadata or collection state. Missing-recording cleanup preserves an explicitly reviewed association until unlink. Unavailable associations remain visible for removal. New reads negotiate plain/start-anchor v2 or a validated compatible v1 response under one deadline and a dedicated quota.

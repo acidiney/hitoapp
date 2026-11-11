@@ -44,7 +44,7 @@ Native start: the clock starts before the `Replace` command is submitted to the 
 
 Recovery: the fake provider cuts the playing stream (it destroys the socket) and answers further requests for that source with 503. Two numbers are kept for each sample.
 
-- Failure to audible: for native playback, from immediately before the socket-cut command is sent to the provider until a completed monitor read detects output again. This request-to-monitor interval is compared with the 3 s target. The provider's socket-cut timestamp has a separate clock and is not subtracted from the local monotonic clock.
+- Failure to audible: for native playback, from immediately before the socket-cut command is sent until a fresh monitor read after verified replacement. The current example first requires a different source for the same recording and queue entry, Ready/playing state and subsequent independent position progress. The provider's socket-cut timestamp has a separate clock and is not subtracted from the local monotonic clock. The full release runner must compare the resulting distribution with the 3 s target.
 - Audible gap: from the moment the failure is seen (the browser raises a media error, or the native output falls silent) to audible output again. This is a monitor-level interruption estimate; physical presentation is not measured.
 
 The browser stops playing when it sees the error. The native player keeps playing audio it already buffered. The fake provider sends 1.5 s of audio at once and then at real-time speed, so about 1.2 s of buffered audio remains at the cut. That buffer inflates the native failure-to-audible number by a fixed amount, which is why both numbers are reported.
@@ -84,6 +84,18 @@ The owned resource scope catches work unwind, attempts every cleanup after retur
 An independent fresh-source Docker run passes 42 Rust controls in 12.82 seconds and all thirteen CLI controls with exact names, zero failures, zero ignored cases and zero filtered cases. The original 27 Rust names remain. Strict device-example Clippy and workspace formatting pass; all 3,944 source and support inputs remain unchanged, and Cargo reports the Core `test-support` feature used by the resource controls. Fresh security, correctness and performance reviews pass against the same six owned source files. The independent result manifest has SHA-256 `1fc84f559368f824bd931cd401de43e0fab2a3e4734d2ab5056f9a6099c7a6d2`.
 
 These controls use real temporary Core SQLite and public Player commands. The supported Pause control constructs a native-capable player with no current recording and an empty queue; it creates no audio Session, decoder or output. Other controls exercise rejected authorization, expired Clear, startup and claim errors, owned pipe readers, unwind, held SQLite retirement and partial output. No benchmark main invocation, audio fixture generation, successful recording start, recovery, zero-gap observation, release build or 900-attempt measurement is included. Those checks and full-runner threshold enforcement remain open.
+
+### Source-verified recovery measurements
+
+The current example checks that recovery actually changed source for the same recording and queue entry. It then requires Ready/playing state, a later independent position observation and newly read audible PCM within the original deadline. An old-source content gap or buffered tone cannot satisfy replacement by itself. A continuous audible capture can yield a fresh observation without another silence transition; that pipe behavior does not establish physical zero-gap output.
+
+A fresh combined-source Docker repeat passes all 43 ordinary Rust controls, preserving the original 42 names, and all thirteen report CLI controls. Two private native controls are ignored by the ordinary invocation and pass when explicitly run with actual CPAL/ALSA output into an isolated PulseAudio null sink. The two-source positive confirms replacement and subsequent progress; the A-only negative confirms playing progress before withdrawal, then rejects the buffered original. Both finish their process, SQLite and storage retirement checks cleanly. Strict example Clippy and workspace formatting pass; all 4,121 source inputs remain unchanged. Root separately repeats the thirteen CLI controls.
+
+The fixed Debug main is also executed, rather than only linked. Its nine single-attempt series complete in 19.45 seconds, with nine successful rows, no warmups, no failed rows and clean retirement. Local starts are 124.32–139.52 ms; the two direct remote starts are 149.09 and 373.30 ms; four source recoveries are 1,480.38–1,748.06 ms. The owned deterministic fixtures, source identity witnesses and output records are preserved with the qualification evidence. This is a bounded Debug smoke, not percentiles or a release measurement.
+
+The independent result manifest has SHA-256 `78cba195eb9f3e4d67d9cecd555e79eb96a0d2ea41e0c74b1abf13a9d2aa769c`. The example main hashes to `944eb1c1cfc47234fad9e7f9b3b41394e49bbabd64b59e7d6fab24f20e01f821`. The verifier starts from the accepted backend plus the seven frozen measurement files, with a new Cargo target and read-only source. No application deployment, physical presentation timestamp or platform installer is qualified.
+
+A current release build, all 900 measured attempts and 45 warmups, full-runner threshold enforcement and physical output remain open. The older percentile results below do not gain these stronger source-causality checks retroactively.
 
 ## Environment of the recorded run
 
