@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-11 native follow-up and normalized encoding
+
+The isolated native candidate's independent standard run now passes 69 of 70 cases. The earlier 2× gapless and authority-history failures pass after an epoch-fenced readiness correction and a reversible outage-fixture correction. A different expired-link seek-recovery case fails its captured-tone assertion and is under investigation. A separate four-case bounded Loom repeat passes; it does not close the failing transport gate or physical-output requirements. See [native evidence and limits](native-decoding-fallback.md#development-output-policy-candidate).
+
+The frozen normalized full-export candidate passes 40 public behavior cases and ten lifecycle cases, plus selected legacy regressions. A separate typed encoding prototype covers all 33 fact kinds structurally, but its largest synthetic 100,000-recording projection uses 149,979,061 bytes, exceeding 128 MiB by 15,761,333 bytes, and takes 87.6 seconds. Those are encoding-cost measurements, not a coherent public Core export or constructor benchmark. Direct typed encoding, exact aliases and page packing are now being implemented with public semantic-roundtrip tests. The original capacity and ten-second construction gates remain unchanged. See [the representation decision](catalog-journal-design.md#normalized-encoding-development).
+
+Both candidates remain isolated. No application image, VPS or desktop package changed.
+
 ## 2026-11-11 artist photo invalidation qualification
 
 The private photo-policy dependency slice now passes an independent 86-case Docker repeat: 74 journal cases, two account-erasure plan cases, nine account-deletion cases and one actual playlist upgrade. Formatting passes; all 2,485 Rust, SQL and Cargo inputs remain exact. Three fresh specialist reviews pass against the same 46 frozen dependencies.

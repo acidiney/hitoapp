@@ -180,6 +180,28 @@ Five new cases cover outside-library reset, former/new artist moves and coalesce
 
 One shared canonical predicate uses the existing actor/artist index and the group's unique account/identity index. Negative lookup work fell from roughly 800,000 VM steps under adverse statistics to at most 1,800 in the tested distribution. That fixture has 100,000 unrelated choices and only two groups; it does not prove a full metadata-rich export or arbitrary group distributions. Complete normalized construction, changes delivery, client publication, p95 and physical deployment remain unfinished. No application image, VPS or package changed.
 
+## Normalized encoding development
+
+The frozen full-export candidate passes 40 public behavior cases and ten lifecycle cases, followed by selected legacy catalog, edition and credited-artwork regressions. Its original rich 100,000-recording constructor still fails the unchanged ten-second deadline. These smaller passing cases do not qualify release scale.
+
+A separate concrete Serde prototype exercises all 33 fact kinds structurally. Six synthetic 100,000-recording projections vary shared versus distinct identity groups, 10,000 versus 100,000 releases, and three versus 300,000 artists. The largest projection produces 149,979,061 encoded bytes and takes 87.6 seconds, exceeding the 128 MiB limit by 15,761,333 bytes. The totals include pages, new reference/definition counts and order streams, but exclude the existing base export metadata envelope. They are not complete HTTP-transfer totals. The prototype transforms fixture values through JSON before typed serialization; its time is not a production encoder measurement. Synthetic relationship repetition does not prove canonical producer parity or a semantic inverse.
+
+The selected implementation keeps concrete named field columns with explicit row counts and repeat-or-values encoding. Typed export-local directories retain exact Hito identities; family-local references retain exact source, observation and association identities. Shared definitions use exact values at the same read cut. An alias is allowed only when equality is established by the producer, with an explicit fallback otherwise. It must not ask the client to infer identity, eligibility or a personal override. Every recording retains its explicit source-choice fact, including revision-zero and reset states.
+
+```mermaid
+flowchart LR
+    A[Owned Core read snapshot at H] --> B[Canonical batches of at most 64 owners]
+    B --> C[Typed columns and exact references]
+    C --> D[Size-accounted immutable pages]
+    D --> E[Client stages facts and definitions]
+    E --> F[Validate complete families and orders]
+    F --> G[Atomic catalog publication]
+```
+
+This diagram describes the intended complete flow. The compact producer and semantic test decoder are being implemented; incremental delivery and the production client are unfinished. SQL and TEMP ownership remain inside Core's existing retained constructor. No per-use TEMP table, whole-catalog Rust dictionary or new construction pool is planned. Direct typed serialization and packing multiple bounded blocks into a page must preserve cancellation, privacy, exact counts and expanded family limits.
+
+Acceptance requires public Core roundtrips over actual owned audio and adopted metadata, then null/reset, external-reference, shared-definition and malformed-input cases. Existing public expectations and independent lifecycle cases must remain intact. The original rich workload must pass its unchanged count, work, byte and deadline assertions. Complete transfer accounting must also include the base metadata envelope before the contract is frozen. No measured saving or release-gate pass is claimed for the selected implementation yet.
+
 ## Acceptance and implementation sequence
 
 The complete capability requires all of these steps:
