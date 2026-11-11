@@ -34,13 +34,13 @@ Manifest, search, detail and source discovery retrieve no audio. An explicit aud
 | `POST /v1/playlists/detail` | One album as a playlist, by reference or canonical ID |
 | `POST /v1/playlists/items` | Pages of that album's tracks |
 
-The implementation requests Jamendo's `mp32` format and accepts one documented media host. It does not provide artwork, playlists, downloads or a media cache. The upstream API distinguishes streaming and download addresses; the adapter uses the streaming address. See the [Jamendo tracks API](https://developer.jamendo.com/v3.0/tracks).
+The implementation requests Jamendo's `mp32` format and accepts one documented media host. It exposes albums through the playlist routes described below. It provides no artwork endpoint, downloads or media cache. The upstream API distinguishes streaming and download addresses; the adapter uses the streaming address. See the [Jamendo tracks API](https://developer.jamendo.com/v3.0/tracks).
 
 Requests have a 4 KiB body limit. Provider JSON has a 256 KiB limit. Metadata and audio each have 16 admission permits. The stream holds its permit through completion or drop, emits at most 64 KiB per chunk and limits each awaited upstream body read to 15 seconds. These implementation bounds do not establish saturation, cancellation or performance acceptance.
 
 ## Featured albums
 
-Source only: the running Jamendo container is not rebuilt, no live Jamendo request was made and no operator client ID was used. The cases below run against an owned fake of the Jamendo API.
+These capabilities are source-only. The packaged runtime evidence below predates them. No live Jamendo request or operator client ID was used; the cases below run against an owned fake of the Jamendo API.
 
 `POST v1/featured` asks Jamendo's albums endpoint (`/v3.0/albums/`, `order=popularity_week`, `limit` as requested) and returns each album as a `FeaturedKind::Album` item. Its `id` and `reference` are both `jamendo:album:v1:<numeric id>`, the title is the album name and the subtitle is the artist. It sends no `artwork_id` and no `item_count`, because the adapter has no artwork endpoint yet, so Hito shows a generated cover for these cards. The capability contract, bounds and host behavior are in [featured music](plugins.md#featured-music).
 
@@ -143,7 +143,7 @@ This change adds no provider request, audio access, credential handling or manif
 
 ### Playback-only manifest declaration
 
-The manifest now declares `ContentPolicy { source_persistence: PlaybackOnly }` through the existing SDK. It retains exactly Search and Sources, with no authorization declaration, download/cache endpoint or extra provider I/O. This policy describes source persistence and grants no licence.
+The packaging candidate described in this section introduced `ContentPolicy { source_persistence: PlaybackOnly }` through the existing SDK while retaining Search and Sources. Current source also declares Playlists and Featured, as described above; the earlier packaged checks do not verify those additions. Neither version declares account authorization or a download/cache endpoint. This policy describes source persistence and grants no licence.
 
 The existing HTTP contract and real-child runtime cases first fail on the absent declaration, then pass with the typed policy. They also verify that GET/POST requests to download/cache paths return 404, the manifest and rejected paths retrieve no provider data or audio, and the contract remains private/no-store. All three crate cases, strict all-target Clippy, formatting and independent review pass in Docker. Existing attribution, credential privacy and joined shutdown assertions remain intact.
 
