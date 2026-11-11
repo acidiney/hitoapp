@@ -15,7 +15,7 @@ import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
-import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
+import RouteLink from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
 import {
   PHONE_QUERY,
@@ -27,6 +27,7 @@ import {
   useQueuePanelOpen,
 } from "../queuePanelState";
 import { useMute } from "../hooks/useMute";
+import { setQueueSheetOpen, toggleQueueSheet } from "../queueSheetState";
 import { onNowPlayingRequest } from "../nowPlayingRequests";
 import { rememberNowPlayingOrigin } from "../nowPlayingOrigin";
 import PlayerTrackActions from "./PlayerTrackActions";
@@ -98,7 +99,7 @@ export default function PlayerDock({
   const queueOpen = useQueuePanelOpen();
   function showQueue() {
     log.debug("player.queue", { enabled: true });
-    if (phone) visitFromPlayer("/queue");
+    if (phone) toggleQueueSheet();
     else toggleQueuePanel();
   }
   return (
@@ -107,7 +108,10 @@ export default function PlayerDock({
         <NowPlaying
           account={account}
           close={closeExpanded}
-          openQueue={closeExpanded}
+          openQueue={() => {
+            closeExpanded();
+            if (phone) setQueueSheetOpen(true);
+          }}
         />
       )}
       <footer className="player" aria-label="Audio player" hidden={expanded}>

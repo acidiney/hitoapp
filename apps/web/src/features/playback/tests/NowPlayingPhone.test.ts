@@ -62,7 +62,7 @@ test("a phone shows the player with the Lyrics, Up next and Source tabs under it
   ).toBeTruthy();
   const tabs = screen.getByRole("group", { name: "Now playing panels" });
   expect(within(tabs).getByRole("button", { name: "Lyrics" })).toBeTruthy();
-  expect(within(tabs).getByRole("link", { name: "Up next" })).toBeTruthy();
+  expect(within(tabs).getByRole("button", { name: "Up next" })).toBeTruthy();
   expect(within(tabs).getByRole("button", { name: "Source" })).toBeTruthy();
   expect(screen.queryByRole("region", { name: "Lyrics" })).toBeNull();
   expect(screen.queryByRole("region", { name: "This source" })).toBeNull();

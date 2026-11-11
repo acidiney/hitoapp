@@ -2,7 +2,6 @@ import { useSyncExternalStore } from "react";
 import { ChevronDown, Pause, Play } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
-import RouteLink from "../../../shared/ui/RouteLink";
 import { SeekBar } from "./PlaybackControls";
 import { usePlayer } from "./PlaybackProvider";
 import { LyricsPanel } from "./NowPlayingLyrics";
@@ -86,9 +85,9 @@ function PanelTabs({
       >
         Lyrics
       </button>
-      <RouteLink href="/queue" onNavigate={openQueue}>
+      <button type="button" onClick={openQueue}>
         Up next
-      </RouteLink>
+      </button>
       <button
         type="button"
         aria-pressed={panel === "source"}

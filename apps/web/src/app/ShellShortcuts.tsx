@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { router } from "@inertiajs/react";
 import { log } from "../shared/log";
-import { visitFromPlayer } from "../shared/ui/RouteLink";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
 import { useTrackActions } from "../features/playback/components/TrackActionsProvider";
 import { requestNowPlaying } from "../features/playback/nowPlayingRequests";
@@ -9,6 +8,7 @@ import { useMute } from "../features/playback/hooks/useMute";
 import { useToggleLike } from "../features/playback/hooks/useToggleLike";
 import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { toggleQueuePanel } from "../features/playback/queuePanelState";
+import { toggleQueueSheet } from "../features/playback/queueSheetState";
 import ShortcutsDialog from "./ShortcutsDialog";
 import { useSingleKeyShortcuts } from "./shortcutPreference";
 import {
@@ -47,7 +47,7 @@ export default function ShellShortcuts({
     else if (command === "next") void player.next();
     else if (command === "previous") void player.previous();
     else if (command === "queue") {
-      if (phone) visitFromPlayer("/queue");
+      if (phone) toggleQueueSheet();
       else toggleQueuePanel();
     } else if (command === "nowPlaying") requestNowPlaying();
     else if (command === "home") router.visit("/home");

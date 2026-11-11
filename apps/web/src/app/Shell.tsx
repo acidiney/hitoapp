@@ -17,6 +17,7 @@ import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
 import { TrackActionsProvider } from "../features/playback/components/TrackActionsProvider";
 import QueuePanel from "../features/playback/components/QueuePanel";
+import QueueSheet from "../features/playback/components/QueueSheet";
 import { useQueuePanelOpen } from "../features/playback/queuePanelState";
 import { useQueueRoute } from "../features/playback/hooks/useQueueRoute";
 import PlayerDock from "../features/playback/components/PlayerDock";
@@ -100,7 +101,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   {children}
                 </main>
               </div>
-              {!phone && <QueuePanel />}
+              {phone ? <QueueSheet /> : <QueuePanel />}
             </div>
             <PlayerDock
               account={user.id}

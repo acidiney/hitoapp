@@ -16,7 +16,11 @@ import TrackGrid from "../../playback/components/TrackGrid";
 import { log } from "../../../shared/log";
 import { recordingsListing } from "../api/trackListings";
 import SortControl from "../../../shared/ui/SortControl";
-import { PHONE_QUERY, useMediaQuery } from "../../../shared/hooks/useMediaQuery";
+import SortSheet from "./SortSheet";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import type { SortOption } from "../../../shared/hooks/useCatalogSort";
 
 export default function CatalogResults({
@@ -60,13 +64,21 @@ export default function CatalogResults({
     setView(mode);
   }
   const phone = useMediaQuery(PHONE_QUERY);
-  const sortControl = sort && (
-    <SortControl
-      options={sort.options}
-      value={sort.value}
-      onChange={sort.onChange}
-    />
-  );
+  const sortControl =
+    sort &&
+    (phone ? (
+      <SortSheet
+        options={sort.options}
+        value={sort.value}
+        onChange={sort.onChange}
+      />
+    ) : (
+      <SortControl
+        options={sort.options}
+        value={sort.value}
+        onChange={sort.onChange}
+      />
+    ));
   const tracks = recordings.items.map((track) => ({
     ...track,
     row_id: track.id,

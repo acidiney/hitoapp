@@ -100,6 +100,15 @@
     height: 22px;
     stroke-width: 2;
   }
+  .sidebar nav a {
+    min-width: 0;
+  }
+  .nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .sidebar nav :is(a, button):hover:not(:disabled) {
     background: transparent;
   }
@@ -244,7 +253,8 @@
     left: 8px;
     right: 8px;
     bottom: calc(var(--tabs) + 8px);
-    height: 63px;
+    height: auto;
+    min-height: 63px;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     padding: 11px 8px 8px 10px;

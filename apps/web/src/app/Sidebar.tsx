@@ -39,7 +39,7 @@ export default function Sidebar({
           onClick={mark("/home")}
         >
           <Home size={18} aria-hidden="true" />
-          Home
+          <span className="nav-label">Home</span>
         </Link>
         <Link
           href="/search"
@@ -48,7 +48,7 @@ export default function Sidebar({
           onClick={mark("/search")}
         >
           <Search size={18} aria-hidden="true" />
-          Search
+          <span className="nav-label">Search</span>
           <kbd aria-hidden="true">{shortcut.text}</kbd>
         </Link>
         <Link
@@ -57,7 +57,7 @@ export default function Sidebar({
           onClick={mark("/discover")}
         >
           <Compass size={18} aria-hidden="true" />
-          Discover
+          <span className="nav-label">Discover</span>
         </Link>
         <Link
           href="/library"
@@ -65,7 +65,7 @@ export default function Sidebar({
           onClick={mark("/library")}
         >
           <Library size={18} aria-hidden="true" />
-          Library
+          <span className="nav-label">Library</span>
         </Link>
         <Link
           href="/settings?section=plugins"
@@ -74,7 +74,7 @@ export default function Sidebar({
           onClick={mark("/settings?section=plugins")}
         >
           <Plug size={18} aria-hidden="true" />
-          Plugins
+          <span className="nav-label">Plugins</span>
         </Link>
       </nav>
       <div className="sidebar-playlists">

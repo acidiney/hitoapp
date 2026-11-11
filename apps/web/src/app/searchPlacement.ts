@@ -1,10 +1,6 @@
 export type SearchPlacement = "library" | "global" | "none";
 
-const GLOBAL_PAGES = new Set([
-  "HomePage",
-  "GenrePage",
-  "QueuePage",
-]);
+const GLOBAL_PAGES = new Set(["HomePage", "GenrePage", "QueuePage"]);
 const DETAIL_PAGES = new Set([
   "RecordingDetailsPage",
   "ArtistPage",

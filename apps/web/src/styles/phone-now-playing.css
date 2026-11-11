@@ -27,6 +27,10 @@
   .np-body[data-panel="player"] {
     gap: 0;
   }
+  .np-body:not([data-panel="player"]) {
+    width: calc(100% + 16px);
+    margin: 0 -8px;
+  }
   .np-body[data-panel="player"] .np-track {
     flex: 1;
     margin-top: 20px;
@@ -37,6 +41,11 @@
     width: min(100%, max(120px, calc(100dvh - 502px)));
     border-radius: var(--radius-panel);
     box-shadow: none;
+  }
+  .np-seek .seek,
+  .np-transport .transport-buttons {
+    width: 100%;
+    max-width: none;
   }
   .np-title {
     gap: 12px;
@@ -95,7 +104,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 0 -8px;
     padding-top: var(--phone-top);
   }
   .np-compact .icon-button {
@@ -169,7 +177,10 @@
   .np-body:not([data-panel="player"]) .np-lyrics {
     flex: 1;
     max-height: none;
-    margin-top: 8px;
+  }
+  .np-lyrics {
+    --np-past: #a08f84;
+    --np-next: #c9bbb1;
   }
   .np-panel {
     display: flex;
@@ -190,56 +201,82 @@
   }
 }
 @media (max-width: 767px) {
-  main#main:has(> .queue-screen:not(.queue-screen-docked)) {
-    padding: 0;
-  }
-  .queue-screen:not(.queue-screen-docked) {
+  dialog.queue-sheet {
     position: fixed;
     inset: 84px 0 0;
-    z-index: 40;
     box-sizing: border-box;
+    width: 100%;
     max-width: none;
-    gap: 10px;
-    padding: 24px 8px calc(24px + env(safe-area-inset-bottom)) 16px;
-    overflow-y: auto;
+    height: calc(100dvh - 84px);
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
     border-radius: 24px 24px 0 0;
     background: var(--surface);
+    color: var(--ink);
   }
-  .queue-screen:not(.queue-screen-docked)::before {
+  dialog.queue-sheet[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  dialog.queue-sheet:focus {
+    outline: none;
+  }
+  dialog.queue-sheet::backdrop {
+    background: rgba(0, 0, 0, 0.72);
+  }
+  dialog.queue-sheet::before {
     content: "";
-    position: absolute;
-    top: 10px;
-    left: 50%;
+    flex: none;
+    align-self: center;
     width: 40px;
     height: 4px;
-    transform: translateX(-50%);
+    margin: 10px 0 14px;
     border-radius: var(--radius-pill);
     background: var(--line-strong);
   }
-  .queue-screen:not(.queue-screen-docked) .page-heading {
+  dialog.queue-sheet .queue-screen {
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    gap: 10px;
+    padding: 0 8px calc(24px + env(safe-area-inset-bottom)) 16px;
+    overflow-y: auto;
+  }
+  dialog.queue-sheet .page-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     flex-wrap: nowrap;
     align-items: center;
     gap: 4px;
     margin: 0;
-    padding-right: 0;
+    padding: 0;
+    background: var(--surface);
   }
-  .queue-screen:not(.queue-screen-docked) .page-heading > div:first-child {
+  dialog.queue-sheet .page-heading > div:first-child {
     flex: 1;
   }
-  .queue-screen:not(.queue-screen-docked) .page-heading h1 {
+  dialog.queue-sheet .page-heading h1 {
     font-size: 24px;
     font-weight: 700;
     line-height: 1.45;
   }
-  .queue-screen:not(.queue-screen-docked) .page-heading .muted {
+  dialog.queue-sheet .page-heading .muted,
+  dialog.queue-sheet .queue-hint kbd,
+  dialog.queue-sheet .queue-now-row > .mono,
+  dialog.queue-sheet .queue-now-row .track-actions,
+  dialog.queue-sheet .queue-now-row > .icon-button {
     display: none;
   }
-  .queue-screen:not(.queue-screen-docked) .queue-actions {
+  dialog.queue-sheet .queue-actions {
     flex: none;
     align-items: center;
     gap: 0;
   }
-  .queue-screen:not(.queue-screen-docked) .queue-clear {
+  dialog.queue-sheet .queue-clear {
     min-height: 44px;
     padding: 0 12px;
     border: 0;
@@ -249,15 +286,18 @@
     font-size: 14px;
     font-weight: 500;
   }
-  .queue-screen:not(.queue-screen-docked) .queue-close {
+  dialog.queue-sheet .queue-close {
     color: var(--ink);
   }
-  .queue-screen:not(.queue-screen-docked) .queue-now h2,
-  .queue-screen:not(.queue-screen-docked) .queue-first h2,
-  .queue-screen:not(.queue-screen-docked) .queue-next h2 {
+  dialog.queue-sheet .queue-now h2,
+  dialog.queue-sheet .queue-first h2,
+  dialog.queue-sheet .queue-next h2 {
     font-size: 12px;
     font-weight: 600;
     line-height: 1.45;
     color: var(--muted);
+  }
+  dialog.queue-sheet .queue-hint {
+    margin: 8px 0 0;
   }
 }
