@@ -2,14 +2,24 @@ import { useEffect, useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { Search } from "lucide-react";
 import { log } from "../shared/log";
-import { SHELL_SEARCH_ID } from "./searchShortcut";
+import type { PluginCounts } from "../features/plugins/model/pluginCounts";
+import PluginsPill from "./PluginsPill";
+import {
+  SHELL_SEARCH_ID,
+  isApplePlatform,
+  shortcutLabel,
+} from "./searchShortcut";
+
+const shortcut = shortcutLabel(isApplePlatform());
 
 export default function LibrarySearch({
   query,
   target = "library",
+  plugins = null,
 }: {
   query: string;
   target?: "library" | "albums" | "artists" | "search";
+  plugins?: PluginCounts | null;
 }) {
   const [search, setSearch] = useState(query);
   useEffect(() => setSearch(query), [query]);
@@ -26,21 +36,25 @@ export default function LibrarySearch({
   return (
     <header className="topbar">
       <form className="search" onSubmit={submit}>
-        <Search size={19} />
+        <Search size={18} aria-hidden="true" />
         <input
           id={SHELL_SEARCH_ID}
           aria-label={global ? "Search" : `Search ${target}`}
+          aria-keyshortcuts={shortcut.keys}
           placeholder={
             global
-              ? "Search artists, albums and tracks"
+              ? "Search, or paste a playlist link"
               : `Search your ${target}`
           }
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <button type="submit">Search</button>
+        <kbd aria-hidden="true">{shortcut.text}</kbd>
+        <button type="submit" className="sr-only">
+          Search
+        </button>
       </form>
-      <span className="server-label">Self-hosted library</span>
+      <PluginsPill counts={plugins} />
     </header>
   );
 }

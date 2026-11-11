@@ -433,6 +433,7 @@
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 16px;
+  box-shadow: var(--shadow);
 }
 .dialog::backdrop {
   background: #000b;
@@ -535,4 +536,57 @@
 .setting-line-action .icon-button {
   min-width: 36px;
   min-height: 36px;
+}
+
+.shortcut-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin: 20px 0;
+}
+.shortcut-group h3 {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.shortcut-group dl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+.shortcut-row dt {
+  min-width: 0;
+}
+.shortcut-row dd {
+  flex: none;
+  margin: 0;
+}
+.shortcut-row kbd {
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.shortcut-note {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+@media (max-width: 767px) {
+  .shortcut-groups {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
 }

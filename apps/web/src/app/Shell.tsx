@@ -1,16 +1,18 @@
 import type { Schema } from "../shared/schema";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 
 import { log } from "../shared/log";
 import AccountMenu from "./AccountMenu";
+import ShellShortcuts from "./ShellShortcuts";
 import LibrarySearch from "./LibrarySearch";
 import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
 import LibrarySections from "./LibrarySections";
 import { searchPlacement } from "./searchPlacement";
 import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import Sidebar from "./Sidebar";
+import { usePluginCounts } from "../features/plugins/hooks/usePluginCounts";
 import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
@@ -30,6 +32,11 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
   const placement = searchPlacement(page.component, useMediaQuery(PHONE_QUERY));
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const plugins = usePluginCounts(
+    user.id,
+    page.component === "SettingsPage" ? "settings" : "other",
+  );
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
@@ -50,9 +57,23 @@ export default function Shell({ children }: { children: ReactNode }) {
             <div
               className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
             >
-              <Sidebar playlists={playlists} path={url.pathname} />
+              <ShellShortcuts
+                open={shortcutsOpen}
+                onOpenChange={setShortcutsOpen}
+              />
+              <Sidebar
+                playlists={playlists}
+                path={url.pathname}
+                search={url.search}
+                pluginsToReview={plugins?.review ?? 0}
+              />
               <div className="workspace">
-                <AccountMenu user={user} lock={lock} path={url.pathname} />
+                <AccountMenu
+                  user={user}
+                  lock={lock}
+                  path={url.pathname}
+                  onShowShortcuts={() => setShortcutsOpen(true)}
+                />
                 {placement === "global" && (
                   <LibrarySearch
                     query={
@@ -61,12 +82,14 @@ export default function Shell({ children }: { children: ReactNode }) {
                         : ""
                     }
                     target="search"
+                    plugins={plugins}
                   />
                 )}
                 {placement === "library" && (
                   <LibrarySearch
                     query={url.searchParams.get("q") ?? ""}
                     target={libraryTarget(page.component)}
+                    plugins={plugins}
                   />
                 )}
                 {!DETAIL_PAGES.has(page.component) && (

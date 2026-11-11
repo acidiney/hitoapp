@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { openSharedAdminSession } from "./fixtures/admin-session";
 
-test("the shell serves bundled fonts, offers four destinations and focuses search with the keyboard", async ({
+test("the shell serves bundled fonts, offers five destinations and focuses search with the keyboard", async ({
   page,
 }) => {
   await openSharedAdminSession(page);
@@ -11,6 +11,7 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
     /^Search/,
     /^Discover$/,
     /^Library$/,
+    /^Plugins/,
   ]);
   await expect(
     navigation.getByRole("link", { name: /^Search/ }),
@@ -54,7 +55,7 @@ test("the shell serves bundled fonts, offers four destinations and focuses searc
   });
   await expect(homeSearch).toHaveAttribute(
     "placeholder",
-    "Search artists, albums and tracks",
+    "Search, or paste a playlist link",
   );
   await page.keyboard.press("Control+K");
   await expect(homeSearch).toBeFocused();
@@ -125,7 +126,7 @@ test("on a phone only the Search page and the library pages show a search field"
   ).toBeVisible();
 });
 
-test("a phone shows a four-tab bar with the mini player above it", async ({
+test("a phone shows a five-tab bar with the mini player above it", async ({
   page,
 }) => {
   await openSharedAdminSession(page);

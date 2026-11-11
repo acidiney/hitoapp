@@ -3,6 +3,7 @@ export type Destination =
   | "search"
   | "discover"
   | "library"
+  | "plugins"
   | "settings"
   | null;
 
@@ -30,10 +31,13 @@ export function currentSection(path: string): string | null {
   return match?.href ?? null;
 }
 
-export function currentDestination(path: string): Destination {
+export function currentDestination(path: string, search = ""): Destination {
   if (within(path, "/home")) return "home";
   if (within(path, "/search")) return "search";
   if (within(path, "/discover") || within(path, "/genres")) return "discover";
-  if (within(path, "/settings")) return "settings";
+  if (within(path, "/settings"))
+    return new URLSearchParams(search).get("section") === "plugins"
+      ? "plugins"
+      : "settings";
   return currentSection(path) ? "library" : null;
 }

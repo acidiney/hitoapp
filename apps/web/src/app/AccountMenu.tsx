@@ -1,6 +1,6 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
-import { Lock, LogOut } from "lucide-react";
+import { Keyboard, Lock, LogOut } from "lucide-react";
 import { useSignOut } from "../features/session/hooks/useSignOut";
 import { useLockSession } from "../features/session/hooks/useLockSession";
 import { useIdleLock } from "../features/session/hooks/useIdleLock";
@@ -16,10 +16,12 @@ export default function AccountMenu({
   user,
   lock,
   path,
+  onShowShortcuts,
 }: {
   user: Schema<"User">;
   lock: Schema<"LockStatus">;
   path: string;
+  onShowShortcuts?: () => void;
 }) {
   const player = usePlayer();
   const { busy, signOut } = useSignOut(user.id, () => {
@@ -44,11 +46,21 @@ export default function AccountMenu({
           name={accountName(user)}
           version={user.avatar_version}
         />
-        <span>
+        <span className="account-name">
           {accountName(user)}
           <small>{user.admin ? "Administrator" : "Account and settings"}</small>
         </span>
       </Link>
+      {onShowShortcuts && (
+        <button
+          className="icon-button"
+          aria-label="Keyboard shortcuts"
+          aria-keyshortcuts="?"
+          onClick={onShowShortcuts}
+        >
+          <Keyboard size={17} />
+        </button>
+      )}
       {lock.pin_enabled && (
         <button
           className="icon-button"

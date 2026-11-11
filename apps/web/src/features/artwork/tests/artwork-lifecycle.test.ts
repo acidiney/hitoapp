@@ -5,6 +5,10 @@ import { expect, test, vi } from "vitest";
 import Shell from "../../../app/Shell";
 import Artwork from "../components/Artwork";
 
+vi.mock("../../plugins/hooks/usePluginCounts", () => ({
+  usePluginCounts: () => null,
+}));
+
 vi.mock("@inertiajs/react", () => ({
   usePage: () => ({
     component: "CatalogPage",

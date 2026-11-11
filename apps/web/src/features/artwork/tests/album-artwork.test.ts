@@ -13,6 +13,10 @@ import AlbumPage from "../../catalog/pages/AlbumPage";
 
 import type { components } from "../../../generated";
 
+vi.mock("../../plugins/hooks/usePluginCounts", () => ({
+  usePluginCounts: () => null,
+}));
+
 type ReleaseArtworkFetch = components["schemas"]["ReleaseArtworkFetch"];
 
 const page = vi.hoisted(() => ({

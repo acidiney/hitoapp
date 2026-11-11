@@ -28,12 +28,17 @@ const playlists = [
   { id: "p2", name: "Running" },
 ];
 
-function sidebar(path: string) {
+function sidebar(path: string, search = "", pluginsToReview = 0) {
   render(
     createElement(
       NoticeProvider,
       null,
-      createElement(Sidebar, { playlists: playlists as never, path }),
+      createElement(Sidebar, {
+        playlists: playlists as never,
+        path,
+        search,
+        pluginsToReview,
+      }),
     ),
   );
   return screen.getByRole("navigation", { name: "Main navigation" });
@@ -54,7 +59,7 @@ function account(path: string, pin = true, person: object = user) {
   );
 }
 
-test("the main navigation offers Home, Search, Discover and Library links", () => {
+test("the main navigation offers Home, Search, Discover, Library and Plugins links", () => {
   const navigation = sidebar("/library");
   const links = within(navigation).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
@@ -62,12 +67,14 @@ test("the main navigation offers Home, Search, Discover and Library links", () =
     "Search⌘K",
     "Discover",
     "Library",
+    "Plugins",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/home",
     "/search",
     "/discover",
     "/library",
+    "/settings?section=plugins",
   ]);
   const search = links[1];
   expect(search.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
@@ -91,8 +98,10 @@ test.each([
   ["/search", "Search⌘K"],
   ["/discover", "Discover"],
   ["/genres", "Discover"],
+  ["/settings?section=plugins", "Plugins"],
 ])("%s marks %s as the current destination", (path, current) => {
-  const navigation = sidebar(path);
+  const [pathname, search = ""] = path.split("?");
+  const navigation = sidebar(pathname, search ? `?${search}` : "");
   const marked = within(navigation)
     .getAllByRole("link")
     .filter((link) => link.getAttribute("aria-current") === "page");
@@ -204,4 +213,25 @@ test("each sidebar playlist name carries its full text as a tooltip", () => {
       link.querySelector("span:last-child")?.getAttribute("title"),
     );
   expect(names).toEqual(["Sunday calm", "Running"]);
+});
+
+test("the Plugins entry carries an amber count only when something needs review", () => {
+  const navigation = sidebar("/library", "", 2);
+  const link = within(navigation).getByRole("link", { name: /Plugins/ });
+  expect(link.querySelector(".nav-badge")?.textContent).toBe("2 to review");
+});
+
+test("the Plugins entry has no count when nothing needs review", () => {
+  const navigation = sidebar("/library");
+  const link = within(navigation).getByRole("link", { name: "Plugins" });
+  expect(link.querySelector(".nav-badge")).toBeNull();
+});
+
+test("the sidebar starts the playlists with Liked tracks", () => {
+  sidebar("/library");
+  const list = document.querySelector(".sidebar-playlists") as HTMLElement;
+  const links = within(list)
+    .getAllByRole("link")
+    .map((link) => link.getAttribute("href"));
+  expect(links.slice(0, 2)).toEqual(["/playlists#new-playlist", "/likes"]);
 });

@@ -1,15 +1,10 @@
-@media (max-width: 1450px) {
-  .server-label {
-    display: none;
-  }
-}
 @media (max-width: 1279px) {
   .player {
     grid-template-columns: minmax(170px, 1fr) minmax(300px, 1.6fr) 190px;
     gap: 16px;
   }
   .player-tools .volume,
-  .player-tools > svg {
+  .player-tools .mute-button {
     display: none;
   }
   .album-column {
@@ -25,7 +20,7 @@
     padding-right: 12px;
   }
   .topbar {
-    padding: 0 24px;
+    padding: 20px 24px 16px;
   }
   main#main {
     padding: 24px;
@@ -71,11 +66,12 @@
     z-index: 31;
     height: calc(var(--tabs) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
     padding-left: 8px;
     padding-right: 8px;
-    background: var(--bg);
+    background: var(--sidebar-bg);
+    border-top: 1px solid var(--line);
   }
   .sidebar nav :is(a, button) {
     flex-direction: column;
@@ -128,7 +124,21 @@
     height: 36px;
   }
 
-  .account-link > span:last-child {
+  .account-name {
+    display: none;
+  }
+  .sidebar nav .nav-badge {
+    position: absolute;
+    top: 4px;
+    margin: 0 0 0 20px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+  .sidebar nav a {
+    position: relative;
+  }
+  .plugins-pill,
+  .search kbd {
     display: none;
   }
   .wide-workspace .account {
@@ -145,6 +155,9 @@
   .topbar {
     min-height: 68px;
     padding: 0 60px 0 16px;
+  }
+  .search {
+    padding-right: 6px;
   }
   main#main {
     padding: 14px 16px 38px;
@@ -230,27 +243,19 @@
     padding: 0 0 0 8px;
     gap: 4px;
     border: 0;
-    border-radius: 10px;
-    background: var(--ink);
-    color: var(--on-ink);
+    border-radius: 16px;
+    background: var(--subtle);
+    color: var(--ink);
   }
   .player .now-playing small {
-    color: var(--on-ink);
-    opacity: 0.75;
-  }
-  .player .play-button {
-    background: transparent;
-    color: var(--on-ink);
-  }
-  .player .play-button:hover:not(:disabled) {
-    background: transparent;
+    color: var(--ink-soft);
   }
   .player .transport-buttons .icon-button,
   .player .player-tools .icon-button {
-    color: var(--on-ink);
+    color: var(--ink);
     background: transparent;
   }
-  .player-tools :is(.speed-select, .volume-icon, .volume, .expand-player),
+  .player-tools :is(.speed-select, .mute-button, .volume, .expand-player),
   .transport-optional,
   .seek,
   .queue-label {

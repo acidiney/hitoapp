@@ -15,6 +15,10 @@ import type { components } from "../../../generated";
 import { deferred } from "../../../test/async";
 import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 
+vi.mock("../../plugins/hooks/usePluginCounts", () => ({
+  usePluginCounts: () => null,
+}));
+
 setAutomaticLyrics(false);
 
 type ArtworkFetch = components["schemas"]["ArtworkFetch"];
