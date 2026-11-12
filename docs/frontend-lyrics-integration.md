@@ -80,7 +80,7 @@ Ready variants contain exactly the typed fields `recording_id`, `installation_id
 
 Automatic results remain ephemeral. Never call review or retain to implement this path, manufacture a saved selector, or change metadata, Sources, audio, collection state or Download intent. Ordinary 401/403/404/409/423 handling remains in effect; a concurrent lyric workflow can return 409. Aborting the request drops its workflow and provider body. Keep unavailable, ambiguous and not found distinct, with bounded explicit retry rather than automatic service fan-out.
 
-Protocol v2 negotiation does not implement timed-first priority across candidates. That priority remains TODO. This extension changes neither static rendering nor timing/highlighting/alignment behavior.
+Core now applies timed-first priority across compatible candidates through the automatic endpoint. Protocol v2 negotiation alone does not provide that selection policy. Current packaged browser acceptance remains open. This selection changes neither rendering nor timing/highlighting/alignment behavior.
 
 ## Reading and rendering
 
