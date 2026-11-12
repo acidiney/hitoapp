@@ -2,6 +2,7 @@ mod admission;
 mod artist_catalog;
 mod catalog;
 mod catalog_replication;
+mod changes;
 mod collection;
 mod community;
 mod context;
@@ -86,6 +87,7 @@ pub use catalog_replication::{
     CatalogSnapshotPage, LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact,
     ServerRelayObservation,
 };
+pub use changes::{ArtworkChangeEntity, ChangeNotice, ChangeStream, Changes, ResyncReason};
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
     AudiobookDetail, AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPagination,
@@ -169,6 +171,7 @@ pub struct Services {
     pub artist_catalog: ArtistCatalog,
     pub playback: PlaybackAccess,
     pub collection: Collection,
+    pub changes: Changes,
     pub community: Community,
     pub storage: LibraryStorage,
     pub plugins: Plugins,
@@ -181,6 +184,7 @@ pub struct Services {
 #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = config.host_device.as_str()))]
 pub async fn open(config: CoreConfig) -> Result<Services> {
     let directories = library_storage::Directories::new(config.storage)?;
+    let changes = changes::ChangeHub::default();
     #[cfg(not(any(test, feature = "test-support")))]
     let store = Store::open(&config.database).await?;
     #[cfg(any(test, feature = "test-support"))]
@@ -256,6 +260,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
+        changes: changes.clone(),
         featured_cache: Default::default(),
         local_files: local_files.clone(),
         cover_art: {
@@ -355,6 +360,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             catalog_replication: catalog_replication.clone(),
             password_attempts: Default::default(),
             seen_attempts: Default::default(),
+            changes: changes.clone(),
         },
         community,
         catalog_replication,
@@ -372,6 +378,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             host: config.host_device.clone(),
             plugins: plugins.clone(),
             metadata_refresh_admission: Default::default(),
+            changes: changes.clone(),
+        },
+        changes: Changes {
+            store: store.clone(),
+            hub: changes,
         },
         storage,
         downloads,

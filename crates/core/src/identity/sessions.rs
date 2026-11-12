@@ -234,10 +234,14 @@ impl Identity {
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn logout(&self, token: &str) -> Result<()> {
-        sqlx::query("DELETE FROM sessions WHERE token_hash = ?")
-            .bind(token_hash(token))
-            .execute(&self.store.pool)
-            .await?;
+        let account: Option<String> =
+            sqlx::query_scalar("DELETE FROM sessions WHERE token_hash = ? RETURNING user_id")
+                .bind(token_hash(token))
+                .fetch_optional(&self.store.pool)
+                .await?;
+        if let Some(account) = account {
+            self.changes.sessions_changed(&account);
+        }
         tracing::info!("Session revoked");
         Ok(())
     }

@@ -32,4 +32,5 @@ pub struct Identity {
     pub(crate) catalog_replication: crate::CatalogReplication,
     pub(crate) password_attempts: password::PasswordAttempts,
     pub(crate) seen_attempts: sessions::SeenAttempts,
+    pub(crate) changes: crate::changes::ChangeHub,
 }
