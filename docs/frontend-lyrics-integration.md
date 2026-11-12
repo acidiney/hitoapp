@@ -2,6 +2,22 @@
 
 This specification is ready for parallel frontend implementation by Opus. Backend owns provider requests, authority, identity review, persistence and protocol negotiation. Frontend owns the existing Track Details Lyrics experience and its generic chooser. Plugins supply data, never components or executable UI.
 
+## Candidate plugin credential feedback
+
+This extension belongs to the isolated backend credential candidate. It is not integrated or deployed. The current backend candidate's Rust definitions add `ErrorCode::PluginCredentialsRequired`, optional `ErrorResponse.plugin_connection` with a `PluginInstallationStamp`, and `PluginHealthState::CredentialsRequired`. The actual Rust OpenAPI export and its generated TypeScript must be qualified before frontend integration; do not hand-write replacement API types from this section.
+
+A rejected plugin service credential returns HTTP 409 with code `plugin_credentials_required` and a safe error message. When current private authority permits it, `plugin_connection` identifies the installation and revision that failed. The response is private and no-store. HTTP 401 still means listener authentication; inaccessible recording or foreign connection requests remain 404 without that stamp. Other 409 responses keep their existing behavior.
+
+Opus owns the frontend implementation:
+
+1. Recognize the exact credential error code through the shared typed error handling. Explain that this music service connection needs its credentials updated, and offer the existing plugin-settings destination. Do not send the listener through sign-in for this error.
+2. In plugin settings, render `credentials_required` for the affected account connection with its human service label and existing credential-edit action. A missing health value is unknown, not proof of success. Never display or log the submitted bearer.
+3. Apply a stamped error only to the same active account and installation revision. Discard late errors after account switching. If the connection has changed or no stamp is supplied, offer generic plugin settings without marking another connection as broken.
+4. Preserve manual lyric selection, library metadata, queue and playback. A failed lyric request does not pause playable audio or remove an identity. Source resolution may continue through another healthy provider; it does not imply every connection failed.
+5. After a successful credential update, invalidate the relevant settings and explicit lyric workflow state. Retry only the active, still-authorized request under its normal lifecycle. Public manifest availability alone does not prove protected requests work. Avoid automatic retry loops or subscriptions to playback-position ticks.
+
+Acceptance needs typed handler coverage for this 409 response versus listener 401, inaccessible 404 and unrelated 409 responses; affected versus peer connections; absent or stale stamps; account switching during a held request; successful update/retry; and uninterrupted audio/manual selection. Use an isolated browser server and owned protocol fixtures, never first-run tests against the persistent normal server. Source-search ordering and selected-document recovery have directed backend evidence; metadata/legacy recovery, hydration diagnostics, stale-target dispatch, health deadlines and broader qualification remain open.
+
 ## Current evidence and integration status
 
 The manual identity backend is integrated in the development branch in commits `6a75144b` and `1d40e6c8`. The current combined Rust export in [docs/openapi.json](openapi.json) has SHA-256 `ac0cc1e3290410b59ba5865be6ed70436ad218e8ba362273abaefd4ad6229e2a`. Opus owns TypeScript generation from this actual export; do not create a second API model from prose. Automatic Core and HTTP source is integrated in `4f16bf08` and `25e42acb`; the combined backend passes independent verification. This does not qualify the new UI workflow or deploy it.
