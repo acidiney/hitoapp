@@ -48,7 +48,7 @@ export default function ArtistMatchSuggestionList({
       {activeShown && items.length > 0 && (
         <>
           <h3 className="identity-heading">
-            Looks like an artist you reviewed
+            Looks like an artist already in your library
           </h3>
           <p>
             These are suggestions only. Nothing changes until you review and
