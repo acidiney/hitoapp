@@ -7,7 +7,6 @@
 
 **A self-hosted music library for the files you own and the services you use.**
 
-[![Verify](https://github.com/acidiney/hitoapp/actions/workflows/verify.yml/badge.svg)](https://github.com/acidiney/hitoapp/actions/workflows/verify.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-6f86ff)](LICENSE)
 
 [Run it](#run-it) · [Addons](docs/self-hosting.md) · [Docs](docs/README.md) · [Contributing](docs/development.md)
