@@ -43,9 +43,8 @@ test("the artist page lists discography as album cards that open a real album pa
       page.getByRole("button", { name: "Shuffle album" }),
     ).toBeVisible();
     await expect(page.locator("header.album-header select")).toHaveCount(0);
-    await expect(page.getByRole("combobox", { name: "Edition" })).toHaveCount(
-      0,
-    );
+    await expect(page.getByRole("button", { name: /^Edition / })).toBeVisible();
+    await expect(page.getByText(/^Track list from /)).toBeVisible();
 
     await table
       .getByRole("button", { name: `Play ${interlude}`, exact: true })

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
@@ -13,7 +13,8 @@ import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { longDuration, totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
 import CatalogFailure from "./CatalogFailure";
-import CatalogEditionSwitch from "./CatalogEditionSwitch";
+import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
+import { editionLabel } from "../model/editionLabel";
 import LibraryAvailability from "./LibraryAvailability";
 import CatalogPlayNotes from "./CatalogPlayNotes";
 
@@ -45,7 +46,8 @@ export default function CatalogAlbum({
     linked,
     controls,
   } = useCatalogTracks(context, withLibrary, mutate);
-  const owned = library.albums[group.id] ?? [];
+  const ownedAlbums = library.albums[group.id] ?? [];
+  const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;
   const started = useRef(false);
@@ -64,7 +66,10 @@ export default function CatalogAlbum({
     );
   const title = group.title || editions.chosen?.title || "Release";
   const duration = totalMs(occurrences);
-  const switchable = editions.editions.length > 1 || !!editions.continuation;
+  const owned = rows.filter(
+    (row) => row.kind === "catalog" && row.row.recording,
+  ).length;
+  const filter = owned > 0 ? chosenFilter : "all";
   const year = group.first_release_date?.slice(0, 4);
   const catalogName =
     context.association.provider.kind === "builtin_musicbrainz"
@@ -105,12 +110,12 @@ export default function CatalogAlbum({
         }
         status={
           withLibrary &&
-          (owned.length === 0 ? (
+          (ownedAlbums.length === 0 ? (
             <span className="album-status">Not in your library</span>
           ) : (
             <LibraryAvailability
               account={context.account}
-              albums={owned}
+              albums={ownedAlbums}
               group={group.id}
             />
           ))
@@ -143,23 +148,33 @@ export default function CatalogAlbum({
         }
       />
       <div className="album-body">
-        <div className="album-toolbar">
-          {switchable && (
-            <CatalogEditionSwitch
-              editions={editions.editions}
-              chosen={editions.chosen?.id ?? ""}
-              pending={editions.pending}
-              more={!editions.error && !!editions.continuation}
-              onChoose={editions.choose}
-              onMore={() => void editions.more()}
-            />
-          )}
-          {rows.length > 0 && (
-            <span className="album-toolbar-note">
-              Track list from {catalogName}
-            </span>
-          )}
-        </div>
+        {editions.chosen && (
+          <EditionToolbar
+            name={editionLabel(editions.chosen)}
+            total={rows.length}
+            owned={owned}
+            filter={filter}
+            onFilter={setFilter}
+            source={catalogName}
+            items={[
+              ...editions.editions.map((edition) => ({
+                id: edition.id,
+                label: editionLabel(edition),
+                disabled: editions.pending,
+                onSelect: () => editions.choose(edition.id),
+              })),
+              ...(!editions.error && editions.continuation
+                ? [
+                    {
+                      label: "Load more editions",
+                      disabled: editions.pending,
+                      onSelect: () => void editions.more(),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )}
         {(editions.pending || tracks.pending) && (
           <p role="status">Loading tracks…</p>
         )}
@@ -195,7 +210,13 @@ export default function CatalogAlbum({
         {editions.limited && <p>Showing the first 50 pages of editions.</p>}
         {rows.length > 0 && (
           <TrackTable
-            rows={rows}
+            rows={
+              filter === "library"
+                ? rows.filter(
+                    (row) => row.kind === "catalog" && row.row.recording,
+                  )
+                : rows
+            }
             catalog={controls}
             playlists={playlists}
             mutate={mutate}

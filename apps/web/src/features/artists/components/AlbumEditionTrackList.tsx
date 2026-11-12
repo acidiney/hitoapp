@@ -52,7 +52,7 @@ export default function AlbumEditionTrackList({
 }) {
   const player = usePlayer();
   const merge = useAlbumMerge(comparison !== null);
-  const [filter, setFilter] = useState<EditionFilter>("all");
+  const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const catalog = useCatalogTrackPlay(
     account,
     comparison?.adoption ?? null,
@@ -146,6 +146,7 @@ export default function AlbumEditionTrackList({
   }
 
   const owned = audio.filter((track) => libraryFor(track)).length;
+  const filter = owned > 0 ? chosenFilter : "all";
   const absent = comparison?.library_only.length ?? 0;
   useAlbumProgress(
     comparison === null
@@ -350,6 +351,7 @@ export default function AlbumEditionTrackList({
               filter={filter}
               onFilter={setFilter}
               items={menu}
+              source="your catalog service"
             />
           )}
           {comparison.edition.media.map((medium, index) => (

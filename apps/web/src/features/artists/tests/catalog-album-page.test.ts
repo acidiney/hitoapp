@@ -1,3 +1,4 @@
+import { chooseEdition } from "../../../test/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
@@ -23,7 +24,6 @@ import {
   twoEditionsPage,
 } from "../fixtures/catalogAlbumPlay";
 import { router } from "@inertiajs/react";
-import { choose } from "../../../test/listbox";
 import { forgetCatalog } from "../api/catalogCache";
 
 const player = vi.hoisted(() => {
@@ -210,11 +210,10 @@ test("a track with no confident match says so and lets the owner retry or connec
   expect(router.visit).toHaveBeenCalledWith("/settings?section=music");
 });
 
-test("the edition switcher is a listbox above the tracks and loads that edition's tracks", async () => {
+test("the edition chip menu above the tracks names the catalog and loads the chosen edition's tracks", async () => {
   await openPage();
-  const control = screen.getByRole("combobox", { name: "Edition" });
-  expect(document.querySelector("select[aria-label='Edition']")).toBeNull();
-  choose(control, 1);
+  expect(screen.getByText(/^Track list from /)).toBeTruthy();
+  chooseEdition(1);
   await waitFor(() =>
     expect(trackBodies.map((body) => body.edition_id)).toContain(
       twoEditionsPage.page.items[1].id,

@@ -1,4 +1,9 @@
-import { choose, optionsOf } from "../../../test/listbox";
+import {
+  editionChip,
+  editionOptions,
+  chooseEdition,
+  loadMoreEditions,
+} from "../../../test/editionMenu";
 import { createElement } from "react";
 import {
   act,
@@ -131,14 +136,8 @@ test("an opened catalog group pages editions on request and lists only the chose
     expect(
       within(group).queryByText("Material de sessão", { exact: true }),
     ).toBeNull();
-
-    const switcher = within(group).getByRole("combobox", { name: "Edition" });
-    expect(optionsOf(switcher)).toEqual([
-      "Standard edition · 2024-02 · Portugal",
-    ]);
-    fireEvent.click(
-      within(group).getByRole("button", { name: "Load more editions" }),
-    );
+    expect(editionOptions()).toEqual(["Standard edition · 2024-02 · Portugal"]);
+    loadMoreEditions();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
     expect(group.querySelector("[aria-busy='true']")).not.toBeNull();
     expect(JSON.parse(fetch.mock.calls[3][1]?.body as string)).toEqual({
@@ -148,17 +147,15 @@ test("an opened catalog group pages editions on request and lists only the chose
     } satisfies Schema<"ReadReleaseGroupEditions">);
     expect(fetch.mock.calls[3][1]?.body).not.toContain(providerEditionCursor);
     await act(async () => releaseMore(reply(lastEditionPage)));
-    await waitFor(() => expect(optionsOf(switcher)).toHaveLength(2));
-    choose(switcher, 1);
+    await waitFor(() => expect(editionOptions()).toHaveLength(2));
+    chooseEdition(1);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5));
     expect(JSON.parse(fetch.mock.calls[4][1]?.body as string)).toEqual({
       release_group_id: editionGroup.id,
       edition_id: bonusEdition.id,
     } satisfies Schema<"ReadEditionTrackList">);
     await waitFor(() =>
-      expect(
-        within(group).getByRole("combobox", { name: "Edition" }).textContent,
-      ).toContain("Bonus edition"),
+      expect(editionChip()?.textContent).toContain("Bonus edition"),
     );
     for (const [, options] of fetch.mock.calls) {
       const headers = new Headers(options?.headers);

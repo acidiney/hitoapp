@@ -525,18 +525,6 @@
 }
 
 @media (max-width: 767px) {
-  .detail-page .album-toolbar {
-    gap: 8px 12px;
-  }
-  .detail-page .album-edition {
-    max-width: 100%;
-    min-width: 0;
-  }
-  .detail-page .album-edition .listbox,
-  .detail-page .album-edition .listbox-control {
-    max-width: 100%;
-    min-width: 0;
-  }
   .detail-page .album-toolbar-note {
     margin-left: 0;
     font-size: 12px;

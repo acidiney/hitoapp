@@ -1,4 +1,4 @@
-import { choose, optionsOf } from "../../../test/listbox";
+import { editionOptions, chooseEdition } from "../../../test/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -172,9 +172,8 @@ test("an opened catalog album names itself once, hides a lone edition and the un
 test("two editions offer one compact switcher that reads the other edition's tracks", async () => {
   const fetch = serve({ editions: twoEditionsPage });
   const card = await openAlbum();
-  const switcher = card.getByRole("combobox", { name: "Edition" });
-  expect(optionsOf(switcher)).toHaveLength(2);
-  choose(switcher, 1);
+  expect(editionOptions()).toHaveLength(2);
+  chooseEdition(1);
   await waitFor(() =>
     expect(
       fetch.mock.calls
@@ -363,7 +362,7 @@ test("once playback started, leaving the page or switching edition does not stop
   const selection = player.selected.mock.calls[0][0] as {
     more: { next(signal: AbortSignal): Promise<unknown[]> };
   };
-  choose(card.getByRole("combobox", { name: "Edition" }), 1);
+  chooseEdition(1);
   expect(await selection.more.next(new AbortController().signal)).toEqual([
     foundRecording(1),
   ]);
@@ -386,7 +385,7 @@ test("switching edition while a track is being searched retires the old search",
     fireEvent.click(card.getByRole("button", { name: "Play album" }));
   });
   await waitFor(() => expect(audioBodies).toHaveLength(1));
-  choose(card.getByRole("combobox", { name: "Edition" }), 1);
+  chooseEdition(1);
   release();
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 30));

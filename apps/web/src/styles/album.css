@@ -121,12 +121,6 @@
   font-size: 28px;
 }
 
-.album-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
 .album-toolbar-note {
   margin-left: auto;
   font-size: 14px;
@@ -137,33 +131,6 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px 40px 40px;
-}
-.album-edition .listbox-control {
-  min-width: 0;
-  width: auto;
-  gap: 8px;
-  padding: 0 12px 0 16px;
-  border-color: var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.album-edition .listbox {
-  grid-auto-flow: column;
-  align-items: center;
-  gap: 8px;
-}
-.album-edition .listbox-label {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--muted);
-}
-.album-edition .listbox-control > svg {
-  width: 14px;
-  height: 14px;
-  color: inherit;
 }
 .release-card .album-body {
   padding: 0;
