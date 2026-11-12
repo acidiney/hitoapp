@@ -84,7 +84,7 @@ Flat music results contain only identity and title. Flat video results add the c
 
 ### Search ranking and partial results
 
-Planned behavior in development source. The tests that describe it have not been run yet, and the pinned yt-dlp's continuation after a failed first target has not been checked live.
+Current behavior in development source, not deployed. In Docker, the plugin suite passes against owned extractor fixtures, covering ranking, shared identities, either target failing, a malformed first or second document, and a hanging target. The four Core ranking cases pass against owned provider pages. These fixtures stand in for yt-dlp: whether the pinned yt-dlp really continues to the second target after the first fails has not been checked live.
 
 - At most one video leads the page: the first video whose title contains every word of the query. All catalog songs follow in catalog order, then the remaining videos. Each video identity appears once.
 - When the same identity is in both lists, the song row's title, artists and duration win. The video only fills fields the song row lacks.
