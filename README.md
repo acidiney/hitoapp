@@ -5,11 +5,11 @@
   <img src=".github/readme/logo-light.svg" width="220" alt="hito">
 </picture>
 
-**A self-hosted music library for the files you own and the services you use.**
+**One player for your Spotify playlists, YouTube, debrid accounts and music files. Self-hosted, built on plugins.**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-6f86ff)](LICENSE)
 
-[Run it](#run-it) · [Addons](docs/self-hosting.md) · [Docs](docs/README.md) · [Contributing](docs/development.md)
+[Run it](#run-it) · [Plugins](#plugins) · [Docs](docs/README.md) · [Contributing](docs/development.md)
 
 <br>
 
@@ -17,22 +17,37 @@
 
 </div>
 
-Hito plays the music in your folders. Point it at one or more folders and it builds a library of albums, artists and tracks without moving or changing a single file. Run it on your computer or a home server, open it in any browser, and every person in the house gets their own account, playlists, likes and history.
+Your music is spread across a Spotify playlist, YouTube, a debrid account and a folder of files. Hito plays all of it from one library.
 
-When your folders don't have a track, addons can fill the gap. Paste a Spotify playlist link and Hito copies it as your own playlist, then finds audio for each track through YouTube or another source you connect.
+Paste a Spotify playlist link and it's yours, ready to play. Hito finds audio for every track on YouTube, your debrid service or your own disk, in the order you prefer, and falls back to the next source when one fails. MusicBrainz fills in the artist pages and LRCLIB brings the lyrics.
+
+Every source is a plugin. Connect the ones you want, skip the rest, or write your own. You host Hito yourself, so the library, the history and every account in the house stay on your machine.
 
 > [!NOTE]
 > Hito is in active development and has no public release yet. It runs well as a local or home-server build in Docker. Desktop apps and installers are still being built.
 
-## What you get
+## Plugins
 
-- **Your files stay put.** Music folders are mounted read-only. Tags you edit in Hito are private to your account and never written back to the file.
-- **One library, several sources.** Local files, plugin services and imported playlists sit in one list. Each track shows where its audio comes from and whether it's ready to play.
-- **Playlists that keep up.** Import a public Spotify playlist once, or follow it so new tracks arrive hourly or daily.
-- **Real artist pages.** Hito matches credits to MusicBrainz artists from file tags and ISRCs. It never merges two artists only because their names match.
-- **Podcasts and audiobooks.** Subscribe to RSS feeds, keep bookmarks and pick up where you stopped.
-- **Accounts that stay private.** The first account is the administrator. Everyone else sees only the libraries they are given, and their own playlists and history.
-- **Works on a phone.** Install it from the browser as a web app. Optional lyrics come from LRCLIB.
+| Plugin | What you get |
+| --- | --- |
+| **Spotify** | Paste a public playlist link and Hito copies it as your own editable playlist. Follow it and new tracks arrive hourly or daily. No Spotify account needed. |
+| **YouTube** | Search for music in Discover, save what you find, and play imported tracks. |
+| **MusicBrainz** | Built in. Artist pages, discographies and genres. Hito matches artists by file tags, ISRCs and provider links, never by name alone. |
+| **LRCLIB** | Lyrics in Now playing. |
+| **Real-Debrid, All-Debrid, TorBox, Premiumize** | Play from your own debrid account. |
+| **Jamendo** | Free-licensed music to search, play and browse. |
+| **ListenBrainz** | Similar artists on artist pages. |
+
+Plugins are small HTTP services that run next to Hito, usually as Docker containers. Hito never downloads or runs plugin code. Before you connect one, Hito shows exactly what it will be allowed to do, and tokens you enter are encrypted and private to your account. The [plugin SDK](crates/plugin-sdk) is Apache-2.0, so you can [write your own](docs/plugins.md) under any license.
+
+<p align="center"><img src=".github/readme/plugin-review.webp" width="80%" alt="Connecting the YouTube plugin: Hito lists what it may do (search, playback, track details, covers) before you accept"></p>
+
+## Also in the box
+
+- **Your own files.** Add music folders and Hito builds albums and artists from their tags. Folders are mounted read-only, and edits you make in Hito stay in Hito.
+- **Podcasts and audiobooks.** RSS subscriptions, bookmarks and Continue listening.
+- **Private accounts.** The first account is the administrator. Everyone else sees only the libraries they're given.
+- **Works on a phone.** Install it from the browser as a web app.
 
 <table>
   <tr>
@@ -48,7 +63,7 @@ When your folders don't have a track, addons can fill the gap. Paste a Spotify p
 
 ## Run it
 
-You need [Docker](https://www.docker.com/products/docker-desktop/) (or [OrbStack](https://orbstack.dev/) on macOS), Git, about 10 GB of free disk and a folder of music.
+You need [Docker](https://www.docker.com/products/docker-desktop/) (or [OrbStack](https://orbstack.dev/) on macOS), Git and about 10 GB of free disk. A music folder is optional.
 
 ```sh
 git clone https://github.com/acidiney/hitoapp.git
@@ -63,31 +78,21 @@ Then start the setup launcher for your system:
 | Windows | Right-click `Hito Setup.ps1` and choose **Run with PowerShell**. |
 | Linux | Run `./hito-setup`. The folder picker needs Zenity or KDialog. |
 
-The launcher asks for your music folders, builds Hito in Docker (5 to 15 minutes the first time) and opens [localhost:8080](http://localhost:8080). Create the first account, open **Library**, choose **Add music folder** and press play.
+The launcher asks for your music folders, builds Hito in Docker (5 to 15 minutes the first time) and opens [localhost:8080](http://localhost:8080). Create the first account. That account is the administrator. Then connect plugins in **Settings → Plugins**, add a music folder from **Library**, or both.
 
 Run the launcher again to add more folders. Your library is kept. To stop Hito, run `docker stop hito-server-1`; `docker start hito-server-1` brings it back.
 
 If something fails, the launcher prints the failed step. Its log is in `~/Library/Application Support/Hito` (macOS), `~/.config/hito` (Linux) or `%LOCALAPPDATA%\Hito` (Windows). [Music folders](docs/music-folders.md) and [operations](docs/operations.md) cover the rest.
 
-### Add addons
+### Add plugins
 
-Addons are small separate services that run next to Hito. Start the Spotify and YouTube addons with the server:
+The setup launcher can start the Spotify and YouTube plugins for you: answer **Start addons** when it asks. To start them yourself:
 
 ```sh
 docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile plugins up -d --build
 ```
 
-Then connect them in **Settings → Plugins**. The [self-hosting guide](docs/self-hosting.md) lists every addon, what it needs and how to remove it.
-
-| Addon | What it does |
-| --- | --- |
-| Spotify | Copies a public playlist link into an editable Hito playlist. Metadata only, no audio. |
-| YouTube | Search, save results and find audio for imported tracks. |
-| Jamendo | Free-licensed music. Needs a Jamendo client ID. |
-| LRCLIB | Plain and synced lyrics. |
-| ListenBrainz | Similar artists. |
-| Real-Debrid, All-Debrid, TorBox, Premiumize | Play files from your own debrid account. |
-| Folder | Serves a folder as a plugin source. Useful for testing. |
+Then connect them in **Settings → Plugins**. The [self-hosting guide](docs/self-hosting.md) covers every plugin: what it needs, how to update it and how to remove it.
 
 ## How it's built
 
@@ -97,10 +102,10 @@ flowchart LR
     D["Desktop app<br>(Tauri)"] --> C
     S --> C["hito-core<br>identity, catalog, playlists,<br>indexing, SQLite"]
     C -- "read-only" --> F[("Music folders")]
-    S -- "HTTP" --> P["Addon services"]
+    S -- "HTTP" --> P["Plugin services"]
 ```
 
-A Rust server owns the library and a React app draws it. The desktop app embeds the same core and plays audio natively in Rust instead of in the browser. Addons are separate HTTP services; Hito never downloads or runs their code.
+A Rust server owns the library and a React app draws it. The desktop app embeds the same core and plays audio natively in Rust instead of in the browser. Plugins are separate HTTP services.
 
 | Path | What it is |
 | --- | --- |
@@ -110,8 +115,8 @@ A Rust server owns the library and a React app draws it. The desktop app embeds 
 | [`apps/community`](apps/community) | Optional community ranking service |
 | [`crates/core`](crates/core) | Accounts, catalog, playlists, indexing and all SQLite access |
 | [`crates/audio`](crates/audio), [`crates/playback`](crates/playback) | Native decoding, output and the queue |
-| [`crates/plugin-sdk`](crates/plugin-sdk) | The addon protocol, Apache-2.0 so anyone can build one |
-| [`plugins/`](plugins) | The reference addons listed above |
+| [`crates/plugin-sdk`](crates/plugin-sdk) | The plugin protocol, Apache-2.0 so anyone can build one |
+| [`plugins/`](plugins) | The reference plugins listed above |
 | [`docs/`](docs/README.md) | Guides and design notes |
 
 [Architecture](docs/architecture.md) goes deeper, and the [API](docs/api.md) is generated from the Rust routes.
@@ -132,4 +137,4 @@ Read [development](docs/development.md) and [testing](docs/testing.md) before yo
 
 ## License
 
-Hito is [AGPL-3.0-only](LICENSE). The [plugin SDK](crates/plugin-sdk) is [Apache-2.0](crates/plugin-sdk/LICENSE), so addons can use any license. No provider credentials ship with Hito. See [third-party notices](docs/third-party-notices.md).
+Hito is [AGPL-3.0-only](LICENSE). The [plugin SDK](crates/plugin-sdk) is [Apache-2.0](crates/plugin-sdk/LICENSE), so plugins can use any license. No provider credentials ship with Hito. See [third-party notices](docs/third-party-notices.md).
