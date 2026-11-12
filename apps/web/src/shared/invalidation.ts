@@ -7,6 +7,7 @@ export type InvalidationScope =
   | "recording"
   | "playlist"
   | "playlists"
+  | "artwork"
   | "lyrics"
   | "plugins"
   | "catalog";
