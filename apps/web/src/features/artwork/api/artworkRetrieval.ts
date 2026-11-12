@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { requestJson } from "../../../shared/http";
+import { HttpError, requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 export type ArtworkKind = "recording" | "release" | "playlist";
@@ -67,6 +67,37 @@ function waitForPoll(signal: AbortSignal) {
 
 let nextGeneration = 0;
 const SETTLED_LIMIT = 4096;
+const ADMISSION_BUSY = "artwork_admission_busy";
+const ADMISSION_ATTEMPTS = 5;
+const ADMISSION_WAIT_SECONDS = 2;
+const ADMISSION_MAX_WAIT_SECONDS = 30;
+const deferred = Symbol("admission deferred");
+
+function admissionBusy(error: unknown): error is HttpError {
+  return (
+    error instanceof HttpError &&
+    error.status === 429 &&
+    error.code === ADMISSION_BUSY
+  );
+}
+
+function sleepUntil(time: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => {
+        signal.removeEventListener("abort", cancel);
+        resolve();
+      },
+      Math.max(0, time - Date.now()),
+    );
+    function cancel() {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+  });
+}
 
 export class ArtworkRetrieval {
   readonly generation = ++nextGeneration;
@@ -79,6 +110,7 @@ export class ArtworkRetrieval {
   private workflows = 0;
   private revision = 0;
   private active = true;
+  private admissionUntil = 0;
 
   constructor(readonly account: string) {}
 
@@ -307,11 +339,13 @@ export class ArtworkRetrieval {
     path: string,
     action: string,
     method: "GET" | "POST" = "GET",
+    admission = false,
   ): Promise<T> {
     const { signal } = entry.controller;
     await this.acquire(signal);
     try {
       if (!this.current(entry)) throw signal.reason;
+      if (admission && Date.now() < this.admissionUntil) throw deferred;
       return await requestJson<T>(path, {
         action,
         method,
@@ -321,6 +355,43 @@ export class ArtworkRetrieval {
     } finally {
       this.requests--;
       this.waiting.values().next().value?.();
+    }
+  }
+
+  private async admit(entry: Entry, path: string): Promise<ArtworkJob> {
+    const { signal } = entry.controller;
+    for (let rejected = 0; ; ) {
+      while (Date.now() < this.admissionUntil)
+        await sleepUntil(this.admissionUntil, signal);
+      if (!this.current(entry)) throw signal.reason;
+      try {
+        return await this.read<ArtworkJob>(
+          entry,
+          path,
+          "artwork.fetch",
+          "POST",
+          true,
+        );
+      } catch (error) {
+        if (error === deferred) continue;
+        if (!admissionBusy(error) || ++rejected >= ADMISSION_ATTEMPTS)
+          throw error;
+        const wait = Math.min(
+          Math.max(error.retryAfter ?? ADMISSION_WAIT_SECONDS, 1),
+          ADMISSION_MAX_WAIT_SECONDS,
+        );
+        this.admissionUntil = Math.max(
+          this.admissionUntil,
+          Date.now() + wait * 1000,
+        );
+        log.debug("artwork.admission_busy", {
+          account_id: this.account,
+          mode: entry.target.kind,
+          attempt: rejected,
+          wait_ms: wait * 1000,
+        });
+        this.publish(entry, "waiting");
+      }
     }
   }
 
@@ -352,12 +423,7 @@ export class ArtworkRetrieval {
         reason = "no_provider";
         return;
       }
-      job = await this.read<ArtworkJob>(
-        entry,
-        `${base}/fetch`,
-        "artwork.fetch",
-        "POST",
-      );
+      job = await this.admit(entry, `${base}/fetch`);
       while (this.current(entry)) {
         const matches =
           target.kind === "recording"
