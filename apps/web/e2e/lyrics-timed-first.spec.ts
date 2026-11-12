@@ -5,35 +5,11 @@ import {
   type Page,
 } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
-import {
-  connectLyrics,
-  lyricsProvider,
-  plainCandidate,
-  timedCandidate,
-  type LyricsCandidate,
-} from "./fixtures/lyrics-provider";
+import { plainCandidate, timedCandidate } from "./fixtures/lyrics-provider";
+import { libraryTrack, withProvider } from "./fixtures/lyrics-library";
 import { signOutFromShell } from "./fixtures/account";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
 import { trackTitleLink } from "./fixtures/track-row";
-
-type Facts = Pick<LyricsCandidate, "title" | "artist" | "duration_ms">;
-
-async function libraryTrack(page: Page, title: string) {
-  const listed = await page.request.get(
-    `/api/v1/recordings?q=${encodeURIComponent(title)}`,
-  );
-  const body = await listed.json();
-  const recording = body.items?.find(
-    (item: Schema<"Recording">) => item.title === title,
-  ) as Schema<"Recording">;
-  if (!recording) throw new Error("The scanned fixture library is required");
-  const facts: Facts = {
-    title: recording.title,
-    artist: recording.artist,
-    duration_ms: recording.duration_ms!,
-  };
-  return { id: recording.id, facts };
-}
 
 function automaticRequests(page: Page) {
   const seen: { recording: string; body: string | null }[] = [];
@@ -70,31 +46,6 @@ async function removeSavedChoices(
 async function open(page: Page, recording: string) {
   await page.goto(`/recordings/${recording}?tab=lyrics`);
   return page.getByRole("region", { name: "Lyrics", exact: true });
-}
-
-async function withProvider(
-  page: Page,
-  run: (
-    provider: Awaited<ReturnType<typeof lyricsProvider>>,
-    connection: Awaited<ReturnType<typeof connectLyrics>>,
-  ) => Promise<void>,
-  baseURL: string,
-  administrator?: APIRequestContext,
-) {
-  const provider = await lyricsProvider();
-  const connection = await connectLyrics(
-    page.request,
-    new URL(baseURL).origin,
-    provider,
-    administrator,
-  );
-  try {
-    await run(provider, connection);
-    expect(provider.state.unexpected).toBe(0);
-  } finally {
-    await connection.remove();
-    await provider.close();
-  }
 }
 
 test("a timed result listed after a plain result is the one shown, from one automatic request", async ({
