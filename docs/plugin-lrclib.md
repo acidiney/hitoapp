@@ -18,6 +18,8 @@ flowchart LR
 
 Offer the plugin address through Hito's plugin settings, then connect the listener account with the provisioned token. Paste only the token into the bearer-token field, without a `Bearer ` prefix. An existing connection can have its token updated without reinstalling the service or restarting Hito. Do not put the token into the service URL, documentation or logs.
 
+A [typed connection-credential diagnosis](plugin-credentials.md) is being qualified separately and is not deployed.
+
 The public manifest may load even when this credential is missing. Protected search and lyric routes then refuse access. Hito currently maps an upstream authentication refusal to `502 upstream_failed`; that response can also have other causes, so verify the connection credential before changing protocol versions. An absent health declaration does not disable content routes. Manifest `protocol_version: 1` is compatible with the separately negotiated v2 lyrics descriptor and endpoint.
 
 The local development diagnosis on 11 November found an account connection with no saved credential. The same service accepted an authenticated search, while the controlled unauthenticated search returned 401. No reinstall, protocol change or preview restart was needed. This checks the authentication boundary, not the complete browser workflow.
