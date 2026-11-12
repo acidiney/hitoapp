@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { Schema } from "../../../shared/schema";
 import { afterEach, expect, test, vi } from "vitest";
 import { forgetAutomaticLookups } from "../api/automaticLyrics";
 import { useRecordingLyrics } from "../hooks/useRecordingLyrics";
@@ -59,14 +60,14 @@ const chosen = reviewedIdentity("cccccccc-0000-4000-8000-000000000001", 2);
 const stampA = {
   installation_id: serviceA.installation_id,
   installation_revision: serviceA.installation_revision,
-};
-const credentialReply = (stamp?: unknown) =>
+} satisfies Schema<"PluginInstallationStamp">;
+const credentialReply = (stamp?: Schema<"PluginInstallationStamp">) =>
   json(
     {
       error: "This music service connection needs its credentials updated.",
       code: "plugin_credentials_required",
       ...(stamp === undefined ? {} : { plugin_connection: stamp }),
-    },
+    } satisfies Schema<"ErrorResponse">,
     409,
   );
 

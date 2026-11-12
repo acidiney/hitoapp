@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { afterEach, expect, test, vi } from "vitest";
 import { HttpError, request } from "../../../shared/http";
 import {
@@ -19,12 +20,15 @@ async function failure(status: number, body: unknown) {
   }).catch((error: unknown) => error);
 }
 
-const stamp = { installation_id: "inst-1", installation_revision: 4 };
+const stamp = {
+  installation_id: "inst-1",
+  installation_revision: 4,
+} satisfies Schema<"PluginInstallationStamp">;
 const credentialBody = {
   error: "This music service connection needs its credentials updated.",
   code: "plugin_credentials_required",
   plugin_connection: stamp,
-};
+} satisfies Schema<"ErrorResponse">;
 
 test("the credential 409 is recognised with its connection stamp", async () => {
   const error = await failure(409, credentialBody);
@@ -79,9 +83,11 @@ test("a listener 401, an inaccessible 404 and an unrelated 409 are not credentia
 });
 
 test("only the credentials health value needs credentials and a missing value is unknown", () => {
-  expect(healthNeedsCredentials({ state: "credentials_required" })).toBe(true);
-  expect(healthNeedsCredentials({ state: "ok" })).toBe(false);
-  expect(healthNeedsCredentials({ state: "degraded" })).toBe(false);
+  const health = (state: Schema<"PluginHealthState">) =>
+    ({ state }) satisfies Schema<"PluginHealth">;
+  expect(healthNeedsCredentials(health("credentials_required"))).toBe(true);
+  expect(healthNeedsCredentials(health("ok"))).toBe(false);
+  expect(healthNeedsCredentials(health("degraded"))).toBe(false);
   expect(healthNeedsCredentials(undefined)).toBe(false);
   expect(healthNeedsCredentials(null)).toBe(false);
 });

@@ -72,8 +72,8 @@ function installation(
   };
 }
 
-const wireHealth = (state: string): Schema<"PluginHealth"> =>
-  JSON.parse(JSON.stringify({ state }));
+const wireHealth = (state: Schema<"PluginHealthState">) =>
+  ({ state }) satisfies Schema<"PluginHealth">;
 
 function show(...items: Schema<"PluginInstallation">[]) {
   vi.mocked(pluginsApi.settings).mockResolvedValue({
