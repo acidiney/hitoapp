@@ -88,7 +88,7 @@ This is the server synchronization contract. A desktop cache and durable offline
 
 Core capability services publish a notice only after their transaction commits, and only to the account that owns the change. A rolled-back batch or rejected command publishes nothing. Each account keeps one bounded in-memory channel of 32 notices; a stream that falls behind receives `resync` with reason `lagged` instead of buffering. An account can hold 8 open streams; more return 429. Notices are not stored, so a restart or reconnect relies on the `connected` resync.
 
-The stream authenticates through the shared session extractor and returns `Cache-Control: private, no-store`. It ends when its session signs out, is revoked, is locked, expires or is deleted with its account. Sign-out, revocation, password change, locking and account deletion end affected streams promptly; expiry and idle locks are noticed within 30 seconds.
+The stream authenticates through the shared session extractor and returns `Cache-Control: private, no-store`. It ends when its session signs out, is revoked, is locked, expires or is deleted with its account. Sign-out, revocation, password change, locking and account deletion end affected streams promptly; expiry and idle locks are noticed within 30 seconds. Those changes also advance a per-account session counter. A stream re-checks its own session before it delivers any notice queued after the counter moved, so a held stream cannot release an older notice once its session has ended. A new stream registers for notices before its first session check, so a sign-out that races the connection is still seen.
 
 ```mermaid
 sequenceDiagram

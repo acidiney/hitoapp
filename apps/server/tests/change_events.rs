@@ -357,3 +357,80 @@ async fn each_account_holds_a_bounded_number_of_streams_and_a_reconnect_starts_w
         assert_eq!(notice(&mut other).await, playlist_notice(&playlist));
     }
 }
+
+async fn held_with_a_queued_private_notice(app: &Router, token: &str) -> Body {
+    let changes = stream(app, token).await;
+    let playlist = Uuid::new_v4().to_string();
+    assert_eq!(
+        sync(app, token, vec![create(&playlist)]).await,
+        StatusCode::OK
+    );
+    changes
+}
+
+#[tokio::test]
+async fn a_held_stream_delivers_no_queued_notice_after_sign_out() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    let mut changes = held_with_a_queued_private_notice(&app, &token).await;
+    assert_eq!(
+        call(&app, "POST", "/api/v1/logout", Value::Null, Some(&token))
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    ended(&mut changes).await;
+}
+
+#[tokio::test]
+async fn a_held_stream_delivers_no_queued_notice_after_its_session_is_revoked() {
+    let (_dir, app) = app().await;
+    let first = admin(&app).await;
+    let second = login(&app, "admin").await;
+    let mut changes = held_with_a_queued_private_notice(&app, &second).await;
+    assert_eq!(
+        call(
+            &app,
+            "DELETE",
+            "/api/v1/account/sessions",
+            Value::Null,
+            Some(&first),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    ended(&mut changes).await;
+}
+
+#[tokio::test]
+async fn a_held_stream_delivers_no_queued_notice_after_its_session_is_locked() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    assert_eq!(
+        call(
+            &app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": PASSWORD, "pin": "1234", "idle_minutes": 0}),
+            Some(&token),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let mut changes = held_with_a_queued_private_notice(&app, &token).await;
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/account/lock",
+            Value::Null,
+            Some(&token)
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    ended(&mut changes).await;
+}

@@ -4,7 +4,10 @@ use crate::{Actor, Error, Result, Store};
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 pub use stream::ChangeStream;
 use tokio::sync::broadcast;
@@ -71,76 +74,80 @@ enum Signal {
     SessionsChanged,
 }
 
+struct Channel {
+    sender: broadcast::Sender<Signal>,
+    sessions: Arc<AtomicU64>,
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct ChangeHub {
-    accounts: Arc<Mutex<HashMap<String, broadcast::Sender<Signal>>>>,
+    accounts: Arc<Mutex<HashMap<String, Channel>>>,
 }
 
 impl ChangeHub {
     pub(crate) fn publish(&self, account: &str, notices: impl IntoIterator<Item = ChangeNotice>) {
-        let (subscribers, published) = self.send(account, notices.into_iter().map(Signal::Notice));
+        let mut accounts = self.accounts();
+        let Some(channel) = live(&mut accounts, account) else {
+            return;
+        };
+        let mut published = 0;
+        for notice in notices {
+            if channel.sender.send(Signal::Notice(notice)).is_ok() {
+                published += 1;
+            }
+        }
         if published > 0 {
             tracing::debug!(
                 event = "change_notices_published",
                 notices = published,
-                subscribers,
+                subscribers = channel.sender.receiver_count(),
                 "Change notices published"
             );
         }
     }
 
     pub(crate) fn sessions_changed(&self, account: &str) {
-        self.send(account, [Signal::SessionsChanged]);
+        let mut accounts = self.accounts();
+        if let Some(channel) = live(&mut accounts, account) {
+            channel.sessions.fetch_add(1, Ordering::SeqCst);
+            let _ = channel.sender.send(Signal::SessionsChanged);
+        }
     }
 
-    fn send(&self, account: &str, signals: impl IntoIterator<Item = Signal>) -> (usize, usize) {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let Some(sender) = accounts.get(account) else {
-            return (0, 0);
-        };
-        let subscribers = sender.receiver_count();
-        if subscribers == 0 {
-            accounts.remove(account);
-            return (0, 0);
-        }
-        let mut published = 0;
-        for signal in signals {
-            if sender.send(signal).is_ok() {
-                published += 1;
-            }
-        }
-        (subscribers, published)
-    }
-
-    fn subscribe(&self, account: &str) -> Result<broadcast::Receiver<Signal>> {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let sender = accounts
+    fn subscribe(&self, account: &str) -> Result<(broadcast::Receiver<Signal>, Arc<AtomicU64>)> {
+        let mut accounts = self.accounts();
+        let channel = accounts
             .entry(account.to_owned())
-            .or_insert_with(|| broadcast::channel(NOTICE_CAPACITY).0);
-        if sender.receiver_count() >= STREAMS_PER_ACCOUNT {
+            .or_insert_with(|| Channel {
+                sender: broadcast::channel(NOTICE_CAPACITY).0,
+                sessions: Arc::default(),
+            });
+        if channel.sender.receiver_count() >= STREAMS_PER_ACCOUNT {
             return Err(Error::RateLimited(5));
         }
-        Ok(sender.subscribe())
+        Ok((channel.sender.subscribe(), channel.sessions.clone()))
     }
 
     fn release(&self, account: &str) {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        if accounts
-            .get(account)
-            .is_some_and(|sender| sender.receiver_count() == 0)
-        {
-            accounts.remove(account);
-        }
+        let mut accounts = self.accounts();
+        live(&mut accounts, account);
     }
+
+    fn accounts(&self) -> MutexGuard<'_, HashMap<String, Channel>> {
+        self.accounts
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+    }
+}
+
+fn live<'a>(accounts: &'a mut HashMap<String, Channel>, account: &str) -> Option<&'a Channel> {
+    if accounts
+        .get(account)
+        .is_some_and(|channel| channel.sender.receiver_count() == 0)
+    {
+        accounts.remove(account);
+    }
+    accounts.get(account)
 }
 
 #[derive(Clone)]
@@ -153,8 +160,18 @@ impl Changes {
     pub async fn subscribe(&self, actor: &Actor) -> Result<ChangeStream> {
         actor.require_unlocked()?;
         actor.require_foreground_session()?;
-        actor.check_session(&self.store).await?;
-        let receiver = self.hub.subscribe(actor.id())?;
-        Ok(ChangeStream::new(self.clone(), actor.clone(), receiver))
+        let (receiver, sessions) = self.hub.subscribe(actor.id())?;
+        let fence = stream::SessionFence::new(sessions);
+        if let Err(error) = actor.check_session(&self.store).await {
+            drop(receiver);
+            self.hub.release(actor.id());
+            return Err(error);
+        }
+        Ok(ChangeStream::new(
+            self.clone(),
+            actor.clone(),
+            receiver,
+            fence,
+        ))
     }
 }
