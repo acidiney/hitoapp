@@ -58,7 +58,7 @@ docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile p
 
 `HITO_PLUGIN_SERVICES` is a comma-separated list of `label=address` pairs. The server offers each address like an administrator's offer and never connects an account. See the [self-hosting guide](self-hosting.md#the-server-offers-them-for-you).
 
-The development VPS has its own build and runtime files in `deploy/vps`. [Development](development.md#docker-only) has the layout diagram and the plugin image build arguments.
+[Development](development.md#docker-only) has the Compose layout diagram and the plugin image build arguments.
 
 ## Restart and upgrade
 

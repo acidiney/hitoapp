@@ -9,7 +9,7 @@ Each statement here is one of four kinds, and the text says which:
 - **Planned behavior**: not built yet.
 - **External dependency**: owned by a provider, a library or the host. Hito cannot fix it.
 
-Nothing here describes a public release. The VPS install is a development deployment ([details](vps-deployment.md)).
+Nothing here describes a public release.
 
 ## Repository and crate dependencies
 

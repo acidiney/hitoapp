@@ -8,7 +8,6 @@ Start with the [README](../README.md) if you haven't run Hito yet. Hito is in de
 - [Music folders](music-folders.md): share folders, scan them and keep them read-only.
 - [Operations](operations.md): backups, restore, upgrades and shutdown.
 - [Install as a web app](web-app-installation.md) on a phone or desktop browser.
-- [VPS deployment](vps-deployment.md) and the [VPS runbook](../deploy/vps/README.md).
 - [Account security](account-security.md) and the [screen lock](screen-lock.md).
 
 ## Use Hito
