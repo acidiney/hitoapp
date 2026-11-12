@@ -23,7 +23,7 @@ This file preserves the requested scope. A working development deployment does n
 - Independent accounts, private activity/credentials, admin-managed shared library access, admin-created accounts by default, optional local PIN locks.
 - Personal plugins and shared admin provider defaults. Personal metadata edits, administrator promotion, unlinking, splitting, and correction undo.
 - Each credited artist, including guests, has its own recording-member identity, automatic evidence or personal choice, artist page, discography and appearances. Preserve personal decisions across proven member refreshes; one recording-level identity must not be copied to every guest.
-- Reuse an account's unique reviewed artist for the remaining eligible members of the same credit automatically, preserving provenance, personal edits and different choices. Expose per-credit matching state without requiring clients to scan the global review queue.
+- Automatically complete eligible tracks of the same account credit from its unique identity established by current independent automatic matches or a personal choice. Do not require a personal confirmation or individual provider reference on every remaining track. Preserve provenance, personal edits, dismissals and conflicting choices. Expose per-credit matching state without requiring clients to scan the global review queue.
 
 ## Listening
 
