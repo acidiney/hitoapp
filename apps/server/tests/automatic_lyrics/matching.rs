@@ -3,25 +3,15 @@ use crate::provider;
 use serde_json::json;
 
 #[tokio::test]
-async fn automatic_matching_refuses_ambiguous_identities_and_unexamined_continuations() {
+async fn automatic_matching_refuses_unexamined_continuations_without_contacting_candidates() {
     let prepared = Prepared::new().await;
     let before = prepared.library.snapshot().await;
-    let mut other = provider::recording();
-    other["id"] = json!("owned:other-identity");
-    prepared.provider.reply(
-        "search",
-        json!({"items":[provider::recording(),other],"next_cursor":null}),
-    );
-    assert_eq!(prepared.read().await, json!({"status":"ambiguous"}));
     prepared.provider.reply(
         "search",
         json!({"items":[provider::recording()],"next_cursor":"owned:next-page"}),
     );
     assert_eq!(prepared.read().await, json!({"status":"ambiguous"}));
-    assert_eq!(
-        prepared.provider.calls(),
-        vec!["manifest", "search", "search"]
-    );
+    assert_eq!(prepared.provider.calls(), vec!["manifest", "search"]);
     assert_eq!(prepared.library.snapshot().await, before);
     prepared.finish().await;
 }

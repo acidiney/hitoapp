@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::time::Duration;
 
 #[derive(Clone, Copy)]
-enum Change {
+pub(super) enum Change {
     GrantEpoch,
     MetadataEpoch,
     Installation,
@@ -16,7 +16,7 @@ enum Change {
     PinLock,
 }
 
-async fn set_pin(prepared: &Prepared) {
+pub(super) async fn set_pin(prepared: &Prepared) {
     let library = &prepared.library;
     let (status, _) = library.account.request(&library.app, "PUT", "/api/v1/account/pin", json!({
         "password":"owned artist review administrator password","pin":"4271","idle_minutes":0,
@@ -24,7 +24,7 @@ async fn set_pin(prepared: &Prepared) {
     assert_eq!(status, StatusCode::OK);
 }
 
-async fn change(prepared: &Prepared, change: Change) -> Vec<StatusCode> {
+pub(super) async fn change(prepared: &Prepared, change: Change) -> Vec<StatusCode> {
     let library = &prepared.library;
     let actor = &library.account;
     let app = &library.app;

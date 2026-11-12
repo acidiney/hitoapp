@@ -13,13 +13,13 @@ use tokio::{
     task::JoinHandle,
 };
 
-struct Runtime {
-    address: SocketAddr,
+pub(super) struct Runtime {
+    pub(super) address: SocketAddr,
     stop: Option<oneshot::Sender<()>>,
     task: Option<JoinHandle<()>>,
 }
 impl Runtime {
-    async fn start(app: Router, services: Services) -> Self {
+    pub(super) async fn start(app: Router, services: Services) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let (stop, stopped) = oneshot::channel();
@@ -36,7 +36,7 @@ impl Runtime {
             task: Some(task),
         }
     }
-    async fn finish(mut self) {
+    pub(super) async fn finish(mut self) {
         let _ = self.stop.take().unwrap().send(());
         tokio::time::timeout(Duration::from_secs(8), self.task.take().unwrap())
             .await

@@ -99,79 +99,96 @@ impl Catalog {
             tx.commit().await?;
             Ok(())
         };
-        let request = operation.lyric_request()?;
+        let mut request = operation.lyric_request()?;
         let exchange = async {
             let page = request.search_checked(&query, check).await?;
             if page.next_cursor.is_some() {
                 return Ok(AutomaticLyricsLookup::Ambiguous);
             }
-            let mut candidates = page
+            let mut plain = None;
+            for candidate in page
                 .items
                 .into_iter()
-                .filter(|candidate| metadata.matches(candidate));
-            let Some(candidate) = candidates.next() else {
-                return Ok(AutomaticLyricsLookup::NotFound);
-            };
-            if candidates.next().is_some() {
-                return Ok(AutomaticLyricsLookup::Ambiguous);
-            }
-            let details = request
-                .metadata_checked(
-                    &RecordingRequest {
-                        recording_id: candidate.id.clone(),
-                    },
-                    check,
-                )
-                .await?;
-            if details.recording.id != candidate.id
-                || details.recording.revision != candidate.revision
+                .filter(|candidate| metadata.matches(candidate))
             {
-                return Err(Error::Upstream(
-                    "The lyric provider identity changed during lookup",
-                ));
-            }
-            if !metadata.matches_metadata(&details) {
-                return Ok(AutomaticLyricsLookup::NotFound);
-            }
-            let provider_recording = ProviderRecordingRef {
-                id: details.recording.id,
-                revision: details.recording.revision,
-            };
-            let document = request
-                .document_checked(
-                    &LyricsRequest {
-                        recording: provider_recording.clone(),
-                    },
-                    check,
-                )
-                .await?;
-            let result = match document {
-                Some(LyricsDocumentResponse::V1(document)) if document.lyrics.is_some() => {
-                    AutomaticLyricsLookup::ReadyV1 {
-                        recording_id: recording.into(),
-                        installation_id: service.installation_id.clone(),
-                        installation_revision: service.installation_revision,
-                        label: service.label.clone(),
-                        provider_recording,
-                        document_digest: digest(&document)?,
-                        document: Box::new(document),
-                    }
+                let details = request
+                    .metadata_checked(
+                        &RecordingRequest {
+                            recording_id: candidate.id.clone(),
+                        },
+                        check,
+                    )
+                    .await?;
+                if details.recording.id != candidate.id
+                    || details.recording.revision != candidate.revision
+                {
+                    return Err(Error::Upstream(
+                        "The lyric provider identity changed during lookup",
+                    ));
                 }
-                Some(LyricsDocumentResponse::V2(document)) if document.lyrics.is_some() => {
-                    AutomaticLyricsLookup::ReadyV2 {
-                        recording_id: recording.into(),
-                        installation_id: service.installation_id.clone(),
-                        installation_revision: service.installation_revision,
-                        label: service.label.clone(),
-                        provider_recording,
-                        document_digest: digest(&document)?,
-                        document: Box::new(document),
-                    }
+                if !metadata.matches_metadata(&details) {
+                    continue;
                 }
-                Some(_) => AutomaticLyricsLookup::NotFound,
-                None => AutomaticLyricsLookup::Unsupported,
-            };
-            Ok(result)
+                let provider_recording = ProviderRecordingRef {
+                    id: details.recording.id,
+                    revision: details.recording.revision,
+                };
+                let document = request
+                    .document_checked(
+                        &LyricsRequest {
+                            recording: provider_recording.clone(),
+                        },
+                        check,
+                    )
+                    .await?;
+                let Some(document) = document else {
+                    return Ok(AutomaticLyricsLookup::Unsupported);
+                };
+                let timed = match &document {
+                    LyricsDocumentResponse::V1(document) => document.lyrics.is_some(),
+                    LyricsDocumentResponse::V2(document) => {
+                        document.lyrics.as_ref().is_some_and(|lyrics| {
+                            matches!(
+                                lyrics.content,
+                                hito_plugin_sdk::LyricContent::Anchored { .. }
+                            )
+                        })
+                    }
+                };
+                if !timed && plain.is_some() {
+                    continue;
+                }
+                let result = match document {
+                    LyricsDocumentResponse::V1(document) if document.lyrics.is_some() => {
+                        AutomaticLyricsLookup::ReadyV1 {
+                            recording_id: recording.into(),
+                            installation_id: service.installation_id.clone(),
+                            installation_revision: service.installation_revision,
+                            label: service.label.clone(),
+                            provider_recording,
+                            document_digest: digest(&document)?,
+                            document: Box::new(document),
+                        }
+                    }
+                    LyricsDocumentResponse::V2(document) if document.lyrics.is_some() => {
+                        AutomaticLyricsLookup::ReadyV2 {
+                            recording_id: recording.into(),
+                            installation_id: service.installation_id.clone(),
+                            installation_revision: service.installation_revision,
+                            label: service.label.clone(),
+                            provider_recording,
+                            document_digest: digest(&document)?,
+                            document: Box::new(document),
+                        }
+                    }
+                    _ => continue,
+                };
+                if timed {
+                    return Ok(result);
+                }
+                plain = Some(result);
+            }
+            Ok(plain.unwrap_or(AutomaticLyricsLookup::NotFound))
         };
         tokio::pin!(exchange);
         let mut heartbeat = tokio::time::interval(Duration::from_millis(250));

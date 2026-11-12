@@ -4,7 +4,7 @@ use axum::{
     extract::{Request, State},
     http::Method,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -54,21 +54,39 @@ impl Drop for Server {
         }
     }
 }
-#[derive(Clone, Default)]
-struct StateData(Arc<Mutex<Vec<&'static str>>>);
+#[derive(Clone)]
+struct StateData(Arc<Mutex<Data>>);
+struct Data {
+    calls: Vec<&'static str>,
+    records: Vec<Value>,
+    record_ids: Vec<u64>,
+}
+pub fn record(id: u64) -> Value {
+    json!({"id":id,"trackName":TITLE,"artistName":ARTIST,"albumName":"Owned album","duration":1.0,"instrumental":false,"plainLyrics":"Owned automatic plain text","syncedLyrics":null})
+}
 pub struct Upstream {
     pub server: Server,
     state: StateData,
 }
 impl Upstream {
     pub async fn start() -> Self {
-        let state = StateData::default();
+        Self::with_records(vec![record(4242)]).await
+    }
+    pub async fn with_records(records: Vec<Value>) -> Self {
+        let state = StateData(Arc::new(Mutex::new(Data {
+            calls: Vec::new(),
+            records,
+            record_ids: Vec::new(),
+        })));
         let server =
             Server::start(Router::new().fallback(exchange).with_state(state.clone())).await;
         Self { server, state }
     }
     pub fn assert_calls(&self, expected: &[&str]) {
-        assert_eq!(*self.state.0.lock().unwrap(), expected);
+        assert_eq!(self.state.0.lock().unwrap().calls, expected);
+    }
+    pub fn assert_record_ids(&self, expected: &[u64]) {
+        assert_eq!(self.state.0.lock().unwrap().record_ids, expected);
     }
 }
 async fn exchange(State(state): State<StateData>, request: Request) -> Json<serde_json::Value> {
@@ -79,7 +97,6 @@ async fn exchange(State(state): State<StateData>, request: Request) -> Json<serd
     let path = request.uri().path().to_owned();
     let query = request.uri().query().map(str::to_owned);
     assert!(to_bytes(request.into_body(), 1).await.unwrap().is_empty());
-    let record = json!({"id":4242,"trackName":TITLE,"artistName":ARTIST,"albumName":"Owned album","duration":1.0,"instrumental":false,"plainLyrics":"Owned automatic plain text","syncedLyrics":null});
     match path.as_str() {
         "/api/search" => {
             assert_eq!(
@@ -88,12 +105,23 @@ async fn exchange(State(state): State<StateData>, request: Request) -> Json<serd
                     .collect::<Vec<_>>(),
                 vec![("q".into(), format!("{ARTIST} {TITLE}"))]
             );
-            state.0.lock().unwrap().push("search");
-            Json(json!([record]))
+            let mut data = state.0.lock().unwrap();
+            data.calls.push("search");
+            Json(json!(data.records))
         }
-        "/api/get/4242" => {
+        _ if path.starts_with("/api/get/") => {
             assert!(query.is_none());
-            state.0.lock().unwrap().push("record");
+            let id: u64 = path.strip_prefix("/api/get/").unwrap().parse().unwrap();
+            assert_eq!(path, format!("/api/get/{id}"));
+            let mut data = state.0.lock().unwrap();
+            let record = data
+                .records
+                .iter()
+                .find(|record| record["id"] == id)
+                .unwrap()
+                .clone();
+            data.calls.push("record");
+            data.record_ids.push(id);
             Json(record)
         }
         _ => panic!("Automatic lyrics reached an unexpected upstream route"),

@@ -30,11 +30,9 @@ async fn automatic_workflow_logs_correlated_static_outcomes_without_metadata_cre
             .status("search", StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(prepared.read().await["status"], "unavailable");
         prepared.provider.status("search", StatusCode::OK);
-        let mut other = provider::recording();
-        other["id"] = json!("owned:other-logging-identity");
         prepared.provider.reply(
             "search",
-            json!({"items":[provider::recording(),other],"next_cursor":null}),
+            json!({"items":[provider::recording()],"next_cursor":"owned:unexamined-lyrics"}),
         );
         assert_eq!(prepared.read().await["status"], "ambiguous");
         assert!(matches!(

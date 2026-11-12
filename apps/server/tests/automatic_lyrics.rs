@@ -35,6 +35,16 @@ mod setup;
 #[allow(dead_code)]
 #[path = "fixtures/manual_source.rs"]
 mod source_provider;
+#[path = "automatic_lyrics/timed_priority.rs"]
+mod timed_priority;
+#[path = "automatic_lyrics/timed_priority_lifecycle.rs"]
+mod timed_priority_lifecycle;
+#[path = "automatic_lyrics/timed_priority_manual.rs"]
+mod timed_priority_manual;
+#[path = "automatic_lyrics/timed_priority_matching.rs"]
+mod timed_priority_matching;
+#[path = "automatic_lyrics/timed_priority_protocol.rs"]
+mod timed_priority_protocol;
 
 use axum::http::StatusCode;
 use serde_json::json;

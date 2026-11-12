@@ -29,6 +29,7 @@ impl Response {
 }
 struct Data {
     replies: HashMap<&'static str, Response>,
+    request_replies: HashMap<(&'static str, String), Response>,
     query: String,
 }
 pub struct HeldBody {
@@ -65,6 +66,7 @@ impl Provider {
         let manifest = json!({"id":"org.hito.owned-automatic-lyrics","name":"Owned automatic lyrics","protocol_version":1,"capabilities":["search","metadata","lyrics"]});
         let state = Arc::new(Mutex::new(Data {
             query: format!("{ARTIST} {TITLE}"),
+            request_replies: HashMap::new(),
             replies: HashMap::from([
                 ("manifest", Response::json(manifest.clone())),
                 (
@@ -123,6 +125,29 @@ impl Provider {
             .replies
             .insert(operation, Response::json(value));
     }
+    pub fn reply_for(&self, operation: &'static str, request: Value, value: Value) {
+        assert!(matches!(operation, "metadata" | "v2_lyrics" | "v1_lyrics"));
+        self.state.lock().unwrap().request_replies.insert(
+            (operation, serde_json::to_string(&request).unwrap()),
+            Response::json(value),
+        );
+    }
+    pub fn status_for(&self, operation: &'static str, request: Value, status: StatusCode) {
+        self.state
+            .lock()
+            .unwrap()
+            .request_replies
+            .get_mut(&(operation, serde_json::to_string(&request).unwrap()))
+            .unwrap()
+            .status = status;
+    }
+    pub fn requests_for(&self, operation: &'static str) -> Vec<Value> {
+        self.plugin
+            .requests_for(path(operation))
+            .iter()
+            .map(RecordedRequest::json)
+            .collect()
+    }
     pub fn status(&self, operation: &'static str, status: StatusCode) {
         self.state
             .lock()
@@ -162,6 +187,20 @@ impl Provider {
             gate.released.store(true, Ordering::SeqCst);
             gate.gate.open();
         }
+    }
+    pub fn advance_hold(&self, next_operation: &'static str) -> Arc<HeldBody> {
+        let mut held = self.held.lock().unwrap();
+        let (operation, previous) = held.take().unwrap();
+        assert_ne!(operation, next_operation);
+        let gate = Arc::new(HeldBody {
+            gate: self.plugin.stall_body(path(next_operation), 1),
+            released: AtomicBool::new(false),
+        });
+        self.plugin.clear_fault(path(operation));
+        *held = Some((next_operation, gate.clone()));
+        previous.released.store(true, Ordering::SeqCst);
+        previous.gate.open();
+        gate
     }
     pub async fn finish(mut self) {
         self.release();
@@ -210,18 +249,27 @@ fn handler(
         assert_eq!(request.protocol().as_deref(), Some("1"));
         assert!(request.query.is_none());
         let data = state.lock().unwrap();
+        let keyed_reply = matches!(operation, "metadata" | "v2_lyrics" | "v1_lyrics")
+            .then(|| {
+                data.request_replies
+                    .get(&(operation, serde_json::to_string(&request.json()).unwrap()))
+            })
+            .flatten();
         match operation {
             "search" => assert_eq!(
                 request.json(),
                 json!({"query":data.query,"cursor":null,"limit":20})
             ),
-            "metadata" => assert_eq!(request.json(), json!({"recording_id":"owned:automatic"})),
-            "v2_lyrics" | "v1_lyrics" => {
+            "metadata" if keyed_reply.is_none() => {
+                assert_eq!(request.json(), json!({"recording_id":"owned:automatic"}))
+            }
+            "v2_lyrics" | "v1_lyrics" if keyed_reply.is_none() => {
                 assert_eq!(request.json(), json!({"recording":reference()}))
             }
+            "metadata" | "v2_lyrics" | "v1_lyrics" => {}
             _ => assert!(request.body.is_empty()),
         }
-        let response = &data.replies[operation];
+        let response = keyed_reply.unwrap_or(&data.replies[operation]);
         let headers = HeaderMap::from_iter([(
             "content-type".parse().unwrap(),
             HeaderValue::from_static("application/json"),
