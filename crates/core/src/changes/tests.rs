@@ -142,7 +142,7 @@ async fn library_account(services: &Services, admin: &Actor, username: &str) -> 
 }
 
 #[tokio::test]
-async fn shared_library_source_notices_reach_current_members_only() {
+async fn the_recording_readers_helper_lists_current_library_members_only() {
     use crate::test_support::support;
     let (_directory, services, admin, library, music) =
         support::library("change-readers-host").await;
