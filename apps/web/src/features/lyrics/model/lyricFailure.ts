@@ -1,4 +1,9 @@
 import { HttpError } from "../../../shared/http";
+import {
+  credentialRequirement,
+  credentialsRequiredMessage,
+  type CredentialRequirement,
+} from "../../plugins/model/credentialError";
 
 export type LyricFailureKind =
   | "access"
@@ -6,12 +11,14 @@ export type LyricFailureKind =
   | "conflict"
   | "temporary"
   | "changed"
-  | "deadline";
+  | "deadline"
+  | "credentials";
 
 export type LyricFailure = {
   kind: LyricFailureKind;
   message: string;
   reload: boolean;
+  credentials?: CredentialRequirement & { step: LyricStep };
 };
 
 export type LyricStep =
@@ -21,7 +28,8 @@ export type LyricStep =
   | "review"
   | "accept"
   | "remove"
-  | "read";
+  | "read"
+  | "automatic";
 
 const temporaryMessages: Record<LyricStep, string> = {
   services: "Lyric services could not be loaded. Try again.",
@@ -31,6 +39,7 @@ const temporaryMessages: Record<LyricStep, string> = {
   accept: "The lyric choice could not be saved. Try again.",
   remove: "The lyric choice could not be removed. Try again.",
   read: "Lyrics could not be loaded. Try again.",
+  automatic: "The lyric search could not be completed. Try again.",
 };
 
 export const accessMessage =
@@ -56,6 +65,14 @@ export function changedFailure(): LyricFailure {
 }
 
 export function lyricFailure(error: unknown, step: LyricStep): LyricFailure {
+  const credentials = credentialRequirement(error);
+  if (credentials)
+    return {
+      kind: "credentials",
+      message: credentialsRequiredMessage,
+      reload: false,
+      credentials: { ...credentials, step },
+    };
   if (error instanceof HttpError) {
     if ([401, 403, 423].includes(error.status))
       return { kind: "access", message: accessMessage, reload: false };

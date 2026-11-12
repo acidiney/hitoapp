@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { onInvalidated } from "../../../shared/invalidation";
 import type { Schema } from "../../../shared/schema";
-import type { LyricFailure } from "../model/lyricFailure";
+import type { LyricFailure, LyricStep } from "../model/lyricFailure";
+import { reportCredentialRequirement } from "../../plugins/model/credentialRequirements";
 import {
   alreadySaved,
   identityKey,
@@ -38,9 +39,14 @@ export function useRecordingLyrics(
     setLostScope(scopeKey);
     resets.current();
   };
+  const retryScope = useRef<{ scope: string; step: LyricStep } | null>(null);
+  const [retryReady, setRetryReady] = useState<string | null>(null);
   const onFailure = (failure: LyricFailure) => {
     if (failure.kind === "access") lose();
-    else if (failure.reload) reload.current();
+    else if (failure.credentials) {
+      reportCredentialRequirement(account, failure.credentials);
+      retryScope.current = { scope: scopeKey, step: failure.credentials.step };
+    } else if (failure.reload) reload.current();
   };
 
   const identities = useLyricIdentities(account, recording, lose);
@@ -90,9 +96,11 @@ export function useRecordingLyrics(
   useEffect(
     () =>
       onInvalidated("plugins", () => {
-        if (wanted) void loader.current();
+        if (!wanted) return;
+        void loader.current();
+        if (retryScope.current?.scope === scopeKey) setRetryReady(scopeKey);
       }),
-    [wanted],
+    [wanted, scopeKey],
   );
 
   const attempted = useRef<string | null>(null);
@@ -134,6 +142,34 @@ export function useRecordingLyrics(
     lookupAttempted.current = scopeKey;
     startLookup();
   }, [automatic, lost, noSavedIdentity, auto.outcome, scopeKey]);
+
+  const readerAfterUpdate = useRef(read.load);
+  readerAfterUpdate.current = read.load;
+  const selectedUsable = identities.selected?.selectable === true;
+  useEffect(() => {
+    const retry = retryScope.current;
+    if (
+      retryReady !== scopeKey ||
+      retry?.scope !== scopeKey ||
+      lost ||
+      identities.loading ||
+      !identities.loaded
+    )
+      return;
+    retryScope.current = null;
+    setRetryReady(null);
+    if (retry.step === "read" && selectedUsable)
+      void readerAfterUpdate.current();
+    else if (retry.step === "automatic" && noSavedIdentity) startLookup();
+  }, [
+    retryReady,
+    scopeKey,
+    lost,
+    identities.loading,
+    identities.loaded,
+    selectedUsable,
+    noSavedIdentity,
+  ]);
 
   const savedCount = identities.identities?.length ?? 0;
   const retireAuto = useRef(auto.retire);

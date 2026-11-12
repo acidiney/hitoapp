@@ -11,6 +11,7 @@ import type { LyricFailure } from "../model/lyricFailure";
 import type { LyricService } from "../model/lyricIdentity";
 import type { LyricCandidate } from "../hooks/useLyricSearch";
 import { rankLyricCandidates } from "../model/lyricMatch";
+import PluginSettingsLink from "../../plugins/components/PluginSettingsLink";
 import LyricReviewDialog, { type LyricReviewProps } from "./LyricReviewDialog";
 
 export type LyricFinderProps = {
@@ -114,7 +115,17 @@ export default function LyricFinder(props: LyricFinderProps) {
           </div>
         </form>
       )}
-      {search.failure && <p role="alert">{search.failure.message}</p>}
+      {search.failure && (
+        <p role="alert">
+          {search.failure.message}
+          {search.failure.kind === "credentials" && (
+            <>
+              {" "}
+              <PluginSettingsLink />
+            </>
+          )}
+        </p>
+      )}
       {search.candidates && search.candidates.length === 0 && (
         <p role="status">
           No matches. Change the search text and search again.
