@@ -232,7 +232,8 @@ async fn a_leading_video_is_the_best_guess_when_no_catalog_song_matches() {
 }
 
 #[tokio::test]
-async fn a_leading_video_outside_the_duration_tolerance_skips_strict_hydration_and_is_the_best_guess() {
+async fn a_leading_video_outside_the_duration_tolerance_skips_strict_hydration_and_is_the_best_guess()
+ {
     let world = World::start(&[
         video("OwnedVid000", "Owned performer - Owned tune", 10_000),
         song("OwnedSong00", "Owned other tune"),
