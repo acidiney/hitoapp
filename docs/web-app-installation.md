@@ -22,19 +22,25 @@ On 2026-11-11, Docker Compose checks passed 36 focused public HTTP tests, server
 
 ## Production artifact and remaining integration
 
-On 2026-11-12, the Linux AArch64 production executable from accepted source `419b86d5` passed independent source, feature/profile and ELF inspection plus 33 isolated runtime probes. The probes use owned transport fixtures, not a frontend bundle. Startup requires the real build's `assets/app.js` to compute its asset version; manifest and icon files alone are insufficient.
+On 2026-11-12, the Linux AArch64 production executable from accepted timed-first source `9b6dbece` passed independent source, feature/profile and ELF inspection plus 33 isolated startup probes. Its SHA-256 is `6482808119921ab4fdddee9949596df4929e13bc854a11e9fa473ae37117000e`. Startup requires the real build's `assets/app.js` to compute its asset version; manifest and icon files alone are insufficient.
 
-The solid backend path below is qualified. The dotted integration path still needs a complete frontend/runtime image, browser checks and installation/update acceptance. Private HTML, APIs, audio, artwork and signed URLs must stay out of shared worker caches.
+The same executable and frozen `b1e88d0f` frontend now pass 150 default browser cases with 78 explicit gated skips. All seventeen required source, lyric, edition and worker cases pass. The separate worker/cache controls exit normally, including changed-worker activation and public-cache privacy checks. The runtime uses fresh tmpfs SQLite and owned fixtures. Private HTML, APIs, audio, artwork and signed URLs stay outside the worker's shared cache allowlist.
+
+The solid paths below have that development evidence. Packaging a complete image, the guarded normal-server update, installation, TLS and platform acceptance remain open.
 
 ```mermaid
 flowchart LR
     source[Accepted backend source] --> checks[Source and contract checks]
     checks --> build[Docker production build]
-    build --> binary[Linux arm64 executable]
-    binary --> smoke[Isolated runtime checks]
-    binary -.-> image[Frontend and server image]
-    frontend[Frontend bundle] -.-> image
-    image -.-> browser[Browser and installation acceptance]
+    build --> binary[Qualified Linux arm64 executable]
+    binary --> smoke[33 startup probes]
+    binary --> isolated[Owned tmpfs browser server]
+    frontend[Frozen frontend build] --> isolated
+    isolated --> browser[150 default browser passes]
+    binary -.-> image[Combined image pending]
+    frontend -.-> image
+    image -.-> normal[Guarded normal update pending]
+    normal -.-> install[Installation and platform acceptance]
 ```
 
-No PWA runtime deployment, complete frontend image, amd64 build or desktop package is qualified by these backend checks. See [the artifact evidence](status.md#2026-11-12-pwa-production-backend-artifact).
+This evidence does not qualify a complete image, deployed PWA update, amd64 build, physical mobile playback or desktop package. See [current qualification and limits](status.md#2026-11-12-current-frontend-and-migration-qualification).

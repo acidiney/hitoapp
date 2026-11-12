@@ -1,5 +1,17 @@
 # Implementation status
 
+## 2026-11-12 current frontend and migration qualification
+
+Frozen frontend `b1e88d0f` passes 2,168 unit assertions, both TypeScript checks and its production build. The full default browser run selects 228 cases: 150 pass and 78 remain explicitly gated skips, with zero failures, retries or flaky results. All seventeen required cases pass, including remembered-edition loading, Add without playback, source fallback, timed-first lyrics and desktop/phone Now playing. Add is tested with an initially empty queue; preservation of an existing queue and exact source-request bodies are not established by that case.
+
+The run uses the exact qualified `6482808` production executable, nineteen newly built web files, three owned fixtures and fresh tmpfs SQLite. Source and executing-artifact hashes match before and after. Worker/cache controls also exit normally with zero remaining forwarded connections. Independent inspection verifies all 123 evidence files; the ledger hashes to `3e2d422bb5d7842347000a1ef9ef95bee814a9dd585674133df5ffba8523184f`. Owned containers and network are removed. This is Chromium development qualification, not physical Safari, audio alignment, live-provider, installation or public-release acceptance.
+
+The shared development branch also contains the YouTube search candidate and migration-fixture repairs in `f7aad3ca`. Independent comparison verifies all 22 incoming files against the tested branch. Frontend files, production Core/server/SDK code and the actual Rust API bytes are unchanged by that integration. The integration receipt hashes to `c9b6938fd6b7990c13f852ddd71728aa36059d6233eee1b9dfeb027636402ef1`.
+
+The repaired fixtures independently declare schema95 and recognize migration0093's exact source-artist trigger definitions while retaining schema, index, row, privacy and rollback assertions. Three older failures were reproduced without the patch. After repair, all 53 source, 159 catalog, 26 podcast and five source-trigger cases pass, as do strict Core checks and formatting. The earlier YouTube protocol run reports 47 library cases plus its integration cases; its historical executables were not retained. Live yt-dlp continuation and broader matching reliability remain open.
+
+No application server, preview, watcher, plugin or VPS was updated by this qualification. The normal-only deployment operator has completed its first independent review and is resolving the final findings before packaging or live replacement. The full [release scope](release-plan.md) remains active.
+
 ## 2026-11-12 independent default browser qualification
 
 The frozen frontend at `a23527fc` passes the default browser gate against the qualified production backend `6482808119921ab4fdddee9949596df4929e13bc854a11e9fa473ae37117000e`: 149 passes, 78 explicitly gated skips, zero failures, retries or flaky results. All fifteen required source-fallback, timed-first lyric, service-worker and desktop/phone Now playing cases pass. The account-switching plugin case that timed out in the previous packet passes in this run. The previous failed packet remains separate. A simulated phone viewport does not qualify physical Safari playback.
