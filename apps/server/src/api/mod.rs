@@ -19,6 +19,7 @@ pub mod browsing;
 pub mod callback_page;
 pub mod catalog;
 pub mod catalog_snapshots;
+pub mod changes;
 pub mod collection;
 pub mod collection_artwork;
 pub mod community;
