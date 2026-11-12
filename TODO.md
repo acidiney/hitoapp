@@ -437,6 +437,14 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Phase 7 follow-up: invite links and account creation outside first-run (needs server invitations).
     - [x] The display-name field is in Settings, Profile (see the display name item above); the first-run form does not ask for one.
   - [ ] Remaining redesign items: the Biblioteca filter bar, the states board, dark-mode screens and phone versions of screens without one.
+  - [ ] One album screen for every entry point (owner decision 2026-11-12). The library album page, the artist discography release page, search and home all show one screen. It has a single edition track list with owned rows marked inline, and library-only tracks at the end with no separate block. Only ownership changes the content. Header Play and Shuffle, and row play, play the edition shown in order. Owned rows reuse local recordings, and catalog-only rows go through the existing catalog audio path. The frontend unification is source-complete in apps/web, with focused Vitest evidence only. Full browser qualification is open.
+  - [ ] Backend for the unified album screen (Codex). Owner decisions of 2026-11-12:
+    - [ ] Keep save-on-play: playing an album or track you do not own adds it to your library, which is current behaviour. The artboard rule "Playing never adds" is rejected.
+    - [ ] Add album / Add the other N: one atomic, idempotent command for an album or edition, with an immediate Undo (AddStates artboard).
+    - [ ] Metadata-only additions targeted at the chosen album: a track enters the library and that album before audio is found, shown as "No source · Find" until audio exists.
+    - [ ] A typed Core read projection for the album header and edition, with generated contracts. It must cover the cold-load title and group metadata, the selected edition, correctly scoped ownership with a completeness indicator (today's lookup covers only saved choices, caps at three albums and has no completeness flag), and safe source labels for provider-named Ready, such as "Ready · YouTube".
+    - [ ] Investigate why release-group-editions answers {"status":"unavailable"} on a direct load of a release on the preview. The cause is not verified.
+    - [ ] Artwork admission answers 409 for both conflict and "requests full" or "storage full" (crates/core/src/catalog/artwork/jobs.rs:265, :274). Request saturation and storage exhaustion need a separate, retryable transport policy so the client can back off. The cause of the observed 409 storm is not verified.
 - [ ] Regenerate Hito's logo and wordmark with a new visual direction, replace the current orange waveform across the app, and verify readability at small sizes and as an application icon.
 
 ## Community service
