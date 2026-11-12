@@ -38,7 +38,6 @@ import {
   isValidPage,
   nextRepeat,
   planMove,
-  previousIndex,
   successorAfterRemove,
 } from "./browser/QueueModel";
 import { BrowserCommunityObservation } from "./browser/BrowserCommunityObservation";
@@ -966,7 +965,10 @@ export class Playback implements Player {
     this.traversal.resetFailures();
     log.info("queue.previous", { index: this.state.index });
     if (this.media.currentTime > 3) this.seek(0);
-    else await this.open(previousIndex(this.state.index));
+    else
+      await this.open(
+        this.traversal.previous(this.queue.serials(), this.state.index),
+      );
   }
   async next(ended = false) {
     this.cancelAudiobook();

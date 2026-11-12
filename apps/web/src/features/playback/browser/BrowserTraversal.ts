@@ -48,6 +48,15 @@ export class BrowserTraversal {
     return this.successor(entries, current, repeat, reason === "completed");
   }
 
+  previous(entries: readonly number[], current: number) {
+    const entry = entries[current];
+    if (entry === undefined || !this.order) return Math.max(0, current - 1);
+    const index = this.order.indexOf(entry);
+    if (index <= 0) return current;
+    const found = entries.indexOf(this.order[index - 1]);
+    return found < 0 ? current : found;
+  }
+
   completed(
     entries: readonly number[],
     current: number,
