@@ -52,7 +52,7 @@ sequenceDiagram
   Note over Request,State: Stop without publishing the old outcome
 ```
 
-The source candidate checks fresh authority before later provider exchanges and private observations. This prevents the reproduced stale-snapshot schedules. It does not claim atomicity with every mutation that might happen after the final check. Automatic lyric lookup now rechecks the current session and connection after its transaction. Manual metadata review, selected-document and legacy lyric callbacks still require their own regressions and corrections. Lyric target-state mutation companions remain separate unfinished work.
+The source candidate checks fresh authority before later provider exchanges and private observations. This prevents the reproduced stale-snapshot schedules. It does not claim atomicity with every mutation that might happen after the final check. Automatic lyric lookup now rechecks the current session and connection after its transaction. Manual metadata review also passes its own failing/passing regression with the same fresh check. Selected-document and legacy lyric callbacks still require their own corrections. Lyric target-state mutation companions remain separate unfinished work.
 
 ## Verification and integration
 
