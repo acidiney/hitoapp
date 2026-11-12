@@ -1,18 +1,20 @@
-use super::{Collection, SyncBatch, SyncReceipt, apply};
-use crate::{Actor, Error, Result};
+use super::{Action, Collection, SyncBatch, SyncReceipt, apply};
+use crate::{Actor, ChangeNotice, Error, Result};
 
 impl Collection {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), operation_count = batch.operations.len()))]
     pub async fn apply(&self, actor: &Actor, batch: SyncBatch) -> Result<SyncReceipt> {
         validate_batch(&batch)?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        match apply_batch(&mut tx, actor, batch).await {
+        let mut notices = Vec::new();
+        match apply_batch(&mut tx, actor, batch, &mut notices).await {
             Ok(receipt) => {
                 tx.commit().await?;
                 tracing::info!(
                     accepted = receipt.acknowledged.len(),
                     "Sync batch committed"
                 );
+                self.changes.publish(actor.id(), notices);
                 Ok(receipt)
             }
             Err(error) => {
@@ -28,6 +30,7 @@ async fn apply_batch(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     actor: &Actor,
     batch: SyncBatch,
+    notices: &mut Vec<ChangeNotice>,
 ) -> Result<SyncReceipt> {
     actor.check_session_on(tx).await?;
     let mut acknowledged = Vec::with_capacity(batch.operations.len());
@@ -66,6 +69,11 @@ async fn apply_batch(
             continue;
         }
         apply::action(tx, actor, &operation).await?;
+        for notice in changed(&operation.action) {
+            if !notices.contains(&notice) {
+                notices.push(notice);
+            }
+        }
         sqlx::query(
             "INSERT INTO sync_events(user_id, origin, device_id, event_id, payload)
                  VALUES (?, 'client_operation', ?, ?, ?)",
@@ -83,6 +91,40 @@ async fn apply_batch(
         acknowledged.push(operation.id);
     }
     Ok(SyncReceipt { acknowledged })
+}
+
+fn changed(action: &Action) -> Vec<ChangeNotice> {
+    let recording = |id: &uuid::Uuid| ChangeNotice::Recording {
+        recording_id: id.to_string(),
+    };
+    let playlist = |id: &uuid::Uuid| ChangeNotice::Playlist {
+        playlist_id: id.to_string(),
+    };
+    match action {
+        Action::ReleaseTitleSet { .. }
+        | Action::ReleaseArtistSet { .. }
+        | Action::ReleaseTitleInherit { .. }
+        | Action::ReleaseArtistInherit { .. } => vec![ChangeNotice::Recordings],
+        Action::RecordingTitleSet { recording_id, .. }
+        | Action::RecordingTitleInherit { recording_id }
+        | Action::RecordingArtistSet { recording_id, .. }
+        | Action::RecordingArtistInherit { recording_id }
+        | Action::LikeSet { recording_id, .. } => vec![recording(recording_id)],
+        Action::PlaylistCreate { playlist_id, .. }
+        | Action::PlaylistRename { playlist_id, .. }
+        | Action::PlaylistDelete { playlist_id }
+        | Action::EntryInsert { playlist_id, .. }
+        | Action::EntryRemove { playlist_id, .. }
+        | Action::EntryMove { playlist_id, .. } => {
+            vec![playlist(playlist_id), ChangeNotice::Playlists]
+        }
+        Action::PlaylistFollowResume { playlist_id, .. } => vec![playlist(playlist_id)],
+        Action::ProgressSet { .. }
+        | Action::AudiobookCreate { .. }
+        | Action::AudiobookChapterSet { .. }
+        | Action::AudiobookBookmarkCreate { .. }
+        | Action::AudiobookBookmarkRemove { .. } => Vec::new(),
+    }
 }
 
 fn validate_batch(batch: &SyncBatch) -> Result<()> {

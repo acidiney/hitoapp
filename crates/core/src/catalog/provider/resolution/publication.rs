@@ -9,7 +9,7 @@ use crate::catalog::provider::{
     bindings::{self, Binding},
     evidence, persist,
 };
-use crate::{Actor, Catalog, Error, Result};
+use crate::{Actor, Catalog, ChangeNotice, Error, Result};
 use uuid::Uuid;
 
 pub(super) enum Publication {
@@ -138,6 +138,17 @@ impl Catalog {
             candidate_rank = basis.rank_index(),
             "Source resolution committed"
         );
+        if !matches!(
+            outcome,
+            SourceResolutionOutcome::Cancelled | SourceResolutionOutcome::ProtectedChoice
+        ) {
+            self.changes.publish(
+                actor.id(),
+                [ChangeNotice::Sources {
+                    recording_id: recording.to_owned(),
+                }],
+            );
+        }
         Ok(Publication::Settled(outcome))
     }
 

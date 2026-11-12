@@ -1,5 +1,5 @@
 use super::{Catalog, authority, lease::Lease};
-use crate::{Error, Result};
+use crate::{ChangeNotice, Error, Result};
 use hito_plugin_sdk::{PreparationReason, PreparationStatus, PreparationSubmission};
 use sqlx::SqliteConnection;
 
@@ -92,10 +92,22 @@ impl Catalog {
                 }
             }
         };
+        let recording: Option<String> = if matches!(outcome, "ready" | "failed" | "blocked") {
+            sqlx::query_scalar("SELECT recording_id FROM source_preparations WHERE id = ?")
+                .bind(&lease.id)
+                .fetch_optional(&mut *tx)
+                .await?
+        } else {
+            None
+        };
         sqlx::query("UPDATE source_preparations SET lease_token = NULL,lease_until = NULL,updated_at = unixepoch()
             WHERE id = ? AND lease_token = ?")
             .bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
         tx.commit().await?;
+        if let Some(recording_id) = recording {
+            self.changes
+                .publish(&lease.user_id, [ChangeNotice::Sources { recording_id }]);
+        }
         Ok(outcome)
     }
 }
