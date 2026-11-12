@@ -384,9 +384,17 @@ a.album-artist:focus-visible {
 
 .edition-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.edition-toolbar::-webkit-scrollbar {
+  display: none;
+}
+.edition-toolbar > * {
+  flex: none;
 }
 .edition-chip {
   box-sizing: border-box;
@@ -418,7 +426,7 @@ a.album-artist:focus-visible {
   color: var(--muted);
 }
 .edition-chip-name {
-  max-width: 160px;
+  max-width: min(160px, 38vw);
   overflow: hidden;
   text-overflow: ellipsis;
 }
