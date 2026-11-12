@@ -1,6 +1,6 @@
 use super::{
-    admin, app, call, guest, notice, playlist_fixture, playlist_notice, provider_fixture, quiet,
-    stream, support,
+    PASSWORD, admin, app, call, guest, login, notice, playlist_fixture, playlist_notice,
+    provider_fixture, quiet, stream, support,
 };
 use axum::{Router, http::StatusCode};
 use serde_json::{Value, json};
@@ -110,6 +110,79 @@ async fn provider_source_changes_reach_only_accounts_that_can_read_the_recording
     );
     quiet(&mut owner_changes).await;
     quiet(&mut other_changes).await;
+}
+
+#[tokio::test]
+async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_and_no_outsider() {
+    let (_dir, app, owner, recording) = support::indexed_app().await;
+    let (status, member) = call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "member", "password": PASSWORD}),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "outsider", "password": PASSWORD}),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&owner)).await;
+    let library = libraries[0]["id"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &app,
+            "PUT",
+            &format!(
+                "/api/v1/libraries/{library}/members/{}",
+                member["id"].as_str().unwrap()
+            ),
+            Value::Null,
+            Some(&owner),
+        )
+        .await
+        .0,
+        StatusCode::NO_CONTENT
+    );
+    let member = login(&app, "member").await;
+    let outsider = login(&app, "outsider").await;
+    let mut owner_changes = stream(&app, &owner).await;
+    let mut member_changes = stream(&app, &member).await;
+    let mut outsider_changes = stream(&app, &outsider).await;
+    let (_server, installation) = provider(&app, &owner).await;
+    let candidate = json!({
+        "installation_id": installation["id"], "installation_revision": installation["revision"],
+        "provider_recording_id": "owned"
+    });
+    let (status, review) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/recordings/{recording}/sources/review"),
+        candidate.clone(),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{review}");
+    let (status, attached) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/recordings/{recording}/sources/attach"),
+        json!({"candidate": candidate, "review_stamp": review["review_stamp"]}),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{attached}");
+    assert_eq!(notice(&mut owner_changes).await, sources_notice(&recording));
+    assert_eq!(notice(&mut member_changes).await, sources_notice(&recording));
+    quiet(&mut outsider_changes).await;
+    quiet(&mut owner_changes).await;
+    quiet(&mut member_changes).await;
 }
 
 async fn imported(
