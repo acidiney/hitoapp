@@ -79,11 +79,11 @@ Builds and tests run through Docker Compose. Host tools may edit and inspect fil
 - `make e2e` recreates the isolated browser server each run.
 - `make verify` is the full suite. Run it before release work, not for every change.
 
-[Development](docs/development.md) covers single tests, worktree projects and the Docker layout. Keep debug information and incremental compilation off in the tools containers.
+[Development](docs/develop/development.md) covers single tests, worktree projects and the Docker layout. Keep debug information and incremental compilation off in the tools containers.
 
 ## Test data
 
-Tests use real temporary SQLite and owned, deterministic audio fixtures. Never copy the developer's library, titles, paths or credentials into a test, a fixture or a screenshot. Test external services against owned fakes at their protocol boundary; [testing](docs/testing.md#fake-plugins) describes the fake plugins.
+Tests use real temporary SQLite and owned, deterministic audio fixtures. Never copy the developer's library, titles, paths or credentials into a test, a fixture or a screenshot. Test external services against owned fakes at their protocol boundary; [testing](docs/develop/testing.md#fake-plugins) describes the fake plugins.
 
 ## Verifying
 
@@ -104,16 +104,16 @@ Tests use real temporary SQLite and owned, deterministic audio fixtures. Never c
 
 ## Documentation
 
-`docs/` is written for people: what Hito does, how to run it and how it is built. Use plain language, and keep diagrams where they explain ownership or data flow. Say whether a statement is current behavior, planned behavior or an external dependency.
+`docs/` is written for people. `docs/guide/` helps people use Hito, task by task. `docs/self-hosting/` is for people running a server. `docs/develop/` is for contributors and plugin authors. Use plain language, and keep diagrams where they explain ownership or data flow. Say whether a statement is current behavior, planned behavior or an external dependency.
 
-- Most code changes need no doc change. The code, types and tests record the implementation.
+- Most code changes need no doc change. The code, types and tests record the implementation. Update a guide page only when a change alters how a person uses Hito, and use the labels the UI shows.
 - Do not narrate control flow, list fields, keep file catalogs or append change summaries. When behavior changes, rewrite the affected text instead of adding a second account of it.
 - Evidence logs, deployment receipts, review notes, handoff specs and checklists go in `.agents/meta/`. Tracked files never link to them.
 - A personal deployment, such as the developer's own servers, is not product documentation.
 
 ## How it works
 
-The server composes capability services from `hito-core` at startup: identity, catalog, artist catalog, playback access, collection, library storage, plugins, downloads, podcasts and replicas. HTTP handlers authenticate once through the shared extractor, call one capability and map typed results. Core owns every SQLite transaction, so the desktop host reuses the same rules without HTTP. Plugins are reached over HTTP. Hito resolves a recording to a source, then plays it through a relay that checks the account's access again. [Architecture](docs/architecture.md) has the diagrams.
+The server composes capability services from `hito-core` at startup: identity, catalog, artist catalog, playback access, collection, library storage, plugins, downloads, podcasts and replicas. HTTP handlers authenticate once through the shared extractor, call one capability and map typed results. Core owns every SQLite transaction, so the desktop host reuses the same rules without HTTP. Plugins are reached over HTTP. Hito resolves a recording to a source, then plays it through a relay that checks the account's access again. [Architecture](docs/develop/architecture.md) has the diagrams.
 
 | Path | Owns |
 | --- | --- |

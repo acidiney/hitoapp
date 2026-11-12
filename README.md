@@ -9,7 +9,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-6f86ff)](LICENSE)
 
-[Run it](#run-it) · [Plugins](#plugins) · [Docs](docs/README.md) · [Contributing](docs/development.md)
+[Run it](#run-it) · [Plugins](#plugins) · [Docs](docs/README.md) · [Contributing](docs/develop/development.md)
 
 <br>
 
@@ -38,7 +38,7 @@ A plugin can offer any of these capabilities. Hito asks you to approve them befo
 
 <img src=".github/readme/plugins.webp" width="100%" alt="The Plugins page: which plugin powers search, playback, playlists and lyrics, your connections, and the order Hito tries sources in">
 
-Hito never downloads or runs plugin code. It only talks to plugins over HTTP, and tokens you enter are encrypted and private to your account. The [plugin SDK](crates/plugin-sdk) is Apache-2.0, so a plugin can use any license. [Plugin connections](docs/plugins.md) describes the protocol.
+Hito never downloads or runs plugin code. It only talks to plugins over HTTP, and tokens you enter are encrypted and private to your account. The [plugin SDK](crates/plugin-sdk) is Apache-2.0, so a plugin can use any license. [Write a plugin](docs/develop/plugins.md) describes the protocol, and [using plugins](docs/guide/plugins.md) covers connecting them.
 
 ### Plugins in this repository
 
@@ -90,7 +90,7 @@ The launcher asks for your music folders, builds Hito in Docker (5 to 15 minutes
 
 Run the launcher again to add more folders. Your library is kept. To stop Hito, run `docker stop hito-server-1`; `docker start hito-server-1` brings it back.
 
-If something fails, the launcher prints the failed step. Its log is in `~/Library/Application Support/Hito` (macOS), `~/.config/hito` (Linux) or `%LOCALAPPDATA%\Hito` (Windows). [Music folders](docs/music-folders.md) and [operations](docs/operations.md) cover the rest.
+If something fails, the launcher prints the failed step. Its log is in `~/Library/Application Support/Hito` (macOS), `~/.config/hito` (Linux) or `%LOCALAPPDATA%\Hito` (Windows). [Music folders](docs/guide/library.md) and [operations](docs/self-hosting/operations.md) cover the rest.
 
 ### Add plugins
 
@@ -100,7 +100,7 @@ The setup launcher can start the Spotify and YouTube plugins for you if you answ
 docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile plugins up -d --build
 ```
 
-Then connect them in **Settings → Plugins**. The [self-hosting guide](docs/self-hosting.md) covers every plugin: what it needs, how to update it and how to remove it.
+Then connect them in **Settings → Plugins**. The [self-hosting guide](docs/self-hosting/README.md) covers every plugin: what it needs, how to update it and how to remove it.
 
 ## How it's built
 
@@ -127,7 +127,7 @@ A Rust server owns the library and a React app draws it. The desktop app embeds 
 | [`plugins/`](plugins) | The reference plugins listed above |
 | [`docs/`](docs/README.md) | Guides and design notes |
 
-[Architecture](docs/architecture.md) goes deeper, and the [API](docs/api.md) is generated from the Rust routes.
+[Architecture](docs/develop/architecture.md) goes deeper, and the [API](docs/develop/api.md) is generated from the Rust routes.
 
 ## Develop
 
@@ -141,7 +141,7 @@ make e2e          # browser tests against an isolated server
 make verify       # the full check CI runs
 ```
 
-Read [development](docs/development.md) and [testing](docs/testing.md) before your first change. [AGENTS.md](AGENTS.md) has the code rules for people and coding agents alike.
+Read [development](docs/develop/development.md) and [testing](docs/develop/testing.md) before your first change. [AGENTS.md](AGENTS.md) has the code rules for people and coding agents alike.
 
 ## License
 
