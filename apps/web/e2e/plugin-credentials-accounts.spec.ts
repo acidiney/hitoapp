@@ -108,8 +108,6 @@ test.describe("account switching and listener sessions", () => {
     }
   });
 
-  test.skip("a 409 without a connection stamp shows generic guidance and marks nothing: not reachable from the browser, because the backend only omits plugin_connection when it cannot attribute the failure and no real workflow with an owned plugin does that, so the typed handler cases cover it", () => {});
-
   test("an expired listener session still goes to sign-in guidance and shows no credential feedback", async ({
     page,
     browser,
@@ -153,6 +151,50 @@ test.describe("account switching and listener sessions", () => {
       await members.close();
     }
   });
+});
+
+test("an unstamped credential 409 from Discover search shows generic guidance with the settings link and marks no connection", async ({
+  page,
+  baseURL,
+}) => {
+  if (!sharedAdminSession) await enterAdmin(page);
+  const origin = new URL(baseURL!).origin;
+  const label = `Unstamped relay ${suffix()}`;
+  const plugin = await credentialSourcesPlugin(label, "absent");
+  const connection = await connectCredentialPlugin(
+    page.request,
+    page.request,
+    origin,
+    plugin,
+  );
+  try {
+    plugin.state.manifestOpen = true;
+    plugin.rotate();
+    await page.goto("/discover");
+    const search = page.getByRole("search", { name: "Music service search" });
+    await search
+      .getByRole("searchbox", { name: "Search music" })
+      .fill("Relay");
+    await search.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText(credentialMessage).first()).toBeVisible();
+    const link = page.getByRole("link", { name: settingsLinkName });
+    await expect(link).toHaveAttribute("href", "/settings?section=plugins");
+    await expect(
+      page.getByRole("heading", { name: "Sign in", exact: true }),
+    ).toHaveCount(0);
+    expect(plugin.rejected("v1/search")).toBeGreaterThan(0);
+    expect(plugin.accepted("v1/search")).toBe(0);
+    await link.click();
+    const card = connectionCard(page, label);
+    await expect(card).toBeVisible();
+    await expect(card.getByText(markLabel)).toHaveCount(0);
+    await expect(card.getByText(/needs its credentials updated/)).toHaveCount(
+      0,
+    );
+    await expect(card.locator(".plugin-status")).toHaveText(/^Connected/);
+  } finally {
+    await connection.dispose();
+  }
 });
 
 test("provider search and source attachment show the credential guidance for the rejecting plugin while the healthy provider still resolves sources", async ({

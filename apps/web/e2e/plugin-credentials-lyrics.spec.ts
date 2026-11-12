@@ -179,7 +179,7 @@ test("updating credentials with the valid token clears the mark and the lyrics r
   }
 });
 
-test("a mark stamped for an older installation revision does not apply after the connection changes", async ({
+test("after a stamped error a keep refresh raises the revision by one and the old mark no longer applies (the browser cannot receive a stale stamp from the backend, so that part stays in unit tests)", async ({
   page,
   baseURL,
 }) => {
@@ -208,7 +208,7 @@ test("a mark stamped for an older installation revision does not apply after the
 
     setup.plugin.state.manifestOpen = true;
     const bumped = await bumpRevision(page.request, origin, setup.installation);
-    expect(bumped.revision).toBeGreaterThan(setup.installation.revision);
+    expect(bumped.revision).toBe(setup.installation.revision + 1);
 
     await card.getByRole("link", { name: settingsLinkName }).click();
     const connection = connectionCard(page, label);
