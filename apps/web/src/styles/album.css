@@ -389,6 +389,7 @@ a.album-artist:focus-visible {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  margin-bottom: 12px;
 }
 .edition-toolbar::-webkit-scrollbar {
   display: none;
@@ -463,6 +464,7 @@ a.album-artist:focus-visible {
     "number credit status time controls"
     "failure failure failure failure failure";
   align-items: center;
+  align-content: center;
   column-gap: 14px;
   min-height: 56px;
   padding: 0 4px 0 12px;
