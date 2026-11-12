@@ -1,6 +1,6 @@
 # Working on Hito
 
-The active scope is docs/release-plan.md. docs/status.md records evidence and unfinished release work. Keep the full scope intact.
+The active scope is `.agents/meta/release-plan.md`. `.agents/meta/status.md` records evidence and unfinished release work, and `.agents/meta/TODO.md` is the work checklist. These files are local and untracked; keep the full scope intact.
 
 ## Execution
 
@@ -34,7 +34,7 @@ Prefer clear names and explicit types. Keep code comments minimal; comments shou
 
 Use plain language and maintain diagrams where they explain ownership or data flow. Distinguish current behavior, tested evidence, planned behavior, and external dependencies. Never describe a local development deployment as a completed public release.
 
-Keep `.agents/meta/` notes local and untracked. Do not stage or force-add agent planning, review, or coordination notes from that directory. Product documentation belongs in `docs/`.
+Keep `.agents/meta/` notes local and untracked. Do not stage or force-add agent planning, review, or coordination notes from that directory. Product documentation belongs in `docs/` and is written for people: what Hito does, how to run it, how it is built. Evidence logs, deployment receipts, review notes, handoff specs and checklists go in `.agents/meta/`. Do not link to them from tracked files.
 
 ## Commits
 

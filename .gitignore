@@ -20,3 +20,15 @@
 *.plugin-key
 /.agents/meta/
 /deploy/compose/*.local.yaml
+
+# Agent planning notes stay local; keep them under .agents/meta/
+/TODO.md
+/PRODUCT.md
+/DESIGN.md
+/.impeccable/
+/docs/status.md
+/docs/release-plan.md
+/docs/frontend-lyrics-integration.md
+/docs/design-council/
+/docs/design-council.zip
+/docs/Claude outputs/
