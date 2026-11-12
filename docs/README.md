@@ -1,6 +1,6 @@
 # Hito documentation
 
-Start with the [README](../README.md) if you haven't run Hito yet. Hito is in development; these pages describe the current build, and each one says what is still missing.
+Start with the [README](../README.md) if you haven't run Hito yet. Hito is in development; these pages describe the current build, and each one says what is still missing. The [roadmap](roadmap.md) shows what works today and what comes next.
 
 ## Run Hito
 

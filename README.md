@@ -22,7 +22,7 @@ Hito is a self-hosted music player with an open plugin system. On its own it pla
 Plugins are opt-in. Use the ones that ship with Hito, use someone else's, write your own, or run none at all. A plugin is a small HTTP service that describes what it can do, so Hito works the same with any of them. You choose which sources play first, and when one fails Hito tries the next.
 
 > [!NOTE]
-> Hito is in active development and has no public release yet. It runs well as a local or home-server build in Docker. Desktop apps and installers are still being built.
+> Hito is in active development and has no public release yet. It runs well as a local or home-server build in Docker. Desktop apps and installers are still being built. See the [roadmap](docs/roadmap.md).
 
 ## Plugins
 
