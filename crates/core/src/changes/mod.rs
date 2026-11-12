@@ -1,4 +1,6 @@
 mod stream;
+#[cfg(test)]
+mod tests;
 
 use crate::{Actor, Error, Result, Store};
 use serde::Serialize;
@@ -125,6 +127,13 @@ impl ChangeHub {
     fn release(&self, account: &str) {
         let mut accounts = self.accounts();
         live(&mut accounts, account);
+    }
+
+    #[cfg(test)]
+    fn registrations(&self, account: &str) -> Option<usize> {
+        self.accounts()
+            .get(account)
+            .map(|channel| channel.sender.receiver_count())
     }
 
     fn accounts(&self) -> MutexGuard<'_, HashMap<String, Channel>> {
