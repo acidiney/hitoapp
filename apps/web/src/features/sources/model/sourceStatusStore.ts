@@ -48,6 +48,10 @@ export const sourceStatusStore = {
   peek(account: string, recording: string): SourceStatus {
     return entries.get(keyOf(account, recording))?.status ?? LOADING;
   },
+  peekSettled(account: string, recording: string): SourceStatus | null {
+    const entry = entries.get(keyOf(account, recording));
+    return entry?.settled ? entry.status : null;
+  },
   known(account: string, recording: string) {
     return entries.get(keyOf(account, recording))?.settled === true;
   },
