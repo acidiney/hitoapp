@@ -442,6 +442,25 @@
   padding: 0 8px;
 }
 
+.identity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.identity-actions > .text-action {
+  align-self: center;
+}
+.identity-actions > .text-action:first-child {
+  margin-left: -12px;
+}
+.identity-actions > .button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .credit-dialog-name {
   margin: 0;
   min-width: 0;
