@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Schema } from "./schema";
-import { HttpError, requestJson } from "./http";
+import { lockedEvent } from "./http";
 import { log } from "./log";
 import { invalidate, type Invalidation } from "./invalidation";
 
@@ -45,18 +45,25 @@ export function noticeInvalidations(
   }
 }
 
-async function sessionStillActive(signal: AbortSignal) {
+const sessionCheckTimeoutMs = 10_000;
+
+export async function sessionStillActive(signal: AbortSignal) {
+  const limit = new AbortController();
+  const timer = setTimeout(() => limit.abort(), sessionCheckTimeoutMs);
   try {
-    await requestJson("/me", {
-      action: "changes.session_check",
+    const response = await fetch("/api/v1/me", {
+      credentials: "same-origin",
       cache: "no-store",
-      signal,
+      headers: { "x-hito-request": "1" },
+      signal: AbortSignal.any([signal, limit.signal]),
     });
+    void response.body?.cancel().catch(() => {});
+    if (response.status === 423) window.dispatchEvent(new Event(lockedEvent));
+    if ([401, 403, 423].includes(response.status)) return false;
+    if (!response.ok) throw new Error("Session check failed");
     return true;
-  } catch (error) {
-    if (error instanceof HttpError && [401, 403, 423].includes(error.status))
-      return false;
-    throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

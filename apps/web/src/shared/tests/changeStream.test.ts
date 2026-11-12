@@ -4,7 +4,9 @@ import {
   changeStreamPath,
   noticeInvalidations,
   openChangeStream,
+  sessionStillActive,
 } from "../changeStream";
+import { getConnection } from "../connection";
 
 class FakeSource {
   static all: FakeSource[] = [];
@@ -199,4 +201,65 @@ test("closing during the session check opens nothing", async () => {
 test("is inert when the browser has no EventSource", () => {
   const stop = openChangeStream({ eventSource: undefined });
   expect(() => stop()).not.toThrow();
+});
+
+test("the session check reads the account without touching the connection banner", async () => {
+  const controller = new AbortController();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 200 })),
+  );
+  expect(await sessionStillActive(controller.signal)).toBe(true);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("", { status: 401 })),
+  );
+  expect(await sessionStillActive(controller.signal)).toBe(false);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("", { status: 403 })),
+  );
+  expect(await sessionStillActive(controller.signal)).toBe(false);
+  const locked = vi.fn();
+  window.addEventListener("hito-session-locked", locked);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("", { status: 423 })),
+  );
+  expect(await sessionStillActive(controller.signal)).toBe(false);
+  expect(locked).toHaveBeenCalledTimes(1);
+  window.removeEventListener("hito-session-locked", locked);
+  expect(getConnection().reachable).toBe(true);
+});
+
+test("a failing, gateway-erroring or unanswering session check never raises the outage banner", async () => {
+  const controller = new AbortController();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Promise.reject(new TypeError("down"))),
+  );
+  await expect(sessionStillActive(controller.signal)).rejects.toThrow();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("", { status: 502 })),
+  );
+  await expect(sessionStillActive(controller.signal)).rejects.toThrow();
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) =>
+          init.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason),
+          ),
+        ),
+    ),
+  );
+  const pending = expect(
+    sessionStillActive(controller.signal),
+  ).rejects.toBeDefined();
+  await vi.advanceTimersByTimeAsync(10_000);
+  await pending;
+  expect(getConnection().reachable).toBe(true);
 });
