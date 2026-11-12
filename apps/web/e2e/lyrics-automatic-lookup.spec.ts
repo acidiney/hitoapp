@@ -3,7 +3,7 @@ import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { trackShot } from "./fixtures/track-shots";
 import type { Schema } from "../src/shared/schema";
 
-type Mode = "found" | "none" | "failed" | "loading";
+type Mode = "found" | "none" | "unavailable" | "ambiguous" | "loading";
 
 const service = {
   installation_id: "11111111-1111-4111-8111-111111111111",
@@ -11,18 +11,7 @@ const service = {
   label: "Open lyrics",
 } satisfies Schema<"RecordingLyricService">;
 
-const saved = {
-  selectable: true,
-  selector: {
-    kind: "reviewed",
-    identity_id: "44444444-4444-4444-8444-444444444444",
-    identity_revision: 1,
-  },
-  installation_id: service.installation_id,
-  installation_revision: service.installation_revision,
-  provider_recording: { id: "auto-1", revision: null },
-  label: service.label,
-} satisfies Schema<"RecordingLyricIdentity">;
+const providerRecording = { id: "auto-1", revision: null };
 
 async function mockAutomatic(
   page: Page,
@@ -30,55 +19,41 @@ async function mockAutomatic(
   mode: Mode,
 ) {
   const requests: string[] = [];
-  let retained = false;
   const base = `**/api/v1/recordings/${recording.id}/lyrics`;
-  const match = {
-    id: "auto-1",
-    title:
-      mode === "none" ? `${recording.title} Remix Part 2` : recording.title,
-    artist: recording.artist,
-    duration_ms: recording.duration_ms,
-  } satisfies Schema<"ProviderRecording">;
   await page.route(`${base}/services`, (route) =>
     route.fulfill({ json: { recording_id: recording.id, items: [service] } }),
   );
   await page.route(`${base}/identities`, (route) => {
-    if (route.request().method() === "POST") {
-      requests.push("retain");
-      retained = true;
-      return route.fulfill({ json: saved });
-    }
+    if (route.request().method() === "POST") requests.push("retain");
     return route.fulfill({
-      json: { recording_id: recording.id, items: retained ? [saved] : [] },
+      json: { recording_id: recording.id, items: [] },
     });
   });
-  await page.route(`${base}/candidates`, (route) => {
-    requests.push(`candidates:${route.request().postData()}`);
+  for (const other of ["candidates", "identities/review", "identities/read"])
+    await page.route(`${base}/${other}`, (route) => {
+      requests.push(other);
+      return route.fulfill({ status: 500, json: { error: "unexpected" } });
+    });
+  await page.route(`${base}/automatic`, (route) => {
+    requests.push(`automatic:${route.request().postData()}`);
     if (mode === "loading") return;
-    if (mode === "failed")
-      return route.fulfill({ status: 502, json: { error: "down" } });
-    return route.fulfill({ json: { items: [match] } });
-  });
-  await page.route(`${base}/identities/review`, (route) => {
-    requests.push("review");
-    return route.fulfill({
-      json: {
-        candidate: { recording: match },
-        review_stamp: "auto-stamp",
-      } satisfies Schema<"RecordingLyricReview">,
-    });
-  });
-  await page.route(`${base}/identities/read`, (route) => {
-    requests.push("read");
+    const status = { none: "not_found", unavailable: "unavailable" }[
+      mode as "none" | "unavailable"
+    ];
+    if (mode === "ambiguous")
+      return route.fulfill({ json: { status: "ambiguous" } });
+    if (status) return route.fulfill({ json: { status } });
     return route.fulfill({
       json: {
         status: "ready_v2",
         recording_id: recording.id,
-        selector: saved.selector,
-        provider_recording: saved.provider_recording,
+        installation_id: service.installation_id,
+        installation_revision: service.installation_revision,
+        label: service.label,
+        provider_recording: providerRecording,
         document_digest: "0",
         document: {
-          recording: saved.provider_recording,
+          recording: providerRecording,
           lyrics: {
             id: "l",
             rendition_id: "r",
@@ -91,13 +66,19 @@ async function mockAutomatic(
             },
           },
         },
-      } satisfies Schema<"SelectedLyricsLookup">,
+      } satisfies Schema<"AutomaticLyricsLookup">,
     });
   });
   return requests;
 }
 
-for (const mode of ["loading", "found", "none", "failed"] as const)
+for (const mode of [
+  "loading",
+  "found",
+  "none",
+  "unavailable",
+  "ambiguous",
+] as const)
   test(`automatic lyric lookup on Track Details: ${mode}`, async ({ page }) => {
     if (!sharedAdminSession) await enterAdmin(page);
     await page.emulateMedia({ colorScheme: "dark" });
@@ -114,21 +95,18 @@ for (const mode of ["loading", "found", "none", "failed"] as const)
       loading: "Looking up lyrics…",
       found: "Not synced · from Open lyrics",
       none: "None found",
-      failed: "Couldn't check",
+      unavailable: "Couldn't check",
+      ambiguous: "Several matches",
     }[mode];
     await expect(panel.getByText(expected).first()).toBeVisible();
-    if (mode === "found")
-      expect(requests).toEqual([
-        expect.stringContaining('"query":"Fixture 440 Hz'),
-        "review",
-        "retain",
-        "read",
-      ]);
-    if (mode === "none") {
-      expect(requests).toHaveLength(1);
+    await expect.poll(() => requests).toEqual(["automatic:{}"]);
+    if (mode === "none")
       await expect(
         panel.getByRole("button", { name: "Find lyrics" }),
       ).toBeVisible();
+    if (mode === "unavailable") {
+      await expect(panel.getByText("None found")).toHaveCount(0);
+      await expect(panel.getByRole("button", { name: "Retry" })).toBeVisible();
     }
     await trackShot(page, `auto-${mode}`);
     await trackShot(page, `auto-${mode}-phone`, "phone-dark");
