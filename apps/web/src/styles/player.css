@@ -88,9 +88,9 @@
 .transport-buttons .icon-button[aria-label^="Repeat"] {
   color: var(--muted);
 }
-.transport-buttons .selected {
+.transport-buttons .icon-button.selected {
   position: relative;
-  color: var(--link);
+  color: var(--action);
 }
 .transport-buttons .icon-button.selected::after {
   content: "";
