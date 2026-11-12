@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
-import { Play, Shuffle } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
+import AlbumActions from "../../catalog/components/AlbumActions";
 import { albumEyebrow } from "../../catalog/model/albumEyebrow";
 import TrackTable from "../../playback/components/TrackTable";
 import { useCatalogRefreshing } from "../api/catalogCache";
@@ -42,6 +42,7 @@ export default function CatalogAlbum({
     credit,
     playback,
     library,
+    linked,
     controls,
   } = useCatalogTracks(context, withLibrary, mutate);
   const owned = library.albums[group.id] ?? [];
@@ -115,28 +116,17 @@ export default function CatalogAlbum({
           ))
         }
         actions={
-          <>
-            <button
-              type="button"
-              className="pill-action"
-              data-primary=""
-              aria-label="Play album"
-              disabled={!ready}
-              onClick={() => void playback.start(0)}
-            >
-              <Play size={16} fill="currentColor" aria-hidden="true" />
-              Play
-            </button>
-            <button
-              type="button"
-              className="pill-icon"
-              aria-label="Shuffle album"
-              disabled={!ready}
-              onClick={() => void playback.shuffle()}
-            >
-              <Shuffle size={18} aria-hidden="true" />
-            </button>
-          </>
+          <AlbumActions
+            play={{
+              disabled: !ready,
+              play: () => void playback.start(0),
+              shuffle: () => void playback.shuffle(),
+            }}
+            detailsHref={
+              linked ? `/albums/${encodeURIComponent(linked)}/details` : null
+            }
+            retry={null}
+          />
         }
         notes={
           <>

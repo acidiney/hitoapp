@@ -4,7 +4,9 @@ import RouteLink from "../../../shared/ui/RouteLink";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { longDuration } from "../../artists/model/catalogAlbumRows";
-import AlbumHeaderActions from "../components/AlbumHeaderActions";
+import AlbumActions from "../components/AlbumActions";
+import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
+import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
@@ -90,6 +92,19 @@ export default function AlbumPage({
   const trackCount = editionPlay?.tracks ?? release.track_count;
   const durationMs = editionPlay?.durationMs ?? release.duration_ms;
   const duration = longDuration(durationMs);
+  const libraryPlay = usePlayTracks(tracks, listing);
+  const retry = useArtworkRetryItem({ release: release.id });
+  const play = editionPlay
+    ? {
+        disabled: editionPlay.tracks === 0,
+        play: () => void editionPlay.play(),
+        shuffle: () => void editionPlay.shuffle(),
+      }
+    : {
+        disabled: tracks.length === 0,
+        play: () => void libraryPlay.playAll(),
+        shuffle: () => void libraryPlay.shuffleAll(),
+      };
   return (
     <AlbumMergeContext.Provider value={merge}>
       <div className="detail-page">
@@ -124,10 +139,10 @@ export default function AlbumPage({
           stats={`${trackCount} ${trackCount === 1 ? "track" : "tracks"}${durationMs >= 60_000 ? ` · ${duration}` : ""}`}
           status={progress && <AlbumProgressLine progress={progress} />}
           actions={
-            <AlbumHeaderActions
-              release={release.id}
-              tracks={tracks}
-              listing={listing}
+            <AlbumActions
+              play={play}
+              detailsHref={`/albums/${encodeURIComponent(release.id)}/details`}
+              retry={retry}
             />
           }
           notes={
