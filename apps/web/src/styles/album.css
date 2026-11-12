@@ -502,6 +502,9 @@ a.album-artist:focus-visible {
 .edition-row-sub {
   display: contents;
 }
+.edition-row-sub > span {
+  position: relative;
+}
 .edition-row-credit {
   grid-area: credit;
   min-width: 0;
