@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from "vitest";
-import { nextChord, resolveShortcut, type ShortcutState } from "../shortcuts";
+import {
+  nextChord,
+  notePointer,
+  resolveShortcut,
+  type ShortcutState,
+} from "../shortcuts";
 
 const idle: ShortcutState = { chord: false, singleKeys: true };
 
@@ -53,36 +58,45 @@ test("shortcuts pause while typing in any field", () => {
   ).toBeNull();
 });
 
-function keyboardFocused<T extends Element>(element: T): T {
-  const matches = element.matches.bind(element);
-  element.matches = (selector: string) =>
-    selector === ":focus-visible" || matches(selector);
-  return element;
-}
-
-test("space leaves keyboard-focused buttons, links and sliders to their own behaviour", () => {
-  const button = keyboardFocused(document.createElement("button"));
-  const link = keyboardFocused(document.createElement("a"));
+test("space leaves buttons, links and sliders reached from the keyboard to their own behaviour", () => {
+  const button = document.createElement("button");
+  const link = document.createElement("a");
   link.href = "/x";
-  const slider = keyboardFocused(document.createElement("input"));
+  const slider = document.createElement("input");
   slider.type = "range";
   document.body.append(button, link, slider);
   for (const target of [button, link, slider])
     expect(resolveShortcut(press({ key: " " }, target), idle)).toBeNull();
 });
 
-test("space plays or pauses when a control only holds focus from a pointer click", () => {
-  const next = document.createElement("button");
-  next.setAttribute("aria-label", "Next track");
-  const shuffle = document.createElement("button");
-  shuffle.setAttribute("aria-label", "Shuffle");
+test("space plays or pauses when the focused control was last pressed with a pointer", () => {
+  const mute = document.createElement("button");
+  mute.setAttribute("aria-label", "Mute");
+  const icon = document.createElement("span");
+  mute.append(icon);
   const seek = document.createElement("input");
   seek.type = "range";
-  document.body.append(next, shuffle, seek);
-  for (const target of [next, shuffle, seek])
+  document.body.append(mute, seek);
+  for (const [pressed, target] of [
+    [icon, mute],
+    [seek, seek],
+  ] as const) {
+    notePointer(pressed);
     expect(resolveShortcut(press({ key: " " }, target), idle)).toBe(
       "togglePlay",
     );
+    expect(resolveShortcut(press({ key: " " }, target), idle)).toBe(
+      "togglePlay",
+    );
+  }
+});
+
+test("moving focus with Tab hands space back to the control", () => {
+  const next = document.createElement("button");
+  document.body.append(next);
+  notePointer(next);
+  resolveShortcut(press({ key: "Tab" }, next), idle);
+  expect(resolveShortcut(press({ key: " " }, next), idle)).toBeNull();
 });
 
 test("modifier combinations are never shortcuts", () => {

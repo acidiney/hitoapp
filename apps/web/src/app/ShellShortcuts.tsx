@@ -13,6 +13,7 @@ import ShortcutsDialog from "./ShortcutsDialog";
 import { useSingleKeyShortcuts } from "./shortcutPreference";
 import {
   nextChord,
+  notePointer,
   resolveShortcut,
   type ShortcutCommand,
   type ShortcutState,
@@ -76,8 +77,11 @@ export default function ShellShortcuts({
       event.preventDefault();
       handler.current(command);
     }
+    const pointed = (event: PointerEvent) => notePointer(event.target);
+    window.addEventListener("pointerdown", pointed, true);
     window.addEventListener("keydown", listen);
     return () => {
+      window.removeEventListener("pointerdown", pointed, true);
       window.removeEventListener("keydown", listen);
       clear();
     };

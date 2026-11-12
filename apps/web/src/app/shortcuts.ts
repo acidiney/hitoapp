@@ -36,12 +36,10 @@ function typing(target: EventTarget | null): boolean {
   );
 }
 
-function keyboardFocused(element: Element): boolean {
-  try {
-    return element.matches(":focus-visible");
-  } catch {
-    return true;
-  }
+let pointerControl: Element | null = null;
+
+export function notePointer(target: EventTarget | null) {
+  pointerControl = target instanceof Element ? target.closest(OWN_SPACE) : null;
 }
 
 function ignored(event: KeyboardEvent): boolean {
@@ -60,6 +58,7 @@ export function resolveShortcut(
   event: KeyboardEvent,
   state: ShortcutState,
 ): ShortcutCommand | null {
+  if (event.key === "Tab") pointerControl = null;
   if (ignored(event)) return null;
   if (event.key === "?") return "help";
   if (event.shiftKey) {
@@ -73,7 +72,7 @@ export function resolveShortcut(
   if (key === " ") {
     const own =
       event.target instanceof Element ? event.target.closest(OWN_SPACE) : null;
-    return own && keyboardFocused(own) ? null : "togglePlay";
+    return own && own !== pointerControl ? null : "togglePlay";
   }
   return LETTERS[key] ?? null;
 }
