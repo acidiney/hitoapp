@@ -1,5 +1,9 @@
 use super::Catalog;
-use crate::{Actor, Error, Result, Source, identity::recording_access, plugins::Operation};
+use crate::{
+    Actor, ChangeNotice, Error, Result, Source,
+    identity::{recording_access, recording_readers},
+    plugins::Operation,
+};
 use hito_plugin_sdk::{Capability, RecordingRequest, SourcePage};
 
 mod playback;
@@ -156,7 +160,7 @@ impl Catalog {
             "Publishing provider sources"
         );
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let result: Result<()> = async {
+        let result: Result<Vec<String>> = async {
             actor.check_session_on(&mut tx).await?;
             update.operation.recheck(&mut tx).await?;
             recording_access(&mut tx, actor, recording).await?;
@@ -178,16 +182,25 @@ impl Catalog {
             for id in ids {
                 super::sources::attach(&mut tx, &id, &update.binding.observation_id).await?;
             }
-            Ok(())
+            recording_readers(&mut tx, recording).await
         }
         .await;
-        match result {
-            Ok(()) => tx.commit().await?,
+        let readers = match result {
+            Ok(readers) => {
+                tx.commit().await?;
+                readers
+            }
             Err(error) => {
                 tx.rollback().await?;
                 return Err(error);
             }
-        }
+        };
+        self.changes.publish_to(
+            &readers,
+            &[ChangeNotice::Sources {
+                recording_id: recording.to_owned(),
+            }],
+        );
         tracing::info!(
             count = update.page.items.len(),
             "Provider playback sources refreshed"

@@ -102,6 +102,20 @@ pub(crate) async fn library_access(
 }
 
 #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
+pub(crate) async fn recording_readers(
+    connection: &mut SqliteConnection,
+    recording: &str,
+) -> Result<Vec<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT m.user_id FROM recordings r
+         JOIN library_members m ON m.library_id = r.library_id
+         WHERE r.id = ? ORDER BY m.user_id",
+    )
+    .bind(recording)
+    .fetch_all(connection)
+    .await?)
+}
+
 pub(crate) async fn recording_access(
     connection: &mut SqliteConnection,
     actor: &Actor,
