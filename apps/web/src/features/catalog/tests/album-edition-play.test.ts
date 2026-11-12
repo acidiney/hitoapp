@@ -246,3 +246,59 @@ test("without an edition, header Play plays the library release tracks as before
   expect(player.select).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });
+
+function rowPlayButtons() {
+  const region = screen.getByRole("region", {
+    name: "Album edition track list",
+  });
+  return within(region)
+    .getAllByRole("listitem")
+    .flatMap((row) =>
+      within(row)
+        .queryAllByRole("button", { name: /^Play / })
+        .slice(0, 1),
+    );
+}
+
+async function playRow(index: number) {
+  await editionShown();
+  const play = rowPlayButtons()[index];
+  await act(async () => {
+    fireEvent.click(play);
+  });
+  expect(player.select).toHaveBeenCalledTimes(1);
+  return player.select.mock.calls[0][0] as Selection;
+}
+
+test("playing row 3 queues the album from row 3 through the edition playback", async () => {
+  serve();
+  render(page());
+  const selection = await playRow(2);
+  expect(selection.queue).toEqual([otherRelease]);
+  expect(selection.index).toBe(0);
+  expect(await drain(selection)).toEqual([otherRelease.id]);
+  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-2-2"]);
+  expect(player.playQueue).not.toHaveBeenCalled();
+});
+
+test("playing an owned first row continues with the rest of the album instead of one track", async () => {
+  serve();
+  render(page());
+  const selection = await playRow(0);
+  expect(selection.queue).toEqual([firstLibraryRecording]);
+  expect(await drain(selection)).toEqual([
+    firstLibraryRecording.id,
+    savedRecording.id,
+    otherRelease.id,
+  ]);
+  expect(player.playQueue).not.toHaveBeenCalled();
+});
+
+test("playing a catalog-only row searches for it and then plays on through the album", async () => {
+  serve();
+  render(page());
+  const selection = await playRow(1);
+  expect(selection.queue).toEqual([savedRecording]);
+  expect(await drain(selection)).toEqual([savedRecording.id, otherRelease.id]);
+  expect(player.playQueue).not.toHaveBeenCalled();
+});

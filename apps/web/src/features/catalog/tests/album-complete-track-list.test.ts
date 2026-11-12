@@ -40,6 +40,7 @@ const player = vi.hoisted(() => {
     prepareSelection: vi.fn(() => playSelection),
     subscribe: () => () => {},
     snapshot: () => ({ current: null }),
+    queueSnapshot: () => ({ currentIndex: null, total: 0 }),
   };
 });
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -57,6 +58,7 @@ vi.mock("@inertiajs/react", () => ({
 const associations = `/api/v1/recordings/${firstLibraryRecording.id}/artist-associations`;
 const comparison = `/api/v1/albums/${albumId}/edition-track-list`;
 const adoption = `/api/v1/plugins/${installation.id}/recordings`;
+const audio = `/api/v1/albums/${albumId}/edition-track-audio`;
 
 type Route = (init?: RequestInit) => Response | Promise<Response>;
 
@@ -173,10 +175,19 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 
-test("play on a catalog-only track saves it through its provider once and then plays the saved recording", async () => {
-  const fetch = serve();
+test("play on a catalog-only track plays the album from that row through the edition playback, not a provider save", async () => {
+  const fetch = serve({
+    [audio]: () =>
+      Response.json({ status: "saved", recording: savedRecording }),
+  });
+  player.playSelection.mockClear();
+  player.playQueue.mockClear();
   render(page());
-  const region = await chooseEdition();
+  await chooseEdition();
+  await screen.findByRole("button", { name: "Try saving again" });
+  const region = screen.getByRole("region", {
+    name: "Album edition track list",
+  });
   const row = rowWith(region, "Catalog only song");
   await act(async () => {
     fireEvent.click(
@@ -184,14 +195,14 @@ test("play on a catalog-only track saves it through its provider once and then p
     );
   });
   await waitFor(() => expect(player.playSelection).toHaveBeenCalledTimes(1));
-  const saves = fetch.mock.calls.filter(([path]) => path === adoption);
-  expect(saves).toHaveLength(1);
-  expect(JSON.parse(saves[0][1]!.body as string)).toEqual({
-    installation_revision: installation.revision,
-    provider_recording_id: "provider:two",
-  });
-  expect(player.playSelection).toHaveBeenCalledWith(savedRecording);
-  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
+  const selection = player.playSelection.mock.calls[0][0] as {
+    queue: Schema<"Recording">[];
+  };
+  expect(selection.queue).toEqual([savedRecording]);
+  expect(fetch.mock.calls.filter(([path]) => path === adoption)).toHaveLength(
+    0,
+  );
+  expect(player.playQueue).not.toHaveBeenCalled();
 });
 
 test("add on a catalog-only track saves it through its provider without playing", async () => {
@@ -222,17 +233,29 @@ test("add on a catalog-only track saves it through its provider without playing"
   ).toBeNull();
 });
 
-test("a library track plays directly and never calls a provider", async () => {
+test("a library track starts the album queue from its row without calling a provider first", async () => {
   const fetch = serve();
+  player.playSelection.mockClear();
+  player.playQueue.mockClear();
   render(page());
-  const region = await chooseEdition();
+  await chooseEdition();
+  await screen.findByRole("button", { name: "Try saving again" });
+  const region = screen.getByRole("region", {
+    name: "Album edition track list",
+  });
   const calls = fetch.mock.calls.length;
   const row = rowWith(region, personalTitle);
-  fireEvent.click(within(row).getByRole("button", { name: /^Play / }));
-  expect(player.playQueue).toHaveBeenCalledTimes(1);
-  expect(player.playQueue.mock.calls[0][0][0].id).toBe(
+  await act(async () => {
+    fireEvent.click(within(row).getByRole("button", { name: /^Play / }));
+  });
+  await waitFor(() => expect(player.playSelection).toHaveBeenCalledTimes(1));
+  const selection = player.playSelection.mock.calls[0][0] as {
+    queue: Schema<"Recording">[];
+  };
+  expect(selection.queue.map((track) => track.id)).toEqual([
     firstLibraryRecording.id,
-  );
+  ]);
+  expect(player.playQueue).not.toHaveBeenCalled();
   expect(fetch.mock.calls.length).toBe(calls);
 });
 
@@ -248,7 +271,7 @@ test("a provider outage is honest and leaves the album's library tracks playable
   ).toBeTruthy();
 });
 
-test("catalog tracks that no connected provider can save offer to find audio instead of a save", async () => {
+test("catalog tracks that no connected provider can save still play with the album and add by finding audio", async () => {
   const fetch = serve({
     [comparison]: () => Response.json(unsavableTrackList),
   });
@@ -256,11 +279,11 @@ test("catalog tracks that no connected provider can save offer to find audio ins
   const region = await chooseEdition();
   const row = rowWith(region, "Catalog only song");
   expect(
-    within(row).queryByRole("button", { name: "Play Catalog only song" }),
-  ).toBeNull();
+    within(row).getByRole("button", { name: "Play Catalog only song" }),
+  ).toBeTruthy();
   expect(
     within(row).getByRole("button", {
-      name: "Find audio for Catalog only song",
+      name: "Add Catalog only song to your library",
     }),
   ).toBeTruthy();
   expect(fetch.mock.calls.some(([path]) => path === adoption)).toBe(false);
@@ -306,7 +329,7 @@ test("leaving the album cancels a held save and starts no playback", async () =>
   const region = await chooseEdition();
   fireEvent.click(
     within(rowWith(region, "Catalog only song")).getByRole("button", {
-      name: "Play Catalog only song",
+      name: "Add Catalog only song to your library",
     }),
   );
   await waitFor(() => expect(signals).toHaveLength(1));
@@ -356,7 +379,7 @@ test("saving state and failures belong to the clicked occurrence, not to every r
       item.textContent?.includes("Catalog only song") ||
       item.textContent?.includes("Catalog song again"),
   );
-  fireEvent.click(within(first).getByRole("button", { name: /^Play / }));
+  fireEvent.click(within(first).getByRole("button", { name: /^Add / }));
   await waitFor(() => expect(first.textContent).toContain("Saving…"));
   expect(second.textContent).not.toContain("Saving…");
   await act(async () =>

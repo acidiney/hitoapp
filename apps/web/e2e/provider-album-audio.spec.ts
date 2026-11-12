@@ -153,7 +153,11 @@ async function openAlbum(page: Page, baseURL: string) {
       total,
       before: await total(),
       find: row.getByRole("button", {
-        name: `Find audio for ${unidentified}`,
+        name: `Add ${unidentified} to your library`,
+      }),
+      play: row.getByRole("button", {
+        name: `Play ${unidentified}`,
+        exact: true,
       }),
       dispose,
     };
@@ -191,6 +195,7 @@ test("an album track without a catalog identity is saved as a best guess when on
     ).toBeVisible();
     expect(await total()).toBe(before + 1);
     expect(audio.audioRequests.length).toBeGreaterThan(0);
+    await album.play.click();
     const player = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
@@ -310,6 +315,7 @@ test("an album track audio lookup during a provider outage is unavailable, not a
     await expect(
       row.getByRole("img", { name: "In your library" }),
     ).toBeVisible();
+    await album.play.click();
     const player = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>

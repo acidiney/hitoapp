@@ -59,8 +59,6 @@ export default function AlbumEditionTrackList({
     player,
     `${source.release}/${comparison?.edition.id ?? ""}`,
   );
-  const play = (recording: Schema<"Recording">) =>
-    void player.playQueue([recording], 0);
 
   const search = (track: Occurrence) => ({
     release: source.release,
@@ -138,8 +136,35 @@ export default function AlbumEditionTrackList({
           consentOff: playback.consentOff,
           halted: playback.halted,
         },
-    { play: () => playback.start(0), shuffle: playback.shuffle },
+    { play: () => startFrom(0), shuffle: playback.shuffle },
   );
+
+  function startFrom(at: number) {
+    playback.seed(owners);
+    return playback.start(at);
+  }
+
+  function playFrom(track: Occurrence, title: string) {
+    const at = queue.indexOf(track.id);
+    if (at < 0) return undefined;
+    return {
+      label: `Play ${title}`,
+      menuLabel: "Play",
+      disabled: false,
+      onPlay: () => void startFrom(at),
+    };
+  }
+
+  function searchState(track: Occurrence) {
+    const status = playback.rows.get(track.id)?.status;
+    if (status === "finding")
+      return { state: "working" as const, detail: "Finding audio…" };
+    if (status === "not_found")
+      return { state: "absent" as const, detail: "No audio found" };
+    if (status === "failed")
+      return { state: "absent" as const, detail: "Couldn't find audio" };
+    return null;
+  }
 
   function libraryFor(track: Occurrence) {
     return owners.get(track.id) ?? playback.recordings.get(track.id);
@@ -189,12 +214,7 @@ export default function AlbumEditionTrackList({
           {...common}
           {...ownedRowState(library)}
           actions={libraryActions(library)}
-          play={{
-            label: `Play ${library.title}`,
-            menuLabel: "Play",
-            disabled: false,
-            onPlay: () => play(library),
-          }}
+          play={playFrom(track, library.title)}
         />
       );
     if (track.kind !== "audio")
@@ -219,13 +239,14 @@ export default function AlbumEditionTrackList({
       track.recording_id == null
         ? "No provider identity for this track"
         : undefined;
-    const state = working ? "working" : "absent";
     const adoptable = comparison?.adoption && track.recording_id != null;
+    const searched = searchState(track);
+    const state = working ? "working" : (searched?.state ?? "absent");
     const detail = working
       ? adoptable
         ? "Saving…"
         : "Finding audio…"
-      : missing;
+      : (searched?.detail ?? missing);
     if (adoptable)
       return (
         <EditionTrackRow
@@ -233,12 +254,7 @@ export default function AlbumEditionTrackList({
           {...common}
           state={state}
           detail={detail}
-          play={{
-            label: `Play ${track.title}`,
-            menuLabel: "Play",
-            disabled: catalog.pending !== null,
-            onPlay: () => void catalog.play(track.id, track.recording_id!),
-          }}
+          play={playFrom(track, track.title)}
           add={{
             label: `Add ${track.title} to your library`,
             disabled: catalog.pending !== null,
@@ -252,16 +268,7 @@ export default function AlbumEditionTrackList({
         {...common}
         state={state}
         detail={detail}
-        play={
-          comparison
-            ? {
-                label: `Find audio for ${track.title}`,
-                menuLabel: "Find audio and play",
-                disabled: catalog.pending !== null,
-                onPlay: () => void catalog.findAndPlay(track.id, search(track)),
-              }
-            : undefined
-        }
+        play={playFrom(track, track.title)}
         add={
           comparison
             ? {
@@ -275,7 +282,11 @@ export default function AlbumEditionTrackList({
     );
   }
 
-  function libraryOnlyRow(track: Comparison["library_only"][number]) {
+  function libraryOnlyRow(
+    track: Comparison["library_only"][number],
+    index: number,
+    tracks: Comparison["library_only"],
+  ) {
     return (
       <EditionTrackRow
         key={track.entry_id}
@@ -289,7 +300,7 @@ export default function AlbumEditionTrackList({
           label: `Play ${track.title}`,
           menuLabel: "Play",
           disabled: false,
-          onPlay: () => play(track),
+          onPlay: () => void player.playQueue(tracks, index),
         }}
       />
     );
