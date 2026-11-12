@@ -302,6 +302,22 @@ async fn a_malformed_second_document_keeps_the_first() {
 }
 
 #[tokio::test]
+async fn a_malformed_first_document_keeps_the_second() {
+    let search = Search::new(
+        10,
+        catalog(),
+        json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
+    );
+    search.mode("songs", "malformed");
+    assert_eq!(
+        search.page(10).await,
+        [channel("OwnedTune01", "Owned label", 365_000)],
+        "a malformed catalog document must not swallow the complete video document after it"
+    );
+    search.finish().await;
+}
+
+#[tokio::test]
 async fn a_document_with_an_invalid_entry_is_dropped_without_discarding_the_other() {
     let search = Search::new(
         10,
