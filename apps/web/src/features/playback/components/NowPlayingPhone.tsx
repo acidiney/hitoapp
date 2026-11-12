@@ -54,7 +54,12 @@ function CompactTrack({
           {playing ? (
             <Pause size={18} fill="currentColor" aria-hidden="true" />
           ) : (
-            <Play size={18} fill="currentColor" aria-hidden="true" />
+            <Play
+              size={18}
+              fill="currentColor"
+              className="play-glyph"
+              aria-hidden="true"
+            />
           )}
         </button>
       </div>
