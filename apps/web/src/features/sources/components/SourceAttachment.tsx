@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import { PluginErrorText } from "../../plugins/components/PluginSettingsLink";
 
 import { useEffect, useRef } from "react";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
@@ -77,7 +78,7 @@ export default function SourceAttachment({
       )}
       {workflow.error && (
         <p role="alert">
-          {workflow.error}
+          <PluginErrorText message={workflow.error} />
           {workflow.existing && workflow.existing !== detail.recording_id && (
             <>
               {" "}

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { credentialFailureMessage } from "../../plugins/model/credentialRequirements";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { sourceBindingsApi } from "../api/sourceBindingsApi";
 
@@ -34,13 +35,16 @@ type Snapshot = State & { owner: Work };
 
 const alreadyUsedMessage = "This video is already the source of another track.";
 
-function failure(error: unknown) {
+function failure(account: string, error: unknown) {
   if (error instanceof HttpError && error.code === "already_bound")
     return {
       error: alreadyUsedMessage,
       existing: error.recordingId ?? null,
     };
-  return { error: errorMessage(error), existing: null };
+  return {
+    error: credentialFailureMessage(account, error) ?? errorMessage(error),
+    existing: null,
+  };
 }
 
 function empty(owner: Work): Snapshot {
@@ -128,7 +132,7 @@ export function useSourceAttachment(
         reason = "failed";
         setSnapshot((value) =>
           active() && value.owner === owner
-            ? { ...value, ...failure(error) }
+            ? { ...value, ...failure(account, error) }
             : value,
         );
       }

@@ -4,6 +4,7 @@ import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
+import { credentialFailureMessage } from "../../plugins/model/credentialRequirements";
 
 import type { Player } from "../../playback/model";
 
@@ -123,7 +124,12 @@ export function useDiscovery(
       return true;
     } catch (error) {
       if (active())
-        setSnapshot({ ...initial, pending: false, error: errorMessage(error) });
+        setSnapshot({
+          ...initial,
+          pending: false,
+          error:
+            credentialFailureMessage(account, error) ?? errorMessage(error),
+        });
       return false;
     } finally {
       if (owner.search === controller) owner.search = null;
