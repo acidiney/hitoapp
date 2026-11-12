@@ -10,8 +10,6 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import ArtistDiscography from "../components/ArtistDiscography";
-import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import { editionGroup } from "../fixtures/artistEditions";
 import {
   artistAssociation,
@@ -21,6 +19,7 @@ import {
 } from "../fixtures/artistReview";
 import {
   catalogAlbumEdition,
+  catalogAlbumElement,
   catalogAlbumTitles,
   catalogAlbumTrackList,
   foundRecording,
@@ -92,8 +91,6 @@ afterEach(() => {
 
 function serve(options: { editions?: unknown } = {}) {
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
-    if (path === `${base}/discography`)
-      return Response.json(firstDiscographyPage);
     if (path === `${base}/release-group-editions`)
       return Response.json(options.editions ?? oneEditionPage);
     if (path === `${base}/edition-track-list`) {
@@ -122,27 +119,17 @@ function serve(options: { editions?: unknown } = {}) {
   return fetch;
 }
 
-async function openCard() {
+async function openAlbum() {
   render(
-    createElement(ArtistDiscography, {
+    catalogAlbumElement({
       account: artistReviewAccount,
       recording: artistReviewDetail.recording_id,
       association: artistAssociation,
       profile: reviewedArtistProfile.profile,
+      group: editionGroup,
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Browse discography" }));
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  return within(await within(groups).findByRole("listitem"));
-}
-
-async function openAlbum() {
-  const card = await openCard();
-  fireEvent.click(
-    card.getByRole("button", { name: `Open ${editionGroup.title}` }),
-  );
+  const card = within(await screen.findByRole("region", { name: "Album" }));
   await card.findByRole("button", { name: `Play ${catalogAlbumTitles[0]}` });
   return card;
 }

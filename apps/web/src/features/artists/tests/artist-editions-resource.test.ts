@@ -40,7 +40,7 @@ vi.mock("../../playback/components/PlaybackProvider", async () =>
   (await import("../fixtures/idlePlayer")).idlePlayerModule(),
 );
 
-test("one StrictMode open starts one edition read and replacement ownership requires a new explicit action", async () => {
+test("one StrictMode open starts one edition read and a replaced owner reads its own editions once", async () => {
   const http = discographyHttp();
   const held = http.hold("body", lastEditionPage);
   const initial = {
@@ -65,6 +65,8 @@ test("one StrictMode open starts one edition read and replacement ownership requ
       account,
       association: { ...initial.association, account_id: account },
     };
+    http.reply(lastEditionPage);
+    http.reply(tracksOfEdition(bonusEdition));
     view.rerender(
       createElement(StrictMode, null, catalogAlbumElement(changed)),
     );
@@ -73,11 +75,7 @@ test("one StrictMode open starts one edition read and replacement ownership requ
     });
     expect(held.signal()?.aborted).toBe(true);
     expect(held.aborts()).toBe(1);
-    expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
-    expect(http.fetch).toHaveBeenCalledTimes(1);
-    http.reply(lastEditionPage);
-    http.reply(tracksOfEdition(bonusEdition));
-    fireEvent.click(screen.getByRole("button", { name: "Open album" }));
+    expect(screen.queryByRole("button", { name: "Open album" })).toBeNull();
     await screen.findByRole("list", { name: "Tracks" });
     expect(http.fetch).toHaveBeenCalledTimes(3);
     expect(
@@ -157,11 +155,18 @@ test("closed edition choices do not multiply owned request controllers as discog
     expect(twenty.controllers).toBeLessThanOrEqual(one.controllers + 2);
     http.reply(firstEditionPage);
     http.reply(tracksOfEdition(standardEdition));
-    const row = within(twenty.list).getAllByRole("listitem")[0];
-    fireEvent.click(
-      within(row).getByRole("button", { name: `Open ${editionGroup.title}` }),
+    render(
+      catalogAlbumElement({
+        account: artistReviewAccount,
+        recording: artistReviewDetail.recording_id,
+        association: artistAssociation,
+        profile: reviewedArtistProfile.profile,
+        group: editionGroup,
+      }),
     );
-    await within(row).findByRole("list", { name: "Tracks" });
+    await within(
+      await screen.findByRole("region", { name: "Album" }),
+    ).findByRole("list", { name: "Tracks" });
     expect(http.fetch).toHaveBeenCalledTimes(4);
     expect(http.fetch.mock.calls[2][0]).toBe(
       `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-associations/${artistAssociation.id}/release-group-editions`,

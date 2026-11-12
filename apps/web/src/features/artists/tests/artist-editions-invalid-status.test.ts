@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
+import { catalogAlbumElement } from "../fixtures/catalogAlbumPlay";
 import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import {
   bonusTrackList,
@@ -93,9 +94,13 @@ test.each([
         name: "Discography releases",
       });
       await within(groups).findByRole("heading", { name: editionGroup.title });
-      fireEvent.click(
-        within(groups).getByRole("button", {
-          name: `Open ${editionGroup.title}`,
+      render(
+        catalogAlbumElement({
+          account: artistReviewAccount,
+          recording: artistReviewDetail.recording_id,
+          association: artistAssociation,
+          profile: reviewedArtistProfile.profile,
+          group: editionGroup,
         }),
       );
       const region = await screen.findByRole("region", { name: "Album" });

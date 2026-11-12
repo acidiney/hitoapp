@@ -95,13 +95,6 @@
 .album-note a {
   color: var(--link);
 }
-.release-card[data-open] .album-header {
-  padding: 0;
-  background: transparent;
-}
-.release-card[data-open] .album-header :is(h4, h5) {
-  font-size: 28px;
-}
 
 .album-toolbar-note {
   margin-left: auto;
@@ -113,9 +106,6 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px 40px 40px;
-}
-.release-card .album-body {
-  padding: 0;
 }
 a.album-artist:hover,
 a.album-artist:focus-visible {

@@ -1,5 +1,5 @@
 import { chooseEdition, loadMoreEditions } from "../../../test/editionMenu";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { Schema } from "../../../shared/schema";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
@@ -78,7 +78,7 @@ function currentPage(props: Props) {
 }
 
 test.each(["listing", "chosen track list"] as const)(
-  "replacing the owner during a held %s aborts it before a fresh explicit open",
+  "replacing the owner during a held %s aborts it before the new owner reads again",
   async (phase) => {
     const errors = vi.spyOn(console, "error");
     const debug = vi.spyOn(log, "debug");
@@ -139,16 +139,14 @@ test.each(["listing", "chosen track list"] as const)(
                 id: "opaque:release-group/current-context",
               },
             };
-      view.rerender(catalogAlbumElement(changed));
-      expect(held.signal()?.aborted).toBe(true);
-      expect(held.aborts()).toBe(1);
-      expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
-      expect(screen.queryByRole("list", { name: "Tracks" })).toBeNull();
       expect(http.fetch).toHaveBeenCalledTimes(phase === "listing" ? 3 : 2);
       const before = http.fetch.mock.calls.length;
       http.reply(currentPage(changed));
       http.reply(tracksOf(changed, bonusEdition, freshTitle));
-      fireEvent.click(screen.getByRole("button", { name: "Open album" }));
+      view.rerender(catalogAlbumElement(changed));
+      expect(held.signal()?.aborted).toBe(true);
+      expect(held.aborts()).toBe(1);
+      expect(screen.queryByRole("button", { name: "Open album" })).toBeNull();
       await within(
         await screen.findByRole("list", { name: "Tracks" }),
       ).findByText(freshTitle);

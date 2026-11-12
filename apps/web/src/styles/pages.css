@@ -508,17 +508,6 @@ section[aria-label="Discography"] > section > .button {
 .release-card .text-link {
   font-weight: 700;
 }
-.release-card[data-open] {
-  grid-column: 1 / -1;
-}
-.release-card[data-open] .album-header :is(h4, h5) {
-  margin: 0;
-  font-size: 40px;
-  line-height: 1.05;
-}
-.release-card[data-open] .album-header {
-  margin-bottom: 18px;
-}
 .album-note {
   margin: 0;
   font-size: 13px;
@@ -568,9 +557,6 @@ section[aria-label="Discography"] > section > .button {
   .album-header-cover {
     width: 140px;
     flex-basis: 140px;
-  }
-  .release-card[data-open] .album-header :is(h4, h5) {
-    font-size: 28px;
   }
   .discography-controls .chip-toggle {
     margin-left: 0;

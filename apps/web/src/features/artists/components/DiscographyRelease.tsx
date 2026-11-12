@@ -1,12 +1,10 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
 import { router } from "@inertiajs/react";
 
 import CatalogCover from "./CatalogCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import ArtistEditions from "./ArtistEditions";
-import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
 import { releaseKinds } from "../../catalog/model/albumEyebrow";
 
@@ -53,24 +51,6 @@ export default function DiscographyRelease({
   release?: string;
   onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
-  const [view, setView] = useState<"card" | "open" | "play">("card");
-  if (release === undefined && view !== "card")
-    return (
-      <li className="release-card" data-open="">
-        <CatalogAlbum
-          context={{
-            account,
-            recording,
-            association,
-            profile,
-            group,
-            onAlbumEdition,
-          }}
-          heading={Heading}
-          playOnReady={view === "play"}
-        />
-      </li>
-    );
   const availability = library ? releaseAvailability(library) : null;
   const kind = group.kind ? releaseKinds[group.kind] : "Release";
   if (release === undefined)
@@ -108,11 +88,11 @@ export default function DiscographyRelease({
           }
           openLabel={`Open ${group.title}`}
           href={albumHref?.(group.id)}
-          onOpen={() => setView("open")}
+          disabled={!albumHref}
           onPlay={
             albumHref
               ? () => router.get(`${albumHref(group.id)}?play=1`)
-              : () => setView("play")
+              : undefined
           }
         />
       </li>

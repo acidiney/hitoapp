@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
-import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
 import AlbumActions from "../../catalog/components/AlbumActions";
 import AlbumProgressLine from "../../catalog/components/AlbumProgressLine";
@@ -56,12 +55,6 @@ export default function CatalogAlbum({
     started.current = true;
     void starter.current(0);
   }, [playOnReady, ready]);
-  if (!editions.opened)
-    return (
-      <Button type="button" onClick={() => void editions.browse()}>
-        Open album
-      </Button>
-    );
   const title = group.title || editions.chosen?.title || "Release";
   const duration = totalMs(occurrences);
   const owned = rows.filter((row) => row.recording).length;
