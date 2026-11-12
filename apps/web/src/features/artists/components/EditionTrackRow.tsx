@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import { Check, Plus } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
 import ActionMenu, { type ActionMenuItem } from "../../../shared/ui/ActionMenu";
+import type { RowPlayState } from "../../playback/hooks/useNowPlaying";
+import {
+  PlayingBars,
+  PlayingStatus,
+} from "../../playback/components/PlayingBars";
 
 export type EditionRowState =
   | "ready"
@@ -44,6 +49,7 @@ export default function EditionTrackRow({
   actions,
   add,
   more = [],
+  playing = null,
 }: {
   number: ReactNode;
   title: string;
@@ -61,10 +67,15 @@ export default function EditionTrackRow({
   actions?: ReactNode;
   add?: { label: string; disabled: boolean; onAdd: () => void };
   more?: ActionMenuItem[];
+  playing?: RowPlayState;
 }) {
   const isOwned = owned.includes(state);
   return (
-    <li className="edition-row-item" data-state={state}>
+    <li
+      className="edition-row-item"
+      data-state={state}
+      aria-current={playing ? "true" : undefined}
+    >
       {play && (
         <button
           type="button"
@@ -74,7 +85,16 @@ export default function EditionTrackRow({
           onClick={play.onPlay}
         />
       )}
-      <p className="edition-row-number">{number}</p>
+      <p className="edition-row-number">
+        {playing ? (
+          <>
+            <PlayingBars state={playing} />
+            <PlayingStatus state={playing} />
+          </>
+        ) : (
+          number
+        )}
+      </p>
       <p className="edition-row-title">{title}</p>
       <p className="edition-row-sub">
         <span className="edition-row-status">

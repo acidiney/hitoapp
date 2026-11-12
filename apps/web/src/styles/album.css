@@ -461,6 +461,15 @@ a.album-artist:focus-visible {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.edition-row-item[aria-current="true"] .edition-row-open {
+  background: var(--subtle);
+}
+.edition-row-item[aria-current="true"] .edition-row-title {
+  color: var(--link);
+}
+.edition-row-number .playing-bars {
+  height: 14px;
+}
 .edition-row-title {
   grid-area: title;
   overflow: hidden;

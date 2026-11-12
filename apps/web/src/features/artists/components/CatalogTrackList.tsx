@@ -3,6 +3,10 @@ import type { Schema } from "../../../shared/schema";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import { time } from "../../../shared/format";
 import TrackRowActions from "../../playback/components/TrackRowActions";
+import {
+  rowPlayState,
+  useNowPlaying,
+} from "../../playback/hooks/useNowPlaying";
 import type {
   CatalogTrack,
   CatalogTrackControls,
@@ -28,6 +32,7 @@ export default function CatalogTrackList({
   playlists: Schema<"Playlist">[];
   mutate: Mutate;
 }) {
+  const now = useNowPlaying();
   function row(track: CatalogTrack, index: number) {
     const { recording } = track;
     if (filter === "library" && !recording) return null;
@@ -49,6 +54,7 @@ export default function CatalogTrackList({
           key={track.id}
           {...common}
           {...ownedRowState(recording)}
+          playing={rowPlayState(now, recording)}
           actions={
             <TrackRowActions
               track={{ ...recording, row_id: recording.id }}

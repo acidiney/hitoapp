@@ -17,6 +17,10 @@ import {
 import { albumEditionApi } from "../api/albumEditionApi";
 import { useEditionPlayback } from "../hooks/useCatalogPlayback";
 import { creditText } from "../model/catalogAlbumRows";
+import {
+  rowPlayState,
+  useNowPlaying,
+} from "../../playback/hooks/useNowPlaying";
 
 type Comparison = Extract<
   Schema<"AlbumEditionTrackListAvailability">,
@@ -52,6 +56,7 @@ export default function AlbumEditionTrackList({
   edition?: EditionControls;
 }) {
   const player = usePlayer();
+  const now = useNowPlaying();
   const merge = useAlbumMerge(comparison !== null);
   const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const catalog = useCatalogTrackPlay(
@@ -216,6 +221,7 @@ export default function AlbumEditionTrackList({
           key={track.id}
           {...common}
           {...ownedRowState(library)}
+          playing={rowPlayState(now, library)}
           actions={libraryActions(library)}
           play={playFrom(track, library.title)}
         />
@@ -296,6 +302,7 @@ export default function AlbumEditionTrackList({
         number="–"
         title={track.title}
         {...ownedRowState(track)}
+        playing={rowPlayState(now, track)}
         actions={libraryActions(track)}
         credit={track.artist}
         time={track.duration_ms ? time(track.duration_ms / 1000) : ""}
