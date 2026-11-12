@@ -29,7 +29,7 @@ export default function AlbumCompleteTrackList({
 }: Props) {
   const merge = useContext(AlbumMergeContext);
   const edition = useAlbumEditionChoice(account, release, saved);
-  const [view, setView] = useState<View>("closed");
+  const [chosenView, setView] = useState<View>("closed");
   const [tagged, setTagged] = useState<Schema<"SavedAlbumEdition"> | null>(
     null,
   );
@@ -37,6 +37,7 @@ export default function AlbumCompleteTrackList({
   const state = edition.choice.state;
   const ready = state.status === "ready" ? state.edition : null;
   const linked = state.status !== "unset";
+  const view: View = chosenView === "closed" && ready ? "saved" : chosenView;
   const browseAnchor: Schema<"AlbumCatalogAnchor"> | null =
     anchor ??
     (ready

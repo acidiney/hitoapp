@@ -111,13 +111,12 @@ async function chooseFirstEdition() {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("a remembered edition opens with one action and no discography or edition browsing", async () => {
+test("a remembered edition opens its complete track list on load with no discography or edition browsing", async () => {
   const fetch = serve();
   render(page(readyChoice));
-  expect(fetch).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
+  expect(
+    screen.queryByRole("button", { name: "Show complete track list" }),
+  ).toBeNull();
   const region = await screen.findByRole("region", {
     name: "Album edition track list",
   });
@@ -156,9 +155,6 @@ test("choosing an edition remembers it with the displayed revision and the next 
 test("forgetting the edition clears it and returns to an explicit choice", async () => {
   const fetch = serve();
   render(page(readyChoice));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
   await screen.findByRole("region", { name: "Album edition track list" });
   fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
@@ -190,9 +186,6 @@ test("changing the edition opens the browser while the remembered one stays unti
         edition: { ...savedEdition, edition_id: "opaque:edition/other" },
       },
     }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
   );
   await screen.findByRole("region", { name: "Album edition track list" });
   fireEvent.click(editionMenuItem("Change edition"));
@@ -228,9 +221,6 @@ test("a link that the server reports as stale while reading falls back to choosi
     [savedRead]: () => Response.json({ status: "needs_choice" }),
   });
   render(page(readyChoice));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",
   });
@@ -266,9 +256,6 @@ test("leaving the album cancels a held remembered read", async () => {
     },
   });
   const view = render(page(readyChoice));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
   await waitFor(() => expect(signals).toHaveLength(1));
   const errors = vi.spyOn(console, "error");
   view.unmount();
@@ -305,9 +292,6 @@ test("a stale remembered edition can be forgotten even when the album has no rev
 test("a link that turns stale while reading with no reviewed artist can still be forgotten", async () => {
   serve({ [savedRead]: () => Response.json({ status: "needs_choice" }) });
   render(page(readyChoice, null));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
   await screen.findByText(/needs a reviewed artist/);
   expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
 });

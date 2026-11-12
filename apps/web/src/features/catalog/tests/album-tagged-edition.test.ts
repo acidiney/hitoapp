@@ -148,9 +148,10 @@ test("an owner's choice or an earlier decision never asks for the tagged edition
   for (const saved of [readyChoice, decided]) {
     const fetch = serve(() => Response.json({ status: "none" }));
     const view = render(page(saved));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show complete track list" }),
-    );
+    if (saved.state.status !== "ready")
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show complete track list" }),
+      );
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     expect(paths(fetch)).not.toContain(tagged);
     view.unmount();

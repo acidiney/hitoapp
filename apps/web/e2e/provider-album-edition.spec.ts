@@ -189,9 +189,9 @@ test("an album compares a chosen edition with its library and saves a catalog tr
       .toBe(albumEdition.standardId);
     const catalogCalls = fixture.calls.length;
     await page.reload();
-    await page
-      .getByRole("button", { name: "Show complete track list" })
-      .click();
+    await expect(
+      page.getByRole("button", { name: "Show complete track list" }),
+    ).toHaveCount(0);
     const remembered = page.getByRole("region", {
       name: "Album edition track list",
     });
