@@ -41,6 +41,17 @@ export const lyricsApi = {
       { action: "lyrics.services", account, signal },
     );
   },
+  async automatic(
+    account: string,
+    recording: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"AutomaticLyricsLookup">> {
+    const body: Schema<"ReadAutomaticRecordingLyrics"> = {};
+    return requestJson<Schema<"AutomaticLyricsLookup">>(
+      `${base(recording)}/automatic`,
+      { action: "lyrics.automatic", method: "POST", account, body, signal },
+    );
+  },
   async identities(
     account: string,
     recording: string,

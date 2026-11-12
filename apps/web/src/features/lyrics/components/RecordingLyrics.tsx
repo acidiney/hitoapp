@@ -1,14 +1,12 @@
 import { useRef, useState } from "react";
 import Button from "../../../shared/ui/Button";
 import type { useRecordingLyrics } from "../hooks/useRecordingLyrics";
-import { followableLines } from "../model/lyricContent";
 import { accessMessage } from "../model/lyricFailure";
 import { identityNames, identityKey } from "../model/lyricIdentity";
-import FollowedLyrics from "./FollowedLyrics";
 import LyricChangeDialog from "./LyricChangeDialog";
 import LyricFinder from "./LyricFinder";
 import LyricLookup, { LyricStateCard } from "./LyricLookup";
-import LyricText, { LyricCredits } from "./LyricText";
+import LyricPanel from "./LyricPanel";
 
 type SavedFacts = {
   title: string;
@@ -51,7 +49,6 @@ export default function RecordingLyrics({
   const outcome = reader.outcome;
   const view = outcome?.kind === "lyrics" ? outcome.view : null;
   const selected = identities.selected;
-  const followed = view ? followableLines(view, saved.durationMs ?? 0) : null;
 
   if (lyrics.lost)
     return (
@@ -84,6 +81,17 @@ export default function RecordingLyrics({
     </button>
   );
 
+  const startFinding = () => {
+    lookup.retire();
+    setFinding(true);
+  };
+
+  const findFromChange = (
+    <button type="button" className="lyric-action" onClick={startFinding}>
+      Change
+    </button>
+  );
+
   const tryAnother = (
     <button
       type="button"
@@ -97,25 +105,26 @@ export default function RecordingLyrics({
     </button>
   );
 
-  const header = (state: string) => (
-    <div className="lyric-source">
-      <span>
-        {state}
-        {sourceName ? ` · from ${sourceName}` : ""}
-      </span>
-      {change}
-    </div>
-  );
-
   const body = () => {
     if (!items) return null;
-    if (items.length === 0)
+    if (items.length === 0) {
+      if (lookup.outcome?.kind === "lyrics")
+        return (
+          <LyricPanel
+            recording={recording}
+            view={lookup.outcome.view}
+            durationMs={saved.durationMs ?? 0}
+            sourceName={lookup.outcome.label}
+            change={findFromChange}
+          />
+        );
       return lookup.engaged ? (
         <LyricLookup
           pending={lookup.pending}
           failure={lookup.failure}
+          outcome={lookup.outcome}
           onRetry={lookup.run}
-          onFind={() => setFinding(true)}
+          onFind={startFinding}
         />
       ) : (
         <LyricStateCard
@@ -124,10 +133,11 @@ export default function RecordingLyrics({
           title="Find a match to see lyrics here"
         >
           <div className="lyric-card-actions">
-            <Button onClick={() => setFinding(true)}>Find lyrics</Button>
+            <Button onClick={startFinding}>Find lyrics</Button>
           </div>
         </LyricStateCard>
       );
+    }
     if (!selected)
       return (
         <LyricStateCard
@@ -175,29 +185,22 @@ export default function RecordingLyrics({
           </div>
         </LyricStateCard>
       );
-    if (view) {
-      const text = <LyricText view={view} />;
+    if (view)
       return (
-        <section
-          className="lyric-panel"
-          aria-label={followed ? "Synced lyrics" : "Lyrics without timing"}
-          data-synced={followed ? "" : undefined}
-        >
-          {header(followed ? "Synced" : "Not synced")}
-          {followed ? (
-            <>
-              <FollowedLyrics recording={recording} lines={followed} />
-              <LyricCredits view={view} />
-            </>
-          ) : (
-            text
-          )}
-        </section>
+        <LyricPanel
+          recording={recording}
+          view={view}
+          durationMs={saved.durationMs ?? 0}
+          sourceName={sourceName}
+          change={change}
+        />
       );
-    }
     return (
       <section className="lyric-panel" aria-label="Lyrics">
-        {header("Lyrics")}
+        <div className="lyric-source">
+          <span>Lyrics{sourceName ? ` · from ${sourceName}` : ""}</span>
+          {change}
+        </div>
         <p className="lyric-card-note">Lyrics load when you ask.</p>
         <div className="lyric-card-actions">
           <Button onClick={reader.load}>Show lyrics</Button>
@@ -269,7 +272,7 @@ export default function RecordingLyrics({
           opener={opener}
           onFind={() => {
             setChanging(false);
-            setFinding(true);
+            startFinding();
           }}
           onClose={() => setChanging(false)}
         />

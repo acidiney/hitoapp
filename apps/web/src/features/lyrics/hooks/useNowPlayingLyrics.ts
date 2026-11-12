@@ -2,12 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
 import { lyricsApi } from "../api/lyricsApi";
-import {
-  autoLookupFinished,
-  findAutoIdentity,
-  rememberAutoLookup,
-} from "../api/autoIdentity";
-import type { RecordingFacts } from "../model/lyricMatch";
+import { lookupAutomatic, rememberedAutomatic } from "../api/automaticLyrics";
 import {
   readMatchesIdentity,
   selectedLyricsOutcome,
@@ -35,7 +30,7 @@ export type NowPlayingLyricsState =
   | {
       status: "done";
       providers: LyricChoice[];
-      provider: LyricChoice;
+      provider: { key: string; label: string };
       lyrics: LyricView | null;
       unsupported: boolean;
     };
@@ -55,7 +50,6 @@ export function useNowPlayingLyrics(
   account: string,
   recording: string,
   automatic = true,
-  facts: RecordingFacts = { title: "", artist: "", durationMs: null },
 ) {
   const [state, setState] = useState<NowPlayingLyricsState>({
     status: "loading",
@@ -63,8 +57,6 @@ export function useNowPlayingLyrics(
   });
   const controller = useRef<AbortController | null>(null);
   const providers = useRef<LyricChoice[]>([]);
-  const factsRef = useRef(facts);
-  factsRef.current = facts;
 
   const read = useCallback(
     async (
@@ -139,18 +131,45 @@ export function useNowPlayingLyrics(
             providers.current.length === 0 &&
             listed.items.length === 0 &&
             automatic &&
-            (force || autoLookupFinished(account, recording) === null)
+            (force || rememberedAutomatic(account, recording) === null)
           ) {
-            const found = await findAutoIdentity(
-              account,
-              recording,
-              factsRef.current,
-              own.signal,
-            );
+            const found = await lookupAutomatic(account, recording, own.signal);
             if (own.signal.aborted) return;
-            if (found.kind === "none") rememberAutoLookup(account, recording);
-            if (found.kind === "saved")
-              providers.current = identityChoices([found.identity]);
+            outcome = found?.kind ?? "changed";
+            if (!found || found.kind === "unavailable") {
+              setState({ status: "failed", providers: [] });
+              return;
+            }
+            if (found.kind === "cancelled") {
+              setState({ status: "idle", providers: [] });
+              return;
+            }
+            if (found.kind === "lyrics") {
+              setState({
+                status: "done",
+                providers: [],
+                provider: { key: "automatic", label: found.label },
+                lyrics: found.view,
+                unsupported: false,
+              });
+              return;
+            }
+            if (found.kind === "unsupported") {
+              setState({
+                status: "done",
+                providers: [],
+                provider: { key: "automatic", label: "" },
+                lyrics: null,
+                unsupported: true,
+              });
+              return;
+            }
+            setState({
+              status:
+                found.kind === "no_services" ? "no_provider" : "none_for_track",
+              providers: [],
+            });
+            return;
           }
           if (providers.current.length === 0) {
             const services = await lyricsApi.services(

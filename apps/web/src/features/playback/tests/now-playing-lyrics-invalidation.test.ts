@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { forgetAutoLookups } from "../../lyrics/api/autoIdentity";
+import { forgetAutomaticLookups } from "../../lyrics/api/automaticLyrics";
 import { LyricsPanel } from "../components/NowPlayingLyrics";
 import { invalidate } from "../../../shared/invalidation";
 
@@ -9,7 +9,7 @@ const apis = vi.hoisted(() => ({
   identities: vi.fn(),
   read: vi.fn(),
   services: vi.fn(),
-  candidates: vi.fn(),
+  automatic: vi.fn(),
 }));
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
 vi.mock("../../lyrics/api/lyricsApi", () => ({
@@ -17,7 +17,7 @@ vi.mock("../../lyrics/api/lyricsApi", () => ({
     identities: apis.identities,
     readSelected: apis.read,
     services: apis.services,
-    candidates: apis.candidates,
+    automatic: apis.automatic,
   },
 }));
 
@@ -57,14 +57,14 @@ const ready = (text: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  forgetAutoLookups();
+  forgetAutomaticLookups();
 });
 afterEach(cleanup);
 
 test("lyrics retained on the track page appear in Now playing without reopening it", async () => {
   apis.identities.mockResolvedValueOnce({ recording_id: "r1", items: [] });
   apis.services.mockResolvedValue({ recording_id: "r1", items: [] });
-  apis.candidates.mockResolvedValue({ items: [] });
+  apis.automatic.mockResolvedValue({ status: "no_services" });
   render(
     createElement(LyricsPanel, {
       account: "alice",

@@ -15,7 +15,7 @@ import { useLyricRemoval } from "./useLyricRemoval";
 import { useLyricReview } from "./useLyricReview";
 import { useLyricSearch } from "./useLyricSearch";
 import { useSelectedLyrics } from "./useSelectedLyrics";
-import { useAutoLyricIdentity } from "./useAutoLyricIdentity";
+import { useAutomaticLyrics } from "./useAutomaticLyrics";
 
 type Chosen = { scope: string; id: string };
 type Notice = { scope: string; text: string };
@@ -51,16 +51,7 @@ export function useRecordingLyrics(
     onFailure,
   );
   const removal = useLyricRemoval(account, recording, onFailure);
-  const auto = useAutoLyricIdentity(
-    account,
-    recording,
-    {
-      title: detail.title.value,
-      artist: detail.artist.value,
-      durationMs: detail.selected_observation?.duration_ms ?? null,
-    },
-    onFailure,
-  );
+  const auto = useAutomaticLyrics(account, recording, onFailure);
   const services = identities.services ?? [];
   const service =
     services.find(
@@ -124,32 +115,35 @@ export function useRecordingLyrics(
 
   const autoLoader = useRef(auto.lookup);
   autoLoader.current = auto.lookup;
-  const identitiesLoader = useRef(identities.load);
-  identitiesLoader.current = identities.load;
   const lookupAttempted = useRef<string | null>(null);
   const noSavedIdentity =
     identities.loaded &&
     !identities.failure &&
     identities.identities !== null &&
     identities.identities.length === 0;
-  const startLookup = () =>
-    void autoLoader.current((identity) =>
-      identitiesLoader.current({ prefer: identityKey(identity) }),
-    );
+  const startLookup = () => void autoLoader.current();
   useEffect(() => {
     if (
       !automatic ||
       lost ||
       !noSavedIdentity ||
-      auto.noMatch ||
+      auto.outcome !== null ||
       lookupAttempted.current === scopeKey
     )
       return;
     lookupAttempted.current = scopeKey;
     startLookup();
-  }, [automatic, lost, noSavedIdentity, auto.noMatch, scopeKey]);
+  }, [automatic, lost, noSavedIdentity, auto.outcome, scopeKey]);
+
+  const savedCount = identities.identities?.length ?? 0;
+  const retireAuto = useRef(auto.retire);
+  retireAuto.current = auto.retire;
+  useEffect(() => {
+    if (savedCount > 0) retireAuto.current();
+  }, [savedCount]);
 
   function accepted(identity: LyricIdentity) {
+    auto.cancel();
     setNotice({
       scope: scopeKey,
       text: `Saved ${identity.label}. Choose Show lyrics to read it.`,
@@ -201,12 +195,14 @@ export function useRecordingLyrics(
       engaged:
         noSavedIdentity &&
         (auto.pending ||
-          auto.noMatch ||
+          auto.outcome !== null ||
           auto.failure !== null ||
           identities.loading),
       pending: auto.pending || identities.loading,
+      outcome: auto.outcome,
       failure: auto.failure,
       run: startLookup,
+      retire: auto.retire,
     },
     finder: {
       services: identities.services,

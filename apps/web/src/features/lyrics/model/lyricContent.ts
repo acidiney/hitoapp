@@ -7,7 +7,11 @@ import {
 } from "./lyricIdentity";
 
 type Lookup = Schema<"SelectedLyricsLookup">;
+type AutomaticLookup = Schema<"AutomaticLyricsLookup">;
 export type ReadyLookup = Extract<Lookup, { status: "ready_v1" | "ready_v2" }>;
+type ReadyDocument =
+  | Extract<Lookup, { status: "ready_v1" | "ready_v2" }>
+  | Extract<AutomaticLookup, { status: "ready_v1" | "ready_v2" }>;
 
 export type DisplayLine = {
   text: string;
@@ -125,48 +129,74 @@ export function legacyLookupOutcome(
 }
 
 export function selectedLyricsOutcome(lookup: Lookup): SelectedLyricsOutcome {
+  if (lookup.status === "ready_v1" || lookup.status === "ready_v2")
+    return documentOutcome(lookup);
+  return { kind: lookup.status };
+}
+
+function documentOutcome(lookup: ReadyDocument): SelectedLyricsOutcome {
   if (lookup.status === "ready_v1") {
     const lyrics = lookup.document.lyrics;
     return lyrics
       ? { kind: "lyrics", view: timedView(lyrics) }
       : { kind: "not_found" };
   }
-  if (lookup.status === "ready_v2") {
-    const lyrics = lookup.document.lyrics;
-    if (!lyrics) return { kind: "not_found" };
-    const lines: DisplayLine[] =
-      lyrics.content.kind === "plain"
-        ? lyrics.content.lines.map((text) => ({
-            text,
+  const lyrics = lookup.document.lyrics;
+  if (!lyrics) return { kind: "not_found" };
+  const lines: DisplayLine[] =
+    lyrics.content.kind === "plain"
+      ? lyrics.content.lines.map((text) => ({
+          text,
+          startMs: null,
+          endMs: null,
+        }))
+      : withStanzaBreaks(
+          lyrics.content.lines.map((line) => ({
+            text: line.text,
             startMs: null,
             endMs: null,
-          }))
-        : withStanzaBreaks(
-            lyrics.content.lines.map((line) => ({
-              text: line.text,
-              startMs: null,
-              endMs: null,
-            })),
-          );
-    return {
-      kind: "lyrics",
-      view: {
-        durationMs: lyrics.duration_ms ?? null,
-        timeline:
-          lyrics.content.kind === "anchored"
-            ? anchoredTimeline(lyrics.content.lines)
-            : null,
-        kind: lyrics.content.kind,
-        synced: false,
-        label: lyrics.rendition_label ?? null,
-        language: lyrics.language ?? null,
-        lines,
-        attribution: attributionOf(lyrics.attribution),
-        legacyAttribution: null,
-      },
+          })),
+        );
+  return {
+    kind: "lyrics",
+    view: {
+      durationMs: lyrics.duration_ms ?? null,
+      timeline:
+        lyrics.content.kind === "anchored"
+          ? anchoredTimeline(lyrics.content.lines)
+          : null,
+      kind: lyrics.content.kind,
+      synced: false,
+      label: lyrics.rendition_label ?? null,
+      language: lyrics.language ?? null,
+      lines,
+      attribution: attributionOf(lyrics.attribution),
+      legacyAttribution: null,
+    },
+  };
+}
+
+export type AutomaticOutcome =
+  | { kind: "lyrics"; view: LyricView; label: string }
+  | {
+      kind: Exclude<AutomaticLookup["status"], "ready_v1" | "ready_v2">;
     };
-  }
-  return { kind: lookup.status };
+
+export function automaticOutcome(
+  lookup: AutomaticLookup,
+  recording: string,
+): AutomaticOutcome | null {
+  if (lookup.status !== "ready_v1" && lookup.status !== "ready_v2")
+    return { kind: lookup.status };
+  if (
+    lookup.recording_id !== recording ||
+    !sameProviderRef(lookup.document.recording, lookup.provider_recording)
+  )
+    return null;
+  const shown = documentOutcome(lookup);
+  return shown.kind === "lyrics"
+    ? { kind: "lyrics", view: shown.view, label: lookup.label }
+    : { kind: "not_found" };
 }
 
 export function previewLines(view: LyricView | null): string[] {

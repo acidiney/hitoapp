@@ -18,6 +18,7 @@ import { recordingId } from "./lyricIdentityWire";
 export type Route =
   | "services"
   | "identities"
+  | "automatic"
   | "candidates"
   | "review"
   | "retain"
@@ -46,6 +47,7 @@ function classify(method: string, path: string): Route | null {
   const table: [string, string, Route][] = [
     ["GET", `${base}/lyrics/services`, "services"],
     ["GET", `${base}/lyrics/identities`, "identities"],
+    ["POST", `${base}/lyrics/automatic`, "automatic"],
     ["POST", `${base}/lyrics/candidates`, "candidates"],
     ["POST", `${base}/lyrics/identities/review`, "review"],
     ["POST", `${base}/lyrics/identities`, "retain"],

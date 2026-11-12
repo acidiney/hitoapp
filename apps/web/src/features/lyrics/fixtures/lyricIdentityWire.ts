@@ -94,6 +94,23 @@ export const readyV2 = (
   document: { recording: identity.provider_recording, lyrics },
 });
 
+export const automaticReadyV2 = (
+  lyrics: Schema<"LyricsResponseV2">["lyrics"],
+  overrides: Partial<
+    Extract<Schema<"AutomaticLyricsLookup">, { status: "ready_v2" }>
+  > = {},
+): Schema<"AutomaticLyricsLookup"> => ({
+  status: "ready_v2",
+  recording_id: recordingId,
+  installation_id: serviceA.installation_id,
+  installation_revision: serviceA.installation_revision,
+  label: serviceA.label,
+  provider_recording: { id: "auto-provider", revision: null },
+  document_digest: "digest-auto",
+  document: { recording: { id: "auto-provider", revision: null }, lyrics },
+  ...overrides,
+});
+
 export const plainDocument = (
   lines: string[],
   attribution?: Schema<"LyricAttribution"> | null,

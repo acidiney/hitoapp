@@ -66,7 +66,7 @@ function Footer({
 }: {
   track: Track;
   leave: () => void;
-  source?: { label: string; synced: boolean };
+  source?: { label: string; synced: boolean; automatic: boolean };
   providers?: Lyrics["state"]["providers"];
   choose?: () => void;
 }) {
@@ -94,7 +94,7 @@ function Footer({
         href={trackTabHref(track.id, "lyrics")}
         onNavigate={leave}
       >
-        Track details
+        {source?.automatic ? "Change" : "Track details"}
       </RouteLink>
     </div>
   );
@@ -114,11 +114,6 @@ function TrackLyrics({
     account,
     track.id,
     automatic,
-    {
-      title: track.title,
-      artist: track.artist,
-      durationMs: track.duration_ms > 0 ? track.duration_ms : null,
-    },
   );
   const [choosing, setChoosing] = useState(false);
   const details = (
@@ -252,7 +247,11 @@ function TrackLyrics({
       <Footer
         track={track}
         leave={leave}
-        source={{ label: provider.label, synced }}
+        source={{
+          label: provider.label,
+          synced,
+          automatic: providers.length === 0,
+        }}
         providers={providers}
         choose={() => setChoosing(!choosing)}
       />
