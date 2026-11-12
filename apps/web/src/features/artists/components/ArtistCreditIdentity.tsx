@@ -241,24 +241,31 @@ export default function ArtistCreditIdentity({
             </p>
           )}
           {identity.step === "confirming" && identity.selected && (
-            <div role="group" aria-label="Confirm artist identity">
+            <div
+              role="group"
+              aria-label="Confirm artist identity"
+              className="identity-confirm"
+            >
               <p>
-                Use {identity.selected.name.value} for every track you can
-                access under the credit {artist.name}? A track keeps its choice
-                when it already has a different reviewed artist, or when a
-                different artist's choice needs review. Tracks never chosen,
-                reset, or needing review for this artist are updated. You can
-                reset any track later.
+                Use {identity.selected.name.value} for every track credited{" "}
+                {artist.name}?
               </p>
-              <Button
-                type="button"
-                onClick={() => identity.apply(identity.selected!)}
-              >
-                Confirm
-              </Button>
-              <Button type="button" onClick={identity.cancel}>
-                Cancel
-              </Button>
+              <p className="muted">
+                Tracks with a different reviewed artist, or whose other artist
+                needs review, keep their choice. You can reset any track later.
+              </p>
+              <footer className="review-actions credit-dialog-actions">
+                <Button type="button" onClick={identity.cancel}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => identity.apply(identity.selected!)}
+                >
+                  Confirm
+                </Button>
+              </footer>
             </div>
           )}
           {identity.step === "applying" && <p>Applying the artist identity…</p>}
@@ -268,7 +275,7 @@ export default function ArtistCreditIdentity({
               Retry the same artist identity request
             </Button>
           )}
-          {!showChoices && (
+          {!showChoices && identity.step !== "confirming" && (
             <footer className="review-actions credit-dialog-actions">
               <Button disabled={busy} onClick={closeChoosing}>
                 Close
