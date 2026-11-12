@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 const MAX_RESPONSE_BYTES: usize = 262_144;
 const MAX_ENTRIES: usize = 50;
+const MAX_DOCUMENTS: usize = 2;
 
 #[derive(Deserialize)]
 struct Document {
@@ -51,16 +52,11 @@ fn documents(bytes: &[u8], query: &str, limit: u16) -> Result<Results, Error> {
     let mut results = Results::default();
     let mut seen = Vec::new();
     let mut usable = false;
-    for (index, value) in serde_json::Deserializer::from_slice(bytes)
-        .into_iter::<serde_json::Value>()
-        .enumerate()
-    {
-        if index >= 2 {
-            return Err(Error::InvalidResponse);
-        }
-        let Ok(value) = value else {
-            break;
-        };
+    let frames = frames(bytes);
+    if frames.len() > MAX_DOCUMENTS {
+        return Err(Error::InvalidResponse);
+    }
+    for value in frames.into_iter().flatten() {
         let Ok(document) = serde_json::from_value::<Document>(value) else {
             continue;
         };
@@ -92,6 +88,22 @@ fn documents(bytes: &[u8], query: &str, limit: u16) -> Result<Results, Error> {
         Ok(results)
     } else {
         Err(Error::InvalidResponse)
+    }
+}
+
+fn frames(bytes: &[u8]) -> Vec<Option<serde_json::Value>> {
+    let streamed = serde_json::Deserializer::from_slice(bytes)
+        .into_iter::<serde_json::Value>()
+        .take(MAX_DOCUMENTS + 1)
+        .collect::<Result<Vec<_>, _>>();
+    match streamed {
+        Ok(values) => values.into_iter().map(Some).collect(),
+        Err(_) => bytes
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.iter().all(u8::is_ascii_whitespace))
+            .take(MAX_DOCUMENTS + 1)
+            .map(|line| serde_json::from_slice(line).ok())
+            .collect(),
     }
 }
 
