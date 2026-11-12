@@ -22,6 +22,8 @@ This file preserves the requested scope. A working development deployment does n
 - Preview standalone playlists, likes, and progress before import into a server; preserve the standalone library.
 - Independent accounts, private activity/credentials, admin-managed shared library access, admin-created accounts by default, optional local PIN locks.
 - Personal plugins and shared admin provider defaults. Personal metadata edits, administrator promotion, unlinking, splitting, and correction undo.
+- Each credited artist, including guests, has its own recording-member identity, automatic evidence or personal choice, artist page, discography and appearances. Preserve personal decisions across proven member refreshes; one recording-level identity must not be copied to every guest.
+- Reuse an account's unique reviewed artist for the remaining eligible members of the same credit automatically, preserving provenance, personal edits and different choices. Expose per-credit matching state without requiring clients to scan the global review queue.
 
 ## Listening
 
