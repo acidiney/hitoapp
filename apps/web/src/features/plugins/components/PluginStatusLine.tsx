@@ -5,9 +5,12 @@ export type ConnectionState = { status: SourceStatus; label: string };
 
 export function connectionState(
   plugin: Schema<"PluginInstallation">,
+  credentialsRequired = false,
 ): ConnectionState {
   if (plugin.manifest.authorization && !plugin.credential_set)
     return { status: "none", label: "Needs sign-in" };
+  if (credentialsRequired)
+    return { status: "failed", label: "Credentials need updating" };
   if (plugin.health?.state === "unreachable")
     return { status: "failed", label: "Not answering right now" };
   if (plugin.health?.state === "degraded")

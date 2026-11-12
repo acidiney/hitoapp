@@ -14,6 +14,10 @@ import { declaredCapabilities } from "../model/capabilityRows";
 import { friendlyTime } from "../../../shared/format";
 import { pluginHealthNotice } from "../model/pluginHealth";
 import {
+  connectionNeedsCredentials,
+  useCredentialRequirements,
+} from "../model/credentialRequirements";
+import {
   capabilityChips,
   newCapabilities,
   serviceSummary,
@@ -112,8 +116,18 @@ export default function PluginConnection({
     void check();
   }
   const chips = capabilityChips(plugin.manifest.capabilities);
-  const notice = pluginHealthNotice(plugin.manifest.name, plugin.health);
-  const state = connectionState(plugin);
+  const credentialFlags = useCredentialRequirements(account);
+  const credentialsRequired = connectionNeedsCredentials(
+    credentialFlags,
+    plugin,
+  );
+  const notice = credentialsRequired
+    ? {
+        title: `${plugin.manifest.name} needs its credentials updated.`,
+        hint: "Save a new token under Manage. Your library, playlists and playback are not affected.",
+      }
+    : pluginHealthNotice(plugin.manifest.name, plugin.health);
+  const state = connectionState(plugin, credentialsRequired);
   const panelId = `plugin-manage-${plugin.id}`;
   return (
     <li className="plugin-connection">
@@ -144,6 +158,15 @@ export default function PluginConnection({
       {notice && (
         <div className="plugin-health">
           <SectionWarning title={notice.title}>{notice.hint}</SectionWarning>
+          {credentialsRequired && !manage && (
+            <Button
+              aria-controls={panelId}
+              aria-label={`Update credentials for ${plugin.manifest.name}`}
+              onClick={() => setManage(true)}
+            >
+              Update credentials
+            </Button>
+          )}
         </div>
       )}
       {waiting && !review && (

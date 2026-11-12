@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { request, requestJson } from "../../../shared/http";
 import { invalidate } from "../../../shared/invalidation";
+import { clearCredentialRequirement } from "../model/credentialRequirements";
 
 const part = encodeURIComponent;
 export const pluginsApi = {
@@ -242,7 +243,7 @@ export const pluginsApi = {
     body: Schema<"RefreshPlugin">,
     signal: AbortSignal,
   ): Promise<Schema<"PluginRefresh">> {
-    return requestJson<Schema<"PluginRefresh">>(
+    const result = await requestJson<Schema<"PluginRefresh">>(
       `/plugins/${part(plugin.id)}/refresh`,
       {
         action: "plugins.refresh",
@@ -252,6 +253,12 @@ export const pluginsApi = {
         signal,
       },
     );
+    if (result.kind === "updated" && body.credential?.action === "replace") {
+      clearCredentialRequirement(account, plugin.id);
+      invalidate("plugins", plugin.id);
+      invalidate("lyrics");
+    }
+    return result;
   },
   async checkDeclaration(
     account: string,
