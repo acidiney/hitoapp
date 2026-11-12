@@ -96,7 +96,7 @@ Tests use real temporary SQLite and owned, deterministic audio fixtures. Never c
 
 ## Commits and pull requests
 
-- Make small, focused commits with single-line messages in plain language. Do not sign commits. Disable signing per commit without changing global Git settings: `git -c commit.gpgsign=false commit --no-gpg-sign -m "..."`.
+- Make small, focused commits with single-line messages in plain language.
 - Open a pull request only when the developer asks.
 - In the PR body, describe the problem in a sentence or two, then the fix and the evidence.
 - UI changes need before and after images. Motion needs a short video. Do not commit PR-only screenshots.
