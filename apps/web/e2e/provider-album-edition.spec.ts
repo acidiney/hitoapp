@@ -171,15 +171,11 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     fixture.state.outage = false;
     await page.getByRole("button", { name: "Try track list again" }).click();
     await expect(region.getByRole("listitem")).toHaveCount(3);
-    const notInEdition = region.getByRole("list", {
-      name: "In this album only",
-    });
-    await expect(notInEdition).toContainText(
-      fixture.titles[albumEdition.second],
-    );
-    await expect(notInEdition).toContainText(
-      fixture.titles[albumEdition.bonus],
-    );
+    const lastDisc = region
+      .getByRole("list", { name: /^Disc \d+ tracks$/ })
+      .last();
+    await expect(lastDisc).toContainText(fixture.titles[albumEdition.second]);
+    await expect(lastDisc).toContainText(fixture.titles[albumEdition.bonus]);
 
     await expect
       .poll(async () => {

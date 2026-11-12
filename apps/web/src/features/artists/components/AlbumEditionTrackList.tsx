@@ -284,6 +284,26 @@ export default function AlbumEditionTrackList({
     );
   }
 
+  function libraryOnlyRow(track: Comparison["library_only"][number]) {
+    return (
+      <EditionTrackRow
+        key={track.entry_id}
+        number="–"
+        title={track.title}
+        {...ownedState(track)}
+        actions={libraryActions(track)}
+        credit={track.artist}
+        time={track.duration_ms ? time(track.duration_ms / 1000) : ""}
+        play={{
+          label: `Play ${track.title}`,
+          menuLabel: "Play",
+          disabled: false,
+          onPlay: () => play(track),
+        }}
+      />
+    );
+  }
+
   const menu = [
     ...(edition?.change
       ? [
@@ -332,7 +352,7 @@ export default function AlbumEditionTrackList({
               items={menu}
             />
           )}
-          {comparison.edition.media.map((medium) => (
+          {comparison.edition.media.map((medium, index) => (
             <section
               key={medium.position}
               aria-label={`Disc ${medium.position}`}
@@ -352,40 +372,17 @@ export default function AlbumEditionTrackList({
                 className="edition-track-rows"
               >
                 {medium.tracks.map(row)}
+                {index === comparison.edition.media.length - 1 &&
+                  comparison.library_only.map(libraryOnlyRow)}
               </ol>
             </section>
           ))}
-          {filter === "all" && comparison.library_only.length > 0 && (
-            <section aria-label="Not in this edition">
-              <h3 className="edition-group-title">
-                In your library, not in this edition
-              </h3>
-              <ul
-                aria-label="In this album only"
-                className="edition-track-rows"
-              >
-                {comparison.library_only.map((track) => (
-                  <EditionTrackRow
-                    key={track.entry_id}
-                    number="–"
-                    title={track.title}
-                    {...ownedState(track)}
-                    actions={libraryActions(track)}
-                    credit={track.artist}
-                    time={
-                      track.duration_ms ? time(track.duration_ms / 1000) : ""
-                    }
-                    play={{
-                      label: `Play ${track.title}`,
-                      menuLabel: "Play",
-                      disabled: false,
-                      onPlay: () => play(track),
-                    }}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
+          {comparison.edition.media.length === 0 &&
+            comparison.library_only.length > 0 && (
+              <ol aria-label="Tracks" className="edition-track-rows">
+                {comparison.library_only.map(libraryOnlyRow)}
+              </ol>
+            )}
         </>
       )}
     </section>

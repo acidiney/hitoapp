@@ -156,16 +156,9 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   expect(second[0]).toContain(personalTitle);
   expect(second[1]).toContain("Unidentified bonus");
   expect(second[1]).toContain("No provider identity for this track");
-  expect(
-    within(
-      within(region).getByRole("list", { name: "In this album only" }),
-    ).getAllByRole("listitem"),
-  ).toHaveLength(1);
-  expect(
-    within(region).getByRole("heading", {
-      name: "In your library, not in this edition",
-    }),
-  ).toBeTruthy();
+  expect(second).toHaveLength(3);
+  expect(second[2]).toContain("Library only");
+  expect(second[2]).toMatch(/Ready|In your library/);
   expect(within(region).queryByText(/Find audio and play/)).toBeNull();
   await waitFor(() =>
     expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull(),
@@ -388,6 +381,36 @@ test("opening the complete track list never renders the artist's whole discograp
   ).toBeNull();
   expect(screen.queryByRole("heading", { name: "Discography" })).toBeNull();
   expect(screen.queryByText(editionGroup.title)).toBeNull();
+});
+
+test("library tracks outside the edition end the same track list as owned rows, with no separate block", async () => {
+  serve();
+  render(page());
+  const region = await chooseEdition();
+  expect(
+    within(region).queryByRole("heading", {
+      name: "In your library, not in this edition",
+    }),
+  ).toBeNull();
+  expect(
+    within(region).queryByRole("list", { name: "In this album only" }),
+  ).toBeNull();
+  expect(
+    within(region).queryByRole("region", { name: "Not in this edition" }),
+  ).toBeNull();
+  const lastDisc = within(region).getByRole("list", {
+    name: "Disc 2 tracks",
+  });
+  const rows = within(lastDisc).getAllByRole("listitem");
+  const last = rows.at(-1)!;
+  expect(last.textContent).toContain("Library only");
+  expect(last.textContent).toMatch(/Ready|In your library/);
+  fireEvent.click(
+    within(last).getByRole("button", { name: "Play Library only" }),
+  );
+  expect(player.playQueue.mock.calls.at(-1)![0][0].id).toBe("recording-extra");
+  fireEvent.click(screen.getByRole("button", { name: /^In my library \d+$/ }));
+  expect(within(region).getByText("Library only")).toBeTruthy();
 });
 
 test("the edition lives in one chip row with filters and a menu, and the header reports how much is owned", async () => {

@@ -449,8 +449,7 @@ a.album-artist:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.edition-tracks .disc-header,
-.edition-group-title {
+.edition-tracks .disc-header {
   display: block;
   margin: 20px 0 4px 12px;
   padding: 0;
