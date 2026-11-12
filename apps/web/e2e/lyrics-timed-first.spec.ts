@@ -13,6 +13,7 @@ import {
   type LyricsCandidate,
 } from "./fixtures/lyrics-provider";
 import { signOutFromShell } from "./fixtures/account";
+import { createMembers, memberPassword } from "./fixtures/member-accounts";
 import { trackTitleLink } from "./fixtures/track-row";
 
 type Facts = Pick<LyricsCandidate, "title" | "artist" | "duration_ms">;
@@ -303,42 +304,13 @@ test.describe("account change", () => {
     browser,
     baseURL,
   }) => {
-    const password = "lyric account change password";
-    const origin = new URL(baseURL!).origin;
-    const headers = { "x-hito-request": "1", origin };
-    const admin = await browser.newContext({ baseURL: baseURL! });
+    const members = await createMembers(browser, baseURL!, "lyric", 2);
+    const names = members.names;
     try {
-      await admin.request.post("/api/v1/login", {
-        headers,
-        data: { username: "admin", password: "docker browser test password" },
-      });
-      const libraries: Schema<"Library">[] = await (
-        await admin.request.get("/api/v1/libraries")
-      ).json();
-      const shared = libraries.find(
-        (library: { personal?: boolean }) => !library.personal,
-      )!;
-      const names = [
-        `lyric-owner-${Date.now() % 1_000_000}`,
-        `lyric-next-${Date.now() % 1_000_000}`,
-      ];
-      for (const username of names) {
-        const created = await admin.request.post("/api/v1/users", {
-          headers,
-          data: { username, password },
-        });
-        expect(created.status()).toBe(201);
-        const member: Schema<"User"> = await created.json();
-        const joined = await admin.request.put(
-          `/api/v1/libraries/${shared.id}/members/${member.id}`,
-          { headers },
-        );
-        expect(joined.ok()).toBe(true);
-      }
       const signIn = async (username: string) => {
         await page.goto("/");
         await page.getByLabel("Username", { exact: true }).fill(username);
-        await page.getByLabel("Password", { exact: true }).fill(password);
+        await page.getByLabel("Password", { exact: true }).fill(memberPassword);
         await page
           .getByRole("button", { name: "Sign in", exact: true })
           .click();
@@ -377,10 +349,10 @@ test.describe("account change", () => {
           expect(provider.reads()).toEqual(["lyrics:owner-timed"]);
         },
         baseURL!,
-        admin.request,
+        members.administrator,
       );
     } finally {
-      await admin.close();
+      await members.close();
     }
   });
 });
