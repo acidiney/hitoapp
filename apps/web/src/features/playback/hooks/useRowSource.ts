@@ -21,6 +21,8 @@ export function useRowSource(
     };
   }, [account, recording, settled]);
   return useSyncExternalStore(sourceStatusStore.subscribe, () =>
-    account ? (sourceStatusStore.peekSettled(account, recording)?.source ?? null) : null,
+    account
+      ? (sourceStatusStore.peekSettled(account, recording)?.source ?? null)
+      : null,
   );
 }
