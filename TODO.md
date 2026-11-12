@@ -460,6 +460,9 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## Release verification and distribution
 
+- [ ] Make Docker optional for running Hito. Keep Docker Compose as the development and verification environment.
+  - [ ] Ship and verify both server installation paths: containers and direct host binaries, including configuration, dependencies, upgrades and removal. Document both after they work.
+  - [ ] Package desktop installers with the local backend and required runtime pieces, including FFmpeg/ffprobe and yt-dlp for bundled official capabilities. Installation and playback must work without Docker, a separate container engine or manual runtime setup on macOS, Windows and Linux. Keep third-party plugins behind the HTTP contract; never execute downloaded plugin code.
 - [ ] Benchmark 100,000 tracks, 10 accounts, and 5 simultaneous listeners on documented hardware/network conditions.
   - [x] Speed up the first library scan found by the latency run: bounded parallel inspection (`MediaTools.parallelism`, CPU count between 2 and 8) with indexing in walk order. 10,000 tracks went from 948.6 s to 146.2 s (6.5x) and a no-change rescan from 18.9 s to 11.0 s on a development Mac in Docker; 100,000 tracks project to about 24 minutes (extrapolated, not measured). Up to `parallelism` temporary media copies exist at once. See [Library scan speed](docs/performance.md#library-scan-speed).
   - [ ] Measure a real 100,000-track scan on the reference hardware, cold disk included.
