@@ -19,7 +19,11 @@ async fn signed_in(directory: &tempfile::TempDir) -> (Services, Actor, String) {
         })
         .await
         .unwrap();
-    let actor = services.identity.authenticate(&session.token).await.unwrap();
+    let actor = services
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
     (services, actor, session.token)
 }
 
@@ -38,7 +42,11 @@ async fn guest(services: &Services, owner: &Actor) -> Actor {
         .await
         .unwrap();
     let session = services.identity.login(credentials()).await.unwrap();
-    services.identity.authenticate(&session.token).await.unwrap()
+    services
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap()
 }
 
 #[tokio::test]

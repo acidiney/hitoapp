@@ -31,11 +31,7 @@ enum Wake {
 }
 
 impl ChangeStream {
-    pub(super) fn new(
-        changes: Changes,
-        actor: Actor,
-        registration: Registration,
-    ) -> Self {
+    pub(super) fn new(changes: Changes, actor: Actor, registration: Registration) -> Self {
         let span = tracing::debug_span!(
             "change_stream",
             stream_id = %Uuid::new_v4(),
