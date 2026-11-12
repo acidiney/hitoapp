@@ -93,11 +93,11 @@ fn binary_search_supplies_only_the_owned_runtime_environment() {
     ]
     .into_iter()
     .map(str::to_owned)
-    .chain([expected_query.to_string()])
+    .chain([format!("ytsearch1:{query}"), expected_query.to_string()])
     .collect();
     assert!(
         arguments == expected_arguments,
-        "the owned runtime must receive the exact encoded Music search process arguments"
+        "the owned runtime must receive the exact video and encoded Music search process arguments"
     );
 
     let mut logs = String::new();

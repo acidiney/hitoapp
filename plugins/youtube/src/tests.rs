@@ -104,13 +104,14 @@ async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
             arguments.last().copied() == Some(expected_query.as_str()),
             "search must preserve the encoded Music query as one literal URL argument"
         );
-        assert_eq!(arguments[arguments.len() - 2], "--");
+        assert_eq!(arguments[arguments.len() - 2], format!("ytsearch2:{query}"));
+        assert_eq!(arguments[arguments.len() - 3], "--");
         let end = arguments
             .iter()
             .position(|argument| *argument == "--playlist-end")
             .unwrap_or_else(|| panic!("search must set its extraction result bound"));
         assert!(
-            end + 2 == arguments.len() - 2 && arguments[end + 1] == "2",
+            end + 2 == arguments.len() - 3 && arguments[end + 1] == "2",
             "search must pass the requested result bound before the URL separator"
         );
         assert_eq!(

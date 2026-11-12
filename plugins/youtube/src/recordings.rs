@@ -1,7 +1,7 @@
 use crate::Error;
 use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording, SearchPage};
 use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const MAX_RESPONSE_BYTES: usize = 262_144;
 const MAX_CREDITED_ARTISTS: usize = 16;
@@ -46,21 +46,26 @@ pub(crate) struct SearchEntry {
 }
 
 pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
-    let results: SearchResults =
-        serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
-    if results.entries.len() > 50 {
+    let mut documents = serde_json::Deserializer::from_slice(bytes).into_iter::<SearchResults>();
+    let videos = documents
+        .next()
+        .ok_or(Error::InvalidResponse)?
+        .map_err(|_| Error::InvalidResponse)?;
+    let songs = documents
+        .next()
+        .transpose()
+        .map_err(|_| Error::InvalidResponse)?
+        .map_or_else(Vec::new, |results| results.entries);
+    if documents.next().is_some() {
         return Err(Error::InvalidResponse);
     }
-    let mut items = Vec::with_capacity(results.entries.len());
-    for entry in results.entries {
-        items.push(entry.summary()?);
-    }
-    let mut page = SearchPage {
+    let mut items = interleaved(summaries(videos.entries)?, summaries(songs)?);
+    items.truncate(usize::from(limit));
+    let page = SearchPage {
         items,
         next_cursor: None,
     };
-    page.validate(50).map_err(|_| Error::InvalidResponse)?;
-    page.items.truncate(usize::from(limit));
+    page.validate(limit).map_err(|_| Error::InvalidResponse)?;
     let length = serde_json::to_vec(&page)
         .map_err(|_| Error::InvalidResponse)?
         .len();
@@ -68,6 +73,37 @@ pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
         return Err(Error::InvalidResponse);
     }
     Ok(page)
+}
+
+fn summaries(entries: Vec<SearchEntry>) -> Result<Vec<ProviderRecording>, Error> {
+    if entries.len() > 50 {
+        return Err(Error::InvalidResponse);
+    }
+    entries.into_iter().map(SearchEntry::summary).collect()
+}
+
+fn interleaved(
+    videos: Vec<ProviderRecording>,
+    songs: Vec<ProviderRecording>,
+) -> Vec<ProviderRecording> {
+    let mut described: HashMap<String, ProviderRecording> = videos
+        .iter()
+        .map(|video| (video.id.clone(), video.clone()))
+        .collect();
+    let mut emitted = HashSet::new();
+    let mut ranked = Vec::with_capacity(videos.len() + songs.len());
+    let (mut videos, mut songs) = (videos.into_iter(), songs.into_iter());
+    loop {
+        let (video, song) = (videos.next(), songs.next());
+        if video.is_none() && song.is_none() {
+            return ranked;
+        }
+        for candidate in [video, song].into_iter().flatten() {
+            if emitted.insert(candidate.id.clone()) {
+                ranked.push(described.remove(&candidate.id).unwrap_or(candidate));
+            }
+        }
+    }
 }
 
 pub(crate) fn valid_id(id: &str) -> bool {
