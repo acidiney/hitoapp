@@ -65,7 +65,7 @@ function CompactTrack({
   );
 }
 
-function PanelTabs({
+export function PanelTabs({
   panel,
   choose,
   openQueue,

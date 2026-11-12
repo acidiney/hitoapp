@@ -12,11 +12,13 @@ import { oklchToHex } from "../../../shared/ui/coverColor";
 import NowPlayingAside from "./NowPlayingAside";
 import { LyricsPanel } from "./NowPlayingLyrics";
 import NowPlayingPhone, { type PhonePanel } from "./NowPlayingPhone";
+import NowPlayingTablet from "./NowPlayingTablet";
 import NowPlayingTrack from "./NowPlayingTrack";
 import PlayerTrackActions from "./PlayerTrackActions";
 import { useNowPlayingMotion } from "../hooks/useNowPlayingMotion";
 import {
   PHONE_QUERY,
+  TABLET_QUERY,
   useMediaQuery,
 } from "../../../shared/hooks/useMediaQuery";
 import type { Track } from "../model";
@@ -44,6 +46,7 @@ export default function NowPlaying({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const phone = useMediaQuery(PHONE_QUERY);
+  const tablet = useMediaQuery(TABLET_QUERY);
   const [panel, setPanel] = useState<PhonePanel>(null);
   const cover = useRef<HTMLDivElement>(null);
   const player = usePlayer();
@@ -102,6 +105,23 @@ export default function NowPlaying({
             current={current}
             panel={panel}
             choose={setPanel}
+            leave={close}
+            openQueue={openQueue}
+            track={
+              <NowPlayingTrack
+                account={account}
+                current={current}
+                cover={cover}
+                close={close}
+              />
+            }
+          />
+        ) : tablet ? (
+          <NowPlayingTablet
+            account={account}
+            current={current}
+            panel={panel === "source" ? "source" : "lyrics"}
+            choose={(next) => setPanel(next ?? "lyrics")}
             leave={close}
             openQueue={openQueue}
             track={
