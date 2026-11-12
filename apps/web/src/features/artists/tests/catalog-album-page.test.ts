@@ -175,6 +175,11 @@ test("a catalog release opens as its own page with the ordered tracks in edition
     ).toBeNull();
   }
   expect(screen.queryByRole("button", { name: /^In my library/ })).toBeNull();
+  const header = document.querySelector<HTMLElement>(".album-header")!;
+  expect(within(header).getByText("Not in your library")).toBeTruthy();
+  expect(
+    within(header).queryByRole("img", { name: /tracks in your library/ }),
+  ).toBeNull();
 });
 
 test("playing a catalog row selects through the shared player queue", async () => {
@@ -211,6 +216,12 @@ test("adding a row finds its audio, marks it in your library with the check and 
       name: `Add ${title} to your library`,
     }),
   ).toBeNull();
+  const header = document.querySelector<HTMLElement>(".album-header")!;
+  expect(within(header).getByText("1 of 4 in your library")).toBeTruthy();
+  expect(
+    within(header).getByRole("img", { name: "1 of 4 tracks in your library" }),
+  ).toBeTruthy();
+  expect(within(header).queryByText("Not in your library")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "In my library 1" }));
   expect(within(list).getAllByRole("listitem")).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "All 4" }));

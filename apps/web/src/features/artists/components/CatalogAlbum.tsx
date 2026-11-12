@@ -5,6 +5,7 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
 import AlbumActions from "../../catalog/components/AlbumActions";
+import AlbumProgressLine from "../../catalog/components/AlbumProgressLine";
 import { albumEyebrow } from "../../catalog/model/albumEyebrow";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
@@ -15,7 +16,6 @@ import CatalogTrackList from "./CatalogTrackList";
 import CatalogFailure from "./CatalogFailure";
 import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
 import { editionLabel } from "../model/editionLabel";
-import LibraryAvailability from "./LibraryAvailability";
 import CatalogPlayNotes from "./CatalogPlayNotes";
 
 export default function CatalogAlbum({
@@ -42,11 +42,9 @@ export default function CatalogAlbum({
     occurrences,
     credit,
     playback,
-    library,
     linked,
     controls,
   } = useCatalogTracks(context, withLibrary, mutate);
-  const ownedAlbums = library.albums[group.id] ?? [];
   const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;
@@ -107,16 +105,13 @@ export default function CatalogAlbum({
             : null
         }
         status={
-          withLibrary &&
-          (ownedAlbums.length === 0 ? (
+          rows.length === 0 ? null : owned === 0 ? (
             <span className="album-status">Not in your library</span>
           ) : (
-            <LibraryAvailability
-              account={context.account}
-              albums={ownedAlbums}
-              group={group.id}
+            <AlbumProgressLine
+              progress={{ owned, total: rows.length, elsewhere: 0 }}
             />
-          ))
+          )
         }
         actions={
           <AlbumActions

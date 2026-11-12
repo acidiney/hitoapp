@@ -5,7 +5,6 @@ import { router } from "@inertiajs/react";
 import CatalogCover from "./CatalogCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import LibraryAvailability from "./LibraryAvailability";
 import ArtistEditions from "./ArtistEditions";
 import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
@@ -70,13 +69,6 @@ export default function DiscographyRelease({
           heading={Heading}
           playOnReady={view === "play"}
         />
-        {library && (
-          <LibraryAvailability
-            account={account}
-            albums={library}
-            group={group.id}
-          />
-        )}
       </li>
     );
   const availability = library ? releaseAvailability(library) : null;
@@ -161,13 +153,6 @@ export default function DiscographyRelease({
             availability.label ??
             (library?.length === 0 ? "Not in your library" : undefined)
           }
-        />
-      )}
-      {library && (
-        <LibraryAvailability
-          account={account}
-          albums={library}
-          group={group.id}
         />
       )}
       <ArtistEditions
