@@ -1,4 +1,5 @@
 use crate::{Config, Service};
+use futures_util::FutureExt;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -8,6 +9,8 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::{
     fs,
+    future::Future,
+    panic::AssertUnwindSafe,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -97,12 +100,23 @@ impl Search {
         fs::read_to_string(self.path("calls")).unwrap().lines().count()
     }
 
-    async fn finish(self) {
-        fs::write(self.path("release"), "").unwrap();
-        tokio::time::timeout(Duration::from_secs(3), self.service.shutdown())
-            .await
-            .expect("the search service must shut down within its owned deadline")
-            .expect("the search service must join its extraction workers");
+    async fn guarded(&self, body: impl Future<Output = ()>) {
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            AssertUnwindSafe(body).catch_unwind(),
+        )
+        .await;
+        let _ = fs::write(self.path("release"), "");
+        let cleanup = tokio::time::timeout(Duration::from_secs(3), self.service.shutdown()).await;
+        assert!(
+            matches!(cleanup, Ok(Ok(()))),
+            "the search service must shut down and join its extraction workers"
+        );
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(panic)) => std::panic::resume_unwind(panic),
+            Err(_) => panic!("the combined search exercise must settle within its owned deadline"),
+        }
     }
 }
 
@@ -141,6 +155,7 @@ async fn one_video_naming_every_query_word_leads_and_catalog_songs_keep_their_or
             video("OwnedLyric1", "Owned performer - Owned tune (Lyrics)", "Owned lyrics", 331)
         ]),
     );
+    search.guarded(async {
     let ranked = search.page(10).await;
     assert_eq!(
         ranked,
@@ -167,7 +182,8 @@ async fn one_video_naming_every_query_word_leads_and_catalog_songs_keep_their_or
         "the catalog search must run before the added video search, and a failed target must not stop the other"
     );
     assert_eq!(search.invocations(), 1);
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -180,6 +196,7 @@ async fn without_a_video_naming_every_query_word_catalog_songs_come_first() {
             video("OwnedClip00", "Owned performer interview", "Owned clips", 90)
         ]),
     );
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [
@@ -191,7 +208,8 @@ async fn without_a_video_naming_every_query_word_catalog_songs_come_first() {
         ],
         "a video missing any query word must not displace a catalog song from the leading window"
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -201,6 +219,7 @@ async fn the_limit_bounds_the_combined_ranking() {
         catalog(),
         json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
     );
+    search.guarded(async {
     assert_eq!(
         search.page(2).await,
         [
@@ -208,7 +227,8 @@ async fn the_limit_bounds_the_combined_ranking() {
             unknown("OwnedSong00")
         ]
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -226,6 +246,7 @@ async fn an_identity_in_both_results_keeps_catalog_evidence_and_only_fills_missi
             {"id": "OwnedConf03", "title": "Owned closer", "artist": "Owned impostor", "channel": "Owned label", "duration": 100}
         ]),
     );
+    search.guarded(async {
     let (status, bytes) = search.search(10).await;
     assert_eq!(status, StatusCode::OK);
     let page: SearchPage = serde_json::from_slice(&bytes).unwrap();
@@ -251,18 +272,21 @@ async fn an_identity_in_both_results_keeps_catalog_evidence_and_only_fills_missi
         ],
         "a catalog row's title, artists and duration must win, a video may only fill absent fields, and a channel stays marked as a channel"
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn a_failed_video_search_keeps_the_catalog_songs() {
     let search = Search::new(10, catalog(), json!([]));
     search.mode("videos", "fail");
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [unknown("OwnedSong00"), unknown("OwnedSong01"), unknown("OwnedSong02")]
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -273,11 +297,13 @@ async fn a_failed_catalog_search_keeps_the_videos() {
         json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
     );
     search.mode("songs", "fail");
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [channel("OwnedTune01", "Owned label", 365_000)]
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -285,20 +311,24 @@ async fn both_searches_failing_is_not_an_empty_success() {
     let search = Search::new(10, catalog(), json!([]));
     search.mode("songs", "fail");
     search.mode("videos", "fail");
+    search.guarded(async {
     let (status, _) = search.search(10).await;
     assert_ne!(status, StatusCode::OK);
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn a_malformed_second_document_keeps_the_first() {
     let search = Search::new(10, catalog(), json!([]));
     search.mode("videos", "malformed");
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [unknown("OwnedSong00"), unknown("OwnedSong01"), unknown("OwnedSong02")]
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -309,12 +339,14 @@ async fn a_malformed_first_document_keeps_the_second() {
         json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
     );
     search.mode("songs", "malformed");
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [channel("OwnedTune01", "Owned label", 365_000)],
         "a malformed catalog document must not swallow the complete video document after it"
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -324,17 +356,20 @@ async fn a_document_with_an_invalid_entry_is_dropped_without_discarding_the_othe
         json!([song("bad/video01", "Owned invalid video")]),
         json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
     );
+    search.guarded(async {
     assert_eq!(
         search.page(10).await,
         [channel("OwnedTune01", "Owned label", 365_000)]
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn a_hanging_video_search_returns_the_catalog_songs_at_the_deadline_and_stops_its_group() {
     let search = Search::new(10, catalog(), json!([]));
     search.mode("videos", "hang");
+    search.guarded(async {
     let started = Instant::now();
     let ranked = tokio::time::timeout(Duration::from_secs(12), search.page(10))
         .await
@@ -349,7 +384,8 @@ async fn a_hanging_video_search_returns_the_catalog_songs_at_the_deadline_and_st
         !Path::new(&format!("/proc/{}", pid.trim())).exists(),
         "the hanging extraction must be stopped and reaped before the response"
     );
-    search.finish().await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -360,9 +396,11 @@ async fn a_hanging_catalog_search_still_times_out() {
         json!([video("OwnedTune01", "Owned performer - Owned tune", "Owned label", 365)]),
     );
     search.mode("songs", "hang");
+    search.guarded(async {
     let (status, _) = tokio::time::timeout(Duration::from_secs(12), search.search(10))
         .await
         .expect("a hanging catalog target must settle at the extraction deadline");
     assert_eq!(status, StatusCode::GATEWAY_TIMEOUT);
-    search.finish().await;
+    })
+    .await;
 }
