@@ -122,3 +122,84 @@ async fn an_admitted_subscription_holds_its_registration_until_the_stream_drops(
     drop(stream);
     assert_eq!(registrations(&services, &actor), None);
 }
+
+async fn library_account(services: &Services, admin: &Actor, username: &str) -> Actor {
+    let credentials = || Credentials {
+        username: username.into(),
+        password: "shared library change reader".into(),
+    };
+    services
+        .identity
+        .create_user(admin, credentials())
+        .await
+        .unwrap();
+    let session = services.identity.login(credentials()).await.unwrap();
+    services
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn shared_library_source_notices_reach_current_members_only() {
+    use crate::test_support::support;
+    let (_directory, services, admin, library, music) =
+        support::library("change-readers-host").await;
+    support::write_wav(&music.join("shared.wav"), 0);
+    support::scan(&services, &admin, &library).await;
+    let recording: String = sqlx::query_scalar("SELECT id FROM recordings WHERE library_id = ?")
+        .bind(&library)
+        .fetch_one(&services.store.pool)
+        .await
+        .unwrap();
+    let member = library_account(&services, &admin, "member").await;
+    let removed = library_account(&services, &admin, "removed").await;
+    let outsider = library_account(&services, &admin, "outsider").await;
+    for (account, allowed) in [(&member, true), (&removed, true), (&removed, false)] {
+        services
+            .identity
+            .set_library_access(&admin, &library, account.id(), allowed)
+            .await
+            .unwrap();
+    }
+    let mut streams = Vec::new();
+    for actor in [&admin, &member, &removed, &outsider] {
+        let mut stream = services.changes.subscribe(actor).await.unwrap();
+        assert_eq!(
+            stream.next().await,
+            Some(ChangeNotice::Resync {
+                reason: ResyncReason::Connected
+            })
+        );
+        streams.push(stream);
+    }
+
+    let readers = crate::identity::recording_readers(
+        &mut services.store.pool.acquire().await.unwrap(),
+        &recording,
+    )
+    .await
+    .unwrap();
+    let mut expected = vec![admin.id().to_owned(), member.id().to_owned()];
+    expected.sort();
+    assert_eq!(readers, expected);
+
+    let changed = ChangeNotice::Sources {
+        recording_id: recording.clone(),
+    };
+    services
+        .changes
+        .hub
+        .publish_to(&readers, std::slice::from_ref(&changed));
+    let mut streams = streams.into_iter();
+    for expected in [Some(&changed), Some(&changed), None, None] {
+        let mut stream = streams.next().unwrap();
+        let received =
+            tokio::time::timeout(std::time::Duration::from_millis(200), stream.next()).await;
+        match expected {
+            Some(notice) => assert_eq!(received.unwrap().as_ref(), Some(notice)),
+            None => assert!(received.is_err(), "a non-member must not be notified"),
+        }
+    }
+}

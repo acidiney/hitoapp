@@ -2,6 +2,14 @@
 #[allow(dead_code)]
 mod support;
 
+#[path = "api/playlist_fixture.rs"]
+mod playlist_fixture;
+
+#[path = "change_events/producers.rs"]
+mod producers;
+
+use hito_core::test_support::content_service as provider_fixture;
+
 use axum::{
     Router,
     body::Body,
