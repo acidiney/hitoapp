@@ -6,6 +6,7 @@ mod media;
 mod process;
 mod recording;
 mod recordings;
+mod search;
 
 use axum::{
     Json, Router,

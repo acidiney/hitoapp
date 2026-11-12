@@ -48,18 +48,15 @@ pub(crate) async fn run(
         "--no-cache-dir",
         "--dump-single-json",
     ]);
+    let partial = matches!(intent, Intent::Search { .. });
     match intent {
         Intent::Search { query, limit } => {
-            let mut songs = url::Url::parse("https://music.youtube.com/search")
-                .map_err(|_| Error::Unavailable)?;
-            songs.query_pairs_mut().append_pair("q", &query);
-            songs.set_fragment(Some("songs"));
             command
-                .args(["--flat-playlist", "--playlist-end"])
+                .args(["--flat-playlist", "--ignore-errors", "--playlist-end"])
                 .arg(limit.to_string())
                 .arg("--")
-                .arg(format!("ytsearch{limit}:{query}"))
-                .arg(songs.as_str());
+                .arg(songs_target(&query)?)
+                .arg(videos_target(&query, limit));
         }
         Intent::Recording { id } => {
             if !crate::recordings::valid_id(&id) {
@@ -102,17 +99,15 @@ pub(crate) async fn run(
         stop(&mut child, group).await?;
         return Err(Error::Unavailable);
     };
+    let mut output = Vec::new();
+    let mut diagnostics = Vec::new();
     let result = {
         let collect = async {
-            let (output, diagnostics) = tokio::try_join!(
-                read_bounded(stdout, 2 * 1024 * 1024),
-                read_prefix(stderr, 65_536),
+            tokio::try_join!(
+                read_bounded(stdout, 2 * 1024 * 1024, &mut output),
+                read_prefix(stderr, 65_536, &mut diagnostics),
             )?;
-            if wait_for_exit(group).await? {
-                Ok(output)
-            } else {
-                Err(crate::classify::failure(&diagnostics))
-            }
+            wait_for_exit(group).await
         };
         tokio::pin!(collect);
         tokio::select! {
@@ -123,7 +118,42 @@ pub(crate) async fn run(
         }
     };
     stop(&mut child, group).await?;
-    result
+    let failure = match result {
+        Ok(true) => return Ok(output),
+        Ok(false) => crate::classify::failure(&diagnostics),
+        Err(Error::Deadline) => Error::Deadline,
+        Err(error) => return Err(error),
+    };
+    if !partial {
+        return Err(failure);
+    }
+    let complete = output
+        .iter()
+        .rposition(|byte| *byte == b'\n')
+        .map_or(0, |end| end + 1);
+    if complete == 0 {
+        return Err(failure);
+    }
+    output.truncate(complete);
+    tracing::debug!(
+        target: "hito_plugin_youtube::extractor",
+        event = "youtube_search_partial",
+        outcome = failure.outcome(),
+        retained_bytes = complete as u64
+    );
+    Ok(output)
+}
+
+pub(crate) fn songs_target(query: &str) -> Result<String, Error> {
+    let mut songs =
+        url::Url::parse("https://music.youtube.com/search").map_err(|_| Error::Unavailable)?;
+    songs.query_pairs_mut().append_pair("q", query);
+    songs.set_fragment(Some("songs"));
+    Ok(songs.into())
+}
+
+pub(crate) fn videos_target(query: &str, limit: u16) -> String {
+    format!("ytsearch{limit}:{query}")
 }
 
 #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
@@ -139,10 +169,10 @@ pub(crate) async fn run(
 async fn read_bounded(
     mut reader: impl tokio::io::AsyncRead + Unpin,
     maximum: usize,
-) -> Result<Vec<u8>, Error> {
+    output: &mut Vec<u8>,
+) -> Result<(), Error> {
     use tokio::io::AsyncReadExt;
 
-    let mut output = Vec::new();
     let mut buffer = [0; 8192];
     loop {
         let count = reader
@@ -150,7 +180,7 @@ async fn read_bounded(
             .await
             .map_err(|_| Error::Unavailable)?;
         if count == 0 {
-            return Ok(output);
+            return Ok(());
         }
         if output.len() + count > maximum {
             return Err(Error::InvalidResponse);
@@ -163,10 +193,10 @@ async fn read_bounded(
 async fn read_prefix(
     mut reader: impl tokio::io::AsyncRead + Unpin,
     maximum: usize,
-) -> Result<Vec<u8>, Error> {
+    kept: &mut Vec<u8>,
+) -> Result<(), Error> {
     use tokio::io::AsyncReadExt;
 
-    let mut kept = Vec::new();
     let mut buffer = [0; 8192];
     loop {
         let count = reader
@@ -174,7 +204,7 @@ async fn read_prefix(
             .await
             .map_err(|_| Error::Unavailable)?;
         if count == 0 {
-            return Ok(kept);
+            return Ok(());
         }
         let room = maximum.saturating_sub(kept.len()).min(count);
         kept.extend_from_slice(&buffer[..room]);

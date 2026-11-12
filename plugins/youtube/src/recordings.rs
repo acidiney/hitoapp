@@ -1,9 +1,8 @@
 use crate::Error;
-use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording, SearchPage};
+use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-const MAX_RESPONSE_BYTES: usize = 262_144;
 const MAX_CREDITED_ARTISTS: usize = 16;
 const MAX_CREDITED_NAME_BYTES: usize = 256;
 
@@ -29,12 +28,7 @@ fn main_credits(names: &[String]) -> Vec<CreditedArtist> {
         .collect()
 }
 
-#[derive(Deserialize)]
-struct SearchResults {
-    entries: Vec<SearchEntry>,
-}
-
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct SearchEntry {
     id: String,
     title: String,
@@ -45,67 +39,6 @@ pub(crate) struct SearchEntry {
     duration: Option<f64>,
 }
 
-pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
-    let mut documents = serde_json::Deserializer::from_slice(bytes).into_iter::<SearchResults>();
-    let videos = documents
-        .next()
-        .ok_or(Error::InvalidResponse)?
-        .map_err(|_| Error::InvalidResponse)?;
-    let songs = documents
-        .next()
-        .transpose()
-        .map_err(|_| Error::InvalidResponse)?
-        .map_or_else(Vec::new, |results| results.entries);
-    if documents.next().is_some() {
-        return Err(Error::InvalidResponse);
-    }
-    let mut items = interleaved(summaries(videos.entries)?, summaries(songs)?);
-    items.truncate(usize::from(limit));
-    let page = SearchPage {
-        items,
-        next_cursor: None,
-    };
-    page.validate(limit).map_err(|_| Error::InvalidResponse)?;
-    let length = serde_json::to_vec(&page)
-        .map_err(|_| Error::InvalidResponse)?
-        .len();
-    if length > MAX_RESPONSE_BYTES {
-        return Err(Error::InvalidResponse);
-    }
-    Ok(page)
-}
-
-fn summaries(entries: Vec<SearchEntry>) -> Result<Vec<ProviderRecording>, Error> {
-    if entries.len() > 50 {
-        return Err(Error::InvalidResponse);
-    }
-    entries.into_iter().map(SearchEntry::summary).collect()
-}
-
-fn interleaved(
-    videos: Vec<ProviderRecording>,
-    songs: Vec<ProviderRecording>,
-) -> Vec<ProviderRecording> {
-    let mut described: HashMap<String, ProviderRecording> = videos
-        .iter()
-        .map(|video| (video.id.clone(), video.clone()))
-        .collect();
-    let mut emitted = HashSet::new();
-    let mut ranked = Vec::with_capacity(videos.len() + songs.len());
-    let (mut videos, mut songs) = (videos.into_iter(), songs.into_iter());
-    loop {
-        let (video, song) = (videos.next(), songs.next());
-        if video.is_none() && song.is_none() {
-            return ranked;
-        }
-        for candidate in [video, song].into_iter().flatten() {
-            if emitted.insert(candidate.id.clone()) {
-                ranked.push(described.remove(&candidate.id).unwrap_or(candidate));
-            }
-        }
-    }
-}
-
 pub(crate) fn valid_id(id: &str) -> bool {
     id.len() == 11
         && id
@@ -114,7 +47,29 @@ pub(crate) fn valid_id(id: &str) -> bool {
 }
 
 impl SearchEntry {
-    fn summary(mut self) -> Result<ProviderRecording, Error> {
+    pub(crate) fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub(crate) fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub(crate) fn enriched(self, video: Self) -> Self {
+        let artists = self.artists.filter(|artists| !artists.is_empty());
+        let musical = artists.is_some() || self.artist.is_some();
+        Self {
+            id: self.id,
+            title: self.title,
+            artists: if musical { artists } else { video.artists },
+            artist: if musical { self.artist } else { video.artist },
+            channel: self.channel.or(video.channel),
+            uploader: self.uploader.or(video.uploader),
+            duration: self.duration.or(video.duration),
+        }
+    }
+
+    pub(crate) fn summary(mut self) -> Result<ProviderRecording, Error> {
         if self.artists.as_ref().is_none_or(Vec::is_empty)
             && self.artist.is_none()
             && self.channel.is_none()

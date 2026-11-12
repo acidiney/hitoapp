@@ -10,6 +10,7 @@ use tower::ServiceExt;
 
 mod artwork;
 mod cancellation;
+mod combined_search;
 mod credits;
 mod failures;
 mod health;
@@ -101,10 +102,14 @@ async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
             assert!(arguments.contains(&flag), "missing process policy {flag}");
         }
         assert!(
-            arguments.last().copied() == Some(expected_query.as_str()),
+            arguments[arguments.len() - 2] == expected_query.as_str(),
             "search must preserve the encoded Music query as one literal URL argument"
         );
-        assert_eq!(arguments[arguments.len() - 2], format!("ytsearch2:{query}"));
+        assert_eq!(
+            arguments.last().copied(),
+            Some(format!("ytsearch2:{query}").as_str())
+        );
+        assert!(arguments.contains(&"--ignore-errors"));
         assert_eq!(arguments[arguments.len() - 3], "--");
         let end = arguments
             .iter()
