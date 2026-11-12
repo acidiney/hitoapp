@@ -92,6 +92,7 @@ export class Playback implements Player {
   private serverBound: number | null = null;
   private entryEnded = false;
   private hiddenRetries = 0;
+  private unavailableRecording: string | null = null;
   private retryPosition = 0;
   private restored = false;
   private formatProbe: Promise<boolean> = Promise.resolve(false);
@@ -236,7 +237,15 @@ export class Playback implements Player {
       },
       play: () => {
         log.info("playback.started", { recording_id: this.state.current?.id });
-        this.update({ playing: true, loading: false });
+        const recovered =
+          this.unavailableRecording !== null &&
+          this.unavailableRecording === this.state.current?.id;
+        if (recovered) this.unavailableRecording = null;
+        this.update({
+          playing: true,
+          loading: false,
+          ...(recovered ? { error: "" } : {}),
+        });
         this.prepareNext();
       },
       playing: () => {
@@ -826,6 +835,7 @@ export class Playback implements Player {
           ? "format_unsupported"
           : "exhausted",
     });
+    this.unavailableRecording = this.state.current?.id ?? null;
     this.update({
       error: providerUnavailable
         ? "An audio service is unavailable. Select the track again to retry."
