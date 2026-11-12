@@ -310,3 +310,59 @@ async fn retry_now(dir: &tempfile::TempDir) {
     )
     .await;
 }
+
+#[tokio::test]
+async fn arriving_playlist_artwork_notifies_its_owner_after_the_worker_commits() {
+    use hito_core::test_support::collection_artwork::ArtworkServer;
+    let dir = tempfile::tempdir().unwrap();
+    let services = support::services(dir.path(), &dir.path().join("music")).await;
+    let app = hito_server::router(services.clone());
+    let owner = admin(&app).await;
+    let actor = services.identity.authenticate(&owner).await.unwrap();
+    let provider = ArtworkServer::start().await;
+    let installed = provider.connect(&services, &actor).await;
+    let playlist = services
+        .collection
+        .import_provider_playlist(
+            &actor,
+            &installed.id,
+            hito_core::ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installed.revision,
+                playlist_reference: "https://provider.invalid/playlists/artwork-notices".into(),
+            },
+        )
+        .await
+        .unwrap()
+        .playlist_id
+        .to_string();
+    let other = guest(&app, &owner).await;
+    let mut owner_changes = stream(&app, &owner).await;
+    let mut other_changes = stream(&app, &other).await;
+
+    let fetch = format!("/api/v1/playlists/{playlist}/artwork/fetch");
+    let (status, queued) = call(&app, "POST", &fetch, Value::Null, Some(&owner)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(queued["status"], "queued");
+    quiet(&mut owner_changes).await;
+
+    assert!(
+        services
+            .catalog
+            .run_next_artwork_job_until(std::future::pending::<()>())
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        notice(&mut owner_changes).await,
+        json!({"kind":"artwork","entity":"playlist","id":playlist})
+    );
+    assert_eq!(notice(&mut owner_changes).await, playlist_notice(&playlist));
+    assert_eq!(notice(&mut owner_changes).await, json!({"kind":"playlists"}));
+
+    let (status, retained) = call(&app, "POST", &fetch, Value::Null, Some(&owner)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(retained["status"], "ready");
+    quiet(&mut owner_changes).await;
+    quiet(&mut other_changes).await;
+}
