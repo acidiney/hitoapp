@@ -36,6 +36,14 @@ function typing(target: EventTarget | null): boolean {
   );
 }
 
+function keyboardFocused(element: Element): boolean {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    return true;
+  }
+}
+
 function ignored(event: KeyboardEvent): boolean {
   return (
     event.defaultPrevented ||
@@ -64,8 +72,8 @@ export function resolveShortcut(
   if (state.chord && GO_TO[key]) return GO_TO[key];
   if (key === " ") {
     const own =
-      event.target instanceof Element && event.target.closest(OWN_SPACE);
-    return own ? null : "togglePlay";
+      event.target instanceof Element ? event.target.closest(OWN_SPACE) : null;
+    return own && keyboardFocused(own) ? null : "togglePlay";
   }
   return LETTERS[key] ?? null;
 }

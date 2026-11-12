@@ -53,15 +53,36 @@ test("shortcuts pause while typing in any field", () => {
   ).toBeNull();
 });
 
-test("space leaves buttons, links and sliders to their own behaviour", () => {
-  const button = document.createElement("button");
-  const link = document.createElement("a");
+function keyboardFocused<T extends Element>(element: T): T {
+  const matches = element.matches.bind(element);
+  element.matches = (selector: string) =>
+    selector === ":focus-visible" || matches(selector);
+  return element;
+}
+
+test("space leaves keyboard-focused buttons, links and sliders to their own behaviour", () => {
+  const button = keyboardFocused(document.createElement("button"));
+  const link = keyboardFocused(document.createElement("a"));
   link.href = "/x";
-  const slider = document.createElement("input");
+  const slider = keyboardFocused(document.createElement("input"));
   slider.type = "range";
   document.body.append(button, link, slider);
   for (const target of [button, link, slider])
     expect(resolveShortcut(press({ key: " " }, target), idle)).toBeNull();
+});
+
+test("space plays or pauses when a control only holds focus from a pointer click", () => {
+  const next = document.createElement("button");
+  next.setAttribute("aria-label", "Next track");
+  const shuffle = document.createElement("button");
+  shuffle.setAttribute("aria-label", "Shuffle");
+  const seek = document.createElement("input");
+  seek.type = "range";
+  document.body.append(next, shuffle, seek);
+  for (const target of [next, shuffle, seek])
+    expect(resolveShortcut(press({ key: " " }, target), idle)).toBe(
+      "togglePlay",
+    );
 });
 
 test("modifier combinations are never shortcuts", () => {
