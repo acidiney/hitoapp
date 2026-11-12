@@ -2,7 +2,7 @@
 
 Hito is a self-hosted music player with an open plugin system. A Rust core owns the library. A React interface runs in the browser and inside a Tauri desktop app. Plugins are separate HTTP services that add search, playback sources, playlists, track details, covers and lyrics.
 
-The active scope is `.agents/meta/release-plan.md`. `.agents/meta/status.md` records evidence and unfinished release work, and `.agents/meta/TODO.md` is the work checklist. These files are local and untracked. Keep the full scope intact, and never describe a development build as a public release.
+Maintainers keep local, untracked working notes in `.agents/meta/`. If `.agents/meta/README.md` exists, read it before starting; it describes the current plan and where to record progress. Never describe a development build as a public release.
 
 ## What we never compromise on
 
