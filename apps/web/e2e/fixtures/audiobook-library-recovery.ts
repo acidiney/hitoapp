@@ -10,6 +10,7 @@ import {
   pageLink,
 } from "./audiobook-library-navigation";
 import { openLibrarySection } from "./library-sections";
+import { networkQuiet } from "./settled";
 
 const navigation = (page: Page) =>
   page.getByRole("navigation", { name: "Audiobook pages", exact: true });
@@ -135,7 +136,7 @@ export async function recoverLibrary(
   await delivery.finish();
   await assertBooks(page, peer);
   expect(await documentToken(page)).toBe(token);
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   return { operations, renamed, deleted, books: current };
 }
 
