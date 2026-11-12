@@ -1,15 +1,14 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page, type Request } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
+import { declaredCapabilities } from "../../src/features/plugins/model/capabilityRows";
 
 export async function reviewPluginInstallation(
   page: Page,
   service: Schema<"PluginService">,
   expectedName = service.name,
   activate = () =>
-    page
-      .getByRole("button", { name: "Review connection", exact: true })
-      .click(),
+    page.getByRole("button", { name: "Continue", exact: true }).click(),
   deadlineMs = 15_000,
 ) {
   const readReview = async () => {
@@ -46,29 +45,38 @@ export async function reviewPluginInstallation(
         body.manifest.name === expectedName &&
         body.digest.length > 0,
     ).toBe(true);
-    const heading = page.getByRole("heading", {
-      name: "Review connection",
+    const review = page.getByRole("dialog", {
+      name: "Before you connect",
       exact: true,
     });
-    await expect(heading).toBeVisible();
-    const review = heading.locator("..");
-    const values = review.getByRole("definition");
-    await expect(values).toHaveCount(3);
-    expect((await values.nth(0).innerText()) === body.manifest.name).toBe(true);
-    expect(
-      (await values.nth(1).innerText()) ===
-        body.manifest.capabilities
-          .map((value) => value.replaceAll("_", " "))
-          .join(", "),
-    ).toBe(true);
+    await expect(review).toBeVisible();
+    const rows = declaredCapabilities(body.manifest.capabilities);
+    const items = review
+      .getByRole("list", { name: "What it will do" })
+      .getByRole("listitem");
+    await expect(items).toHaveCount(rows.length);
+    for (const [index, row] of rows.entries()) {
+      expect(await items.nth(index).locator("strong").innerText()).toBe(
+        row.name,
+      );
+      expect(await items.nth(index).locator("span").last().innerText()).toBe(
+        row.what,
+      );
+    }
     const persistence = body.manifest.content_policy?.source_persistence;
     const disclosure =
       persistence === "playback_only"
-        ? "Playback only. No new offline downloads. Completed copies are retained."
+        ? "It only plays audio. Hito won't save new copies, and copies you already have stay."
         : persistence === "explicit_download"
-          ? "Explicit downloads declared, subject to Hito's checks. This does not grant a licence."
-          : "No persistence declaration. Download permission is unknown; Hito's checks still apply.";
-    expect((await values.nth(2).innerText()) === disclosure).toBe(true);
+          ? "It allows saving audio when you ask. Hito still checks before saving anything, and this isn't a licence."
+          : "It doesn't say whether its audio may be saved. Hito still asks before saving anything.";
+    await expect(review.getByText(disclosure, { exact: true })).toBeVisible();
+    expect(
+      await review
+        .getByRole("button")
+        .evaluateAll((buttons) => buttons.map((button) => button.textContent)),
+    ).toEqual(["Accept and connect", "Back"]);
+    await expect(review.getByLabel("Bearer token (optional)")).toHaveCount(0);
     await expect(review.locator("a,img,iframe,script,style,link")).toHaveCount(
       0,
     );

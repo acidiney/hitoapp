@@ -49,22 +49,26 @@ pub struct Player {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
     pub fn open(input: impl Input + 'static) -> Result<Self> {
+        Self::open_decoder(Decoder::open(input)?)
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
+    pub fn open_decoder(decoder: Decoder) -> Result<Self> {
         #[cfg(feature = "test-support")]
         let rates = crate::test_support::restricted_output_rates();
         #[cfg(not(feature = "test-support"))]
         let rates = None;
-        Self::start(input, rates)
+        Self::start(decoder, rates)
     }
 
     #[cfg(feature = "test-support")]
     pub fn open_with_output_rates(input: impl Input + 'static, rates: &[u32]) -> Result<Self> {
-        Self::start(input, Some(rates.to_vec()))
+        Self::start(Decoder::open(input)?, Some(rates.to_vec()))
     }
 
-    fn start(input: impl Input + 'static, rates: Option<Vec<u32>>) -> Result<Self> {
+    fn start(decoder: Decoder, rates: Option<Vec<u32>>) -> Result<Self> {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("audio_id", id);
-        let decoder = Decoder::open(input)?;
         let format = decoder.format();
         let state = Arc::new(State::new());
         let (commands, receiver) = mpsc::sync_channel(1);
@@ -76,12 +80,12 @@ impl Player {
             tracing::dispatcher::with_default(&dispatch, || {
             let _entered = span.enter();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                worker::run(decoder, receiver, worker_state.clone(), ready.clone(), rates)
+                worker::run(id, decoder, receiver, worker_state.clone(), ready.clone(), rates)
             })).unwrap_or(Err(Error::Worker));
             if let Err(error) = result {
                 worker_state.fail(error);
                 let _ = ready.try_send(Err(error));
-                tracing::warn!(event = "audio_worker_failed", error_kind = ?error, "Audio worker failed");
+                tracing::warn!(event = "audio_worker_failed", audio_id = id, error_kind = ?error, "Audio worker failed");
             }
             result
             })
@@ -92,6 +96,15 @@ impl Player {
                 state.stopped.store(true, Ordering::Release);
                 let _ = commands.try_send(Control::Stop);
                 let _ = worker.join();
+                tracing::debug!(
+                    event = "audio_startup_failed",
+                    audio_id = id,
+                    error_kind = ?error,
+                    output_failure = state.snapshot(format).output_failure,
+                    callbacks = state.callbacks.load(Ordering::Acquire),
+                    xruns = state.xruns.load(Ordering::Acquire),
+                    "Audio output could not start"
+                );
                 return Err(error);
             }
         };
@@ -205,13 +218,22 @@ impl Player {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
     pub fn prepare_next(&mut self, input: impl Input + 'static) -> Result<bool> {
+        self.prepare(|| Decoder::open(input))
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
+    pub fn prepare_next_decoder(&mut self, decoder: Decoder) -> Result<bool> {
+        self.prepare(|| Ok(decoder))
+    }
+
+    fn prepare(&mut self, open: impl FnOnce() -> Result<Decoder>) -> Result<bool> {
         if self.state.stopped.load(Ordering::Acquire) {
             return Err(Error::Interrupted);
         }
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
-        let decoder = Decoder::open(input)?;
+        let decoder = open()?;
         let format = decoder.format();
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
@@ -287,7 +309,15 @@ impl Player {
             .worker
             .take()
             .map_or(Ok(()), |worker| worker.join().map_err(|_| Error::Worker)?);
-        tracing::info!(event = "audio_player_closed", "Audio player workers joined");
+        let snapshot = self.snapshot();
+        tracing::info!(
+            event = "audio_player_closed",
+            underruns = snapshot.underruns,
+            xruns = snapshot.xruns,
+            output_failure = snapshot.output_failure,
+            callbacks = self.state.callbacks.load(Ordering::Acquire),
+            "Audio player workers joined"
+        );
         result
     }
 }

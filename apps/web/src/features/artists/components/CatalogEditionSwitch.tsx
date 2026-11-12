@@ -29,9 +29,10 @@ export default function CatalogEditionSwitch({
   onMore: () => void;
 }) {
   return (
-    <div className="edition-switch">
+    <div className="edition-switch album-edition">
       <Listbox
         label="Edition"
+        inlineLabel
         value={chosen}
         disabled={pending}
         options={editions.map((edition) => ({

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { useNotice } from "../../../shared/ui/Notices";
+import { forgetCatalog } from "../../artists/api/catalogCache";
 import { sessionApi } from "../api/sessionApi";
 
 export function useSignOut(account: string, onSignedOut: () => void) {
@@ -11,6 +12,7 @@ export function useSignOut(account: string, onSignedOut: () => void) {
     setBusy(true);
     try {
       await sessionApi.signOut(account);
+      forgetCatalog();
       router.clearHistory();
       onSignedOut();
       window.location.replace("/");

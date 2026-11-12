@@ -28,7 +28,7 @@ async function prepareListener(page: Page, baseURL: string) {
     ["fixture-archive", "Archive"],
   ]) {
     const connected = await page.request.post(
-      `/api/v1/libraries/${libraries[0].id}/folders`,
+      `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/folders`,
       {
         headers: headers(baseURL),
         data: { directory: { directory_id: id, components: [] }, name },
@@ -39,8 +39,11 @@ async function prepareListener(page: Page, baseURL: string) {
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);
@@ -51,7 +54,7 @@ async function prepareListener(page: Page, baseURL: string) {
   expect(created.status()).toBe(201);
   const user: Schema<"User"> = await created.json();
   const granted = await page.request.put(
-    `/api/v1/libraries/${libraries[0].id}/members/${user.id}`,
+    `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/members/${user.id}`,
     { headers: headers(baseURL) },
   );
   expect(granted.ok()).toBe(true);
@@ -152,7 +155,7 @@ test("pausing listening history stops new entries and deleting it empties Histor
     .getByRole("button", { name: "Delete listening history", exact: true })
     .click();
   const dialog = page.getByRole("dialog", {
-    name: "Delete listening history?",
+    name: "Delete your listening history?",
   });
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
@@ -161,7 +164,7 @@ test("pausing listening history stops new entries and deleting it empties Histor
     .getByRole("button", { name: "Delete listening history", exact: true })
     .click();
   await page
-    .getByRole("dialog", { name: "Delete listening history?" })
+    .getByRole("dialog", { name: "Delete your listening history?" })
     .getByRole("button", { name: "Delete history" })
     .click();
   await expect(page.getByText("1 entry removed.")).toBeVisible();

@@ -1,5 +1,6 @@
 mod admission;
 mod authority;
+mod catalog_decision;
 mod catalog_match;
 mod cursor;
 mod fallback;
@@ -12,6 +13,7 @@ mod types;
 use crate::{Actor, Catalog, Error, Result};
 use admission::Caller;
 pub(crate) use admission::CallerAdmission;
+pub(super) use catalog_decision::CatalogDecision;
 pub(crate) use catalog_match::{AudioPermit, CatalogAudio, CatalogTrack};
 use cursor::Candidates;
 use fallback::Basis;

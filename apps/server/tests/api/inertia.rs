@@ -324,6 +324,59 @@ async fn get(
 }
 
 #[tokio::test]
+async fn root_home_preserves_inertia_partial_and_version_protocol() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    let bearer = format!("Bearer {token}");
+    let (status, body, headers) = get(
+        &app,
+        "/",
+        &[
+            ("authorization", &bearer),
+            ("x-inertia", "true"),
+            ("x-inertia-partial-component", "HomePage"),
+            ("x-inertia-partial-data", "home"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["x-inertia"], "true");
+    assert_eq!(headers["vary"], "X-Inertia");
+    assert_eq!(headers["cache-control"], "private, no-store");
+    let page: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(page["component"], "HomePage");
+    assert_eq!(page["url"], "/");
+    assert_eq!(page["clearHistory"], false);
+    assert_eq!(
+        page["props"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["errors", "home"]
+    );
+
+    let (status, _, headers) = get(
+        &app,
+        "/",
+        &[
+            ("authorization", &bearer),
+            ("x-inertia", "true"),
+            ("x-inertia-version", "stale"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(headers["x-inertia-location"], "/");
+    assert_eq!(headers["cache-control"], "private, no-store");
+
+    let (status, _, headers) = get(&app, "/api/v1/me", &[("authorization", &bearer)]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["cache-control"], "private, no-store");
+}
+
+#[tokio::test]
 async fn unknown_paths_answer_a_not_found_page_while_api_paths_keep_json() {
     let (_dir, app) = app().await;
     let token = admin(&app).await;

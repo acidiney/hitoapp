@@ -28,23 +28,23 @@ const remote = (id: string, plays_from_services: boolean) => ({
   plays_from_services,
 });
 
-test("a track not stored here that a service can resolve says it plays from the services", () => {
+test("a track not stored here that a service can resolve is ready from the services", () => {
   player.state.current = null;
   render(createElement(TrackAvailabilityNote, { track: remote("t1", true) }));
-  expect(screen.getByText("Plays from your services")).toBeTruthy();
-  expect(screen.queryByText("Not playable yet")).toBeNull();
+  expect(screen.getByText("Ready · from your services")).toBeTruthy();
+  expect(screen.queryByText("No source")).toBeNull();
 });
 
-test("a track not stored here that no service can resolve is muted as not playable yet", () => {
+test("a track not stored here that no service can resolve has no source", () => {
   player.state.current = null;
   const { container } = render(
     createElement(TrackAvailabilityNote, { track: remote("t3", false) }),
   );
-  expect(screen.getByText("Not playable yet")).toBeTruthy();
-  expect(screen.queryByText("Plays from your services")).toBeNull();
+  expect(screen.getByText("No source")).toBeTruthy();
+  expect(screen.queryByText("Ready · from your services")).toBeNull();
   expect(
-    container.querySelector(".availability")?.getAttribute("data-state"),
-  ).toBe("catalog");
+    container.querySelector(".source-status")?.getAttribute("data-status"),
+  ).toBe("none");
 });
 
 test("a local track shows no note whatever the services say", () => {

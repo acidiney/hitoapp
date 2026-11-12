@@ -45,3 +45,10 @@ export function albumRows(
 export function totalMs(rows: CatalogRow[]): number {
   return rows.reduce((sum, row) => sum + (row.durationMs ?? 0), 0);
 }
+
+export function longDuration(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  const hours = Math.floor(minutes / 60);
+  if (hours === 0) return `${minutes} min`;
+  return `${hours} hr ${minutes % 60} min`;
+}

@@ -27,7 +27,7 @@ pub(crate) enum Frame {
 }
 
 impl Frame {
-    fn epoch(self) -> u64 {
+    pub(crate) fn epoch(self) -> u64 {
         match self {
             Self::Audio { epoch, .. } | Self::End { epoch, .. } => epoch,
         }
@@ -122,7 +122,8 @@ impl Render {
                 continue;
             }
             self.discard_before(epoch, &mut budget);
-            if !self.state.playing.load(Ordering::Acquire)
+            if self.state.ready_epoch.load(Ordering::Acquire) != epoch
+                || !self.state.playing.load(Ordering::Acquire)
                 || self.state.stopped.load(Ordering::Acquire)
                 || self.state.failure.load(Ordering::Acquire) != 0
             {

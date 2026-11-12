@@ -1,33 +1,48 @@
 import { memo, useMemo, type CSSProperties } from "react";
+import { Heart, ListMusic, Music, User } from "lucide-react";
 import CoverArtSvg from "./CoverArtSvg";
 import { coverArt, type CoverArtKind } from "./coverArt";
 
-function FallbackCoverView({
+export type FallbackCoverKind = CoverArtKind | "liked";
+
+function Glyph({ kind }: { kind: FallbackCoverKind }) {
+  if (kind === "playlist") return <ListMusic strokeWidth={1.6} aria-hidden />;
+  if (kind === "artist") return <User strokeWidth={1.6} aria-hidden />;
+  if (kind === "liked")
+    return <Heart strokeWidth={1.6} fill="currentColor" aria-hidden />;
+  return <Music strokeWidth={1.6} aria-hidden />;
+}
+
+function label(kind: FallbackCoverKind, title: string): string {
+  if (kind === "artist") return `Photo of ${title}`;
+  if (kind === "liked") return "Liked tracks cover";
+  return `Cover of ${title}`;
+}
+
+function GeneratedCover({
   id,
   title,
   artist,
-  kind = "album",
-  inline = true,
-  monogramOnly = false,
+  inline,
+  monogramOnly,
 }: {
   id: string;
   title: string;
   artist?: string | null;
-  kind?: CoverArtKind;
-  inline?: boolean;
-  monogramOnly?: boolean;
+  inline: boolean;
+  monogramOnly: boolean;
 }) {
   const art = useMemo(
-    () => coverArt(kind, id, title, artist),
-    [kind, id, title, artist],
+    () => coverArt("genre", id, title, artist),
+    [id, title, artist],
   );
   const style = { "--cover-base": art.paint.base } as CSSProperties;
   return (
     <div
       className="fallback-cover"
       role="img"
-      aria-label={`${kind === "artist" ? "Photo" : "Cover"} of ${title}`}
-      data-kind={art.paint.kind}
+      aria-label={`Cover of ${title}`}
+      data-kind="genre"
       style={style}
     >
       <CoverArtSvg art={art} />
@@ -47,6 +62,44 @@ function FallbackCoverView({
           {art.monogram}
         </span>
       )}
+    </div>
+  );
+}
+
+function FallbackCoverView({
+  id,
+  title,
+  artist,
+  kind = "album",
+  inline = true,
+  monogramOnly = false,
+}: {
+  id: string;
+  title: string;
+  artist?: string | null;
+  kind?: FallbackCoverKind;
+  inline?: boolean;
+  monogramOnly?: boolean;
+}) {
+  if (kind === "genre")
+    return (
+      <GeneratedCover
+        id={id}
+        title={title}
+        artist={artist}
+        inline={inline}
+        monogramOnly={monogramOnly}
+      />
+    );
+  return (
+    <div
+      className="fallback-cover"
+      role="img"
+      aria-label={label(kind, title)}
+      data-kind={kind}
+      data-quiet=""
+    >
+      <Glyph kind={kind} />
     </div>
   );
 }

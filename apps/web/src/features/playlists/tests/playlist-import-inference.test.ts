@@ -29,6 +29,7 @@ function view(connections = [spotify, youtube]) {
         account: "alice",
         connections,
         names: {},
+        onCancel: vi.fn(),
       }),
     ),
   );
@@ -64,7 +65,7 @@ test("a recognised provider link follows by default and goes to that service", a
     target: { value: "https://music.youtube.com/playlist?list=PL1" },
   });
   expect(
-    screen.getByRole("radio", { name: "Follow playlist", checked: true }),
+    screen.getByRole("radio", { name: /^Follow/, checked: true }),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Follow playlist" }));
   await waitFor(() => expect(fetch).toHaveBeenCalled());
@@ -75,12 +76,12 @@ test("a recognised provider link follows by default and goes to that service", a
 
 test("choosing Import a copy sticks even for a provider link", () => {
   view();
-  fireEvent.click(screen.getByRole("radio", { name: "Import a copy" }));
+  fireEvent.click(screen.getByRole("radio", { name: /^Copy/ }));
   fireEvent.change(field(), {
     target: { value: "https://open.spotify.com/playlist/37i9dQ" },
   });
   expect(
-    screen.getByRole("radio", { name: "Import a copy", checked: true }),
+    screen.getByRole("radio", { name: /^Copy/, checked: true }),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Import a copy" })).toBeTruthy();
 });

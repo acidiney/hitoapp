@@ -219,7 +219,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     ),
   ).toEqual(["1", "2.1"]);
   expect(
-    screen.getAllByText("Plays from your services", { exact: true }),
+    screen.getAllByText("Ready · from your services", { exact: true }),
   ).toHaveLength(2);
   expect(player.playQueue).not.toHaveBeenCalled();
   expect(release.artist).toBeNull();

@@ -147,10 +147,7 @@ test("packaged albums and independent imported copies retain exact private cover
       page,
       approval.path,
       200,
-      approval.card.getByRole("button", {
-        name: "Accept changes",
-        exact: true,
-      }),
+      approval.card.getByRole("button", { name: /^Accept / }),
     );
     if (accepted.kind !== "updated")
       throw new Error("Artwork must be explicitly approved");
@@ -172,7 +169,7 @@ test("packaged albums and independent imported copies retain exact private cover
         page.getByRole("heading", { name: titles.copies[index], exact: true }),
       ).toBeVisible();
       await decoded(
-        page.locator(".tinted-header .artwork img"),
+        page.locator(".playlist-header .artwork img"),
         paths.copies[index],
       );
       await expect(

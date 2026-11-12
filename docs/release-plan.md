@@ -38,7 +38,8 @@ This file preserves the requested scope. A working development deployment does n
 - Persistent downloads start only after Download. Follow playlist changes; reference-count shared copies; preserve originals and library records. Separate temporary cache; never silently evict downloads.
 - Import a copy yields an editable playlist. Follow playlist yields a read-only provider-updated playlist.
 - Real-Debrid, AllDebrid, Premiumize, TorBox. Prepare unavailable sources automatically, report progress, keep available tracks playing, reconsider deferred tracks at track boundaries.
-- Separate official music-folder, Jamendo, and YouTube/yt-dlp plugin services, hosted by users or communities.
+- Separate official music-folder, Jamendo, YouTube/yt-dlp and LRCLIB lyric plugin services, hosted by users or communities.
+- Automatic lyric lookup prefers validated timed lyrics across compatible candidates. Plain lyrics are a fallback only after a complete bounded search finds no valid timed result. Preserve explicit manual selections. See [the selection contract](plugin-timed-content.md#timed-first-automatic-selection).
 - Timed lyrics and backing-track contracts. Microphone mixing, vocal removal, scoring, and recording deferred.
 
 ## Community service

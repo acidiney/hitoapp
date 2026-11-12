@@ -1,0 +1,44 @@
+services:
+  rust:
+    image: ${HITO_CATALOG_STORAGE_TOOLS_IMAGE:-hito-replica-catalog-storage-tools:local}
+    mem_limit: 4g
+    network_mode: none
+    environment:
+      CARGO_TARGET_DIR: /build/${HITO_CATALOG_STORAGE_SOURCE_ID:?Run scripts/qualify-replica-catalog-storage.sh}
+      CARGO_BUILD_JOBS: "2"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    volumes: !override
+      - .:/workspace:ro
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - rust-target:/build
+    tmpfs:
+      - /owned-disk-case:size=64m,mode=0700
+  storage-bootstrap:
+    profiles: [tools]
+    extends:
+      service: rust
+    network_mode: bridge
+    command: cargo fetch --locked
+  storage-size:
+    profiles: [tools]
+    image: ${HITO_CATALOG_STORAGE_TOOLS_IMAGE:-hito-replica-catalog-storage-tools:local}
+    network_mode: none
+    volumes:
+      - storage-size-target:/target:ro
+    command: du -sk /target
+volumes:
+  cargo-registry:
+    external: ${HITO_CATALOG_STORAGE_EXTERNAL_CACHES:-false}
+    name: ${HITO_CATALOG_STORAGE_REGISTRY_VOLUME:-hito-replica-catalog-storage-registry}
+  cargo-git:
+    external: ${HITO_CATALOG_STORAGE_EXTERNAL_CACHES:-false}
+    name: ${HITO_CATALOG_STORAGE_GIT_VOLUME:-hito-replica-catalog-storage-git}
+  rust-target:
+    external: ${HITO_CATALOG_STORAGE_EXTERNAL_CACHES:-false}
+    name: ${HITO_CATALOG_STORAGE_TARGET_VOLUME:-hito-replica-catalog-storage-target}
+  storage-size-target:
+    external: true
+    name: ${HITO_CATALOG_STORAGE_SIZE_VOLUME:-hito-replica-catalog-storage-target}

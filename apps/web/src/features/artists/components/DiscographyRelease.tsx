@@ -10,6 +10,26 @@ import ArtistEditions from "./ArtistEditions";
 import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
 
+function releaseSubtitle(group: Schema<"CatalogReleaseGroup">, kind: string) {
+  const year = group.first_release_date?.slice(0, 4);
+  const types = group.secondary_types.map((type, index) =>
+    index === 0 ? type : type.toLowerCase(),
+  );
+  return [year, types.length ? types.join(", ") : kind]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function libraryLine(albums: Schema<"LibraryAlbum">[]) {
+  const best = albums.reduce((a, b) =>
+    b.playable_count > a.playable_count ? b : a,
+  );
+  const count = `${best.track_count} ${best.track_count === 1 ? "track" : "tracks"} in your library`;
+  return best.playable_count === best.track_count
+    ? count
+    : `${count} · ${best.playable_count} playable`;
+}
+
 const kinds = {
   album: "Album",
   ep: "EP",
@@ -67,16 +87,31 @@ export default function DiscographyRelease({
       </li>
     );
   const availability = library ? releaseAvailability(library) : null;
-  const year = group.first_release_date?.slice(0, 4);
   const kind = group.kind ? kinds[group.kind] : "Release";
   if (release === undefined)
     return (
       <li className="release-card">
         <MediaCard
           title={group.title}
-          subtitle={[kind, ...group.secondary_types, year]
-            .filter(Boolean)
-            .join(" · ")}
+          subtitle={releaseSubtitle(group, kind)}
+          detail={
+            library &&
+            library.length > 0 && (
+              <span
+                className="release-library source-status"
+                data-status="ready"
+                role="img"
+                aria-label={
+                  availability?.label
+                    ? `In your library, ${availability.label.toLowerCase()}`
+                    : "In your library"
+                }
+              >
+                <span className="source-status-dot" aria-hidden="true" />
+                {libraryLine(library)}
+              </span>
+            )
+          }
           heading={Heading}
           cover={
             <CatalogCover
@@ -93,13 +128,6 @@ export default function DiscographyRelease({
             albumHref
               ? () => router.get(`${albumHref(group.id)}?play=1`)
               : () => setView("play")
-          }
-          inLibrary={
-            availability?.state === "library"
-              ? availability.label
-                ? `In your library, ${availability.label.toLowerCase()}`
-                : "In your library"
-              : undefined
           }
         />
       </li>

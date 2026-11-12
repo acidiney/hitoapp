@@ -21,7 +21,11 @@ export default function ListeningHistorySettings({
     setConfirming(false);
   }
   return (
-    <SettingsCard setting={setting("listening-history")} busy={busy}>
+    <SettingsCard
+      setting={setting("listening-history")}
+      description="Only this account is affected."
+      busy={busy}
+    >
       {history.phase === "load" && (
         <p role="status">Loading listening history settings…</p>
       )}
@@ -37,8 +41,9 @@ export default function ListeningHistorySettings({
       {history.loaded && (
         <>
           <Switch
+            id="listening-history-save"
             label="Save listening history"
-            hint="Hito remembers the tracks you play so History and Recently played can show them. Turn off to stop recording. Entries already saved stay until you delete them, and resume positions are still kept."
+            hint="History and Recently played need it."
             checked={history.enabled}
             disabled={busy}
             onChange={(enabled) => void history.setEnabled(enabled)}
@@ -49,16 +54,17 @@ export default function ListeningHistorySettings({
             </p>
           )}
           <SettingRow
-            compact
+            id="listening-history-delete"
             title="Delete listening history"
-            hint="Removes every entry from History and clears Recently played. Likes, playlists, resume positions and downloads are not affected."
+            hint="Removes every entry. Likes, playlists and downloads stay."
             action={
               <Button
                 variant="destructive"
                 disabled={busy}
+                aria-label="Delete listening history"
                 onClick={() => setConfirming(true)}
               >
-                Delete listening history
+                Delete…
               </Button>
             }
           >
@@ -78,8 +84,8 @@ export default function ListeningHistorySettings({
       )}
       {confirming && (
         <Dialog
-          title="Delete listening history?"
-          description="Every entry in your History and Recently played is removed. This cannot be undone. Likes, playlists, resume positions and downloads are kept."
+          title="Delete your listening history?"
+          description="Removes every entry from History and clears Recently played. Likes, playlists, resume positions and downloads are not affected. This can't be undone."
           busy={history.phase === "delete"}
           onClose={() => setConfirming(false)}
         >

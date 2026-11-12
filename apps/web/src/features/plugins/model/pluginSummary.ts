@@ -110,3 +110,70 @@ export function grantedAccess(scopes: string[]): string {
     .filter(Boolean)
     .join(", ");
 }
+
+const WANTS: Record<Capability, string> = {
+  search: "search for songs",
+  catalog: "browse albums and artists",
+  metadata: "fill in track details",
+  sources: "play songs",
+  source_preparation: "get songs ready sooner",
+  playlists: "import playlists",
+  artwork: "fetch album covers",
+  dashboard: "show a dashboard",
+  lyrics: "show lyrics",
+  backing_tracks: "offer backing tracks",
+  featured: "feature music on Discover",
+};
+const EFFECT: Partial<Record<Capability, (name: string) => string>> = {
+  artwork: (name) =>
+    `When an album has no artwork, Hito can also ask ${name} for it.`,
+  search: (name) => `Search can include ${name} results when you ask.`,
+  sources: (name) =>
+    `Tracks with no file can play from ${name}, after local files and saved copies.`,
+  playlists: (name) =>
+    `You can follow or copy playlists from ${name} by pasting a link.`,
+  metadata: (name) =>
+    `Missing titles, artists and albums can be filled in from ${name}.`,
+  lyrics: (name) => `Now playing can show lyrics from ${name}.`,
+};
+
+function addedCapabilities(accepted: Capability[], proposed: Capability[]) {
+  return NEW_ORDER.filter(
+    (value) => proposed.includes(value) && !accepted.includes(value),
+  );
+}
+
+export function wantedActions(
+  accepted: Capability[],
+  proposed: Capability[],
+): string {
+  const items = addedCapabilities(accepted, proposed).map(
+    (value) => WANTS[value],
+  );
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+export function acceptanceEffects(
+  name: string,
+  accepted: Capability[],
+  proposed: Capability[],
+): string[] {
+  return addedCapabilities(accepted, proposed).map((value) =>
+    (
+      EFFECT[value] ??
+      ((service: string) =>
+        `Hito can also use ${service} for ${NEW_LABELS[value]}.`)
+    )(name),
+  );
+}
+
+export function newCapabilityChips(
+  accepted: Capability[],
+  proposed: Capability[],
+): string[] {
+  return newCapabilities(accepted, proposed).map(
+    (label) => `${label.charAt(0).toUpperCase()}${label.slice(1)}`,
+  );
+}

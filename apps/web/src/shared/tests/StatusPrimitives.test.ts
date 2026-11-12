@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import AvailabilityLabel from "../ui/AvailabilityLabel";
 import HealthDot from "../ui/HealthDot";
+import StatusDot from "../ui/StatusDot";
 import SectionWarning from "../ui/SectionWarning";
 import Button from "../ui/Button";
 
@@ -75,4 +76,29 @@ test("buttons default to type button and expose the active state", () => {
   expect(screen.getByRole("button", { name: "Remove" }).className).toContain(
     "destructive",
   );
+});
+
+test("a source status always puts a word beside its dot", () => {
+  const { container } = render(
+    createElement(
+      "div",
+      null,
+      createElement(StatusDot, { status: "ready", detail: "Local" }),
+      createElement(StatusDot, { status: "checking" }),
+      createElement(StatusDot, { status: "none" }),
+      createElement(StatusDot, { status: "failed" }),
+    ),
+  );
+  expect(
+    [...container.querySelectorAll(".source-status")].map(
+      (status) => status.textContent,
+    ),
+  ).toEqual(["Ready · Local", "Checking…", "No source", "Couldn't check"]);
+  expect(
+    [...container.querySelectorAll(".source-status")].map((status) =>
+      status.getAttribute("data-status"),
+    ),
+  ).toEqual(["ready", "checking", "none", "failed"]);
+  for (const dot of container.querySelectorAll(".source-status-dot"))
+    expect(dot.getAttribute("aria-hidden")).toBe("true");
 });

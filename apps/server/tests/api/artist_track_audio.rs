@@ -158,3 +158,53 @@ async fn a_reviewed_artists_catalog_track_finds_and_saves_approved_audio_over_ht
     }
     assert!(joined);
 }
+
+#[tokio::test]
+async fn a_catalog_edition_track_saves_ranked_audio_and_reloads_best_guess_sources_over_http() {
+    let (_directory, app) = support::app().await;
+    let account = Account::setup(&app).await;
+    let mut catalog = AlbumProvider::start().await;
+    let audio = crate::provider_fixture::ProviderServer::start().await;
+    let result = tokio::time::timeout(Duration::from_secs(60), AssertUnwindSafe(async {
+        let Prepared { first, association, .. } = prepare(&app, &account, &catalog).await;
+        let path = format!("/api/v1/recordings/{first}/artist-associations/{association}/edition-track-audio");
+        let body = json!({"release_group_id": provider::GROUP_ID, "edition_id": provider::EDITION_ID, "occurrence_id": "occurrence:album/2/2"});
+        audio.reply("v1/manifest", json!({"id": "org.hito.audio-fixture", "name": "Audio fixture", "protocol_version": 1,
+            "capabilities": ["search", "sources", "metadata"]})).await;
+        account.connect(&app, &audio.url, "Audio fixture", None).await;
+        let detail = json!({"id": "audio/ranked", "title": "Different catalog title", "artist": provider::CREDIT,
+            "duration_ms": 1000, "release": null, "disc_number": null, "track_number": null, "revision": "audio-r1"});
+        audio.reply("v1/search", json!({"items": [detail.clone()], "next_cursor": null})).await;
+        audio.reply("v1/recordings/detail", detail.clone()).await;
+        audio.reply("v1/recordings/metadata", json!({"recording": detail, "musical_title": "Different catalog title",
+            "album_title": provider::RELEASE_TITLE, "source_ids": ["audio/ranked-source"]})).await;
+        audio.reply("v1/sources", json!({"items": [{"id": "audio/ranked-source", "label": "Owned audio", "ready": true}]})).await;
+        let (status, _, saved) = fixture::exchange(&app, "POST", &path, body.clone(), account.headers()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(saved["status"], "saved");
+        assert_eq!(saved["recording"]["title"], "Different catalog title");
+        let recording = saved["recording"]["id"].as_str().unwrap();
+        let sources_path = format!("/api/v1/recordings/{recording}/sources");
+        let (status, _, sources) = fixture::exchange(&app, "GET", &sources_path, json!(null), account.headers()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(sources.as_array().unwrap().len(), 1);
+        assert_eq!(sources[0]["ready"], true);
+        assert_eq!(sources[0]["match_kind"], "best_guess");
+        let (status, _, again) = fixture::exchange(&app, "POST", &path, body, account.headers()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(again["recording"]["id"], recording);
+        assert_eq!(audio.requests("v1/search").await.len(), 1);
+        assert_eq!(audio.requests("v1/recordings/detail").await.len(), 2);
+        assert_eq!(audio.requests("v1/sources").await.len(), 2);
+        assert_eq!(audio.requests("v1/recordings/metadata").await.len(), 1);
+        assert!(audio.requests("v1/audio").await.is_empty());
+    }).catch_unwind()).await;
+    audio.shutdown().await;
+    let joined = catalog.finish().await;
+    match result {
+        Ok(Ok(())) => {}
+        Ok(Err(panic)) => resume_unwind(panic),
+        Err(_) => panic!("The ranked artist track audio workflow must finish within its deadline"),
+    }
+    assert!(joined);
+}

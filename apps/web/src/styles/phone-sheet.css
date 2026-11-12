@@ -1,0 +1,61 @@
+html[data-dialog-open] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+@media (max-width: 767px) {
+  dialog.dialog {
+    inset: auto 0 var(--sheet-bottom, 0) 0;
+    max-height: calc(var(--sheet-height, 100dvh) - 84px);
+    margin: 0;
+    overflow: hidden;
+  }
+  dialog.dialog[open] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  dialog.dialog:has(.dialog-actions) {
+    padding-bottom: 0;
+  }
+  dialog.dialog > * {
+    flex: none;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+  dialog.dialog h2:focus {
+    outline: none;
+  }
+  dialog.dialog > :is(h2, .dialog-head) {
+    margin: 0 0 16px;
+    padding: 0;
+  }
+  dialog.dialog > :is(form, .dialog-body) {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  dialog.dialog :is(.dialog-actions, footer) {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 8px;
+  }
+  dialog.dialog :is(.dialog-actions, footer) .button {
+    justify-content: center;
+    min-height: 48px;
+    border-radius: var(--radius-pill);
+  }
+  dialog.dialog .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 16px -16px 0;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+    background: var(--surface);
+  }
+  dialog.dialog :is(input, select, textarea) {
+    font-size: 16px;
+  }
+}

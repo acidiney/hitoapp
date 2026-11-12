@@ -24,23 +24,25 @@ impl Outage {
         )
         .await
         .unwrap();
-        sqlx::query(&format!(
-            "ALTER TABLE {table} RENAME TO unavailable_{table}"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
+        let statement = if table == "recordings" {
+            "ALTER TABLE recordings RENAME COLUMN library_id TO unavailable_library_id".to_owned()
+        } else {
+            format!("ALTER TABLE {table} RENAME TO unavailable_{table}")
+        };
+        sqlx::query(&statement).execute(&pool).await.unwrap();
         Self { pool, table }
     }
 
     pub async fn restore(self) {
-        sqlx::query(&format!(
-            "ALTER TABLE unavailable_{} RENAME TO {}",
-            self.table, self.table
-        ))
-        .execute(&self.pool)
-        .await
-        .unwrap();
+        let statement = if self.table == "recordings" {
+            "ALTER TABLE recordings RENAME COLUMN unavailable_library_id TO library_id".to_owned()
+        } else {
+            format!(
+                "ALTER TABLE unavailable_{} RENAME TO {}",
+                self.table, self.table
+            )
+        };
+        sqlx::query(&statement).execute(&self.pool).await.unwrap();
         self.pool.close().await;
     }
 

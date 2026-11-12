@@ -1,0 +1,35 @@
+services:
+  plugin-lrclib:
+    extends:
+      file: deploy/compose/plugin-base.yaml
+      service: private-service
+    profiles: [plugins]
+    image: hito-plugin-lrclib:${HITO_LRCLIB_IMAGE_TAG:-development}
+    build:
+      context: .
+      dockerfile: docker/plugin.Dockerfile
+      args:
+        PLUGIN: hito-plugin-lrclib
+        PORT: "8101"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+    command:
+      - --service-token-file
+      - /run/secrets/lrclib-service-token
+      - --listen
+      - 0.0.0.0:8101
+    ports:
+      - "127.0.0.1:${HITO_LRCLIB_PORT:-8101}:8101"
+    environment:
+      HITO_METADATA_CONTACT: ${HITO_METADATA_CONTACT:-}
+      RUST_LOG: ${HITO_LRCLIB_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: lrclib-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+volumes:
+  lrclib-credentials:
+    external: true
+    name: ${HITO_LRCLIB_CREDENTIAL_VOLUME:?Set HITO_LRCLIB_CREDENTIAL_VOLUME to a provisioned private volume}

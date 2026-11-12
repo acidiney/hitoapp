@@ -111,6 +111,14 @@ async fn serve_owned(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
+    let replicas = services.replicas.clone();
+    let snapshots = services.catalog_replication.clone();
+    let playback = services.playback.clone();
+    let mut capability_stop = stopped.clone();
+    let capability_shutdown = async move {
+        let _ = capability_stop.wait_for(|stopped| *stopped).await;
+        tokio::join!(replicas.close(), snapshots.close(), playback.close())
+    };
     let indexing = indexing::worker(services.storage.clone(), stopped.clone());
     let watching = indexing::folder_watching(services.storage.clone(), stopped.clone());
     let retention = retention::worker(services.storage.clone(), stopped.clone());
@@ -156,7 +164,7 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), (), (), (), capabilities_closed) = tokio::join!(
         http,
         indexing,
         watching,
@@ -168,12 +176,17 @@ async fn serve_owned(
         transfers,
         preparations,
         refreshes,
-        reports
+        reports,
+        capability_shutdown
     );
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),
     );
+    let (replicas_closed, snapshots_closed, playback_closed) = capabilities_closed;
+    replicas_closed?;
+    snapshots_closed?;
+    playback_closed?;
     downloads_finished?;
     indexing_finished?;
     tracing::info!(event = "server_stopped", "Hito stopped");

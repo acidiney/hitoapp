@@ -1,17 +1,31 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+const reportStarted = Date.now();
+const reportId = /^[a-z0-9_-]{1,80}$/.test(process.env.BENCH_RUN_ID ?? "") ? process.env.BENCH_RUN_ID : randomUUID();
 
 const directory = process.argv[2] ?? process.env.BENCH_OUT ?? "test-results/latency";
-const targets = { local_start: 250, remote_start: 2000, recovery: 3000 };
+import { targets, summarize, validateNative, visualBrowserRows, evaluateNativeGate } from "./benchmark-results.mjs";
+export { percentile } from "./benchmark-results.mjs";
+
 const titles = {
-  local_start: "Local start (play request to first audible frame)",
+  local_start: "Local start",
   remote_start: "Ready remote start",
   recovery: "Available-source recovery",
 };
 
+function io(operation, work) {
+  try {
+    return work();
+  } catch {
+    console.error(JSON.stringify({ event: "benchmark_report_io_failed", operation, outcome: "failed" }));
+    process.exit(1);
+  }
+}
+
 function readCsv(path) {
   if (!existsSync(path)) return [];
-  const [header, ...lines] = readFileSync(path, "utf8").trim().split("\n");
+  const [header, ...lines] = io("read", () => readFileSync(path, "utf8")).trim().split("\n");
   const names = header.split(",");
   return lines.map((line) => {
     const cells = line.split(",");
@@ -19,30 +33,33 @@ function readCsv(path) {
   });
 }
 
-export function percentile(sorted, p) {
-  if (sorted.length === 0) return NaN;
-  return sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)];
+function readJson(filename) {
+  const path = join(directory, filename);
+  if (!existsSync(path)) return { value: null, invalid: false };
+  const raw = io("read", () => readFileSync(path, "utf8"));
+  try { return { value: JSON.parse(raw), invalid: false }; }
+  catch { return { value: null, invalid: true }; }
 }
 
-function summarize(rows, key) {
-  const ok = rows.filter((row) => row.ok === "1" && row[key] !== "");
-  const failed = rows.length - ok.length;
-  const values = [
-    ...ok.map((row) => Number(row[key])).sort((a, b) => a - b),
-    ...Array(failed).fill(Infinity),
-  ];
-  return {
-    n: rows.length,
-    ok: ok.length,
-    p50: percentile(values, 50),
-    p95: percentile(values, 95),
-    p99: percentile(values, 99),
-    max: values.at(-1) ?? NaN,
-    min: values[0] ?? NaN,
-  };
+function nativeSnapshot() {
+  const environment = readJson("native-environment.json");
+  const report = validateNative({ environment: environment.value, environmentInvalid: environment.invalid,
+    measuredRows: readCsv(join(directory, "native-samples.csv")), warmupRows: readCsv(join(directory, "native-warmups.csv")) });
+  io("write", () => writeFileSync(join(directory, "native-validation.json"), JSON.stringify(report.validation, null, 2)));
+  const { validation } = report;
+  if (!validation.complete || !validation.reliable) {
+    process.exitCode = 1;
+    console.error(JSON.stringify({ event: "native_benchmark_validation", outcome: validation.complete ? "unreliable" : "invalid", codes: validation.codes,
+      measured_failures: validation.measured.failures, warmup_failures: validation.warmup.failures }));
+  }
+  return report;
 }
 
-const rows = [...readCsv(join(directory, "browser-samples.csv")), ...readCsv(join(directory, "native-samples.csv"))];
+const gateNative = process.argv.includes("--gate-native");
+const nativeReport = process.argv.includes("--strict-native") || gateNative ? nativeSnapshot() : null;
+const rows = nativeReport
+  ? [...nativeReport.rows, ...(gateNative ? visualBrowserRows(readCsv(join(directory, "browser-samples.csv"))) : [])]
+  : [...readCsv(join(directory, "browser-samples.csv")), ...readCsv(join(directory, "native-samples.csv"))];
 for (const row of rows)
   row.gap_ms =
     row.scenario === "recovery" && row.ok === "1" && row.detection_ms !== ""
@@ -89,12 +106,23 @@ for (const item of series) {
   item.verdict = failed > 0 ? `${base}, ${failed} failed ${failed === 1 ? "start" : "starts"}` : base;
 }
 
+if (gateNative) {
+  const runtime = existsSync(join(directory, "native-runtime-result.json")) ? readJson("native-runtime-result.json").value : undefined;
+  const gate = { run_id: reportId, ...evaluateNativeGate(nativeReport, series, readJson("native-run.json").value, runtime) };
+  io("write", () => writeFileSync(join(directory, "native-gate.json"), JSON.stringify(gate, null, 2)));
+  console.error(JSON.stringify({ event: "native_benchmark_gate", run_id: reportId, outcome: gate.passed ? "passed" : "failed", codes: gate.codes, elapsed_ms: Date.now() - reportStarted }));
+  if (!gate.passed) process.exitCode = 1;
+}
+
 const f = (value) => (value === Infinity ? "fail" : Number.isFinite(value) ? value.toFixed(1) : "n/a");
-const lines = [];
+const lines = nativeReport && !nativeReport.validation.complete ? ["Native benchmark validation failed."] : [];
 for (const scenario of order) {
   const members = series.filter((item) => item.scenario === scenario);
   if (members.length === 0) continue;
   lines.push(`### ${titles[scenario]}, p95 target ${targets[scenario]} ms`, "");
+  if (scenario === "local_start" && members.some((item) => item.surface === "native")) {
+    lines.push("Native start timings run from the play request to detection in a completed monitor read. They do not timestamp first-frame or physical presentation.", "");
+  }
   lines.push("| Surface | Variant | Provider RTT | Samples ok/total | p50 ms | p95 ms | p99 ms | max ms | p95 verdict |");
   lines.push("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
   for (const item of members)
@@ -119,7 +147,7 @@ if (recovery.length) {
 const staged = series.filter((item) => item.scenario !== "recovery" && Number.isFinite(item.playing.p50));
 if (staged.length) {
   lines.push("### Start detail: time to the playing signal", "");
-  lines.push("Browser: the media element `playing` event. Native: the player state reporting playing. Audible output follows this signal.");
+  lines.push("Browser: the media element `playing` event. Native: the player state reporting playing. These timestamps are tracked separately from output detection.");
   lines.push("");
   lines.push("| Surface | Scenario | Variant | Provider RTT | playing p50 ms | playing p95 ms |");
   lines.push("| --- | --- | --- | ---: | ---: | ---: |");
@@ -127,7 +155,7 @@ if (staged.length) {
     lines.push(`| ${item.surface} | ${item.scenario} | ${item.variant} | ${item.rtt} ms | ${f(item.playing.p50)} | ${f(item.playing.p95)} |`);
   lines.push("");
 }
-writeFileSync(join(directory, "results.md"), lines.join("\n"));
-writeFileSync(join(directory, "summary.json"), JSON.stringify(series.map(({ samples, ...rest }) => rest), null, 2));
-writeFileSync(join(directory, "series.json"), JSON.stringify(series));
+io("write", () => writeFileSync(join(directory, "results.md"), lines.join("\n")));
+io("write", () => writeFileSync(join(directory, "summary.json"), JSON.stringify(series.map(({ samples, ...rest }) => rest), null, 2)));
+io("write", () => writeFileSync(join(directory, "series.json"), JSON.stringify(series)));
 console.log(lines.join("\n"));

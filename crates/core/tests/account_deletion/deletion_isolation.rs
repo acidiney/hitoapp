@@ -3,6 +3,70 @@ use hito_core::{DeleteAccount, Error};
 use std::future::pending;
 
 #[tokio::test]
+async fn deleting_an_account_removes_only_its_replica_state_principal() {
+    for state_belongs_to_deleted_account in [true, false] {
+        let world = World::empty().await;
+        let mut connection = connect(world.directory.path()).await;
+        let owner = if state_belongs_to_deleted_account {
+            &world.member.user.id
+        } else {
+            &world.admin.user.id
+        };
+        sqlx::query("INSERT INTO replica_state(singleton,binding_id,remote_account_id,client_id,cursor) VALUES(1,'owned-binding',?,'owned-client',7)")
+            .bind(owner)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        let admin = world.actor(&world.admin).await;
+
+        world
+            .hito
+            .identity
+            .delete_account(
+                &admin,
+                &world.member.user.id,
+                DeleteAccount {
+                    username: world.member.user.username.clone(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let state: Option<(String, String, String, i64)> = sqlx::query_as(
+            "SELECT binding_id,remote_account_id,client_id,cursor FROM replica_state",
+        )
+        .fetch_optional(&mut connection)
+        .await
+        .unwrap();
+        let expected = (!state_belongs_to_deleted_account).then(|| {
+            (
+                "owned-binding".to_owned(),
+                world.admin.user.id.clone(),
+                "owned-client".to_owned(),
+                7,
+            )
+        });
+        assert_eq!(state, expected);
+        let violations: Vec<String> =
+            sqlx::query_scalar("SELECT \"table\" FROM pragma_foreign_key_check")
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+        assert!(
+            violations.is_empty(),
+            "foreign keys must hold: {violations:?}"
+        );
+        let recordings = world
+            .hito
+            .catalog
+            .recordings_by_ids(&admin, &[world.shared_recording])
+            .await
+            .unwrap();
+        assert_eq!(recordings.len(), 1);
+    }
+}
+
+#[tokio::test]
 async fn deleting_an_account_removes_everything_it_owned_and_nothing_of_another_account() {
     let mut world = World::empty().await;
     let kept = world.populate(&world.admin).await;

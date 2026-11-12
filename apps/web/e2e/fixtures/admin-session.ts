@@ -13,7 +13,7 @@ export const sharedAdminSession = !Object.entries(process.env).some(
 );
 
 export async function enterAdmin(page: Page) {
-  await page.goto("/");
+  await page.goto("/library");
   const setup = page.getByRole("heading", { name: "Set up Hito" });
   const welcome = page.getByRole("heading", { name: "Sign in", exact: true });
   await expect(setup.or(welcome)).toBeVisible();
@@ -36,7 +36,7 @@ export async function enterAdmin(page: Page) {
 }
 
 export async function openSharedAdminSession(page: Page) {
-  await page.goto("/");
+  await page.goto("/library");
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();

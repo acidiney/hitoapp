@@ -1,0 +1,97 @@
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --sidebar: 72px;
+  }
+  .sidebar {
+    align-items: stretch;
+    gap: 4px;
+    padding: 16px 0 84px;
+    overflow: hidden;
+  }
+  .brand {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0;
+  }
+  .brand-wordmark {
+    display: none;
+  }
+  .brand-mark {
+    display: flex;
+  }
+  .sidebar nav {
+    gap: 4px;
+    justify-items: center;
+  }
+  .sidebar nav a {
+    justify-content: center;
+    width: 48px;
+    min-height: 48px;
+    padding: 0;
+    font-size: 0;
+  }
+  .sidebar nav a svg {
+    width: 20px;
+    height: 20px;
+  }
+  .sidebar nav kbd,
+  .sidebar-playlists {
+    display: none;
+  }
+  .account {
+    left: 0;
+    width: 71px;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .account-link {
+    flex: none;
+    justify-content: center;
+    width: 48px;
+  }
+  .account-name,
+  .account > .action-menu {
+    display: none;
+  }
+  .topbar {
+    padding: 20px 24px 16px;
+  }
+  main#main {
+    padding: 24px;
+  }
+  .playlist-header,
+  .album-header,
+  .artist-header {
+    gap: 16px 20px;
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 16px 20px;
+  }
+  .detail-page {
+    margin: -24px -24px -48px;
+  }
+  .playlist-header-cover,
+  .playlist-header-cover > .artwork,
+  .album-header-cover,
+  .album-header-cover > .artwork {
+    width: 72px;
+    height: 72px;
+  }
+  .artist-header-photo {
+    width: 72px;
+    height: 72px;
+  }
+  .playlist-header h1,
+  .album-header :is(h1, h4, h5),
+  .artist-header h1 {
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .playlist-header-copy,
+  .album-header-copy,
+  .artist-header-copy {
+    flex-basis: 240px;
+    gap: 8px;
+  }
+}

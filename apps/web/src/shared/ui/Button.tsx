@@ -6,6 +6,7 @@ export type ButtonVariant =
   | "action"
   | "secondary"
   | "destructive"
+  | "link"
   | "active";
 
 type ButtonProps = ComponentProps<"button"> & {

@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { fireEvent, screen } from "@testing-library/react";
 import { expect, vi } from "vitest";
 
 export type Persistence = NonNullable<
@@ -134,4 +135,16 @@ export function heldInstallationResponse(
   });
   response.json = () => body;
   return { response, release: () => release() };
+}
+
+export async function openManage() {
+  const buttons = await screen.findAllByRole("button", { name: "Manage" });
+  for (const button of buttons)
+    if (button.getAttribute("aria-expanded") === "false")
+      fireEvent.click(button);
+}
+
+export async function findCheckConnection() {
+  await openManage();
+  return screen.findByRole("button", { name: "Check connection" });
 }

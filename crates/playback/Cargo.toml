@@ -18,6 +18,7 @@ required-features = ["device"]
 hito-audio = { path = "../audio" }
 hito-core = { path = "../core" }
 tokio.workspace = true
+tokio-util = { workspace = true, features = ["rt"] }
 bytes.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
@@ -35,6 +36,5 @@ futures-util.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
 axum.workspace = true
-tokio-util.workspace = true
 tracing-subscriber.workspace = true
 sqlx.workspace = true

@@ -71,6 +71,7 @@ export function usePasswordChange(account: string, onChanged: () => void) {
     error,
     message,
     submit,
+    clearMessage: () => setMessage(""),
     dirty: current !== "" || next !== "" || again !== "",
   };
 }

@@ -133,18 +133,17 @@ test("releases are grouped by primary type with exact library availability and n
     ],
   ]);
   const headings = within(region)
-    .getAllByRole("heading", { level: 4 })
+    .getAllByRole("heading", { level: 3 })
     .map((heading) => heading.textContent);
   expect(headings.slice(0, 4)).toEqual([
-    "Albums (2)",
-    "EPs (1)",
-    "Singles (1)",
-    "Other releases (2)",
+    "Albums",
+    "EPs",
+    "Singles",
+    "Other releases",
   ]);
   const albums = Array.from(
-    within(region)
-      .getByRole("region", { name: "Albums" })
-      .querySelector(":scope > ul")!.children,
+    within(region).getByRole("region", { name: "Albums" }).querySelector("ul")!
+      .children,
   ) as HTMLElement[];
   expect(albums).toHaveLength(2);
   for (const card of albums)
@@ -175,12 +174,12 @@ test("a type filter narrows the loaded releases and long sections page locally",
     within(region).getByRole("button", { name: "Show more albums" }),
   );
   expect(list.children).toHaveLength(14);
-  fireEvent.click(within(region).getByRole("button", { name: "EPs · 1" }));
+  fireEvent.click(within(region).getByRole("button", { name: "EPs 1" }));
   expect(within(region).queryByRole("region", { name: "Albums" })).toBeNull();
   expect(within(region).getByRole("region", { name: "EPs" })).toBeTruthy();
   expect(
     within(region)
-      .getByRole("button", { name: "EPs · 1" })
+      .getByRole("button", { name: "EPs 1" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
 });
@@ -286,7 +285,7 @@ test("each release shows one availability state and the missing-only filter hide
   ).toHaveLength(2);
   expect(within(region).queryByText("Not in your library")).toBeNull();
   const missing = within(region).getByRole("button", {
-    name: "Only what I'm missing",
+    name: "Not linked to my library",
   });
   expect(missing.getAttribute("aria-pressed")).toBe("false");
   fireEvent.click(missing);
@@ -295,8 +294,8 @@ test("each release shows one availability state and the missing-only filter hide
     within(region).queryByRole("heading", { name: "Complete one" }),
   ).toBeNull();
   expect(
-    within(region).getByRole("heading", { name: "Partial one" }),
-  ).toBeTruthy();
+    within(region).queryByRole("heading", { name: "Partial one" }),
+  ).toBeNull();
   expect(
     within(region).getByRole("heading", { name: "Absent one" }),
   ).toBeTruthy();
@@ -326,10 +325,16 @@ test("the release type control counts every type and keeps the all choice", asyn
     within(group)
       .getAllByRole("button")
       .map((button) => button.textContent),
-  ).toEqual(["All · 3", "Albums · 2", "EPs · 1"]);
-  fireEvent.click(within(group).getByRole("button", { name: "EPs · 1" }));
+  ).toEqual([
+    "All 3",
+    "Albums 2",
+    "EPs 1",
+    "In my library",
+    "Not linked to my library",
+  ]);
+  fireEvent.click(within(group).getByRole("button", { name: "EPs 1" }));
   expect(within(region).queryByRole("region", { name: "Albums" })).toBeNull();
-  fireEvent.click(within(group).getByRole("button", { name: "All · 3" }));
+  fireEvent.click(within(group).getByRole("button", { name: "All 3" }));
   expect(within(region).getByRole("region", { name: "Albums" })).toBeTruthy();
 });
 
@@ -358,9 +363,9 @@ test("the missing-only filter says so when every release is already in the libra
   const region = await open();
   await within(region).findByRole("img", { name: "In your library" });
   fireEvent.click(
-    within(region).getByRole("button", { name: "Only what I'm missing" }),
+    within(region).getByRole("button", { name: "Not linked to my library" }),
   );
   expect(
-    within(region).getByRole("status", { name: "Nothing missing" }).textContent,
+    within(region).getByRole("status", { name: "Nothing to show" }).textContent,
   ).toContain("Every release here is already in your library.");
 });

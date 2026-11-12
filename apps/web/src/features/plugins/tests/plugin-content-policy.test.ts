@@ -1,10 +1,12 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { findCheckConnection } from "../fixtures/pluginInstallation";
 import { beforeEach, expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import PluginSettings from "../components/PluginSettings";
 
+vi.mock("../components/PluginPlaybackOrder", () => ({ default: () => null }));
 type Persistence = NonNullable<
   Schema<"PluginInstallation">["manifest"]["content_policy"]
 >["source_persistence"];
@@ -98,7 +100,9 @@ function acceptedDisclosure() {
 }
 
 function reviewDisclosure(label: "Current" | "Proposed") {
-  const term = screen.getByText(`${label} source persistence`);
+  const term = screen.getByText(
+    label === "Current" ? "Saving audio today" : "Saving audio if you accept",
+  );
   expect(term.tagName).toBe("DT");
   const definition = term.nextElementSibling;
   expect(definition?.tagName).toBe("DD");
@@ -108,17 +112,17 @@ function reviewDisclosure(label: "Current" | "Proposed") {
 function expectPolicy(element: Element, policy?: Persistence) {
   const text = element.textContent ?? "";
   if (policy === "playback_only") {
-    expect(text).toMatch(/playback only/i);
-    expect(text).toMatch(/no new offline downloads/i);
-    expect(text).toMatch(/completed copies.*retained/i);
+    expect(text).toMatch(/only plays audio/i);
+    expect(text).toMatch(/won't save new copies/i);
+    expect(text).toMatch(/copies you already have stay/i);
   } else if (policy === "explicit_download") {
-    expect(text).toMatch(/explicit downloads declared/i);
-    expect(text).toMatch(/subject to Hito's checks/i);
-    expect(text).toMatch(/does not grant a licen[cs]e/i);
+    expect(text).toMatch(/allows saving audio when you ask/i);
+    expect(text).toMatch(/still checks before saving/i);
+    expect(text).toMatch(/isn't a licen[cs]e/i);
   } else {
-    expect(text).toMatch(/no persistence declaration/i);
-    expect(text).toMatch(/download permission is unknown/i);
-    expect(text).not.toMatch(/explicit downloads declared|playback only/i);
+    expect(text).toMatch(/doesn't say whether its audio may be saved/i);
+    expect(text).toMatch(/still asks before saving/i);
+    expect(text).not.toMatch(/allows saving audio|only plays audio/i);
   }
 }
 
@@ -161,37 +165,27 @@ test.each(transitions)(
   "policy-only review discloses $name without changing the accepted declaration before acceptance",
   async ({ current, proposed }) => {
     const fixture = workflow(current, proposed);
-    const check = await screen.findByRole("button", {
-      name: "Check connection",
-    });
+    const check = await findCheckConnection();
     expectPolicy(acceptedDisclosure(), current);
     fireEvent.click(check);
-    await screen.findByRole("heading", { name: "Review plugin changes" });
+    await screen.findByRole("dialog");
     expectPolicy(acceptedDisclosure(), current);
     expectPolicy(reviewDisclosure("Current"), current);
     expectPolicy(reviewDisclosure("Proposed"), proposed);
     expect(fixture.accepted()).toEqual(installation(current));
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Keep current declaration" }),
-    );
-    expect(
-      screen.queryByRole("heading", { name: "Review plugin changes" }),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expectPolicy(acceptedDisclosure(), current);
     expect(fixture.accepted()).toEqual(installation(current));
     expect(fixture.requests).toHaveLength(2);
 
     fireEvent.click(check);
-    await screen.findByRole("heading", { name: "Review plugin changes" });
+    await screen.findByRole("dialog");
     expectPolicy(acceptedDisclosure(), current);
     expectPolicy(reviewDisclosure("Proposed"), proposed);
     fireEvent.click(screen.getByRole("button", { name: "Accept changes" }));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("heading", { name: "Review plugin changes" }),
-      ).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expectPolicy(acceptedDisclosure(), proposed);
     expect(fixture.requests).toEqual([
       { path: "/api/v1/plugins", method: "GET", body: undefined },
@@ -212,12 +206,11 @@ test.each(transitions)(
 
 test("declining a policy review clears a private replacement-token draft without another request", async () => {
   const fixture = workflow("explicit_download", "playback_only");
-  await screen.findByRole("button", { name: "Check connection" });
-  fireEvent.click(screen.getByText("Connection settings"));
+  await findCheckConnection();
   const input = screen.getByLabelText("New bearer token") as HTMLInputElement;
   fireEvent.change(input, { target: { value: replacementToken } });
   fireEvent.click(screen.getByRole("button", { name: "Save token" }));
-  await screen.findByRole("heading", { name: "Review plugin changes" });
+  await screen.findByRole("dialog");
   expectPolicy(acceptedDisclosure(), "explicit_download");
   expectPolicy(reviewDisclosure("Current"), "explicit_download");
   expectPolicy(reviewDisclosure("Proposed"), "playback_only");
@@ -231,9 +224,7 @@ test("declining a policy review clears a private replacement-token draft without
     },
   });
 
-  fireEvent.click(
-    screen.getByRole("button", { name: "Keep current declaration" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Not now" }));
   expect(input.value).toBe("");
   expectPolicy(acceptedDisclosure(), "explicit_download");
   expect(fixture.accepted()).toEqual(installation("explicit_download"));

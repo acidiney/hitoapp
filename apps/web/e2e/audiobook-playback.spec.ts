@@ -559,7 +559,7 @@ async function assertQueue(page: Page, titles: string[], selected: number) {
     .locator("footer.player")
     .getByRole("button", { name: "Open queue", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/queue$/);
+  await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
   await expect(
     page
       .getByRole("region", { name: "Now playing", exact: true })
@@ -578,14 +578,15 @@ async function removeEarlierChapter(page: Page, titles: string[]) {
     .locator("footer.player")
     .getByRole("button", { name: "Open queue", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/queue$/);
+  await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
   await page.getByText(/^Played \(/).click();
   await page
     .getByRole("button", {
-      name: `Remove ${titles[0]} from queue`,
+      name: `Actions for ${titles[0]}: move up, move down, remove`,
       exact: true,
     })
     .click();
+  await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   const rows = page.locator("ol.queue-tracks > li");
   await expect(rows).toHaveCount(1);
   await expect(rows.first().locator("strong")).toHaveText(titles[1]);

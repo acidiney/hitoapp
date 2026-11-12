@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
+import { pickRelease, confirmEdition } from "../fixtures/albumEditionSteps";
 
 import {
   albumDetail,
@@ -97,29 +98,22 @@ async function openEditions() {
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  const group = within(groups).getAllByRole("listitem")[0];
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Browse editions" }),
-  );
-  await within(group).findByRole("list", { name: "Available editions" });
-  return group;
+  await pickRelease();
 }
 
-async function chooseEdition() {
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
-  return screen.findByRole("region", { name: "Album edition track list" });
-}
+const chooseEdition = async () => {
+  await openEditions();
+  return confirmEdition();
+};
 
 function rowWith(region: HTMLElement, text: string) {
   return within(region)
     .getAllByRole("listitem")
-    .find((item) => item.textContent?.includes(text))!;
+    .find(
+      (item) =>
+        item.textContent?.includes(text) ||
+        item.querySelector(`[aria-label="Play ${text}"]`),
+    )!;
 }
 
 test("the complete track list is explicit, ordered, and distinguishes library tracks from catalog-only tracks", async () => {
@@ -142,28 +136,46 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   const rows = (disc: HTMLElement) =>
     within(disc)
       .getAllByRole("listitem")
-      .map((row) => row.textContent ?? "");
+      .map(
+        (row) =>
+          (row.textContent ?? "") +
+          [...row.querySelectorAll("[aria-label]")]
+            .map((node) => node.getAttribute("aria-label"))
+            .join(" "),
+      );
   const first = rows(discs[0]);
   expect(first[0]).toContain("Hidden intro");
   expect(first[0]).toContain("Pregap");
-  expect(first[1]).toContain("In your library");
+  expect(first[1]).toMatch(/Ready|In your library/);
   expect(first[1]).toContain(personalTitle);
   expect(first[1]).toContain("Catalog opening");
   expect(first[2]).toContain("Not in your library");
   expect(first[2]).toContain("Catalog only song");
   const second = rows(discs[1]);
-  expect(second[0]).toContain("In your library");
+  expect(second[0]).toMatch(/Ready|In your library/);
   expect(second[0]).toContain(personalTitle);
   expect(second[1]).toContain("Unidentified bonus");
   expect(second[1]).toContain("No provider identity for this track");
-  expect(
-    within(region).getByText("This is the release this album was saved from."),
-  ).toBeTruthy();
   expect(
     within(
       within(region).getByRole("list", { name: "In this album only" }),
     ).getAllByRole("listitem"),
   ).toHaveLength(1);
+  expect(
+    within(region).getByRole("heading", {
+      name: "In your library, not in this edition",
+    }),
+  ).toBeTruthy();
+  expect(within(region).queryByText(/Find audio and play/)).toBeNull();
+  await waitFor(() =>
+    expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull(),
+  );
+  expect(
+    screen.queryByRole("heading", { name: "Complete track list" }),
+  ).toBeNull();
+  expect(
+    within(region).queryByText(/saved to your library only when/),
+  ).toBeNull();
   expect(fetch.mock.calls.some(([path]) => path === adoption)).toBe(false);
   expect(player.playQueue).not.toHaveBeenCalled();
 });
@@ -186,7 +198,7 @@ test("play on a catalog-only track saves it through its provider once and then p
     provider_recording_id: "provider:two",
   });
   expect(player.playSelection).toHaveBeenCalledWith(savedRecording);
-  await waitFor(() => expect(row.textContent).toContain("In your library"));
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
 });
 
 test("a library track plays directly and never calls a provider", async () => {
@@ -206,10 +218,8 @@ test("a library track plays directly and never calls a provider", async () => {
 test("a provider outage is honest and leaves the album's library tracks playable", async () => {
   serve({ [comparison]: () => Response.json({ status: "unavailable" }) });
   render(page());
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
+  await openEditions();
+  fireEvent.click(screen.getByRole("button", { name: "Use this" }));
   const alert = await screen.findByText(/track list is unavailable/);
   expect(alert.getAttribute("role")).toBe("alert");
   expect(
@@ -248,10 +258,8 @@ test("leaving the album cancels a held comparison without updating or playing", 
     },
   });
   const view = render(page());
-  const group = await openEditions();
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
+  await openEditions();
+  fireEvent.click(screen.getByRole("button", { name: "Use this" }));
   await waitFor(() => expect(signals).toHaveLength(1));
   const errors = vi.spyOn(console, "error");
   view.unmount();
@@ -328,13 +336,47 @@ test("saving state and failures belong to the clicked occurrence, not to every r
       item.textContent?.includes("Catalog song again"),
   );
   fireEvent.click(within(first).getByRole("button", { name: /^Play / }));
-  await waitFor(() =>
-    expect(within(first).getByRole("button").textContent).toBe("Saving…"),
-  );
-  expect(within(second).getByRole("button").textContent).toBe("Play");
+  await waitFor(() => expect(first.textContent).toContain("Saving…"));
+  expect(second.textContent).not.toContain("Saving…");
   await act(async () =>
     fail(Response.json({ error: "Provider refused" }, { status: 500 })),
   );
   await waitFor(() => expect(within(first).getByRole("alert")).toBeTruthy());
   expect(within(second).queryByRole("alert")).toBeNull();
+});
+
+test("opening the complete track list never renders the artist's whole discography", async () => {
+  serve();
+  render(page());
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show complete track list" }),
+  );
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
+  expect(screen.queryByRole("region", { name: "Discography" })).toBeNull();
+  expect(
+    screen.queryByRole("list", { name: "Discography releases" }),
+  ).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Discography" })).toBeNull();
+  expect(screen.queryByText(editionGroup.title)).toBeNull();
+});
+
+test("the edition lives in one chip row with filters and a menu, and the header reports how much is owned", async () => {
+  serve();
+  render(page());
+  const region = await chooseEdition();
+  expect(screen.getByRole("button", { name: /^All \d+$/ })).toBeTruthy();
+  const mine = screen.getByRole("button", { name: /^In my library \d+$/ });
+  fireEvent.click(mine);
+  expect(mine.getAttribute("aria-pressed")).toBe("true");
+  expect(within(region).queryByText("Catalog only song")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^Edition / }));
+  expect(
+    screen.getAllByRole("menuitem").map((item) => item.textContent),
+  ).toEqual(["Change edition"]);
+  expect(screen.queryByText(/^Lined up with/)).toBeNull();
+  expect(
+    screen.getByRole("img", { name: /tracks in your library$/ }),
+  ).toBeTruthy();
 });

@@ -1,6 +1,7 @@
-import { type FormEvent } from "react";
+import { useState, type ReactNode } from "react";
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -9,17 +10,24 @@ import { useCommunityPreferences } from "../hooks/useCommunityPreferences";
 import { useCommunityCredentialReset } from "../hooks/useCommunityCredentialReset";
 import { setting } from "../../settings/model/settingsCatalog";
 
-export default function CommunitySettings({ account }: { account: string }) {
+export default function CommunitySettings({
+  account,
+  children,
+}: {
+  account: string;
+  children?: ReactNode;
+}) {
   const preferences = useCommunityPreferences(account);
   const credentials = useCommunityCredentialReset(account);
+  const [confirming, setConfirming] = useState(false);
   const busy = preferences.pending !== null || credentials.pending;
   useReportUnsaved(preferences.dirty);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    void preferences.save();
-  }
   return (
-    <SettingsCard setting={setting("community")} busy={busy}>
+    <SettingsCard
+      setting={setting("community")}
+      description="Needs a community connection on this server. Music keeps playing when it is unavailable."
+      busy={busy}
+    >
       {!preferences.loaded && preferences.pending === "load" && (
         <p role="status">Loading community preferences…</p>
       )}
@@ -31,76 +39,98 @@ export default function CommunitySettings({ account }: { account: string }) {
         </SectionWarning>
       )}
       {preferences.loaded && (
-        <form onSubmit={submit}>
-          <fieldset disabled={busy}>
-            <Switch
-              label="Playback reporting"
-              disabled={busy}
-              hint="Allow successful playback of supported public sources to inform community rankings. Audio, paths, titles, credentials and stream URLs stay private."
-              checked={preferences.playbackReporting}
-              onChange={(value) =>
-                preferences.edit("playback_reporting", value)
-              }
-            />
-            <Switch
-              label="Metadata corrections"
-              disabled={busy}
-              hint="Allow reviewed public matching corrections to be shared. Correction submission is not available yet."
-              checked={preferences.metadataCorrections}
-              onChange={(value) =>
-                preferences.edit("metadata_corrections", value)
-              }
-            />
-            <div className="form-actions">
+        <>
+          <Switch
+            label="Report successful plays"
+            disabled={busy}
+            hint="Helps rank public sources. Audio, paths, titles and credentials stay private."
+            checked={preferences.playbackReporting}
+            onChange={(value) => preferences.edit("playback_reporting", value)}
+          />
+          <Switch
+            label="Share metadata corrections"
+            disabled={busy}
+            hint="Not available yet. Your choice is kept for when it is."
+            checked={preferences.metadataCorrections}
+            onChange={(value) =>
+              preferences.edit("metadata_corrections", value)
+            }
+          />
+          {children}
+          {preferences.dirty && (
+            <div className="settings-save">
               <Button
-                type="submit"
-                variant="primary"
-                disabled={!preferences.dirty}
+                variant="action"
+                disabled={busy}
+                onClick={() => void preferences.save()}
               >
                 Save community preferences
               </Button>
-              <Button
-                disabled={!preferences.dirty}
-                onClick={preferences.cancel}
-              >
+              <Button disabled={busy} onClick={preferences.cancel}>
                 Cancel changes
               </Button>
             </div>
-          </fieldset>
+          )}
           {preferences.pending === "save" && (
             <p role="status">Saving community preferences…</p>
           )}
           {preferences.saved && (
             <p role="status">Community preferences saved.</p>
           )}
-        </form>
+          <SettingRow
+            id="community-reset"
+            title="Reset community credentials"
+            hint="Clears saved credentials and cancels unsent reports."
+            action={
+              <Button
+                variant="link"
+                disabled={busy}
+                aria-label="Reset community credentials"
+                onClick={() => setConfirming(true)}
+              >
+                Reset…
+              </Button>
+            }
+          >
+            {credentials.pending && (
+              <p role="status">Resetting community credentials…</p>
+            )}
+            {credentials.error && (
+              <p role="alert" className="form-error">
+                {credentials.error}
+              </p>
+            )}
+            {credentials.receipt && (
+              <p role="status">
+                Community credentials reset. Privacy choices and accepted
+                contributions are kept. Unsent reports canceled:{" "}
+                {credentials.receipt.reports_cancelled}.
+              </p>
+            )}
+          </SettingRow>
+        </>
       )}
-      {preferences.loaded && (
-        <SettingRow
-          title="Community connection recovery"
-          hint="Clear your account's saved community credentials and cancel unsent reports. Your privacy choices and accepted contributions are kept."
-          action={
-            <Button disabled={busy} onClick={() => void credentials.reset()}>
-              Reset community credentials
-            </Button>
-          }
+      {confirming && (
+        <Dialog
+          title="Reset community credentials?"
+          description="Clears your account's saved community credentials and cancels unsent reports. Your privacy choices and accepted contributions are kept."
+          busy={credentials.pending}
+          onClose={() => setConfirming(false)}
         >
-          {credentials.pending && (
-            <p role="status">Resetting community credentials…</p>
-          )}
-          {credentials.error && (
-            <p role="alert" className="form-error">
-              {credentials.error}
-            </p>
-          )}
-          {credentials.receipt && (
-            <p role="status">
-              Community credentials reset. Privacy choices and accepted
-              contributions are kept. Unsent reports canceled:{" "}
-              {credentials.receipt.reports_cancelled}.
-            </p>
-          )}
-        </SettingRow>
+          <div className="dialog-actions">
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={credentials.pending}
+              onClick={async () => {
+                await credentials.reset();
+                setConfirming(false);
+              }}
+            >
+              Reset credentials
+            </Button>
+          </div>
+        </Dialog>
       )}
     </SettingsCard>
   );

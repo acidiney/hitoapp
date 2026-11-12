@@ -1,21 +1,38 @@
 import { expect, test } from "vitest";
-import { resolveSection, sectionHref, visibleGroups } from "../model/sections";
+import {
+  resolveSection,
+  sectionHref,
+  tabSections,
+  visibleSections,
+} from "../model/sections";
 
-test("groups list the nine sections and hide Accounts from members", () => {
+test("tabs list the six sections and hide Accounts from members", () => {
   const labels = (admin: boolean) =>
-    visibleGroups(admin).map((group) => [
-      group.label,
-      group.sections.map((section) => section.label),
-    ]);
+    tabSections(admin).map((section) => section.label);
   expect(labels(true)).toEqual([
-    ["Your account", ["Profile", "Privacy & lock"]],
-    [
-      "Listening",
-      ["Music & providers", "Plugins", "Playback", "Downloads & storage"],
-    ],
-    ["Server", ["Accounts", "Updates", "About"]],
+    "Profile",
+    "Privacy & lock",
+    "Music",
+    "Playback",
+    "Accounts",
+    "About",
   ]);
-  expect(labels(false)[2][1]).toEqual(["Updates", "About"]);
+  expect(labels(false)).toEqual([
+    "Profile",
+    "Privacy & lock",
+    "Music",
+    "Playback",
+    "About",
+  ]);
+});
+
+test("Plugins stays a section of its own without being a tab", () => {
+  expect(visibleSections(false).map((section) => section.id)).toContain(
+    "plugins",
+  );
+  expect(tabSections(true).map((section) => section.id)).not.toContain(
+    "plugins",
+  );
 });
 
 test("sections resolve from the section parameter with legacy aliases", () => {
@@ -23,13 +40,15 @@ test("sections resolve from the section parameter with legacy aliases", () => {
   expect(resolveSection("privacy", false)).toBe("privacy");
   expect(resolveSection("library", false)).toBe("music");
   expect(resolveSection("metadata", false)).toBe("music");
-  expect(resolveSection(null, true)).toBe("music");
-  expect(resolveSection("nonsense", true)).toBe("music");
+  expect(resolveSection("downloads", false)).toBe("music");
+  expect(resolveSection("updates", false)).toBe("about");
+  expect(resolveSection(null, true)).toBe("profile");
+  expect(resolveSection("nonsense", true)).toBe("profile");
 });
 
 test("administrator sections fall back for members", () => {
   expect(resolveSection("accounts", true)).toBe("accounts");
-  expect(resolveSection("accounts", false)).toBe("music");
+  expect(resolveSection("accounts", false)).toBe("profile");
 });
 
 test("section links are deep links on the settings route", () => {

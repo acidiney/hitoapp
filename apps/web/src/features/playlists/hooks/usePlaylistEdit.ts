@@ -66,6 +66,17 @@ export function usePlaylistEdit(
       return { ...current, removed };
     });
   }
+  function removeNotReady() {
+    setDraft((current) => ({
+      ...current,
+      removed: new Set([
+        ...current.removed,
+        ...entries
+          .filter((entry) => entry.recording_id == null || !entry.available)
+          .map((entry) => entry.entry_id),
+      ]),
+    }));
+  }
   async function done() {
     if (busy) return;
     if (!dirty) return setEditing(false);
@@ -127,6 +138,7 @@ export function usePlaylistEdit(
     removed: draft.removed,
     move,
     toggleRemove,
+    removeNotReady,
     pending: busy,
   };
 }

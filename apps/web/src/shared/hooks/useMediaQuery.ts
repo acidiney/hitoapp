@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 export const PHONE_QUERY = "(max-width: 767px)";
+export const TABLET_QUERY = "(min-width: 768px) and (max-width: 1251px)";
 
 function subscribe(query: string, notify: () => void): () => void {
   if (typeof window.matchMedia !== "function") return () => {};

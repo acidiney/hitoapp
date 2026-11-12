@@ -1,3 +1,5 @@
+import { openAllManage } from "./fixtures/plugin-ui";
+import { settled } from "./fixtures/settled";
 import { randomUUID } from "node:crypto";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import {
@@ -47,6 +49,7 @@ async function layouts(
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
       await expect(control).toBeVisible();
+      await settled(page);
       const box = await control.boundingBox();
       const dock = await page
         .getByRole("contentinfo", { name: "Audio player" })
@@ -57,7 +60,12 @@ async function layouts(
         );
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-      expect(box.y + box.height).toBeLessThanOrEqual(dock.y);
+      const inSheet = await control.evaluate(
+        (element) => element.closest("dialog, [role=dialog]") !== null,
+      );
+      expect(box.y + box.height).toBeLessThanOrEqual(
+        inSheet ? viewport.height : dock.y,
+      );
       expect(
         await control.evaluate((element) => {
           const bounds = element.getBoundingClientRect();
@@ -184,7 +192,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await reference.fill(`  ${fixture.reference}  `);
     expect(fixture.requests).toHaveLength(1);
     expect(importRequests).toBe(0);
-    await expect(form).toContainText("without downloading audio");
+    await expect(form).toContainText("Yours to edit");
     await layouts(
       page,
       info,
@@ -195,6 +203,8 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await reference.focus();
     await expect(reference).toBeFocused();
     await reference.press("Tab");
+    await expect(form.getByRole("radio", { checked: true })).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(submit).toBeFocused();
     const importResponse = page.waitForResponse(
       (response) =>
@@ -284,7 +294,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
           .getByRole("link", { name: fixture.recording.title, exact: true }),
       ).toBeVisible();
       await expect(
-        rows.nth(index).getByText("Not playable yet", { exact: true }),
+        rows.nth(index).getByText("No source", { exact: true }),
       ).toBeVisible();
     }
     for (const [index, status] of [
@@ -353,11 +363,12 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         exact: true,
       }),
     });
+    await openAllManage(page);
     await plugin.getByRole("button", { name: "Remove", exact: true }).click();
-    const removePlugin = plugin.getByRole("button", {
-      name: "Remove plugin",
-      exact: true,
-    });
+    await openAllManage(page);
+    const removePlugin = page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove", exact: true });
     await removePlugin.focus();
     await expect(removePlugin).toBeFocused();
     const uninstall = page.waitForResponse(
@@ -370,7 +381,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     expect((await uninstall).status()).toBe(204);
     connection = null;
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeFocused();
     await page.goto(copyPath);
     await expect(rows).toHaveCount(4);
@@ -411,7 +422,9 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         new URL(request.url()).pathname === "/api/v1/sync" &&
         request.method() === "POST",
     );
-    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Done editing", exact: true })
+      .click();
     const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
     expect(batch.operations).toEqual(
       removedEntries.map((entry) => ({

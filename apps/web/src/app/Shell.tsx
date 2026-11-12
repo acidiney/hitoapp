@@ -1,13 +1,14 @@
 import type { Schema } from "../shared/schema";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 
 import { log } from "../shared/log";
+import { useReloadOnInvalidated } from "../shared/hooks/useReloadOnInvalidated";
 import AccountMenu from "./AccountMenu";
+import ShellShortcuts from "./ShellShortcuts";
 import LibrarySearch from "./LibrarySearch";
 import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
-import LibrarySections from "./LibrarySections";
 import { searchPlacement } from "./searchPlacement";
 import { PHONE_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import Sidebar from "./Sidebar";
@@ -15,10 +16,12 @@ import ConnectionNotice from "../shared/ui/ConnectionNotice";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
 import { TrackActionsProvider } from "../features/playback/components/TrackActionsProvider";
+import QueuePanel from "../features/playback/components/QueuePanel";
+import QueueSheet from "../features/playback/components/QueueSheet";
+import { useQueuePanelOpen } from "../features/playback/queuePanelState";
+import { useQueueRoute } from "../features/playback/hooks/useQueueRoute";
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
-
-const DETAIL_PAGES = new Set(["RecordingDetailsPage"]);
 
 function libraryTarget(component: string): "albums" | "artists" | "library" {
   if (component === "AlbumIndexPage") return "albums";
@@ -29,10 +32,19 @@ export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<Schema<"SharedPageProps"> & PageProps>();
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
-  const placement = searchPlacement(page.component, useMediaQuery(PHONE_QUERY));
+  const phone = useMediaQuery(PHONE_QUERY);
+  const placement = searchPlacement(
+    page.component,
+    phone,
+    url.searchParams.get("section"),
+  );
+  const queueOpen = useQueuePanelOpen();
+  useQueueRoute(url.pathname, url.search, phone);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
+  useReloadOnInvalidated("playlists", ["playlists"]);
   useEffect(() => {
     const apple = isApplePlatform();
     const listen = (event: KeyboardEvent) => handleSearchShortcut(event, apple);
@@ -49,10 +61,24 @@ export default function Shell({ children }: { children: ReactNode }) {
             </a>
             <div
               className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
+              data-queue={phone ? undefined : queueOpen ? "open" : "closed"}
             >
-              <Sidebar playlists={playlists} path={url.pathname} />
+              <ShellShortcuts
+                open={shortcutsOpen}
+                onOpenChange={setShortcutsOpen}
+              />
+              <Sidebar
+                playlists={playlists}
+                path={url.pathname}
+                search={url.search}
+              />
               <div className="workspace">
-                <AccountMenu user={user} lock={lock} path={url.pathname} />
+                <AccountMenu
+                  user={user}
+                  lock={lock}
+                  path={url.pathname}
+                  onShowShortcuts={() => setShortcutsOpen(true)}
+                />
                 {placement === "global" && (
                   <LibrarySearch
                     query={
@@ -69,15 +95,13 @@ export default function Shell({ children }: { children: ReactNode }) {
                     target={libraryTarget(page.component)}
                   />
                 )}
-                {!DETAIL_PAGES.has(page.component) && (
-                  <LibrarySections path={url.pathname} />
-                )}
                 <ConnectionNotice />
                 <NoticeBanner />
                 <main id="main" tabIndex={-1}>
                   {children}
                 </main>
               </div>
+              {phone ? <QueueSheet /> : <QueuePanel />}
             </div>
             <PlayerDock
               account={user.id}

@@ -7,7 +7,7 @@ import type { Schema } from "../../../shared/schema";
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
-  router: { reload: vi.fn() },
+  router: { reload: vi.fn(), visit: vi.fn() },
 }));
 
 const account = "10000000-0000-4000-8000-000000000001";
@@ -91,9 +91,8 @@ test("a credit matched automatically names its artist and offers no search", asy
     status("idle"),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
-  expect(
-    await screen.findByText(/Artist: Ed Sheeran · matched automatically/),
-  ).toBeTruthy();
+  const line = await screen.findByText(/Artist:.*matched automatically/);
+  expect(line.textContent).toContain("Artist: Ed Sheeran · matched");
   const open = screen.getByRole("link", { name: "Open artist" });
   expect(open.getAttribute("href")).toBe(`/artist-groups/${groupId}`);
   expect(
@@ -132,7 +131,7 @@ test("an uncertain credit says so and keeps the manual choice behind a button", 
   );
   fireEvent.click(screen.getByRole("button", { name: "Choose the artist" }));
   expect(
-    await screen.findByRole("dialog", { name: "Choose the artist" }),
+    await screen.findByRole("dialog", { name: /^Which artist is / }),
   ).toBeTruthy();
   expect(
     await screen.findByText(/No artist you reviewed matches this credit yet/),

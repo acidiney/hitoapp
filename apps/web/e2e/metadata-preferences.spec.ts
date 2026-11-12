@@ -1,5 +1,5 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { isDeepStrictEqual } from "node:util";
-import { chooseOption } from "./fixtures/listbox";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
@@ -165,13 +165,11 @@ test("account metadata preferences persist ordered personal providers without to
     expect(owned.calls.total).toBe(0);
 
     stage = "address-only offers and personal catalog approval";
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.goto("/settings?section=plugins");
+    await page.getByRole("button", { name: /^This server/ }).click();
     const connections: Schema<"PluginInstallation">[] = [];
     for (const [index, address] of owned.addresses.entries()) {
+      await page.getByRole("button", { name: /^This server/ }).click();
       await page.getByLabel("Service address", { exact: true }).fill(address);
       const offered = await preferencesAction<Schema<"PluginService">>(
         page,
@@ -186,10 +184,15 @@ test("account metadata preferences persist ordered personal providers without to
       ).toBe(true);
       if (!offered.body)
         throw new Error("The offered catalog identity is missing");
-      await chooseOption(
-        page.getByRole("combobox", { name: "Service", exact: true }),
-        index,
-      );
+      await page
+        .getByRole("button", { name: "Your plugins", exact: true })
+        .click();
+      await page
+        .getByRole("button", {
+          name: `Connect ${offered.body.name}`,
+          exact: true,
+        })
+        .click();
       const reviewed = await reviewPluginInstallation(
         page,
         offered.body,
@@ -248,13 +251,15 @@ test("account metadata preferences persist ordered personal providers without to
     await selected
       .getByRole("listitem")
       .nth(2)
-      .getByRole("button", { name: `Move earlier ${owned.name}`, exact: true })
+      .getByRole("button", { name: `Move ${owned.name}`, exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Move earlier" }).click();
     await selected
       .getByRole("listitem")
       .nth(1)
-      .getByRole("button", { name: `Move earlier ${owned.name}`, exact: true })
+      .getByRole("button", { name: `Move ${owned.name}`, exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Move earlier" }).click();
     await panel
       .getByRole("switch", { name: "Use metadata providers", exact: true })
       .check();
@@ -372,10 +377,7 @@ test("account metadata preferences persist ordered personal providers without to
       otherPlugins.installations.length === 0 &&
         otherPlugins.services.length === 2,
     ).toBe(true);
-    await other
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await other.goto("/settings?section=plugins");
     await expect(
       other.getByText("No plugins connected to this account.", { exact: true }),
     ).toBeVisible();
@@ -384,10 +386,7 @@ test("account metadata preferences persist ordered personal providers without to
     ).toHaveCount(0);
 
     stage = "disconnect selected provider and disable retained reference";
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
+    await page.goto("/settings?section=plugins");
     const installedSettings =
       await read<Schema<"PluginSettings">>("/api/v1/plugins");
     const selectedIndex = installedSettings.installations.findIndex(
@@ -396,13 +395,17 @@ test("account metadata preferences persist ordered personal providers without to
     expect(selectedIndex >= 0).toBe(true);
     const connection = page.locator(".plugin-connection").nth(selectedIndex);
     await expect(page.locator(".plugin-connection")).toHaveCount(2);
+    await openAllManage(page);
     await connection
       .getByRole("button", { name: "Remove", exact: true })
       .click();
     stage = "selected provider removal awaiting accepted response";
+    await openAllManage(page);
     const removed = await preferencesAction(
       page,
-      connection.getByRole("button", { name: "Remove plugin", exact: true }),
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Remove", exact: true }),
       "DELETE",
       `/api/v1/plugins/${connections[1].id}`,
       204,

@@ -15,11 +15,11 @@ test("a row detail gives last activity then the sign-in time", () => {
     last_seen_at: 1_790_100_000 - 300,
   };
   expect(sessionDetail(session, now)).toMatch(
-    /^Last active 5 minutes ago · Signed in .+/,
+    /^Active 5 minutes ago · signed in .+/,
   );
   expect(
     sessionDetail({ ...session, last_seen_at: 1_790_099_990 }, now),
-  ).toMatch(/^Last active just now · Signed in /);
+  ).toMatch(/^Active just now · signed in /);
 });
 
 test("a session without a label is an unknown browser", () => {

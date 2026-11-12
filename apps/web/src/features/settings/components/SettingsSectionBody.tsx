@@ -6,12 +6,7 @@ import AccountsSection from "./AccountsSection";
 import MusicSection from "./MusicSection";
 import PrivacySection from "./PrivacySection";
 import ProfileSection from "./ProfileSection";
-import {
-  AboutSection,
-  DownloadsSection,
-  PlaybackSection,
-  UpdatesSection,
-} from "./ServerSections";
+import { AboutSection, PlaybackSection } from "./ServerSections";
 
 export default function SettingsSectionBody({
   section,
@@ -39,12 +34,8 @@ export default function SettingsSectionBody({
           account={props.user.id}
         />
       );
-    case "downloads":
-      return <DownloadsSection admin={props.user.admin} />;
     case "accounts":
       return props.user.admin ? <AccountsSection {...props} /> : null;
-    case "updates":
-      return <UpdatesSection />;
     case "about":
       return <AboutSection {...props} />;
   }

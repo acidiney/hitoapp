@@ -14,6 +14,7 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { pluginsApi } from "../api/pluginsApi";
 import { grantedAccess } from "../model/pluginSummary";
 
+vi.mock("../components/PluginPlaybackOrder", () => ({ default: () => null }));
 vi.mock("../api/pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),
@@ -105,7 +106,7 @@ async function advance(ms: number) {
 async function ready(initialStatus = notConnected, desktop = false) {
   vi.mocked(pluginsApi.connectionStatus).mockResolvedValue(initialStatus);
   const view = render(page("alice", desktop));
-  await screen.findByText("Fixture provider");
+  await screen.findByRole("heading", { name: "Fixture provider" });
   await waitFor(() =>
     expect(status().textContent).not.toBe("Checking sign-in…"),
   );
@@ -138,7 +139,7 @@ afterEach(() => {
 test("plugins without an authorization declaration show no sign-in controls", async () => {
   settings([plain]);
   render(page());
-  await screen.findByText("Fixture provider");
+  await screen.findByRole("heading", { name: "Fixture provider" });
   expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   expect(screen.queryByText("Not connected")).toBeNull();
   expect(pluginsApi.connectionStatus).not.toHaveBeenCalled();

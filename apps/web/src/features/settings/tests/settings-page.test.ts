@@ -29,9 +29,9 @@ vi.mock("../../plugins/components/PluginSettings", async () => {
 vi.mock("../../community/components/CommunitySettings", async () => {
   const { createElement: h } = await import("react");
   const { useReportUnsaved } = await import("../../../shared/unsavedChanges");
-  function CommunityStub() {
+  function CommunityStub({ children }: { children?: React.ReactNode }) {
     useReportUnsaved(true);
-    return h("p", null, "Community stub");
+    return h("div", null, h("p", null, "Community stub"), children);
   }
   return { default: CommunityStub };
 });
@@ -39,9 +39,9 @@ vi.mock("../../community/components/CommunityRankingSettings", async () => {
   const { createElement: h } = await import("react");
   return { default: () => h("p", null, "Ranking stub") };
 });
-vi.mock("../../session/components/AccountSecurity", async () => {
+vi.mock("../../session/components/OpenSessionsSettings", async () => {
   const { createElement: h } = await import("react");
-  return { default: () => h("p", null, "Account security stub") };
+  return { default: () => h("p", null, "Open sessions stub") };
 });
 vi.mock("../../session/components/ScreenLockSettings", async () => {
   const { createElement: h } = await import("react");
@@ -79,36 +79,98 @@ const current = () =>
   within(screen.getByRole("navigation", { name: "Settings sections" }))
     .getAllByRole("link")
     .filter((link) => link.getAttribute("aria-current") === "page")
-    .map((link) => link.textContent);
+    .map((link) => link.querySelector(".settings-nav-label")?.textContent);
 
 beforeEach(() => {
   location.url = "/settings";
   vi.spyOn(router, "visit").mockImplementation(() => undefined);
 });
 
-test("the navigation groups every section as a deep link", async () => {
-  open("/settings?section=plugins");
+const qualityButton = () =>
+  screen.getByRole("button", { name: /^Streaming quality:/ });
+function chooseQuality(label: string) {
+  fireEvent.click(qualityButton());
+  fireEvent.click(screen.getByRole("menuitem", { name: label }));
+}
+
+test("a listener chooses streaming quality for this browser and keeps it after reopening settings", () => {
+  const view = open("/settings?section=playback", member);
+  expect(qualityButton().getAttribute("aria-label")).toBe(
+    "Streaming quality: Original",
+  );
+  chooseQuality("Data saver · AAC 128 kbit/s");
+  expect(qualityButton().getAttribute("aria-label")).toBe(
+    "Streaming quality: Data saver · AAC 128 kbit/s",
+  );
+  expect(screen.getByText(/applies when the next track opens/i)).toBeTruthy();
+  view.unmount();
+  open("/settings?section=playback", member);
+  expect(qualityButton().getAttribute("aria-label")).toContain("Data saver");
+});
+
+test("streaming quality remains selectable for this session when browser storage refuses writes", () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("Storage unavailable", "QuotaExceededError");
+  });
+  open("/settings?section=playback", member);
+  chooseQuality("High · AAC 256 kbit/s");
+  expect(qualityButton().getAttribute("aria-label")).toContain("High");
+  window.dispatchEvent(new StorageEvent("storage", { key: null }));
+});
+
+test("an invalid stored streaming quality opens as Original", () => {
+  localStorage.setItem("hito:stream-quality", "unexpected");
+  open("/settings?section=playback", member);
+  expect(qualityButton().getAttribute("aria-label")).toContain("Original");
+});
+
+test("another tab's streaming quality choice updates the open settings", () => {
+  open("/settings?section=playback", member);
+  localStorage.setItem("hito:stream-quality", "high");
+  fireEvent(
+    window,
+    new StorageEvent("storage", { key: "hito:stream-quality" }),
+  );
+  expect(qualityButton().getAttribute("aria-label")).toContain("High");
+});
+
+test("native playback settings keep the browser quality choice out of the native controls", () => {
+  open("/settings?section=playback", { ...member, native_playback: true });
+  expect(
+    screen.queryByRole("button", { name: /^Streaming quality:/ }),
+  ).toBeNull();
+});
+
+test("the navigation lists every tab as a deep link", async () => {
+  open("/settings?section=music");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });
   expect(
     within(nav)
       .getAllByRole("link")
-      .map((link) => [link.textContent, link.getAttribute("href")]),
+      .map((link) => [
+        link.getAttribute("aria-labelledby") &&
+          link.querySelector(".settings-nav-label")?.textContent,
+        link.getAttribute("href"),
+      ]),
   ).toEqual([
     ["Profile", "/settings?section=profile"],
     ["Privacy & lock", "/settings?section=privacy"],
-    ["Music & providers", "/settings?section=music"],
-    ["Plugins", "/settings?section=plugins"],
+    ["Music", "/settings?section=music"],
     ["Playback", "/settings?section=playback"],
-    ["Downloads & storage", "/settings?section=downloads"],
     ["Accounts", "/settings?section=accounts"],
-    ["Updates", "/settings?section=updates"],
     ["About", "/settings?section=about"],
   ]);
-  for (const group of ["Your account", "Listening", "Server"])
-    expect(within(nav).getByText(group)).toBeTruthy();
-  expect(current()).toEqual(["Plugins"]);
+  expect(current()).toEqual(["Music"]);
+  expect(await screen.findByText("Music folders stub")).toBeTruthy();
+  expect(screen.queryByText("Plugins stub")).toBeNull();
+});
+
+test("the Plugins section opens as its own page without the settings navigation", async () => {
+  open("/settings?section=plugins");
   expect(await screen.findByText("Plugins stub")).toBeTruthy();
-  expect(screen.queryByText("Music folders stub")).toBeNull();
+  expect(
+    screen.queryByRole("navigation", { name: "Settings sections" }),
+  ).toBeNull();
 });
 
 test("members never see the Accounts section or reach it by URL", () => {
@@ -117,16 +179,16 @@ test("members never see the Accounts section or reach it by URL", () => {
     screen.getByRole("navigation", { name: "Settings sections" }),
   )
     .getAllByRole("link")
-    .map((link) => link.textContent);
+    .map((link) => link.querySelector(".settings-nav-label")?.textContent);
   expect(links).not.toContain("Accounts");
-  expect(current()).toEqual(["Music & providers"]);
+  expect(current()).toEqual(["Profile"]);
   expect(screen.queryByText("Accounts stub")).toBeNull();
 });
 
-test("legacy library and metadata links open Music & providers", async () => {
+test("legacy library and metadata links open Music", async () => {
   for (const legacy of ["library", "metadata"]) {
     const view = open(`/settings?section=${legacy}`);
-    expect(current()).toEqual(["Music & providers"]);
+    expect(current()).toEqual(["Music"]);
     expect(await screen.findByText("Music folders stub")).toBeTruthy();
     expect(screen.getByText("Metadata stub")).toBeTruthy();
     view.unmount();
@@ -146,12 +208,12 @@ test("administrators reach accounts and shared corrections", async () => {
   expect(screen.getByText("Corrections stub")).toBeTruthy();
 });
 
-test("without a section the page shows the list view on phones and Music by default", () => {
+test("without a section the page shows the list view on phones and Profile by default", () => {
   const view = open("/settings");
   expect(
     view.container.querySelector(".settings")?.getAttribute("data-view"),
   ).toBe("list");
-  expect(current()).toEqual(["Music & providers"]);
+  expect(current()).toEqual(["Profile"]);
   view.unmount();
   const chosen = open("/settings?section=about");
   expect(
@@ -168,13 +230,8 @@ test("the profile shows the signed-in account and keeps sign-out and lock reacha
   expect(screen.getByText("alice")).toBeTruthy();
   expect(screen.getByText("Administrator")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Lock now" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Change password" })).toBeTruthy();
   view.unmount();
-  open("/settings?section=profile", {
-    ...admin,
-    lock: { pin_enabled: true, idle_minutes: 5, locked: false },
-  });
-  expect(screen.getByRole("button", { name: "Lock now" })).toBeTruthy();
 });
 
 test("the profile header shows the display name with the username beneath, or the username alone", () => {
@@ -182,7 +239,7 @@ test("the profile header shows the display name with the username beneath, or th
     ...admin,
     user: { ...admin.user, display_name: "Alice <b>Admin</b>" },
   });
-  const identity = named.container.querySelector(".profile-identity")!;
+  const identity = named.container.querySelector("#setting-account-photo")!;
   expect(identity.querySelector(".setting-line-title")?.textContent).toBe(
     "Alice <b>Admin</b>",
   );
@@ -197,7 +254,7 @@ test("the profile header shows the display name with the username beneath, or th
   ).toBe("Alice <b>Admin</b>");
   named.unmount();
   const plain = open("/settings?section=profile");
-  const bare = plain.container.querySelector(".profile-identity")!;
+  const bare = plain.container.querySelector("#setting-account-photo")!;
   expect(bare.querySelector(".setting-line-title")?.textContent).toBe("alice");
   expect(bare.querySelector(".setting-line-hint")?.textContent).toBe(
     "Administrator",
@@ -215,7 +272,7 @@ test("opening a section from the list focuses its heading and going back focuses
   };
   rerender("/settings?section=music");
   expect(document.activeElement).toBe(
-    screen.getByRole("heading", { name: "Music & providers", level: 2 }),
+    screen.getByRole("heading", { name: "Music", level: 2 }),
   );
   rerender("/settings");
   expect(document.activeElement).toBe(
@@ -226,7 +283,7 @@ test("opening a section from the list focuses its heading and going back focuses
 test("a member opening the accounts link has the address replaced with the resolved section", () => {
   window.history.replaceState(null, "", "/settings?section=accounts");
   open("/settings?section=accounts", member);
-  expect(window.location.search).toBe("?section=music");
+  expect(window.location.search).toBe("?section=profile");
   window.history.replaceState(null, "", "/settings?section=library");
   open("/settings?section=library");
   expect(window.location.search).toBe("?section=music");
@@ -236,7 +293,7 @@ test("leaving a section with unsaved changes asks first and stays when declined"
   open("/settings?section=privacy");
   await screen.findByText("Community stub");
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-  const plugins = screen.getByRole("link", { name: "Plugins" });
+  const plugins = screen.getByRole("link", { name: "Playback" });
   expect(fireEvent.click(plugins)).toBe(false);
   expect(confirm).toHaveBeenCalledTimes(1);
   confirm.mockReturnValue(true);
@@ -247,7 +304,7 @@ test("leaving a section with unsaved changes asks first and stays when declined"
 test("sections without unsaved changes never prompt", () => {
   open("/settings?section=about");
   const confirm = vi.spyOn(window, "confirm");
-  fireEvent.click(screen.getByRole("link", { name: "Plugins" }));
+  fireEvent.click(screen.getByRole("link", { name: "Playback" }));
   expect(confirm).not.toHaveBeenCalled();
 });
 
@@ -256,12 +313,9 @@ const searchBox = () =>
 const typeQuery = (text: string) =>
   fireEvent.change(searchBox(), { target: { value: text } });
 
-test("the navigation starts with a search field and no results", () => {
+test("the page starts with a search field and no results", () => {
   open("/settings?section=music");
-  const nav = screen.getByRole("navigation", { name: "Settings sections" });
-  expect(
-    within(nav).getByRole("combobox", { name: "Search settings" }),
-  ).toBeTruthy();
+  expect(searchBox()).toBeTruthy();
   expect(searchBox().getAttribute("aria-expanded")).toBe("false");
   expect(screen.queryByRole("listbox")).toBeNull();
 });
@@ -274,9 +328,7 @@ test("typing lists matching sections and settings and hides the section links", 
   expect(options[0].textContent).toContain("Change password");
   expect(options[0].textContent).toContain("Profile");
   expect(
-    within(
-      screen.getByRole("navigation", { name: "Settings sections" }),
-    ).queryByRole("link", { name: "Playback" }),
+    screen.queryByRole("navigation", { name: "Settings sections" }),
   ).toBeNull();
 });
 
@@ -316,7 +368,9 @@ test("a query with no match says so", () => {
   open("/settings?section=music");
   typeQuery("zebra");
   expect(screen.queryByRole("listbox")).toBeNull();
-  expect(screen.getByRole("status").textContent).toContain("No settings match");
+  expect(screen.getByRole("status").textContent).toContain(
+    "Nothing in Settings matches",
+  );
 });
 
 test("slash focuses the search from the page", () => {
@@ -336,6 +390,6 @@ test("a setting link scrolls to the card, focuses it and highlights it briefly",
   });
   expect(scroll).toHaveBeenCalled();
   expect(document.activeElement).toBe(
-    within(card).getByRole("heading", { name: "Account" }),
+    within(card).getByRole("heading", { name: "You" }),
   );
 });

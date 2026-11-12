@@ -1,10 +1,14 @@
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import LibrarySearch from "../LibrarySearch";
 
 const { router } = vi.hoisted(() => ({ router: { get: vi.fn() } }));
-vi.mock("@inertiajs/react", () => ({ router }));
+vi.mock("@inertiajs/react", () => ({
+  router,
+  Link: ({ children, href, ...rest }: { children: ReactNode; href: string }) =>
+    createElement("a", { href, ...rest }, children),
+}));
 
 function submit(value: string) {
   const field = screen.getByRole("textbox");
@@ -17,7 +21,7 @@ test("the global field searches the whole app and is named plainly", () => {
   const field = screen.getByRole("textbox", { name: "Search" });
   expect(field.id).toBe("shell-search");
   expect(field.getAttribute("placeholder")).toBe(
-    "Search artists, albums and tracks",
+    "Search, or paste a playlist link",
   );
   submit("tide");
   expect(router.get).toHaveBeenCalledWith("/search", { q: "tide" });
@@ -34,4 +38,16 @@ test("the library field filters the library and says so", () => {
 test("the field shows the query of the page it sits on", () => {
   render(createElement(LibrarySearch, { query: "glass", target: "search" }));
   expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("glass");
+});
+
+test("the top bar shows the search shortcut and a plugins link", () => {
+  const { container } = render(
+    createElement(LibrarySearch, { query: "", target: "search" }),
+  );
+  expect(container.querySelector(".search kbd")?.textContent).toMatch(
+    /⌘K|Ctrl K/,
+  );
+  expect(
+    screen.getByRole("link", { name: "Plugins" }).getAttribute("href"),
+  ).toBe("/settings?section=plugins");
 });

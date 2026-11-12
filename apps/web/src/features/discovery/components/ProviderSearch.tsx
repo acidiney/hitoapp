@@ -1,7 +1,7 @@
 import type { Schema } from "../../../shared/schema";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@inertiajs/react";
-import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useDiscovery } from "../hooks/useDiscovery";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
@@ -15,10 +15,11 @@ export default function ProviderSearch({
   user,
   connections,
   service_names,
+  children,
 }: Pick<
   Schema<"DiscoverPageProps">,
   "user" | "connections" | "service_names"
->) {
+> & { children?: ReactNode }) {
   const providers = connections.filter((connection) =>
     connection.manifest.capabilities.includes("search"),
   );
@@ -45,16 +46,22 @@ export default function ProviderSearch({
     void discovery[direction]();
   }
   return (
-    <section className="discover-section" aria-labelledby="discover-services">
+    <section
+      className="discover-section outside-library"
+      aria-labelledby="discover-services"
+    >
       <div className="discover-section-head">
-        <h2 id="discover-services">Search your services</h2>
-        {selected && (
-          <Link className="button secondary" href="/settings?section=plugins">
-            <Settings size={16} />
-            Manage services
-          </Link>
-        )}
+        <h2 id="discover-services">Outside your library</h2>
+        <Link className="text-link" href="/settings?section=plugins">
+          Manage plugins
+        </Link>
       </div>
+      {selected && (
+        <p className="outside-library-note">
+          Search a plugin directly. What you find stays outside your library
+          until you add it.
+        </p>
+      )}
       {!selected ? (
         <div className="discovery-empty">
           <p>
@@ -77,6 +84,7 @@ export default function ProviderSearch({
             onChoose={(id) => setChoice({ account: user.id, id })}
             onSearch={discovery.search}
             pills
+            placeholder={`Search ${service_names[selected.service_id] ?? selected.manifest.name}`}
           />
           {!selected.manifest.capabilities.includes("sources") && (
             <p className="discovery-note">
@@ -123,6 +131,9 @@ export default function ProviderSearch({
               selection={discovery.selection}
               pending={discovery.pending}
               canPlay={selected.manifest.capabilities.includes("sources")}
+              service={
+                service_names[selected.service_id] ?? selected.manifest.name
+              }
               onSelect={(hit, intent) => void discovery.select(hit, intent)}
             />
           ) : discovery.pending ? (
@@ -138,18 +149,10 @@ export default function ProviderSearch({
                 </div>
               ))}
             </div>
-          ) : discovery.error ? null : (
+          ) : discovery.error || !discovery.query ? null : (
             <EmptyState
-              title={
-                discovery.query
-                  ? "No matching tracks"
-                  : `Search ${service_names[selected.service_id] ?? selected.manifest.name}`
-              }
-              text={
-                discovery.query
-                  ? "Try another track or artist, or choose a different service."
-                  : "Find a track, then play it or add it to your library."
-              }
+              title="No matching tracks"
+              text="Try another track or artist, or choose a different service."
               libraryLink={false}
             />
           )}
@@ -177,6 +180,7 @@ export default function ProviderSearch({
           )}
         </>
       )}
+      {children}
     </section>
   );
 }

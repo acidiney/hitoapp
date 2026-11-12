@@ -58,10 +58,10 @@ test("primary and action buttons keep their label visible on hover", () => {
   }
 });
 
-test("the transport play button shows hover feedback that works on a light ink in dark mode", () => {
+test("the transport play button shows hover feedback that works on the action colour", () => {
   const css = stylesheet("player.css");
   expect(rule(css, ".play-button:hover:not(:disabled)")).toMatch(
-    /background:\s*var\(--ink-hover\)/,
+    /background:\s*var\(--action-hover\)/,
   );
 });
 

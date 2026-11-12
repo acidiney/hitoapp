@@ -11,13 +11,17 @@ mod resample;
 
 pub use capability::{MAX_SPEED, MIN_SPEED, SpeedCapability};
 pub use convert::Converter;
-pub use decoding::{AudioFormat, Decoded, Decoder};
+pub use decoding::{AudioFormat, Decoded, Decoder, PcmSource};
 pub use error::{Error, Result};
 pub use symphonia::core::io::MediaSource as Input;
 
 #[cfg(feature = "test-support")]
 pub mod test_support;
 
+#[cfg(feature = "device")]
+mod buffer_policy;
+#[cfg(feature = "device")]
+mod buffering;
 #[cfg(feature = "device")]
 mod device;
 #[cfg(feature = "device")]

@@ -4,14 +4,18 @@ import { router } from "@inertiajs/react";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
-import CollectionHeader from "../../../shared/ui/CollectionHeader";
-import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
-import { headerCoverId, tintFor } from "../../../shared/ui/collectionTint";
+import { headerCoverId } from "../../../shared/ui/collectionTint";
+import PlaylistHeader from "../components/PlaylistHeader";
 import PlayShuffle from "../../playback/components/PlayShuffle";
-import PlaylistEditPanel from "../components/PlaylistEditPanel";
+import PlaylistEditPanel, {
+  PlaylistNameField,
+} from "../components/PlaylistEditPanel";
 import DiscardEditsDialog from "../components/DiscardEditsDialog";
 import { usePlaylistEdit } from "../hooks/usePlaylistEdit";
 import Artwork from "../../artwork/components/Artwork";
+import PlaylistMosaic, {
+  mosaicCovers,
+} from "../../artwork/components/PlaylistMosaic";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import TrackTable, {
@@ -30,6 +34,7 @@ import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
 import Button from "../../../shared/ui/Button";
+import FilterPills from "../../../shared/ui/FilterPills";
 
 function rowsFor(entries: Schema<"PlaylistEntry">[]): TrackTableRow[] {
   return entries.map<TrackTableRow>((entry) => {
@@ -84,11 +89,19 @@ export default function PlaylistPage({
   );
   const [discarding, setDiscarding] = useState(false);
   const artworkRetry = useArtworkRetryItem({ playlistId: detail.playlist.id });
+  const [show, setShow] = useState<"all" | "ready" | "unready">("all");
   const savedRows = rowsFor(detail.entries);
-  const rows = edit.editing ? rowsFor(edit.entries) : savedRows;
+  const isReady = (row: TrackTableRow) =>
+    row.kind === "recording" && row.track.available;
+  const rows = edit.editing
+    ? rowsFor(edit.entries)
+    : savedRows.filter(
+        (row) => show === "all" || (show === "ready") === isReady(row),
+      );
   const tracks = savedRows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
+  const covers = mosaicCovers(tracks);
   const entryCount = detail.entries.length;
   async function remove() {
     const result = await mutate({
@@ -103,53 +116,59 @@ export default function PlaylistPage({
   const ready = detail.entries.filter(
     (entry) => entry.recording_id != null && entry.available,
   ).length;
-  const stats = `${entryCount} ${entryCount === 1 ? "entry" : "entries"} · ${ready} ready${
-    entryCount > ready ? ` · ${entryCount - ready} unavailable` : ""
-  }`;
+  const eyebrow = followed
+    ? `Followed from ${detail.origin?.attribution.label ?? "a provider"} · read-only`
+    : detail.origin
+      ? `Your playlist · a copy of ${detail.origin.attribution.label}, yours to edit`
+      : "Your playlist";
   return (
     <PlaylistDownloadProvider account={user.id} playlist={detail.playlist.id}>
-      <CollectionHeader
-        tint={tintFor(detail.playlist.id)}
-        size="playlist"
-        crumbs={
-          <Breadcrumbs
-            crumbs={[
-              { label: "Library", href: "/library" },
-              { label: "Playlists", href: "/playlists" },
-              { label: detail.playlist.name },
-            ]}
-          />
-        }
+      <PlaylistHeader
         cover={
-          <Artwork
-            playlistId={copied ? detail.playlist.id : undefined}
-            recording={copied ? undefined : tracks[0]?.id}
-            fallback={{
-              id: headerCoverId(detail.playlist.id),
-              title: detail.playlist.name,
-              artist: "Playlist",
-            }}
-            playlist
-          />
+          !copied && covers.length === 4 ? (
+            <PlaylistMosaic covers={covers} />
+          ) : (
+            <Artwork
+              playlistId={copied ? detail.playlist.id : undefined}
+              recording={copied ? undefined : tracks[0]?.id}
+              fallback={{
+                id: headerCoverId(detail.playlist.id),
+                title: detail.playlist.name,
+                artist: "Playlist",
+              }}
+              playlist
+            />
+          )
         }
-        eyebrow={
-          followed
-            ? "Playlist · followed"
-            : detail.origin
-              ? "Playlist · imported copy"
-              : "Playlist · yours"
-        }
+        eyebrow={eyebrow}
         title={detail.playlist.name}
-        stats={stats}
+        nameField={
+          edit.editing && editable ? (
+            <PlaylistNameField
+              name={edit.name}
+              disabled={edit.pending}
+              onName={edit.setName}
+            />
+          ) : undefined
+        }
+        total={entryCount}
+        ready={ready}
         actions={
           <>
-            <PlayShuffle tracks={tracks} label="playlist" />
+            {!edit.editing && (
+              <PlayShuffle
+                tracks={tracks}
+                label="playlist"
+                tone="header"
+                playText={
+                  ready < entryCount && ready > 0
+                    ? `Play ${ready} ready`
+                    : undefined
+                }
+              />
+            )}
             {editable && !edit.editing && (
-              <Button
-                className="tint-secondary"
-                type="button"
-                onClick={edit.begin}
-              >
+              <Button type="button" onClick={edit.begin}>
                 Edit
               </Button>
             )}
@@ -157,13 +176,13 @@ export default function PlaylistPage({
               <>
                 <Button
                   variant="primary"
+                  className="done-editing"
                   disabled={edit.pending || edit.name.trim() === ""}
                   onClick={() => void edit.done()}
                 >
-                  Done
+                  Done editing
                 </Button>
                 <Button
-                  className="tint-secondary"
                   disabled={edit.pending}
                   onClick={() =>
                     edit.dirty ? setDiscarding(true) : edit.cancel()
@@ -171,12 +190,17 @@ export default function PlaylistPage({
                 >
                   Cancel
                 </Button>
+                {entryCount > ready && (
+                  <Button disabled={edit.pending} onClick={edit.removeNotReady}>
+                    Remove the {entryCount - ready} not ready
+                  </Button>
+                )}
               </>
             )}
-            <PlaylistDownloadButton />
+            {!edit.editing && <PlaylistDownloadButton />}
             <ActionMenu
               label="More options"
-              triggerClassName="tint-secondary"
+              triggerClassName="icon-round"
               items={[
                 ...(artworkRetry ? [artworkRetry] : []),
                 {
@@ -190,80 +214,98 @@ export default function PlaylistPage({
           </>
         }
       />
-      {detail.origin && !followed && (
-        <p className="origin-note">
-          <span>{detail.origin.attribution.label}</span>
-          {" · "}
-          <span>
-            Editable copy. Provider changes will not update it. Tracks need an
-            available source to play.
-          </span>
-        </p>
-      )}
-      {edit.editing && editable && (
-        <PlaylistEditPanel
-          playlistId={detail.playlist.id}
-          playlists={playlists}
-          name={edit.name}
-          dirty={edit.dirty}
-          disabled={edit.pending}
-          onName={edit.setName}
-        />
-      )}
-      {discarding && (
-        <DiscardEditsDialog
-          onKeep={() => setDiscarding(false)}
-          onDiscard={() => {
-            setDiscarding(false);
-            edit.cancel();
-          }}
-        />
-      )}
-      {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
-      {followed && (
-        <PlaylistFollowStatus
-          {...follow}
-          attribution={detail.origin?.attribution.label ?? "Provider playlist"}
-          notice={readOnlyNotice}
-        />
-      )}
-      <PlaylistDownloadStrip local={native_playback} />
-      {copied && <PlaylistMetadataRefresh {...metadata} />}
-      {followed && detail.origin && (
-        <PlaylistFollowResume {...resume} follow={follow.follow} />
-      )}
-      {entryCount > 0 ? (
-        <>
-          <TrackTable
-            rows={rows}
+      <div className="playlist-body">
+        {detail.origin && !followed && (
+          <p className="origin-note">
+            <span>{detail.origin.attribution.label}</span>
+            {" · "}
+            <span>
+              Editable copy. Provider changes will not update it. Tracks need an
+              available source to play.
+            </span>
+          </p>
+        )}
+        {edit.editing && editable && (
+          <PlaylistEditPanel
+            playlistId={detail.playlist.id}
             playlists={playlists}
-            playlist={detail.playlist}
-            mutate={mutate}
-            edit={{
-              active: edit.editing && editable,
-              busy: edit.pending,
-              removed: edit.removed,
-              move: edit.move,
-              toggleRemove: edit.toggleRemove,
+            name={edit.name}
+            dirty={edit.dirty}
+          />
+        )}
+        {discarding && (
+          <DiscardEditsDialog
+            onKeep={() => setDiscarding(false)}
+            onDiscard={() => {
+              setDiscarding(false);
+              edit.cancel();
             }}
           />
-        </>
-      ) : (
-        <>
-          <EmptyState
-            title={
-              followed
-                ? "The provider's playlist is empty"
-                : "This playlist is ready for music"
+        )}
+        {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
+        {followed && (
+          <PlaylistFollowStatus
+            {...follow}
+            attribution={
+              detail.origin?.attribution.label ?? "Provider playlist"
             }
-            text={
-              followed
-                ? "Hito will check for new entries on the next update."
-                : "Add tracks using the playlist menu in your library."
-            }
+            notice={readOnlyNotice}
           />
-        </>
-      )}
+        )}
+        <PlaylistDownloadStrip local={native_playback} />
+        {copied && <PlaylistMetadataRefresh {...metadata} />}
+        {followed && detail.origin && (
+          <PlaylistFollowResume {...resume} follow={follow.follow} />
+        )}
+        {entryCount > 0 ? (
+          <>
+            {!edit.editing && ready < entryCount && (
+              <FilterPills
+                label="Show tracks"
+                value={show}
+                onChange={setShow}
+                options={[
+                  { value: "all", label: `All ${entryCount}` },
+                  { value: "ready", label: `Ready ${ready}` },
+                  {
+                    value: "unready",
+                    label: `Not ready ${entryCount - ready}`,
+                  },
+                ]}
+              />
+            )}
+            <TrackTable
+              layout="playlist"
+              rows={rows}
+              playlists={playlists}
+              playlist={detail.playlist}
+              mutate={mutate}
+              edit={{
+                active: edit.editing && editable,
+                busy: edit.pending,
+                removed: edit.removed,
+                move: edit.move,
+                toggleRemove: edit.toggleRemove,
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <EmptyState
+              title={
+                followed
+                  ? "The provider's playlist is empty"
+                  : "This playlist is ready for music"
+              }
+              text={
+                followed
+                  ? "Hito will check for new entries on the next update."
+                  : "Add tracks using the playlist menu in your library."
+              }
+            />
+          </>
+        )}
+      </div>
     </PlaylistDownloadProvider>
   );
 }

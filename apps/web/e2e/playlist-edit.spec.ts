@@ -43,7 +43,7 @@ test("Edit stages the name, order and removals; Cancel reverts them and Done sav
   await addFixtureTracks(page, name);
 
   const link = page.locator(".sidebar-playlists").getByRole("link", { name });
-  const label = link.locator("span").last();
+  const label = link.locator("[title]");
   await expect(label).toHaveAttribute("title", name);
   const clipped = await label.evaluate((element) => ({
     overflow: getComputedStyle(element).textOverflow,
@@ -118,7 +118,7 @@ test("Edit stages the name, order and removals; Cancel reverts them and Done sav
     .click();
   expect(syncs).toHaveLength(0);
 
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Done editing", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: renamed, exact: true }),
   ).toBeVisible();
@@ -144,7 +144,7 @@ test("Edit stages the name, order and removals; Cancel reverts them and Done sav
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Done editing", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeVisible();

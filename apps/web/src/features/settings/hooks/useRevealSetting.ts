@@ -14,7 +14,9 @@ function reveal(card: HTMLElement): number {
     block: "start",
     behavior: reduced ? "auto" : "smooth",
   });
-  card.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
+  const target =
+    card.querySelector<HTMLElement>(":scope > header > h3") ?? card;
+  target.focus({ preventScroll: true });
   card.setAttribute("data-highlight", "true");
   return window.setTimeout(
     () => card.removeAttribute("data-highlight"),

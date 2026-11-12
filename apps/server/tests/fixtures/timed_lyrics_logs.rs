@@ -287,3 +287,47 @@ impl Write for Logs {
         Ok(())
     }
 }
+
+impl Logs {
+    pub fn assert_identity_events(&self, expected: &[(&str, &str)]) {
+        let captured = self.0.lock().unwrap();
+        assert!(!captured.overflow);
+        let text = std::str::from_utf8(&captured.bytes).unwrap();
+        let events: Vec<serde_json::Value> = text
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .filter(|event: &serde_json::Value| {
+                matches!(
+                    event["fields"]["message"].as_str(),
+                    Some(
+                        "Recording lyric workflow completed"
+                            | "Selected recording lyric lookup completed"
+                    )
+                )
+            })
+            .collect();
+        assert_eq!(events.len(), expected.len());
+        for (operation, outcome) in expected {
+            let matching: Vec<_> = events
+                .iter()
+                .filter(|event| {
+                    event["span"]["operation"] == *operation
+                        && event["fields"]["outcome"] == *outcome
+                })
+                .collect();
+            assert_eq!(
+                matching.len(),
+                1,
+                "Each lyric workflow must have one safe completion event"
+            );
+            let event = matching[0];
+            assert_eq!(event["level"], "DEBUG");
+            assert!(event["fields"]["elapsed_ms"].as_u64().is_some());
+            assert!(
+                event["span"]["request_id"]
+                    .as_str()
+                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok_and(|id| !id.is_nil()))
+            );
+        }
+    }
+}

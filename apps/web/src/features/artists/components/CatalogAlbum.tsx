@@ -1,8 +1,7 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { Play, Shuffle } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
-import { time } from "../../../shared/format";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
@@ -10,8 +9,9 @@ import TrackTable from "../../playback/components/TrackTable";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
-import { totalMs } from "../model/catalogAlbumRows";
+import { longDuration, totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
+import CatalogFailure from "./CatalogFailure";
 import CatalogEditionSwitch from "./CatalogEditionSwitch";
 import LibraryAvailability from "./LibraryAvailability";
 
@@ -28,15 +28,15 @@ export default function CatalogAlbum({
   heading,
   playOnReady,
   playlists = [],
-  crumbs,
   withLibrary = false,
+  artistHref,
 }: {
+  artistHref?: string;
   withLibrary?: boolean;
   context: ArtistEditionContext;
   heading: "h1" | "h4" | "h5";
   playOnReady: boolean;
   playlists?: Schema<"Playlist">[];
-  crumbs?: ReactNode;
 }) {
   const { group } = context;
   const { mutate } = useMutation(context.account);
@@ -70,11 +70,21 @@ export default function CatalogAlbum({
   const title = group.title || editions.chosen?.title || "Release";
   const duration = totalMs(occurrences);
   const switchable = editions.editions.length > 1 || !!editions.continuation;
+  const year = group.first_release_date?.slice(0, 4);
+  const catalogName =
+    context.association.provider.kind === "builtin_musicbrainz"
+      ? "MusicBrainz"
+      : "your catalog service";
   return (
-    <section aria-label="Album" aria-busy={editions.pending || tracks.pending}>
+    <section
+      className={withLibrary ? "detail-page" : undefined}
+      aria-label="Album"
+      aria-busy={editions.pending || tracks.pending}
+    >
       <AlbumHeader
-        crumbs={crumbs}
-        eyebrow={group.kind ? kinds[group.kind] : "Release"}
+        eyebrow={[group.kind ? kinds[group.kind] : "Release", year]
+          .filter(Boolean)
+          .join(" · ")}
         heading={heading}
         cover={
           <CatalogCover
@@ -85,55 +95,53 @@ export default function CatalogAlbum({
           />
         }
         title={title}
-        credit={credit && <span className="album-artist">{credit}</span>}
+        credit={
+          credit &&
+          (artistHref ? (
+            <Link className="album-artist" href={artistHref}>
+              {credit}
+            </Link>
+          ) : (
+            <span className="album-artist">{credit}</span>
+          ))
+        }
         stats={
-          <>
-            {[
-              group.first_release_date,
-              rows.length > 0
-                ? `${rows.length} ${rows.length === 1 ? "track" : "tracks"}${duration > 0 ? ` · ${time(duration / 1000)}` : ""}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </>
+          rows.length > 0
+            ? `${rows.length} ${rows.length === 1 ? "track" : "tracks"}${duration > 0 ? ` · ${longDuration(duration)}` : ""}`
+            : null
+        }
+        status={
+          withLibrary &&
+          owned.length === 0 && (
+            <span className="album-status">Not in your library</span>
+          )
         }
         actions={
           <>
             <button
               type="button"
-              className="button primary"
+              className="pill-action"
+              data-primary=""
               aria-label="Play album"
               disabled={!ready}
               onClick={() => void playback.start(0)}
             >
-              <Play size={17} fill="currentColor" />
+              <Play size={16} fill="currentColor" aria-hidden="true" />
               Play
             </button>
             <button
               type="button"
-              className="button"
+              className="pill-icon"
               aria-label="Shuffle album"
               disabled={!ready}
               onClick={() => void playback.shuffle()}
             >
-              <Shuffle size={17} />
-              Shuffle
+              <Shuffle size={18} aria-hidden="true" />
             </button>
           </>
         }
         notes={
           <>
-            {switchable && (
-              <CatalogEditionSwitch
-                editions={editions.editions}
-                chosen={editions.chosen?.id ?? ""}
-                pending={editions.pending}
-                more={!editions.error && !!editions.continuation}
-                onChoose={editions.choose}
-                onMore={() => void editions.more()}
-              />
-            )}
             {withLibrary && owned.length > 0 && (
               <LibraryAvailability
                 account={context.account}
@@ -142,7 +150,7 @@ export default function CatalogAlbum({
               />
             )}
             {refreshing && (
-              <p className="album-note quiet" role="status">
+              <p className="album-note" role="status">
                 Checking for updates…
               </p>
             )}
@@ -163,55 +171,66 @@ export default function CatalogAlbum({
           </>
         }
       />
-      {(editions.pending || tracks.pending) && (
-        <p role="status">Loading tracks…</p>
-      )}
-      {editions.error && <p role="alert">{editions.error}</p>}
-      {editions.error && !editions.restartRequired && (
-        <Button
-          type="button"
-          disabled={editions.pending}
-          onClick={() => void editions.retry()}
-        >
-          Try editions again
-        </Button>
-      )}
-      {(editions.restartRequired || (editions.error && editions.pages > 0)) && (
-        <Button
-          type="button"
-          disabled={editions.pending}
-          onClick={() => void editions.restart()}
-        >
-          Restart editions
-        </Button>
-      )}
-      {tracks.error && (
-        <>
-          <p role="alert">{tracks.error}</p>
-          <Button
-            type="button"
-            disabled={tracks.pending}
-            onClick={() => void tracks.retry()}
-          >
-            Try track list again
-          </Button>
-        </>
-      )}
-      {editions.pages > 0 &&
-        editions.editions.length === 0 &&
-        !editions.pending &&
-        !editions.error && (
-          <p>No editions were returned for this release group.</p>
+      <div className="album-body">
+        <div className="album-toolbar">
+          {switchable && (
+            <CatalogEditionSwitch
+              editions={editions.editions}
+              chosen={editions.chosen?.id ?? ""}
+              pending={editions.pending}
+              more={!editions.error && !!editions.continuation}
+              onChoose={editions.choose}
+              onMore={() => void editions.more()}
+            />
+          )}
+          {rows.length > 0 && (
+            <span className="album-toolbar-note">
+              Track list from {catalogName}
+            </span>
+          )}
+        </div>
+        {(editions.pending || tracks.pending) && (
+          <p role="status">Loading tracks…</p>
         )}
-      {editions.limited && <p>Showing the first 50 pages of editions.</p>}
-      {rows.length > 0 && (
-        <TrackTable
-          rows={rows}
-          catalog={controls}
-          playlists={playlists}
-          mutate={mutate}
-        />
-      )}
+        {editions.error && (
+          <CatalogFailure
+            message={editions.error}
+            retryLabel="Try editions again"
+            pending={editions.pending}
+            onRetry={
+              editions.restartRequired ? undefined : () => void editions.retry()
+            }
+            onRestart={
+              editions.restartRequired || editions.pages > 0
+                ? () => void editions.restart()
+                : undefined
+            }
+          />
+        )}
+        {tracks.error && (
+          <CatalogFailure
+            message={tracks.error}
+            retryLabel="Try track list again"
+            pending={tracks.pending}
+            onRetry={() => void tracks.retry()}
+          />
+        )}
+        {editions.pages > 0 &&
+          editions.editions.length === 0 &&
+          !editions.pending &&
+          !editions.error && (
+            <p>No editions were returned for this release group.</p>
+          )}
+        {editions.limited && <p>Showing the first 50 pages of editions.</p>}
+        {rows.length > 0 && (
+          <TrackTable
+            rows={rows}
+            catalog={controls}
+            playlists={playlists}
+            mutate={mutate}
+          />
+        )}
+      </div>
     </section>
   );
 }

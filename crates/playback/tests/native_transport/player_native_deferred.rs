@@ -105,6 +105,9 @@ async fn a_source_that_never_becomes_ready_falls_back_after_the_boundary_wait() 
     run.queue_finishes(60).await;
     let (captured, events, f) = run.heard().await;
     dump("deferred-never", &captured);
+    if std::env::var_os("HITO_CAPTURE_DUMP").is_some() {
+        eprintln!("{}", events.text());
+    }
     let gap = report("never-ready", &captured);
     let audit = audit(&heard(&captured), repeat_four, 2 * seconds(4) as usize);
     assert_eq!(audit.mismatches, 0);

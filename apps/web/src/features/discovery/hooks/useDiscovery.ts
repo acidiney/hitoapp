@@ -13,9 +13,10 @@ type Work = {
   adoption: AbortController | null;
   saved: ReadonlyMap<string, Schema<"Recording">>;
 };
+export type SelectionIntent = "play" | "save" | "play_next" | "queue";
 export type ProviderSelection = {
   id: string;
-  intent: "play" | "save";
+  intent: SelectionIntent;
   pending: boolean;
   error: string;
 };
@@ -36,7 +37,7 @@ type Results = {
 export function useDiscovery(
   account: string,
   connection: Schema<"PluginInstallation"> | null,
-  player: Pick<Player, "prepareSelection">,
+  player: Pick<Player, "prepareSelection" | "addToQueue" | "playNext">,
 ) {
   const scope = useRequestScope(
     JSON.stringify([account, connection?.id, connection?.revision]),
@@ -141,7 +142,7 @@ export function useDiscovery(
   }
   async function select(
     hit: Schema<"ProviderRecording">,
-    intent: "play" | "save",
+    intent: SelectionIntent,
   ) {
     const request = scope.capture();
     if (
@@ -150,7 +151,7 @@ export function useDiscovery(
       current.generation !== owner.generation ||
       owner.search ||
       owner.adoption ||
-      (intent === "play" &&
+      (intent !== "save" &&
         !connection?.manifest.capabilities.includes("sources")) ||
       !connection?.manifest.capabilities.includes("search") ||
       !current.items.some((item) => item.id === hit.id)
@@ -188,16 +189,20 @@ export function useDiscovery(
       if (!active()) return null;
       owner.saved = new Map(owner.saved).set(hit.id, recording);
       update((value) => ({ ...value, saved: owner.saved }));
+      const queueing = intent === "play_next" || intent === "queue";
       if (play && recording.available) await play(recording);
-      else if (play)
+      else if (queueing && recording.available)
+        await (intent === "queue"
+          ? player.addToQueue?.(recording)
+          : player.playNext?.(recording));
+      else if (play || queueing)
         update((value) => ({
           ...value,
           selection: {
             id: hit.id,
             intent,
             pending: false,
-            error:
-              "No source is ready to play. This track was added to your library.",
+            error: `No source is ready to ${play ? "play" : "queue"}. This track was added to your library.`,
           },
         }));
       if (!active()) return null;

@@ -1,3 +1,8 @@
+import {
+  accountOptionsButton,
+  lockFromShell,
+  openAccountOptions,
+} from "./fixtures/account";
 import { expect, test, type Page } from "@playwright/test";
 import { adminCredentials } from "./fixtures/admin-session";
 
@@ -5,13 +10,15 @@ const pin = "246810";
 
 async function removePin(page: Page) {
   await page.goto("/settings?section=privacy");
-  const remove = page.getByRole("button", { name: "Remove PIN" });
+  const remove = page.getByRole("button", { name: "Remove", exact: true });
   if (!(await remove.isVisible())) return;
-  await page
-    .getByLabel("Current password", { exact: true })
-    .fill(adminCredentials.password);
   await remove.click();
-  await expect(page.getByRole("button", { name: "Save PIN" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Remove the PIN?" });
+  await dialog
+    .getByLabel("Your password", { exact: true })
+    .fill(adminCredentials.password);
+  await dialog.getByRole("button", { name: "Remove PIN" }).click();
+  await expect(page.getByRole("button", { name: "Set a PIN" })).toBeVisible();
 }
 
 test("locking shows a lock screen in every tab and the PIN restores the same session", async ({
@@ -20,16 +27,24 @@ test("locking shows a lock screen in every tab and the PIN restores the same ses
 }) => {
   try {
     await page.goto("/settings?section=privacy");
+    const options = await openAccountOptions(page);
     await expect(
-      page.getByRole("button", { name: "Lock", exact: true }),
+      options.getByRole("menuitem", { name: "Sign out", exact: true }),
+    ).toBeVisible();
+    await expect(
+      options.getByRole("menuitem", { name: "Lock", exact: true }),
     ).toHaveCount(0);
-    await page.getByLabel("PIN", { exact: true }).fill(pin);
-    await page
-      .getByLabel("Current password", { exact: true })
+    await page.keyboard.press("Escape");
+    await expect(accountOptionsButton(page)).toBeFocused();
+    await page.getByRole("button", { name: "Set a PIN" }).click();
+    const pinDialog = page.getByRole("dialog", { name: "Set a PIN" });
+    await pinDialog.getByLabel("PIN", { exact: true }).fill(pin);
+    await pinDialog
+      .getByLabel("Your password", { exact: true })
       .fill(adminCredentials.password);
-    await page.getByRole("button", { name: "Save PIN" }).click();
+    await pinDialog.getByRole("button", { name: "Save PIN" }).click();
     await expect(
-      page.getByRole("button", { name: "Remove PIN" }),
+      page.getByRole("button", { name: "Change PIN" }),
     ).toBeVisible();
 
     const other = await context.newPage();
@@ -38,10 +53,13 @@ test("locking shows a lock screen in every tab and the PIN restores the same ses
       other.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Lock", exact: true }).click();
+    await lockFromShell(page);
     const lockScreen = page.getByRole("heading", { name: "Locked" });
     await expect(lockScreen).toBeVisible();
     await expect(page.getByText(adminCredentials.username)).toBeVisible();
+    await expect(
+      page.getByText("Music stopped when this locked"),
+    ).toBeVisible();
     await expect(
       page.getByRole("navigation", { name: "Main navigation" }),
     ).toHaveCount(0);

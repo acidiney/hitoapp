@@ -1,223 +1,229 @@
+import { useEffect, useRef, useState } from "react";
+import { onInvalidated } from "../../../shared/invalidation";
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { HttpError } from "../../../shared/http";
-import { log } from "../../../shared/log";
-import { lyricsApi } from "../api/lyricsApi";
-import { pluginsApi } from "../../plugins/api/pluginsApi";
+import type { LyricFailure } from "../model/lyricFailure";
+import {
+  alreadySaved,
+  identityKey,
+  lyricIdentityLimit,
+  type LyricIdentity,
+} from "../model/lyricIdentity";
+import { previewLines } from "../model/lyricContent";
+import { lyricQuerySeed, useLyricQuery } from "./useLyricQuery";
+import { useLyricIdentities } from "./useLyricIdentities";
+import { useLyricRemoval } from "./useLyricRemoval";
+import { useLyricReview } from "./useLyricReview";
+import { useLyricSearch } from "./useLyricSearch";
+import { useSelectedLyrics } from "./useSelectedLyrics";
+import { useAutomaticLyrics } from "./useAutomaticLyrics";
 
-import { createUuid } from "../../../shared/uuid";
-import { useRequestScope } from "../../../shared/hooks/useRequestScope";
-import { useLyricProviderChoices } from "./useLyricProviderChoices";
-
-type Target = Pick<
-  Schema<"RecordingLyricsProvider">,
-  "observation_id" | "installation_id" | "provider_recording"
-> & { installation_revision: number | null };
-
-type Owner = {
-  generation: number;
-  pending: boolean;
-  controller: AbortController | null;
-};
-type State = {
-  owner: Owner;
-  pending: boolean;
-  result: Schema<"LyricsLookup"> | null;
-  error: string;
-  refresh: boolean;
-};
-
-function empty(owner: Owner): State {
-  return { owner, pending: false, result: null, error: "", refresh: false };
-}
+type Chosen = { scope: string; id: string };
+type Notice = { scope: string; text: string };
 
 export function useRecordingLyrics(
   account: string,
   detail: Schema<"RecordingMetadata">,
-  automatic = false,
+  automatic: boolean,
+  active: boolean,
 ) {
-  const providers = useLyricProviderChoices(account, detail);
-  const selected = detail.selected_observation;
-  const observation =
-    selected?.origin === "provider_response" &&
-    selected.plugin_installation_id &&
-    selected.source_id === null
-      ? selected
-      : null;
-  const target: Target | null = providers.engaged
-    ? providers.selected
-    : observation
-      ? {
-          observation_id: observation.id,
-          installation_id: observation.plugin_installation_id!,
-          installation_revision: null,
-          provider_recording: {
-            id: observation.provider_recording_id!,
-            revision: observation.provider_revision,
-          },
-        }
-      : null;
   const recording = detail.recording_id;
-  const scope = useRequestScope(
-    JSON.stringify([
-      account,
-      recording,
-      target?.observation_id,
-      target?.installation_id,
-      target?.installation_revision,
-      target?.provider_recording.id,
-      target?.provider_recording.revision,
-    ]),
+  const scopeKey = JSON.stringify([account, recording]);
+  const [lostScope, setLostScope] = useState<string | null>(null);
+  const [chosenService, setChosenService] = useState<Chosen | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const resets = useRef<() => void>(() => {});
+  const reload = useRef<() => void>(() => {});
+
+  const lose = () => {
+    setLostScope(scopeKey);
+    resets.current();
+  };
+  const onFailure = (failure: LyricFailure) => {
+    if (failure.kind === "access") lose();
+    else if (failure.reload) reload.current();
+  };
+
+  const identities = useLyricIdentities(account, recording, lose);
+  const read = useSelectedLyrics(
+    account,
+    recording,
+    identities.selected,
+    onFailure,
   );
-  const owner = useMemo<Owner>(
-    () => ({ generation: 0, pending: false, controller: null }),
-    [scope],
+  const removal = useLyricRemoval(account, recording, onFailure);
+  const auto = useAutomaticLyrics(account, recording, onFailure);
+  const services = identities.services ?? [];
+  const service =
+    services.find(
+      (item) =>
+        chosenService?.scope === scopeKey &&
+        item.installation_id === chosenService.id,
+    ) ??
+    services[0] ??
+    null;
+  const search = useLyricSearch(account, recording, service, onFailure);
+  const review = useLyricReview(account, recording, service, onFailure);
+  const queryState = useLyricQuery(
+    scopeKey,
+    lyricQuerySeed(detail.title.value, detail.artist.value),
   );
-  const [snapshot, setSnapshot] = useState(() => empty(owner));
-  const current = snapshot.owner === owner ? snapshot : empty(owner);
 
-  function cancel() {
-    if (!scope.capture().active()) return;
-    owner.generation++;
-    owner.controller?.abort();
-    owner.controller = null;
-    owner.pending = false;
-    setSnapshot(empty(owner));
-  }
+  resets.current = () => {
+    identities.reset();
+    read.cancel();
+    auto.cancel();
+    search.cancel();
+    review.clear();
+    removal.clear();
+  };
+  reload.current = () => void identities.load();
 
-  function refreshProviders() {
-    cancel();
-    void providers.load();
-  }
-
-  async function load() {
-    const request = scope.capture();
-    if (!request.active() || owner.pending || !target) return;
-    const generation = ++owner.generation;
-    const controller = new AbortController();
-    owner.controller = controller;
-    owner.pending = true;
-    const signal = AbortSignal.any([request.signal, controller.signal]);
-    const live = () => request.active() && owner.generation === generation;
-    const active = () => live() && !signal.aborted;
-    const requestId = createUuid();
-    const started = performance.now();
-    let outcome = "cancelled";
-    let expired = false;
-    const timer = setTimeout(() => {
-      if (!active()) return;
-      expired = true;
-      controller.abort();
-      owner.pending = false;
-      setSnapshot({
-        ...empty(owner),
-        error: "Lyrics took too long to load. Try again.",
-      });
-    }, 15_000);
-    setSnapshot({ ...empty(owner), pending: true });
-    log.debug("lyrics.started", { action: "read", request_id: requestId });
-    try {
-      let revision = target.installation_revision;
-      if (revision === null) {
-        const settings = await pluginsApi.settings(account, signal);
-        if (!active()) return;
-        const connection = settings.installations.find(
-          (item) =>
-            item.id === target.installation_id &&
-            item.manifest.capabilities.includes("lyrics") &&
-            settings.services.some((service) => service.id === item.service_id),
-        );
-        if (!connection) {
-          outcome = "unsupported";
-          setSnapshot({ ...empty(owner), result: { status: "unsupported" } });
-          return;
-        }
-        revision = connection.revision;
-      }
-      const result = await lyricsApi.read(
-        account,
-        recording,
-        {
-          observation_id: target.observation_id,
-          installation_revision: revision,
-        },
-        signal,
-      );
-      if (!active()) return;
-      if (
-        result.status === "ready" &&
-        (result.recording_id !== recording ||
-          result.observation_id !== target.observation_id ||
-          result.document.recording.id !== target.provider_recording.id ||
-          (result.document.recording.revision ?? null) !==
-            (target.provider_recording.revision ?? null))
-      ) {
-        outcome = "changed";
-        setSnapshot({
-          ...empty(owner),
-          refresh: true,
-          error: "Track details changed. Refresh them before loading lyrics.",
-        });
-        return;
-      }
-      outcome =
-        result.status === "ready" && !result.document.lyrics
-          ? "not_found"
-          : result.status;
-      setSnapshot({ ...empty(owner), result });
-    } catch (error) {
-      if (!active()) return;
-      outcome = "failed";
-      const refresh =
-        error instanceof HttpError && [404, 409].includes(error.status);
-      const message = refresh
-        ? "Track details or the provider connection changed. Refresh this track and try again."
-        : error instanceof HttpError && [401, 403].includes(error.status)
-          ? "Your account access changed. Sign in again to load lyrics."
-          : "Lyrics could not be loaded. Try again.";
-      setSnapshot({ ...empty(owner), error: message, refresh });
-    } finally {
-      clearTimeout(timer);
-      if (owner.controller === controller) {
-        owner.controller = null;
-        owner.pending = false;
-      }
-      if (active())
-        setSnapshot((value) =>
-          active() && value.owner === owner
-            ? { ...value, pending: false }
-            : value,
-        );
-      log.debug("lyrics.finished", {
-        action: "read",
-        request_id: requestId,
-        reason: expired ? "deadline" : outcome,
-        duration_ms: Math.round(performance.now() - started),
-      });
-    }
-  }
-
-  const lookup = JSON.stringify([
-    target?.observation_id,
-    target?.installation_id,
-    target?.provider_recording.id,
-  ]);
-  const reader = useRef(load);
-  reader.current = load;
-  const readable = target !== null;
+  const lost = lostScope === scopeKey;
+  const wanted = (active || automatic) && !lost;
+  const loader = useRef(identities.load);
+  loader.current = identities.load;
   useEffect(() => {
-    if (automatic && readable) void reader.current();
-  }, [automatic, readable, lookup, scope]);
+    if (wanted && !identities.loaded && !identities.loading)
+      void loader.current();
+  }, [wanted, identities.loaded, identities.loading, scopeKey]);
 
+  useEffect(
+    () =>
+      onInvalidated("plugins", () => {
+        if (wanted) void loader.current();
+      }),
+    [wanted],
+  );
+
+  const attempted = useRef<string | null>(null);
+  const reader = useRef(read.load);
+  reader.current = read.load;
+  const selectedKey = identities.selected && identityKey(identities.selected);
+  const autoReadKey = JSON.stringify([scopeKey, selectedKey]);
+  useEffect(() => {
+    if (
+      !automatic ||
+      lost ||
+      !selectedKey ||
+      identities.origin !== "default" ||
+      attempted.current === autoReadKey
+    )
+      return;
+    attempted.current = autoReadKey;
+    void reader.current();
+  }, [automatic, lost, selectedKey, identities.origin, autoReadKey]);
+
+  const autoLoader = useRef(auto.lookup);
+  autoLoader.current = auto.lookup;
+  const lookupAttempted = useRef<string | null>(null);
+  const noSavedIdentity =
+    identities.loaded &&
+    !identities.failure &&
+    identities.identities !== null &&
+    identities.identities.length === 0;
+  const startLookup = () => void autoLoader.current();
+  useEffect(() => {
+    if (
+      !automatic ||
+      lost ||
+      !noSavedIdentity ||
+      auto.outcome !== null ||
+      lookupAttempted.current === scopeKey
+    )
+      return;
+    lookupAttempted.current = scopeKey;
+    startLookup();
+  }, [automatic, lost, noSavedIdentity, auto.outcome, scopeKey]);
+
+  const savedCount = identities.identities?.length ?? 0;
+  const retireAuto = useRef(auto.retire);
+  retireAuto.current = auto.retire;
+  useEffect(() => {
+    if (savedCount > 0) retireAuto.current();
+  }, [savedCount]);
+
+  function accepted(identity: LyricIdentity) {
+    auto.cancel();
+    setNotice({
+      scope: scopeKey,
+      text: `Saved ${identity.label}. Choose Show lyrics to read it.`,
+    });
+    void identities.load({ prefer: identityKey(identity), byUser: true });
+  }
+
+  function removeIdentity(identity: LyricIdentity) {
+    if (
+      identities.selected &&
+      identityKey(identities.selected) === identityKey(identity)
+    )
+      read.cancel();
+    setNotice(null);
+    void removal.remove(identity, () => void identities.load({ byUser: true }));
+  }
+
+  function retryAfterAccessLoss() {
+    setLostScope(null);
+  }
+
+  const items = identities.identities ?? [];
+  const atLimit = items.length >= lyricIdentityLimit;
+  const outcome = read.outcome;
   return {
-    providers,
-    available: target !== null,
-    pending: current.pending,
-    result: current.result,
-    error: current.error,
-    refresh: current.refresh,
-    refreshProviders,
-    load,
-    cancel,
+    lost,
+    retryAfterAccessLoss,
+    identities: {
+      loading: identities.loading,
+      loaded: identities.loaded,
+      items: identities.identities,
+      failure: identities.failure,
+      selected: identities.selected,
+      select: identities.select,
+      reload: () => void identities.load(),
+      atLimit,
+      removing: removal.removing,
+      removalFailure: removal.failure,
+      remove: removeIdentity,
+    },
+    reader: {
+      pending: read.pending,
+      outcome,
+      failure: read.failure,
+      load: () => void read.load(),
+      cancel: read.cancel,
+    },
+    lookup: {
+      engaged:
+        noSavedIdentity &&
+        (auto.pending ||
+          auto.outcome !== null ||
+          auto.failure !== null ||
+          identities.loading),
+      pending: auto.pending || identities.loading,
+      outcome: auto.outcome,
+      failure: auto.failure,
+      run: startLookup,
+      retire: auto.retire,
+    },
+    finder: {
+      services: identities.services,
+      servicesFailure: identities.servicesFailure,
+      service,
+      chooseService: (id: string) => {
+        search.cancel();
+        review.clear();
+        setChosenService({ scope: scopeKey, id });
+      },
+      query: queryState.query,
+      setQuery: queryState.setQuery,
+      search,
+      review,
+      accept: () => void review.accept(accepted),
+      duplicate:
+        review.candidate && service
+          ? alreadySaved(items, service.installation_id, review.candidate.id)
+          : false,
+      notice: notice?.scope === scopeKey ? notice.text : null,
+    },
+    preview: outcome?.kind === "lyrics" ? previewLines(outcome.view) : [],
   };
 }

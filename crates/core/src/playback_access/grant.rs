@@ -1,4 +1,8 @@
-use super::origin::{AudioOrigin, Located, Origins};
+use super::{
+    PlaybackAccess,
+    decoding::DecodeContext,
+    origin::{AudioOrigin, Located},
+};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result, Store};
 use std::{
     future::Future,
@@ -22,6 +26,7 @@ pub struct PlaybackSource {
     origin: Arc<dyn AudioOrigin>,
     located: Located,
     revoked: Arc<AtomicBool>,
+    pub(super) decoding: DecodeContext,
 }
 
 async fn playback_membership(
@@ -44,34 +49,49 @@ async fn playback_membership(
 }
 
 impl PlaybackSource {
-    pub(super) async fn admit(
-        store: &Store,
-        origins: &Origins,
+    pub(super) fn admit(
+        access: &PlaybackAccess,
         actor: &Actor,
         recording: &str,
         source: &str,
-    ) -> Result<Self> {
-        actor.check_session(store).await?;
-        let membership = playback_membership(store, actor, recording, source).await?;
-        let (origin, located) = origins.locate(actor, source).await?;
-        let grant = Self {
-            id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
-            store: store.clone(),
-            actor: actor.clone(),
-            recording: recording.into(),
-            source: source.into(),
-            membership,
-            origin,
-            located,
-            revoked: Arc::new(AtomicBool::new(false)),
+    ) -> futures_util::future::BoxFuture<'static, Result<Self>> {
+        let store = access.store.clone();
+        let origins = access.origins.clone();
+        let actor = actor.clone();
+        let recording = recording.to_owned();
+        let source = source.to_owned();
+        let decoding = DecodeContext {
+            tools: access.tools.clone(),
+            limits: access.conversions.clone(),
         };
-        grant.check().await?;
-        tracing::debug!(
-            playback_grant = grant.id,
-            origin = grant.origin.kind(),
-            "Playback source authorized"
-        );
-        Ok(grant)
+        Box::pin(async move {
+            actor.check_session(&store).await?;
+            let membership = playback_membership(&store, &actor, &recording, &source).await?;
+            let (origin, located) = origins.locate(&actor, &source).await?;
+            let grant = Self {
+                id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
+                store,
+                actor,
+                recording,
+                source,
+                membership,
+                origin,
+                located,
+                revoked: Arc::new(AtomicBool::new(false)),
+                decoding,
+            };
+            grant.check().await?;
+            tracing::debug!(
+                playback_grant = grant.id,
+                origin = grant.origin.kind(),
+                "Playback source authorized"
+            );
+            Ok(grant)
+        })
+    }
+
+    pub(crate) fn correlation_id(&self) -> u64 {
+        self.id
     }
 
     pub fn source_id(&self) -> &str {
@@ -186,6 +206,11 @@ impl PlaybackSource {
                 .ok_or(Error::NotFound)
         })
         .await
+    }
+
+    pub(crate) async fn open_file_if_present(&self) -> Result<Option<AudioFile>> {
+        self.supervised(self.origin.open_file(&self.actor, &self.source))
+            .await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]

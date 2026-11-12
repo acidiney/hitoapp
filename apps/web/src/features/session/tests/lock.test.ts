@@ -69,7 +69,9 @@ function sidebar(lock: typeof unlocked) {
 
 test("the account menu offers Lock only when the account has a PIN", () => {
   sidebar({ pin_enabled: false, idle_minutes: 0, locked: false });
-  expect(screen.queryByRole("button", { name: "Lock" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Account options" }));
+  expect(screen.queryByRole("menuitem", { name: "Lock" })).toBeNull();
+  expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
 });
 
 test("locking stops playback for the account before the lock screen replaces the page", async () => {
@@ -80,7 +82,8 @@ test("locking stops playback for the account before the lock screen replaces the
     order.push("lock");
     return locked;
   });
-  fireEvent.click(screen.getByRole("button", { name: "Lock" }));
+  fireEvent.click(screen.getByRole("button", { name: "Account options" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Lock" }));
   await waitFor(() => expect(reload).toHaveBeenCalled());
   expect(order).toEqual(["stop", "lock"]);
   expect(router.clearHistory).toHaveBeenCalled();
@@ -98,6 +101,10 @@ test("the lock screen shows only the account name and unlocks with the PIN", asy
     }),
   );
   expect(screen.getByText("alice")).toBeTruthy();
+  expect(screen.getByText("Music stopped when this locked")).toBeTruthy();
+  expect(screen.getByLabelText("PIN").getAttribute("aria-describedby")).toBe(
+    "pin-hint",
+  );
   expect(document.body.textContent).not.toMatch(/Library|Playlists/);
   fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "1234" } });
   fireEvent.submit(screen.getByRole("button", { name: "Unlock" }));
@@ -160,6 +167,12 @@ test("signing out stays available on the lock screen", async () => {
 });
 
 test("PIN settings need the password and can remove the PIN", async () => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
   vi.mocked(lockApi.setPin).mockResolvedValue(unlocked);
   vi.mocked(lockApi.removePin).mockResolvedValue({
     pin_enabled: false,
@@ -176,24 +189,23 @@ test("PIN settings need the password and can remove the PIN", async () => {
       }),
     ),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Set a PIN" }));
   fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "2468" } });
-  fireEvent.change(screen.getByLabelText("Current password"), {
+  fireEvent.change(screen.getByLabelText("Your password"), {
     target: { value: "a long test password" },
   });
-  fireEvent.click(
-    within(
-      screen.getByRole("radiogroup", { name: "Lock when idle" }),
-    ).getByRole("radio", { name: "15 min" }),
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save PIN" }).closest("form")!,
   );
-  fireEvent.submit(screen.getByRole("button", { name: "Save PIN" }));
   await waitFor(() =>
     expect(lockApi.setPin).toHaveBeenCalledWith("alice-id", {
       password: "a long test password",
       pin: "2468",
-      idle_minutes: 15,
+      idle_minutes: 0,
     }),
   );
-  fireEvent.change(await screen.findByLabelText("Current password"), {
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+  fireEvent.change(await screen.findByLabelText("Your password"), {
     target: { value: "a long test password" },
   });
   fireEvent.click(await screen.findByRole("button", { name: "Remove PIN" }));

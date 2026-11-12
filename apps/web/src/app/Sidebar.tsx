@@ -1,9 +1,8 @@
 import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
-import { Compass, Home, Library, Plus, Search } from "lucide-react";
-import BrandMark from "../shared/ui/BrandMark";
-import CoverArtSvg from "../shared/ui/CoverArtSvg";
-import { coverArt } from "../shared/ui/coverArt";
+import { Compass, Home, Library, Plug, Plus, Search } from "lucide-react";
+import { HitoLogo, HitoMark } from "../shared/brand/HitoLogo";
+import FallbackCover from "../shared/ui/FallbackCover";
 
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
@@ -14,18 +13,24 @@ const shortcut = shortcutLabel(isApplePlatform());
 export default function Sidebar({
   playlists,
   path,
+  search = "",
 }: {
   playlists: Schema<"Playlist">[];
   path: string;
+  search?: string;
 }) {
-  const destination = currentDestination(path);
+  const destination = currentDestination(path, search);
   const mark = (route: string) => () =>
     log.info("navigation.requested", { route });
   return (
     <aside className="sidebar">
-      <Link href="/library" className="brand">
-        <BrandMark />
-        <span className="brand-word">hito</span>
+      <Link href="/home" className="brand" aria-label="Hito home">
+        <span className="brand-wordmark">
+          <HitoLogo />
+        </span>
+        <span className="brand-mark">
+          <HitoMark />
+        </span>
       </Link>
       <nav aria-label="Main navigation">
         <Link
@@ -34,7 +39,7 @@ export default function Sidebar({
           onClick={mark("/home")}
         >
           <Home size={18} aria-hidden="true" />
-          Home
+          <span className="nav-label">Home</span>
         </Link>
         <Link
           href="/search"
@@ -43,7 +48,7 @@ export default function Sidebar({
           onClick={mark("/search")}
         >
           <Search size={18} aria-hidden="true" />
-          Search
+          <span className="nav-label">Search</span>
           <kbd aria-hidden="true">{shortcut.text}</kbd>
         </Link>
         <Link
@@ -52,7 +57,7 @@ export default function Sidebar({
           onClick={mark("/discover")}
         >
           <Compass size={18} aria-hidden="true" />
-          Discover
+          <span className="nav-label">Discover</span>
         </Link>
         <Link
           href="/library"
@@ -60,7 +65,16 @@ export default function Sidebar({
           onClick={mark("/library")}
         >
           <Library size={18} aria-hidden="true" />
-          Library
+          <span className="nav-label">Library</span>
+        </Link>
+        <Link
+          href="/settings?section=plugins"
+          className="nav-plugins"
+          aria-current={destination === "plugins" ? "page" : undefined}
+          onClick={mark("/settings?section=plugins")}
+        >
+          <Plug size={18} aria-hidden="true" />
+          <span className="nav-label">Plugins</span>
         </Link>
       </nav>
       <div className="sidebar-playlists">
@@ -70,12 +84,37 @@ export default function Sidebar({
             <Plus size={18} />
           </Link>
         </div>
+        <Link href="/likes">
+          <span className="playlist-swatch" aria-hidden="true">
+            <FallbackCover
+              id="liked-tracks"
+              title="Liked tracks"
+              kind="liked"
+              inline={false}
+            />
+          </span>
+          <span className="sidebar-row-text">
+            <span title="Liked tracks">Liked tracks</span>
+          </span>
+        </Link>
         {playlists.slice(0, 12).map((playlist) => (
           <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
             <span className="playlist-swatch" aria-hidden="true">
-              <CoverArtSvg art={coverArt("playlist", playlist.id, "", null)} />
+              <FallbackCover
+                id={playlist.id}
+                title={playlist.name}
+                kind="playlist"
+                inline={false}
+              />
             </span>
-            <span title={playlist.name}>{playlist.name}</span>
+            <span className="sidebar-row-text">
+              <span title={playlist.name}>{playlist.name}</span>
+              <small>
+                {playlist.kind === "followed"
+                  ? "Followed playlist"
+                  : "Your playlist"}
+              </small>
+            </span>
           </Link>
         ))}
         {playlists.length === 0 && (

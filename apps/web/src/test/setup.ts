@@ -14,6 +14,7 @@ function reset() {
   cleanup();
   resetConnection();
   catalogCacheClock.reset();
+  catalogCacheClock.setRetryDelay(0);
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();

@@ -158,7 +158,7 @@ test("an opened catalog group pages editions on request and lists only the chose
     await waitFor(() =>
       expect(
         within(group).getByRole("combobox", { name: "Edition" }).textContent,
-      ).toBe("Bonus edition"),
+      ).toContain("Bonus edition"),
     );
     for (const [, options] of fetch.mock.calls) {
       const headers = new Headers(options?.headers);

@@ -1,12 +1,13 @@
 import { router } from "@inertiajs/react";
-import { Heart, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import ActionMenu from "../../../shared/ui/ActionMenu";
+import StatusDot, { type SourceStatus } from "../../../shared/ui/StatusDot";
 import type { CatalogRowView } from "./TrackTable";
 
-const notes: Partial<Record<CatalogRowView["status"], string>> = {
-  finding: "Finding audio…",
-  not_found: "Not found on your services",
-  failed: "Couldn't search right now",
+const statuses: Partial<Record<CatalogRowView["status"], SourceStatus>> = {
+  finding: "checking",
+  not_found: "none",
+  failed: "failed",
 };
 
 export function CatalogRowNote({
@@ -14,12 +15,12 @@ export function CatalogRowNote({
 }: {
   status: CatalogRowView["status"];
 }) {
-  const note = notes[status];
-  if (!note) return null;
+  const shown = statuses[status];
+  if (shown) return <StatusDot status={shown} as="small" role="status" />;
   return (
-    <small role="status" className="availability" data-state="catalog">
-      <span className="ring" data-ring="catalog" aria-hidden="true" />
-      {note}
+    <small className="source-status" data-status="absent">
+      <span className="source-status-dot" aria-hidden="true" />
+      Not in your library
     </small>
   );
 }
@@ -45,19 +46,10 @@ export default function CatalogRowActions({
         type="button"
         className="icon-button"
         disabled={finding}
-        aria-label={`Find audio and like ${title}`}
-        onClick={onLike}
-      >
-        <Heart size={17} />
-      </button>
-      <button
-        type="button"
-        className="icon-button"
-        disabled={finding}
         aria-label={`${retry ? "Try again to find" : "Find"} audio for ${title}`}
         onClick={onFind}
       >
-        <Search size={17} />
+        <Plus size={17} />
       </button>
       <ActionMenu
         label={`Actions for ${title}`}
@@ -73,6 +65,11 @@ export default function CatalogRowActions({
             label: retry ? "Try again to find audio" : "Find audio",
             disabled: finding,
             onSelect: onFind,
+          },
+          {
+            label: "Find audio and like",
+            disabled: finding,
+            onSelect: onLike,
           },
           ...(retry
             ? [

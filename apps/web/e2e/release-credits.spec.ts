@@ -1,6 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
-import { chooseOption } from "./fixtures/listbox";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
@@ -96,11 +95,8 @@ test("source-free imported albums preserve unknown credits through personal edit
     await page
       .getByRole("link", { name: "Account and settings", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.goto("/settings?section=plugins");
+    await page.getByRole("button", { name: /^This server/ }).click();
     await page
       .getByLabel("Service address", { exact: true })
       .fill(owned.address);
@@ -117,10 +113,15 @@ test("source-free imported albums preserve unknown credits through personal edit
       offered.body.base_url === owned.address &&
         offered.body.name === owned.manifest.name,
     ).toBe(true);
-    await chooseOption(
-      page.getByRole("combobox", { name: "Service", exact: true }),
-      owned.manifest.name,
-    );
+    await page
+      .getByRole("button", { name: "Your plugins", exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `Connect ${owned.manifest.name}`,
+        exact: true,
+      })
+      .click();
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);

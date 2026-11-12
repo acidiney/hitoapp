@@ -13,7 +13,15 @@ function stubFetch() {
 
 function view(hasPhoto: boolean, onSaved = vi.fn()) {
   render(
-    createElement(AvatarSettings, { account: "alice", hasPhoto, onSaved }),
+    createElement(AvatarSettings, {
+      user: {
+        id: "alice",
+        username: "alice",
+        admin: false,
+        avatar_version: hasPhoto ? "v1" : null,
+      },
+      onSaved,
+    }),
   );
   return {
     onSaved,
@@ -27,7 +35,7 @@ function choose(input: HTMLInputElement, file: File) {
 
 test("remove is offered only while a photo exists", () => {
   view(false);
-  expect(screen.getByRole("button", { name: "Upload photo" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Change photo" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Remove photo" })).toBeNull();
 });
 

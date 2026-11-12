@@ -15,9 +15,7 @@ export default function SectionWarning({
       data-tone={tone}
       role={tone === "error" ? "alert" : "status"}
     >
-      <span className="section-warning-icon" aria-hidden="true">
-        !
-      </span>
+      <span className="section-warning-icon" aria-hidden="true" />
       <span>
         <strong>{title}</strong> {children}
       </span>

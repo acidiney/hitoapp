@@ -5,6 +5,6 @@ export async function enterEditMode(page: Page) {
   await expect(edit).toBeVisible();
   await edit.click();
   await expect(
-    page.getByRole("button", { name: "Done", exact: true }),
+    page.getByRole("button", { name: "Done editing", exact: true }),
   ).toBeVisible();
 }

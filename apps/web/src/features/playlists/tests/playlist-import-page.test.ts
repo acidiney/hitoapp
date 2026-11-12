@@ -65,10 +65,8 @@ test("Playlists imports an editable provider copy and navigates only after its r
     installation_revision: 3,
     playlist_reference: reference,
   });
-  expect(
-    (form.getByRole("button", { name: "Importing…" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(true);
+  expect(form.getByRole("progressbar")).toBeTruthy();
+  expect(form.getByText("Importing a copy")).toBeTruthy();
   expect(router.visit).not.toHaveBeenCalled();
   const request = JSON.parse(fetch.mock.calls[0][1].body);
   const receipt = {
@@ -220,10 +218,7 @@ test("a second revision change fences a held retry without clearing its current 
     });
     expect(router.visit).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(
-      (screen.getByRole("button", { name: "Importing…" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(screen.getByRole("progressbar")).toBeTruthy();
     expect(fetch).toHaveBeenCalledTimes(3);
     await act(async () =>
       resolveCurrent(new Response(JSON.stringify(receipt))),

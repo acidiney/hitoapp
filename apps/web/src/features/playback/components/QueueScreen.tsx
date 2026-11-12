@@ -8,7 +8,8 @@ import Dialog from "../../../shared/ui/Dialog";
 import PageHeading from "../../../shared/ui/PageHeading";
 import { time } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import { X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
+import { useQueuedFirst } from "../hooks/useQueuedFirst";
 import PlayerTrackActions from "./PlayerTrackActions";
 import type { Player, PlaybackOccurrence, QueueView } from "../model";
 
@@ -44,7 +45,17 @@ function useCurrentEntry(player: Player, view: QueueView) {
   return entry;
 }
 
-export default function QueueScreen() {
+const mac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
+
+export default function QueueScreen({
+  docked = false,
+  onClose,
+}: {
+  docked?: boolean;
+  onClose?: () => void;
+}) {
   const player = usePlayer();
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const playing = useSyncExternalStore(
@@ -55,6 +66,8 @@ export default function QueueScreen() {
   const current = entry?.recording ?? playing;
   const currentId = entry?.id ?? view.currentEntry;
   const played = view.currentIndex ?? 0;
+  const queuedFirst = useQueuedFirst(player, view);
+  const firstOfNext = (view.currentIndex ?? -1) + 1;
   const upNext = Math.max(0, view.total - (view.currentIndex ?? -1) - 1);
   const [playedOpen, setPlayedOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -65,23 +78,63 @@ export default function QueueScreen() {
     setConfirming(false);
   }
   return (
-    <div className="queue-screen">
-      <PageHeading
-        title="Queue"
-        description={`${count} · ${upNext.toLocaleString()} up next`}
-      >
-        <div className="queue-actions">
-          <Button
-            variant="destructive"
+    <div
+      className={docked ? "queue-screen queue-screen-docked" : "queue-screen"}
+    >
+      {docked ? (
+        <header className="queue-panel-head">
+          <h2 id="queue-title" tabIndex={-1} data-queue-heading>
+            Queue
+          </h2>
+          <button
+            type="button"
+            className="queue-clear"
             disabled={view.total === 0}
             onClick={() => setConfirming(true)}
           >
             Clear
-          </Button>
-        </div>
-      </PageHeading>
-      <section aria-labelledby="queue-now" className="queue-now">
-        <h2 id="queue-now">Now playing</h2>
+          </button>
+          <button
+            type="button"
+            className="queue-close"
+            aria-label="Close queue"
+            onClick={onClose}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+      ) : (
+        <PageHeading
+          title="Queue"
+          description={`${count} · ${upNext.toLocaleString()} up next`}
+        >
+          <div className="queue-actions">
+            <button
+              type="button"
+              className="queue-clear"
+              disabled={view.total === 0}
+              onClick={() => setConfirming(true)}
+            >
+              Clear
+            </button>
+            {onClose && (
+              <button
+                type="button"
+                className="queue-close"
+                aria-label="Close queue"
+                onClick={onClose}
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </PageHeading>
+      )}
+      <section
+        aria-labelledby={docked ? "queue-now-dock" : "queue-now"}
+        className="queue-now"
+      >
+        <h2 id={docked ? "queue-now-dock" : "queue-now"}>Now playing</h2>
         {current ? (
           <div className="queue-now-row">
             <Artwork
@@ -94,7 +147,7 @@ export default function QueueScreen() {
               <small>{current.artist}</small>
             </span>
             <NowClock />
-            <PlayerTrackActions track={current} />
+            <PlayerTrackActions track={current} liking={false} />
             {currentId && (
               <button
                 type="button"
@@ -115,16 +168,34 @@ export default function QueueScreen() {
           className="queue-played"
           onToggle={(event) => setPlayedOpen(event.currentTarget.open)}
         >
-          <summary>{`Played (${played.toLocaleString()})`}</summary>
+          <summary>
+            <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" />
+            <span>{`Played (${played.toLocaleString()})`}</span>
+          </summary>
           {playedOpen && <QueueList from={0} to={played} />}
         </details>
       )}
-      <section aria-labelledby="queue-next" className="queue-next">
-        <div className="queue-next-head">
-          <h2 id="queue-next">Up next</h2>
-          <span>Drag by the handle, or use the arrows, to reorder</span>
-        </div>
-        <QueueList from={(view.currentIndex ?? -1) + 1} />
+      {queuedFirst > 0 && (
+        <section
+          aria-labelledby={docked ? "queue-first-dock" : "queue-first"}
+          className="queue-first"
+        >
+          <h2 id={docked ? "queue-first-dock" : "queue-first"}>
+            Queued by you · plays first
+          </h2>
+          <QueueList from={firstOfNext} to={firstOfNext + queuedFirst} />
+        </section>
+      )}
+      <section
+        aria-labelledby={docked ? "queue-next-dock" : "queue-next"}
+        className="queue-next"
+      >
+        <h2 id={docked ? "queue-next-dock" : "queue-next"}>Up next</h2>
+        <QueueList from={firstOfNext + queuedFirst} />
+        <p className="queue-hint">
+          Tracks without a source are skipped. <kbd>{mac ? "⌥↑" : "Alt ↑"}</kbd>{" "}
+          <kbd>{mac ? "⌥↓" : "Alt ↓"}</kbd>
+        </p>
       </section>
       {confirming && (
         <Dialog title="Clear the queue?" onClose={() => setConfirming(false)}>

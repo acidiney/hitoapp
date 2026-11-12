@@ -34,13 +34,13 @@ Manifest, search, detail and source discovery retrieve no audio. An explicit aud
 | `POST /v1/playlists/detail` | One album as a playlist, by reference or canonical ID |
 | `POST /v1/playlists/items` | Pages of that album's tracks |
 
-The implementation requests Jamendo's `mp32` format and accepts one documented media host. It does not provide artwork, playlists, downloads or a media cache. The upstream API distinguishes streaming and download addresses; the adapter uses the streaming address. See the [Jamendo tracks API](https://developer.jamendo.com/v3.0/tracks).
+The implementation requests Jamendo's `mp32` format and accepts one documented media host. It exposes albums through the playlist routes described below. It provides no artwork endpoint, downloads or media cache. The upstream API distinguishes streaming and download addresses; the adapter uses the streaming address. See the [Jamendo tracks API](https://developer.jamendo.com/v3.0/tracks).
 
 Requests have a 4 KiB body limit. Provider JSON has a 256 KiB limit. Metadata and audio each have 16 admission permits. The stream holds its permit through completion or drop, emits at most 64 KiB per chunk and limits each awaited upstream body read to 15 seconds. These implementation bounds do not establish saturation, cancellation or performance acceptance.
 
 ## Featured albums
 
-Source only: the running Jamendo container is not rebuilt, no live Jamendo request was made and no operator client ID was used. The cases below run against an owned fake of the Jamendo API.
+These capabilities are source-only. The packaged runtime evidence below predates them. No live Jamendo request or operator client ID was used; the cases below run against an owned fake of the Jamendo API.
 
 `POST v1/featured` asks Jamendo's albums endpoint (`/v3.0/albums/`, `order=popularity_week`, `limit` as requested) and returns each album as a `FeaturedKind::Album` item. Its `id` and `reference` are both `jamendo:album:v1:<numeric id>`, the title is the album name and the subtitle is the artist. It sends no `artwork_id` and no `item_count`, because the adapter has no artwork endpoint yet, so Hito shows a generated cover for these cards. The capability contract, bounds and host behavior are in [featured music](plugins.md#featured-music).
 
@@ -143,7 +143,7 @@ This change adds no provider request, audio access, credential handling or manif
 
 ### Playback-only manifest declaration
 
-The manifest now declares `ContentPolicy { source_persistence: PlaybackOnly }` through the existing SDK. It retains exactly Search and Sources, with no authorization declaration, download/cache endpoint or extra provider I/O. This policy describes source persistence and grants no licence.
+The packaging candidate described in this section introduced `ContentPolicy { source_persistence: PlaybackOnly }` through the existing SDK while retaining Search and Sources. Current source also declares Playlists and Featured, as described above; the earlier packaged checks do not verify those additions. Neither version declares account authorization or a download/cache endpoint. This policy describes source persistence and grants no licence.
 
 The existing HTTP contract and real-child runtime cases first fail on the absent declaration, then pass with the typed policy. They also verify that GET/POST requests to download/cache paths return 404, the manifest and rejected paths retrieve no provider data or audio, and the contract remains private/no-store. All three crate cases, strict all-target Clippy, formatting and independent review pass in Docker. Existing attribution, credential privacy and joined shutdown assertions remain intact.
 
@@ -152,3 +152,37 @@ A tracked-source rebuild from `22194df` produces image `sha256:1b9444562e1dd2249
 Eleven JSON records retain seven distinct request correlations and ordered readiness, SIGTERM drain and stopped outcomes. The expected invalid-request event is paired with its timed 400 completion. Controlled credentials, request input, private paths and URLs are absent. Credential and executable hashes and metadata remain unchanged. The process exits zero without an OOM kill, its listener process is gone, and execution against the stopped container is rejected. The owned containers and fake-credential volume are removed; the normal server's identity, configuration, mounts and running state remain unchanged.
 
 Fourteen private auditor controls pass, including subprocess interruption, bounded output, strict error-event correlation and Docker mount-order comparison without losing mount fields. These controls qualify the audit, not additional provider behavior. No service or connection has been added to the normal deployment. Jamendo-specific packaged host integration, active upstream-audio shutdown, codec coverage and live checks with an operator client ID remain open.
+
+### Source-library host integration
+
+Four cases in `src/tests/host_integration.rs` compose the actual Jamendo HTTP router with an owned upstream protocol fixture, Hito's HTTP router and real temporary SQLite. They create an account, offer the service, review and accept its exact manifest, search and adopt a recording. The recording retains the creator, Jamendo label and canonical track backlink in its selected observation and history after the host stops and reopens. Metadata reads retrieve zero audio and create no download work. Explicit playback returns the exact owned WAV; a byte-range request returns the exact requested bytes through both relays. Caller cookies and authorization do not reach the upstream fixture, and the captured Jamendo logs omit credentials, transport addresses, search text and musical metadata.
+
+The actual Jamendo `playback_only` declaration makes Hito reject a direct persistent download with a policy conflict before retrieving audio. A playlist containing the adopted recording settles its download entry as `unavailable` with `policy_restricted`, creates no recording transfer and preserves the playlist and original owned file. These cases exercise existing production behavior; no production fix or behavior RED was required. Bounded range support was added to the owned upstream fixture alongside its new acceptance assertion, without a separate failing-first claim.
+
+The first candidate passed all 11 library cases, the existing real-child runtime case and strict all-target Clippy in Docker. Review then found that its cleanup could leave Axum connection tasks alive and that cancellation could bypass cleanup. A disposable child control reproduced the held-handler leak before the fixture ownership redesign. The replacement server owner tracks each HTTP connection, stops admission, requests graceful closure and aborts overdue connections before draining every join. A deadline remains a failure after settlement. Each server and the enclosing startup/workflow have retained runtime-thread owners whose handles cannot be sent to their own threads. Dropping the caller's future cancels and joins the fixture owner before temporary storage is removed.
+
+The second candidate passed 19 library cases and the real-child runtime case, but further review found that SQLx worker ownership could survive Core/runtime drop and that abandoning readiness could panic during cleanup. A control now cancels before readiness is sent, and two controls first reproduced normal shutdown and cancelled Core opening acknowledging live SQLite resource leases. Those controls pass after explicit core-owned retirement was connected to the fixture. A checked-out connection also exposed a retry loop that could starve the current-thread caller after a deadline; retirement now awaits pool close once and then waits on resource-lease changes. Recorded deadline failure remains visible to concurrent and repeated retirement calls.
+
+Owned controls cover held handlers and response bodies, cancellation during partial startup and an active request holding Core, and caught startup/workflow panics. They observe retired connections, closed listeners and storage lifetime. Separate child controls verify that unexpected attribution, foreign transport URLs, send failures and body-read failures report static messages without private input. The resolved source passes all 24 Jamendo library cases, the existing real-child runtime case, four Core database-ownership controls, strict Jamendo all-target Clippy, strict Core library Clippy both with and without `test-support`, and formatting in Docker. These controls cover owned asynchronous work, not arbitrary blocking handlers or a process being forcibly killed.
+
+An independent final-source Docker repeat passes the same 24 library cases and real-child case. It also passes all 162 Core unit cases across two invocations: 161 cases in 92.43 seconds and the isolated chapter-admission work case in 119.61 seconds. The earlier supplementary run reached its 90-second outer deadline with that case still running; the isolated result closes that test's qualification without claiming a single complete-suite invocation. The chapter fixture exercises requested-anchor SQL work with 100,000 recording rows, 10,000 chapter entries and 1,002 books under three planner-statistics conditions. It does not qualify the full indexed-file or concurrent-listener release workload. Strict checks independently pass with Core's `test-support` feature enabled and with no enabled Core features. Formatting passes, and all 2,527 source and support inputs remain unchanged across verification. Fresh review accepts the new Core ownership boundary. This source is integrated into the development branch; no running image, account connection or deployment changed.
+
+#### SQLite ownership in the fixture
+
+Core's optional `test-support` database owner retains the concrete temporary directory. It admits one Core opening, registers its private pool before migrations and acquires a directory lease before every SQLite worker is spawned. The same closing state gates worker admission and pool publication. The plugin sees no SQL or pool types. Its fixture stops requests and Core jobs, drops Services, closes admission and the pool, and waits for those resource leases before dropping the runtime and directory. Each reopen retires the previous owner first.
+
+```mermaid
+flowchart LR
+    Runner[Fixture runner] --> Owner[Core test database owner]
+    Runner --> Directory[Owned temporary directory]
+    Owner --> Pool[Private SQLite pool]
+    Owner --> Directory
+    Pool --> Tracker[Worker admission and lease tracker]
+    Pool -. weak directory reference .-> Directory
+    Lease[SQLite worker resource lease] --> Tracker
+    Lease --> Directory
+```
+
+The tracker owns no pool. Pool callbacks retain only that tracker and a weak directory reference, so the directory cannot be retained through a controller/pool cycle. The existing SQLx worker guard retires after worker-local SQLite resources and references have been released, including cancelled connection initialization. This is a storage-resource fence, not an OS-thread/TLS join or a claim that a cosmetic pool counter has reached zero. A deadline records failure while cleanup continues to drain with storage retained.
+
+This is source-library host integration. It does not run an isolated browser or the packaged Jamendo executable against upstream media. The executable still fixes its production endpoint, and the private fixture configuration exists only in the library test build. Packaged host integration, active upstream-audio shutdown, codec coverage and live-provider checks with an operator client ID remain open. No service or connection was added to the normal deployment.

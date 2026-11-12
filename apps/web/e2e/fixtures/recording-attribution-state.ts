@@ -15,7 +15,7 @@ type Provider = Awaited<ReturnType<typeof recordingAttributionProvider>>;
 
 export async function connectRecordingProvider(page: Page, owned: Provider) {
   await page.goto("/settings?section=plugins");
-  await page.getByText("Services for this server", { exact: true }).click();
+  await page.getByRole("button", { name: /^This server/ }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
   const offered = await preferencesAction<Schema<"PluginService">>(
     page,
@@ -31,9 +31,10 @@ export async function connectRecordingProvider(page: Page, owned: Provider) {
       offered.body.base_url === owned.address &&
       offered.body.name === owned.manifest.name,
   ).toBe(true);
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(offered.body.id);
+    .getByRole("button", { name: `Connect ${offered.body.name}`, exact: true })
+    .click();
   await page
     .getByLabel("Bearer token (optional)", { exact: true })
     .fill(owned.token);

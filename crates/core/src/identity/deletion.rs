@@ -59,6 +59,14 @@ impl Identity {
         let rows_removed =
             erasure::scoped(&mut tx, "account", account, &account_data::statements()).await?;
         tx.commit().await?;
+        self.catalog_replication.forget_account(account).await;
+        if let Err(error) = self.replicas.retire_pending().await {
+            tracing::warn!(
+                event = "replica_retirement_pending",
+                error_code = error.code(),
+                "Account replica file retirement will be retried"
+            );
+        }
         let deletion = AccountDeletion {
             sessions_revoked: sessions_revoked as u64,
             rows_removed,

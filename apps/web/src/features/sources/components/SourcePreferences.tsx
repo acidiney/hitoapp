@@ -1,13 +1,11 @@
 import type { Schema } from "../../../shared/schema";
-import type { FormEvent } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
-import HealthDot from "../../../shared/ui/HealthDot";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
+import OrderHandle from "../../settings/components/OrderHandle";
 import { setting } from "../../settings/model/settingsCatalog";
 import { entryKey, useSourcePreferences } from "../hooks/useSourcePreferences";
 
@@ -17,7 +15,10 @@ export default function SourcePreferences({ account }: { account: string }) {
   return <PreferencesForm key={account} {...useSourcePreferences(account)} />;
 }
 
-function describe(entry: Entry, connections: Schema<"PluginSettings"> | null) {
+export function describeSource(
+  entry: Entry,
+  connections: Schema<"PluginSettings"> | null,
+) {
   if (entry.kind === "local_files")
     return { label: "Local files", hint: "Audio in your music folders" };
   if (entry.kind === "saved_copies")
@@ -33,14 +34,11 @@ function describe(entry: Entry, connections: Schema<"PluginSettings"> | null) {
 
 function PreferencesForm(preferences: ReturnType<typeof useSourcePreferences>) {
   useReportUnsaved(preferences.dirty);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    void preferences.save();
-  }
   const { entries } = preferences;
   return (
     <SettingsCard
       setting={setting("source-preference")}
+      description="Which source plays first when a track has several. A source you pick for one track always wins."
       busy={preferences.pending}
     >
       {!preferences.loaded && preferences.pending && (
@@ -54,84 +52,68 @@ function PreferencesForm(preferences: ReturnType<typeof useSourcePreferences>) {
         </SectionWarning>
       )}
       {preferences.loaded && (
-        <form onSubmit={submit}>
-          <fieldset disabled={preferences.pending}>
-            <ol className="provider-order" aria-label="Source order">
-              {entries.map((entry, index) => {
-                const { label, hint } = describe(
-                  entry,
-                  preferences.connections,
-                );
-                return (
-                  <li key={entryKey(entry)}>
-                    <SettingRow
-                      title={<h4>{label}</h4>}
-                      hint={
-                        <>
-                          <span>{hint}</span>
-                          <span>{`Priority ${index + 1}`}</span>
-                        </>
-                      }
-                      status={
-                        entry.kind === "provider" ? (
-                          <HealthDot tone="success" label="Connected" />
-                        ) : undefined
-                      }
-                      wide
-                      action={
-                        <>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={`Move up ${label}`}
-                            title="Move up"
-                            disabled={preferences.pending || index === 0}
-                            onClick={() => preferences.move(entry, -1)}
-                          >
-                            <ArrowUp size={18} aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={`Move down ${label}`}
-                            title="Move down"
-                            disabled={
+        <>
+          <ol className="provider-order" aria-label="Source order">
+            {entries.map((entry, index) => {
+              const { label, hint } = describeSource(
+                entry,
+                preferences.connections,
+              );
+              return (
+                <li key={entryKey(entry)}>
+                  <SettingRow
+                    leading={
+                      <OrderHandle
+                        label={label}
+                        position={index + 1}
+                        items={[
+                          {
+                            label: "Move up",
+                            disabled: preferences.pending || index === 0,
+                            onSelect: () => preferences.move(entry, -1),
+                          },
+                          {
+                            label: "Move down",
+                            disabled:
                               preferences.pending ||
-                              index === entries.length - 1
-                            }
-                            onClick={() => preferences.move(entry, 1)}
-                          >
-                            <ArrowDown size={18} aria-hidden="true" />
-                          </button>
-                        </>
-                      }
-                    />
-                  </li>
-                );
-              })}
-            </ol>
-            <Switch
-              label="Try the next source if one fails"
-              hint="Up to six sources are tried for one play. Turn this off to stop at the first one."
-              disabled={preferences.pending}
-              checked={preferences.fallback}
-              onChange={preferences.setFallback}
-            />
-            <div className="form-actions">
+                              index === entries.length - 1,
+                            onSelect: () => preferences.move(entry, 1),
+                          },
+                        ]}
+                      />
+                    }
+                    title={<h4>{label}</h4>}
+                    hint={
+                      entry.kind === "provider" ? `${hint} · connected` : hint
+                    }
+                  />
+                </li>
+              );
+            })}
+          </ol>
+          <Switch
+            label="Try the next source if one fails"
+            hint="Up to six sources are tried for one play."
+            disabled={preferences.pending}
+            checked={preferences.fallback}
+            onChange={preferences.setFallback}
+          />
+          {preferences.dirty && (
+            <div className="settings-save">
               <Button
-                type="submit"
-                variant="primary"
-                disabled={!preferences.dirty}
+                variant="action"
+                disabled={preferences.pending}
+                onClick={() => void preferences.save()}
               >
                 Save source preference
               </Button>
             </div>
-          </fieldset>
+          )}
           {preferences.pending && (
             <p role="status">Saving source preference…</p>
           )}
           {preferences.saved && <p role="status">Source preference saved.</p>}
-        </form>
+        </>
       )}
     </SettingsCard>
   );

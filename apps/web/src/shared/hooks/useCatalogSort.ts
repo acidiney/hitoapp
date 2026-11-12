@@ -10,20 +10,20 @@ export const DEFAULT_SORT: CatalogSort = "recent";
 
 export const TRACK_SORTS: SortOption[] = [
   { value: "recent", label: "Recently added" },
-  { value: "title", label: "Title A–Z" },
-  { value: "artist", label: "Artist A–Z" },
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
 ];
 
 export const ALBUM_SORTS: SortOption[] = [
   { value: "recent", label: "Recently added" },
-  { value: "title", label: "Title A–Z" },
-  { value: "artist", label: "Artist A–Z" },
-  { value: "year", label: "Year, newest first" },
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
+  { value: "year", label: "Year" },
 ];
 
 export const ARTIST_SORTS: SortOption[] = [
   { value: "recent", label: "Recently added" },
-  { value: "title", label: "Name A–Z" },
+  { value: "title", label: "Name" },
 ];
 
 const PAGING_PARAMETERS = [

@@ -220,8 +220,8 @@ test("the artists page sorts its library credits by name when asked and leaves c
   );
   cleanup();
   render(createElement(ArtistIndexPage, index));
-  expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe(
-    "Name A–Z",
+  expect(screen.getByRole("combobox", { name: "Sort" }).textContent).toBe(
+    "SortName",
   );
   requests.length = 0;
   const region = screen.getByRole("region", {

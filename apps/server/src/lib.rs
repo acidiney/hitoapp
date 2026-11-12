@@ -13,6 +13,7 @@ mod security;
 mod source_resolution;
 mod storage_manifest;
 mod telemetry;
+mod web_assets;
 
 pub use api::host_browser::{HostBrowser, HostOpen, HostReturn};
 pub use api::host_folders::{HostChoice, HostFolders};

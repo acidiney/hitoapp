@@ -1,0 +1,20 @@
+.update-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(
+    var(--player) + var(--tabs) + 16px + env(safe-area-inset-bottom)
+  );
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 8px 8px 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}

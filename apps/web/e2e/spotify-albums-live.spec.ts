@@ -1,6 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
-import { chooseOption } from "./fixtures/listbox";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
@@ -190,11 +189,8 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     await page
       .getByRole("link", { name: "Account and settings", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("link", { name: "Plugins", exact: true })
-      .click();
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.goto("/settings?section=plugins");
+    await page.getByRole("button", { name: /^This server/ }).click();
     await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(
       0,
     );
@@ -220,10 +216,12 @@ test("live public Spotify metadata becomes stored albums with honest private cre
       service.base_url === configuration.pluginAddress &&
         service.name === expected.manifestName,
     );
-    await chooseOption(
-      page.getByRole("combobox", { name: "Service", exact: true }),
-      service.name,
-    );
+    await page
+      .getByRole("button", { name: "Your plugins", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: `Connect ${service.name}`, exact: true })
+      .click();
     liveCheck(
       (await page
         .getByLabel("Bearer token (optional)", { exact: true })
@@ -268,9 +266,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("radio", { name: "Import a copy", exact: true })
-      .check();
+    await form.getByRole("radio", { name: /^Copy/ }).check();
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

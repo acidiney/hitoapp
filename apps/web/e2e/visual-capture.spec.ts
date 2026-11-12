@@ -12,11 +12,8 @@ const settingsSections = [
   "profile",
   "privacy",
   "music",
-  "plugins",
   "playback",
-  "downloads",
   "accounts",
-  "updates",
   "about",
 ];
 
@@ -341,20 +338,13 @@ async function captureListening(page: Page) {
     await expand.click();
     const dialog = page.getByRole("dialog", { name: "Now playing" });
     await expect(dialog).toBeVisible();
-    for (const tab of ["Up next", "Lyrics", "Source"]) {
-      await dialog.getByRole("tab", { name: tab, exact: true }).click();
-      await shoot(
-        page,
-        `now-playing-${tab.toLowerCase().replace(" ", "-")}`,
-        size.name,
-      );
-    }
+    await shoot(page, "now-playing", size.name);
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
-    await expect(page).toHaveURL(/\/queue$/);
+    await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Queue", level: 1 }),
+      page.getByRole("heading", { name: "Queue", level: 2 }),
     ).toBeVisible();
     await shoot(page, "queue", size.name);
   }

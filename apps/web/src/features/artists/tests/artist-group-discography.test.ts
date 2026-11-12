@@ -314,11 +314,11 @@ test("a profile that stays unavailable shows one compact state and then waits fo
   http.reply("profile", { status: "unavailable" });
   render(createElement(ArtistIdentityGroupPage, detail));
   const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
-  expect(alert.textContent).toContain("Discography unavailable right now");
+  expect(alert.textContent).toContain("Couldn't load the discography");
   expect(alert.textContent).toContain("Artist information is unavailable");
   expect(http.calls).toEqual({ associations: 2, profile: 2, discography: 0 });
   expect(screen.queryByText(/Albums \(0\)/)).toBeNull();
-  expect(screen.queryByText("Only what I'm missing")).toBeNull();
+  expect(screen.queryByText("Not linked to my library")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   const region = await screen.findByRole("region", { name: "Discography" });
   await within(region).findByRole("heading", { name: discographyTitle });
@@ -349,12 +349,12 @@ test("an unavailable first page shows one compact state without empty type secti
   render(createElement(ArtistIdentityGroupPage, detail));
   const region = await screen.findByRole("region", { name: "Discography" });
   const alert = await within(region).findByRole("alert", {}, { timeout: 3000 });
-  expect(alert.textContent).toContain("Discography unavailable right now");
+  expect(alert.textContent).toContain("Couldn't load the discography");
   expect(alert.textContent).toContain("This discography is unavailable");
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 2 });
   expect(within(region).queryByText(/\(0\)/)).toBeNull();
   expect(within(region).queryByRole("button", { name: /Show / })).toBeNull();
-  expect(within(region).queryByText("Only what I'm missing")).toBeNull();
+  expect(within(region).queryByText("Not linked to my library")).toBeNull();
   fireEvent.click(within(region).getByRole("button", { name: "Try again" }));
   await within(region).findByRole("heading", { name: discographyTitle });
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 3 });

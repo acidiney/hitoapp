@@ -53,10 +53,13 @@ impl HostDeviceId {
 }
 
 pub struct CoreConfig {
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) database_owner: Option<crate::test_support::database_owner::DatabaseOwner>,
     pub database: PathBuf,
     pub storage: StorageConfig,
     pub host_device: HostDeviceId,
     pub media_tools: MediaTools,
+    pub conversion_parallelism: usize,
     pub podcast_network: crate::PodcastNetworkConfig,
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
@@ -99,10 +102,13 @@ impl CoreConfig {
         host_device: HostDeviceId,
     ) -> Self {
         Self {
+            #[cfg(any(test, feature = "test-support"))]
+            database_owner: None,
             database,
             storage,
             host_device,
             media_tools: MediaTools::default(),
+            conversion_parallelism: 2,
             podcast_network: Default::default(),
             community: None,
             community_rankings: None,

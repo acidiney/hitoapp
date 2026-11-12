@@ -18,7 +18,7 @@ test("Discover offers the library's genres, opens one and plays it, and keeps th
     ["fixture-archive", "Archive"],
   ]) {
     const connected = await page.request.post(
-      `/api/v1/libraries/${libraries[0].id}/folders`,
+      `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/folders`,
       {
         headers: headers(baseURL!),
         data: { directory: { directory_id: id, components: [] }, name },
@@ -29,8 +29,11 @@ test("Discover offers the library's genres, opens one and plays it, and keeps th
   await expect
     .poll(
       async () =>
-        (await (await page.request.get("/api/v1/recordings?limit=1")).json())
-          .total,
+        (
+          await (
+            await page.request.get("/api/v1/recordings?q=Hz&limit=1")
+          ).json()
+        ).total,
       { timeout: 30000 },
     )
     .toBeGreaterThanOrEqual(2);
@@ -45,15 +48,15 @@ test("Discover offers the library's genres, opens one and plays it, and keeps th
     navigation.getByRole("link", { name: "Discover", exact: true }),
   ).toHaveAttribute("aria-current", "page");
 
-  const genres = page.getByRole("region", { name: "By genre" });
+  const genres = page.getByRole("region", { name: "Genres you own" });
   const tile = genres.getByRole("link", { name: /^Fixture tone/ });
   await expect.poll(() => tile.count(), { timeout: 30000 }).toBe(1);
   await expect(tile).toContainText("2 tracks");
-  await expect(page.getByRole("region", { name: "Radio from…" })).toHaveCount(
-    0,
-  );
   await expect(
-    page.getByRole("heading", { name: "Search your services" }),
+    page.getByRole("region", { name: "Start a radio from an artist" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Outside your library" }),
   ).toBeVisible();
   await page.screenshot({
     path: "/workspace/test-results/discover-desktop.png",

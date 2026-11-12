@@ -30,8 +30,12 @@ vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));
 vi.mock("../../artwork/components/ArtworkStatus", () => ({
   default: () => null,
 }));
+const scanJob = vi.hoisted(() => vi.fn());
 vi.mock("../../library/hooks/useScanJob", () => ({
-  useScanJob: () => ({ scan: vi.fn(), scanning: false }),
+  useScanJob: (...args: unknown[]) => {
+    scanJob(...args);
+    return { scan: vi.fn(), scanning: false };
+  },
 }));
 vi.mock("@inertiajs/react", () => ({
   router: { get: vi.fn() },
@@ -66,6 +70,7 @@ function props(
     files?: number;
     query?: string;
     playlists?: Schema<"Playlist">[];
+    libraries?: Schema<"Library">[];
   } = {},
 ): Schema<"CatalogPageProps"> {
   const tracks = overrides.tracks ?? 3;
@@ -78,7 +83,7 @@ function props(
       username: "Listener",
       admin: overrides.admin ?? true,
     },
-    libraries: [{ id: "personal", name: "Personal", personal: true }],
+    libraries: overrides.libraries ?? [{ id: "music", name: "Music library" }],
     playlists: overrides.playlists ?? [],
     query: overrides.query ?? "",
     files: overrides.files ?? tracks,
@@ -140,6 +145,30 @@ test("a search with no match keeps the scan action and offers no folder button",
   expect(screen.getByRole("button", { name: "Scan music" })).toBeTruthy();
 });
 
+test("the scan button scans the shared library, never a personal provider library", () => {
+  scanJob.mockClear();
+  page(
+    props({
+      libraries: [
+        { id: "private", name: "Personal providers", personal: true },
+        { id: "music", name: "Music library" },
+      ],
+    }),
+  );
+  expect(scanJob).toHaveBeenCalledWith("account", "music");
+});
+
+test("a member with only a personal provider library cannot scan", () => {
+  page(
+    props({
+      libraries: [
+        { id: "private", name: "Personal providers", personal: true },
+      ],
+    }),
+  );
+  expect(screen.queryByRole("button", { name: "Scan music" })).toBeNull();
+});
+
 test("the scan button keeps its name when the label is hidden on a phone", () => {
   page(props());
   const button = screen.getByRole("button", { name: "Scan music" });
@@ -180,10 +209,10 @@ test("library descriptions", () => {
 test("library tracks offer a sort control that defaults to recently added and writes the choice to the address", () => {
   window.history.replaceState(null, "", "/library?q=blue");
   page(props());
-  const control = screen.getByRole("combobox", { name: "Sort by" });
-  expect(control.textContent).toBe("Recently added");
+  const control = screen.getByRole("combobox", { name: "Sort" });
+  expect(control.textContent).toBe("SortRecently added");
   fireEvent.click(control);
-  fireEvent.click(screen.getByRole("option", { name: "Artist A–Z" }));
+  fireEvent.click(screen.getByRole("option", { name: "Artist" }));
   expect(router.get).toHaveBeenCalledWith(
     "/library",
     { q: "blue", sort: "artist" },
@@ -194,5 +223,5 @@ test("library tracks offer a sort control that defaults to recently added and wr
 
 test("an empty library shows no sort control", () => {
   page(props({ tracks: 0 }));
-  expect(screen.queryByRole("combobox", { name: "Sort by" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Sort" })).toBeNull();
 });

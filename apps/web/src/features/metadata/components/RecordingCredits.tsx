@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 
-function canonicalContentUrl(value: string): string | null {
+export function canonicalContentUrl(value: string): string | null {
   if (value.length > 2048 || /[\s\u0000-\u001f\u007f-\u009f\\?#]/u.test(value))
     return null;
   try {

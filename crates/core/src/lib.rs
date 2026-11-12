@@ -1,6 +1,7 @@
 mod admission;
 mod artist_catalog;
 mod catalog;
+mod catalog_replication;
 mod collection;
 mod community;
 mod context;
@@ -10,12 +11,14 @@ mod id3_frames;
 mod identity;
 mod library_storage;
 mod maintenance;
+mod media_command;
 mod metadata;
 mod playback_access;
 mod plugins;
 mod podcasts;
 mod private_file;
 mod remote_http;
+mod replicas;
 mod secrets;
 mod store;
 
@@ -60,16 +63,24 @@ pub use artist_catalog::{
 pub use catalog::{
     AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
-    Browse, Catalog, CatalogSort, ChooseSource, CoverArtKind, CoverArtLookup, CreditMember,
-    FeaturedEntry, FeaturedShelf, Genre, GenreDetail, LyricsLookup, Page, PlaylistArtworkFetch,
-    PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadRecordingLyrics,
-    Recording, RecordingCopies, RecordingCopy, RecordingGroupProof, RecordingLyricsProvider,
+    AutomaticLyricsLookup, Browse, Catalog, CatalogSort, ChooseSource, CoverArtKind,
+    CoverArtLookup, CreditMember, FeaturedEntry, FeaturedShelf, Genre, GenreDetail, LyricsLookup,
+    Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
+    ProviderSourceReview, ReadAutomaticRecordingLyrics, ReadRecordingLyrics,
+    ReadSelectedRecordingLyrics, Recording, RecordingCopies, RecordingCopy, RecordingGroupProof,
+    RecordingLyricIdentities, RecordingLyricIdentity, RecordingLyricReview, RecordingLyricSelector,
+    RecordingLyricService, RecordingLyricServices, RecordingLyricsProvider,
     RecordingLyricsProviders, RecordingSplit, Release, ReleaseArtworkFetch, ReleaseDetail,
-    ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
-    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
-    SourceMatchKind, SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase,
-    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
-    UpdateSourcePreferences,
+    ReleaseTrack, ResetSourceChoice, ResolveSource, RetainRecordingLyricIdentity, Search,
+    SearchRecordingLyrics, SelectedLyricsLookup, Source, SourceChoice, SourceChoiceEntry,
+    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourceMatchKind,
+    SourcePreferenceEntry, SourcePreferences, SourcePreparationPhase, SourcePreparationReceipt,
+    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateSourcePreferences,
+};
+pub use catalog_replication::{
+    BeginCatalogSnapshot, CatalogReplication, CatalogSnapshot, CatalogSnapshotMode,
+    CatalogSnapshotPage, LocalRecordingFact, LocalReleaseAppearance, LocalSourceFact,
+    ServerRelayObservation,
 };
 pub use collection::{
     Action, Activity, AddedAlbum, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
@@ -119,9 +130,10 @@ pub use metadata::{
     TextMetadata,
 };
 pub use playback_access::{
-    AudioContent, AudioRequest, AudioStream, AudioValidators, ByteRange, CandidatesEnd,
-    MAX_FALLBACK_ATTEMPTS, OpenedAudio, PlaybackAccess, PlaybackCandidates, PlaybackSource,
-    StreamPace,
+    AudioContent, AudioRequest, AudioStream, AudioValidators, BeginPlaybackLease, ByteRange,
+    CandidatesEnd, ConversionStream, ConvertedAudio, MAX_CONVERSION_START, MAX_FALLBACK_ATTEMPTS,
+    OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
+    PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, StreamPace, StreamQuality,
 };
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
@@ -138,12 +150,17 @@ pub use podcasts::{
     PodcastUnsubscribeReceipt, Podcasts, RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
 };
 pub use remote_http::PodcastNetworkConfig;
+pub use replicas::{
+    ConnectReplica, QueuedReplicaChange, ReplicaConnection, ReplicaConnectionState, ReplicaSession,
+    ReplicaSyncOutcome, Replicas, SyncClientId,
+};
 use store::Store;
 
 #[derive(Clone)]
 pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
+    pub catalog_replication: CatalogReplication,
     pub artist_catalog: ArtistCatalog,
     pub playback: PlaybackAccess,
     pub collection: Collection,
@@ -152,13 +169,21 @@ pub struct Services {
     pub plugins: Plugins,
     pub downloads: Downloads,
     pub podcasts: Podcasts,
+    pub replicas: Replicas,
     store: Store,
 }
 
 #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = config.host_device.as_str()))]
 pub async fn open(config: CoreConfig) -> Result<Services> {
     let directories = library_storage::Directories::new(config.storage)?;
+    #[cfg(not(any(test, feature = "test-support")))]
     let store = Store::open(&config.database).await?;
+    #[cfg(any(test, feature = "test-support"))]
+    let store = match config.database_owner.as_ref() {
+        Some(owner) => Store::open_owned(&config.database, owner).await?,
+        None => Store::open(&config.database).await?,
+    };
+    let media_tools = config.media_tools.clone();
     let storage = LibraryStorage {
         store: store.clone(),
         host: config.host_device.clone(),
@@ -180,6 +205,16 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     #[cfg(not(any(test, feature = "test-support")))]
     let stream_pace = StreamPace::DEFAULT;
     let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace).await?;
+    let catalog_replication =
+        CatalogReplication::new(store.clone(), config.host_device.clone()).await?;
+    let replicas = Replicas::new(store.clone(), vault.clone(), &config.database);
+    if let Err(error) = replicas.retire_pending().await {
+        tracing::warn!(
+            event = "replica_retirement_pending",
+            error_code = error.code(),
+            "Replica file retirement will be retried"
+        );
+    }
     let community = Community::new(
         store.clone(),
         config.host_device.clone(),
@@ -267,6 +302,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         builtin_metadata,
     )?;
     let playback = PlaybackAccess {
+        leases: Default::default(),
         store: store.clone(),
         host: config.host_device.clone(),
         origins: playback_access::Origins::new(
@@ -287,6 +323,8 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 files: local_files.clone(),
             }),
         ),
+        conversions: playback_access::ConversionLimits::new(config.conversion_parallelism),
+        tools: media_tools,
     };
     tracing::info!("Core services ready");
     let downloads = Downloads {
@@ -308,10 +346,14 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     Ok(Services {
         identity: Identity {
             store: store.clone(),
+            replicas: replicas.clone(),
+            catalog_replication: catalog_replication.clone(),
             password_attempts: Default::default(),
             seen_attempts: Default::default(),
         },
         community,
+        catalog_replication,
+        replicas,
         podcasts: Podcasts {
             store: store.clone(),
             host: config.host_device.clone(),

@@ -248,6 +248,7 @@ test("a temporary later-page failure keeps known releases and retries the same h
   const http = discographyHttp();
   http.reply(firstDiscographyPage);
   http.reply({ error: "The owned catalog is temporarily unavailable." }, 503);
+  http.reply({ error: "The owned catalog is temporarily unavailable." }, 503);
   http.reply(lastDiscographyPage);
   const view = render(createElement(ArtistDiscography, initial));
   try {
@@ -264,14 +265,14 @@ test("a temporary later-page failure keeps known releases and retries the same h
     ).toBeNull();
     view.rerender(createElement(ArtistDiscography, initial));
     await flush();
-    expect(http.fetch).toHaveBeenCalledTimes(2);
+    expect(http.fetch).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() =>
       expect(
         screen.getAllByRole("heading", { name: discographyTitle }),
       ).toHaveLength(2),
     );
-    expect(http.fetch).toHaveBeenCalledTimes(3);
+    expect(http.fetch).toHaveBeenCalledTimes(4);
     for (const [, options] of http.fetch.mock.calls.slice(1))
       expect(JSON.parse(options?.body as string)).toEqual({
         limit: 20,

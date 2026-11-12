@@ -57,7 +57,7 @@ function submitTwice(reference: string) {
   });
 }
 
-const boundaries = ["account", "selection", "removal", "unmount"] as const;
+const boundaries = ["account", "removal", "unmount"] as const;
 const outcomes = ["success", "failure"] as const;
 test.each(
   boundaries.flatMap((boundary) =>
@@ -110,13 +110,6 @@ test.each(
           user: { id: account, username: "Bob", admin: false },
           connections: [connection],
         }),
-      );
-    } else if (boundary === "selection") {
-      fireEvent.change(
-        screen.getByRole("combobox", { name: "Playlist service" }),
-        {
-          target: { value: connection.id },
-        },
       );
     } else if (boundary === "removal") {
       view.rerender(
@@ -181,11 +174,7 @@ test.each(
     });
     expect(router.visit).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(
-      screen
-        .getByRole("button", { name: "Importing…" })
-        .hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByRole("progressbar")).toBeTruthy();
     expect(fetch).toHaveBeenCalledTimes(2);
     const receipt: Schema<"PlaylistImportReceipt"> = {
       request_id: replacement.request_id,

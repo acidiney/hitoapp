@@ -15,6 +15,7 @@ export default function DiscoverySearch({
   onSearch,
   pills = false,
   initialQuery = "",
+  placeholder = "Track or artist",
 }: {
   connections: Schema<"PluginInstallation">[];
   names: Record<string, string>;
@@ -24,6 +25,7 @@ export default function DiscoverySearch({
   onSearch: (query: string) => Promise<boolean>;
   pills?: boolean;
   initialQuery?: string;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
   function submit(event: FormEvent) {
@@ -45,15 +47,17 @@ export default function DiscoverySearch({
       aria-label="Music service search"
     >
       {pills ? (
-        <FilterPills
-          label="Music service"
-          options={connections.map((connection) => ({
-            value: connection.id,
-            label: label(connection),
-          }))}
-          value={selected}
-          onChange={onChoose}
-        />
+        connections.length > 1 ? (
+          <FilterPills
+            label="Music service"
+            options={connections.map((connection) => ({
+              value: connection.id,
+              label: label(connection),
+            }))}
+            value={selected}
+            onChange={onChoose}
+          />
+        ) : null
       ) : (
         <div className="discovery-service">
           <Listbox
@@ -67,21 +71,25 @@ export default function DiscoverySearch({
           />
         </div>
       )}
-      <label>
-        Search music
+      <label className={pills ? "discovery-field" : undefined}>
+        {pills ? <span className="sr-only">Search music</span> : "Search music"}
         <span className="discovery-query">
           <Search size={18} aria-hidden="true" />
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Track or artist"
+            placeholder={placeholder}
             maxLength={512}
           />
         </span>
       </label>
       <div className="discovery-search-actions">
-        <Button variant="primary" type="submit" disabled={pending}>
+        <Button
+          variant={pills ? "action" : "primary"}
+          type="submit"
+          disabled={pending}
+        >
           {pending ? "Searching…" : "Search"}
         </Button>
         {pending && <Button onClick={() => void onSearch("")}>Cancel</Button>}

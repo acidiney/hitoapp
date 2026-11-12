@@ -6,6 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+cap-fs-ext.workspace = true
+cap-std.workspace = true
 tokio-util.workspace = true
 hito-core = { path = "../../crates/core" }
 hito-playback = { path = "../../crates/playback", features = ["schema"] }
@@ -28,6 +30,8 @@ hyper.workspace = true
 hyper-util.workspace = true
 
 [dev-dependencies]
+hito-plugin-lrclib = { path = "../../plugins/lrclib" }
+tokio = { workspace = true, features = ["test-util"] }
 image.workspace = true
 base64.workspace = true
 hito-testkit = { path = "../../crates/testkit" }

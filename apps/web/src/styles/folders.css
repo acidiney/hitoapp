@@ -7,7 +7,7 @@
   padding: 38px 24px;
   margin: 4px 0 16px;
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .music-folders-empty > svg {
   color: var(--primary);
@@ -140,7 +140,7 @@
   padding: 24px;
   margin: 0 0 16px;
   background: var(--subtle);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .music-folder-proposal h4 {
   font-size: 17px;

@@ -1,27 +1,50 @@
-import type { Schema } from "../../../shared/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 import { lyricsApi } from "../api/lyricsApi";
-import { pluginsApi } from "../../plugins/api/pluginsApi";
+import { lookupAutomatic, rememberedAutomatic } from "../api/automaticLyrics";
+import {
+  readMatchesIdentity,
+  selectedLyricsOutcome,
+  type LyricView,
+  type SelectedLyricsOutcome,
+} from "../model/lyricContent";
+import {
+  identityKey,
+  identityNames,
+  type LyricIdentity,
+} from "../model/lyricIdentity";
 
-type Provider = Schema<"RecordingLyricsProvider">;
-type Lines = Schema<"TimedLyrics">;
+export type LyricChoice = {
+  key: string;
+  label: string;
+  identity: LyricIdentity;
+};
 
 export type NowPlayingLyricsState =
-  | { status: "idle"; providers: Provider[] }
-  | { status: "loading"; providers: Provider[] }
-  | { status: "no_provider"; providers: Provider[] }
-  | { status: "none_for_track"; providers: Provider[] }
-  | { status: "failed"; providers: Provider[] }
+  | { status: "idle"; providers: LyricChoice[] }
+  | { status: "loading"; providers: LyricChoice[] }
+  | { status: "no_provider"; providers: LyricChoice[] }
+  | { status: "none_for_track"; providers: LyricChoice[] }
+  | { status: "failed"; providers: LyricChoice[] }
   | {
       status: "done";
-      providers: Provider[];
-      provider: Provider;
-      lyrics: Lines | null;
+      providers: LyricChoice[];
+      provider: { key: string; label: string };
+      lyrics: LyricView | null;
       unsupported: boolean;
     };
 
 const DEADLINE_MS = 15_000;
+
+function identityChoices(identities: LyricIdentity[]): LyricChoice[] {
+  const names = identityNames(identities);
+  return identities.map((identity) => ({
+    key: identityKey(identity),
+    label: names[identityKey(identity)],
+    identity,
+  }));
+}
 
 export function useNowPlayingLyrics(
   account: string,
@@ -33,37 +56,57 @@ export function useNowPlayingLyrics(
     providers: [],
   });
   const controller = useRef<AbortController | null>(null);
-  const providers = useRef<Provider[]>([]);
+  const providers = useRef<LyricChoice[]>([]);
 
   const read = useCallback(
-    async (provider: Provider, signal: AbortSignal) => {
-      const result = await lyricsApi.read(
+    async (
+      choice: LyricChoice,
+      signal: AbortSignal,
+    ): Promise<SelectedLyricsOutcome["kind"] | "changed"> => {
+      const identity = choice.identity;
+      const result = await lyricsApi.readSelected(
         account,
         recording,
         {
-          observation_id: provider.observation_id,
-          installation_revision: provider.installation_revision,
+          selector: identity.selector,
+          installation_revision: identity.installation_revision,
         },
         signal,
       );
-      if (signal.aborted) return;
+      if (signal.aborted) return "cancelled";
+      if (
+        (result.status === "ready_v1" || result.status === "ready_v2") &&
+        !readMatchesIdentity(result, recording, identity)
+      ) {
+        setState({ status: "failed", providers: providers.current });
+        return "changed";
+      }
+      const outcome: SelectedLyricsOutcome = selectedLyricsOutcome(result);
+      if (outcome.kind === "unavailable" || outcome.kind === "cancelled") {
+        setState({
+          status: outcome.kind === "cancelled" ? "idle" : "failed",
+          providers: providers.current,
+        });
+        return outcome.kind;
+      }
       setState({
         status: "done",
         providers: providers.current,
-        provider,
-        lyrics:
-          result.status === "ready" ? (result.document.lyrics ?? null) : null,
-        unsupported: result.status !== "ready",
+        provider: choice,
+        lyrics: outcome.kind === "lyrics" ? outcome.view : null,
+        unsupported: outcome.kind === "unsupported",
       });
+      return outcome.kind;
     },
     [account, recording],
   );
 
   const start = useCallback(
-    async (observation?: string) => {
+    async (key?: string, force = false) => {
       controller.current?.abort();
       const own = new AbortController();
       controller.current = own;
+      let outcome = "ok";
       const timer = setTimeout(() => {
         if (controller.current !== own || own.signal.aborted) return;
         outcome = "deadline";
@@ -72,22 +115,70 @@ export function useNowPlayingLyrics(
       }, DEADLINE_MS);
       const started = performance.now();
       setState({ status: "loading", providers: providers.current });
-      let outcome = "ok";
       try {
-        if (observation === undefined) {
-          const listed = await lyricsApi.providers(
+        if (key === undefined) {
+          const listed = await lyricsApi.identities(
             account,
             recording,
             own.signal,
           );
           if (own.signal.aborted) return;
-          providers.current = listed.items;
-          if (listed.items.length === 0) {
-            const settings = await pluginsApi.settings(account, own.signal);
+          if (listed.recording_id !== recording) throw new Error("changed");
+          providers.current = identityChoices(
+            listed.items.filter((item) => item.selectable),
+          );
+          if (
+            providers.current.length === 0 &&
+            listed.items.length === 0 &&
+            automatic &&
+            (force || rememberedAutomatic(account, recording) === null)
+          ) {
+            const found = await lookupAutomatic(account, recording, own.signal);
             if (own.signal.aborted) return;
-            const connected = settings.installations.some((item) =>
-              item.manifest.capabilities.includes("lyrics"),
+            outcome = found?.kind ?? "changed";
+            if (!found || found.kind === "unavailable") {
+              setState({ status: "failed", providers: [] });
+              return;
+            }
+            if (found.kind === "cancelled") {
+              setState({ status: "idle", providers: [] });
+              return;
+            }
+            if (found.kind === "lyrics") {
+              setState({
+                status: "done",
+                providers: [],
+                provider: { key: "automatic", label: found.label },
+                lyrics: found.view,
+                unsupported: false,
+              });
+              return;
+            }
+            if (found.kind === "unsupported") {
+              setState({
+                status: "done",
+                providers: [],
+                provider: { key: "automatic", label: "" },
+                lyrics: null,
+                unsupported: true,
+              });
+              return;
+            }
+            setState({
+              status:
+                found.kind === "no_services" ? "no_provider" : "none_for_track",
+              providers: [],
+            });
+            return;
+          }
+          if (providers.current.length === 0) {
+            const services = await lyricsApi.services(
+              account,
+              recording,
+              own.signal,
             );
+            if (own.signal.aborted) return;
+            const connected = services.items.length > 0;
             outcome = connected ? "none_for_track" : "no_provider";
             setState({
               status: connected ? "none_for_track" : "no_provider",
@@ -97,10 +188,9 @@ export function useNowPlayingLyrics(
           }
         }
         const chosen =
-          providers.current.find(
-            (item) => item.observation_id === observation,
-          ) ?? providers.current[0];
-        await read(chosen, own.signal);
+          providers.current.find((item) => item.key === key) ??
+          providers.current[0];
+        outcome = await read(chosen, own.signal);
       } catch {
         if (outcome !== "deadline")
           outcome = own.signal.aborted ? "cancelled" : "failed";
@@ -114,7 +204,7 @@ export function useNowPlayingLyrics(
         });
       }
     },
-    [account, recording, read],
+    [account, recording, automatic, read],
   );
 
   useEffect(() => {
@@ -124,5 +214,22 @@ export function useNowPlayingLyrics(
     return () => controller.current?.abort();
   }, [start, automatic]);
 
-  return { state, choose: start, retry: () => void start() };
+  useEffect(() => {
+    if (!automatic) return;
+    const refresh = (id: string | null) => {
+      if (id === null || id === recording) void start(undefined, true);
+    };
+    const stopLyrics = onInvalidated("lyrics", refresh);
+    const stopPlugins = onInvalidated("plugins", () => void start());
+    return () => {
+      stopLyrics();
+      stopPlugins();
+    };
+  }, [start, recording, automatic]);
+
+  return {
+    state,
+    choose: (key: string) => start(key),
+    retry: () => void start(undefined, true),
+  };
 }

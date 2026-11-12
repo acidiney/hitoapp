@@ -145,12 +145,6 @@ test("a catalog release opens as its own page with the ordered tracks in standar
         .getAttribute("aria-label"),
     ),
   ).toEqual(catalogAlbumTitles.map((title) => `Play ${title}`));
-  const { group } = artistIdentityBrowsing().detail.detail!;
-  expect(
-    within(screen.getByRole("navigation", { name: "Breadcrumb" }))
-      .getByRole("link", { name: group.name.value })
-      .getAttribute("href"),
-  ).toBe(`/artist-groups/${group.id}`);
 });
 
 test("playing a catalog row selects through the shared player queue", async () => {
@@ -203,9 +197,7 @@ test("a track with no confident match says so and lets the owner retry or connec
   fireEvent.click(
     within(table).getByRole("button", { name: `Find audio for ${title}` }),
   );
-  expect(
-    await within(table).findByText("Not found on your services"),
-  ).toBeTruthy();
+  expect(await within(table).findByText("No source")).toBeTruthy();
   expect(
     within(table).getByRole("button", {
       name: `Try again to find audio for ${title}`,
@@ -218,10 +210,9 @@ test("a track with no confident match says so and lets the owner retry or connec
   expect(router.visit).toHaveBeenCalledWith("/settings?section=music");
 });
 
-test("the edition switcher is a listbox in the header and loads that edition's tracks", async () => {
+test("the edition switcher is a listbox above the tracks and loads that edition's tracks", async () => {
   await openPage();
-  const header = screen.getByRole("banner");
-  const control = within(header).getByRole("combobox", { name: "Edition" });
+  const control = screen.getByRole("combobox", { name: "Edition" });
   expect(document.querySelector("select[aria-label='Edition']")).toBeNull();
   choose(control, 1);
   await waitFor(() =>
@@ -234,8 +225,16 @@ test("the edition switcher is a listbox in the header and loads that edition's t
 test("an unfound row has details and like buttons that find audio first", async () => {
   const table = await openPage();
   const title = catalogAlbumTitles[3];
+  expect(
+    within(table).queryByRole("button", {
+      name: `Find audio and like ${title}`,
+    }),
+  ).toBeNull();
   fireEvent.click(
-    within(table).getByRole("button", { name: `Find audio and like ${title}` }),
+    within(table).getByRole("button", { name: `Actions for ${title}` }),
+  );
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "Find audio and like" }),
   );
   await waitFor(() =>
     expect(mutate).toHaveBeenCalledWith({

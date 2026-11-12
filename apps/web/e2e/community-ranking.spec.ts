@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { expect, test, type Request } from "@playwright/test";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
@@ -607,7 +608,7 @@ test("a separately saved community ranking preference changes ordinary browser P
         after.ino === originalMetadata.ino,
     ).toBe(true);
     phase = "logout";
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signOutFromShell(page);
     await expect(
       page.getByRole("button", { name: "Sign in", exact: true }),
     ).toBeVisible();

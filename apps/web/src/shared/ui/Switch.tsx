@@ -1,27 +1,33 @@
 import { useId } from "react";
 
 export default function Switch({
+  id,
   label,
   hint,
   checked,
   onChange,
   disabled = false,
 }: {
+  id?: string;
   label: string;
   hint?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
 }) {
-  const id = useId();
+  const key = useId();
   return (
-    <div className="switch-row">
+    <div
+      id={id && `setting-${id}`}
+      tabIndex={id ? -1 : undefined}
+      className="switch-row"
+    >
       <span className="switch-copy">
-        <span id={`${id}-label`} className="switch-label">
+        <span id={`${key}-label`} className="switch-label">
           {label}
         </span>
         {hint && (
-          <span id={`${id}-hint`} className="switch-hint">
+          <span id={`${key}-hint`} className="switch-hint">
             {hint}
           </span>
         )}
@@ -31,8 +37,8 @@ export default function Switch({
         role="switch"
         className="switch"
         aria-checked={checked}
-        aria-labelledby={`${id}-label`}
-        aria-describedby={hint ? `${id}-hint` : undefined}
+        aria-labelledby={`${key}-label`}
+        aria-describedby={hint ? `${key}-hint` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
       >

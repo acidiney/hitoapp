@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { expect, test } from "@playwright/test";
 import { createPlaylist } from "./fixtures/playlist-dialogs";
 import { enterAdmin } from "./fixtures/admin-session";
@@ -17,6 +18,10 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await enterAdmin(page);
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Music", exact: true })
     .click();
   for (const folder of ["Music", "Archive"]) {
     await page.getByRole("button", { name: "Add music folder" }).click();
@@ -49,7 +54,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   });
   await page
     .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Music & providers", exact: true })
+    .getByRole("link", { name: "Music", exact: true })
     .click();
   await expect(page).toHaveURL(/section=music$/);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -77,11 +82,10 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
-  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
-  await chooseOption(
-    page.getByRole("combobox", { name: "Sort by" }),
-    "Title A–Z",
-  );
+  await expect(
+    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
+  await chooseOption(page.getByRole("combobox", { name: "Sort" }), "Title");
   await expect(page).toHaveURL(/\/library\?sort=title$/);
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
@@ -137,7 +141,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   ).toBe(false);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openLibrarySection(page, "Artists");
-  await expect(page.locator(".artist-card")).toHaveCount(1);
+  await expect(
+    page.locator(".artist-card").filter({ hasText: "Hito test fixtures" }),
+  ).toHaveCount(1);
   await expect
     .poll(() =>
       page
@@ -146,13 +152,14 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     )
     .toBeGreaterThan(before);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
-  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
   await expect(page.getByText("Made by you")).toHaveCount(0);
-  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "List view", exact: true }).click();
-  await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
+  await expect(
+    page.locator(".track-table tbody tr").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
-  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await expect(
+    page.locator(".track-grid .track-card").filter({ hasText: "Fixture" }),
+  ).toHaveCount(2);
   await trackTitleLink(page.locator(".track-grid"), "Fixture 440 Hz").click();
   await page.getByRole("tab", { name: /^Metadata/ }).click();
   await expect(
@@ -405,7 +412,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     expanded.getByRole("heading", { name: "Fixture 440 Hz", exact: true }),
   ).toBeVisible();
-  await expect(expanded.locator(".np-next li")).toHaveCount(1);
+  await expect(expanded.locator(".np-next-row")).toHaveCount(1);
   await page.screenshot({
     path: "/workspace/test-results/now-playing-desktop.png",
   });
@@ -437,25 +444,38 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     "Audio is unavailable",
   );
   await page.unroute("**/api/v1/recordings/*/playback-sources");
-  await expanded.getByRole("link", { name: "See full queue" }).click();
-  await expect(page).toHaveURL(/\/queue$/);
+  await expanded.getByRole("link", { name: "Open queue" }).click();
+  await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
+    page.getByRole("heading", { name: "Queue", exact: true, level: 2 }),
   ).toBeVisible();
   await page.getByText(/^Played \(/).click();
-  await page.locator(".queue-track").first().click();
+  await page
+    .locator(".queue-track")
+    .filter({ hasText: "Fixture" })
+    .first()
+    .click();
   await expect(page.locator("footer.player").getByRole("status")).toHaveCount(
     0,
   );
   await page
-    .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
+    .getByRole("button", {
+      name: "Actions for Fixture 660 Hz: move up, move down, remove",
+    })
     .click();
+  await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
   await page
     .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
     .click();
-  await expect(
-    page.getByText("Choose a track to start listening"),
-  ).toBeVisible();
+  const idle = page.getByText("Choose a track to start listening");
+  if (!(await idle.isVisible())) {
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Clear queue" })
+      .click();
+  }
+  await expect(idle).toBeVisible();
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Library", exact: true })
@@ -490,7 +510,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     main.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
   ).toBeVisible();
   await addToPlaylistFromRow(
-    page.locator(".track-grid"),
+    page.locator(".track-table"),
     "Fixture 440 Hz",
     "Docker favorites",
   );
@@ -519,11 +539,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   const settingsNav = page.getByRole("navigation", {
     name: "Settings sections",
   });
-  const musicLink = settingsNav.getByRole("link", {
-    name: "Music & providers",
+  const profileLink = settingsNav.getByRole("link", {
+    name: "Profile",
     exact: true,
   });
-  await expect(musicLink).toHaveAttribute("aria-current", "page");
+  await expect(profileLink).toHaveAttribute("aria-current", "page");
   const privacyLink = settingsNav.getByRole("link", {
     name: "Privacy & lock",
     exact: true,
@@ -533,7 +553,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(privacyLink).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("region", { name: "Privacy & lock", exact: true }),
-  ).toContainText("Playback reporting");
+  ).toContainText("Report successful plays");
   await expect(
     page.getByRole("heading", { name: "Privacy & lock", level: 2 }),
   ).toBeFocused();
@@ -553,7 +573,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .click();
   await expect(
     page
-      .getByRole("region", { name: "Accounts and access" })
+      .getByRole("region", { name: "People" })
       .getByText("listener", { exact: true }),
   ).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -618,7 +638,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect
     .poll(() => delayedTab.locator("script[data-page=app]").textContent())
     .toContain("Docker favorites");
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutFromShell(page);
   await expect(
     page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();

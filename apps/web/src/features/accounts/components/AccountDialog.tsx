@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 
@@ -11,6 +11,7 @@ export default function AccountDialog({
   onCreate: (username: string, password: string) => Promise<string | null>;
   onClose: () => void;
 }) {
+  const id = useId();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,24 +24,22 @@ export default function AccountDialog({
   }
   return (
     <Dialog title="Create account" busy={pending} onClose={onClose}>
-      <p className="muted">
-        Accounts are created here by an administrator. There is no public
-        sign-up.
-      </p>
       <form className="dialog-form" onSubmit={submit}>
-        <label>
-          Username
+        <div className="dialog-field">
+          <label htmlFor={`${id}-username`}>Username</label>
           <input
+            id={`${id}-username`}
             autoComplete="off"
             value={username}
             maxLength={64}
             required
             onChange={(event) => setUsername(event.target.value)}
           />
-        </label>
-        <label>
-          Password
+        </div>
+        <div className="dialog-field">
+          <label htmlFor={`${id}-password`}>Password</label>
           <input
+            id={`${id}-password`}
             type="password"
             autoComplete="new-password"
             minLength={12}
@@ -48,7 +47,13 @@ export default function AccountDialog({
             required
             onChange={(event) => setPassword(event.target.value)}
           />
-        </label>
+          <small>
+            At least 12 characters. They can change it after signing in.
+          </small>
+        </div>
+        <p className="dialog-note">
+          New accounts are members. Give access to a library afterwards.
+        </p>
         {error && (
           <p className="form-error" role="alert">
             {error}
@@ -58,7 +63,11 @@ export default function AccountDialog({
           <Button disabled={pending} onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={pending}>
+          <Button
+            type="submit"
+            variant="action"
+            disabled={pending || username === "" || password.length < 12}
+          >
             Create account
           </Button>
         </div>

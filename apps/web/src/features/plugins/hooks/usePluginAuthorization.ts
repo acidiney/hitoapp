@@ -4,6 +4,7 @@ import { pluginsApi } from "../api/pluginsApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 const firstDelayMs = 1000;
@@ -74,6 +75,14 @@ export function usePluginAuthorization(
         update({ checkFailed: true });
       });
   }, [account, enabled, id, revision, reload, scope, update]);
+
+  useEffect(
+    () =>
+      onInvalidated("plugins", (changed) => {
+        if (changed === id || changed === null) setReload((value) => value + 1);
+      }),
+    [id],
+  );
 
   const attempt = state.phase.kind === "waiting" ? state.phase.attempt : null;
   useEffect(() => {

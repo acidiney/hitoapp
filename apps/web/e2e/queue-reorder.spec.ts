@@ -1,6 +1,25 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { Schema } from "../src/shared/schema";
+
+const ROW_PITCH = 60;
+
+async function dragGrip(page: Page, title: string, places: number) {
+  const grip = page.getByRole("button", {
+    name: new RegExp(`^Reorder ${title}: drag`),
+  });
+  const box = (await grip.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + (places * ROW_PITCH) / 2, { steps: 8 });
+  await page.mouse.move(x, y + places * ROW_PITCH, { steps: 8 });
+  await expect(page.locator("ol.queue-tracks > li[data-lifted]")).toHaveCount(
+    1,
+  );
+  await page.mouse.up();
+}
 
 test("play-all queues every library page, then a reorder changes the next transition without restarting audio", async ({
   page,
@@ -97,7 +116,7 @@ test("play-all queues every library page, then a reorder changes the next transi
     expect(new URLSearchParams(pageRequests[0]).get("offset")).toBe("3");
 
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
-    await expect(page).toHaveURL(/\/queue$/);
+    await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
     const now = page.getByRole("region", { name: "Now playing", exact: true });
     const rows = page.locator("ol.queue-tracks > li");
     const titles = () => rows.locator("strong").allTextContents();
@@ -116,16 +135,16 @@ test("play-all queues every library page, then a reorder changes the next transi
       source: element.src,
       time: element.currentTime,
     }));
-    const up = page.getByRole("button", {
-      name: "Move Order second fixture up",
-      exact: true,
+    const grip = page.getByRole("button", {
+      name: /^Reorder Order second fixture: drag, or press (Option|Alt) and Up or Down$/,
     });
-    await up.focus();
+    await grip.focus();
     for (let step = 0; step < 5; step++) {
-      await page.keyboard.press("Enter");
+      await page.keyboard.press("Alt+ArrowUp");
       await expect(rows.nth(4 - step).locator("strong")).toHaveText(
         "Order second fixture",
       );
+      await expect(grip).toBeFocused();
     }
     expect(await titles()).toEqual([
       "Order second fixture",
@@ -135,14 +154,40 @@ test("play-all queues every library page, then a reorder changes the next transi
       "Order catalog fixture 5",
       "Order owned fixture",
     ]);
-    await expect(
-      rows.nth(0).getByRole("button", { name: /^Move .* down$/ }),
-    ).toBeFocused();
 
-    await rows
-      .nth(5)
-      .getByRole("button", { name: "Drag Order owned fixture" })
-      .dragTo(rows.nth(1), { targetPosition: { x: 40, y: 4 } });
+    await dragGrip(page, "Order owned fixture", -4);
+    await expect
+      .poll(titles)
+      .toEqual([
+        "Order second fixture",
+        "Order owned fixture",
+        "Order catalog fixture 2",
+        "Order catalog fixture 3",
+        "Order catalog fixture 4",
+        "Order catalog fixture 5",
+      ]);
+
+    await dragGrip(page, "Order second fixture", 2);
+    await expect
+      .poll(titles)
+      .toEqual([
+        "Order owned fixture",
+        "Order catalog fixture 2",
+        "Order second fixture",
+        "Order catalog fixture 3",
+        "Order catalog fixture 4",
+        "Order catalog fixture 5",
+      ]);
+
+    const menu = (title: string) =>
+      page.getByRole("button", {
+        name: `Actions for ${title}: move up, move down, remove`,
+        exact: true,
+      });
+    await menu("Order second fixture").click();
+    await page.getByRole("menuitem", { name: "Move up", exact: true }).click();
+    await menu("Order second fixture").click();
+    await page.getByRole("menuitem", { name: "Move up", exact: true }).click();
     await expect
       .poll(titles)
       .toEqual([

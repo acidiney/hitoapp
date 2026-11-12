@@ -1,3 +1,4 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openPlaylistImport } from "./fixtures/playlist-dialogs";
 import type { Schema } from "../src/shared/schema";
@@ -276,6 +277,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
           youtube.manifest.capabilities.some((item) => item === capability),
         ),
     ).toBe(true);
+    await openAllManage(page);
     const connection = page
       .getByRole("listitem")
       .filter({
@@ -296,9 +298,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("radio", { name: "Import a copy", exact: true })
-      .check();
+    await form.getByRole("radio", { name: /^Copy/ }).check();
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

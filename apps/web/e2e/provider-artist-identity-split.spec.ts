@@ -206,9 +206,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
         exact: true,
       }),
     ).toBeVisible();
-    await expect(
-      page.getByText("No corrections are shared with every account."),
-    ).toBeVisible();
+    await expect(page.getByText("None yet.")).toBeVisible();
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
   } finally {

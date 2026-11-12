@@ -57,3 +57,16 @@ export function inferPlaylistService(
     return { provider: providers[0], recognised: false, ambiguous: false };
   return { provider: null, recognised: false, ambiguous: providers.length > 1 };
 }
+
+export function looksLikePlaylistLink(reference: string): boolean {
+  const text = reference.trim();
+  if (/\s/.test(text) || text.length < 8) return false;
+  return (
+    serviceKeyword(text) !== null && /playlist|[?&]list=|^spotify:/i.test(text)
+  );
+}
+
+export function playlistLinkService(reference: string): string {
+  const keyword = serviceKeyword(reference);
+  return keyword ? `${keyword.charAt(0).toUpperCase()}${keyword.slice(1)}` : "";
+}

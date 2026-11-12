@@ -40,6 +40,7 @@ pub enum Status {
 pub struct Snapshot {
     pub status: Status,
     pub playing: bool,
+    pub buffer_ready: bool,
     pub ended: bool,
     pub position: Duration,
     pub speed: u16,
@@ -52,6 +53,7 @@ impl Snapshot {
         Self {
             status: Status::Opening,
             playing: false,
+            buffer_ready: false,
             ended: false,
             position: Duration::ZERO,
             speed: 1000,
@@ -64,6 +66,7 @@ impl Snapshot {
         Self {
             status: Status::Ready,
             playing: audio.playing,
+            buffer_ready: audio.buffer_ready,
             ended: audio.ended,
             position: audio.position,
             speed: (audio.speed * 1000.).round() as u16,

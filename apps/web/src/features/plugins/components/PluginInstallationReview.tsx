@@ -1,40 +1,45 @@
 import type { Schema } from "../../../shared/schema";
 import Button from "../../../shared/ui/Button";
 
+import { declaredCapabilities } from "../model/capabilityRows";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 export default function PluginInstallationReview({
   manifest,
   pending,
+  error,
   onAccept,
   onBack,
 }: {
   manifest: Schema<"PluginInstallationPreview">["manifest"];
   pending: boolean;
+  error: string;
   onAccept: () => void;
   onBack: () => void;
 }) {
   return (
     <div className="plugin-review">
-      <h4>Review connection</h4>
-      <p>Review this service's declaration before connecting your account.</p>
-      <dl>
-        <dt>Name</dt>
-        <dd>{manifest.name}</dd>
-        <dt>Declared capabilities</dt>
-        <dd>
-          {manifest.capabilities
-            .map((value) => value.replaceAll("_", " "))
-            .join(", ")}
-        </dd>
-        <dt>Source persistence</dt>
-        <dd>
-          <PluginPersistencePolicy policy={manifest.content_policy} />
-        </dd>
-      </dl>
+      <p className="plugin-review-intro">{manifest.name} will be able to:</p>
+      <ul className="plugin-review-list" aria-label="What it will do">
+        {declaredCapabilities(manifest.capabilities).map((row) => (
+          <li key={row.key}>
+            <span className="plugin-power-dot" data-on="true" aria-hidden />
+            <strong>{row.name}</strong>
+            <span>{row.what}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="plugin-review-policy-line">
+        <PluginPersistencePolicy policy={manifest.content_policy} />
+      </p>
+      {error && (
+        <p role="alert" className="form-error plugin-dialog-error">
+          {error}
+        </p>
+      )}
       <div className="plugin-actions">
         <Button
-          variant="primary"
+          variant="action"
           type="button"
           disabled={pending}
           onClick={onAccept}

@@ -2,8 +2,12 @@
 mod featured;
 #[path = "support/fixture.rs"]
 mod fixture;
+#[path = "host_integration.rs"]
+mod host_integration;
 #[path = "support/logging.rs"]
 mod logging;
+#[path = "support/server.rs"]
+mod server;
 
 use crate::{Config, router};
 use fixture::{CLIENT_ID, Provider, Server};

@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
 
-import PageHeading from "../../../shared/ui/PageHeading";
+import PluginSettings from "../../plugins/components/PluginSettings";
+import { accountName } from "../../../shared/accountName";
+import Avatar from "../../../shared/ui/Avatar";
 import {
   UnsavedContext,
   createUnsavedRegistry,
@@ -12,14 +14,20 @@ import {
   useRevealSetting,
   type RevealRequest,
 } from "../hooks/useRevealSetting";
+import { useSettingsSearch } from "../hooks/useSettingsSearch";
 import type { SearchHit } from "../model/settingsSearch";
 import SettingsNav from "../components/SettingsNav";
+import {
+  SettingsSearchField,
+  SettingsSearchResults,
+  useSearchListId,
+} from "../components/SettingsSearch";
 import SettingsSectionBody from "../components/SettingsSectionBody";
 import {
   readLocation,
   sectionHref,
   sectionMeta,
-  visibleGroups,
+  tabSections,
 } from "../model/sections";
 
 export default function SettingsPage(props: Schema<"SettingsPageProps">) {
@@ -33,6 +41,7 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const previous = useRef({ section, chosen });
   const unsaved = useMemo(createUnsavedRegistry, []);
+  const listId = useSearchListId();
   useEffect(() => {
     const before = previous.current;
     previous.current = { section, chosen };
@@ -82,38 +91,79 @@ export default function SettingsPage(props: Schema<"SettingsPageProps">) {
       }));
     router.visit(hit.href, { preserveState: true, preserveScroll: true });
   }
+  const search = useSettingsSearch(props.user.admin, choose);
+  if (section === "plugins")
+    return (
+      <UnsavedContext.Provider value={unsaved}>
+        <PluginSettings
+          account={props.user.id}
+          admin={props.user.admin}
+          desktop={props.native_playback}
+        />
+      </UnsavedContext.Provider>
+    );
   return (
     <UnsavedContext.Provider value={unsaved}>
-      <PageHeading title="Settings" headingRef={pageHeading} />
       <div
-        className="settings"
+        className="settings settings-page"
         data-view={chosen ? "section" : "list"}
+        data-searching={search.searching || undefined}
         onClickCapture={guard}
       >
-        <SettingsNav
-          groups={visibleGroups(props.user.admin)}
-          current={section}
-          admin={props.user.admin}
-          onChoose={choose}
-        />
-        <div className="settings-content">
-          <Link className="settings-back" href="/settings">
-            <ChevronLeft size={18} aria-hidden="true" />
-            All settings
-          </Link>
-          <section
-            aria-labelledby="settings-title"
-            className="settings-section"
-          >
-            <div className="settings-section-heading">
-              <h2 id="settings-title" ref={sectionHeading} tabIndex={-1}>
-                {meta.label}
-              </h2>
-              <p className="muted">{meta.description}</p>
-            </div>
-            <SettingsSectionBody section={section} {...props} />
-          </section>
+        <div className="settings-head">
+          <h1 ref={pageHeading} tabIndex={-1}>
+            Settings
+          </h1>
+          <SettingsSearchField search={search} listId={listId} />
         </div>
+        {search.searching ? (
+          <SettingsSearchResults search={search} listId={listId} />
+        ) : (
+          <>
+            {!chosen && (
+              <Link className="settings-account" href={sectionHref("profile")}>
+                <Avatar
+                  id={props.user.id}
+                  name={accountName(props.user)}
+                  version={props.user.avatar_version}
+                />
+                <span>
+                  <span className="settings-account-name">
+                    {accountName(props.user)}
+                  </span>
+                  <span className="settings-account-role">
+                    {props.user.display_name && `${props.user.username} · `}
+                    {props.user.admin ? "Administrator" : "Member"}
+                  </span>
+                </span>
+              </Link>
+            )}
+            <SettingsNav
+              sections={tabSections(props.user.admin)}
+              current={section}
+            />
+            <div className="settings-content">
+              <div className="settings-section-heading">
+                <Link
+                  className="settings-back"
+                  href="/settings"
+                  aria-label="All settings"
+                >
+                  <ChevronLeft size={20} aria-hidden="true" />
+                </Link>
+                <h2 id="settings-title" ref={sectionHeading} tabIndex={-1}>
+                  {meta.label}
+                </h2>
+              </div>
+              <section
+                aria-labelledby="settings-title"
+                className="settings-section"
+              >
+                <SettingsSectionBody section={section} {...props} />
+              </section>
+            </div>
+          </>
+        )}
       </div>
     </UnsavedContext.Provider>
   );

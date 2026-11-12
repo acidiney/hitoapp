@@ -25,4 +25,8 @@ zeroize.workspace = true
 libc = "0.2"
 
 [dev-dependencies]
+hyper.workspace = true
+hyper-util.workspace = true
+hito-core = { path = "../../crates/core", features = ["test-support"] }
+hito-server = { path = "../../apps/server" }
 tempfile.workspace = true

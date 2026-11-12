@@ -110,14 +110,8 @@ test("an album track without a catalog identity finds approved audio, rejects un
     await page
       .getByRole("button", { name: "Show complete track list" })
       .click();
-    const groups = page.getByRole("list", { name: "Discography releases" });
-    await groups.getByRole("button", { name: "Browse editions" }).click();
-    const editions = page.getByRole("list", { name: "Available editions" });
-    await editions
-      .getByRole("listitem")
-      .filter({ hasText: "Deluxe" })
-      .getByRole("button", { name: "Choose edition" })
-      .click();
+    await page.getByRole("radio", { name: /Deluxe/ }).check();
+    await page.getByRole("button", { name: "Use this" }).click();
     const region = page.getByRole("region", {
       name: "Album edition track list",
     });

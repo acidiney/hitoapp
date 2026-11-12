@@ -1,0 +1,310 @@
+@media (max-width: 767px) {
+  .now-playing-dialog {
+    padding: 0 24px calc(28px + env(safe-area-inset-bottom));
+    gap: 0;
+  }
+  .now-playing-dialog[open] {
+    gap: 0;
+  }
+  .now-playing-dialog > header {
+    margin: 0 -10px;
+    padding-top: var(--phone-top);
+  }
+  .now-playing-dialog > header > span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .np-body {
+    flex: 1;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 14px;
+    min-height: 0;
+    margin: 0;
+  }
+  .np-body[data-panel="player"] {
+    gap: 0;
+  }
+  .np-body:not([data-panel="player"]) {
+    width: calc(100% + 16px);
+    margin: 0 -8px;
+  }
+  .np-body[data-panel="player"] .np-track {
+    flex: 1;
+    margin-top: 20px;
+    gap: 20px;
+  }
+  .np-cover {
+    align-self: center;
+    width: min(100%, max(120px, calc(100dvh - 502px)));
+    border-radius: var(--radius-panel);
+    box-shadow: none;
+  }
+  .np-seek .seek,
+  .np-transport .transport-buttons {
+    width: 100%;
+    max-width: none;
+  }
+  .np-title {
+    gap: 12px;
+  }
+  .np-title-copy {
+    gap: 2px;
+  }
+  .np-title h1 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0;
+  }
+  .np-artist {
+    font-size: 16px;
+  }
+  .np-source-line {
+    margin-top: 4px;
+  }
+  .np-panels {
+    display: flex;
+    flex: none;
+    gap: 4px;
+    margin-top: auto;
+    padding: 4px;
+    border-radius: var(--radius-pill);
+    background: rgba(242, 241, 237, 0.1);
+  }
+  .np-body[data-panel="player"] .np-panels {
+    margin-top: 24px;
+  }
+  .np-body:not([data-panel="player"]) .np-panels {
+    margin-top: 0;
+  }
+  .np-panels :is(button, a) {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .np-panels button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--dock);
+  }
+  .np-compact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: var(--phone-top);
+  }
+  .np-compact .icon-button {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+  }
+  .np-compact-cover {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    border-radius: var(--radius-cover);
+  }
+  .np-compact-cover .artwork {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+  .np-compact-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .np-compact-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .np-compact-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .np-compact-play {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--dock);
+  }
+  .np-compact-seek .seek {
+    gap: 10px;
+    max-width: none;
+  }
+  .np-compact-seek .seek {
+    align-items: center;
+    height: 24px;
+  }
+  .np-compact-seek .seek input {
+    --range-fill: var(--ink);
+    margin: -10px 0;
+  }
+  .np-compact-seek .seek span {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .np-body:not([data-panel="player"]) {
+    overflow: hidden;
+  }
+  .np-body:not([data-panel="player"]) .np-lyrics {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+  .np-lyrics .np-lines[data-synced] {
+    --np-follow: 0.2;
+  }
+  .np-lyrics {
+    --np-past: #a08f84;
+    --np-next: #c9bbb1;
+  }
+  .np-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+  }
+  .np-panel .np-card {
+    gap: 8px;
+    padding: 12px 14px;
+    background: rgba(242, 241, 237, 0.1);
+  }
+  .np-panel .np-card h2 {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+}
+@media (max-width: 767px) {
+  dialog.queue-sheet {
+    position: fixed;
+    inset: 84px 0 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: calc(100dvh - 84px);
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 24px 24px 0 0;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  dialog.queue-sheet[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  dialog.queue-sheet:focus {
+    outline: none;
+  }
+  dialog.queue-sheet::backdrop {
+    background: rgba(0, 0, 0, 0.72);
+  }
+  dialog.queue-sheet::before {
+    content: "";
+    flex: none;
+    align-self: center;
+    width: 40px;
+    height: 4px;
+    margin: 10px 0 14px;
+    border-radius: var(--radius-pill);
+    background: var(--line-strong);
+  }
+  dialog.queue-sheet .queue-screen {
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    gap: 10px;
+    padding: 0 8px calc(24px + env(safe-area-inset-bottom)) 16px;
+    overflow-y: auto;
+  }
+  dialog.queue-sheet .page-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    background: var(--surface);
+  }
+  dialog.queue-sheet .page-heading > div:first-child {
+    flex: 1;
+  }
+  dialog.queue-sheet .page-heading h1 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+  dialog.queue-sheet .page-heading .muted,
+  dialog.queue-sheet .queue-hint kbd,
+  dialog.queue-sheet .queue-now-row > .mono,
+  dialog.queue-sheet .queue-now-row .track-actions,
+  dialog.queue-sheet .queue-now-row > .icon-button {
+    display: none;
+  }
+  dialog.queue-sheet .queue-actions {
+    flex: none;
+    align-items: center;
+    gap: 0;
+  }
+  dialog.queue-sheet .queue-clear {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--link);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  dialog.queue-sheet .queue-close {
+    color: var(--ink);
+  }
+  dialog.queue-sheet .queue-now h2,
+  dialog.queue-sheet .queue-first h2,
+  dialog.queue-sheet .queue-next h2 {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  dialog.queue-sheet .queue-hint {
+    margin: 8px 0 0;
+  }
+}

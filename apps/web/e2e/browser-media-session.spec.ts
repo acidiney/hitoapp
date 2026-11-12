@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
@@ -344,9 +345,7 @@ test("real browser media session follows owned playback, verified artwork, syste
         heldRoute = undefined;
       },
     );
-    const signingOut = page
-      .getByRole("button", { name: "Sign out", exact: true })
-      .click({ noWaitAfter: true });
+    const signingOut = signOutFromShell(page, { noWaitAfter: true });
     void signingOut.catch(() => {});
     await navigating;
     const logoutEvidence = await logoutObservation.result;

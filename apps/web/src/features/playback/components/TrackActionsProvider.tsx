@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { useMutation, type Mutate } from "../../../shared/hooks/useMutation";
 
 type TrackActions = {
+  account: string;
   mutate: Mutate;
   playlists: Schema<"Playlist">[];
 };
@@ -19,7 +20,10 @@ export function TrackActionsProvider({
   children: ReactNode;
 }) {
   const { mutate } = useMutation(account);
-  const value = useMemo(() => ({ mutate, playlists }), [mutate, playlists]);
+  const value = useMemo(
+    () => ({ account, mutate, playlists }),
+    [account, mutate, playlists],
+  );
   return (
     <TrackActionsContext.Provider value={value}>
       {children}

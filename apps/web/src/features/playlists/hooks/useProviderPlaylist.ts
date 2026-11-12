@@ -37,6 +37,7 @@ export function useProviderPlaylist(
     scope: typeof scope;
     pending: boolean;
     error: string;
+    status?: number;
   } | null>(null);
   const current =
     state?.owner === owner && state.scope === scope ? state : null;
@@ -99,7 +100,13 @@ export function useProviderPlaylist(
       return true;
     } catch (error) {
       if (run.active()) {
-        setState({ owner, scope, pending: false, error: errorMessage(error) });
+        setState({
+          owner,
+          scope,
+          pending: false,
+          error: errorMessage(error),
+          status: error instanceof HttpError ? error.status : undefined,
+        });
         log.warn(`${workflow}.failed`, {
           ...fields,
           reason: error instanceof HttpError ? "http" : "request",
@@ -144,6 +151,7 @@ export function useProviderPlaylist(
         pending: false,
         error:
           "Use a playlist link or identifier of up to 2,048 bytes without control characters.",
+        status: 400,
       });
       log.warn(
         `${kind === "copy" ? "playlist_import" : "playlist_follow"}.rejected`,
@@ -171,5 +179,6 @@ export function useProviderPlaylist(
     pendingKind: current?.pending ? (owner.attempt?.kind ?? null) : null,
     pending: current?.pending ?? false,
     error: current?.error ?? "",
+    errorStatus: current?.status,
   };
 }

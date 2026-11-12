@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Track } from "../model";
+import StatusDot from "../../../shared/ui/StatusDot";
 import { usePlayer } from "./PlaybackProvider";
 
 export default function TrackAvailabilityNote({
@@ -15,18 +16,7 @@ export default function TrackAvailabilityNote({
     () => player.snapshot().current?.id,
   );
   if (track.available || track.plays_from_services === undefined) return null;
-  if (!track.plays_from_services)
-    return (
-      <Tag className="availability" data-state="catalog">
-        <span className="ring" data-ring="catalog" aria-hidden="true" />
-        Not playable yet
-      </Tag>
-    );
+  if (!track.plays_from_services) return <StatusDot status="none" as={Tag} />;
   if (current === track.id) return null;
-  return (
-    <Tag className="availability" data-state="available">
-      <span className="ring" data-ring="available" aria-hidden="true" />
-      Plays from your services
-    </Tag>
-  );
+  return <StatusDot status="ready" detail="from your services" as={Tag} />;
 }

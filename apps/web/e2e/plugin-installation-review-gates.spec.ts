@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
+import { declaredCapabilities } from "../src/features/plugins/model/capabilityRows";
 import {
   observePluginInstallations,
   reviewPluginInstallation,
@@ -37,6 +38,7 @@ async function browserControls() {
     capabilities: ["search", "sources"],
     content_policy: { source_persistence: "playback_only" },
   } satisfies Schema<"Manifest">;
+  const rows = declaredCapabilities(manifest.capabilities);
   const preview = {
     manifest,
     digest: "private-owned-review-gate-digest",
@@ -52,7 +54,7 @@ async function browserControls() {
       response.writeHead(200, { "content-type": "text/html" })
         .end(`<!doctype html>
 <label>Bearer token (optional)<input type="password" value="${token}"></label>
-<button id="review">Review connection</button>
+<button id="review">Continue</button>
 <button id="release">Release declaration body</button>
 <button id="burst">Send installation burst</button>
 <p role="status" id="status">Ready</p><div id="declaration"></div>
@@ -62,17 +64,25 @@ document.querySelector("#review").onclick = async () => {
   const response = await fetch("/api/v1/plugins/preview", { method: "POST", body: JSON.stringify(draft) });
   const preview = await response.json();
   const review = document.querySelector("#declaration");
-  const heading = document.createElement("h3");
-  heading.textContent = "Review connection";
-  review.append(heading);
-  const values = document.createElement("dl");
-  for (const [term, value] of [["Name", preview.manifest.name], ["Declared capabilities", preview.manifest.capabilities.join(", ")], ["Source persistence", "Playback only. No new offline downloads. Completed copies are retained."]]) {
-    const title = document.createElement("dt"); title.textContent = term;
-    const detail = document.createElement("dd"); detail.textContent = value;
-    values.append(title, detail);
+  const dialog = document.createElement("dialog");
+  dialog.open = true;
+  dialog.setAttribute("aria-labelledby", "review-title");
+  dialog.innerHTML = "<h2 id='review-title'>Before you connect</h2>";
+  const list = document.createElement("ul");
+  list.setAttribute("aria-label", "What it will do");
+  for (const row of ${JSON.stringify(rows)}) {
+    const item = document.createElement("li");
+    const name = document.createElement("strong"); name.textContent = row.name;
+    const what = document.createElement("span"); what.textContent = row.what;
+    item.append(name, what);
+    list.append(item);
   }
-  review.append(values);
-  const accept = document.createElement("button"); accept.textContent = "Accept and connect"; review.append(accept);
+  const policy = document.createElement("p");
+  policy.textContent = "It only plays audio. Hito won't save new copies, and copies you already have stay.";
+  const accept = document.createElement("button"); accept.textContent = "Accept and connect";
+  const back = document.createElement("button"); back.textContent = "Back";
+  dialog.append(list, policy, accept, back);
+  review.append(dialog);
 };
 document.querySelector("#release").onclick = async () => {
   await fetch("/release-preview", { method: "POST" });

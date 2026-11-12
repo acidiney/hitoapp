@@ -17,7 +17,7 @@ export function useProviderSearch(
   connections: Schema<"PluginInstallation">[],
   query: string,
   enabled: boolean,
-  player: Pick<Player, "prepareSelection">,
+  player: Pick<Player, "prepareSelection" | "addToQueue" | "playNext">,
 ) {
   const providers = searchableConnections(connections);
   const [choice, setChoice] = useState<{ account: string; id: string } | null>(

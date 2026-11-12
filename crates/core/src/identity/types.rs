@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow, ToSchema)]
 pub struct User {
     pub id: String,
     pub username: String,
@@ -71,6 +71,14 @@ impl Actor {
         &self.session_hash
     }
 
+    pub(crate) fn require_foreground_session(&self) -> Result<()> {
+        if self.background || self.unattended {
+            Err(Error::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn require_session(&self) -> Result<()> {
         if self.unattended {
             Err(Error::Forbidden)
@@ -88,14 +96,14 @@ impl Actor {
     }
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct AuthSession {
     pub token: String,
     pub user: User,
@@ -177,3 +185,7 @@ pub struct SessionInfo {
 pub struct SessionsRevoked {
     pub revoked: u64,
 }
+
+#[cfg(test)]
+#[path = "../../tests/playback_leases/foreground.rs"]
+mod lease_foreground_tests;

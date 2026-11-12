@@ -32,7 +32,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
       .getByRole("link", { name: "Connect a music service", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Your plugins", exact: true }),
+      page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeVisible();
     const offered = await page.request.post("/api/v1/plugins/services", {
       headers,
@@ -54,11 +54,12 @@ test("provider discovery saves, pages and plays privately with stale selection p
     expect(installed.status()).toBe(201);
     connection = await installed.json();
     await page.goto("/discover");
-    const services = page.getByRole("group", { name: "Music service" });
     await expect(
-      services.getByRole("button", { name: /Discovery collection/ }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(services.getByRole("button")).toHaveCount(1);
+      page.getByRole("group", { name: "Music service" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByPlaceholder("Search Discovery collection"),
+    ).toBeVisible();
     const search = page.getByRole("searchbox", { name: "Search music" });
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await search.fill("Discovery");
@@ -71,6 +72,19 @@ test("provider discovery saves, pages and plays privately with stale selection p
         exact: true,
       }),
     ).toBeEnabled();
+    const columns = await page.locator(".provider-result").evaluateAll((rows) =>
+      rows.map((row) => {
+        const x = (selector: string) =>
+          Math.round(row.querySelector(selector)!.getBoundingClientRect().x);
+        return [
+          x(".provider-duration"),
+          x(".provider-play"),
+          x(".provider-result-action"),
+        ];
+      }),
+    );
+    expect(columns.length).toBeGreaterThan(1);
+    for (const row of columns) expect(row).toEqual(columns[0]);
     const listed = await page.request.get("/api/v1/recordings?q=Discovery");
     expect((await listed.json()).total).toBe(0);
     await page.screenshot({
@@ -97,7 +111,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
     const last = page
       .locator(".provider-result")
       .last()
-      .getByRole("button", { name: /Add .* to library/ });
+      .getByRole("button", { name: /^Actions for / });
     await last.evaluate((element) =>
       element.scrollIntoView({ block: "center" }),
     );
@@ -439,9 +453,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
       const row = page.getByRole("row").filter({
         has: page.getByRole("button", { name: `Play ${title}`, exact: true }),
       });
-      await expect(
-        row.getByText("Not playable yet", { exact: true }),
-      ).toBeVisible();
+      await expect(row.getByText("No source", { exact: true })).toBeVisible();
     }
     expect(errors).toEqual([]);
   } finally {

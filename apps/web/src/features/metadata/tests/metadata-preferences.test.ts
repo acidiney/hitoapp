@@ -98,12 +98,8 @@ test("the built-in metadata default can be disabled without connecting or queryi
   await screen.findByText("Metadata preferences saved.", { exact: true });
   expect(isOn(enabled)).toBe(accepted.enabled);
   expect(
-    (
-      screen.getByRole("button", {
-        name: "Save metadata preferences",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+    screen.queryByRole("button", { name: "Save metadata preferences" }),
+  ).toBeNull();
   expect(
     within(selected).getByText("MusicBrainz", { exact: true }),
   ).toBeTruthy();

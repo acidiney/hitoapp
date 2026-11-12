@@ -90,17 +90,17 @@ test("entries are read-only until Edit is pressed", () => {
   ).toBeNull();
   expect(screen.queryByRole("button", { name: /^Move .* down$/ })).toBeNull();
   expect(screen.queryByLabelText("Name")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Done editing" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Done editing" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Save name" })).toBeNull();
-  expect(screen.getByLabelText("Name")).toBeTruthy();
+  expect(screen.getByLabelText("Playlist name")).toBeTruthy();
   expect(
     screen.getAllByRole("button", { name: "Remove Fixture A from playlist" }),
   ).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   expect(screen.queryByLabelText("Name")).toBeNull();
   expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy();
 });
@@ -118,7 +118,7 @@ test("rows in edit mode keep only the order and removal controls", () => {
 test("Done without changes closes editing and sends nothing", () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   expect(sent).toHaveLength(0);
   expect(router.reload).not.toHaveBeenCalled();
 });
@@ -126,11 +126,11 @@ test("Done without changes closes editing and sends nothing", () => {
 test("renaming is saved by Done as one rename and one reload", async () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.change(screen.getByLabelText("Name"), {
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
     target: { value: "  Evening  " },
   });
   expect(sent).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   expect(actions(sent)).toEqual([
     { kind: "playlist_rename", playlist_id: playlist, name: "Evening" },
@@ -140,9 +140,11 @@ test("renaming is saved by Done as one rename and one reload", async () => {
 test("the name cannot be saved empty", () => {
   open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.change(screen.getByLabelText("Name"), { target: { value: " " } });
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
+    target: { value: " " },
+  });
   expect(
-    (screen.getByRole("button", { name: "Done" }) as HTMLButtonElement)
+    (screen.getByRole("button", { name: "Done editing" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
 });
@@ -157,13 +159,13 @@ test("a name another playlist already uses gets a gentle warning and can still b
   });
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   expect(document.querySelector(".name-warning")).toBeNull();
-  fireEvent.change(screen.getByLabelText("Name"), {
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
     target: { value: "evening" },
   });
   expect(document.querySelector(".name-warning")?.textContent).toBe(
     "You already have a playlist called “evening”. You can still use this name.",
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   expect(actions(sent)).toHaveLength(1);
 });
@@ -192,7 +194,7 @@ test("moving an entry changes the shown order but saves nothing until Done", asy
   ]);
   expect(sent).toHaveLength(0);
   expect(router.reload).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   expect(sent).toHaveLength(1);
   expect(actions(sent)).toEqual([
@@ -223,7 +225,7 @@ test("Cancel without changes closes editing at once", () => {
 test("Cancel with changes asks first, then reverts the name, order and removals without saving", () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.change(screen.getByLabelText("Name"), {
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
     target: { value: "Other" },
   });
   fireEvent.click(
@@ -238,9 +240,9 @@ test("Cancel with changes asks first, then reverts the name, order and removals 
   );
   fireEvent.click(dialog.getByRole("button", { name: "Keep editing" }));
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
-    "Other",
-  );
+  expect(
+    (screen.getByLabelText("Playlist name") as HTMLInputElement).value,
+  ).toBe("Other");
   expect(rowTitles()[0]).toBe("Unknown provider item");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(
@@ -256,9 +258,9 @@ test("Cancel with changes asks first, then reverts the name, order and removals 
     "Fixture A",
   ]);
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
-    props.detail.playlist.name,
-  );
+  expect(
+    (screen.getByLabelText("Playlist name") as HTMLInputElement).value,
+  ).toBe(props.detail.playlist.name);
   expect(
     screen.getByRole("button", { name: "Remove Fixture B from playlist" }),
   ).toBeTruthy();
@@ -277,13 +279,13 @@ test("removing an entry marks it until Done and can be undone", async () => {
   fireEvent.click(
     screen.getByRole("button", { name: "Keep Fixture B in playlist" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   expect(sent).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   fireEvent.click(
     screen.getByRole("button", { name: "Remove Fixture B from playlist" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   expect(actions(sent)).toEqual([
     { kind: "entry_remove", playlist_id: playlist, entry_id: second.entry_id },
@@ -293,7 +295,7 @@ test("removing an entry marks it until Done and can be undone", async () => {
 test("one Done saves the rename, removals and order together in one request", async () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.change(screen.getByLabelText("Name"), {
+  fireEvent.change(screen.getByLabelText("Playlist name"), {
     target: { value: "Mixed" },
   });
   fireEvent.click(
@@ -302,7 +304,7 @@ test("one Done saves the rename, removals and order together in one request", as
   fireEvent.click(
     screen.getByRole("button", { name: "Remove Fixture B from playlist" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   expect(sent).toHaveLength(1);
   expect(actions(sent).map((action) => action.kind)).toEqual([
@@ -332,11 +334,14 @@ test("a failed save keeps the editing state and the draft", async () => {
   fireEvent.click(
     screen.getAllByRole("button", { name: "Move Fixture A down" })[0],
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() =>
     expect(
-      (screen.getByRole("button", { name: "Done" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Done editing",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(false),
   );
   expect(router.reload).not.toHaveBeenCalled();
@@ -350,13 +355,13 @@ test("edit controls stay busy until the reload finishes", async () => {
   fireEvent.click(
     screen.getAllByRole("button", { name: "Move Fixture A down" })[0],
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   const options = vi.mocked(router.reload).mock.calls[0][0] as {
     onFinish: () => void;
   };
   expect(
-    (screen.getByRole("button", { name: "Done" }) as HTMLButtonElement)
+    (screen.getByRole("button", { name: "Done editing" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
   expect(

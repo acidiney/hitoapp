@@ -1,6 +1,6 @@
 # Plugin connections
 
-The SDK defines [timed-lyrics and backing-track contracts](plugin-timed-content.md), with independent version negotiation, exact provider references, bounded structured responses and separate backing-recording identities. Host lookup, verified audio alignment and shared rendering remain unfinished.
+The SDK defines [timed-lyrics and backing-track contracts](plugin-timed-content.md), with independent version negotiation, exact provider references and bounded structured responses. Retained-provider lookup and static reading have qualified checkpoints. The [LRCLIB reference service](plugin-lrclib.md) supplies plain lyrics and start anchors through the additive v2 contract. Independent lyric-identity integration, verified audio alignment and backing-track playback remain unfinished.
 
 Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Discover supports private music search, durable adoption, and playback through authorized audio relay. These workflows and the source-refresh behavior below are implemented in the development build. Catalog browsing capabilities, enrichment, official playlist-provider adapters, dashboard content, lyrics, and backing tracks remain release work.
 

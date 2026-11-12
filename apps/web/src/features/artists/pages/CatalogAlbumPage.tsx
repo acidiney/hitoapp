@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { usePage } from "@inertiajs/react";
 import type { Schema } from "../../../shared/schema";
-import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
-import Button from "../../../shared/ui/Button";
 import { rememberedReleaseGroup } from "../api/catalogCache";
 import CatalogAlbum from "../components/CatalogAlbum";
 import { useArtistGroupDiscography } from "../hooks/useArtistGroupDiscography";
@@ -49,37 +47,39 @@ export default function CatalogAlbumPage({
           }}
           heading="h1"
           withLibrary
+          artistHref={artistHref}
           playOnReady={autoplay}
           playlists={playlists}
-          crumbs={
-            <Breadcrumbs
-              crumbs={[
-                { label: "Library", href: "/library" },
-                { label: "Artists", href: "/artists" },
-                { label: group.name.value, href: artistHref },
-                { label: release.title || "Release" },
-              ]}
-            />
-          }
         />
       ) : (
-        <section aria-label="Album" aria-busy={workflow.pending}>
-          <Breadcrumbs
-            crumbs={[
-              { label: "Library", href: "/library" },
-              { label: "Artists", href: "/artists" },
-              { label: group.name.value, href: artistHref },
-            ]}
-          />
-          {workflow.pending && <p role="status">Loading album…</p>}
-          {workflow.error && !workflow.pending && (
-            <p role="alert">
-              {workflow.error}{" "}
-              <Button type="button" onClick={() => void workflow.browse()}>
-                Try again
-              </Button>
-            </p>
-          )}
+        <section
+          className="detail-page"
+          aria-label="Album"
+          aria-busy={workflow.pending}
+        >
+          <div className="detail-body">
+            {workflow.pending && (
+              <div className="state-card">
+                <span className="state-card-title" role="status">
+                  Loading album…
+                </span>
+              </div>
+            )}
+            {workflow.error && !workflow.pending && (
+              <div className="state-card">
+                <span className="state-card-title" role="alert">
+                  {workflow.error}
+                </span>
+                <button
+                  type="button"
+                  className="text-action"
+                  onClick={() => void workflow.browse()}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+          </div>
         </section>
       )}
     </>

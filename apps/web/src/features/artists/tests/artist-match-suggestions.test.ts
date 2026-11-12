@@ -7,7 +7,7 @@ import type { Schema } from "../../../shared/schema";
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
-  router: { reload: vi.fn() },
+  router: { reload: vi.fn(), visit: vi.fn() },
 }));
 
 const account = "10000000-0000-4000-8000-000000000001";
@@ -88,18 +88,19 @@ test("suggestions explain their evidence, change nothing, and are accepted only 
   fireEvent.click(
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
-  const list = await screen.findByRole("region", {
-    name: "Suggested artists for this credit",
+  const list = await screen.findByRole("group", {
+    name: /^Which artist is /,
   });
   expect(list.textContent).toContain("2 shared albums");
   expect(list.textContent).toContain("1 track with the same title and length");
   expect(list.textContent).toContain("same name only");
-  expect(list.textContent).toContain("Nothing changes until you review");
+  expect(
+    screen.getByRole("dialog", { name: /^Which artist is / }).textContent,
+  ).toContain("Nothing changes until you confirm");
+  expect(screen.getAllByRole("radio")[0]).toHaveProperty("checked", true);
   expect(writes).toHaveLength(0);
 
-  fireEvent.click(
-    screen.getAllByRole("button", { name: /Review suggested artist/ })[0],
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   expect(screen.getByRole("group", { name: "Confirm artist identity" }));
   expect(writes).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
@@ -108,9 +109,7 @@ test("suggestions explain their evidence, change nothing, and are accepted only 
   expect(writes).toEqual([expect.objectContaining({ group_id: strong })]);
   await waitFor(() =>
     expect(
-      screen.queryByRole("region", {
-        name: "Suggested artists for this credit",
-      }),
+      screen.queryByRole("group", { name: /^Which artist is / }),
     ).toBeNull(),
   );
 });
@@ -137,22 +136,14 @@ test("dismissing posts the chosen artist, hides the suggestion and keeps the oth
   fireEvent.click(
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
-  await screen.findByRole("region", {
-    name: "Suggested artists for this credit",
-  });
-  fireEvent.click(
-    screen.getAllByRole("button", { name: /Dismiss suggested artist/ })[0],
-  );
-  await waitFor(() =>
-    expect(
-      screen.getAllByRole("button", { name: /Dismiss suggested/ }),
-    ).toHaveLength(1),
-  );
-  expect(dismissals).toEqual([{ group_id: strong }]);
-  expect(
-    screen.getByRole("region", { name: "Suggested artists for this credit" })
-      .textContent,
-  ).toContain("1 suggestion is dismissed");
+  await screen.findByRole("group", { name: /^Which artist is / });
+  fireEvent.click(screen.getByRole("radio", { name: /None of these/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await waitFor(() => expect(dismissals).toHaveLength(2));
+  expect(dismissals).toEqual([
+    { group_id: strong },
+    { group_id: both.items[1].group.id },
+  ]);
 });
 
 test("a failed or empty suggestion read leaves the manual flow alone", async () => {
@@ -169,7 +160,7 @@ test("a failed or empty suggestion read leaves the manual flow alone", async () 
   fireEvent.click(
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
-  await screen.findByRole("dialog", { name: "Choose the artist" });
+  await screen.findByRole("dialog", { name: /^Which artist is / });
   expect(
     screen.queryByRole("region", { name: "Suggested artists for this credit" }),
   ).toBeNull();
@@ -213,7 +204,7 @@ test("a dismissed suggestion is listed in a disclosure and restored on request",
   );
   await waitFor(() =>
     expect(
-      screen.getAllByRole("button", { name: /Review suggested artist/ }),
+      screen.getAllByRole("radio", { name: /You reviewed this artist/ }),
     ).toHaveLength(2),
   );
   expect(restores).toEqual([{ group_id: strong }]);

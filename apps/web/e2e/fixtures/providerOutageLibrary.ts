@@ -150,7 +150,7 @@ export async function prepareOutageLibrary(
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("link", { name: "Plugins", exact: true })
     .click();
-  await page.getByText("Services for this server", { exact: true }).click();
+  await page.getByRole("button", { name: /^This server/ }).click();
   await page
     .getByLabel("Service address", { exact: true })
     .fill(provider.address);
@@ -168,9 +168,10 @@ export async function prepareOutageLibrary(
   )
     throw new Error("Owned provider declaration mismatch");
   checkpoint("plugin_review");
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(offered.body.id);
+    .getByRole("button", { name: `Connect ${offered.body.name}`, exact: true })
+    .click();
   await page
     .getByLabel("Bearer token (optional)", { exact: true })
     .fill(provider.token);

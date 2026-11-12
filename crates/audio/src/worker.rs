@@ -1,5 +1,6 @@
 use crate::{
     AudioFormat, Converter, Decoder, Error, Result,
+    buffering::Buffering,
     device::Output,
     negotiate::Target,
     render::Frame,
@@ -39,6 +40,7 @@ pub(crate) enum Control {
 }
 
 pub(crate) fn run(
+    audio_id: u64,
     decoder: Decoder,
     commands: Receiver<Control>,
     state: Arc<State>,
@@ -53,8 +55,10 @@ pub(crate) fn run(
     ));
     let format = decoder.format();
     let channels = usize::from(format.channels);
-    let (mut producer, output) = Output::start(format, state.clone())?;
+    let mut output_generation = 1;
+    let (mut producer, output) = Output::start(format, state.clone(), audio_id, output_generation)?;
     let mut output = Some(output);
+    let mut buffering = Buffering::new(producer.buffer().capacity());
     let _ = ready.send(Ok(format));
     let mut epoch = 1;
     let mut xruns = 0;
@@ -141,17 +145,26 @@ pub(crate) fn run(
                 return Err(Error::Output);
             }
             last_reset = target;
+            let previous_callbacks = state.callbacks.load(Ordering::Acquire);
             output.take();
             state.output_failure.store(0, Ordering::Release);
             epoch = reposition(&mut decoder, &state, target)?;
             finished = false;
-            let (next, replacement) = Output::start(format, state.clone())?;
+            output_generation += 1;
+            let (next, replacement) =
+                Output::start(format, state.clone(), audio_id, output_generation)?;
             producer = next;
+            buffering = Buffering::new(producer.buffer().capacity());
             output = Some(replacement);
             state.recovered_xruns.store(xruns, Ordering::Release);
             tracing::warn!(
                 event = "audio_output_recovered",
+                audio_id,
                 xruns,
+                target_position_ns = nanos(target),
+                track = observed.track,
+                recovery_attempt = resets,
+                previous_callbacks,
                 "Audio output underrun recovered at the last presented position"
             );
         }
@@ -204,6 +217,7 @@ pub(crate) fn run(
                     &state,
                     xruns,
                     &mut deferred,
+                    &mut buffering,
                 )? {
                     pending = Some(control);
                     continue 'decode;
@@ -222,6 +236,7 @@ pub(crate) fn run(
                 &state,
                 xruns,
                 &mut deferred,
+                &mut buffering,
             )? {
                 pending = Some(control);
                 continue;
@@ -256,6 +271,7 @@ fn send(
     state: &State,
     xruns: u64,
     deferred: &mut Deferred,
+    buffering: &mut Buffering,
 ) -> Result<Option<Control>> {
     loop {
         if state.stopped.load(Ordering::Acquire) {
@@ -275,7 +291,10 @@ fn send(
             return Ok(Some(Control::Recover));
         }
         match producer.push(frame) {
-            Ok(()) => return Ok(None),
+            Ok(()) => {
+                buffering.queued(frame, state);
+                return Ok(None);
+            }
             Err(rtrb::PushError::Full(value)) => frame = value,
         }
         if let Some(control) = commands

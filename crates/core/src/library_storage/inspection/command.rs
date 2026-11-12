@@ -1,9 +1,9 @@
 use super::ownership::Scope;
 use crate::{Error, Result};
-use std::{ffi::OsString, path::Path, process::Stdio, sync::Arc, time::Duration};
+use std::{ffi::OsString, path::Path, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncRead, AsyncReadExt},
-    process::{Child, Command},
+    process::Child,
     sync::{Semaphore, oneshot},
     time::Instant,
 };
@@ -122,15 +122,7 @@ impl Commands {
                     let _ = sender.send(Err(timed_out(started).into()));
                     return;
                 }
-                let child = Command::new(program)
-                    .args(arguments)
-                    .env_remove("FFREPORT")
-                    .env("LC_ALL", "C")
-                    .stdin(Stdio::null())
-                    .stderr(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .kill_on_drop(true)
-                    .spawn();
+                let child = crate::media_command::command(&program, arguments).spawn();
                 let result = match child {
                     Ok(mut child) => {
                         match supervise(&mut child, limit, deadline, &mut sender).await {

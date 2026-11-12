@@ -65,16 +65,20 @@ beforeEach(() => {
   );
 });
 
+async function openRemoval() {
+  const opener = await screen.findByRole("button", { name: "More for Albums" });
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Remove folder…" }));
+  return opener;
+}
+
 test("each folder scans on its own and one button scans them all", async () => {
   await screen.findByRole("button", { name: "Scan Albums" });
-  expect(screen.getByText("Scan folder")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan all folders" })).toBeTruthy();
 });
 
 test("removing a folder is confirmed in a dialog that returns focus when kept", async () => {
-  const opener = await screen.findByRole("button", { name: "Remove Albums" });
-  opener.focus();
-  fireEvent.click(opener);
+  const opener = await openRemoval();
   const dialog = screen.getByRole("dialog", { name: "Remove Albums?" });
   expect(storageApi.remove).not.toHaveBeenCalled();
   fireEvent.click(within(dialog).getByRole("button", { name: "Keep folder" }));
@@ -85,7 +89,7 @@ test("removing a folder is confirmed in a dialog that returns focus when kept", 
 
 test("confirming the removal removes the folder and closes the dialog", async () => {
   vi.mocked(storageApi.remove).mockResolvedValue();
-  fireEvent.click(await screen.findByRole("button", { name: "Remove Albums" }));
+  await openRemoval();
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {
       name: "Remove folder",
@@ -103,7 +107,7 @@ test("confirming the removal removes the folder and closes the dialog", async ()
 
 test("a failed removal keeps the dialog open and says why", async () => {
   vi.mocked(storageApi.remove).mockRejectedValue(new Error("Network down"));
-  fireEvent.click(await screen.findByRole("button", { name: "Remove Albums" }));
+  await openRemoval();
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {
       name: "Remove folder",

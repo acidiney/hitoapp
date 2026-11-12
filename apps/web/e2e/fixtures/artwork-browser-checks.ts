@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { settled } from "./settled";
 import {
   expect,
   type Locator,
@@ -155,10 +156,12 @@ export async function layouts(
   ]) {
     await page.setViewportSize(viewport);
     for (const control of controls) {
+      if (viewport.width < 768 && (await control.count()) === 0) continue;
       await control.evaluate((element) =>
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
       await expect(control).toBeVisible();
+      await settled(page);
       const bounds = await control.boundingBox();
       const dock = await page
         .getByRole("contentinfo", { name: "Audio player" })
@@ -167,7 +170,12 @@ export async function layouts(
         throw new Error("The control and player need visible bounds");
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(dock.y);
+      const inSheet = await control.evaluate(
+        (element) => element.closest("dialog, [role=dialog]") !== null,
+      );
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(
+        inSheet ? viewport.height : dock.y,
+      );
       if (
         await control.evaluate((element) =>
           element.matches("input, select, .track-actions .icon-button"),

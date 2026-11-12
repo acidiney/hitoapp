@@ -1,3 +1,4 @@
+import { rememberQueuedByYou } from "./queuedByYou";
 import type { Schema } from "../../shared/schema";
 import {
   MAX_QUEUE_ENTRIES,
@@ -57,6 +58,11 @@ import {
 import { PlaybackStore } from "./browser/PlaybackStore";
 import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
+import { BrowserStream } from "./browser/BrowserStream";
+import {
+  streamingQuality,
+  subscribeStreamingQuality,
+} from "./browser/StreamingQuality";
 export type { Source } from "./api/playbackSources";
 
 const NEXT_RECHECK_SECONDS = 20;
@@ -94,13 +100,15 @@ export class Playback implements Player {
   private stopListening: () => void = () => {};
   private progress: BrowserProgressGuard;
   private audiobook: BrowserAudiobookRun;
+  private media: BrowserStream;
+  private stopQuality: () => void = () => {};
   private feed = new QueueFeed(
     () => this.store.setPending(this.feed.pending),
     (error) => this.update({ error }),
   );
 
   constructor(
-    private media: MediaPort,
+    media: MediaPort,
     private resolve: SourceResolver,
     private onProgress?: (
       track: Track,
@@ -114,6 +122,7 @@ export class Playback implements Player {
     sourcePreparer?: SourcePreparer,
     private fallbackAllowed?: () => Promise<boolean>,
   ) {
+    this.media = new BrowserStream(media);
     this.community = onSuccess
       ? new BrowserCommunityObservation(onSuccess)
       : null;
@@ -157,6 +166,20 @@ export class Playback implements Player {
       prepareAudiobook,
     );
     this.listenMedia();
+  }
+
+  activate() {
+    this.media.activate();
+    this.stopQuality();
+    if (!this.lookahead) return;
+    let quality = streamingQuality();
+    this.stopQuality = subscribeStreamingQuality(() => {
+      const selected = streamingQuality();
+      if (selected === quality) return;
+      quality = selected;
+      this.cancelLookahead();
+      this.prepareNext();
+    });
   }
 
   private get state() {
@@ -207,7 +230,7 @@ export class Playback implements Player {
           )
             this.hiddenRetries = 0;
         }
-        this.update({ position: this.pendingSeek || media.currentTime });
+        this.update({ position: this.pendingSeek ?? media.currentTime });
         this.progress.observe();
         if (this.activeSource) this.endGuard.observe(media, this.serverBound);
       },
@@ -300,12 +323,12 @@ export class Playback implements Player {
     const position =
       this.media.currentTime > 0 ? this.media.currentTime : this.state.position;
     this.retryPosition = position;
-    this.pendingSeek = position;
+    this.pendingSeek =
+      this.pendingSeek === 0 ? 0 : position > 0 ? position : null;
     log.warn("playback.recovering_in_place", {
       recording_id: this.state.current?.id,
     });
-    this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
-    this.media.load();
+    this.openSourceAudio(source, position);
     void this.playSource(this.generation, ++this.sourceAttempt);
     return true;
   }
@@ -519,6 +542,7 @@ export class Playback implements Player {
     const following = this.queue.at(this.state.index + 1);
     if (following && following.id !== added)
       this.moveEntry(added, following.id);
+    rememberQueuedByYou(added);
   }
 
   continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
@@ -556,6 +580,7 @@ export class Playback implements Player {
     continuation?: AudiobookSelection,
     natural = false,
   ) {
+    this.activate();
     if (!continuation) {
       this.cancelAudiobook();
       if (!this.persist()) return;
@@ -600,7 +625,7 @@ export class Playback implements Player {
       this.media.load();
     }
     if (continuation) this.applySpeed(continuation.speed);
-    this.pendingSeek = position;
+    this.pendingSeek = position > 0 ? position : null;
     this.update({
       ...(continuation
         ? {
@@ -657,12 +682,10 @@ export class Playback implements Player {
     source: Source,
     operation: string,
   ) {
-    this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
-    this.media.load();
+    this.openSourceAudio(source, 0);
     this.activeSource = { ...source };
     this.observeSource(occurrence, source);
     this.entryEnded = false;
-    if (!this.pendingSeek) this.pendingSeek = null;
     log.debug("playback.next_preparation_adopted", {
       recording_id: occurrence.recording.id,
       operation_id: operation,
@@ -687,17 +710,22 @@ export class Playback implements Player {
       await this.skipFailed();
       return;
     }
-    this.pendingSeek ??= position;
+    this.pendingSeek ??= position > 0 ? position : null;
     this.activeSource = { ...source };
     log.info("playback.source_changed", {
       recording_id: this.state.current?.id,
       source_id: source.id,
       position_ms: Math.floor(position * 1000),
     });
-    this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
-    this.media.load();
+    this.openSourceAudio(source, position);
     this.observeSource(entry, source);
     await this.playSource(generation, attempt);
+  }
+
+  private openSourceAudio(source: Source, position: number) {
+    const start = this.pendingSeek ?? position;
+    this.pendingSeek = null;
+    this.media.openSource(source.id, start, this.state.duration);
   }
 
   private observeSource(entry: PlaybackOccurrence, source: Source) {
@@ -761,7 +789,8 @@ export class Playback implements Player {
       (this.media.currentTime > 0
         ? this.media.currentTime
         : this.state.position);
-    this.pendingSeek = position;
+    this.pendingSeek =
+      this.pendingSeek === 0 ? 0 : position > 0 ? position : null;
     this.media.pause();
     this.update({ playing: false, loading: true });
     log.warn("playback.recovering", {
@@ -777,7 +806,8 @@ export class Playback implements Player {
 
   private probeFormat(source: Source) {
     this.formatProbe = sourceWasDelivered(
-      `/api/v1/sources/${encodeURIComponent(source.id)}/audio`,
+      this.media.src ||
+        `/api/v1/sources/${encodeURIComponent(source.id)}/audio`,
     );
   }
 
@@ -1006,8 +1036,10 @@ export class Playback implements Player {
     });
   }
   retire() {
+    this.stopQuality();
     this.community?.retire();
     this.observation.retire();
     this.clear();
+    this.media.close();
   }
 }

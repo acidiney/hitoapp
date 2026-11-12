@@ -7,12 +7,13 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { router } from "@inertiajs/react";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
-  router: { reload: vi.fn() },
+  router: { reload: vi.fn(), visit: vi.fn() },
 }));
 
 const account = "10000000-0000-4000-8000-000000000001";
@@ -77,15 +78,17 @@ test("the choice opens in a dialog with a search link when no reviewed artist ma
   button.focus();
   fireEvent.click(button);
   const dialog = await screen.findByRole("dialog", {
-    name: "Choose the artist",
+    name: /^Which artist is /,
   });
   await within(dialog).findByText(/No artist you reviewed matches/);
-  expect(
-    within(dialog)
-      .getByRole("link", { name: "Search for Ed Sheeran" })
-      .getAttribute("href"),
-  ).toBe("/recordings/rec%201?review=artist");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  fireEvent.click(
+    within(dialog).getByRole("radio", { name: /Search for another artist/ }),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+  expect(vi.mocked(router.visit)).toHaveBeenCalledWith(
+    "/recordings/rec%201?review=artist",
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(document.activeElement).toBe(button);
 });

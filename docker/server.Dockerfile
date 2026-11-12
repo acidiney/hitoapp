@@ -42,3 +42,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends libwebkit2gtk-4
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=hito-tauri-driver-2.1.0,target=/build/driver-target cargo install tauri-driver --version 2.1.0 --locked --jobs 2 --target-dir /build/driver-target
 COPY --from=node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 /usr/local/bin/node /usr/local/bin/node
 ENV CARGO_TARGET_DIR=/build/desktop-target
+
+RUN apt-get update && apt-get install -y --no-install-recommends libpulse-dev && rm -rf /var/lib/apt/lists/*

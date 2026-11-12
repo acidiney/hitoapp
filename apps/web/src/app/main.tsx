@@ -6,8 +6,11 @@ import { installConnectionRecovery } from "./connectionRecovery";
 import { markPageLoaded } from "./reloadGuard";
 import { installSessionBoundary } from "../features/session/api/session";
 import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
+import { currentEnvironment, registerServiceWorker } from "./serviceWorker";
+import { showUpdateNotice } from "./UpdateNotice";
 import "../style.css";
 
+void registerServiceWorker(currentEnvironment(), showUpdateNotice);
 installHistoryPolicy();
 installConnectionRecovery(router);
 void createInertiaApp({

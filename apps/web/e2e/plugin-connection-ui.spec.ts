@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./fixtures/account";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, type BrowserContext, type Page, test } from "@playwright/test";
@@ -158,7 +159,7 @@ async function switchAccount(
   page: Page,
   credentials: { username: string; password: string },
 ) {
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutFromShell(page);
   await page.getByLabel("Username", { exact: true }).fill(credentials.username);
   await page.getByLabel("Password", { exact: true }).fill(credentials.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();

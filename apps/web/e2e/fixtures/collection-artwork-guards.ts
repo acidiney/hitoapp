@@ -1,3 +1,4 @@
+import { signOutFromShell } from "./account";
 import { expect, type Browser, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import type { ArtworkProviderFixture } from "./collection-artwork-provider";
@@ -24,7 +25,7 @@ async function leaveSession(page: Page, baseURL: string) {
         frame === page.mainFrame() &&
         frame.url() === new URL("/", baseURL).href,
     }),
-    page.getByRole("button", { name: "Sign out", exact: true }).click(),
+    signOutFromShell(page),
   ]);
   await page.waitForLoadState("load");
   await expect(

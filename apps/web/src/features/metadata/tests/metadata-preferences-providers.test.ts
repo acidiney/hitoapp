@@ -58,7 +58,8 @@ function add(position: number) {
 }
 
 function remove(row: HTMLElement) {
-  fireEvent.click(within(row).getByRole("button", { name: /^Remove / }));
+  fireEvent.click(within(row).getByRole("button", { name: /^Move / }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
   fireEvent.click(
     within(screen.getByRole("dialog", { name: /^Remove .*\?$/ })).getByRole(
       "button",
@@ -95,8 +96,9 @@ test("personally approved catalogs replace the built-in provider and save their 
   remove(selectedRows()[0]);
   expect(selectedRows()).toHaveLength(2);
   fireEvent.click(
-    within(selectedRows()[1]).getByRole("button", { name: /Move earlier/ }),
+    within(selectedRows()[1]).getByRole("button", { name: /^Move / }),
   );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Move earlier" }));
   expect(
     selectedRows().map(
       (row) =>

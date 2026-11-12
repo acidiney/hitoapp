@@ -1,3 +1,5 @@
+import { signOutFromShell } from "./fixtures/account";
+import { openAllManage } from "./fixtures/plugin-ui";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
@@ -38,12 +40,8 @@ async function withdrawEveryService(page: Page) {
     expect(response.ok()).toBe(true);
   }
   await page.reload();
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Plugins", exact: true })
-    .click();
   await expect(
-    page.getByRole("heading", { name: "Your plugins", exact: true }),
+    page.getByRole("heading", { name: "Plugins", exact: true }),
   ).toBeVisible();
 }
 
@@ -59,13 +57,9 @@ async function signIn(page: Page, username: string, password: string) {
 }
 
 async function openPlugins(page: Page) {
-  await page.goto("/settings");
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Plugins", exact: true })
-    .click();
+  await page.goto("/settings?section=plugins");
   await expect(
-    page.getByRole("heading", { name: "Your plugins", exact: true }),
+    page.getByRole("heading", { name: "Plugins", exact: true }),
   ).toBeVisible();
 }
 
@@ -90,6 +84,10 @@ test("an administrator offers only an address before connecting with the plugin 
     content_policy: { source_persistence: "playback_only" },
   };
   const service = createServer((request, response) => {
+    if (request.url === "/fixture/v1/health") {
+      response.writeHead(404).end();
+      return;
+    }
     requests.push({
       authorization: request.headers.authorization,
       cookie: request.headers.cookie,
@@ -113,7 +111,7 @@ test("an administrator offers only an address before connecting with the plugin 
   try {
     await openPlugins(page);
     await withdrawEveryService(page);
-    await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByRole("button", { name: /^This server/ }).click();
     const serviceAddress = page.getByLabel("Service address", { exact: true });
     await expect(serviceAddress).toHaveJSProperty("required", true);
     await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(
@@ -140,15 +138,13 @@ test("an administrator offers only an address before connecting with the plugin 
     const acceptedOffer = await offerResponse;
     expect(acceptedOffer.status()).toBe(201);
     const offeredService: Schema<"PluginService"> = await acceptedOffer.json();
-    const selector = page.getByRole("combobox", {
-      name: "Service",
-      exact: true,
-    });
-    await expect(selector).toContainText(manifest.name);
-    await expect(page.getByText(`${address}/`, { exact: true })).toHaveCount(2);
-    await expect(
-      page.getByText("No plugins connected to this account.", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(`${address}/`, { exact: true })).toHaveCount(1);
+    await page
+      .getByRole("button", { name: "Your plugins", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: `Connect ${manifest.name}`, exact: true })
+      .click();
     expect(requests).toEqual([
       { authorization: undefined, cookie: undefined, protocol: "1" },
     ]);
@@ -163,7 +159,7 @@ test("an administrator offers only an address before connecting with the plugin 
       true,
     );
     await expect(
-      page.getByText("No plugins connected to this account.", { exact: true }),
+      page.getByText(/Your library plays local files on its own/),
     ).toBeVisible();
     expect(requests).toEqual([
       { authorization: undefined, cookie: undefined, protocol: "1" },
@@ -172,11 +168,12 @@ test("an administrator offers only an address before connecting with the plugin 
     await page
       .getByRole("button", { name: "Accept and connect", exact: true })
       .click();
+    await openAllManage(page);
     await expect(
       page.getByRole("button", { name: "Check connection", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("No plugins connected to this account.", { exact: true }),
+      page.getByText(/Your library plays local files on its own/),
     ).toHaveCount(0);
     expect(installationRequests.total).toBe(1);
     expect(
@@ -195,13 +192,15 @@ test("an administrator offers only an address before connecting with the plugin 
         })),
       );
     expect(browserProviderRequests).toEqual([]);
+    await page.getByRole("button", { name: /^This server/ }).click();
+    await page.getByRole("button", { name: /^Withdraw / }).click();
     await page
-      .getByRole("button", { name: "Withdraw service", exact: true })
+      .getByRole("dialog")
+      .getByRole("button", { name: "Withdraw", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Withdraw for everyone", exact: true })
-      .click();
-    await expect(selector).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Withdraw / })).toHaveCount(
+      0,
+    );
     expect(errors).toEqual([]);
     expect(installationRequests.overflow).toBe(false);
   } finally {
@@ -230,6 +229,10 @@ test.describe("account switching", () => {
     let expectedToken: string | null = "browser-private-plugin-token";
     const requests: (string | undefined)[] = [];
     const service = createServer((request, response) => {
+      if (request.url === "/fixture/v1/health") {
+        response.writeHead(404).end();
+        return;
+      }
       requests.push(request.headers.authorization);
       if (
         request.url !== "/fixture/v1/manifest" ||
@@ -250,7 +253,7 @@ test.describe("account switching", () => {
     try {
       await signIn(page, "admin", "docker browser test password");
       await withdrawEveryService(page);
-      await page.getByText("Services for this server", { exact: true }).click();
+      await page.getByRole("button", { name: /^This server/ }).click();
       await page.getByText("Advanced settings", { exact: true }).click();
       await page
         .getByLabel("Custom label (optional)", { exact: true })
@@ -268,13 +271,20 @@ test.describe("account switching", () => {
       expect(acceptedOffer.status()).toBe(201);
       const offeredService: Schema<"PluginService"> =
         await acceptedOffer.json();
-      await expect(
-        page.getByRole("combobox", { name: "Service", exact: true }),
-      ).not.toBeEmpty();
+      await page
+        .getByRole("button", { name: "Your plugins", exact: true })
+        .click();
+      await page
+        .getByRole("button", {
+          name: `Connect ${offeredService.name}`,
+          exact: true,
+        })
+        .click();
+      await expect(page.getByRole("dialog")).toBeVisible();
       expect(requests).toEqual([]);
       await page.setViewportSize({ width: 390, height: 844 });
       const reviewButton = page.getByRole("button", {
-        name: "Review connection",
+        name: "Continue",
         exact: true,
       });
       await reviewButton.scrollIntoViewIfNeeded();
@@ -282,13 +292,11 @@ test.describe("account switching", () => {
       const dockBounds = await page
         .getByRole("contentinfo", { name: "Audio player" })
         .boundingBox();
-      expect(connectBounds!.y + connectBounds!.height).toBeLessThanOrEqual(
-        dockBounds!.y,
-      );
-      const selector = await page
-        .getByRole("combobox", { name: "Service", exact: true })
+      expect(connectBounds!.y + connectBounds!.height).toBeLessThanOrEqual(844);
+      const tokenField = await page
+        .getByLabel("Bearer token (optional)", { exact: true })
         .boundingBox();
-      expect(selector!.height).toBeGreaterThanOrEqual(44);
+      expect(tokenField!.height).toBeGreaterThanOrEqual(44);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth,
@@ -297,6 +305,8 @@ test.describe("account switching", () => {
       await page.screenshot({
         path: "/workspace/test-results/plugins-connect-mobile.png",
       });
+      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      await page.getByRole("button", { name: /^This server/ }).click();
       const serviceAddress = page.getByLabel("Service address", {
         exact: true,
       });
@@ -312,6 +322,15 @@ test.describe("account switching", () => {
       });
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.evaluate(() => window.scrollTo(0, 0));
+      await page
+        .getByRole("button", { name: "Your plugins", exact: true })
+        .click();
+      await page
+        .getByRole("button", {
+          name: `Connect ${offeredService.name}`,
+          exact: true,
+        })
+        .click();
       await page
         .getByLabel("Bearer token (optional)", { exact: true })
         .fill(expectedToken!);
@@ -333,7 +352,7 @@ test.describe("account switching", () => {
       ).toBe(false);
       await page.getByRole("button", { name: "Back", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Review connection", exact: true }),
+        page.getByRole("heading", { name: "Before you connect", exact: true }),
       ).toHaveCount(0);
       expect(installationRequests.total).toBe(0);
       expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
@@ -388,21 +407,17 @@ test.describe("account switching", () => {
         name: "Fixture collection updated",
         capabilities: ["metadata", "sources"],
       };
+      await openAllManage(page);
       await page
         .getByRole("button", { name: "Check connection", exact: true })
         .click();
-      await expect(
-        page.getByRole("heading", {
-          name: "Review plugin changes",
-          exact: true,
-        }),
-      ).toBeVisible();
+      await expect(page.getByRole("dialog")).toBeVisible();
       await page.screenshot({
         path: "/workspace/test-results/plugins-review-desktop.png",
       });
       await page.setViewportSize({ width: 390, height: 844 });
       await page
-        .getByRole("button", { name: "Accept changes", exact: true })
+        .getByRole("button", { name: /^Accept / })
         .scrollIntoViewIfNeeded();
       await page.screenshot({
         path: "/workspace/test-results/plugins-review-mobile.png",
@@ -412,26 +427,20 @@ test.describe("account switching", () => {
           () => document.documentElement.scrollWidth > innerWidth,
         ),
       ).toBe(false);
-      await page
-        .getByRole("button", { name: "Accept changes", exact: true })
-        .click();
-      await expect(
-        page.getByRole("heading", {
-          name: "Review plugin changes",
-          exact: true,
-        }),
-      ).toHaveCount(0);
+      await page.getByRole("button", { name: /^Accept / }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(
         page.getByRole("heading", {
           name: "Fixture collection updated",
           exact: true,
         }),
       ).toBeVisible();
+      await openAllManage(page);
       await expect(
         page.getByRole("button", { name: "Check connection", exact: true }),
       ).toBeFocused();
       await page.setViewportSize({ width: 1440, height: 1000 });
-      await page.locator(".plugin-details > summary").click();
+      await openAllManage(page);
       await page
         .getByLabel("New bearer token", { exact: true })
         .fill("wrong-token");
@@ -461,28 +470,29 @@ test.describe("account switching", () => {
       await page
         .getByRole("button", { name: "Clear saved token", exact: true })
         .click();
+      await openAllManage(page);
       await expect(
         page.getByText("No token saved", { exact: true }),
       ).toBeVisible();
       expect(requests.length).toBe(beforeClear);
+      await openAllManage(page);
       await expect(
         page.getByRole("button", { name: "Check connection", exact: true }),
       ).toBeFocused();
       expectedToken = null;
+      await openAllManage(page);
       await page
         .getByRole("button", { name: "Check connection", exact: true })
         .click();
       await expect.poll(() => requests.length).toBe(beforeClear + 1);
+      await openAllManage(page);
       await expect(
         page.getByRole("button", { name: "Check connection", exact: true }),
       ).toBeEnabled();
       await page.screenshot({
         path: "/workspace/test-results/plugins-connected-desktop.png",
       });
-      await page
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("link", { name: "Accounts", exact: true })
-        .click();
+      await page.goto("/settings?section=accounts");
       await page
         .getByRole("button", { name: "Create account", exact: true })
         .click();
@@ -496,10 +506,10 @@ test.describe("account switching", () => {
       await dialog
         .getByRole("button", { name: "Create account", exact: true })
         .click();
-      await expect(
-        page.getByRole("region", { name: "Accounts and access" }),
-      ).toContainText("plugin-listener");
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await expect(page.getByRole("region", { name: "People" })).toContainText(
+        "plugin-listener",
+      );
+      await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
@@ -511,8 +521,14 @@ test.describe("account switching", () => {
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByText("Services for this server", { exact: true }),
+        page.getByRole("button", { name: /^This server/ }),
       ).toHaveCount(0);
+      await page
+        .getByRole("button", {
+          name: `Connect ${offeredService.name}`,
+          exact: true,
+        })
+        .click();
       const listenerReview = await reviewPluginInstallation(
         page,
         offeredService,
@@ -534,9 +550,12 @@ test.describe("account switching", () => {
           accept_manifest_digest: listenerReview.body.digest,
         }),
       ).toBe(true);
+      await openAllManage(page);
       await page.getByRole("button", { name: "Remove", exact: true }).click();
+      await openAllManage(page);
       await page
-        .getByRole("button", { name: "Remove plugin", exact: true })
+        .getByRole("dialog")
+        .getByRole("button", { name: "Remove", exact: true })
         .click();
       await expect(
         page.getByRole("heading", {
@@ -545,9 +564,9 @@ test.describe("account switching", () => {
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole("heading", { name: "Your plugins", exact: true }),
+        page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeFocused();
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
@@ -558,12 +577,11 @@ test.describe("account switching", () => {
           exact: true,
         }),
       ).toBeVisible();
-      await page.getByText("Services for this server", { exact: true }).click();
+      await page.getByRole("button", { name: /^This server/ }).click();
+      await page.getByRole("button", { name: /^Withdraw / }).click();
       await page
-        .getByRole("button", { name: "Withdraw service", exact: true })
-        .click();
-      await page
-        .getByRole("button", { name: "Withdraw for everyone", exact: true })
+        .getByRole("dialog")
+        .getByRole("button", { name: "Withdraw", exact: true })
         .click();
       await expect(
         page.getByRole("heading", {
@@ -572,7 +590,7 @@ test.describe("account switching", () => {
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole("heading", { name: "Your plugins", exact: true }),
+        page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeFocused();
       expect(errors).toEqual([]);
       expect(installationRequests.overflow).toBe(false);

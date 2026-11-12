@@ -34,22 +34,19 @@ export default function MissingRecordings({
   return (
     <SettingRow
       title="Tracks with missing files"
-      hint="Hito keeps a track for 30 days after its files disappear, then removes it. Playlists, likes, progress and downloads keep a track."
-      status={
-        <span role="status">
-          {missing.result ? summary(missing.result) : ""}
-        </span>
-      }
+      hint="Kept for 30 days after their files disappear, then removed. Tracks in playlists, likes or downloads are kept."
       action={
         <Button
           variant="destructive"
           disabled={disabled || missing.removing}
+          aria-label="Remove missing tracks now"
           onClick={() => ask(true)}
         >
-          Remove missing tracks now
+          Remove now…
         </Button>
       }
     >
+      {missing.result && <p role="status">{summary(missing.result)}</p>}
       {missing.error && (
         <p className="form-error" role="alert">
           {missing.error}

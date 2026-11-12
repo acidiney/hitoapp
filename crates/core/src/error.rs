@@ -34,6 +34,8 @@ pub enum Error {
     InsufficientStorage,
     #[error("FFmpeg is not installed")]
     MediaToolsMissing,
+    #[error("This audio format is not supported by the native decoder")]
+    UnsupportedAudio,
     #[error("Database operation failed")]
     Database(#[from] sqlx::Error),
     #[error("Database migration failed")]
@@ -71,6 +73,7 @@ impl Error {
             Self::StreamTooSlow => "stream_too_slow",
             Self::InsufficientStorage => "insufficient_storage",
             Self::MediaToolsMissing => "media_tools_missing",
+            Self::UnsupportedAudio => "unsupported_audio",
             Self::Database(_) => "database",
             Self::Migration(_) => "migration",
             Self::Internal(_) => "internal",

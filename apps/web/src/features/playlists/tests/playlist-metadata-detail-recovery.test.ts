@@ -1,3 +1,4 @@
+import { entryText } from "../../../test/rows";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
@@ -116,7 +117,7 @@ test.each(["request", "network"] as const)(
     );
     const table = screen.getByRole("table", { name: "Playlist entries" });
     const entries = within(table).getAllByRole("row").slice(1);
-    const originalEntries = entries.map((row) => row.textContent);
+    const originalEntries = entries.map(entryText);
     fireEvent.click(
       within(entries[3]).getByRole("button", { name: "Play Fixture A" }),
     );
@@ -180,12 +181,9 @@ test.each(["request", "network"] as const)(
     expect(
       screen.getByRole("heading", { name: metadataProps.detail.playlist.name }),
     ).toBeTruthy();
-    expect(
-      within(table)
-        .getAllByRole("row")
-        .slice(1)
-        .map((row) => row.textContent),
-    ).toEqual(originalEntries);
+    expect(within(table).getAllByRole("row").slice(1).map(entryText)).toEqual(
+      originalEntries,
+    );
     expect(player).toBe(originalPlayer);
     expect(player.queueSnapshot()).toEqual(selection);
     expect(await player.queuePage(0, 10)).toEqual(queue);

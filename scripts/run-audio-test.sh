@@ -10,5 +10,11 @@ docker compose --profile desktop run --rm -e HITO_AUDIO_TEST_FEATURES="${HITO_AU
   fi
   test_binary=$(python3 -c '\''import json,sys; print(next(item["executable"] for line in open(sys.argv[1]) if (item:=json.loads(line)).get("executable") and item["target"]["name"]==sys.argv[2]))'\'' "$test_root/build.json" "$2")
   shift 2
-  sh scripts/desktop/with-audio.sh "$test_binary" --ignored --test-threads=1 "$@"
+  if test "${1:-}" = "--backend-fault-control"; then
+    shift
+    set -- --backend-fault-control "$test_binary" --ignored --test-threads=1 "$@"
+  else
+    set -- "$test_binary" --ignored --test-threads=1 "$@"
+  fi
+  sh scripts/desktop/with-audio.sh "$@"
 ' sh "$@"

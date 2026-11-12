@@ -3,6 +3,7 @@ import { createUuid } from "./uuid";
 
 import { requestJson } from "./http";
 import { log } from "./log";
+import { invalidate, invalidationsFor } from "./invalidation";
 
 function deviceId() {
   const saved = localStorage.getItem("hito-device");
@@ -57,6 +58,9 @@ export async function submitChange(
       operation_id,
       action: action.kind,
     });
+    for (const operation of batch.operations)
+      for (const event of invalidationsFor(operation.action))
+        invalidate(event.scope, event.id, event.change);
     return receipt;
   } catch (error) {
     if (!signal?.aborted)

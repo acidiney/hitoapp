@@ -21,7 +21,7 @@ test("an account reorders its sources and turns the fallback off, and both survi
   await page.goto("/settings?section=playback");
   const card = page.locator("#setting-source-preference");
   await expect(
-    card.getByRole("heading", { name: "Source preference" }),
+    card.getByRole("heading", { name: "Source order" }),
   ).toBeVisible();
   const before = await order(page);
   expect(before.slice(0, 2)).toEqual(["Local files", "Saved copies"]);
@@ -30,9 +30,10 @@ test("an account reorders its sources and turns the fallback off, and both survi
   });
   await expect(fallback).toHaveAttribute("aria-checked", "true");
   const save = card.getByRole("button", { name: "Save source preference" });
-  await expect(save).toBeDisabled();
+  await expect(save).toHaveCount(0);
 
-  await card.getByRole("button", { name: "Move up Saved copies" }).click();
+  await card.getByRole("button", { name: "Move Saved copies" }).click();
+  await page.getByRole("menuitem", { name: "Move up" }).click();
   await fallback.click();
   expect((await order(page)).slice(0, 2)).toEqual([
     "Saved copies",

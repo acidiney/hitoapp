@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
+import { ChevronUp, ListMusic, Volume2, VolumeX } from "lucide-react";
 import { coverIdentity } from "../../artwork/model/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
@@ -15,8 +15,21 @@ import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
-import RouteLink, { visitFromPlayer } from "../../../shared/ui/RouteLink";
+import RouteLink from "../../../shared/ui/RouteLink";
 import { trackLink, useArtistLink } from "../hooks/useArtistLink";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
+import {
+  QUEUE_PANEL_ID,
+  toggleQueuePanel,
+  useQueuePanelOpen,
+} from "../queuePanelState";
+import { useMute } from "../hooks/useMute";
+import { setQueueSheetOpen, toggleQueueSheet } from "../queueSheetState";
+import { onNowPlayingRequest } from "../nowPlayingRequests";
+import { rememberNowPlayingOrigin } from "../nowPlayingOrigin";
 import PlayerTrackActions from "./PlayerTrackActions";
 import { ArtistNames, artistHref as knownArtistHref } from "./TrackNames";
 
@@ -60,6 +73,17 @@ export default function PlayerDock({
     if (document.activeElement !== opener)
       queueButton.current?.focus({ preventScroll: true });
   }, [expanded]);
+  useEffect(
+    () =>
+      onNowPlayingRequest(() => {
+        if (current && !expanded) {
+          expandedOpener.current = null;
+          rememberNowPlayingOrigin();
+          setExpanded(true);
+        }
+      }),
+    [current, expanded],
+  );
   const closeExpanded = useCallback(() => {
     log.debug("player.expanded", { enabled: false });
     setExpanded(false);
@@ -67,11 +91,16 @@ export default function PlayerDock({
   const openExpanded = useCallback((opener: HTMLButtonElement) => {
     log.debug("player.expanded", { enabled: true });
     expandedOpener.current = opener;
+    rememberNowPlayingOrigin();
     setExpanded(true);
   }, []);
+  const toggleMute = useMute();
+  const phone = useMediaQuery(PHONE_QUERY);
+  const queueOpen = useQueuePanelOpen();
   function showQueue() {
     log.debug("player.queue", { enabled: true });
-    visitFromPlayer("/queue");
+    if (phone) toggleQueueSheet();
+    else toggleQueuePanel();
   }
   return (
     <>
@@ -79,7 +108,10 @@ export default function PlayerDock({
         <NowPlaying
           account={account}
           close={closeExpanded}
-          openQueue={closeExpanded}
+          openQueue={() => {
+            closeExpanded();
+            if (phone) setQueueSheetOpen(true);
+          }}
         />
       )}
       <footer className="player" aria-label="Audio player" hidden={expanded}>
@@ -123,8 +155,34 @@ export default function PlayerDock({
         </div>
         <PlaybackControls />
         <div className="player-tools">
+          <button
+            ref={queueButton}
+            className={`icon-button queue-button ${phone ? (queueActive ? "selected" : "") : queueOpen ? "selected" : ""}`.trim()}
+            aria-label="Open queue"
+            aria-current={phone && queueActive ? "page" : undefined}
+            aria-expanded={phone ? undefined : queueOpen}
+            aria-controls={phone ? undefined : QUEUE_PANEL_ID}
+            data-queue-toggle=""
+            onClick={showQueue}
+          >
+            <ListMusic size={18} aria-hidden="true" />
+            <span className="queue-label">
+              Queue{queueTotal > 0 && ` · ${queueTotal}`}
+            </span>
+          </button>
           <SpeedControl available={controlsAvailable} />
-          <Volume2 className="volume-icon" size={18} />
+          <button
+            className="icon-button mute-button"
+            aria-label="Mute"
+            aria-pressed={volume === 0}
+            onClick={toggleMute}
+          >
+            {volume === 0 ? (
+              <VolumeX size={18} aria-hidden="true" />
+            ) : (
+              <Volume2 size={18} aria-hidden="true" />
+            )}
+          </button>
           <input
             className="volume"
             aria-label="Volume"
@@ -142,19 +200,7 @@ export default function PlayerDock({
             disabled={!current}
             onClick={(event) => openExpanded(event.currentTarget)}
           >
-            <ChevronUp size={16} />
-          </button>
-          <button
-            ref={queueButton}
-            className={`icon-button queue-button ${queueActive ? "selected" : ""}`}
-            aria-label="Open queue"
-            aria-current={queueActive ? "page" : undefined}
-            onClick={showQueue}
-          >
-            <ListOrdered size={16} />
-            <span className="queue-label">
-              Queue{queueTotal > 0 && ` · ${queueTotal}`}
-            </span>
+            <ChevronUp size={18} aria-hidden="true" />
           </button>
         </div>
         <PlaybackStatus />

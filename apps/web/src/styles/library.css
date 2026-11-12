@@ -16,7 +16,7 @@
   gap: 3px;
   margin-left: auto;
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 3px;
 }
 .view-toggle .icon-button {
@@ -41,7 +41,7 @@
   position: relative;
 }
 .track-card .artwork {
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .card-play {
   position: absolute;
@@ -55,7 +55,7 @@
   border-radius: 50%;
   background: var(--primary);
   color: var(--on-action);
-  box-shadow: 0 5px 15px #0004;
+  box-shadow: var(--shadow);
 }
 .card-play:hover:not(:disabled) {
   background: var(--action);
@@ -159,9 +159,6 @@
 .track-title:hover:not(:disabled) {
   text-decoration: underline;
   background: none;
-}
-.playing-row .track-title {
-  color: var(--primary);
 }
 .duration-column {
   width: 54px;

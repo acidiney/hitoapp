@@ -3,7 +3,6 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
-import { tintFor } from "../../../shared/ui/collectionTint";
 
 vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
@@ -25,10 +24,10 @@ vi.mock("@inertiajs/react", () => ({
 
 afterEach(cleanup);
 
-test("the artist header colour comes from the stable artist id and shows the artist cover", () => {
+test("the artist header names the artist and shows the artist cover", () => {
   const { detail, group } = artistIdentityBrowsing();
   const { container } = render(createElement(ArtistIdentityGroupPage, detail));
-  const header = container.querySelector<HTMLElement>(".tinted-header")!;
-  expect(header.style.getPropertyValue("--tint")).toBe(tintFor(group.id));
-  expect(header.querySelector(".tinted-cover .artwork")).toBeTruthy();
+  const header = container.querySelector<HTMLElement>(".artist-header")!;
+  expect(header.querySelector("h1")!.textContent).toBe(group.name.value);
+  expect(header.querySelector(".artist-header-photo .artwork")).toBeTruthy();
 });

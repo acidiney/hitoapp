@@ -42,6 +42,7 @@ impl IntoResponse for ApiError {
             Error::Forbidden => StatusCode::FORBIDDEN,
             Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
+            Error::UnsupportedAudio => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Error::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
             Error::Conflict(_)
             | Error::ProviderBusy(_)
@@ -130,6 +131,17 @@ pub fn response(status: StatusCode, message: &str) -> Response {
 mod tests {
     use super::*;
     use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn unsupported_native_audio_is_415_with_a_safe_message() {
+        let response = ApiError(hito_core::Error::UnsupportedAudio).into_response();
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            &body[..],
+            br#"{"error":"This audio format is not supported by the native decoder"}"#
+        );
+    }
 
     #[tokio::test]
     async fn a_full_disk_is_507_with_a_generic_body_and_no_paths() {

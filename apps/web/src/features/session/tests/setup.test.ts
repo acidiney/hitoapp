@@ -31,7 +31,31 @@ test("first-run setup explains the first account and gives password guidance", (
       document.getElementById(password.getAttribute("aria-describedby")!)
         ?.textContent,
   ).toMatch(/at least 12 characters/i);
-  expect(screen.getByText("Welcome to your server.")).toBeTruthy();
+  expect(screen.getByRole("list", { name: "Setup steps" })).toBeTruthy();
+  expect(screen.getByText("2. Music folders")).toBeTruthy();
+});
+
+test("the password hint counts characters until the minimum is reached", () => {
+  setupPage();
+  const password = screen.getByLabelText(/^Password/);
+  const hint = () =>
+    document.getElementById("setup-password-hint")?.textContent;
+  fireEvent.change(password, { target: { value: "correct h" } });
+  expect(hint()).toBe("9 of 12 characters");
+  fireEvent.change(password, { target: { value: "correct horse" } });
+  expect(hint()).toBe("Long enough");
+});
+
+test("the eye shows and hides the password without submitting", () => {
+  setupPage();
+  const password = screen.getByLabelText(/^Password/) as HTMLInputElement;
+  const eye = screen.getByRole("button", { name: "Show password" });
+  expect(eye.getAttribute("aria-pressed")).toBe("false");
+  expect(password.type).toBe("password");
+  fireEvent.click(eye);
+  expect(eye.getAttribute("aria-pressed")).toBe("true");
+  expect(password.type).toBe("text");
+  expect(sessionApi.signIn).not.toHaveBeenCalled();
 });
 
 test("setup is never linked to or from Sign-in", () => {

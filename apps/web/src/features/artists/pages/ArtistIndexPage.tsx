@@ -4,7 +4,7 @@ import { Link, usePage } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import ArtistGroupPhoto from "../components/ArtistGroupPhoto";
 import ArtistPhoto from "../components/ArtistPhoto";
-import PageHeading from "../../../shared/ui/PageHeading";
+import LibraryHeading from "../../../app/LibraryHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import LoadMore from "../../../shared/ui/LoadMore";
 import { useInfinitePage } from "../../../shared/hooks/useInfinitePage";
@@ -62,16 +62,18 @@ export default function ArtistIndexPage({
   });
   return (
     <>
-      <PageHeading
+      <LibraryHeading
+        path="/artists"
         title="Artists"
         description={`${artists.total} ${artists.total === 1 ? "artist" : "artists"} in your library`}
-      >
+      />
+      <div className="library-filters">
         <SortControl
           options={order.options}
           value={order.sort}
           onChange={order.change}
         />
-      </PageHeading>
+      </div>
       <div className="artist-toolbar">
         <ArtistMatchingStatus account={user.id} />
         <ArtistReviewQueue

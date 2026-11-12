@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { editionChip, editionMenuItem } from "../fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -10,6 +11,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
+import {
+  openFromAlbum,
+  pickRelease,
+  confirmEdition,
+} from "../fixtures/albumEditionSteps";
 
 import {
   albumDetail,
@@ -99,18 +105,8 @@ const calls = (fetch: ReturnType<typeof serve>, path: string) =>
   fetch.mock.calls.filter(([called]) => called === path);
 
 async function chooseFirstEdition() {
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  const group = within(groups).getAllByRole("listitem")[0];
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Browse editions" }),
-  );
-  await within(group).findByRole("list", { name: "Available editions" });
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
-  return screen.findByRole("region", { name: "Album edition track list" });
+  await pickRelease();
+  return confirmEdition();
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -128,8 +124,8 @@ test("a remembered edition opens with one action and no discography or edition b
   expect(within(region).getByText("Catalog only song")).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([savedRead]);
   expect(fetch.mock.calls[0][1]!.method).toBe("POST");
-  expect(screen.getByRole("button", { name: "Change edition" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
 });
 
 test("choosing an edition remembers it with the displayed revision and the next command uses the new one", async () => {
@@ -148,9 +144,9 @@ test("choosing an edition remembers it with the displayed revision and the next 
   });
   expect(calls(fetch, choose)[0][1]!.method).toBe("PUT");
   expect(await screen.findByText("This edition is remembered.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
+  expect(editionChip()).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
+  fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
   expect(
     JSON.parse(calls(fetch, clear)[0][1]!.body as string).expected_revision,
@@ -164,7 +160,7 @@ test("forgetting the edition clears it and returns to an explicit choice", async
     screen.getByRole("button", { name: "Show complete track list" }),
   );
   await screen.findByRole("region", { name: "Album edition track list" });
-  fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
+  fireEvent.click(editionMenuItem("Forget edition"));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
   expect(JSON.parse(calls(fetch, clear)[0][1]!.body as string)).toEqual({
     request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
@@ -178,7 +174,9 @@ test("forgetting the edition clears it and returns to an explicit choice", async
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
-  await screen.findByRole("list", { name: "Discography releases" });
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
   expect(calls(fetch, savedRead)).toHaveLength(1);
 });
 
@@ -197,8 +195,10 @@ test("changing the edition opens the browser while the remembered one stays unti
     screen.getByRole("button", { name: "Show complete track list" }),
   );
   await screen.findByRole("region", { name: "Album edition track list" });
-  fireEvent.click(screen.getByRole("button", { name: "Change edition" }));
-  await screen.findByRole("list", { name: "Discography releases" });
+  fireEvent.click(editionMenuItem("Change edition"));
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
   expect(calls(fetch, choose)).toHaveLength(0);
   expect(calls(fetch, clear)).toHaveLength(0);
   await chooseFirstEdition();
@@ -215,7 +215,9 @@ test("a remembered edition that can no longer be read asks for a new choice with
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
-  await screen.findByRole("list", { name: "Discography releases" });
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
   expect(calls(fetch, savedRead)).toHaveLength(0);
   expect(editionGroup.id).toBeTruthy();
   expect(standardEdition.id).toBeTruthy();
@@ -229,7 +231,9 @@ test("a link that the server reports as stale while reading falls back to choosi
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
-  await screen.findByRole("list", { name: "Discography releases" });
+  await screen.findByRole("heading", {
+    name: "Which release is Catalog album?",
+  });
   expect(calls(fetch, savedRead)).toHaveLength(1);
   expect(screen.getByText(/saved edition can no longer be used/)).toBeTruthy();
 });

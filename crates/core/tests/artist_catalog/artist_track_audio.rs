@@ -1,9 +1,9 @@
 #[path = "../fixtures/provider_attachment.rs"]
 #[allow(dead_code, unused_imports)]
-mod audio_provider;
+pub(super) mod audio_provider;
 #[path = "../fixtures/album_complete_library.rs"]
 #[allow(dead_code)]
-mod library;
+pub(super) mod library;
 use hito_core::test_support::album_edition_service::{self as provider, AlbumProvider};
 #[allow(unused_imports)]
 use hito_core::test_support::support;
@@ -13,12 +13,12 @@ use library::Album;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-const BONUS_OCCURRENCE: &str = "occurrence:album/2/2";
+pub(super) const BONUS_OCCURRENCE: &str = "occurrence:album/2/2";
 const PREGAP_OCCURRENCE: &str = "occurrence:album/1/0";
-const BONUS_TITLE: &str = "Bonus catalog title";
-const SOURCE: &str = "audio-provider/bonus-source";
+pub(super) const BONUS_TITLE: &str = "Bonus catalog title";
+pub(super) const SOURCE: &str = "audio-provider/bonus-source";
 
-fn request(occurrence: &str) -> FindArtistTrackAudio {
+pub(super) fn request(occurrence: &str) -> FindArtistTrackAudio {
     FindArtistTrackAudio {
         release_group_id: provider::GROUP_ID.into(),
         edition_id: provider::EDITION_ID.into(),
@@ -26,7 +26,7 @@ fn request(occurrence: &str) -> FindArtistTrackAudio {
     }
 }
 
-async fn find(album: &Album, occurrence: &str) -> hito_core::Result<AlbumTrackAudio> {
+pub(super) async fn find(album: &Album, occurrence: &str) -> hito_core::Result<AlbumTrackAudio> {
     album
         .hito
         .artist_catalog
@@ -40,7 +40,13 @@ async fn find(album: &Album, occurrence: &str) -> hito_core::Result<AlbumTrackAu
         .await
 }
 
-fn candidate(id: &str, title: &str, artist: &str, duration_ms: u64, source: &str) -> [Value; 3] {
+pub(super) fn candidate(
+    id: &str,
+    title: &str,
+    artist: &str,
+    duration_ms: u64,
+    source: &str,
+) -> [Value; 3] {
     let detail = json!({
         "id": id, "title": title, "artist": artist, "duration_ms": duration_ms,
         "release": null, "disc_number": null, "track_number": null, "revision": "audio-r1"
@@ -53,7 +59,7 @@ fn candidate(id: &str, title: &str, artist: &str, duration_ms: u64, source: &str
     [detail, metadata, sources]
 }
 
-async fn offer(
+pub(super) async fn offer(
     audio: &audio_provider::ProviderServer,
     id: &str,
     title: &str,
@@ -72,7 +78,7 @@ async fn offer(
     audio.reply("v1/sources", sources).await;
 }
 
-async fn connect_audio(
+pub(super) async fn connect_audio(
     album: &Album,
     audio: &audio_provider::ProviderServer,
 ) -> hito_core::PluginInstallation {
@@ -128,7 +134,7 @@ async fn a_catalog_track_of_a_reviewed_artist_is_matched_and_saved_without_a_lib
 }
 
 #[tokio::test]
-async fn an_uncertain_candidate_is_no_match_and_nothing_is_saved() {
+async fn an_unready_candidate_is_no_match_and_nothing_is_saved() {
     let mut catalog = AlbumProvider::start().await;
     let audio = audio_provider::ProviderServer::start().await;
     let album = Album::prepare(&catalog).await;
@@ -141,6 +147,12 @@ async fn an_uncertain_candidate_is_no_match_and_nothing_is_saved() {
         1000,
     )
     .await;
+    audio
+        .reply(
+            "v1/sources",
+            json!({"items": [{"id": SOURCE, "label": "Owned audio", "ready": false}]}),
+        )
+        .await;
     let before = album.library().await;
 
     assert!(matches!(

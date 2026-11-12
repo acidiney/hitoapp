@@ -7,6 +7,7 @@ type Heading = "h3" | "h4" | "h5";
 export default function MediaCard({
   title,
   subtitle,
+  detail,
   cover,
   href,
   onOpen,
@@ -20,6 +21,7 @@ export default function MediaCard({
 }: {
   title: string;
   subtitle?: string;
+  detail?: ReactNode;
   cover: ReactNode;
   href?: string;
   onOpen?: () => void;
@@ -40,6 +42,7 @@ export default function MediaCard({
         <span className="shelf-card-title">{title}</span>
       )}
       {subtitle && <span className="shelf-card-subtitle">{subtitle}</span>}
+      {detail}
     </>
   );
   return (

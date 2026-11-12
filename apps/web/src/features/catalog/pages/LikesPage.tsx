@@ -2,7 +2,6 @@ import type { Schema } from "../../../shared/schema";
 
 import { longDuration } from "../../../shared/format";
 import CatalogResults from "../components/CatalogResults";
-import PageHeading from "../../../shared/ui/PageHeading";
 
 export default function LikesPage(props: Schema<"CatalogPageProps">) {
   const { items, total } = props.recordings;
@@ -12,12 +11,10 @@ export default function LikesPage(props: Schema<"CatalogPageProps">) {
       : "";
   return (
     <>
-      <PageHeading
-        title="Liked tracks"
-        description={`${props.recordings.total} liked ${props.recordings.total === 1 ? "track" : "tracks"}${loadedDuration}`}
-      />
       <CatalogResults
         {...props}
+        title="Liked tracks"
+        description={`${props.recordings.total} liked ${props.recordings.total === 1 ? "track" : "tracks"}${loadedDuration}`}
         path="/likes"
         emptyTitle="Your favorites belong here"
         emptyText="Choose music from your library to get started."

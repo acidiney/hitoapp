@@ -28,18 +28,27 @@ const playlists = [
   { id: "p2", name: "Running" },
 ];
 
-function sidebar(path: string) {
+function sidebar(path: string, search = "") {
   render(
     createElement(
       NoticeProvider,
       null,
-      createElement(Sidebar, { playlists: playlists as never, path }),
+      createElement(Sidebar, {
+        playlists: playlists as never,
+        path,
+        search,
+      }),
     ),
   );
   return screen.getByRole("navigation", { name: "Main navigation" });
 }
 
-function account(path: string, pin = true, person: object = user) {
+function account(
+  path: string,
+  pin = true,
+  person: object = user,
+  onShowShortcuts?: () => void,
+) {
   vi.mocked(usePlayer).mockReturnValue({ clear: vi.fn() } as never);
   render(
     createElement(
@@ -49,12 +58,13 @@ function account(path: string, pin = true, person: object = user) {
         user: person as typeof user,
         lock: { ...lock, pin_enabled: pin },
         path,
+        onShowShortcuts,
       }),
     ),
   );
 }
 
-test("the main navigation offers Home, Search, Discover and Library links", () => {
+test("the main navigation offers Home, Search, Discover, Library and Plugins links", () => {
   const navigation = sidebar("/library");
   const links = within(navigation).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
@@ -62,12 +72,14 @@ test("the main navigation offers Home, Search, Discover and Library links", () =
     "Search⌘K",
     "Discover",
     "Library",
+    "Plugins",
   ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/home",
     "/search",
     "/discover",
     "/library",
+    "/settings?section=plugins",
   ]);
   const search = links[1];
   expect(search.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
@@ -91,8 +103,10 @@ test.each([
   ["/search", "Search⌘K"],
   ["/discover", "Discover"],
   ["/genres", "Discover"],
+  ["/settings?section=plugins", "Plugins"],
 ])("%s marks %s as the current destination", (path, current) => {
-  const navigation = sidebar(path);
+  const [pathname, search = ""] = path.split("?");
+  const navigation = sidebar(pathname, search ? `?${search}` : "");
   const marked = within(navigation)
     .getAllByRole("link")
     .filter((link) => link.getAttribute("aria-current") === "page");
@@ -101,7 +115,9 @@ test.each([
 
 test("the mark names the product", () => {
   sidebar("/library");
-  expect(screen.getByRole("link", { name: /hito/ })).toBeTruthy();
+  const home = screen.getByRole("link", { name: "Hito home" });
+  expect(home.getAttribute("href")).toBe("/home");
+  expect(home.querySelector("img")?.getAttribute("src")).toMatch(/hito-logo/);
 });
 
 test("playlists are listed with a create link", () => {
@@ -114,10 +130,17 @@ test("playlists are listed with a create link", () => {
   ).toBe("/playlists#new-playlist");
   expect(
     within(list)
-      .getByRole("link", { name: "Sunday calm" })
+      .getByRole("link", { name: /^Sunday calm/ })
       .getAttribute("href"),
   ).toBe("/playlists/p1");
 });
+
+function optionLabels(): string[] {
+  fireEvent.click(screen.getByRole("button", { name: "Account options" }));
+  return within(screen.getByRole("menu", { name: "Account options" }))
+    .getAllByRole("menuitem")
+    .map((item) => item.textContent ?? "");
+}
 
 test("the avatar opens account and settings while lock and sign out stay reachable", () => {
   account("/library");
@@ -126,8 +149,46 @@ test("the avatar opens account and settings while lock and sign out stay reachab
       .getByRole("link", { name: "Account and settings" })
       .getAttribute("href"),
   ).toBe("/settings");
-  expect(screen.getByRole("button", { name: "Lock" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+  expect(optionLabels()).toEqual(["Lock", "Sign out"]);
+  expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+});
+
+test("an administrator row shows the full role text", () => {
+  account("/library", true, { ...user, admin: true });
+  const link = screen.getByRole("link", { name: "Account and settings" });
+  expect(link.querySelector(".account-name small")?.textContent).toBe(
+    "Administrator",
+  );
+});
+
+test("a member row shows the account and settings hint", () => {
+  account("/library");
+  const link = screen.getByRole("link", { name: "Account and settings" });
+  expect(link.querySelector(".account-name small")?.textContent).toBe(
+    "Account and settings",
+  );
+});
+
+test("the options menu lists shortcuts, lock and sign out as the shell allows", () => {
+  account("/library", true, user, vi.fn());
+  expect(optionLabels()).toEqual(["Keyboard shortcuts", "Lock", "Sign out"]);
+});
+
+test("the options menu omits lock without a PIN and shortcuts without a handler", () => {
+  account("/library", false, { ...user, admin: true });
+  expect(optionLabels()).toEqual(["Sign out"]);
+});
+
+test("choosing an option closes the menu and returns focus to its trigger", () => {
+  const onShowShortcuts = vi.fn();
+  account("/library", true, user, onShowShortcuts);
+  optionLabels();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Keyboard shortcuts" }));
+  expect(onShowShortcuts).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Account options" }),
+  );
 });
 
 test("the account menu shows the display name, its initials, and falls back to the username", () => {
@@ -155,7 +216,7 @@ test("a hostile display name is shown as text, never as markup", () => {
 
 test("lock is offered only with a PIN", () => {
   account("/library", false);
-  expect(screen.queryByRole("button", { name: "Lock" })).toBeNull();
+  expect(optionLabels()).not.toContain("Lock");
 });
 
 test("the settings link is current on settings pages", () => {
@@ -180,7 +241,6 @@ test("library sections keep every collection page reachable from Library", () =>
     "/playlists",
     "/podcasts",
     "/audiobooks",
-    "/likes",
     "/history",
   ]);
   expect(
@@ -200,8 +260,15 @@ test("each sidebar playlist name carries its full text as a tooltip", () => {
   const names = within(navigation.parentElement as HTMLElement)
     .getAllByRole("link")
     .filter((link) => link.getAttribute("href")?.startsWith("/playlists/"))
-    .map((link) =>
-      link.querySelector("span:last-child")?.getAttribute("title"),
-    );
+    .map((link) => link.querySelector("[title]")?.getAttribute("title"));
   expect(names).toEqual(["Sunday calm", "Running"]);
+});
+
+test("the sidebar starts the playlists with Liked tracks", () => {
+  sidebar("/library");
+  const list = document.querySelector(".sidebar-playlists") as HTMLElement;
+  const links = within(list)
+    .getAllByRole("link")
+    .map((link) => link.getAttribute("href"));
+  expect(links.slice(0, 2)).toEqual(["/playlists#new-playlist", "/likes"]);
 });

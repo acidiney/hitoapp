@@ -40,7 +40,7 @@ export async function prepareMetadataCopy(
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("link", { name: "Plugins", exact: true })
     .click();
-  await page.getByText("Services for this server", { exact: true }).click();
+  await page.getByRole("button", { name: /^This server/ }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
   const offered = await creditPost<Schema<"PluginService">>(
     page,
@@ -53,9 +53,10 @@ export async function prepareMetadataCopy(
     offered.body.base_url === owned.address &&
       offered.body.name === owned.manifest.name,
   ).toBe(true);
+  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Service", exact: true })
-    .selectOption(offered.body.id);
+    .getByRole("button", { name: `Connect ${offered.body.name}`, exact: true })
+    .click();
   await page
     .getByLabel("Bearer token (optional)", { exact: true })
     .fill(owned.token);

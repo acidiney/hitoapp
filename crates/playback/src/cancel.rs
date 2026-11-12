@@ -1,15 +1,21 @@
 #[derive(Clone)]
-pub struct SourceStop(tokio::sync::watch::Sender<bool>);
+pub struct SourceStop(tokio_util::sync::CancellationToken);
 
 impl SourceStop {
     pub(crate) fn new() -> Self {
-        Self(tokio::sync::watch::channel(false).0)
+        Self(tokio_util::sync::CancellationToken::new())
+    }
+
+    #[cfg(feature = "device")]
+    pub(crate) fn child(&self) -> Self {
+        Self(self.0.child_token())
     }
 
     pub fn request(&self) {
-        if self.0.send_replace(true) {
+        if self.0.is_cancelled() {
             return;
         }
+        self.0.cancel();
         tracing::debug!(
             event = "native_input_stop_requested",
             "Native input stop requested"
@@ -17,11 +23,10 @@ impl SourceStop {
     }
 
     pub(crate) fn requested(&self) -> bool {
-        *self.0.borrow()
+        self.0.is_cancelled()
     }
 
     pub(crate) async fn cancelled(&self) {
-        let mut receiver = self.0.subscribe();
-        let _ = receiver.wait_for(|value| *value).await;
+        self.0.cancelled().await;
     }
 }

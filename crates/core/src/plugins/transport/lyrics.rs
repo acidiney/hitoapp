@@ -77,3 +77,61 @@ impl ControlClient {
         Ok(response)
     }
 }
+
+impl ControlClient {
+    pub(in crate::plugins) async fn lyrics_v2_supported_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+    ) -> Result<bool> {
+        let mut remaining = 4096;
+        let descriptor: Option<serde_json::Value> = self
+            .exchange_optional_admitted(
+                base_url,
+                token,
+                Call {
+                    path: hito_plugin_sdk::LYRICS_V2_CAPABILITIES_PATH,
+                    body: None,
+                    maximum: 4096,
+                },
+                &mut remaining,
+                true,
+            )
+            .await?;
+        Ok(descriptor
+            .and_then(|value| {
+                serde_json::from_value::<hito_plugin_sdk::LyricsCapabilitiesV2>(value).ok()
+            })
+            .is_some_and(|capabilities| capabilities.validate().is_ok()))
+    }
+
+    pub(in crate::plugins) async fn lyrics_v2_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &LyricsRequest,
+    ) -> Result<hito_plugin_sdk::LyricsResponseV2> {
+        request
+            .validate()
+            .map_err(|_| Error::Invalid("Use a valid reviewed provider identity".into()))?;
+        let body = serde_json::to_value(request)
+            .map_err(|_| Error::Internal("The lyric request could not be encoded".into()))?;
+        let mut remaining = MAX_LYRICS_RESPONSE_BYTES;
+        let response: hito_plugin_sdk::LyricsResponseV2 = self
+            .exchange_admitted(
+                base_url,
+                token,
+                Call {
+                    path: hito_plugin_sdk::LYRICS_V2_PATH,
+                    body: Some(body),
+                    maximum: MAX_LYRICS_RESPONSE_BYTES,
+                },
+                &mut remaining,
+            )
+            .await?;
+        response
+            .validate_for(request)
+            .map_err(|_| Error::Upstream("The provider returned an invalid lyric response"))?;
+        Ok(response)
+    }
+}

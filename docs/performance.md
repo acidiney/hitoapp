@@ -34,18 +34,18 @@ flowchart LR
     Resolve --> Open[Open file or provider stream]
     Open --> Decode[Decode and output]
     Decode --> Sink[Null sink]
-    Sink --> Monitor[Monitor reads the first non-zero frame]
+    Sink --> Monitor[Detect audio after a completed monitor read]
   end
 ```
 
 Browser start: the clock starts in the page at the capture-phase `click` event of the real Play button. It stops at the first moment a tight in-page loop sees the player's media clock above zero while the element is not paused, after the `playing` event. The `playing` time is recorded too. The loop avoids the 250 ms granularity of `timeupdate`. This is the media clock, not measured sound: headless browsers have no audio device.
 
-Native start: the clock starts before the `Replace` command is submitted to the player owner, which the desktop UI follows with `Resume`. It stops at the first non-zero frame an independent `parec` process reads from the monitor of a PulseAudio null sink that the player's CPAL/ALSA output feeds. The commands are called in process; the desktop's local HTTP or IPC hop is not included.
+Native start: the clock starts before the `Replace` command is submitted to the player owner, which the desktop UI follows with `Resume`. It stops at the local monotonic timestamp taken after a `parec` monitor read containing a sample above an absolute amplitude of `1e-4`. Reads request up to 5 ms of 48 kHz stereo PCM from the PulseAudio null sink fed by CPAL/ALSA. This detects monitor output, with read buffering and scheduling delay; it does not timestamp the first audible frame or physical presentation. The commands are called in process; the desktop's local HTTP or IPC hop is not included.
 
 Recovery: the fake provider cuts the playing stream (it destroys the socket) and answers further requests for that source with 503. Two numbers are kept for each sample.
 
-- Failure to audible: from the cut to audible output again. This is the number compared with the 3 s target because it is the stricter reading.
-- Audible gap: from the moment the failure is seen (the browser raises a media error, or the native output falls silent) to audible output again. This is what a listener hears as an interruption.
+- Failure to audible: for native playback, from immediately before the socket-cut command is sent until a fresh monitor read after verified replacement. The current example first requires a different source for the same recording and queue entry, Ready/playing state and subsequent independent position progress. The provider's socket-cut timestamp has a separate clock and is not subtracted from the local monotonic clock. The full release runner must compare the resulting distribution with the 3 s target.
+- Audible gap: from the moment the failure is seen (the browser raises a media error, or the native output falls silent) to audible output again. This is a monitor-level interruption estimate; physical presentation is not measured.
 
 The browser stops playing when it sees the error. The native player keeps playing audio it already buffered. The fake provider sends 1.5 s of audio at once and then at real-time speed, so about 1.2 s of buffered audio remains at the cut. That buffer inflates the native failure-to-audible number by a fixed amount, which is why both numbers are reported.
 
@@ -58,10 +58,66 @@ Two alternatives are measured. In the cached alternative the recording already h
 - Browser: Playwright 1.56.1 with headless Chromium 141 for FLAC, MP3 and provider MP3. Chromium from Playwright does not decode AAC, so M4A is measured with Playwright's WebKit. The same browser session stays open for a series; each sample searches the library box for one title and clicks its Play button, so the app is warm and the track is new.
 - Native: the `start_latency` example of `hito-playback`, built in release mode, with its own core instance on the same library. It runs in the desktop tools container under the same null-sink audio harness the native playback tests use.
 - Fake provider: `apps/web/e2e/latency/fake-provider.mjs`, a loopback HTTP service that implements the plugin protocol (manifest, search, detail, sources, ranged audio) for 630 recordings. The audio is one 60 second, 128 kb/s MP3. It delays every response by a settable number of milliseconds. 0 ms and 40 ms are used. 40 ms stands for a regional connection and is a stand-in for the round trip time, not a measured network.
-- Samples: 100 measured samples per series after 5 discarded warm-up samples. Every sample uses a different track or recording, picked by a fixed stride through the library. A failed sample (no audible output within 15 seconds) counts as an infinite latency in the percentiles and is listed.
+- Samples: 100 measured samples per series after 5 warm-up samples excluded from percentiles. Every sample uses a different track or recording, picked by a fixed stride through the library. A failed sample (no audible output within 15 seconds) counts as an infinite latency in the percentiles and is listed.
 - Statistics: nearest-rank percentiles (the value at rank ceil(p × n)).
 
 The provider delay applies to the provider only. Start scenarios apply it for the whole sample. Recovery scenarios apply it from the moment of the cut.
+
+## Native repeat qualification
+
+The results below remain the 6 November run. No new 100-sample native run has been made. A native repeat means nine series with 100 measured attempts each, plus five warmups per series, for 900 measured attempts and 45 warmups.
+
+The benchmark prerequisite work on 11 November has 27 focused Rust controls for owned streams, processes and CSV production, plus thirteen report CLI controls. Quiet-output controls require the full continuous interval in newly observed frames and reject acceptance after the original monotonic deadline. These controls also verify fragmented stereo PCM, recorder EOF/read errors/panic, joined cleanup, bounded provider output, request deadlines and late-ack rejection. Warmup outcomes are retained separately from measured samples. The explicit `--strict-native` report mode requires every measured index 0–99 in all nine series, all 45 warmups, finite successful timings and explicit failure counts. Failed warmups or measured attempts mark reliability failure; the nearest-rank percentile formula is unchanged. Strict-native rendering uses only the validated native snapshot. Rejected structure produces static failure output and safe counts; malformed configuration cannot define output identifiers, and unvalidated browser rows are excluded. Structurally valid data with failed attempts still renders its reliability result. File I/O failures emit static operation codes without original paths or stacks. Browser-only reports keep their existing mode.
+
+An independent fresh-source Docker repeat passes all 27 Rust and thirteen CLI controls with exact test-name sets, no failures and no ignored cases. The original 25 Rust and ten CLI names remain. Strict example Clippy and workspace formatting pass, and all 3,934 source and support inputs remain unchanged. The capture and protocol implementations have separate cohesive test modules. Two review rounds found and resolved stale silence, late acceptance and report privacy failures; their original failing observations remain recorded.
+
+These prerequisite controls do not qualify playback latency. At that checkpoint, successful recording start, recovery and focused private-audio verification remained pending. Later evidence appears under [source-verified recovery](#source-verified-recovery-measurements) and [runner gate qualification](#native-runner-gate-qualification). The provider command budget proof applies only to the pinned, owned benchmark protocol: a fresh stdin pipe, one outstanding command of at most 512 bytes including its newline, and a reply emitted after that line is consumed. Any timeout or protocol error retires the owner before another write. Reply payload validation runs inside this retirement boundary, with original-deadline checks after receipt and after validation. The deadline control proves rejection after validation crosses the original budget; it does not reproduce the precise queued-before-receive scheduler window.
+
+At that checkpoint, strict-native mode checked data completeness and reliability; runner integration and p95 enforcement remained open. The [runner gate qualification](#native-runner-gate-qualification) records their later completion. No new audio, release build or 900-attempt measurement was performed for this prerequisite qualification.
+
+### Checked commands and owned resources
+
+The next development slice checks each Player command receipt, including Pause. Start commands and start observation share one original deadline; Pause and its fresh quiet interval also share one deadline. A rejected command, command timeout or late receipt retires the controller before a later command can submit. An observation timeout after accepted command receipts remains a failed measurement and can settle through checked Pause. Failed measurements still prevent a successful run.
+
+The owned resource scope catches work unwind, attempts every cleanup after returned failures and preserves both work and cleanup outcomes. It closes Player before finishing the recorder and sample output, finishes the provider, drops Core callers and waits for SQLite worker-local resources before releasing the temporary directory. An exceeded retirement budget remains a reported failure while storage stays retained through actual drainage. This is not an OS-thread or TLS-destructor join. Partial CSV measurements survive rejected commands, and startup failures still record the run outcome. The run status distinguishes incomplete, failed and complete work; prior result artifacts are refused rather than overwritten.
+
+An independent fresh-source Docker run passes 42 Rust controls in 12.82 seconds and all thirteen CLI controls with exact names, zero failures, zero ignored cases and zero filtered cases. The original 27 Rust names remain. Strict device-example Clippy and workspace formatting pass; all 3,944 source and support inputs remain unchanged, and Cargo reports the Core `test-support` feature used by the resource controls. Fresh security, correctness and performance reviews pass against the same six owned source files. The independent result manifest has SHA-256 `1fc84f559368f824bd931cd401de43e0fab2a3e4734d2ab5056f9a6099c7a6d2`.
+
+These controls use real temporary Core SQLite and public Player commands. The supported Pause control constructs a native-capable player with no current recording and an empty queue; it creates no audio Session, decoder or output. Other controls exercise rejected authorization, expired Clear, startup and claim errors, owned pipe readers, unwind, held SQLite retirement and partial output. No benchmark main invocation, audio fixture generation, successful recording start, recovery, zero-gap observation, release build or 900-attempt measurement is included. Those checks and full-runner threshold enforcement remained open at that checkpoint. Later [recovery](#source-verified-recovery-measurements) and [runner gate](#native-runner-gate-qualification) qualifications record the subsequent work.
+
+### Source-verified recovery measurements
+
+The current example checks that recovery actually changed source for the same recording and queue entry. It then requires Ready/playing state, a later independent position observation and newly read audible PCM within the original deadline. An old-source content gap or buffered tone cannot satisfy replacement by itself. A continuous audible capture can yield a fresh observation without another silence transition; that pipe behavior does not establish physical zero-gap output.
+
+A fresh combined-source Docker repeat passes all 43 ordinary Rust controls, preserving the original 42 names, and all thirteen report CLI controls. Two private native controls are ignored by the ordinary invocation and pass when explicitly run with actual CPAL/ALSA output into an isolated PulseAudio null sink. The two-source positive confirms replacement and subsequent progress; the A-only negative confirms playing progress before withdrawal, then rejects the buffered original. Both finish their process, SQLite and storage retirement checks cleanly. Strict example Clippy and workspace formatting pass; all 4,121 source inputs remain unchanged. Root separately repeats the thirteen CLI controls.
+
+The fixed Debug main is also executed, rather than only linked. Its nine single-attempt series complete in 19.45 seconds, with nine successful rows, no warmups, no failed rows and clean retirement. Local starts are 124.32–139.52 ms; the two direct remote starts are 149.09 and 373.30 ms; four source recoveries are 1,480.38–1,748.06 ms. The owned deterministic fixtures, source identity witnesses and output records are preserved with the qualification evidence. This is a bounded Debug smoke, not percentiles or a release measurement.
+
+The independent result manifest has SHA-256 `78cba195eb9f3e4d67d9cecd555e79eb96a0d2ea41e0c74b1abf13a9d2aa769c`. The example main hashes to `944eb1c1cfc47234fad9e7f9b3b41394e49bbabd64b59e7d6fab24f20e01f821`. The verifier starts from the accepted backend plus the seven frozen measurement files, with a new Cargo target and read-only source. No application deployment, physical presentation timestamp or platform installer is qualified.
+
+At that checkpoint, a current release build, all 900 measured attempts and 45 warmups, full-runner threshold enforcement and physical output remained open. The [runner gate qualification](#native-runner-gate-qualification) below completes enforcement only. The older percentile results do not gain these stronger source-causality checks retroactively.
+
+## Native runner gate qualification
+
+Development source at `87b10d584` adds `--gate-native` to the report CLI and invokes it automatically after native collection, including native-only runs and failed collections with retained evidence. Report-only runs also select it when native artifacts exist. The gate requires all nine native series, exactly 900 measured rows with indices 0–99 per series and 45 warmup rows with indices 0–4 per series. Successful timings must be finite and nonnegative. Every attempt and warmup must succeed, the final run must report complete work, output and SQLite retirement, and failure counts must agree. The runner also requires successful owned-runtime cleanup. A report checks the runtime record when present.
+
+Each native series must meet its inclusive nearest-rank p95 target: 250 ms for local start, 2,000 ms for ready remote start and 3,000 ms for recovery. Browser series stay in the combined visual report but cannot affect native acceptance. The prior default report and explicit `--strict-native` semantics remain unchanged. Partial and failing rows, warmups and final outcomes remain available; existing collection outputs are refused rather than replaced.
+
+Source fingerprints cover tracked and unignored source inputs. A separate hash of the worktree path gives each source/worktree pair its own Cargo target namespace. The actual compiler container takes the shared primary-target `flock` on FD 9 before resource admission and passes that descriptor to compiler descendants. A controller exit therefore cannot release exclusion while a compiler descendant still owns it. The public shell runner forwards cancellation to its build guard and joins it. Build and runtime guards join their detached creation client, then make a final positive check that their owned container has retired, including a container created late during cancellation.
+
+```mermaid
+flowchart LR
+  Runner[Shell runner] --> Guard[Build guard and resource checks]
+  Guard --> Owner[Compiler container owns FD 9 lock]
+  Owner --> Compiler[Compiler descendants inherit FD 9]
+  Runner --> Runtime[Owned native runtime]
+  Runtime --> Evidence[Rows and final cleanup outcome]
+  Evidence --> Gate[Native completeness, reliability and p95 gate]
+```
+
+Fresh R2 review passes. An independent sanitized combined-source Docker Compose tools-profile repeat passes all 73 Node controls in 33.805 seconds with exact R2 names and 4,177 unchanged inputs. All 69 earlier cases remain, plus four lifecycle cases with retained failing and passing observations for public-runner cancellation and delayed build/runtime creation. A real private temporary shell/FD 9 `flock` control checks descendant inheritance after controller death. Docker lifecycle checks use an owned protocol fake; they do not launch a Rust compiler or prove Docker runtime performance.
+
+This qualifies gate enforcement and owned lifecycle behavior. No new Rust or image build, actual 900-attempt measurement, physical presentation or reference-hardware result was produced. A separately qualified guarded Release server build and immutable server/tools images remain preparation dependencies. The full current Release repeat, physical output, documented reference hardware/network and release load gates remain open.
 
 ## Environment of the recorded run
 
@@ -182,24 +238,36 @@ No target was missed, so nothing was profiled for a fix. The data does show wher
 
 ## Run it again
 
-`scripts/bench-playback.sh` (or `make bench-playback`) runs the whole measurement. It needs Docker, about 3 GB for the generated library volume and 1.5 GB of Cargo output, a free host with nothing heavy running, and about 80 minutes for 10,000 tracks (about 30 minutes of that are the two first scans). The script refuses to start while another `hito-arch-latency` container exists.
+`scripts/bench-playback.sh`, also available as `make bench-playback`, runs the opt-in measurement. It never builds or pulls a server or tools image. Use separately qualified prebuilt images, including a server from a guarded Release build. The runner does not establish that preparation or a reference-hardware result. The historical run took about 80 minutes, including about 30 minutes for its two serial first scans. That duration is historical evidence, not an estimate for the current runner.
 
-It uses its own Compose project (`hito-arch-latency` by default), separate volumes, and never the normal `hito` project. The steps are `library`, `browser`, `native` and `report`, set with `BENCH_STEPS` (all four by default). Other settings:
+Freeze the intended source, then inspect its fingerprint and path-specific target namespace on the host:
 
-| Variable                 | Default                           | Purpose                                              |
-| ------------------------ | --------------------------------- | ---------------------------------------------------- |
-| `BENCH_SAMPLES`          | 100                               | Measured samples per series                          |
-| `BENCH_RTT_MS`           | 40                                | Provider delay for the delayed scenarios             |
-| `BENCH_TRACKS`           | 10000                             | Library size (use 300 for a quick development run)   |
-| `BENCH_LIBRARY_VOLUME`   | `hito-arch-latency_library`       | Volume that holds the generated library              |
-| `BENCH_SERVER_CACHE_ID`  | `hito-arch-latency-release`       | Docker build cache for the release server            |
-| `BENCH_RESULTS`          | `test-results/latency`            | Where results are written (ignored by Git)           |
+```sh
+node scripts/bench/resource-guard.mjs identity
+```
 
-The results directory holds `browser-samples.csv` and `native-samples.csv` (every sample), `results.md` and `summary.json` (the tables), `latency-distribution.png`, `host.txt` and the two environment files. The first run builds a release server image and a release native example, which takes a while.
+For browser collection, set `BENCH_SERVER_IMAGE` to an immutable local image ID or digest and `BENCH_SERVER_SHA256` to the qualified server binary's SHA-256. The image must carry matching `org.hito.benchmark.source_id` and `org.hito.benchmark.server.sha256` labels. The runner checks the fingerprint, both labels and the actual `/usr/local/bin/hito-server` bytes. Labels alone do not qualify the build. For library generation or native collection, set `BENCH_NATIVE_TOOLS_IMAGE` to the qualified immutable local desktop-tools image ID or digest. Report-only use needs neither server nor tools image.
 
-To remove what a run leaves behind, remove the containers of the project, its images and the volumes `hito-arch-latency_library` and `hito-arch-latency_rust-target` by name. Do not prune globally.
+The default Compose project is unique to the source and run, `hito-bench-<fingerprint>-<runid>`. A `BENCH_PROJECT` override must use the owned `hito-bench-` prefix and be idle, including no stopped containers. The benchmark server uses the e2e profile with synthetic music and `/data` on tmpfs. It never uses the normal persistent server data volume. Keep any library-volume override exclusive to owned synthetic data. Rust/Node work uses the tools profile.
 
-The measurement code is `apps/web/e2e/latency/` (browser and fake provider), `crates/playback/examples/start_latency.rs` (native) and `scripts/bench/` (library, report and chart). None of it runs in the default test suites or ships in release binaries.
+Native compilation uses the existing primary `hito-arch_rust-target` volume at `/build/bench-<source>-<worktree>`, with debug information and incremental compilation disabled. Its guard reserves a 2.4 GiB namespace allowance, accounts for all Hito target volumes, registered and sibling worktree targets and BuildKit Cargo caches within the 10 GiB combined bound, and retains at least 40 GiB of host headroom before and during compilation. Unknown or active BuildKit Cargo caches block admission. The external `hito-arch_cargo-registry`, `hito-arch_cargo-git`, `hito-arch_rust-target` and `hito-arch_node-modules` volumes must already exist. See [the lock and lifecycle qualification](#native-runner-gate-qualification).
+
+The steps are `library`, `browser`, `native` and `report`, selected with `BENCH_STEPS`; all four run by default. Settings include:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `BENCH_SAMPLES` | 100 | Measured attempts per series |
+| `BENCH_WARMUP` | 5 | Excluded warmup attempts per series |
+| `BENCH_RTT_MS` | 40 | Provider delay for delayed scenarios |
+| `BENCH_TRACKS` | 10000 | Synthetic library size |
+| `BENCH_LIBRARY_VOLUME` | `<project>_library` | Owned synthetic library volume |
+| `BENCH_RESULTS` | `test-results/latency` | Collection output directory, ignored by Git |
+
+Use a fresh collection output directory. The runner refuses existing browser/native outputs or a prior `host.txt` before collecting. Native collection compiles the Release example under the guard, retains partial samples and final outcomes on failure, and always runs the native acceptance gate. Reducing sample or warmup counts can help a development smoke, but cannot pass the 900-attempt gate.
+
+Outputs include sample CSVs, separate native warmups, environment records, `host.txt`, `results.md`, `summary.json` and chart data. Native evidence also includes validation, gate, build-resource, build-result, execution, runtime-result and final run records. The runner retires its owned containers and run-labelled network. Reclaim only inactive, regenerable artifacts belonging to the run, such as its synthetic library and its exact target namespace after confirming it is unused. Never delete the whole shared target volume, normal application data or another project's artifacts, and never prune globally.
+
+The measurement code is `apps/web/e2e/latency/` for browser/provider work, `crates/playback/examples/start_latency.rs` for native measurement, and `scripts/bench/` for generation, qualification and reporting. The full measurement is opt-in and does not ship in release binaries.
 
 
 ## Library scan speed
@@ -262,3 +330,18 @@ Scaling on 1,000 tracks (first scan): parallelism 1 took 92.4 s, 4 took 25.5 s (
 Projection for 100,000 tracks, extending the 10,000-track rates linearly (not measured): the serial scan would take about 2.6 hours; the parallel scan about 24 minutes on this host with 8 slots, and a rescan with no changes about 2 minutes. Larger libraries add database size and directory depth, which were not measured. A cold disk was not measured either; the library was warm in the operating system cache.
 
 The first scan is still processor-bound by the two child processes. Raising the cap above 8 would help this host (9.0x at 15) but takes processor time from playback and requests on a small server, so the default stops at 8.
+
+## Source-artist metadata writes
+
+Development source includes migration 0093, which replaces only the two source-artist triggers. A stale small-catalog estimate previously let SQLite scan recordings for each source-metadata insertion or artist update. The replacement uses existing indexed source and recording identities. Per-library artist assignment, generated identities and conflict behavior remain unchanged.
+
+Pinned SQLx SQLite 3.46.0 tests measure whole-statement VM work, including the triggers:
+
+| Operation, 128 to 512 recordings         |   Previous triggers |   Migration 0093 |
+| ---------------------------------------- | ------------------: | ---------------: |
+| Metadata insert, stale statistics        | 80,100 to 1,107,000 | 15,200 to 60,900 |
+| Metadata artist update, stale statistics | 77,600 to 1,096,700 | 12,700 to 50,700 |
+
+The fixed work grows about four times for four times the input under absent, stale and fresh statistics, on fresh and upgraded databases. Query-plan checks require both indexed lookups. Five focused cases cover work, old/new semantics, current catalog privacy and exact migration preservation. Historical source and playlist upgrade regressions pass. Three independent specialist reviews and an independent test repeat also pass.
+
+The 92-to-93 upgrade preserves prior typed cells, rowids, FTS tables, migration receipts/checksums and planner statistics, while changing exactly the two trigger definitions. This is source-level development qualification, not a deployed upgrade or physical power-loss test. It measures the targeted lookup work at 128 and 512 recordings, not a 100,000-file scan, unique-artist growth, storage I/O, playback p95 or the complete release load.

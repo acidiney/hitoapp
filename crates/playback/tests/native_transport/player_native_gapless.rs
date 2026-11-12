@@ -21,12 +21,29 @@ struct Run {
     state: watch::Receiver<PlayerSnapshot>,
     position: watch::Receiver<PlayerPosition>,
     sequence: u64,
+    diagnostics: hito_testkit::logs::LogCapture,
 }
 
 impl Run {
     async fn start(recordings: impl Fn(&fixture::TwoTracks) -> Vec<&str>) -> Self {
         let f = fixture::TwoTracks::start(FIRST, SECOND).await;
-        let (player, owner) = Player::native(f.services.clone());
+        let diagnostics = hito_testkit::logs::LogCapture::unbounded();
+        let dispatch = if std::env::var_os("HITO_CAPTURE_DUMP").is_some() {
+            hito_testkit::logs::anchor_callsite_interest();
+            let writer = diagnostics.clone();
+            tracing::Dispatch::new(
+                tracing_subscriber::fmt()
+                    .json()
+                    .with_ansi(false)
+                    .with_max_level(tracing::Level::DEBUG)
+                    .with_writer(move || writer.clone())
+                    .finish(),
+            )
+        } else {
+            tracing::Dispatch::none()
+        };
+        let (player, owner) =
+            tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));
         let lease = player
             .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
             .await
@@ -46,6 +63,7 @@ impl Run {
             state,
             position,
             sequence: 0,
+            diagnostics,
         };
         run.send(PlayerAction::Replace {
             recordings: ids,
@@ -111,6 +129,9 @@ impl Run {
     async fn heard(self, capture: &Capture) -> Vec<f32> {
         self.owner.close().await.unwrap();
         capture.after(capture.mark(), 0.3);
+        if std::env::var_os("HITO_CAPTURE_DUMP").is_some() {
+            eprintln!("{}", self.diagnostics.text());
+        }
         capture.all()
     }
 }
@@ -270,6 +291,7 @@ async fn a_chosen_speed_carries_into_the_next_recording_without_a_gap() {
     run.queue_finishes().await;
     let captured = run.heard(&capture).await;
     let start = captured.iter().position(|sample| *sample != 0.).unwrap();
+    dump("speed-two", &captured);
     let boundary = start + FIRST as usize / 2;
     let around = &captured[boundary - 2_400..boundary + 2_400];
     eprintln!("queue speed 2 gap frames={}", longest_run(around));

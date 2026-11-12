@@ -6,7 +6,7 @@ import {
   settingHref,
 } from "../model/settingsSearch";
 import { setting } from "../model/settingsCatalog";
-import { visibleGroups } from "../model/sections";
+import { visibleSections } from "../model/sections";
 
 const labels = (query: string, admin = true) =>
   searchSettings(query, admin).map((hit) => hit.label);
@@ -28,6 +28,7 @@ test("results say which section holds each setting", () => {
     kind: "setting",
     label: "Change password",
     sectionLabel: "Profile",
+    place: "Profile",
     section: "profile",
     href: "/settings?section=profile#setting-change-password",
   });
@@ -56,14 +57,19 @@ test("a label match ranks above a description match", () => {
 });
 
 test("keywords find settings whose words are not in the title", () => {
-  expect(labels("log out")).toContain("Session");
-  expect(labels("pin")).toContain("Screen lock");
+  expect(labels("log out")).toContain("Sign out");
+  expect(labels("pin")).toEqual(
+    expect.arrayContaining(["PIN", "Lock when idle", "Lock now"]),
+  );
+  expect(searchSettings("pin", true)[0].place).toBe(
+    "Privacy & lock · Screen lock",
+  );
 });
 
 test("members never see administrator sections or settings", () => {
   expect(labels("accounts", false)).not.toContain("Accounts");
-  expect(labels("accounts", false)).not.toContain("Accounts and access");
-  expect(labels("accounts", true)).toContain("Accounts and access");
+  expect(labels("accounts", false)).not.toContain("People");
+  expect(labels("accounts", true)).toContain("People");
   expect(labels("corrections", false)).toEqual([]);
   expect(labels("service address", false)).not.toContain(
     "Services for this server",
@@ -72,11 +78,7 @@ test("members never see administrator sections or settings", () => {
 
 test("every result lands on a section the viewer can open", () => {
   for (const admin of [true, false]) {
-    const open = new Set(
-      visibleGroups(admin).flatMap((group) =>
-        group.sections.map((section) => section.id),
-      ),
-    );
+    const open = new Set(visibleSections(admin).map((section) => section.id));
     for (const query of ["a", "e", "o", "s", "plugin", "password"])
       for (const hit of searchSettings(query, admin))
         expect(open.has(hit.section)).toBe(true);

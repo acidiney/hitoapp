@@ -50,10 +50,8 @@ test("each account row shows its last active time or that no session is open", a
   ]);
   view();
   await screen.findByText("listener");
-  expect(
-    screen.getByText("Administrator · Last active 5 minutes ago"),
-  ).toBeTruthy();
-  expect(screen.getByText("Member · No open sessions")).toBeTruthy();
+  expect(screen.getByText("Administrator · active 5 minutes ago")).toBeTruthy();
+  expect(screen.getByText("Member · no open sessions")).toBeTruthy();
 });
 
 test("a row shows the display name with the username beside the role, and falls back to the username", async () => {
@@ -77,13 +75,13 @@ test("a row shows the display name with the username beside the role, and falls 
   const { container } = view();
   await screen.findByText("Ana Souza");
   expect(
-    screen.getByText("admin · Administrator · Last active 5 minutes ago"),
+    screen.getByText("admin · Administrator · active 5 minutes ago"),
   ).toBeTruthy();
-  expect(screen.getByText("listener · Member · No open sessions")).toBeTruthy();
+  expect(screen.getByText("listener · Member · no open sessions")).toBeTruthy();
   expect(screen.getByText('<img src=x onerror="window.pwned=1">')).toBeTruthy();
   expect(container.querySelector("img")).toBeNull();
   expect(screen.getByText("plain")).toBeTruthy();
-  expect(screen.getByText("Member · No open sessions")).toBeTruthy();
+  expect(screen.getByText("Member · no open sessions")).toBeTruthy();
   expect(container.querySelectorAll(".avatar")[0].textContent).toBe("AS");
 });
 
@@ -97,7 +95,7 @@ test("a newly created account reads as having no open sessions", async () => {
     admin: false,
   });
   view();
-  await screen.findByText("Administrator · Last active just now");
+  await screen.findByText("Administrator · active just now");
   fireEvent.click(screen.getByRole("button", { name: "Create account" }));
   const dialog = await screen.findByRole("dialog", { name: "Create account" });
   fireEvent.change(within(dialog).getByLabelText("Username"), {
@@ -109,5 +107,5 @@ test("a newly created account reads as having no open sessions", async () => {
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Create account" }),
   );
-  await screen.findByText("Member · No open sessions");
+  await screen.findByText("Member · no open sessions");
 });

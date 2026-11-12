@@ -58,6 +58,14 @@ A fallback source is published like any automatic source on the same Hito record
 
 A best-guess source already counts as a ready source, so a later Play or Find audio does not search again and a later exact match does not replace it. Replacing it with a verified source currently takes the manual choice above. Core logs the fallback with its outcome, the examined count, the chosen rank index and timing, never titles, artists or provider identifiers.
 
+## Catalog release and album tracks
+
+Discography editions and library album catalog rows share the same audio lookup. A strict musical match takes priority over higher-ranked mismatches. After strict candidates are exhausted, the host reuses the hydrated provider results and picks the first technically valid, ready candidate in the configured provider order. Known occupied bindings are skipped. An empty usable set stays `NoMatch`; provider failure stays `Unavailable`.
+
+A fresh fallback adoption saves its recording, sources and immutable `hito.provider-rank-fallback.v1` decision in one transaction. Source listings mark that current primary binding as `best_guess`. The original installation and service authority are checked again before publication. The existing adoption detail/source freshness requests remain, so the fallback adds no second search or redundant metadata hydration. Both catalog paths keep account boundaries and explicit source choices.
+
+A later strict lookup does not promote an existing best guess automatically. Explicit source choice remains the way to verify or replace it. Independent Docker checks pass 86 catalog cases, seven existing resolver fallback cases and three artist/album HTTP cases, with strict Core/server checks and formatting. Two live MusicBrainz cases remain ignored. This qualifies development source, not a running deployment or the release playback gates.
+
 The YouTube plugin searches the YouTube Music songs catalog. Its flat results can contain only a video identity and title, so the summary keeps an unknown artist and missing duration. Core still requires independently hydrated musical title, known artist, duration, version context and complete source witnesses before accepting audio. A search result alone cannot supply that evidence.
 
 Caller admission reserves at most two active account slots across cloned catalog handles. A running account rejects excess callers with a controlled conflict before SQLite. In the verified development source, a cancelling owner can reserve one successor in that same slot, with at most two successors globally. Further callers receive Busy before SQLite and create no receipt aliases. Waiting consumes the original ten-second budget; cancelling a waiting successor releases only its exact reservation. Durable pending resolutions retain their account/global limits.

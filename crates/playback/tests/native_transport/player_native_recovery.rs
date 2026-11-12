@@ -26,7 +26,14 @@ async fn a_missing_first_copy_falls_back_to_another_verified_source_of_the_recor
     };
     std::fs::remove_file(f.music.join(first)).unwrap();
     let capture = capture::Capture::open();
-    let (player, owner) = Player::native(f.services.clone());
+    let diagnostics = hito_testkit::logs::LogCapture::unbounded();
+    let dispatch = if std::env::var_os("HITO_CAPTURE_DUMP").is_some() {
+        diagnostics.dispatch("hito_playback=debug,hito_audio=debug")
+    } else {
+        tracing::Dispatch::none()
+    };
+    let (player, owner) =
+        tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));
     let attached = player
         .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
         .await
@@ -75,6 +82,17 @@ async fn a_missing_first_copy_falls_back_to_another_verified_source_of_the_recor
     assert_eq!(state.selection, 1);
     assert_eq!(state.current.unwrap().recording_id.to_string(), f.recording);
     capture.after(capture.mark(), 0.1);
-    assert!(capture::energy(&capture.recent(0.05)) > 0.00001);
+    let energy = capture::energy(&capture.recent(0.05));
+    if std::env::var_os("HITO_CAPTURE_DUMP").is_some() {
+        eprintln!(
+            "observed={:?} state={:?} capture_frames={} energy={energy}\n{}",
+            *position.borrow(),
+            state,
+            capture.mark(),
+            diagnostics.text()
+        );
+        hito_audio::test_support::continuity::dump("recovery", &capture.all());
+    }
+    assert!(energy > 0.00001);
     owner.close().await.unwrap();
 }

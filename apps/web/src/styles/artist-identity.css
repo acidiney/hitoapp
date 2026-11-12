@@ -1,0 +1,41 @@
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+.choice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.choice-row:has(:checked) {
+  border-color: var(--action);
+}
+.choice-row input {
+  margin: 4px 0 0;
+  accent-color: var(--action);
+}
+.choice-row-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.choice-row-copy > span:last-child {
+  font-size: 14px;
+  color: var(--muted);
+}
+@media (max-width: 767px) {
+  dialog.dialog footer.credit-dialog-actions {
+    flex-direction: column-reverse;
+  }
+}

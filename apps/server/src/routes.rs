@@ -29,6 +29,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
     components(schemas(
         PageComponent,
         hito_core::CatalogSort,
+        hito_core::StreamQuality,
         SharedPageProps,
         LoginPageProps,
         LockPageProps,
@@ -113,6 +114,16 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(podcasts::refresh))
         .routes(routes!(podcasts::unsubscribe))
         .routes(routes!(catalog::libraries))
+        .routes(routes!(api::catalog_snapshots::begin))
+        .routes(routes!(api::catalog_snapshots::page))
+        .routes(routes!(api::catalog_snapshots::release))
+        .routes(routes!(api::playback_leases::begin))
+        .routes(routes!(
+            api::playback_leases::status,
+            api::playback_leases::release
+        ))
+        .routes(routes!(api::playback_leases::audio))
+        .routes(routes!(api::playback_leases::audio_head))
         .routes(routes!(catalog::recordings))
         .routes(routes!(catalog::recordings_lookup))
         .routes(routes!(progress::saved_playback))
@@ -206,6 +217,14 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::featured::open_playlist))
         .routes(routes!(api::lyrics::read))
         .routes(routes!(api::lyrics::providers))
+        .routes(routes!(api::automatic_lyrics::read))
+        .routes(routes!(api::lyric_identities::services))
+        .routes(routes!(api::lyric_identities::candidates))
+        .routes(routes!(api::lyric_identities::review))
+        .routes(routes!(api::lyric_identities::retain))
+        .routes(routes!(api::lyric_identities::identities))
+        .routes(routes!(api::lyric_identities::remove))
+        .routes(routes!(api::lyric_identities::read))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
@@ -361,6 +380,7 @@ fn application(
             "/assets",
             tower_http::services::ServeDir::new(config.web_dir.join("assets")),
         )
+        .merge(crate::web_assets::router())
         .merge(api)
         .fallback(inertia::fallback)
         .layer(axum::extract::DefaultBodyLimit::max(262144))

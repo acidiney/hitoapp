@@ -123,6 +123,8 @@ export const artistReviewApi = {
           },
         ),
       signal,
+      false,
+      false,
     );
   },
 };

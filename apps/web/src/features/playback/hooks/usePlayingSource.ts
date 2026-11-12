@@ -1,30 +1,28 @@
-import { useEffect, useState } from "react";
-import type { Schema } from "../../../shared/schema";
-import { sourcesApi } from "../../sources/api/sourcesApi";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { sourceStatusStore } from "../../sources/model/sourceStatusStore";
+import { usePlayer } from "../components/PlaybackProvider";
 
 export function usePlayingSource(account: string, recording: string | null) {
-  const [found, setFound] = useState<{
-    recording: string;
-    source: Schema<"Source"> | null;
-  }>();
+  const player = usePlayer();
+  const status = useSyncExternalStore(sourceStatusStore.subscribe, () =>
+    recording ? sourceStatusStore.peek(account, recording) : null,
+  );
+  const settledPlayback = useSyncExternalStore(player.subscribe, () => {
+    const state = player.snapshot();
+    return `${state.current?.id ?? ""}|${state.loading}|${state.playing}`;
+  });
+  const lastPlayback = useRef<string | null>(null);
   useEffect(() => {
     if (!recording) return;
-    const controller = new AbortController();
-    sourcesApi
-      .playbackSources(account, recording, controller.signal)
-      .then((sources) => {
-        if (controller.signal.aborted) return;
-        const source = Array.isArray(sources)
-          ? (sources.find((item) => item.ready) ?? sources[0] ?? null)
-          : null;
-        setFound({ recording, source });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFound({ recording, source: null });
-      });
-    return () => controller.abort();
+    sourceStatusStore.refresh(account, recording);
   }, [account, recording]);
-  return found?.recording === recording
-    ? { loading: false, source: found.source }
-    : { loading: recording !== null, source: null };
+  useEffect(() => {
+    const previous = lastPlayback.current;
+    lastPlayback.current = settledPlayback;
+    if (!recording || previous === null || previous === settledPlayback) return;
+    const known = sourceStatusStore.peek(account, recording);
+    if (!known.source?.ready) sourceStatusStore.invalidate(account, recording);
+  }, [account, recording, settledPlayback]);
+  if (!recording || !status) return { loading: false, source: null };
+  return status;
 }

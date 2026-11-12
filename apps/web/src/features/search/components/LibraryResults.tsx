@@ -4,11 +4,11 @@ import { Link } from "@inertiajs/react";
 import { time } from "../../../shared/format";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import Artwork from "../../artwork/components/Artwork";
+import FallbackCover from "../../../shared/ui/FallbackCover";
 import { releaseCreditLabel } from "../../catalog/model/albumCredit";
-import TrackTable, {
-  type TrackTableRow,
-} from "../../playback/components/TrackTable";
 import type { ArtistHit } from "../model/artistHits";
+import { artistCounts } from "../../artists/model/artistCounts";
+import TrackResultRows from "./TrackResultRows";
 
 export function resultCount(shown: number, total: number): string {
   if (total > shown) return `Showing ${shown} of ${total}`;
@@ -18,18 +18,23 @@ export function resultCount(shown: number, total: number): string {
 function GroupHead({
   id,
   title,
-  shown,
-  total,
+  more,
+  note,
 }: {
   id: string;
   title: string;
-  shown: number;
-  total: number;
+  more?: { label: string; onClick: () => void };
+  note?: string;
 }) {
   return (
     <div className="search-group-head">
       <h2 id={id}>{title}</h2>
-      <span className="muted">{resultCount(shown, total)}</span>
+      {note && <span className="muted">{note}</span>}
+      {more && (
+        <button type="button" className="text-link" onClick={more.onClick}>
+          {more.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -37,28 +42,38 @@ function GroupHead({
 export function TrackResults({
   tracks,
   total,
+  limit,
   playlists,
   mutate,
+  onShowAll,
 }: {
   tracks: Schema<"Recording">[];
   total: number;
+  limit: number | null;
   playlists: Schema<"Playlist">[];
   mutate: Mutate;
+  onShowAll: () => void;
 }) {
   if (tracks.length === 0) return null;
+  const shown = limit === null ? tracks : tracks.slice(0, limit);
   return (
     <section className="search-group" aria-labelledby="search-tracks">
       <GroupHead
         id="search-tracks"
         title="Tracks"
-        shown={tracks.length}
-        total={total}
+        more={
+          limit !== null && shown.length < total
+            ? { label: `Show all ${total}`, onClick: onShowAll }
+            : undefined
+        }
+        note={
+          limit === null && shown.length < total
+            ? resultCount(shown.length, total)
+            : undefined
+        }
       />
-      <TrackTable
-        rows={tracks.map<TrackTableRow>((track) => ({
-          kind: "recording",
-          track: { ...track, row_id: track.id },
-        }))}
+      <TrackResultRows
+        tracks={shown.map((track) => ({ ...track, row_id: track.id }))}
         playlists={playlists}
         mutate={mutate}
       />
@@ -68,26 +83,22 @@ export function TrackResults({
 
 export function AlbumResults({
   releases,
-  total,
+  heading = "Albums",
 }: {
   releases: Schema<"Release">[];
-  total: number;
+  heading?: string;
 }) {
   if (releases.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-albums">
-      <GroupHead
-        id="search-albums"
-        title="Albums"
-        shown={releases.length}
-        total={total}
-      />
+      <GroupHead id="search-albums" title={heading} />
       <div className="search-cards">
         {releases.map((release) => (
           <Link
             key={release.id}
             className="search-card"
             href={`/albums/${release.id}`}
+            data-search-row=""
           >
             <Artwork
               release={release.id}
@@ -98,7 +109,7 @@ export function AlbumResults({
               }}
             />
             <span className="search-card-copy">
-              <strong>{release.title}</strong>
+              <strong title={release.title}>{release.title}</strong>
               <span>
                 {releaseCreditLabel(release) ?? "Unknown artist"} ·{" "}
                 {release.track_count}{" "}
@@ -114,25 +125,39 @@ export function AlbumResults({
   );
 }
 
-export function ArtistResults({ artists }: { artists: ArtistHit[] }) {
+export function ArtistResults({
+  artists,
+  heading = "Artists",
+}: {
+  artists: ArtistHit[];
+  heading?: string;
+}) {
   if (artists.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-artists">
-      <GroupHead
-        id="search-artists"
-        title="Artists"
-        shown={artists.length}
-        total={artists.length}
-      />
+      <GroupHead id="search-artists" title={heading} />
       <div className="search-cards">
         {artists.map((artist) => (
-          <Link key={artist.key} className="search-card" href={artist.href}>
+          <Link
+            key={artist.key}
+            className="search-card"
+            href={artist.href}
+            data-search-row=""
+          >
+            <span
+              className="search-card-art"
+              data-shape="round"
+              aria-hidden="true"
+            >
+              <FallbackCover
+                kind="artist"
+                id={artist.key}
+                title={artist.name}
+              />
+            </span>
             <span className="search-card-copy">
-              <strong>{artist.name}</strong>
-              <span>
-                {artist.albums} {artist.albums === 1 ? "album" : "albums"} ·{" "}
-                {artist.tracks} {artist.tracks === 1 ? "track" : "tracks"}
-              </span>
+              <strong title={artist.name}>{artist.name}</strong>
+              <span>{artistCounts(artist.tracks, artist.albums)}</span>
             </span>
           </Link>
         ))}

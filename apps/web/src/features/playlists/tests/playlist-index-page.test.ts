@@ -65,7 +65,7 @@ test("a populated page offers the same two actions in its header instead of two 
   ).toHaveLength(2);
 });
 
-test("New playlist opens a dialog that creates the playlist and reloads", async () => {
+test("New playlist opens a dialog that creates the playlist and closes", async () => {
   vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
   render(createElement(PlaylistIndexPage, empty), { wrapper });
   fireEvent.click(screen.getByRole("button", { name: "New playlist" }));
@@ -74,7 +74,7 @@ test("New playlist opens a dialog that creates the playlist and reloads", async 
     target: { value: "Evening" },
   });
   fireEvent.click(dialog.getByRole("button", { name: "Create playlist" }));
-  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(vi.mocked(change).mock.calls[0][1]).toMatchObject({
     kind: "playlist_create",
     name: "Evening",
@@ -111,7 +111,7 @@ test("a name you already use gets a gentle warning but can still be created", as
   }) as HTMLButtonElement;
   expect(create.disabled).toBe(false);
   fireEvent.click(create);
-  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(vi.mocked(change)).toHaveBeenCalledTimes(1));
 });
 
 test("Cancel closes the dialog without creating anything", () => {
@@ -128,7 +128,7 @@ test("the sidebar's create link opens the dialog", () => {
   expect(screen.getByRole("dialog", { name: "New playlist" })).toBeTruthy();
 });
 
-test("Import from a link opens the import form with its explanation in short separate paragraphs", () => {
+test("Import from a link opens the import dialog with a link field and a hint about the link", () => {
   render(createElement(PlaylistIndexPage, empty), { wrapper });
   fireEvent.click(screen.getByRole("button", { name: "Import from a link" }));
   const dialog = screen.getByRole("dialog", { name: "Import a playlist" });
@@ -140,13 +140,10 @@ test("Import from a link opens the import form with its explanation in short sep
       name: "Playlist link or identifier",
     }),
   ).toBeTruthy();
-  const paragraphs = [...region.querySelectorAll("p")].map(
-    (paragraph) => paragraph.textContent,
-  );
-  expect(paragraphs.slice(0, 2)).toEqual([
-    "Create an editable copy. Changes at the provider will not update it.",
-    "Hito adds track details, without downloading audio. Tracks need an available source to play.",
-  ]);
+  expect(
+    within(region).getByText(/A link looks like open\.spotify\.com\/playlist/),
+  ).toBeTruthy();
+  expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeTruthy();
 });
 
 test("without a playlist service the import dialog only offers to connect one", () => {
@@ -163,4 +160,20 @@ test("without a playlist service the import dialog only offers to connect one", 
   expect(
     within(region).getByRole("link", { name: "Connect a playlist service" }),
   ).toBeTruthy();
+});
+
+test("on a phone the header keeps a compact New playlist and moves Import into one menu", () => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("767px"),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+  render(createElement(PlaylistIndexPage, populated), { wrapper });
+  expect(screen.getByRole("button", { name: "New playlist" })).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Import from a link" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Import from a link" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
 });

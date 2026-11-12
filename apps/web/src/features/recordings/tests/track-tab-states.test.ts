@@ -4,9 +4,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { change } from "../../../shared/sync";
 import type { Schema } from "../../../shared/schema";
 import {
+  lyricObservation,
   lyricRecordingPage,
-  lyricSettings,
-  readyLyrics,
 } from "../../lyrics/fixtures/recordingLyrics";
 import { setAutomaticLyrics } from "../../lyrics/fixtures/automaticLyrics";
 import { choiceSourceA } from "../../sources/fixtures/sourceChoice";
@@ -29,16 +28,43 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
-function lyricsPage(lyrics: Schema<"LyricsLookup">, search = "") {
+const observed = {
+  selectable: true,
+  selector: {
+    kind: "observation",
+    observation_id: lyricObservation.id,
+  },
+  installation_id: lyricObservation.plugin_installation_id!,
+  installation_revision: 9,
+  provider_recording: {
+    id: lyricObservation.provider_recording_id!,
+    revision: lyricObservation.provider_revision,
+  },
+  label: "Owned private lyrics",
+} satisfies Schema<"RecordingLyricIdentity">;
+
+function lyricsPage(read: () => Response, search = "") {
   const base = `/api/v1/recordings/${lyricRecordingPage.detail.recording_id}`;
   const posts: string[] = [];
   const view = renderTrackPage(lyricRecordingPage, {
     search,
     extra: (path, options) => {
-      if (path === "/api/v1/plugins") return Response.json(lyricSettings);
-      if (path === `${base}/lyrics` && options?.method === "POST") {
+      if (path === `${base}/lyrics/identities`)
+        return Response.json({
+          recording_id: lyricRecordingPage.detail.recording_id,
+          items: [observed],
+        });
+      if (path === `${base}/lyrics/services`)
+        return Response.json({
+          recording_id: lyricRecordingPage.detail.recording_id,
+          items: [],
+        });
+      if (
+        path === `${base}/lyrics/identities/read` &&
+        options?.method === "POST"
+      ) {
         posts.push(path);
-        return Response.json(lyrics);
+        return read();
       }
       return undefined;
     },
@@ -46,22 +72,35 @@ function lyricsPage(lyrics: Schema<"LyricsLookup">, search = "") {
   return { ...view, posts };
 }
 
-const synced = (patch: Partial<Schema<"TimedLyricLine">>[]) => ({
-  ...readyLyrics,
-  document: {
-    ...readyLyrics.document,
-    lyrics: {
-      ...readyLyrics.document.lyrics,
-      lines: readyLyrics.document.lyrics.lines.map((line, index) => ({
-        ...line,
-        ...patch[index],
-      })),
+const v1 = (lines: [number, number][]): Response =>
+  Response.json({
+    status: "ready_v1",
+    recording_id: lyricRecordingPage.detail.recording_id,
+    selector: observed.selector,
+    provider_recording: observed.provider_recording,
+    document_digest: "digest",
+    document: {
+      recording: observed.provider_recording,
+      lyrics: {
+        id: "l",
+        rendition_id: "r",
+        lines: lines.map(([start_ms, end_ms], index) => ({
+          start_ms,
+          end_ms,
+          text: `Line ${index}`,
+        })),
+        attribution: null,
+      },
     },
-  },
-});
+  } satisfies Schema<"SelectedLyricsLookup">);
 
 test("lyrics load on their own for a track without audio and the Overview previews them", async () => {
-  const { posts } = lyricsPage(readyLyrics);
+  const { posts } = lyricsPage(() =>
+    v1([
+      [0, 1000],
+      [1000, 2000],
+    ]),
+  );
   const preview = await screen.findByRole("list", { name: "Lyrics preview" });
   expect(posts).toHaveLength(1);
   expect(within(preview).getAllByRole("listitem")).toHaveLength(2);
@@ -69,59 +108,68 @@ test("lyrics load on their own for a track without audio and the Overview previe
 });
 
 test("the Lyrics tab names synced lyrics Synced", async () => {
-  lyricsPage(synced([{ start_ms: 0 }, { start_ms: 1_000 }]), "?tab=lyrics");
+  lyricsPage(
+    () =>
+      v1([
+        [0, 1000],
+        [1000, 2000],
+      ]),
+    "?tab=lyrics",
+  );
   const region = await screen.findByRole("region", { name: "Lyrics" });
-  await within(region).findByRole("list", { name: "Lyric lines" });
-  expect(within(region).getByText("Synced")).toBeTruthy();
+  await within(region).findByRole("group", { name: "Lyric lines" });
+  expect(within(region).getByText(/^Synced · from/)).toBeTruthy();
 });
 
 test("lyrics without timing are named Unsynced", async () => {
-  lyricsPage(synced([{ start_ms: 0 }, { start_ms: 0 }]), "?tab=lyrics");
+  lyricsPage(
+    () =>
+      v1([
+        [0, 0],
+        [0, 0],
+      ]),
+    "?tab=lyrics",
+  );
   const region = await screen.findByRole("region", { name: "Lyrics" });
   await within(region).findByRole("list", { name: "Lyric lines" });
-  expect(within(region).getByText("Unsynced")).toBeTruthy();
-  expect(within(region).queryByText("Synced")).toBeNull();
+  expect(within(region).getByText(/^Not synced · from/)).toBeTruthy();
 });
 
 test("a provider with no lyrics for the track says so and the Overview offers a lookup", async () => {
-  lyricsPage({
-    ...readyLyrics,
-    document: { ...readyLyrics.document, lyrics: null },
-  });
+  lyricsPage(() =>
+    Response.json({
+      status: "ready_v1",
+      recording_id: lyricRecordingPage.detail.recording_id,
+      selector: observed.selector,
+      provider_recording: observed.provider_recording,
+      document_digest: "digest",
+      document: { recording: observed.provider_recording, lyrics: null },
+    } satisfies Schema<"SelectedLyricsLookup">),
+  );
   expect(
     await screen.findByRole("button", { name: "Look up lyrics" }),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Look up lyrics" }));
   const region = screen.getByRole("region", { name: "Lyrics" });
-  expect(
-    await within(region).findByText("No lyrics found for this recording."),
-  ).toBeTruthy();
+  expect(await within(region).findByText("None found")).toBeTruthy();
 });
 
 test("a failed automatic lookup keeps the error and a retry in the Lyrics tab", async () => {
-  const base = `/api/v1/recordings/${lyricRecordingPage.detail.recording_id}`;
-  renderTrackPage(lyricRecordingPage, {
-    search: "?tab=lyrics",
-    extra: (path, options) => {
-      if (path === "/api/v1/plugins") return Response.json(lyricSettings);
-      if (path === `${base}/lyrics` && options?.method === "POST")
-        return Response.json({ error: "down" }, { status: 502 });
-      return undefined;
-    },
-  });
+  lyricsPage(
+    () => Response.json({ error: "down" }, { status: 502 }),
+    "?tab=lyrics",
+  );
   const region = await screen.findByRole("region", { name: "Lyrics" });
   expect(await within(region).findByRole("alert")).toBeTruthy();
-  expect(
-    within(region).getByRole("button", { name: "Retry lyrics" }),
-  ).toBeTruthy();
+  expect(within(region).getByRole("button", { name: "Retry" })).toBeTruthy();
 });
 
 test("turning automatic lyrics off keeps the Lyrics tab waiting for an explicit request", async () => {
   vi.spyOn(Storage.prototype, "getItem").mockReturnValue("off");
-  const { posts } = lyricsPage(readyLyrics, "?tab=lyrics");
+  const { posts } = lyricsPage(() => v1([[0, 1000]]), "?tab=lyrics");
   const region = await screen.findByRole("region", { name: "Lyrics" });
   expect(
-    within(region).getByRole("button", { name: "Show lyrics" }),
+    await within(region).findByRole("button", { name: "Show lyrics" }),
   ).toBeTruthy();
   expect(posts).toHaveLength(0);
 });
@@ -338,7 +386,7 @@ test("a track with nothing playable shows Find audio expanded, no empty source b
     ).value,
   ).toBe(`${page.detail.title.value} ${page.detail.artist.value}`);
   expect(
-    within(find).getByRole("group", { name: "Music service" }),
+    within(find).getByRole("search", { name: "Music service search" }),
   ).toBeTruthy();
   expect(
     within(find).queryByRole("button", { name: "Find a source" }),

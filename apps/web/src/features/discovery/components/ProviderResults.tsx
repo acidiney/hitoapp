@@ -1,21 +1,23 @@
 import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef } from "react";
-import { Link } from "@inertiajs/react";
-import { Check, Play, Plus } from "lucide-react";
+import { Link, router } from "@inertiajs/react";
+import { Play } from "lucide-react";
 
-import type { ProviderSelection } from "../hooks/useDiscovery";
+import type { ProviderSelection, SelectionIntent } from "../hooks/useDiscovery";
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
-import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import Button from "../../../shared/ui/Button";
 
-type SelectionIntent = "play" | "save";
+const knownArtist = (artist: string | null | undefined) =>
+  artist && artist.trim().toLowerCase() !== "unknown artist" ? artist : "";
+
 type ResultProps = {
   hit: Schema<"ProviderRecording">;
   saved?: Schema<"Recording">;
   selection: ProviderSelection | null;
   disabled: boolean;
   canPlay: boolean;
+  service: string;
   onSelect: (hit: Schema<"ProviderRecording">, intent: SelectionIntent) => void;
 };
 function ProviderResult({
@@ -24,6 +26,7 @@ function ProviderResult({
   selection,
   disabled,
   canPlay,
+  service,
   onSelect,
 }: ResultProps) {
   const play = useRef<HTMLButtonElement>(null);
@@ -55,17 +58,24 @@ function ProviderResult({
   const current = selection?.id === hit.id ? selection : null;
   const duration =
     hit.duration_ms == null ? null : time(hit.duration_ms / 1000);
+  const where = saved ? "in your library" : "not in your library";
   return (
-    <li className="provider-result">
-      <button
-        className="icon-button provider-play"
-        ref={play}
-        aria-label={`Play ${hit.title}`}
-        disabled={disabled || !canPlay}
-        onClick={() => select("play")}
-      >
-        <Play size={18} fill="currentColor" />
-      </button>
+    <li
+      className="provider-result"
+      tabIndex={-1}
+      data-search-row=""
+      onKeyDown={(event) => {
+        if (
+          event.target !== event.currentTarget ||
+          event.key !== "Enter" ||
+          disabled ||
+          !canPlay
+        )
+          return;
+        event.preventDefault();
+        select(event.metaKey || event.ctrlKey ? "queue" : "play");
+      }}
+    >
       <Artwork
         recording={saved?.id}
         fallback={{
@@ -76,27 +86,38 @@ function ProviderResult({
       />
       <div className="provider-result-copy">
         <h3>{hit.title}</h3>
-        <p>{hit.artist}</p>
-        {hit.release && <small>{hit.release.title}</small>}
+        <p>
+          {[knownArtist(hit.artist), service, where]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
         {current?.pending && (
           <small role="status">
             {current.intent === "play"
               ? "Preparing playback…"
-              : "Adding to your library…"}
+              : current.intent === "save"
+                ? "Adding to your library…"
+                : "Adding to your queue…"}
           </small>
         )}
       </div>
       <span
         className="provider-duration"
-        aria-label={duration ? `Duration ${duration}` : "Duration unknown"}
+        aria-label={duration ? `Duration ${duration}` : undefined}
+        aria-hidden={duration ? undefined : true}
       >
-        {duration ?? "—"}
+        {duration}
       </span>
-      <div className="provider-result-state">
-        <AvailabilityLabel
-          state={saved ? "library" : canPlay ? "available" : "catalog"}
-        />
-      </div>
+      <button
+        className="icon-button provider-play"
+        data-unplayable={canPlay ? undefined : ""}
+        ref={play}
+        aria-label={`Play ${hit.title}`}
+        disabled={disabled || !canPlay}
+        onClick={() => select("play")}
+      >
+        <Play size={14} fill="currentColor" />
+      </button>
       <div className="provider-result-action">
         {saved ? (
           <Link
@@ -105,21 +126,49 @@ function ProviderResult({
             href={`/recordings/${encodeURIComponent(saved.id)}`}
             aria-label={`View ${hit.title} in library`}
           >
-            <Check size={16} />
             Open
           </Link>
         ) : (
-          <Button
+          <button
+            type="button"
+            className="text-link"
             ref={save}
             aria-label={`Add ${hit.title} to library`}
             disabled={disabled}
             onClick={() => select("save")}
           >
-            <Plus size={16} />
-            Add
-          </Button>
+            Add to library
+          </button>
         )}
       </div>
+      <ActionMenu
+        label={`Actions for ${hit.title}`}
+        triggerClassName="icon-button provider-menu"
+        align="end"
+        items={[
+          saved
+            ? {
+                label: "Open in library",
+                onSelect: () =>
+                  router.visit(`/recordings/${encodeURIComponent(saved.id)}`),
+              }
+            : {
+                label: "Add to library",
+                disabled,
+                onSelect: () => select("save"),
+              },
+          {
+            label: "Play next",
+            disabled: disabled || !canPlay,
+            onSelect: () => select("play_next"),
+          },
+          {
+            label: "Add to queue",
+            disabled: disabled || !canPlay,
+            onSelect: () => select("queue"),
+          },
+        ]}
+      />
       {current?.error && (
         <p className="provider-result-error" role="alert">
           {current.error}{" "}
@@ -144,6 +193,7 @@ export default function ProviderResults({
   selection,
   pending,
   canPlay,
+  service,
   onSelect,
 }: {
   items: Schema<"ProviderRecording">[];
@@ -151,6 +201,7 @@ export default function ProviderResults({
   selection: ProviderSelection | null;
   pending: boolean;
   canPlay: boolean;
+  service: string;
   onSelect: ResultProps["onSelect"];
 }) {
   const disabled = pending || Boolean(selection?.pending);
@@ -168,6 +219,7 @@ export default function ProviderResults({
           selection={selection}
           disabled={disabled}
           canPlay={canPlay}
+          service={service}
           onSelect={onSelect}
         />
       ))}

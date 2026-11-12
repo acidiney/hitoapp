@@ -146,7 +146,7 @@ impl Action {
     }
 }
 
-#[derive(ToSchema, Deserialize)]
+#[derive(ToSchema, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SyncBatch {
     pub device_id: String,
@@ -160,13 +160,13 @@ pub struct Playlist {
     pub kind: String,
 }
 
-#[derive(ToSchema, Serialize)]
+#[derive(ToSchema, Deserialize, Serialize)]
 pub struct SyncReceipt {
     pub acknowledged: Vec<Uuid>,
 }
 
-#[derive(ToSchema, Serialize)]
-#[serde(untagged)]
+#[derive(ToSchema, Deserialize, Serialize)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum SyncEvent {
     Operation {
         sequence: i64,
@@ -187,7 +187,7 @@ impl SyncEvent {
     }
 }
 
-#[derive(ToSchema, Serialize)]
+#[derive(ToSchema, Deserialize, Serialize)]
 pub struct SyncPage {
     pub operations: Vec<SyncEvent>,
     pub cursor: i64,

@@ -65,6 +65,7 @@ export function useCatalogPlayback(
   const [halted, setHalted] = useState("");
   const [consentOff, setConsentOff] = useState(false);
   const saved = useRef(new Map<string, Schema<"Recording">>());
+  const missed = useRef(new Map<string, "not_found" | "failed">());
   const running = useRef<AbortController | null>(null);
   const [life] = useState(() => {
     const state = {
@@ -77,7 +78,9 @@ export function useCatalogPlayback(
   });
 
   useEffect(() => {
+    const pending = finders.current;
     saved.current = new Map();
+    missed.current = new Map();
     setRows(new Map());
     setRecordings(new Map());
     setHalted("");
@@ -86,8 +89,8 @@ export function useCatalogPlayback(
       life.retire();
       running.current?.abort();
       running.current = null;
-      for (const finder of finders.current) finder.abort();
-      finders.current.clear();
+      for (const finder of pending) finder.abort();
+      pending.clear();
     };
   }, [life, account, recording, association.id, group.id, edition]);
 
@@ -104,6 +107,8 @@ export function useCatalogPlayback(
   ): Promise<Resolution> {
     const known = saved.current.get(occurrence);
     if (known) return { kind: "found", recording: known };
+    const miss = missed.current.get(occurrence);
+    if (miss) return { kind: miss };
     for (let attempt = 0; ; attempt++) {
       let outcome: Schema<"AlbumTrackAudio">;
       try {
@@ -121,6 +126,7 @@ export function useCatalogPlayback(
       } catch (error) {
         if (signal.aborted) throw error;
         log.warn("catalog_track_find.failed", { reason: errorMessage(error) });
+        missed.current.set(occurrence, "failed");
         return { kind: "failed" };
       }
       if (outcome.status === "busy" && attempt < BUSY_RETRIES) {
@@ -129,6 +135,8 @@ export function useCatalogPlayback(
         continue;
       }
       const result = resolution(outcome);
+      if (result.kind === "not_found" || result.kind === "failed")
+        missed.current.set(occurrence, result.kind);
       if (result.kind === "found") {
         saved.current.set(occurrence, result.recording);
         if (!signal.aborted) setRecordings(new Map(saved.current));
@@ -173,6 +181,7 @@ export function useCatalogPlayback(
     if (edition === null || occurrence === undefined) return null;
     const known = saved.current.get(occurrence);
     if (known) return known;
+    missed.current.delete(occurrence);
     const controller = new AbortController();
     finders.current.add(controller);
     const catalog = run(controller, true);
@@ -200,6 +209,7 @@ export function useCatalogPlayback(
   async function start(from: number): Promise<boolean> {
     if (edition === null || from >= occurrences.length) return false;
     running.current?.abort();
+    missed.current.delete(occurrences[from]);
     const controller = new AbortController();
     running.current = controller;
     setHalted("");

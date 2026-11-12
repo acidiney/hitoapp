@@ -134,11 +134,10 @@ test("an artist only named inside credits says it appears in the library rather 
       page([], [recording("r", "Guest verse")], 1, true),
     ),
   );
-  expect(screen.getByText("Artist · appears in your library")).toBeTruthy();
-  expect(screen.queryByText("Artist · credit in your library")).toBeNull();
+  expect(screen.getByText("1 appearance")).toBeTruthy();
   unmount();
   render(createElement(ArtistPage, page([recording("main", "Own song")], [])));
-  expect(screen.getByText("Artist · credit in your library")).toBeTruthy();
+  expect(screen.getByText("1 track")).toBeTruthy();
 });
 
 test("Load more appends the next appearances from the artist endpoint", async () => {

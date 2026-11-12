@@ -5,6 +5,7 @@ import { pluginsApi } from "../api/pluginsApi";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
+import { onInvalidated } from "../../../shared/invalidation";
 import { useRefreshArtworkAvailability } from "../../artwork/components/ArtworkProvider";
 
 export function usePlugins(account: string) {
@@ -51,6 +52,14 @@ export function usePlugins(account: string) {
       });
     return () => controller.abort();
   }, [account, owner, scope, revision]);
+
+  useEffect(
+    () =>
+      onInvalidated("plugins", () => {
+        if (busy.current !== owner) reload((value) => value + 1);
+      }),
+    [owner],
+  );
 
   async function perform<T>(
     action: string,
@@ -124,6 +133,7 @@ export function usePlugins(account: string) {
     checkDeclaration,
     data: snapshot?.owner === owner ? snapshot.data : null,
     error: failure?.owner === owner ? failure.message : "",
+    errorAction: failure?.owner === owner ? failure.action : "",
     pending: pending === owner,
     reload: () => {
       if (busy.current !== owner) reload((value) => value + 1);

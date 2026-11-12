@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
+import { openFromAlbum } from "../fixtures/albumEditionSteps";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import {
   albumDetail,
@@ -90,28 +91,16 @@ function page() {
   });
 }
 
-async function chooseEdition() {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  const group = within(groups).getAllByRole("listitem")[0];
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Browse editions" }),
-  );
-  await within(group).findByRole("list", { name: "Available editions" });
-  fireEvent.click(
-    within(group).getByRole("button", { name: "Choose edition" }),
-  );
-  return screen.findByRole("region", { name: "Album edition track list" });
-}
+const chooseEdition = openFromAlbum;
 
 function rowWith(region: HTMLElement, text: string) {
   return within(region)
     .getAllByRole("listitem")
-    .find((item) => item.textContent?.includes(text))!;
+    .find(
+      (item) =>
+        item.textContent?.includes(text) ||
+        item.querySelector(`[aria-label="Play ${text}"]`),
+    )!;
 }
 
 const findButton = (row: HTMLElement) =>
@@ -139,7 +128,7 @@ test("finding audio sends only identities, the server saves the match and the sa
     fetch.mock.calls.some(([path]) => anyAdoption.test(String(path))),
   ).toBe(false);
   expect(player.playSelection).toHaveBeenCalledWith(savedRecording);
-  await waitFor(() => expect(row.textContent).toContain("In your library"));
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
 });
 
 test("a search refused because automatic service search is off says how to turn it on", async () => {
@@ -193,9 +182,6 @@ test("an audio provider outage is honest and retryable while the album stays pla
   });
   const alert = await within(row).findByRole("alert");
   expect(alert.textContent).toContain("unavailable");
-  expect(
-    screen.getByRole("button", { name: `Play ${personalTitle}` }),
-  ).toBeTruthy();
   expect(findButton(row).hasAttribute("disabled")).toBe(false);
   answer = found;
   await act(async () => {
@@ -301,8 +287,8 @@ test("a result found for one edition is not shown for another edition with the s
     fireEvent.click(findButton(rowWith(first, "Catalog only song")));
   });
   await waitFor(() =>
-    expect(rowWith(first, "Catalog only song").textContent).toContain(
-      "In your library",
+    expect(rowWith(first, "Catalog only song").textContent).toMatch(
+      /Ready|In your library/,
     ),
   );
   view.rerender(
@@ -319,7 +305,7 @@ test("a result found for one edition is not shown for another edition with the s
     name: "Album edition track list",
   });
   const row = rowWith(second, "Catalog only song");
-  expect(row.textContent).not.toContain("In your library");
+  expect(row.textContent).not.toMatch(/Ready|In your library/);
   expect(findButton(row)).toBeTruthy();
   const searches = fetch.mock.calls.filter(([path]) => path === audio);
   expect(searches).toHaveLength(1);

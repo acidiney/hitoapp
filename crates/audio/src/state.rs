@@ -7,6 +7,7 @@ use std::time::Duration;
 
 pub struct Snapshot {
     pub playing: bool,
+    pub buffer_ready: bool,
     pub ended: bool,
     pub position: Duration,
     pub speed: f32,
@@ -25,6 +26,8 @@ pub(crate) struct State {
     pub stopped: AtomicBool,
     pub seek_requested: AtomicBool,
     pub epoch: AtomicU64,
+    #[cfg(any(feature = "device", loom))]
+    pub ready_epoch: AtomicU64,
     position_epoch: AtomicU64,
     position: AtomicU64,
     base: AtomicU64,
@@ -50,6 +53,8 @@ impl State {
             stopped: AtomicBool::new(false),
             seek_requested: AtomicBool::new(false),
             epoch: AtomicU64::new(1),
+            #[cfg(any(feature = "device", loom))]
+            ready_epoch: AtomicU64::new(0),
             position_epoch: AtomicU64::new(0),
             position: AtomicU64::new(0),
             base: AtomicU64::new(0),
@@ -102,7 +107,7 @@ impl State {
     }
 
     pub fn snapshot(&self, format: AudioFormat) -> Snapshot {
-        let (position, speed, ended, track) = loop {
+        let (position, speed, ended, track, buffer_ready) = loop {
             if let Some(observation) = self.try_observation() {
                 break observation;
             }
@@ -110,6 +115,7 @@ impl State {
         };
         let error = self.error();
         Snapshot {
+            buffer_ready: cfg!(feature = "device") && buffer_ready,
             playing: self.playing.load(Ordering::Acquire)
                 && !self.stopped.load(Ordering::Acquire)
                 && !ended
@@ -133,7 +139,7 @@ impl State {
         }
     }
 
-    fn try_observation(&self) -> Option<(u64, f32, bool, u64)> {
+    fn try_observation(&self) -> Option<(u64, f32, bool, u64, bool)> {
         let presented = self.presented_sequence.load(Ordering::Acquire);
         let reset = self.reset_sequence.load(Ordering::Acquire);
         if !presented.is_multiple_of(2) || !reset.is_multiple_of(2) {
@@ -148,10 +154,14 @@ impl State {
         let speed = f32::from_bits(self.speed.load(Ordering::Relaxed));
         let ended = self.ended.load(Ordering::Relaxed) == epoch;
         let track = self.track.load(Ordering::Relaxed);
+        #[cfg(any(feature = "device", loom))]
+        let buffer_ready = self.ready_epoch.load(Ordering::Acquire) == epoch;
+        #[cfg(not(any(feature = "device", loom)))]
+        let buffer_ready = false;
         fence(Ordering::Acquire);
         (self.presented_sequence.load(Ordering::Relaxed) == presented
             && self.reset_sequence.load(Ordering::Relaxed) == reset)
-            .then_some((position, speed, ended, track))
+            .then_some((position, speed, ended, track, buffer_ready))
     }
 
     pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool, track: u64) {

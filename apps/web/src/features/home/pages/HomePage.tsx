@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import { Search } from "lucide-react";
 
 import { accountName } from "../../../shared/accountName";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
@@ -27,11 +28,26 @@ export default function HomePage({
       <header className="home-header">
         <h1>{greeting(new Date().getHours(), accountName(user))}</h1>
       </header>
+      <Link href="/search" className="home-search">
+        <Search size={18} aria-hidden="true" />
+        Search, or paste a playlist link
+      </Link>
       {empty ? (
         <HomeEmpty admin={user.admin} />
       ) : (
         <>
           {tiles.length > 0 && <QuickAccess tiles={tiles} />}
+          {home.unheard.length > 0 && (
+            <UnheardNearby albums={home.unheard} onListen={listen} />
+          )}
+          {home.recently_added.length > 0 && (
+            <HomeShelf
+              id="home-added"
+              title="Recently added"
+              cards={addedShelf(home.recently_added)}
+              more={{ href: "/albums", label: "See all albums" }}
+            />
+          )}
           <HomeShelf
             id="home-played"
             title="Recently played"
@@ -45,17 +61,6 @@ export default function HomePage({
               </>
             }
           />
-          {home.unheard.length > 0 && (
-            <UnheardNearby albums={home.unheard} onListen={listen} />
-          )}
-          {home.recently_added.length > 0 && (
-            <HomeShelf
-              id="home-added"
-              title="Recently added"
-              cards={addedShelf(home.recently_added)}
-              more={{ href: "/albums", label: "See all albums" }}
-            />
-          )}
           {artists.items.length > 0 && (
             <HomeShelf
               id="home-artists"

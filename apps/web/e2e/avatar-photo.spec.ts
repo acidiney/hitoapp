@@ -76,7 +76,7 @@ test("a member uploads, replaces and removes a photo that the menu, profile and 
   expect(
     (
       await page.request.put(
-        `/api/v1/libraries/${libraries[0].id}/members/${member.id}`,
+        `/api/v1/libraries/${libraries.find((library: { personal?: boolean }) => !library.personal)!.id}/members/${member.id}`,
         { headers: headers(baseURL!) },
       )
     ).ok(),
@@ -104,7 +104,7 @@ test("a member uploads, replaces and removes a photo that the menu, profile and 
   });
   await expect(memberPage.getByText("Photo saved.")).toBeVisible();
   await loaded(memberPage, ".account-link .avatar img");
-  await loaded(memberPage, ".profile-identity .avatar img");
+  await loaded(memberPage, "#setting-account-photo .avatar img");
   await expect(menu).toHaveText("");
   await expect(
     memberPage.getByRole("button", { name: "Remove photo" }),

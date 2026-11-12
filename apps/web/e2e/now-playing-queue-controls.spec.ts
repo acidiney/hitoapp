@@ -41,7 +41,6 @@ test("Change source in Now playing opens the Sources tab of the playing track", 
     .getByRole("button", { name: "Open now playing", exact: true })
     .click();
   const player = page.getByRole("dialog", { name: "Now playing" });
-  await player.getByRole("tab", { name: "Source" }).click();
   const card = player.getByRole("region", { name: "This source" });
   await expect(card.getByText("On this device")).toBeVisible();
   await expect(card).not.toContainText("This browser");
@@ -70,7 +69,7 @@ test("Clear on the queue asks first, keeps the queue when cancelled and empties 
 
   await page.goto("/queue");
   await expect(
-    page.getByRole("heading", { name: "Queue", level: 1 }),
+    page.getByRole("heading", { name: "Queue", level: 2 }),
   ).toBeVisible();
   const clear = page.getByRole("button", { name: "Clear", exact: true });
   await clear.click();

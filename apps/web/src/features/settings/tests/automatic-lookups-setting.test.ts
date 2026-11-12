@@ -6,9 +6,9 @@ import AutomaticLookupsSettings from "../../metadata/components/AutomaticLookups
 const SETTINGS = "/api/v1/metadata/settings";
 const AUTOMATION = "/api/v1/metadata/automation";
 const LABELS = [
-  "Look up artists on MusicBrainz automatically",
-  "Fetch album artwork automatically",
-  "Search connected services automatically",
+  "Look up artists on MusicBrainz",
+  "Fetch album covers",
+  "Search connected services",
 ];
 
 function settings(over: Record<string, boolean> = {}) {
@@ -36,9 +36,9 @@ test("three switches show the server choices and say what is sent and that they 
   expect((await toggle(LABELS[0])).getAttribute("aria-checked")).toBe("true");
   expect((await toggle(LABELS[1])).getAttribute("aria-checked")).toBe("false");
   expect((await toggle(LABELS[2])).getAttribute("aria-checked")).toBe("true");
-  expect(screen.getAllByText(/on by default/i)).toHaveLength(3);
+  expect(screen.getByText(/on until you turn it off/i)).toBeTruthy();
   expect(
-    screen.getByText(/never sends album titles, file paths or audio/),
+    screen.getByText(/never album titles, file paths or audio/i),
   ).toBeTruthy();
 });
 

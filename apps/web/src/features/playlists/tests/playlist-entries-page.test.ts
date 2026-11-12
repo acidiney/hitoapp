@@ -123,7 +123,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
       name: "Remove Unknown provider item from playlist",
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
   const mutation = fetch.mock.calls.find(([path]) => path === "/api/v1/sync");
   expect(mutation).toBeDefined();
@@ -151,6 +151,6 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
       signal: expect.any(AbortSignal),
     }),
   ]);
-  expect(screen.getByText(/Curated by the fixture owner/)).toBeTruthy();
+  expect(screen.getAllByText(/Curated by the fixture owner/)[0]).toBeTruthy();
   expect(screen.getByRole("table", { name: "Playlist entries" })).toBe(table);
 });

@@ -134,3 +134,19 @@ test("a failed album cover explains the failure and offers the retry in the page
   expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "More options" })).toBeNull();
 });
+
+test("the album artist in the header is a real link to that artist", () => {
+  render(createElement(AlbumPage, page()));
+  const link = screen.getByRole("link", { name: "Performer" });
+  expect(link.getAttribute("href")).toBe("/artists/artist");
+  expect(link.closest(".album-header")).toBeTruthy();
+});
+
+test("an album credit without an artist identity is plain text, not a dead link", () => {
+  const props = page();
+  props.detail.release.artist_id = null;
+  props.detail.tracks.items.forEach((item) => (item.artist_id = null));
+  const { container } = render(createElement(AlbumPage, props));
+  const credit = container.querySelector(".album-header .album-artist")!;
+  expect(credit.tagName).toBe("SPAN");
+});

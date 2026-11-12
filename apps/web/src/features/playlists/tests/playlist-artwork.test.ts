@@ -1,3 +1,4 @@
+import { entryText } from "../../../test/rows";
 import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -153,10 +154,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   const { container, rerender, unmount } = render(view());
   await act(async () => {});
   const table = screen.getByRole("table", { name: "Playlist entries" });
-  const entries = within(table)
-    .getAllByRole("row")
-    .slice(1)
-    .map((row) => row.textContent);
+  const entries = within(table).getAllByRole("row").slice(1).map(entryText);
   await act(async () => {
     fireEvent.click(
       within(table).getAllByRole("button", { name: "Play Fixture A" })[0],
@@ -167,7 +165,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   const originalPlayer = player;
   const originalSelection = player.queueSnapshot();
   const originalQueue = await player.queuePage(0, 10);
-  const hero = () => container.querySelector(".tinted-header .artwork img");
+  const hero = () => container.querySelector(".playlist-header .artwork img");
   expect(hero()?.getAttribute("src")).toBe(image);
   const artworkCalls = () =>
     fetch.mock.calls.filter(([path]) => path.includes("artwork"));
@@ -207,12 +205,9 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   expect(await player.queuePage(0, 10)).toEqual(originalQueue);
   expect(player.snapshot().current?.id).toBe(recordingA);
   expect(play).toHaveBeenCalledTimes(1);
-  expect(
-    within(table)
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.textContent),
-  ).toEqual(entries);
+  expect(within(table).getAllByRole("row").slice(1).map(entryText)).toEqual(
+    entries,
+  );
 
   props = { ...props, user: { id: "bob", username: "Bob", admin: false } };
   rerender(view());

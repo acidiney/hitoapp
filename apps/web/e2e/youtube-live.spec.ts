@@ -1,6 +1,6 @@
+import { openAllManage } from "./fixtures/plugin-ui";
 import { chooseMusicService } from "./fixtures/music-service";
 import { expect, test } from "@playwright/test";
-import { chooseOption } from "./fixtures/listbox";
 import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
@@ -94,16 +94,13 @@ test.describe("isolated packaged YouTube", () => {
       await page
         .getByRole("link", { name: "Account and settings", exact: true })
         .click();
-      await page
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("link", { name: "Plugins", exact: true })
-        .click();
+      await page.goto("/settings?section=plugins");
       await expect(
-        page.getByRole("heading", { name: "Your plugins", exact: true }),
+        page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeVisible();
 
       next("address-only service offer");
-      await page.getByText("Services for this server", { exact: true }).click();
+      await page.getByRole("button", { name: /^This server/ }).click();
       await expect(
         page.getByLabel("Service name", { exact: true }),
       ).toHaveCount(0);
@@ -135,11 +132,12 @@ test.describe("isolated packaged YouTube", () => {
           "The service offer did not return its declaration",
         );
       expect(offered.name === "YouTube").toBe(true);
-      const service = page.getByRole("combobox", {
-        name: "Service",
-        exact: true,
-      });
-      await chooseOption(service, "YouTube");
+      await page
+        .getByRole("button", { name: "Your plugins", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: `Connect ${"YouTube"}`, exact: true })
+        .click();
 
       next("personal connection without a bearer");
       await expect(
@@ -175,6 +173,7 @@ test.describe("isolated packaged YouTube", () => {
         connection.manifest.capabilities.includes("search") &&
           connection.manifest.capabilities.includes("sources"),
       ).toBe(true);
+      await openAllManage(page);
       await expect(
         page
           .locator(".plugin-connection")

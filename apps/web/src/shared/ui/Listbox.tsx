@@ -50,7 +50,9 @@ export default function Listbox({
   value,
   onChange,
   disabled = false,
+  inlineLabel = false,
 }: {
+  inlineLabel?: boolean;
   label: string;
   options: ListboxOption[];
   value: string;
@@ -136,10 +138,12 @@ export default function Listbox({
   }
 
   return (
-    <div className="listbox">
-      <span id={labelId} className="listbox-label">
-        {label}
-      </span>
+    <div className="listbox" data-inline-label={inlineLabel || undefined}>
+      {!inlineLabel && (
+        <span id={labelId} className="listbox-label">
+          {label}
+        </span>
+      )}
       <div className="listbox-field">
         <button
           type="button"
@@ -159,6 +163,11 @@ export default function Listbox({
           onKeyDown={press}
           onBlur={() => setOpen(false)}
         >
+          {inlineLabel && (
+            <span id={labelId} className="listbox-label">
+              {label}
+            </span>
+          )}
           <span>{options[current]?.label}</span>
           <ChevronDown size={18} aria-hidden="true" />
         </button>

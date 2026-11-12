@@ -46,8 +46,8 @@ impl<'a> Screen<'a> {
 
     pub fn from_path(path: &'a str) -> Self {
         match path {
-            "/" | "/library" => Self::Catalog,
-            "/home" => Self::Home,
+            "/" | "/home" => Self::Home,
+            "/library" => Self::Catalog,
             "/search" => Self::Search,
             "/likes" => Self::Likes,
             "/playlists" => Self::PlaylistIndex,

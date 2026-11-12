@@ -1,3 +1,4 @@
+import { useRecordingSync } from "../hooks/useRecordingSync";
 import {
   createContext,
   useContext,
@@ -124,6 +125,7 @@ function BrowserAccountPlayback({
   });
   useBrowserMediaSession(player, account);
   useEffect(() => {
+    player.activate();
     community.activate();
     log.info("playback.account_opened", { account_id: account });
     media.set(audio, audio);
@@ -149,6 +151,7 @@ function BrowserAccountPlayback({
       media.clear();
     };
   }, [account, audio, media, player, community]);
+  useRecordingSync(player);
   return (
     <PlaybackContext.Provider value={player}>
       {children}
@@ -178,6 +181,7 @@ function NativeAccountPlayback({
       player.close();
     };
   }, [account, player]);
+  useRecordingSync(player);
   return (
     <PlaybackContext.Provider value={player}>
       {children}

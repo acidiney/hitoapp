@@ -1,16 +1,18 @@
-# Packaged retained lyric provider chooser
+# Historical packaged lyric provider chooser
 
-The single tracer passes in Chromium and WebKit against the source checkpoint below, including an independent two-engine repeat. Runtime isolation, exact provider selection, state preservation, safe completion logs, final source/module pins and cleanup pass. The existing four static reading/lifecycle cases remain separate and unchanged. This does not qualify live providers or the full release.
+This replays a historical v1 chooser checkpoint. Its browser files and npm script were removed from the current application when independent lyric identities replaced that UI. Use the pinned gate commit below; do not archive the removed paths from current HEAD. This runner does not qualify the current lyric UI or the automatic-read backend.
+
+The single tracer passed in Chromium and WebKit against the source checkpoint below, including an independent two-engine repeat. Runtime isolation, exact provider selection, state preservation, safe completion logs, final source/module pins and cleanup pass. The existing four static reading/lifecycle cases remain separate and unchanged. This does not qualify live providers or the full release.
 
 The runner requires the new product source `6cc3a0a42fcbde7bb590bcd0de644a5aa8cefa23`, its immutable runtime image and committed product-input digest. The earlier source-396 image lacks the chooser and is rejected by the source/image contract.
 
 The qualified image is `sha256:d1622a90f01be763b6391f241df935e2f98bac124400ce1ea0331509c854e024`. Its 1,994 product inputs hash to `bff5049f4248acd9a3a495d43adf752cc0f7c08377933b2543ad2ec04c68342b`. This qualifies the frozen checkpoint. Later application changes need their own acceptance run.
 
-Run from a detached checkout of that product commit with only the reviewed gate overlaid from the current tree. Keep those new gate files untracked in the checkpoint; the source pin intentionally reads its committed product tree. From a checkout containing this gate:
+Run from a detached checkout of that product commit with only the reviewed gate overlaid from the current tree. Keep those new gate files untracked in the checkpoint; the source pin intentionally reads its committed product tree. From a checkout containing the historical Git objects:
 
 ```sh
 git worktree add --detach ../hito-lyric-choice-checkpoint 6cc3a0a42fcbde7bb590bcd0de644a5aa8cefa23
-git archive HEAD \
+git archive 26d1d31d2880b4a3a60eb41d31bc211f66b71249 \
   apps/web/e2e/recording-lyric-provider-choice.spec.ts \
   apps/web/e2e/fixtures/recording-lyric-provider-choice-evidence.ts \
   apps/web/e2e/fixtures/recording-lyric-provider-choice-provider.ts \

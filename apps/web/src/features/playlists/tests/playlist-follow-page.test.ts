@@ -42,10 +42,10 @@ test("Playlists follows a provider playlist daily and navigates only after its r
   );
   expect(form.getByRole("button", { name: "Import a copy" })).toBeTruthy();
   expect(form.queryByRole("combobox", { name: "Playlist service" })).toBeNull();
-  fireEvent.click(form.getByRole("radio", { name: "Follow playlist" }));
+  fireEvent.click(form.getByRole("radio", { name: /^Follow/ }));
   const interval = form.getByRole("combobox", { name: "Refresh interval" });
   expect(
-    form.getByRole("option", { name: "Every hour", selected: true }),
+    form.getByRole("option", { name: "Every day", selected: true }),
   ).toBeTruthy();
   const daily = form.getByRole("option", {
     name: "Every day",
@@ -61,7 +61,7 @@ test("Playlists follows a provider playlist daily and navigates only after its r
   });
   fireEvent.change(field, { target: { value: `  ${reference}  ` } });
   expect(fetch).not.toHaveBeenCalled();
-  const submit = form.getByRole("button", { name: "Follow playlist" });
+  const submit = form.getByRole("button", { name: /^Follow/ });
   const element = field.closest("form");
   if (!element) throw new Error("Following a playlist needs a form");
   act(() => {
@@ -87,7 +87,7 @@ test("Playlists follows a provider playlist daily and navigates only after its r
     playlist_reference: reference,
     interval: "daily",
   });
-  expect((submit as HTMLButtonElement).disabled).toBe(true);
+  expect(form.getByRole("progressbar")).toBeTruthy();
   expect(router.visit).not.toHaveBeenCalled();
   fireEvent.submit(element);
   expect(fetch).toHaveBeenCalledTimes(1);
@@ -122,7 +122,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   const form = within(
     screen.getByRole("region", { name: "Import a playlist" }),
   );
-  fireEvent.click(form.getByRole("radio", { name: "Follow playlist" }));
+  fireEvent.click(form.getByRole("radio", { name: /^Follow/ }));
   fireEvent.change(form.getByRole("combobox", { name: "Refresh interval" }), {
     target: { value: "daily" },
   });
@@ -134,7 +134,7 @@ test("a lost daily Follow retries its original operation after the draft and con
     name: "Playlist link or identifier",
   });
   fireEvent.change(field, { target: { value: originalReference } });
-  fireEvent.click(form.getByRole("button", { name: "Follow playlist" }));
+  fireEvent.click(form.getByRole("button", { name: /^Follow/ }));
   await form.findByRole("alert");
   expect(fetch).toHaveBeenCalledTimes(1);
   const originalBody = String(fetch.mock.calls[0][1].body);
@@ -155,7 +155,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   expect(
     form.getByRole("option", { name: "Every hour", selected: true }),
   ).toBeTruthy();
-  fireEvent.click(form.getByRole("radio", { name: "Import a copy" }));
+  fireEvent.click(form.getByRole("radio", { name: /^Copy/ }));
   fireEvent.change(field, { target: { value: draftReference } });
   view.rerender(
     createElement(PlaylistIndexPage, {
@@ -171,7 +171,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   expect(form.queryByRole("alert")).toBeNull();
   expect(form.queryByRole("combobox", { name: "Refresh interval" })).toBeNull();
   expect(
-    form.getByRole("radio", { name: "Import a copy", checked: true }),
+    form.getByRole("radio", { name: /^Copy/, checked: true }),
   ).toBeTruthy();
   expect((field as HTMLInputElement).value).toBe(draftReference);
   expect(form.getByRole("button", { name: "Import a copy" })).toBeTruthy();
@@ -193,11 +193,9 @@ test("a lost daily Follow retries its original operation after the draft and con
   });
   expect(fetch.mock.calls[1][1].signal).not.toBe(oldSignal);
   expect(fetch.mock.calls[1][1].signal?.aborted).toBe(false);
-  expect(
-    (form.getByRole("button", { name: "Following…" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(true);
-  expect(form.queryByRole("button", { name: "Importing…" })).toBeNull();
+  expect(form.getByRole("progressbar")).toBeTruthy();
+  expect(form.getByText("Following")).toBeTruthy();
+  expect(form.queryByText("Importing a copy")).toBeNull();
   expect(router.visit).not.toHaveBeenCalled();
   const receipt = {
     request_id: original.request_id,

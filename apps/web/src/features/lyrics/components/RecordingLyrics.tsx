@@ -1,170 +1,281 @@
-import type { Schema } from "../../../shared/schema";
-import { RefreshCw } from "lucide-react";
-
-import RecordingCredits from "../../metadata/components/RecordingCredits";
+import { useRef, useState } from "react";
 import Button from "../../../shared/ui/Button";
-import { time } from "../../../shared/format";
+import type { useRecordingLyrics } from "../hooks/useRecordingLyrics";
+import { accessMessage } from "../model/lyricFailure";
+import { identityNames, identityKey } from "../model/lyricIdentity";
+import LyricChangeDialog from "./LyricChangeDialog";
+import LyricFinder from "./LyricFinder";
+import LyricLookup, { LyricStateCard } from "./LyricLookup";
+import LyricPanel from "./LyricPanel";
 
-type Props = {
-  providers: {
-    pending: boolean;
-    items: Schema<"RecordingLyricsProvider">[] | null;
-    selected: Schema<"RecordingLyricsProvider"> | null;
-    error: string;
-    refresh: boolean;
-    load: () => void;
-    select: (observation: string) => void;
-    cancel: () => void;
-  };
-  available: boolean;
-  pending: boolean;
-  result: Schema<"LyricsLookup"> | null;
-  error: string;
-  refresh: boolean;
-  onLoad: () => void;
-  onCancel: () => void;
-  onRefreshDetails: () => void;
+type SavedFacts = {
+  title: string;
+  artist: string;
+  album: string | null | undefined;
+  durationMs: number | null | undefined;
 };
 
-function languageName(code: string) {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
+function Skeleton() {
+  return (
+    <LyricStateCard label="Looking up lyrics…" tone="checking" busy>
+      <div className="lyric-skeleton" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <p className="lyric-card-note">
+        The music never waits for lyrics. Skeleton lines keep the layout still.
+      </p>
+    </LyricStateCard>
+  );
 }
 
 export default function RecordingLyrics({
-  providers,
-  available,
-  pending,
-  result,
-  error,
-  refresh,
-  onLoad,
-  onCancel,
-  onRefreshDetails,
-}: Props) {
-  const lyrics = result?.status === "ready" ? result.document.lyrics : null;
-  const synced = lyrics?.lines.some((line) => line.start_ms > 0) ?? false;
-  const none = result?.status === "ready" && !lyrics;
+  recording,
+  lyrics,
+  saved,
+}: {
+  recording: string;
+  lyrics: ReturnType<typeof useRecordingLyrics>;
+  saved: SavedFacts;
+}) {
+  const [finding, setFinding] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const opener = useRef<HTMLElement | null>(null);
+  const { identities, reader, finder, lookup } = lyrics;
+  const items = identities.items;
+  const outcome = reader.outcome;
+  const view = outcome?.kind === "lyrics" ? outcome.view : null;
+  const selected = identities.selected;
+
+  if (lyrics.lost)
+    return (
+      <section className="track-lyrics" aria-label="Lyrics">
+        <LyricStateCard
+          label="Couldn't check"
+          tone="failed"
+          alert
+          title={accessMessage}
+        >
+          <div className="lyric-card-actions">
+            <Button onClick={lyrics.retryAfterAccessLoss}>Retry</Button>
+          </div>
+        </LyricStateCard>
+      </section>
+    );
+
+  const names = items ? identityNames(items) : {};
+  const sourceName = selected ? names[identityKey(selected)] : null;
+  const change = (
+    <button
+      type="button"
+      className="lyric-action"
+      onClick={(event) => {
+        opener.current = event.currentTarget;
+        setChanging(true);
+      }}
+    >
+      Change
+    </button>
+  );
+
+  const startFinding = () => {
+    lookup.retire();
+    setFinding(true);
+  };
+
+  const findFromChange = (
+    <button type="button" className="lyric-action" onClick={startFinding}>
+      Change
+    </button>
+  );
+
+  const tryAnother = (
+    <button
+      type="button"
+      className="lyric-action"
+      onClick={(event) => {
+        opener.current = event.currentTarget;
+        setChanging(true);
+      }}
+    >
+      Try another plugin
+    </button>
+  );
+
+  const body = () => {
+    if (!items) return null;
+    if (items.length === 0) {
+      if (lookup.outcome?.kind === "lyrics")
+        return (
+          <LyricPanel
+            recording={recording}
+            view={lookup.outcome.view}
+            durationMs={saved.durationMs ?? 0}
+            sourceName={lookup.outcome.label}
+            change={findFromChange}
+          />
+        );
+      return lookup.engaged ? (
+        <LyricLookup
+          pending={lookup.pending}
+          failure={lookup.failure}
+          outcome={lookup.outcome}
+          onRetry={lookup.run}
+          onFind={startFinding}
+        />
+      ) : (
+        <LyricStateCard
+          label="No lyrics saved"
+          tone="none"
+          title="Find a match to see lyrics here"
+        >
+          <div className="lyric-card-actions">
+            <Button onClick={startFinding}>Find lyrics</Button>
+          </div>
+        </LyricStateCard>
+      );
+    }
+    if (!selected)
+      return (
+        <LyricStateCard
+          label="Service unavailable"
+          tone="failed"
+          title="These lyric services are unavailable"
+        >
+          <div className="lyric-card-actions">{change}</div>
+        </LyricStateCard>
+      );
+    if (reader.pending) return <Skeleton />;
+    if (reader.failure || outcome?.kind === "unavailable")
+      return (
+        <LyricStateCard
+          label="Couldn't check"
+          tone="failed"
+          alert
+          title={
+            reader.failure &&
+            ["changed", "conflict", "gone"].includes(reader.failure.kind)
+              ? reader.failure.message
+              : `${sourceName ?? "The lyrics service"} didn't answer`
+          }
+        >
+          <div className="lyric-card-actions">
+            <Button onClick={reader.load}>Retry</Button>
+            {tryAnother}
+          </div>
+        </LyricStateCard>
+      );
+    if (outcome?.kind === "not_found" || outcome?.kind === "unsupported")
+      return (
+        <LyricStateCard
+          label="None found"
+          tone="none"
+          title={
+            outcome.kind === "unsupported"
+              ? "This service can't supply lyrics in a format Hito can read"
+              : "No lyrics for this track yet"
+          }
+        >
+          <div className="lyric-card-actions">
+            <Button onClick={reader.load}>Look up again</Button>
+            {tryAnother}
+          </div>
+        </LyricStateCard>
+      );
+    if (view)
+      return (
+        <LyricPanel
+          recording={recording}
+          view={view}
+          durationMs={saved.durationMs ?? 0}
+          sourceName={sourceName}
+          change={change}
+        />
+      );
+    return (
+      <section className="lyric-panel" aria-label="Lyrics">
+        <div className="lyric-source">
+          <span>Lyrics{sourceName ? ` · from ${sourceName}` : ""}</span>
+          {change}
+        </div>
+        <p className="lyric-card-note">Lyrics load when you ask.</p>
+        <div className="lyric-card-actions">
+          <Button onClick={reader.load}>Show lyrics</Button>
+        </div>
+      </section>
+    );
+  };
+
   return (
     <section
       className="track-lyrics"
       aria-label="Lyrics"
-      aria-busy={pending || providers.pending}
+      aria-busy={reader.pending || identities.loading}
     >
-      <div className="track-toolbar">
-        {lyrics && (
-          <span
-            className="track-chip"
-            data-tone={synced ? "success" : "neutral"}
-          >
-            {synced ? "Synced" : "Unsynced"}
-          </span>
-        )}
-        {lyrics?.language && (
-          <span className="track-chip">{languageName(lyrics.language)}</span>
-        )}
-        {none && (
-          <span className="track-chip" data-tone="warning">
-            No lyrics
-          </span>
-        )}
-        {providers.items && providers.items.length > 0 && (
-          <label className="track-field track-listbox">
-            <span className="sr-only">Lyric provider</span>
-            <select
-              value={providers.selected?.observation_id ?? ""}
-              onChange={(event) => providers.select(event.target.value)}
-            >
-              {providers.items.map((provider) => (
-                <option
-                  key={provider.observation_id}
-                  value={provider.observation_id}
-                >
-                  {provider.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {providers.pending ? (
-          <Button type="button" onClick={providers.cancel}>
-            Cancel provider request
-          </Button>
-        ) : (
-          !providers.items && (
-            <Button type="button" onClick={providers.load}>
-              Choose lyric provider
-            </Button>
-          )
-        )}
-        {available &&
-          (pending ? (
-            <Button type="button" onClick={onCancel}>
-              Cancel lyric request
-            </Button>
-          ) : (
-            <Button type="button" onClick={onLoad}>
-              <RefreshCw size={14} aria-hidden="true" />
-              {result || error ? "Retry lyrics" : "Show lyrics"}
-            </Button>
-          ))}
-      </div>
-      {providers.pending && <p role="status">Loading lyric providers…</p>}
-      {providers.error && <p role="alert">{providers.error}</p>}
-      {(providers.refresh || (available && refresh)) && (
-        <Button type="button" onClick={onRefreshDetails}>
-          Refresh track details
-        </Button>
+      {identities.loading && !items && <Skeleton />}
+      {identities.failure && (
+        <LyricStateCard
+          label="Couldn't check"
+          tone="failed"
+          alert
+          title={identities.failure.message}
+        >
+          <div className="lyric-card-actions">
+            <Button onClick={identities.reload}>Retry</Button>
+          </div>
+        </LyricStateCard>
       )}
-      {providers.items?.length === 0 && (
-        <p className="track-muted">
-          No connected lyric providers are available for this track.
-        </p>
+      {finder.notice && <p role="status">{finder.notice}</p>}
+      {body()}
+      {items && finding && (
+        <LyricFinder
+          services={finder.services}
+          servicesFailure={finder.servicesFailure}
+          service={finder.service}
+          query={finder.query}
+          search={finder.search}
+          review={{
+            saved,
+            candidate: finder.review.candidate,
+            phase: finder.review.phase,
+            review: finder.review.review,
+            failure: finder.review.failure,
+            duplicate: finder.duplicate,
+            atLimit: identities.atLimit,
+            onAccept: finder.accept,
+            onReviewAgain: () =>
+              finder.review.candidate &&
+              void finder.review.choose(finder.review.candidate),
+            onClose: finder.review.clear,
+          }}
+          onService={finder.chooseService}
+          onQuery={finder.setQuery}
+          onSearch={() => void finder.search.search(finder.query)}
+          onCancelSearch={finder.search.cancel}
+          onReview={(candidate) => void finder.review.choose(candidate)}
+        />
       )}
-      {!available &&
-        !providers.pending &&
-        !providers.items &&
-        !providers.error && <p className="track-muted">No lyrics yet.</p>}
-      {available && (
-        <>
-          {pending && <p role="status">Loading lyrics…</p>}
-          {error && <p role="alert">{error}</p>}
-          {result?.status === "unsupported" && (
-            <p className="track-empty">
-              This provider does not offer lyrics for this track.
-            </p>
-          )}
-          {result?.status === "unavailable" && (
-            <p className="track-empty">
-              Lyrics are unavailable right now. Try again.
-            </p>
-          )}
-          {result?.status === "cancelled" && (
-            <p className="track-empty">The lyric request was cancelled.</p>
-          )}
-          {none && (
-            <p className="track-empty">No lyrics found for this recording.</p>
-          )}
-          {lyrics && (
-            <div className="track-lyrics-body">
-              {lyrics.rendition_label && <h3>{lyrics.rendition_label}</h3>}
-              <ol aria-label="Lyric lines" data-synced={synced}>
-                {lyrics.lines.map((line, index) => (
-                  <li
-                    key={index}
-                    data-time={synced ? time(line.start_ms / 1000) : undefined}
-                  >
-                    {line.text}
-                  </li>
-                ))}
-              </ol>
-              <RecordingCredits attribution={lyrics.attribution} />
-            </div>
-          )}
-        </>
+      {items && changing && items.length > 0 && (
+        <LyricChangeDialog
+          choices={{
+            items,
+            selected,
+            atLimit: identities.atLimit,
+            removing: identities.removing,
+            removalFailure: identities.removalFailure,
+            onSelect: identities.select,
+            onRemove: identities.remove,
+          }}
+          opener={opener}
+          onFind={() => {
+            setChanging(false);
+            startFinding();
+          }}
+          onClose={() => setChanging(false)}
+        />
       )}
     </section>
   );

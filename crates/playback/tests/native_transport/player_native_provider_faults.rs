@@ -135,11 +135,13 @@ async fn a_seek_whose_link_expired_recovers_through_a_refresh_at_the_requested_p
     .unwrap()
     .unwrap();
     f.server.audio_statuses(vec![axum::http::StatusCode::GONE]);
+    let seek_id = Uuid::new_v4();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
     player
         .submit(
             &f.actor,
             PlayerCommand {
-                id: Uuid::new_v4(),
+                id: seek_id,
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
@@ -148,16 +150,17 @@ async fn a_seek_whose_link_expired_recovers_through_a_refresh_at_the_requested_p
         )
         .await
         .unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(8),
-        position.wait_for(|state| state.position_ms >= 6_000),
+    tokio::time::timeout_at(
+        deadline,
+        position.wait_for(|state| state.seek_id == Some(seek_id) && state.position_ms > 6_000),
     )
     .await
-    .expect("the seek must recover at the requested position")
+    .expect("the seek must recover and advance past the requested position")
     .unwrap();
     let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(5),
+    let ready_deadline = deadline.min(tokio::time::Instant::now() + Duration::from_secs(5));
+    tokio::time::timeout_at(
+        ready_deadline,
         state.wait_for(|state| state.playing && state.phase == PlayerPhase::Ready),
     )
     .await
@@ -174,4 +177,67 @@ async fn a_seek_whose_link_expired_recovers_through_a_refresh_at_the_requested_p
     capture.after(capture.mark(), 0.1);
     assert!(capture::amplitude(&capture.recent(0.05), 440.) > 0.2);
     owner.close().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_held_seek_recovery_cannot_satisfy_the_audible_progress_condition() {
+    let f = tone_library().await;
+    f.server.range_chunks(1_000_000).await;
+    let (player, owner) = Player::native(f.hito.clone());
+    let attached = play(&f, &player).await;
+    let mut position = player
+        .subscribe_position(&f.actor, attached.lease)
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        position.wait_for(|state| state.position_ms >= 500),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let recovery = f.server.hold("v1/audio").await;
+    f.server.audio_statuses(vec![axum::http::StatusCode::GONE]);
+    let seek_id = Uuid::new_v4();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: seek_id,
+                lease: attached.lease,
+                sequence: 3,
+                revision: 1,
+                action: PlayerAction::Seek { position_ms: 6_000 },
+            },
+        )
+        .await
+        .unwrap();
+    let entered = tokio::time::timeout_at(deadline, recovery.entered())
+        .await
+        .is_ok();
+    let restored = tokio::time::timeout_at(
+        deadline,
+        position.wait_for(|state| state.position_ms == 6_000),
+    )
+    .await
+    .is_ok_and(|result| result.is_ok());
+    let rejected = tokio::time::timeout_at(
+        deadline,
+        position.wait_for(|state| state.seek_id == Some(seek_id) && state.position_ms > 6_000),
+    )
+    .await
+    .is_err();
+    recovery.open();
+    let joined = owner.close().await;
+    assert!(
+        entered && restored,
+        "recovery must be held at the restored base"
+    );
+    assert!(
+        rejected,
+        "a restored base alone must not satisfy audible progress"
+    );
+    joined.unwrap();
 }

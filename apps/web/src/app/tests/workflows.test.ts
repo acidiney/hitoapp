@@ -101,8 +101,7 @@ test("only an accepted playlist creation closes its dialog", async () => {
     target: { value: "Saved name" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Create playlist" }));
-  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
-  expect(screen.queryByRole("dialog")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
 test("an old account mutation cannot show an error or clear the new account's pending state", async () => {

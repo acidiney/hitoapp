@@ -43,13 +43,13 @@ test("a catalog album plays like a library album: Play starts the first track, q
     expect(artist.provider.audioRequests.length).toBeGreaterThan(0);
 
     const unfound = table.getByRole("row").filter({ hasText: hidden });
-    await expect(unfound).toContainText("Not found on your services");
+    await expect(unfound).toContainText("No source");
     await expect(
       table.getByRole("row").filter({ hasText: closing }),
     ).not.toContainText("Not found");
 
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
-    await expect(page).toHaveURL(/\/queue$/);
+    await expect(page.locator("#queue-panel[data-open]")).toBeVisible();
     const now = page.getByRole("region", { name: "Now playing", exact: true });
     await expect(now.locator("strong")).toHaveText(opening);
     const rows = page.locator("ol.queue-tracks > li");

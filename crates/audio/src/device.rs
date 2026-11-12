@@ -1,5 +1,5 @@
 use crate::{
-    AudioFormat, Error, Result,
+    AudioFormat, Error, Result, buffer_policy,
     negotiate::{self, OutputConfig, Target},
     render::{Frame, Render},
     state::State,
@@ -15,7 +15,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(crate) struct Output(cpal::Stream);
+pub(crate) struct Output {
+    stream: cpal::Stream,
+    audio_id: u64,
+    generation: u64,
+}
 
 fn playable(format: SampleFormat) -> bool {
     matches!(
@@ -76,18 +80,32 @@ impl Output {
         target.ok_or(Error::OutputFormat)
     }
 
-    pub fn start(format: AudioFormat, state: Arc<State>) -> Result<(rtrb::Producer<Frame>, Self)> {
+    pub fn start(
+        format: AudioFormat,
+        state: Arc<State>,
+        audio_id: u64,
+        generation: u64,
+    ) -> Result<(rtrb::Producer<Frame>, Self)> {
         state.callbacks.store(0, Ordering::Release);
         let (producer, consumer) = rtrb::RingBuffer::new((format.sample_rate / 10) as usize);
-        let output = Self::open(format, consumer, state)?;
+        let output = Self::open(format, consumer, state, audio_id, generation)?;
         Ok((producer, output))
     }
 
-    pub fn open(format: AudioFormat, consumer: Consumer<Frame>, state: Arc<State>) -> Result<Self> {
+    fn open(
+        format: AudioFormat,
+        consumer: Consumer<Frame>,
+        state: Arc<State>,
+        audio_id: u64,
+        generation: u64,
+    ) -> Result<Self> {
+        let opening = Instant::now();
         if format.channels > 2 {
             return Err(Error::Unsupported);
         }
-        let device = cpal::default_host()
+        let host = cpal::default_host();
+        let backend = host.id();
+        let device = host
             .default_output_device()
             .ok_or(Error::OutputUnavailable)?;
         let supported = device
@@ -107,9 +125,24 @@ impl Output {
             .ok_or(Error::OutputUnavailable)?
             .with_sample_rate(format.sample_rate);
         let mut config = supported.config();
-        if let cpal::SupportedBufferSize::Range { min, max } = *supported.buffer_size() {
-            config.buffer_size = cpal::BufferSize::Fixed((format.sample_rate / 50).clamp(min, max));
-        }
+        #[cfg(target_os = "linux")]
+        let linux_alsa = backend == cpal::HostId::Alsa;
+        #[cfg(not(target_os = "linux"))]
+        let linux_alsa = false;
+        let request =
+            buffer_policy::choose(linux_alsa, format.sample_rate, supported.buffer_size());
+        config.buffer_size = request.buffer;
+        let configured_quantum_frames = match request.buffer {
+            cpal::BufferSize::Default => None,
+            cpal::BufferSize::Fixed(frames) => Some(frames),
+        };
+        tracing::debug!(
+            event = "audio_output_opening", audio_id, generation, backend = ?backend,
+            requested_quantum_ms = request.milliseconds,
+            requested_quantum_frames = request.frames,
+            configured_quantum_frames, buffer_constraint = request.constraint,
+            "Audio output quantum requested"
+        );
         let stream = match supported.sample_format() {
             SampleFormat::F32 => build::<f32>(&device, config, consumer, state.clone(), format),
             SampleFormat::I16 => build::<i16>(&device, config, consumer, state.clone(), format),
@@ -132,11 +165,21 @@ impl Output {
         }
         tracing::info!(
             event = "audio_output_opened",
+            audio_id, generation, backend = ?backend,
+            requested_quantum_ms = request.milliseconds,
+            requested_quantum_frames = request.frames,
+            configured_quantum_frames, buffer_constraint = request.constraint,
+            reported_callback_frames = stream.buffer_size().ok(),
+            open_us = opening.elapsed().as_micros() as u64,
             sample_rate = format.sample_rate,
             channels = format.channels,
             "Audio output opened"
         );
-        Ok(Self(stream))
+        Ok(Self {
+            stream,
+            audio_id,
+            generation,
+        })
     }
 }
 
@@ -146,13 +189,24 @@ fn build<T: SizedSample + FromSample<f32>>(
     consumer: Consumer<Frame>,
     state: Arc<State>,
     format: AudioFormat,
-) -> Result<cpal::Stream> {
+) -> Result<cpal::Stream>
+where
+    f32: FromSample<T>,
+{
     let mut render = Render::new(consumer, state.clone(), format);
     let born_xruns = state.xruns.load(Ordering::Acquire);
+    #[cfg(feature = "test-support")]
+    let mut witness = crate::test_support::output_witness::attach(&state, format);
     device
         .build_output_stream(
             config,
-            move |data: &mut [T], info| render.fill(data, info),
+            move |data: &mut [T], info| {
+                render.fill(data, info);
+                #[cfg(feature = "test-support")]
+                if let Some(witness) = &mut witness {
+                    witness.record(data, info);
+                }
+            },
             move |error| report(&state, born_xruns, error.kind()),
             Some(Duration::from_secs(2)),
         )
@@ -183,8 +237,13 @@ fn report(state: &State, born_xruns: u64, kind: cpal::ErrorKind) {
 
 impl Drop for Output {
     fn drop(&mut self) {
-        let _ = self.0.pause();
-        tracing::info!(event = "audio_output_closed", "Audio output closed");
+        let _ = self.stream.pause();
+        tracing::info!(
+            event = "audio_output_closed",
+            audio_id = self.audio_id,
+            generation = self.generation,
+            "Audio output closed"
+        );
     }
 }
 
