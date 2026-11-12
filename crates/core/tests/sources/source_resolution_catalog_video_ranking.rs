@@ -232,9 +232,9 @@ async fn a_leading_video_is_the_best_guess_when_no_catalog_song_matches() {
 }
 
 #[tokio::test]
-async fn a_leading_video_with_a_different_summary_duration_is_still_the_best_guess() {
+async fn a_leading_video_outside_the_duration_tolerance_skips_strict_hydration_and_is_the_best_guess() {
     let world = World::start(&[
-        video("OwnedVid000", "Owned performer - Owned tune", 1300),
+        video("OwnedVid000", "Owned performer - Owned tune", 10_000),
         song("OwnedSong00", "Owned other tune"),
         song("OwnedSong01", "Owned third tune"),
     ])
@@ -243,5 +243,23 @@ async fn a_leading_video_with_a_different_summary_duration_is_still_the_best_gue
     assert!(matches!(resolution.outcome, SourceResolutionOutcome::Ready));
     assert_eq!(match_kinds(&resolution), vec![json!("best_guess")]);
     assert_eq!(world.bound().await, vec!["OwnedVid000"]);
+    for path in [
+        "v1/recordings/detail",
+        "v1/sources",
+        "v1/recordings/metadata",
+    ] {
+        let order = world
+            .youtube
+            .requests(path)
+            .await
+            .iter()
+            .map(|(_, body)| body["recording_id"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            order,
+            vec!["OwnedSong00", "OwnedSong01", "OwnedVid000"],
+            "the strict pass must hydrate only the plausible songs, and the provider-rank fallback must hydrate the excluded leading video once"
+        );
+    }
     world.finish().await;
 }
