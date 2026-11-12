@@ -86,7 +86,7 @@ If something fails, the launcher prints the failed step. Its log is in `~/Librar
 
 ### Add plugins
 
-The setup launcher can start the Spotify and YouTube plugins for you: answer **Start addons** when it asks. To start them yourself:
+The setup launcher can start the Spotify and YouTube plugins for you if you answer **Start addons** when it asks. To start them yourself:
 
 ```sh
 docker compose -p hito -f compose.yaml -f deploy/compose/addons.yaml --profile plugins up -d --build
