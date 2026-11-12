@@ -1,5 +1,17 @@
 # Implementation status
 
+## 2026-11-12 backend cache and credential work in progress
+
+Two backend features are being developed in separate worktrees. Neither is integrated in this branch or deployed.
+
+The built-in MusicBrainz cache now reuses public edition tracks and retained artist profiles, while rebuilding account-specific results under current permissions. Owned SQLite and HTTP fixtures cover persistence, coalescing, cancellation, stale reads, leased background refresh, writer contention, five-second retries and retirement across personal or shared corrections. The current Core prefix passes fourteen cases; four existing database-owner controls also pass. A real joined-server test passes with a held provider response. Its original single-enqueue assertion was corrected after logs showed SQLite contention: scheduling is bounded and best effort, so the test permits explicit follow-up reads while requiring each stale response to remain fast and exactly one background refresh to run. The original failures are retained.
+
+Discography and edition-page caching, unreviewed candidate flows, indexed capacity maintenance, the full erasure and upgrade controls, and the remaining recovery matrix are unfinished. Source-level origin checks and schema hooks do not substitute for those tests.
+
+Plugin-service credential failures now have a typed HTTP 409 response and account-private health observations. The latest credential run passes five HTTP cases and eight existing Core health cases. A separate held-response test confirms that an older successful search cannot clear a newer health-credential failure. Current authority and connection generations are checked before observations are exposed. Public health or manifest success does not prove protected requests work.
+
+Credential replacement and other pending-request lifecycle controls, metadata and lyric-document success handling, generic provider fallback and job-retry compatibility, and Rust API generation remain open. Both features still need full affected checks, independent review, fresh combined verification and frontend integration before rollout. The normal server, preview, VPS and `main` have not changed through these worktrees. The full [release scope and gates](release-plan.md) remain open.
+
 ## 2026-11-12 timed-first automatic lyrics
 
 Development source at `9b6dbece` now returns the first provider-ranked valid timed lyric document across compatible results, keeping the first plain document only as fallback after examining the complete bounded page. Valid v2 anchors and legacy v1 intervals count as timed. Strict title, artist, version, duration and exact provider-reference checks remain. Null documents are skipped; unreadable later compatible results remain unavailable. Unexamined continuations remain ambiguous. Explicit manual identities and choices are preserved.
