@@ -161,8 +161,8 @@ test("an opened catalog album names itself once, hides a lone edition and the un
     card.queryByText(/Audio availability has not been checked/),
   ).toBeNull();
   expect(card.queryByText("Catalog only")).toBeNull();
-  const table = card.getByRole("table", { name: "Tracks" });
-  const rows = within(table).getAllByRole("row").slice(1);
+  const table = card.getByRole("list", { name: "Tracks" });
+  const rows = within(table).getAllByRole("listitem");
   expect(rows).toHaveLength(4);
   expect(within(rows[0]).getByText("1:01")).toBeTruthy();
   expect(card.getByRole("button", { name: "Play album" })).toBeTruthy();
@@ -218,9 +218,9 @@ test("Play resolves only the first track now, queues it and lets the rest follow
   ]);
   await waitFor(() => {
     const skipped = card
-      .getAllByRole("row")
+      .getAllByRole("listitem")
       .find((row) => row.textContent?.includes(catalogAlbumTitles[2]))!;
-    expect(within(skipped).getByText("No source")).toBeTruthy();
+    expect(within(skipped).getByText(/No audio found/)).toBeTruthy();
   });
   expect(selection.more.remaining()).toBe(0);
   expect(fetch).toHaveBeenCalled();
@@ -265,7 +265,7 @@ test("clicking a track row plays from that track and a first track that is not f
   ]);
   const selection = player.selected.mock.calls[0][0] as { queue: unknown[] };
   expect(selection.queue).toEqual([foundRecording(2)]);
-  expect(card.getByText("No source")).toBeTruthy();
+  expect(card.getByText(/No audio found/)).toBeTruthy();
 });
 
 test("without the automatic service search choice Play explains itself, links to the setting and Shuffle leaves the player's shuffle alone", async () => {

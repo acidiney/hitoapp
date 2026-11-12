@@ -78,7 +78,7 @@ test("one StrictMode open starts one edition read and replacement ownership requ
     http.reply(lastEditionPage);
     http.reply(tracksOfEdition(bonusEdition));
     fireEvent.click(screen.getByRole("button", { name: "Open album" }));
-    await screen.findByRole("table", { name: "Tracks" });
+    await screen.findByRole("list", { name: "Tracks" });
     expect(http.fetch).toHaveBeenCalledTimes(3);
     expect(
       new Headers(http.fetch.mock.calls[1][1]?.headers).get("x-hito-account"),
@@ -161,7 +161,7 @@ test("closed edition choices do not multiply owned request controllers as discog
     fireEvent.click(
       within(row).getByRole("button", { name: `Open ${editionGroup.title}` }),
     );
-    await within(row).findByRole("table", { name: "Tracks" });
+    await within(row).findByRole("list", { name: "Tracks" });
     expect(http.fetch).toHaveBeenCalledTimes(4);
     expect(http.fetch.mock.calls[2][0]).toBe(
       `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-associations/${artistAssociation.id}/release-group-editions`,

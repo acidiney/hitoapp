@@ -103,13 +103,13 @@ test("a rejected later-page token can be restarted explicitly after server key l
     });
     expect(detail.signal()?.aborted).toBe(true);
     expect(detail.aborts()).toBe(1);
-    expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Tracks" })).toBeNull();
     expect(editionChip()).toBeNull();
     await act(async () => {
       restart.release();
     });
     await within(
-      await screen.findByRole("table", { name: "Tracks" }),
+      await screen.findByRole("list", { name: "Tracks" }),
     ).findAllByText("Tema repetido");
     await act(async () => {
       detail.release();
@@ -139,7 +139,7 @@ test("a conflicting edition continuation offers only an explicit restart and rep
   http.reply(tracksOfEdition(bonusEdition));
   const view = render(catalogAlbumElement(props));
   try {
-    await screen.findByRole("table", { name: "Tracks" });
+    await screen.findByRole("list", { name: "Tracks" });
     loadMoreEditions();
     await screen.findByRole("alert");
     expect(
@@ -189,7 +189,7 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
   }
   const view = render(catalogAlbumElement(props));
   try {
-    await screen.findByRole("table", { name: "Tracks" });
+    await screen.findByRole("list", { name: "Tracks" });
     const album = screen.getByRole("region", { name: "Album" });
     for (let page = 2; page <= 50; page++) {
       loadMoreEditions();

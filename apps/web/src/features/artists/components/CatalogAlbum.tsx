@@ -6,12 +6,12 @@ import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
 import AlbumActions from "../../catalog/components/AlbumActions";
 import { albumEyebrow } from "../../catalog/model/albumEyebrow";
-import TrackTable from "../../playback/components/TrackTable";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { longDuration, totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
+import CatalogTrackList from "./CatalogTrackList";
 import CatalogFailure from "./CatalogFailure";
 import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
 import { editionLabel } from "../model/editionLabel";
@@ -66,9 +66,7 @@ export default function CatalogAlbum({
     );
   const title = group.title || editions.chosen?.title || "Release";
   const duration = totalMs(occurrences);
-  const owned = rows.filter(
-    (row) => row.kind === "catalog" && row.row.recording,
-  ).length;
+  const owned = rows.filter((row) => row.recording).length;
   const filter = owned > 0 ? chosenFilter : "all";
   const year = group.first_release_date?.slice(0, 4);
   const catalogName =
@@ -209,15 +207,10 @@ export default function CatalogAlbum({
           )}
         {editions.limited && <p>Showing the first 50 pages of editions.</p>}
         {rows.length > 0 && (
-          <TrackTable
-            rows={
-              filter === "library"
-                ? rows.filter(
-                    (row) => row.kind === "catalog" && row.row.recording,
-                  )
-                : rows
-            }
-            catalog={controls}
+          <CatalogTrackList
+            tracks={rows}
+            controls={controls}
+            filter={filter}
             playlists={playlists}
             mutate={mutate}
           />

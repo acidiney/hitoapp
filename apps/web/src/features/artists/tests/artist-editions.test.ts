@@ -103,7 +103,7 @@ test("an opened catalog group pages editions on request and lists only the chose
     fireEvent.click(
       within(group).getByRole("button", { name: `Open ${editionGroup.title}` }),
     );
-    const table = await within(group).findByRole("table", { name: "Tracks" });
+    const table = await within(group).findByRole("list", { name: "Tracks" });
     expect(fetch.mock.calls.map(([path]) => path)).toEqual([
       `${base}/discography`,
       listingPath,
@@ -119,8 +119,7 @@ test("an opened catalog group pages editions on request and lists only the chose
       edition_id: standardEdition.id,
     } satisfies Schema<"ReadEditionTrackList">);
     const rows = within(table)
-      .getAllByRole("row")
-      .slice(1)
+      .getAllByRole("listitem")
       .map((row) => row.textContent ?? "");
     expect(rows.map((row) => /^(\d+\.[A-Z]?\d+)/.exec(row)?.[1] ?? "")).toEqual(
       ["1.1", "2.A1"],

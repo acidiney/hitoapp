@@ -1,4 +1,4 @@
-import { choose, optionsOf } from "../../../test/listbox";
+import { chooseEdition, loadMoreEditions } from "../../../test/editionMenu";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { Schema } from "../../../shared/schema";
@@ -100,10 +100,8 @@ test.each(["listing", "chosen track list"] as const)(
     const view = render(catalogAlbumElement(initial));
     try {
       if (phase === "listing") {
-        await screen.findByRole("table", { name: "Tracks" });
-        fireEvent.click(
-          screen.getByRole("button", { name: "Load more editions" }),
-        );
+        await screen.findByRole("list", { name: "Tracks" });
+        loadMoreEditions();
       }
       await flush();
       await act(async () => {
@@ -145,14 +143,14 @@ test.each(["listing", "chosen track list"] as const)(
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
       expect(screen.queryByRole("region", { name: "Album" })).toBeNull();
-      expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+      expect(screen.queryByRole("list", { name: "Tracks" })).toBeNull();
       expect(http.fetch).toHaveBeenCalledTimes(phase === "listing" ? 3 : 2);
       const before = http.fetch.mock.calls.length;
       http.reply(currentPage(changed));
       http.reply(tracksOf(changed, bonusEdition, freshTitle));
       fireEvent.click(screen.getByRole("button", { name: "Open album" }));
       await within(
-        await screen.findByRole("table", { name: "Tracks" }),
+        await screen.findByRole("list", { name: "Tracks" }),
       ).findByText(freshTitle);
       const [path, request] = http.fetch.mock.calls[before];
       expect(path).toBe(
@@ -263,10 +261,10 @@ test.each(["late success body", "late error headers"] as const)(
       await act(async () => {
         await held.entered;
       });
-      choose(screen.getByRole("combobox", { name: "Edition" }), 1);
+      chooseEdition(1);
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
-      const table = await screen.findByRole("table", { name: "Tracks" });
+      const table = await screen.findByRole("list", { name: "Tracks" });
       await within(table).findAllByText("Tema repetido");
       await act(async () => held.release());
       await flush();

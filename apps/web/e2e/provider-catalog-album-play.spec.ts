@@ -29,8 +29,8 @@ test("a catalog album plays like a library album: Play starts the first track, q
     await expect(page.getByText(/Audio availability has not been/)).toHaveCount(
       0,
     );
-    const table = page.getByRole("table", { name: "Tracks" }).first();
-    await expect(table.getByRole("row")).toHaveCount(5);
+    const table = page.getByRole("list", { name: "Tracks" }).first();
+    await expect(table.getByRole("listitem")).toHaveCount(4);
     expect(artist.provider.state.searches).toEqual([]);
 
     await page.getByRole("button", { name: "Play album" }).click();
@@ -42,10 +42,10 @@ test("a catalog album plays like a library album: Play starts the first track, q
       .toBeGreaterThan(0.2);
     expect(artist.provider.audioRequests.length).toBeGreaterThan(0);
 
-    const unfound = table.getByRole("row").filter({ hasText: hidden });
-    await expect(unfound).toContainText("No source");
+    const unfound = table.getByRole("listitem").filter({ hasText: hidden });
+    await expect(unfound).toContainText("No audio found");
     await expect(
-      table.getByRole("row").filter({ hasText: closing }),
+      table.getByRole("listitem").filter({ hasText: closing }),
     ).not.toContainText("Not found");
 
     await page.getByRole("button", { name: "Open queue", exact: true }).click();

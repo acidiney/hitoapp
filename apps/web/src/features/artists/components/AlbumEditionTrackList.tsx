@@ -5,7 +5,7 @@ import { time } from "../../../shared/format";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
 import Button from "../../../shared/ui/Button";
-import EditionTrackRow, { type EditionRowState } from "./EditionTrackRow";
+import EditionTrackRow, { ownedRowState } from "./EditionTrackRow";
 import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
 import TrackRowActions from "../../playback/components/TrackRowActions";
 import {
@@ -170,16 +170,6 @@ export default function AlbumEditionTrackList({
     );
   }
 
-  function ownedState(recording: Schema<"Recording">): {
-    state: EditionRowState;
-    detail?: string;
-  } {
-    if (recording.available) return { state: "ready", detail: "Local" };
-    if (recording.plays_from_services)
-      return { state: "ready", detail: "from your services" };
-    return { state: "library" };
-  }
-
   function row(track: Occurrence) {
     const library = libraryFor(track);
     if (filter === "library" && !library) return null;
@@ -197,7 +187,7 @@ export default function AlbumEditionTrackList({
         <EditionTrackRow
           key={track.id}
           {...common}
-          {...ownedState(library)}
+          {...ownedRowState(library)}
           actions={libraryActions(library)}
           play={{
             label: `Play ${library.title}`,
@@ -291,7 +281,7 @@ export default function AlbumEditionTrackList({
         key={track.entry_id}
         number="–"
         title={track.title}
-        {...ownedState(track)}
+        {...ownedRowState(track)}
         actions={libraryActions(track)}
         credit={track.artist}
         time={track.duration_ms ? time(track.duration_ms / 1000) : ""}

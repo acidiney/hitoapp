@@ -123,7 +123,7 @@ test.each([
       expect(region.textContent).not.toContain(sentinel);
       expect(reads).toBe(1);
       fireEvent.click(retry);
-      await within(region).findByRole("table", { name: "Tracks" });
+      await within(region).findByRole("list", { name: "Tracks" });
       expect(reads).toBe(2);
       expect(within(region).queryByRole("alert")).toBeNull();
       expect(
