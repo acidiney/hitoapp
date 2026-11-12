@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-12 PWA production backend artifact
+
+The accepted backend at `419b86d5` now has a separately built Linux AArch64 production executable. Actual Cargo artifacts confirm Core/server features `[]`, SDK schema only, opt3/debug0/test=false, thin LTO and stripped symbols, without testkit or the development LRCLIB service. Independent inspection verifies all 4,247 archived source inputs, the 2,630 accepted backend/support inputs and 395 actual compiler artifacts. The 40,685,008-byte executable has SHA-256 `a78b469aa00a88c84d87110c6b32d14cbff108bb343a140d73b969e808ac238d`.
+
+The exact executable also passes 33 isolated runtime probes on the existing runtime base: all eleven public assets through GET/HEAD with exact bytes, MIME and cache policy, worker root scope, health, six unauthenticated method/routes and genuine unknown-file/API 404s. Its running executable hash matches. Test data uses tmpfs, networking and host ports are absent, and only owned read-only fixtures are mounted. The original fixture omitted the startup `assets/app.js` file and exited before Core opened; that failure is preserved. A separate complete fixture passes without changing production code or weakening the HTTP checks. Both owned candidates are removed.
+
+The production receipt hashes to `ae0aa02b0f67f04a84fb859e30471ffc51bb36325d1ee7086b58021579d201dd`; independent runtime acceptance hashes to `54dde88453aa4184b3fde572119e148c465036a73e3df05a3121c3c20cdebab2`. The executable is available to combine with the qualified frontend. The two inactive Cargo targets were retired after their source archives and actual executables were verified outside the caches. This does not qualify a complete image, browser installation, amd64 VPS binary, desktop package or public release. No normal or preview deployment changed. See [artifact scope and remaining integration](web-app-installation.md#production-artifact-and-remaining-integration).
+
 ## 2026-11-11 installable web app backend
 
 Development source at `419b86d5` serves eleven exact public web-root assets through confined, nonblocking regular-file reads. GET and HEAD preserve typed content, the worker revalidates with root scope, and missing or unsafe files return 404. HTML includes the agreed viewport, icons, theme and standalone metadata. `/` selects Home while `/library` keeps the library page. Private API, audio and artwork cache policy remains intact. See [the server contract](web-app-installation.md).

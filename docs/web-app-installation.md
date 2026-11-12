@@ -19,3 +19,22 @@ Server HTML links the manifest, ICO and SVG favicons, 16px and 32px PNG favicons
 The frontend supplies the manifest, icons, worker file and worker registration. Its worker must leave authenticated APIs, audio, artwork and signed URLs out of shared caches. The server middleware default remains `private, no-store`; routes with an existing explicit cache policy keep it.
 
 On 2026-11-11, Docker Compose checks passed 36 focused public HTTP tests, server Clippy across all targets with warnings denied, the production library and binary check, and workspace formatting. The tests cover Linux FIFO rejection with positive cleanup of the failing reader, filesystem confinement, head metadata and escaping, authentication, Inertia behavior, and private audio and artwork responses. Browser installation and frontend worker behavior require separate acceptance. This is backend qualification, not a public release.
+
+## Production artifact and remaining integration
+
+On 2026-11-12, the Linux AArch64 production executable from accepted source `419b86d5` passed independent source, feature/profile and ELF inspection plus 33 isolated runtime probes. The probes use owned transport fixtures, not a frontend bundle. Startup requires the real build's `assets/app.js` to compute its asset version; manifest and icon files alone are insufficient.
+
+The solid backend path below is qualified. The dotted integration path still needs a complete frontend/runtime image, browser checks and installation/update acceptance. Private HTML, APIs, audio, artwork and signed URLs must stay out of shared worker caches.
+
+```mermaid
+flowchart LR
+    source[Accepted backend source] --> checks[Source and contract checks]
+    checks --> build[Docker production build]
+    build --> binary[Linux arm64 executable]
+    binary --> smoke[Isolated runtime checks]
+    binary -.-> image[Frontend and server image]
+    frontend[Frontend bundle] -.-> image
+    image -.-> browser[Browser and installation acceptance]
+```
+
+No PWA runtime deployment, complete frontend image, amd64 build or desktop package is qualified by these backend checks. See [the artifact evidence](status.md#2026-11-12-pwa-production-backend-artifact).
