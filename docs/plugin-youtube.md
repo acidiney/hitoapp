@@ -78,9 +78,21 @@ flowchart LR
   Cleanup --> Release[Release worker capacity]
 ```
 
-The extractor passes literal arguments without a shell and clears the inherited environment. It disables configuration, cookies, browser cookies, plugin directories, remote components, downloads and disk caching. Search uses the YouTube Music songs catalog, with an encoded query and `--playlist-end` set to the requested limit, at most 50. This is music-catalog discovery; ordinary YouTube video search is not exposed. Existing explicit video identities still use the same detail and audio endpoints. Output is limited to 2 MiB on stdout and 64 KiB on stderr, then normalized to a maximum 256 KiB SDK response. Search terms and upstream output stay out of operational logs.
+The extractor passes literal arguments without a shell and clears the inherited environment. It disables configuration, cookies, browser cookies, plugin directories, remote components, downloads and disk caching. Search runs one extractor process with two literal targets: first the YouTube Music songs catalog with an encoded query, then an ordinary YouTube video search (`ytsearchN:`). `--playlist-end` is set to the requested limit, at most 50, and `--ignore-errors` lets the second target run when the first fails. Existing explicit video identities still use the same detail and audio endpoints. Output is limited to 2 MiB on stdout and 64 KiB on stderr, then normalized to a maximum 256 KiB SDK response. Search terms and upstream output stay out of operational logs.
 
-Flat music results contain only identity and title. When artist evidence is absent, search returns `Unknown artist` with an optional duration. Detail extraction remains strict and independent. The plugin never fills musical credits or track titles from the listener's query.
+Flat music results contain only identity and title. Flat video results add the channel and duration; the channel is returned as `Channel: <name>`, which Core does not treat as a known artist. When no artist or channel evidence is present, search returns `Unknown artist` with an optional duration. Detail extraction remains strict and independent. The plugin never fills musical credits or track titles from the listener's query, and never derives a performer from a channel name.
+
+### Search ranking and partial results
+
+Planned behavior in development source. The tests that describe it have not been run yet, and the pinned yt-dlp's continuation after a failed first target has not been checked live.
+
+- At most one video leads the page: the first video whose title contains every word of the query. All catalog songs follow in catalog order, then the remaining videos. Each video identity appears once.
+- When the same identity is in both lists, the song row's title, artists and duration win. The video only fills fields the song row lacks.
+- Each target's document is read on its own. A target that fails, prints a malformed document, or is still running at the eight-second deadline is dropped, and the other target's complete document is kept. Cancellation, cleanup failure and oversized output still fail the search. A hanging songs target prevents the video target from running, so that search still times out.
+
+Known limitation: Core verifies at most three plausible results per search. When a plausible lead video is present, that window is the lead video and the first two catalog songs. A correct third catalog song is then not checked, and the lead video can be used as a best guess instead. Not every match the songs-only search used to verify is preserved. A promoted video is never verified on its title alone; it needs independent musical evidence like any other result.
+
+Still open: automatic matching is not complete. Existing library rows with a missing artist are not backfilled by this search change, and one unexplained 503 in a plugin source test (recorded during the first test run of this change) has not been classified.
 
 The worker retains its capacity until process-group cleanup finishes, including when the HTTP caller disconnects. Shutdown stops admission, cancels workers and joins cleanup. A cleanup failure stops further extraction. These process-ownership checks currently target Linux GNU, which is the service container platform.
 
