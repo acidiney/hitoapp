@@ -3,7 +3,9 @@ set -eu
 directory=${0%/*}
 target=
 for argument do
-    target=$argument
+    case "$argument" in
+        https://*) target=$argument ;;
+    esac
 done
 printf '%s\n' 'private-extractor-stderr-sentinel' >&2
 case "$target" in

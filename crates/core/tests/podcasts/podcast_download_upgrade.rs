@@ -483,10 +483,13 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_91().await;
+        let mut reference = collection_artwork_schema::reference_95().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
-        for &(kind, name) in collection_artwork_schema::REPLACED {
+        for &(kind, name) in collection_artwork_schema::REPLACED
+            .iter()
+            .chain(collection_artwork_schema::source_artist_trigger_schema::REPLACED)
+        {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
                 self.schema.contains_key(&key),
@@ -534,6 +537,9 @@ impl RetainedState {
             .chain(collection_artwork_schema::catalog_track_link_schema::ADDED)
             .chain(collection_artwork_schema::credit_member_schema::ADDED)
             .chain(collection_artwork_schema::credited_artists_schema::ADDED)
+            .chain(collection_artwork_schema::offline_replicas_schema::ADDED)
+            .chain(collection_artwork_schema::replica_catalog_schema::ADDED)
+            .chain(collection_artwork_schema::recording_lyric_identity_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
@@ -640,6 +646,21 @@ impl RetainedState {
             )
             .chain(
                 collection_artwork_schema::account_schema::NEW_TABLES
+                    .iter()
+                    .copied(),
+            )
+            .chain(
+                collection_artwork_schema::offline_replicas_schema::TABLES
+                    .iter()
+                    .copied(),
+            )
+            .chain(
+                collection_artwork_schema::replica_catalog_schema::TABLES
+                    .iter()
+                    .copied(),
+            )
+            .chain(
+                collection_artwork_schema::recording_lyric_identity_schema::TABLES
                     .iter()
                     .copied(),
             )

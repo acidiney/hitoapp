@@ -1,4 +1,4 @@
-use crate::{Error, process, recordings};
+use crate::{Error, process, search};
 use hito_plugin_sdk::{FailureTracker, HealthReason, SearchPage, SearchRequest};
 use std::{
     path::PathBuf,
@@ -44,13 +44,14 @@ impl Extractor {
 
     pub(crate) async fn search(&self, request: SearchRequest) -> Result<SearchPage, Error> {
         let limit = request.limit;
+        let query = request.query.clone();
         self.execute(
             process::Intent::Search {
                 query: request.query,
                 limit,
             },
             "youtube_search_complete",
-            move |bytes| recordings::normalize(&bytes, limit),
+            move |bytes| search::normalize(&bytes, &query, limit),
         )
         .await
     }

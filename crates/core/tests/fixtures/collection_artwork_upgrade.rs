@@ -2,6 +2,8 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::{borrow::Cow, path::Path};
 
+use super::schema::source_artist_trigger_schema;
+
 pub const READY_RECORDING: &str = "20000000-0000-4000-8000-000000000001";
 pub const PENDING_RECORDING: &str = "20000000-0000-4000-8000-000000000002";
 pub const READY_JOB: &str = "50000000-0000-4000-8000-000000000001";
@@ -161,6 +163,11 @@ pub async fn assert_schema_preserved(
         "recording_artwork_owner",
         "recording_artwork_update",
     ];
+    let version: i64 =
+        sqlx::query_scalar("SELECT max(version) FROM _sqlx_migrations WHERE success=1")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
     let after = schema(connection).await;
     for object in before.iter().filter(|object| {
         !changed.contains(&object.1.as_str())
@@ -169,6 +176,13 @@ pub async fn assert_schema_preserved(
                 .any(|(kind, name)| *kind == object.0 && *name == object.1)
     }) {
         let mut expected = object.clone();
+        if version >= 93
+            && source_artist_trigger_schema::REPLACED
+                .iter()
+                .any(|(kind, name)| *kind == expected.0 && *name == expected.1)
+        {
+            expected.3 = Some(source_artist_trigger_schema::definition(&expected.1));
+        }
         if expected.0 == "table" && expected.1 == "source_resolutions" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replace(

@@ -52,8 +52,9 @@ async fn music_search_preserves_flat_ranked_results_until_independent_metadata_h
             .map(|argument| std::str::from_utf8(argument).unwrap()).collect::<Vec<_>>();
         let separator = arguments.iter().position(|argument| *argument == "--")
             .unwrap_or_else(|| panic!("the extractor must fence the URL after its options"));
-        assert!(separator + 2 == arguments.len() && arguments[separator + 1] == expected.as_str(),
-            "search must use the encoded YouTube Music songs URL as one literal argument");
+        assert!(separator + 3 == arguments.len() && arguments[separator + 1] == expected.as_str() &&
+            arguments[separator + 2] == format!("ytsearch2:{query}") && arguments.contains(&"--ignore-errors"),
+            "search must pass the encoded YouTube Music songs URL and then the video search as literal arguments");
         let end = arguments.iter().position(|argument| *argument == "--playlist-end")
             .unwrap_or_else(|| panic!("music search must bound the extracted playlist before its URL"));
         assert!(end + 1 < separator && arguments[end + 1] == "2" &&

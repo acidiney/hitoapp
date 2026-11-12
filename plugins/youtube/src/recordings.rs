@@ -1,9 +1,8 @@
 use crate::Error;
-use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording, SearchPage};
+use hito_plugin_sdk::{CreditRole, CreditedArtist, ProviderRecording};
 use serde::Deserialize;
 use std::collections::HashSet;
 
-const MAX_RESPONSE_BYTES: usize = 262_144;
 const MAX_CREDITED_ARTISTS: usize = 16;
 const MAX_CREDITED_NAME_BYTES: usize = 256;
 
@@ -29,12 +28,7 @@ fn main_credits(names: &[String]) -> Vec<CreditedArtist> {
         .collect()
 }
 
-#[derive(Deserialize)]
-struct SearchResults {
-    entries: Vec<SearchEntry>,
-}
-
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct SearchEntry {
     id: String,
     title: String,
@@ -45,31 +39,6 @@ pub(crate) struct SearchEntry {
     duration: Option<f64>,
 }
 
-pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
-    let results: SearchResults =
-        serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
-    if results.entries.len() > 50 {
-        return Err(Error::InvalidResponse);
-    }
-    let mut items = Vec::with_capacity(results.entries.len());
-    for entry in results.entries {
-        items.push(entry.summary()?);
-    }
-    let mut page = SearchPage {
-        items,
-        next_cursor: None,
-    };
-    page.validate(50).map_err(|_| Error::InvalidResponse)?;
-    page.items.truncate(usize::from(limit));
-    let length = serde_json::to_vec(&page)
-        .map_err(|_| Error::InvalidResponse)?
-        .len();
-    if length > MAX_RESPONSE_BYTES {
-        return Err(Error::InvalidResponse);
-    }
-    Ok(page)
-}
-
 pub(crate) fn valid_id(id: &str) -> bool {
     id.len() == 11
         && id
@@ -78,7 +47,29 @@ pub(crate) fn valid_id(id: &str) -> bool {
 }
 
 impl SearchEntry {
-    fn summary(mut self) -> Result<ProviderRecording, Error> {
+    pub(crate) fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub(crate) fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub(crate) fn enriched(self, video: Self) -> Self {
+        let artists = self.artists.filter(|artists| !artists.is_empty());
+        let musical = artists.is_some() || self.artist.is_some();
+        Self {
+            id: self.id,
+            title: self.title,
+            artists: if musical { artists } else { video.artists },
+            artist: if musical { self.artist } else { video.artist },
+            channel: self.channel.or(video.channel),
+            uploader: self.uploader.or(video.uploader),
+            duration: self.duration.or(video.duration),
+        }
+    }
+
+    pub(crate) fn summary(mut self) -> Result<ProviderRecording, Error> {
         if self.artists.as_ref().is_none_or(Vec::is_empty)
             && self.artist.is_none()
             && self.channel.is_none()
