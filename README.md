@@ -5,7 +5,7 @@
   <img src=".github/readme/logo-light.svg" width="220" alt="hito">
 </picture>
 
-**One player for your Spotify playlists, YouTube, debrid accounts and music files. Self-hosted, built on plugins.**
+**One player for every music source.**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-6f86ff)](LICENSE)
 
@@ -13,37 +13,50 @@
 
 <br>
 
-<img src=".github/readme/home.webp" width="100%" alt="Hito's home page in the browser: recently added albums, a suggestion to finish an album, and the player bar">
+<img src=".github/readme/discover.webp" width="100%" alt="Discover in Hito: an artist radio built from your library, and genres you own">
 
 </div>
 
-Your music is spread across a Spotify playlist, YouTube, a debrid account and a folder of files. Hito plays all of it from one library.
+Hito is a self-hosted music player with an open plugin system. On its own it plays the music in your folders. Plugins add the rest: more places to find audio, playlists from other services, lyrics, covers and track details.
 
-Paste a Spotify playlist link and it's yours, ready to play. Hito finds audio for every track on YouTube, your debrid service or your own disk, in the order you prefer, and falls back to the next source when one fails. MusicBrainz fills in the artist pages and LRCLIB brings the lyrics.
-
-Every source is a plugin. Connect the ones you want, skip the rest, or write your own. You host Hito yourself, so the library, the history and every account in the house stay on your machine.
+Plugins are opt-in. Use the ones that ship with Hito, use someone else's, write your own, or run none at all. A plugin is a small HTTP service that describes what it can do, so Hito works the same with any of them. You choose which sources play first, and when one fails Hito tries the next.
 
 > [!NOTE]
 > Hito is in active development and has no public release yet. It runs well as a local or home-server build in Docker. Desktop apps and installers are still being built.
 
 ## Plugins
 
-| Plugin | What you get |
+A plugin can offer any of these capabilities. Hito asks you to approve them before it connects.
+
+| Capability | What it adds |
 | --- | --- |
-| **Spotify** | Paste a public playlist link and Hito copies it as your own editable playlist. Follow it and new tracks arrive hourly or daily. No Spotify account needed. |
-| **YouTube** | Search for music in Discover, save what you find, and play imported tracks. |
-| **MusicBrainz** | Built in. Artist pages, discographies and genres. Hito matches artists by file tags, ISRCs and provider links, never by name alone. |
-| **LRCLIB** | Lyrics in Now playing. |
-| **Real-Debrid, All-Debrid, TorBox, Premiumize** | Play from your own debrid account. |
-| **Jamendo** | Free-licensed music to search, play and browse. |
-| **ListenBrainz** | Similar artists on artist pages. |
+| Search | Find music beyond your library, in Search and Discover. |
+| Playback | Play tracks you have no file for. |
+| Playlists | Copy or follow a playlist from a link. |
+| Track details and covers | Fill in missing titles, artists, albums and artwork. |
+| Lyrics | Show lyrics in Now playing. |
 
-Plugins are small HTTP services that run next to Hito, usually as Docker containers. Hito never downloads or runs plugin code. Before you connect one, Hito shows exactly what it will be allowed to do, and tokens you enter are encrypted and private to your account. The [plugin SDK](crates/plugin-sdk) is Apache-2.0, so you can [write your own](docs/plugins.md) under any license.
+<img src=".github/readme/plugins.webp" width="100%" alt="The Plugins page: which plugin powers search, playback, playlists and lyrics, your connections, and the order Hito tries sources in">
 
-<p align="center"><img src=".github/readme/plugin-review.webp" width="80%" alt="Connecting the YouTube plugin: Hito lists what it may do (search, playback, track details, covers) before you accept"></p>
+Hito never downloads or runs plugin code. It only talks to plugins over HTTP, and tokens you enter are encrypted and private to your account. The [plugin SDK](crates/plugin-sdk) is Apache-2.0, so a plugin can use any license. [Plugin connections](docs/plugins.md) describes the protocol.
+
+### Plugins in this repository
+
+These are reference plugins. None is required.
+
+| Plugin | What it does |
+| --- | --- |
+| Spotify | Copies a public playlist link into an editable Hito playlist, or follows it hourly or daily. Metadata only. |
+| YouTube | Search, playback, track details and covers. |
+| LRCLIB | Lyrics. |
+| Jamendo | Free-licensed music to search and play. Needs a Jamendo client ID. |
+| ListenBrainz | Similar artists. |
+| Real-Debrid, All-Debrid, TorBox, Premiumize | Playback from your own debrid account. |
+| Folder | Serves a folder as a plugin source. Useful for testing. |
 
 ## Also in the box
 
+- **Artist pages from MusicBrainz.** Built in, no plugin needed. Hito matches artists by file tags, ISRCs and provider links, never by name alone.
 - **Your own files.** Add music folders and Hito builds albums and artists from their tags. Folders are mounted read-only, and edits you make in Hito stay in Hito.
 - **Podcasts and audiobooks.** RSS subscriptions, bookmarks and Continue listening.
 - **Private accounts.** The first account is the administrator. Everyone else sees only the libraries they're given.
@@ -51,15 +64,10 @@ Plugins are small HTTP services that run next to Hito, usually as Docker contain
 
 <table>
   <tr>
-    <td width="62%"><img src=".github/readme/album.webp" alt="An album page with its track list"></td>
-    <td width="38%"><img src=".github/readme/mobile-home.webp" alt="Hito's home page on a phone"></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src=".github/readme/player.webp" alt="The Now playing view with the up next track, the audio source and playback speed"></td>
+    <td width="66%"><img src=".github/readme/playlist.webp" alt="A playlist followed from Spotify: checked every day, with tracks marked ready once Hito finds a source"></td>
+    <td width="34%"><img src=".github/readme/mobile-discover.webp" alt="Discover on a phone"></td>
   </tr>
 </table>
-
-<sub>Screenshots use a demo library of made-up artists and generated covers.</sub>
 
 ## Run it
 
