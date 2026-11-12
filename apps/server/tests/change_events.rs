@@ -434,3 +434,62 @@ async fn a_held_stream_delivers_no_queued_notice_after_its_session_is_locked() {
     );
     ended(&mut changes).await;
 }
+
+async fn database(dir: &tempfile::TempDir, statement: &str, seconds: i64) {
+    use sqlx::Connection;
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &sqlx::sqlite::SqliteConnectOptions::new().filename(dir.path().join("hito.db")),
+    )
+    .await
+    .unwrap();
+    sqlx::query(statement)
+        .bind(seconds)
+        .execute(&mut connection)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_held_stream_delivers_no_queued_notice_after_its_session_expires() {
+    let (dir, app) = app().await;
+    let token = admin(&app).await;
+    let mut changes = held_with_a_queued_private_notice(&app, &token).await;
+    database(&dir, "UPDATE sessions SET expires_at = unixepoch() - ?", 1).await;
+    ended(&mut changes).await;
+}
+
+#[tokio::test]
+async fn a_held_stream_delivers_no_queued_notice_after_idling_into_a_lock_and_never_defers_it() {
+    let (dir, app) = app().await;
+    let token = admin(&app).await;
+    assert_eq!(
+        call(
+            &app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": PASSWORD, "pin": "1234", "idle_minutes": 5}),
+            Some(&token),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let mut changes = stream(&app, &token).await;
+    let first = Uuid::new_v4().to_string();
+    let second = Uuid::new_v4().to_string();
+    assert_eq!(
+        sync(&app, &token, vec![create(&first), create(&second)]).await,
+        StatusCode::OK
+    );
+    let aged = "UPDATE session_locks SET active_at = active_at - ?";
+    database(&dir, aged, 3 * 60).await;
+    assert_eq!(notice(&mut changes).await, playlist_notice(&first));
+    database(&dir, aged, 3 * 60).await;
+    ended(&mut changes).await;
+    assert_eq!(
+        call(&app, "GET", "/api/v1/me", Value::Null, Some(&token))
+            .await
+            .0,
+        StatusCode::LOCKED
+    );
+}

@@ -1,12 +1,6 @@
 use super::{ChangeNotice, Changes, ResyncReason, Signal};
 use crate::{Actor, Error};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     time::{Interval, MissedTickBehavior},
@@ -17,30 +11,10 @@ use uuid::Uuid;
 const SESSION_CHECK: Duration = Duration::from_secs(30);
 const SESSION_CHECK_DEADLINE: Duration = Duration::from_secs(1);
 
-pub(super) struct SessionFence {
-    sessions: Arc<AtomicU64>,
-    seen: u64,
-}
-
-impl SessionFence {
-    pub(super) fn new(sessions: Arc<AtomicU64>) -> Self {
-        let seen = sessions.load(Ordering::SeqCst);
-        Self { sessions, seen }
-    }
-
-    fn advanced(&mut self) -> bool {
-        let current = self.sessions.load(Ordering::SeqCst);
-        let advanced = current != self.seen;
-        self.seen = current;
-        advanced
-    }
-}
-
 pub struct ChangeStream {
     changes: Changes,
     actor: Actor,
     receiver: Option<broadcast::Receiver<Signal>>,
-    fence: SessionFence,
     pending: Option<ChangeNotice>,
     checks: Interval,
     span: tracing::Span,
@@ -61,7 +35,6 @@ impl ChangeStream {
         changes: Changes,
         actor: Actor,
         receiver: broadcast::Receiver<Signal>,
-        fence: SessionFence,
     ) -> Self {
         let span = tracing::debug_span!(
             "change_stream",
@@ -78,7 +51,6 @@ impl ChangeStream {
             changes,
             actor,
             receiver: Some(receiver),
-            fence,
             pending: Some(ChangeNotice::Resync {
                 reason: ResyncReason::Connected,
             }),
@@ -109,7 +81,7 @@ impl ChangeStream {
             };
             match wake {
                 Wake::Signal(Ok(Signal::Notice(notice))) => {
-                    if self.fence.advanced() && self.session_ended().await {
+                    if self.session_ended().await {
                         return None;
                     }
                     self.delivered += 1;
@@ -121,7 +93,6 @@ impl ChangeStream {
                     return Some(notice);
                 }
                 Wake::Signal(Ok(Signal::SessionsChanged)) | Wake::Check => {
-                    self.fence.advanced();
                     if self.session_ended().await {
                         return None;
                     }
@@ -134,7 +105,6 @@ impl ChangeStream {
                         skipped,
                         "Change stream fell behind and was asked to resynchronize"
                     );
-                    self.fence.advanced();
                     if self.session_ended().await {
                         return None;
                     }

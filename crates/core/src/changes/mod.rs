@@ -4,10 +4,7 @@ use crate::{Actor, Error, Result, Store};
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    sync::{
-        Arc, Mutex, MutexGuard,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::{Arc, Mutex, MutexGuard},
 };
 pub use stream::ChangeStream;
 use tokio::sync::broadcast;
@@ -76,7 +73,6 @@ enum Signal {
 
 struct Channel {
     sender: broadcast::Sender<Signal>,
-    sessions: Arc<AtomicU64>,
 }
 
 #[derive(Clone, Default)]
@@ -109,23 +105,21 @@ impl ChangeHub {
     pub(crate) fn sessions_changed(&self, account: &str) {
         let mut accounts = self.accounts();
         if let Some(channel) = live(&mut accounts, account) {
-            channel.sessions.fetch_add(1, Ordering::SeqCst);
             let _ = channel.sender.send(Signal::SessionsChanged);
         }
     }
 
-    fn subscribe(&self, account: &str) -> Result<(broadcast::Receiver<Signal>, Arc<AtomicU64>)> {
+    fn subscribe(&self, account: &str) -> Result<broadcast::Receiver<Signal>> {
         let mut accounts = self.accounts();
         let channel = accounts
             .entry(account.to_owned())
             .or_insert_with(|| Channel {
                 sender: broadcast::channel(NOTICE_CAPACITY).0,
-                sessions: Arc::default(),
             });
         if channel.sender.receiver_count() >= STREAMS_PER_ACCOUNT {
             return Err(Error::RateLimited(5));
         }
-        Ok((channel.sender.subscribe(), channel.sessions.clone()))
+        Ok(channel.sender.subscribe())
     }
 
     fn release(&self, account: &str) {
@@ -160,18 +154,12 @@ impl Changes {
     pub async fn subscribe(&self, actor: &Actor) -> Result<ChangeStream> {
         actor.require_unlocked()?;
         actor.require_foreground_session()?;
-        let (receiver, sessions) = self.hub.subscribe(actor.id())?;
-        let fence = stream::SessionFence::new(sessions);
+        let receiver = self.hub.subscribe(actor.id())?;
         if let Err(error) = actor.check_session(&self.store).await {
             drop(receiver);
             self.hub.release(actor.id());
             return Err(error);
         }
-        Ok(ChangeStream::new(
-            self.clone(),
-            actor.clone(),
-            receiver,
-            fence,
-        ))
+        Ok(ChangeStream::new(self.clone(), actor.clone(), receiver))
     }
 }
