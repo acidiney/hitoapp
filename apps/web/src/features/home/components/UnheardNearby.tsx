@@ -50,7 +50,7 @@ export default function UnheardNearby({
               </Button>
               <Link
                 className="button secondary"
-                href={`/albums/${album.release_id}`}
+                href={`/albums/${encodeURIComponent(album.release_id)}`}
                 aria-label={`Open ${album.title}`}
               >
                 Open album

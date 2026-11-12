@@ -97,7 +97,7 @@ export function AlbumResults({
           <Link
             key={release.id}
             className="search-card"
-            href={`/albums/${release.id}`}
+            href={`/albums/${encodeURIComponent(release.id)}`}
             data-search-row=""
           >
             <Artwork

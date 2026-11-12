@@ -645,3 +645,38 @@ test("a 300-character artist credit stays in its card with an ellipsis, a title 
   expect(copy.textContent).not.toMatch(/0 albums/);
   expect(card.closest(".search-cards")).toBeTruthy();
 });
+
+test("album links in the top result and album cards encode the album id", () => {
+  render(
+    createElement(
+      SearchPage,
+      props({
+        recordings: emptyPage,
+        artists: emptyPage,
+        releases: page([
+          {
+            id: "a/b c",
+            library_id: "library",
+            title: "Tide",
+            artist: "Shore",
+            artist_id: "shore",
+            duration_ms: 1000,
+            track_count: 3,
+            inferred_artist: null,
+            year: null,
+          },
+        ]),
+      }),
+    ),
+  );
+  const top = screen.getByRole("region", { name: "Top result" });
+  expect(
+    within(top)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/albums/a%2Fb%20c", "/albums/a%2Fb%20c"]);
+  const albums = screen.getByRole("region", { name: "Albums" });
+  expect(
+    within(albums).getByRole("link", { name: /Tide/ }).getAttribute("href"),
+  ).toBe("/albums/a%2Fb%20c");
+});

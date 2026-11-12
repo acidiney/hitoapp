@@ -98,7 +98,10 @@ export default function TopResult({
           />
         </span>
         <div className="top-result-copy">
-          <Link className="top-result-title" href={`/albums/${release.id}`}>
+          <Link
+            className="top-result-title"
+            href={`/albums/${encodeURIComponent(release.id)}`}
+          >
             {release.title}
           </Link>
           <span>
@@ -107,7 +110,10 @@ export default function TopResult({
           </span>
         </div>
         <div className="top-result-actions">
-          <Link className="button action" href={`/albums/${release.id}`}>
+          <Link
+            className="button action"
+            href={`/albums/${encodeURIComponent(release.id)}`}
+          >
             Open album
           </Link>
         </div>
