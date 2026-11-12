@@ -8,6 +8,7 @@ mod source_preparation_history;
 mod source_preparation_query_plans;
 mod source_resolution_admission;
 mod source_resolution_bound_candidate;
+mod source_resolution_catalog_video_ranking;
 mod source_resolution_canonical_live;
 mod source_resolution_capacity_outcome;
 mod source_resolution_evidence_upgrade;
