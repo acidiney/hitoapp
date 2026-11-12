@@ -8,6 +8,14 @@ A fresh online SQLite backup preserves 106,184,704 bytes with all 95 migration c
 
 The previous image and fresh recovery snapshot are retained. No rollback or database restoration was needed. The preview and its watcher retain their exact container identities and start times. This updates the local development server only; it does not qualify authenticated playback against the live providers, update a plugin service or VPS, or complete the [public release gates](release-plan.md).
 
+## 2026-11-12 credential qualification and review
+
+The isolated credential candidate now passes the original cache-pressure regression and its inverse on the same source. An older rejected request cannot overwrite newer verified credentials after observation eviction; an older success cannot clear a newer failure, and a fresh protected request can recover. Independent inspection verifies all ninety evidence files, with ledger `e948d5e02c6bac41b1e32b4c7248ee38a9b97417fe7ee9750e6f6d6e4118e869`. This qualifies those two cases, not the complete feature.
+
+Root's broader repeat stops at the first unexpected result after 66 passing executions and two historical ignored diagnostics. The automatic-lyrics schema comparison fails against the saved OpenAPI contract; thirty planned phases remain unrun. Source hashes stay fixed, four actual executable families are preserved, and the failed owned container exits without OOM and is removed without deleting volumes. The partial evidence ledger hashes to `413bc67940546411cba4b0a3098811f86bc02940b69ff0c1e189cef553e3e5de`. Contract generation must come from Rust rather than weakening the schema assertion.
+
+Three independent source reviewers identify four remaining issues: checked lyric-document/metadata success does not recover private health; source hydration credential failures do not update that health; stale source-choice authority can permit later external requests before publication cancels; and final health validation can wait outside its four-second deadline. Public regression tests and corrections are being prepared. These findings are source evidence, not completed runtime fixes. Strict checks, generated contracts, remaining consumers, a second review and combined verification still precede integration. No credential-candidate code is deployed.
+
 ## 2026-11-12 current frontend and migration qualification
 
 Frozen frontend `b1e88d0f` passes 2,168 unit assertions, both TypeScript checks and its production build. The full default browser run selects 228 cases: 150 pass and 78 remain explicitly gated skips, with zero failures, retries or flaky results. All seventeen required cases pass, including remembered-edition loading, Add without playback, source fallback, timed-first lyrics and desktop/phone Now playing. Add is tested with an initially empty queue; preservation of an existing queue and exact source-request bodies are not established by that case.
