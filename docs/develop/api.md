@@ -86,7 +86,7 @@ This is the server synchronization contract. A desktop cache and durable offline
 | `playlists` | none | The playlist list changed. |
 | `artwork` | `entity` (`recording`, `release`, `playlist`), `id` | Provider artwork arrived. |
 
-Core capability services publish a notice only after their transaction commits, and only to the account that owns the change. A rolled-back batch or rejected command publishes nothing. Each account keeps one bounded in-memory channel of 32 notices; a stream that falls behind receives `resync` with reason `lagged` instead of buffering. An account can hold 8 open streams; more return 429. Notices are not stored, so a restart or reconnect relies on the `connected` resync.
+Core capability services publish a notice only after their transaction commits. Private changes, such as likes, metadata overrides, source choices, playlists and an account's own resolution or preparation status, go only to the account that made them. Changes to shared source data, such as a new provider binding, refreshed sources or a prepared source becoming ready, go to every account that is a member of the recording's library when the transaction commits; a member removed before then is not notified. A rolled-back batch or rejected command publishes nothing. Each account keeps one bounded in-memory channel of 32 notices; a stream that falls behind receives `resync` with reason `lagged` instead of buffering. An account can hold 8 open streams; more return 429. Notices are not stored, so a restart or reconnect relies on the `connected` resync.
 
 The stream authenticates through the shared session extractor and returns `Cache-Control: private, no-store`. It ends when its session signs out, is revoked, is locked, expires or is deleted with its account. After the initial `connected` resync, which carries no identifiers and directly follows the connection's own session check, a stream re-checks its own session against the database, with a one-second bound, before it delivers each notice. An expired, revoked, deleted or locked session, including one that has idled past its lock period, ends the stream instead of receiving the notice. The check only reads: it never counts as activity and never defers the idle lock. Sign-out, revocation, password change, locking and account deletion also signal open streams, so idle streams end promptly. Expiry and idle locks without a signal end an idle stream within 30 seconds, and always before its next notice. A new stream registers for notices before its first session check, so a sign-out that races the connection is still seen. The registration is owned from the moment it is made, so a connection cancelled or rejected during that check releases its slot.
 
@@ -104,7 +104,20 @@ sequenceDiagram
   View->>Service: Refetch through the ordinary endpoint
 ```
 
-Current producers are synchronization batches, manual source choice and reset, automatic source resolution, source preparation requests and their ready, failed or blocked outcomes, and provider artwork jobs. Lyrics, plugin health, provider attachment and adoption, artist identity and catalog metadata refresh do not publish notices yet.
+| Producer | Notices | Recipients |
+| --- | --- | --- |
+| Synchronization batches | `recording`, `recordings`, `playlist`, `playlists` | acting account |
+| Manual source choice and reset | `sources` | acting account |
+| Automatic source resolution | `sources` | library members when a source is bound; otherwise the acting account |
+| Resolution of a recording whose source is already available | `sources` | acting account |
+| Source preparation requests and failed or blocked outcomes | `sources` | requesting account |
+| Source preparation becoming ready | `sources` | library members |
+| Provider adoption, reviewed attachment and source refresh | `sources` | library members |
+| Playlist import, follow and follow refresh that changes entries | `playlist`, `playlists` | owning account |
+| Playlist metadata refresh | `playlist`, `playlists`, `recordings` | owning account |
+| Provider artwork jobs | `artwork`; playlist artwork also sends `playlist`, `playlists` | owning account |
+
+Provider bindings can only be created in the owner's personal provider library today, so library-member delivery currently reaches only that owner. Lyrics, plugin health, artist identity, Cover Art Archive artwork, audiobook and progress changes do not publish notices yet.
 
 ## Plugin contract
 
