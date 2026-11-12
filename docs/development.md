@@ -52,11 +52,9 @@ flowchart LR
   Base[deploy/compose/plugin-base.yaml: hardened runtime settings]
   Overlays[deploy/compose: one overlay per plugin]
   Dockerfile[docker/plugin.Dockerfile: PLUGIN, PORT, EXTRAS]
-  VPS[deploy/vps: build and runtime files for the development VPS]
   Overlays -->|extends| Base
   Overlays -->|build args| Dockerfile
   Root -. merged with -f .-> Overlays
-  VPS -->|build args| Dockerfile
 ```
 
 Run an overlay beside the root file, or alone from the repository root:

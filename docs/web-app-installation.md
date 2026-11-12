@@ -37,4 +37,4 @@ flowchart LR
     image -.-> browser[Browser and installation acceptance]
 ```
 
-No PWA runtime deployment, complete frontend image, amd64 build or desktop package is qualified by these backend checks. See [the artifact evidence](status.md#2026-11-12-pwa-production-backend-artifact).
+No PWA runtime deployment, complete frontend image, amd64 build or desktop package is qualified by these backend checks.

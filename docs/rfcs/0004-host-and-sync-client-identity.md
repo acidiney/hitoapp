@@ -1,127 +1,72 @@
-# RFC 0004: Host identity and sync client identity
+# RFC 0004: Tell host identity and sync client identity apart
 
 Status: Proposed
 
-Scope: design only. No code changes come with this document.
+## The problem
 
-## Problem
+Hito has two identities that look alike and mean different things:
 
-Hito has two identities that look alike and are not. The backend host identity says which machine owns local files and downloads. The synchronization client identity says which client sent an operation. `AGENTS.md` requires them to stay different concepts. The names do not help.
+- **Host identity** says which machine owns local files and downloads. A local source only plays on the machine that holds the file.
+- **Sync client identity** says which app or device sent a change, so that synchronization can order and deduplicate it.
 
-Evidence in the current tree:
+The code doesn't keep them apart. Both are stored in columns called "device ID". The host identity also appears under two more names, and the API sends the host identity in a field whose name suggests the client. The client identity is a plain string, checked by a copy of the host identity's validation rule. And the code that creates and stores the host identity file lives in the server, even though file ownership belongs to the core. The desktop app reaches into the server to use it.
 
-- Three names for the host. SQL uses `sources.device_id` (`crates/core/migrations/0002_library.sql:37`) and `music_folders.host_device` (`crates/core/migrations/0008_music_folders.sql:4`). The download tables use `host_device` (`crates/core/migrations/0029_persistent_downloads.sql:4`). Download wire types use `host_device_id` (`crates/core/src/downloads/types.rs:34`). The Rust type is `HostDeviceId` (`crates/core/src/context.rs:22`).
-- The client identity borrows the plain name. `sync_events.device_id` (`crates/core/migrations/0046_playlist_metadata_refresh.sql:10`) holds the client. `SyncBatch.device_id` (`crates/core/src/collection/types.rs:151`) and `SyncEvent::Operation.device_id` (line 172) carry it on the wire. A reader sees `device_id` in `sources` and `sync_events` and cannot tell which concept it is.
-- The wire `Source` leaks the host through the client-like name. `Source.device_id: Option<String>` (`crates/core/src/catalog/types.rs:43`, generated at `apps/web/src/generated.ts:3526`). The web app does not read it outside generated types.
-- The client ID is a bare `String`. `validate_batch` (`crates/core/src/collection/service.rs:88-97`) re-implements the same 1 to 128 character, letters-digits-hyphen-underscore rule that `HostDeviceId::new` enforces (`crates/core/src/context.rs:25-36`). Two copies of one rule, for two different things.
-- The host file protocol lives in the server. `apps/server/src/host_identity.rs:5-38` decides the sidecar name (`hito.device-id`), writes it with a hard link for atomic creation, and adopts the legacy `server` ID for a database that already exists. `AGENTS.md` puts filesystem ownership in core. The desktop host reaches this through the server crate (`apps/desktop/tests/local_lifecycle.rs:36` reads the file).
-- The override is `HITO_DEVICE_ID` (`apps/server/src/config.rs:58`).
+The [operations guide](../operations.md) already explains that the two are different. The code should make it impossible to mix them up.
 
-[Operations](../operations.md) already tells the operator the two are separate. The code says it in prose, not in types.
+## What must stay true
 
-The VPS holds live data. Local `sources` rows carry the host ID and the legacy value `server`. Anything that changes stored values or column names must run safely on that database.
-
-## Constraints
-
-- Identity invariants. A host ID never grants access by being sent by a client. A client ID never selects local files. Neither is a credential, but both are not logged beyond safe correlation use.
-- Local sources are matched on the stored host ID. Changing a stored value strands audio. An existing database without a sidecar must still adopt `server`.
-- Recovery. A restored backup must work with the new binary. Preserving `hito.device-id` beside the database (see [operations](../operations.md#backups)) stays the instruction.
-- Migrations. SQLx migrations are append-only and checksummed. Edit none. Upgrade tests (`crates/core/tests/*/*_upgrade.rs`) pin schema from older versions and must keep passing.
-- Generated OpenAPI and TypeScript come from real wire types. No second API model.
-- SQLite and filesystem ownership stay in core. The server only supplies a path and an optional override.
+- A host identity never grants access just because a client sent it. A client identity never selects local files.
+- Local sources are matched on the stored host identity. Changing stored values would leave audio unplayable.
+- An existing database without an identity file still adopts the legacy value `server`.
+- A restored backup works with the new version, as long as the identity file was kept next to the database.
+- Database migrations are never edited, and the existing upgrade tests keep passing.
+- The API and TypeScript types are still generated from the Rust code.
 
 ## Options
 
-### Option A. Types and naming, no SQL change
+**A. Separate types and clear names, no database change.** Give each identity its own type in the core and move the identity file handling into the core. Rename the API fields to "host ID" and "client ID", and keep accepting the old name from older clients. Database column names stay as they are, with a note explaining what each one holds.
+No stored data changes, so there's nothing to roll back.
 
-Add two types in core and move the file protocol into core. Rename Rust fields and wire fields. Leave column names alone.
+**B. A plus renaming the database columns.** The names match everywhere. But a database upgraded this way can't be opened by an older version, so rolling back means restoring a backup. The change also touches about 150 lines across four areas of the core, plus several triggers and a view.
 
-```rust
-pub struct HostIdentity(String);
-impl HostIdentity {
-    pub async fn load_or_create(database: &Path, override_id: Option<HostIdentity>) -> Result<Self>;
-    pub fn as_str(&self) -> &str;
-}
-
-pub struct SyncClientId(String);
-impl SyncClientId { pub fn parse(value: impl Into<String>) -> Result<Self>; }
-
-pub struct SyncBatch { pub client_id: SyncClientId, pub operations: Vec<Operation> }
-```
-
-Usage: `server::config` calls `HostIdentity::load_or_create(&database, env_override)`. `Collection::accept` takes `SyncBatch` whose `client_id` was validated when it was parsed, so `validate_batch` loses its string checks.
-
-What it hides. The sidecar name, the atomic create, the legacy `server` adoption and the character rule. A column stays `device_id` but only the module that writes it names it.
-
-Wire. `Source.device_id` becomes `host_id`. `SyncBatch` and `SyncEvent` use `client_id`, with `#[serde(alias = "device_id")]` on input so an older client still parses. Regenerate OpenAPI and TypeScript.
-
-Trade-offs. No stored data changes and nothing to roll back. SQL still says `device_id` in two places with two meanings, which is why a comment at each column and a short SQL-naming note in [architecture](../architecture.md) are part of the plan.
-
-### Option B. Option A plus column rename
-
-Add migration 0056 using `ALTER TABLE ... RENAME COLUMN`: `sources.device_id` to `host_id`, `music_folders.host_device` and the download columns to `host_id`, `sync_events.device_id` to `client_id`.
-
-SQLite rewrites indexes, triggers and views for a renamed column, including the triggers and the `current_podcast_sources` view that mention `sources.device_id` (`crates/core/migrations/0041_podcast_media.sql:12,20,32,62`) and the CHECK constraint on `sync_events`. A failure leaves a half-migrated chain, as [database maintenance](../database-maintenance.md) warns.
-
-Trade-offs. Names match everywhere. But a database migrated forward can no longer be opened by the old image, so rollback means restoring a pre-migration backup. About 150 lines in `crates/core/src` mention these columns, across `library_storage`, `downloads`, `catalog` and `podcasts`. That is a large blast radius for a naming gain.
-
-### Option C. Expand then contract
-
-Add `sources.host_id` and `sync_events.client_id` with backfill, write both for one release, read the new, drop the old later.
-
-Rollback to the old image keeps working during the overlap. But dual writes add triggers or code in every writer of `sources` (local scan, downloads, podcasts), and the contract step is another migration. Too much machinery for a column name.
+**C. Add new columns, copy the data, drop the old columns later.** Rolling back stays possible during the overlap, but every writer has to write both columns for a whole release. That's a lot of machinery for a name.
 
 ## Recommendation
 
-Option A now. It fixes the part that causes bugs, a bare string used for two concepts and the host protocol outside core, with zero stored-data risk. Defer B. If the user still wants SQL names to match, do B as its own release after A, with the rehearsal in the plan below. Reject C.
+Option A now. It fixes the part that causes bugs, one plain string used for two concepts, without any risk to stored data. Consider B later as its own release, after rehearsing it on a restored copy of a real database. Reject C.
 
-Keep the sidecar file name `hito.device-id`, the `server` legacy value and the `HITO_DEVICE_ID` variable. Renaming any of them breaks existing deployments and backups for no behavioral gain. Document them as the stored names of the host identity.
+Keep the identity file name, the legacy `server` value and the environment variable that overrides the host identity. Renaming them would break existing installs and backups for no change in behavior.
 
-## Migration plan
+## Plan
 
-Each step is a commit and stays green.
+1. Give the sync client identity its own type, validated once when a request is read.
+2. Rename the client field in the API. Accept the old name on input, and send the new one.
+3. Rename the host identity type throughout the code.
+4. Move identity file handling from the server into the core, and keep one server test for the override.
+5. Rename the host field on sources in the API. Rename the download field too, if the owner agrees.
+6. Document what each database column holds, and update the operations, architecture and API docs.
 
-1. Add `SyncClientId` with the shared rule. Parse in `SyncBatch` deserialization. Remove the string checks in `validate_batch`. Capability test: empty, 129-character and punctuation IDs are rejected as before.
-2. Rename the Rust field to `client_id` with `serde(alias = "device_id")`. Regenerate OpenAPI and TypeScript. HTTP test: old and new key both accepted; responses use the new key.
-3. Introduce `HostIdentity` as the new name and keep `pub type HostDeviceId = HostIdentity` for one step. Rename uses crate by crate.
-4. Move `host_identity.rs` logic into `crates/core/src/host_identity.rs`. Port `apps/server/tests/runtime/runtime_config.rs` assertions (lines 51, 87, 111, 142) to a core test and keep one server test for the env override.
-5. Rename wire `Source.device_id` to `host_id`. Regenerate. Rename download wire `host_device_id` to `host_id` only if the user agrees (see questions).
-6. Drop the alias type. Add one comment at each SQL column that holds an identity. Update [operations](../operations.md), [architecture](../architecture.md) and [api](../api.md).
+## Open questions
 
-If B is chosen later, rehearse first. Take a whole-volume backup of the VPS data while the server is stopped. Run the migration-only executable on a restored clone, as [database maintenance](../database-maintenance.md) records for migrations 0046 to 0048. Check a local source plays, a download plays, and an old sync event reads back. Only then migrate the live volume.
-
-## Test impact
-
-- `crates/core/tests/catalog/collection_event_upgrade.rs` and the other `*_upgrade.rs` tests do not change under A, because the schema is unchanged. This is the main reason to prefer A.
-- `apps/server/tests/runtime/runtime_config.rs`, `fixtures/maintenance.rs:218` and `apps/desktop/tests/local_lifecycle.rs:36-68` already assert the sidecar behavior. They keep passing, and step 4 moves the unit-level cases into core.
-- Tests that read `device_id` over HTTP (for example `apps/server/tests/podcasts/podcast_pages.rs`, `download_runtime.rs`) update key names in steps 2 and 5.
-- TDD order. Step 1 and step 4 start with failing core tests. Steps 2 and 5 start with a failing HTTP test for the new key and the old alias.
-- Add a test that a `SyncClientId` cannot be passed where a `HostIdentity` is expected. It is a compile-fail doc test or a code review item.
-
-## Risks and open questions
-
-- Does any external sync client already send `device_id`? The `alias` makes this safe on input. Output rename may break a client that reads `SyncEvent.device_id`. Per docs the sync client is unfinished, so likely none. Please confirm.
-- Rename download wire `host_device_id` to `host_id`? It is clearer but breaks the generated type that the web app uses in download pages.
-- Is the sidecar file name worth keeping forever? Keeping it costs nothing today. Renaming it later needs a read-both migration step.
-- Option B is not recommended now. If chosen, SQLite must support `RENAME COLUMN` (3.25 or later). The plan should verify the bundled version with a migration test rather than assume it.
-- The test hosts (`"server"`, `"catalog-test"` in `crates/core/src/test_support/support.rs:78,111`) mix the two concepts in fixtures. Clean them in step 3.
+- Does any external sync client already read the old field name in responses? The sync client is unfinished, so probably not.
+- Should the download field be renamed as well? It's clearer, but the web app's download pages use the current name.
+- Is it worth keeping the identity file name forever? Keeping it costs nothing today.
+- Test fixtures mix the two identities. They should be cleaned up during step 3.
 
 ## Ownership before and after
 
 ```mermaid
 flowchart LR
   subgraph Before
-    S1[apps/server host_identity.rs] -->|HostDeviceId| Core1[CoreConfig]
-    Core1 --> Src1[sources.device_id]
-    Core1 --> Dl1[download host_device]
-    Cli1[sync client string] --> Sync1[SyncBatch.device_id]
-    Sync1 --> Ev1[sync_events.device_id]
+    S1[Server writes the identity file] --> H1[Host ID]
+    H1 --> Src1[Sources: device ID]
+    C1[Sync client: plain string] --> Ev1[Sync events: device ID]
     Src1 -.same name, different meaning.- Ev1
   end
   subgraph After
-    S2[server config path and override] --> HI[core HostIdentity load_or_create]
-    HI --> Src2[sources, downloads, folders]
-    Cli2[sync client] --> SC[SyncClientId parsed once]
-    SC --> Ev2[sync_events, wire client_id]
+    S2[Server passes a path and an override] --> HI[Core: host identity]
+    HI --> Src2[Sources, downloads, folders]
+    C2[Sync client] --> SC[Core: client identity, checked once]
+    SC --> Ev2[Sync events]
   end
 ```

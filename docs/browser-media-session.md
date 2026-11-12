@@ -39,7 +39,7 @@ Two test defects were corrected without application changes. The first assertion
 
 Chromium and WebKit backend checks examine 2,213 and 2,252 JSON records respectively without the fixed private fixture canaries. Both disposable servers stop with exit zero and no OOM. These counts describe these fixtures, not a complete privacy or reliability audit.
 
-The same deployed image also passes fresh Chromium/WebKit next-entry workflows after integration, preserving background buffering and natural advancement. Local publication retains all nine ordered server configuration files, the prior image alias, fresh backups and unchanged provider services. Health, exact OpenAPI/assets, anonymous player rejection and loopback/LAN checks pass without authenticating a normal listener. See [deployment evidence](status.md#running-local-deployment).
+The same deployed image also passes fresh Chromium/WebKit next-entry workflows after integration, preserving background buffering and natural advancement. Local publication retains all nine ordered server configuration files, the prior image alias, fresh backups and unchanged provider services. Health, exact OpenAPI/assets, anonymous player rejection and loopback/LAN checks pass without authenticating a normal listener.
 
 Physical Safari/phone presentation, OS artwork fetching, hardware controls and native desktop integration remain unverified or unfinished. In native playback mode (`native_playback`) the web app owns no audio element and publishes nothing to the Media Session. The operating-system panel there depends on the Rust desktop host, which has no Now Playing code yet. This feature does not resolve the reported mobile Safari duration/silent-tail bug or establish gapless playback and release latency targets.
 

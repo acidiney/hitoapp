@@ -4,7 +4,7 @@ The separate YouTube HTTP service implements search, recording details, musical 
 
 ## Server-side limitation
 
-Current behavior, and an external dependency. On the VPS deployment, YouTube refuses to give audio to the service. Every player client that was tried returned a sign-in or bot-confirmation response (`LOGIN_REQUIRED`) from the datacenter IP address. Search and metadata work. Audio extraction does not.
+Current behavior, and an external dependency. On a hosted server (VPS), YouTube refuses to give audio to the service. Every player client that was tried returned a sign-in or bot-confirmation response (`LOGIN_REQUIRED`) from the datacenter IP address. Search and metadata work. Audio extraction does not.
 
 This is the supported position for server installs, not a defect waiting for a workaround. Hito will not add cookies, a signed-in account, a residential proxy or a relay through a personal computer to get around it. On a server, YouTube is a search and metadata source. Audio must come from another provider, such as a folder, Jamendo or a debrid service. When extraction fails, source resolution reports `provider_unavailable` instead of `no_suitable_source`, so the UI can say the provider is blocked ([how resolution works](architecture.md#playback-source-resolution)).
 
@@ -22,7 +22,7 @@ Options considered, with evidence and decisions:
 | Debrid services as a YouTube fetch path | Untested. It is not known whether any supported debrid provider will fetch YouTube links. | Open. Needs a test before any claim. |
 | Extraction on the listener's device in the desktop app | Proposed. Not implemented. The listener's own residential connection would make the request. | Planned idea, not a commitment. |
 
-The tests did not show that every anonymous method fails or that the VPS address is banned everywhere. They show that none of the methods tried works for the sampled recording. The full probe record is in [VPS deployment](vps-deployment.md#youtube-extraction-on-the-vps).
+The tests did not show that every anonymous method fails or that the VPS address is banned everywhere. They show that none of the methods tried works for the sampled recording.
 
 ### Metadata-only mode
 

@@ -66,7 +66,7 @@ Privacy. On Linux, MPRIS publishes the title, artist, album, duration, position 
 
 Tauri's setup creates the command channel and passes the sink to `LocalHost::start_with_folders`. Hosts without a sink, including every test host, use `LocalHost::start` and behave as before.
 
-Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
+Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client.
 
 ## Provider sign-in pages
 
@@ -84,7 +84,7 @@ Scanning needs the `ffprobe` and `ffmpeg` programs installed on the computer. Hi
 
 Only regular files with an execute permission are accepted. Directories and files inside the Music folder are never used. If a tool is not found, the bare name stays and a scan fails with its own message in the folder row: "FFmpeg is not installed. Install it (for example `brew install ffmpeg`) and scan again." A folder or permission failure keeps the separate "Scan failed. Check the folder and try again." message. The job reports the reason as `failure: "media_tools_missing"`. Linux Docker tests cover the lookup order, the failed job and the folder row text. The Finder launch on macOS itself has not been exercised in a test.
 
-Open: bundle FFmpeg with the app, or add a Symphonia-only scan path, so a first run does not depend on a separate install. See [the backlog](../TODO.md).
+Open: bundle FFmpeg with the app, or add a Symphonia-only scan path, so a first run does not depend on a separate install.
 
 ## Without a server or a network
 
@@ -111,8 +111,8 @@ The desktop script verifies protected HTTP controls, observed progress, redacted
 
 The WebView check requires zero browser audio elements and monitors actual CPAL output. It checks navigation and reload without changing the selected entry/source, Previous, shuffle/repeat and speed with retained settings after reload, pause/resume, persisted Rust source position and speed, restart, History saved-position loading over a stale rendered cursor with the current speed preference, and silence after joined shutdown.
 
-Before the History click, the fixture arms public state and position observations with the UI's existing lease. Any positive playing position below the saved cursor fails the check, even if playback later reaches that cursor. An isolated wrong-start mutation verifies this assertion. Reloading disposes only the HTTP client; the authenticated Rust session retains playback. Current verification results are in [status](status.md).
+Before the History click, the fixture arms public state and position observations with the UI's existing lease. Any positive playing position below the saved cursor fails the check, even if playback later reaches that cursor. An isolated wrong-start mutation verifies this assertion. Reloading disposes only the HTTP client; the authenticated Rust session retains playback.
 
-The release resource configuration includes the built UI under `web/`. Debug builds can read `apps/web/dist` from the checkout. Packaged release resources, upgrades, macOS and Windows WebViews, physical audio output, signing, and installers still require acceptance. The current PNG icon exports the existing Lucide waveform without changing the brand. The requested logo redesign remains in [the backlog](../TODO.md).
+The release resource configuration includes the built UI under `web/`. Debug builds can read `apps/web/dist` from the checkout. Packaged release resources, upgrades, macOS and Windows WebViews, physical audio output, signing, and installers still require acceptance. The current PNG icon exports the existing Lucide waveform without changing the brand.
 
 Tauri's [WebDriver guide](https://v2.tauri.app/develop/tests/webdriver/) and [Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) describe the platform tooling. Linux Docker evidence is not a substitute for the remaining platform and public-release gates.

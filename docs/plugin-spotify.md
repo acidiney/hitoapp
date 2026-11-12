@@ -2,7 +2,7 @@
 
 This separate HTTP plugin imports a public Spotify shared link into an editable private Hito playlist. The public-link path needs no Spotify account, developer application, OAuth connection, or personal bearer token. It imports playlist and track metadata only. It does not provide Spotify audio, previews, or downloads. Playback needs a separately verified source.
 
-The service is running on the local development server and can be connected through Settings. All 23 owned TCP tests and strict all-target Clippy pass. A release-image Chromium case imported a complete live playlist through the Hito UI without account authorization, then checked every ordered item, account privacy, disabled playback, disconnection, and editing. See [release evidence and unfinished work](status.md). Public-release acceptance remains open.
+The service is running on the local development server and can be connected through Settings. All 23 owned TCP tests and strict all-target Clippy pass. A release-image Chromium case imported a complete live playlist through the Hito UI without account authorization, then checked every ordered item, account privacy, disabled playback, disconnection, and editing. Public-release acceptance remains open.
 
 ## Link and import behavior
 
@@ -89,7 +89,7 @@ http://plugin-spotify:8092/
 
 An administrator opens Settings, Plugins, Services for this server, enters the internal address above, then selects Offer service. Hito obtains `Spotify public playlists` from the manifest automatically. Advanced settings has an optional custom label for protected services. Each listener selects the offer, leaves Bearer token empty, and selects Connect service. Once connected, that listener uses Playlists, Import, and Import a copy. The offer does not install the connection for every account.
 
-The deployed server retrieves missing recording covers for existing copies after the listener approves the artwork capability. Explicit approval invalidates previous unavailable checks without a reload. Playlist and album entity storage and artwork jobs remain in [the backlog](../TODO.md).
+The deployed server retrieves missing recording covers for existing copies after the listener approves the artwork capability. Explicit approval invalidates previous unavailable checks without a reload.
 
 The overlay binds the host port to loopback, runs the plugin as a non-root user with a read-only root filesystem, and mounts no Hito data volume. This is a local development configuration. Public release and remote hosting need their own acceptance evidence.
 

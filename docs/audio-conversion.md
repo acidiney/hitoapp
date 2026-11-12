@@ -100,4 +100,4 @@ WebKit retained the 90-second timeline when its native segment clock restarted. 
 
 A separate actual decode probe established that the pinned Chromium test binary lacks AAC support, while WebKit decodes it. This is an explicit engine matrix, not a runtime skip and not a claim about production Google Chrome. Native browser responses can remain open while playback buffers; Original byte checks use independent completed HTTP reads rather than waiting for the track to finish.
 
-The normal local server now uses this verified image after a stopped whole-volume backup and a restored-clone startup, SQLite integrity and retained-data audit. This is a development deployment. Physical Safari/phone behavior, provider conversion, native quality settings, Windows/macOS conversion, packaging, live sources and release performance remain under the [release plan](release-plan.md).
+The normal local server now uses this verified image after a stopped whole-volume backup and a restored-clone startup, SQLite integrity and retained-data audit. This is a development deployment.

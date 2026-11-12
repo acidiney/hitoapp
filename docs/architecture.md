@@ -5,11 +5,11 @@ Hito keeps library rules in `hito-core`. Startup composes identity, catalog, art
 Each statement here is one of four kinds, and the text says which:
 
 - **Current behavior**: in the code at this revision.
-- **Tested evidence**: a named test or a recorded run covers it. [Status](status.md) holds the records.
-- **Planned behavior**: described in the [release plan](release-plan.md), not built.
+- **Tested evidence**: a named test or a recorded run covers it.
+- **Planned behavior**: not built yet.
 - **External dependency**: owned by a provider, a library or the host. Hito cannot fix it.
 
-Nothing here describes a public release. The VPS install is a development deployment ([details](vps-deployment.md)).
+Nothing here describes a public release.
 
 ## Repository and crate dependencies
 
@@ -370,7 +370,7 @@ What each capability owns:
 - `Replicas`: separate private server profiles, encrypted server sessions, durable offline operations, acknowledgement/echo reconciliation, validated catalog generation installation and joined connection retirement. Current collection projection is limited to empty playlists; the catalog cache adds no ordinary local sources or playback readiness.
 - `CatalogReplication`: authorized immutable local recording/source snapshots, create-or-resume and owned release, bounded construction/pages, current grant checks and joined reader closure. `Replicas` owns client installation separately; incremental catalog delivery remains open.
 
-Planned behavior and gaps are in [status](status.md). The desktop host and the server build their routers on this same `Services` value.
+The desktop host and the server build their routers on this same `Services` value.
 
 ## Data ownership
 

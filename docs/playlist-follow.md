@@ -130,7 +130,7 @@ The tests do not cover the HTTP routes or the browser with a followed playlist, 
 
 A stopped whole-volume backup was restored into a new labeled volume before rehearsing migration 0027 to 0028. Restoration preserves complete file bytes, permissions, owners, timestamps and logical database contents. A fresh final backup precedes the normal upgrade. Both migration audits preserve all prior columns, rows and row IDs across 69 application and FTS tables, all sequence high-water values, prior migration rows, credential-key and host-identity files, and immutability triggers. All 28 source checksums, actual schema, six FTS integrity checks and physical shadow rows pass. The five new Follow tables are empty at the audit checkpoint.
 
-The normal candidate first starts without published ports. Its runtime contract and preservation audit pass before the original ports are restored. Environment, mounts, network, entrypoint, command, user and unrelated services remain unchanged. The final published server passes health, exact generated OpenAPI, served JS/CSS hashes and anonymous player rejection. No normal listener is authenticated or given new plugin permissions during deployment. See [current deployment and retained backups](status.md#running-local-deployment).
+The normal candidate first starts without published ports. Its runtime contract and preservation audit pass before the original ports are restored. Environment, mounts, network, entrypoint, command, user and unrelated services remain unchanged. The final published server passes health, exact generated OpenAPI, served JS/CSS hashes and anonymous player rejection. No normal listener is authenticated or given new plugin permissions during deployment.
 
 ## Remaining work
 

@@ -1,6 +1,6 @@
 # Testing
 
-Tests in Hito check behavior at a public boundary. They do not check how the code is arranged inside. A green narrow test does not prove a release gate; [status](status.md) records which gates have evidence.
+Tests in Hito check behavior at a public boundary. They do not check how the code is arranged inside.
 
 Run every test through Docker. [Development](development.md) has the commands.
 

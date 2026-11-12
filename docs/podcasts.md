@@ -240,6 +240,6 @@ The rehearsal archive is `backups/hito-before-source-choice-clone-20261017T23114
 
 ## Remaining integration
 
-The next work includes broader failure recovery, complete shared UI workflows, native playback/resume and packaged-download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are deployed locally; full podcast acceptance remains open. Startup reliability, native recovery and platform verification remain public-release requirements. See [the release checklist](../TODO.md).
+The next work includes broader failure recovery, complete shared UI workflows, native playback/resume and packaged-download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are deployed locally; full podcast acceptance remains open. Startup reliability, native recovery and platform verification remain public-release requirements.
 
 Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.
