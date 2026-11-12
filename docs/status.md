@@ -10,7 +10,15 @@ The shared development branch also contains the YouTube search candidate and mig
 
 The repaired fixtures independently declare schema95 and recognize migration0093's exact source-artist trigger definitions while retaining schema, index, row, privacy and rollback assertions. Three older failures were reproduced without the patch. After repair, all 53 source, 159 catalog, 26 podcast and five source-trigger cases pass, as do strict Core checks and formatting. The earlier YouTube protocol run reports 47 library cases plus its integration cases; its historical executables were not retained. Live yt-dlp continuation and broader matching reliability remain open.
 
-No application server, preview, watcher, plugin or VPS was updated by this qualification. The normal-only deployment operator has completed its first independent review and is resolving the final findings before packaging or live replacement. The full [release scope](release-plan.md) remains active.
+Local `main` now contains that qualified frontend and the YouTube/fixture integration at `c9aa0f5b`. The fast-forward preserves the existing untracked files; its receipt hashes to `6aa49551f0f042551b8b0bc64bbc7337f02258ea775118292b856f0b4568c557`. Nothing was pushed. No application server, preview, watcher, plugin or VPS was updated by this qualification. The normal-only operator passes 98 tests; two independent review rounds and targeted final verification resolved recovery-copy, runtime-policy and stopped-replacement defects. Artifact packaging and isolated image acceptance precede a fresh backup and live replacement. The full [release scope](release-plan.md) remains active.
+
+## 2026-11-12 cache work-meter calibration
+
+An independent SQLite statement counter reproduced a test-instrument defect: the same prepared read executes five VM operations, while the old interval100 progress meter reports zero in 95 inactive histories and 100 in five. The corrected test-support meter reports five for all 100 histories. These prepared-read oracle counts are distinct from general workflow progress callbacks, which also include preparation work.
+
+With the corrected instrument, the original public cache-capacity case passes its unchanged 200-unit budget after all 129 cold reads, warm reuses, private-state checks and owned-resource retirement. A separately frozen mutation restoring the old aggregate count/sum publication query fails that same case with 1,477 additional observed units. Accepted production bytes and all 2,667 inputs are restored afterward. Production Core checking confirms features `[]`; formatting passes. The receipt hashes to `f17f717e85556c6c8c7e082e1eec369a33fe3dae277530d94aef9f83a037c60b`.
+
+This resolves the measured publication-work blocker without relaxing its assertion. The cache branch remains isolated; broader cache, authority, eviction, erasure, migration and release acceptance are still open. No cache code or new migration is deployed.
 
 ## 2026-11-12 independent default browser qualification
 
