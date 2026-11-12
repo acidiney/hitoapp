@@ -1,9 +1,9 @@
 import {
-  editionChip,
+  queryEditionChip,
   editionOptions,
   chooseEdition,
   loadMoreEditions,
-} from "../../../test/editionMenu";
+} from "../../catalog/fixtures/editionMenu";
 import { createElement } from "react";
 import {
   act,
@@ -172,7 +172,7 @@ test("an opened catalog group pages editions on request and lists only the chose
       edition_id: bonusEdition.id,
     } satisfies Schema<"ReadEditionTrackList">);
     await waitFor(() =>
-      expect(editionChip()?.textContent).toContain("Bonus edition"),
+      expect(queryEditionChip()?.textContent).toContain("Bonus edition"),
     );
     for (const [, options] of fetch.mock.calls) {
       const headers = new Headers(options?.headers);

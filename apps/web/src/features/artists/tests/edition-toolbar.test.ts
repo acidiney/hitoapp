@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import EditionToolbar from "../components/EditionToolbar";
-import { editionChip, editionOptions } from "../../../test/editionMenu";
+import {
+  queryEditionChip,
+  editionOptions,
+} from "../../catalog/fixtures/editionMenu";
 
 function toolbar(owned: number) {
   const onFilter = vi.fn();
@@ -28,7 +31,7 @@ test("nothing owned hides the All and In my library chips but keeps the edition 
   toolbar(0);
   expect(screen.queryByRole("button", { name: /^All / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^In my library/ })).toBeNull();
-  expect(editionChip()?.textContent).toContain("Deluxe · 2025");
+  expect(queryEditionChip()?.textContent).toContain("Deluxe · 2025");
   expect(screen.getByText("Track list from MusicBrainz")).toBeTruthy();
 });
 

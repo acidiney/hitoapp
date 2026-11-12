@@ -1,4 +1,7 @@
-import { chooseEdition, loadMoreEditions } from "../../../test/editionMenu";
+import {
+  chooseEdition,
+  loadMoreEditions,
+} from "../../catalog/fixtures/editionMenu";
 import { act, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { Schema } from "../../../shared/schema";

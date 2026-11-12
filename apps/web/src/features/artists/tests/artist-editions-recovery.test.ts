@@ -1,9 +1,9 @@
 import {
-  editionChip,
+  queryEditionChip,
   editionOptions,
   loadMoreEditions,
   canLoadMoreEditions,
-} from "../../../test/editionMenu";
+} from "../../catalog/fixtures/editionMenu";
 import {
   act,
   fireEvent,
@@ -104,7 +104,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
     expect(detail.signal()?.aborted).toBe(true);
     expect(detail.aborts()).toBe(1);
     expect(screen.queryByRole("list", { name: "Tracks" })).toBeNull();
-    expect(editionChip()).toBeNull();
+    expect(queryEditionChip()).toBeNull();
     await act(async () => {
       restart.release();
     });
@@ -114,7 +114,9 @@ test("a rejected later-page token can be restarted explicitly after server key l
     await act(async () => {
       detail.release();
     });
-    expect(editionChip()?.textContent ?? "").not.toContain("Standard edition");
+    expect(queryEditionChip()?.textContent ?? "").not.toContain(
+      "Standard edition",
+    );
     expect(screen.queryByText(lateTitle)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(http.fetch).toHaveBeenCalledTimes(7);
@@ -148,7 +150,7 @@ test("a conflicting edition continuation offers only an explicit restart and rep
     expect(canLoadMoreEditions()).toBe(false);
     expect(http.fetch).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole("button", { name: "Restart editions" }));
-    await waitFor(() => expect(editionChip()).toBeNull());
+    await waitFor(() => expect(queryEditionChip()).toBeNull());
     await flush();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(

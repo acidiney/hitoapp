@@ -1,4 +1,4 @@
-import { chooseEdition } from "../../../test/editionMenu";
+import { chooseEdition } from "../../catalog/fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
