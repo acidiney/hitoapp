@@ -117,7 +117,7 @@ sequenceDiagram
 | Playlist metadata refresh | `playlist`, `playlists`, `recordings` | owning account |
 | Provider artwork jobs | `artwork`; playlist artwork also sends `playlist`, `playlists` | owning account |
 
-Provider bindings can only be created in the owner's personal provider library today, so library-member delivery currently reaches only that owner. Lyrics, plugin health, artist identity, Cover Art Archive artwork, audiobook and progress changes do not publish notices yet.
+Library-member delivery currently reaches only the owner. Every source producer works on provider bindings, and provider bindings and provider recordings are only created in the actor's own personal provider library: adoption and playlist copies publish there, reviewed attachment and automatic resolution require the actor to own the recording's library, and preparation needs an existing binding. A personal library has exactly one member, its owner, and administrators cannot grant other accounts access to it. So no current workflow can deliver a shared `sources` notice to a second account, or leave one queued for a member whose library access is later removed. For that reason the stream re-checks the session before each notice but does not re-check library access. If provider sources are ever allowed in shared libraries, delivery must also re-check that the recipient can still read the recording. Lyrics, plugin health, artist identity, Cover Art Archive artwork, audiobook and progress changes do not publish notices yet.
 
 ## Plugin contract
 
