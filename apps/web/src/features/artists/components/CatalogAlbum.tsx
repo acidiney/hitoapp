@@ -112,9 +112,15 @@ export default function CatalogAlbum({
         }
         status={
           withLibrary &&
-          owned.length === 0 && (
+          (owned.length === 0 ? (
             <span className="album-status">Not in your library</span>
-          )
+          ) : (
+            <LibraryAvailability
+              account={context.account}
+              albums={owned}
+              group={group.id}
+            />
+          ))
         }
         actions={
           <>
@@ -142,13 +148,6 @@ export default function CatalogAlbum({
         }
         notes={
           <>
-            {withLibrary && owned.length > 0 && (
-              <LibraryAvailability
-                account={context.account}
-                albums={owned}
-                group={group.id}
-              />
-            )}
             {refreshing && (
               <p className="album-note" role="status">
                 Checking for updates…

@@ -2,7 +2,6 @@ import type { Schema } from "../../../shared/schema";
 import AvailabilityLabel, {
   type Availability,
 } from "../../../shared/ui/AvailabilityLabel";
-import Button from "../../../shared/ui/Button";
 import { useAlbumLibraryLevel } from "../hooks/useAlbumLibraryLevel";
 
 const levels: Record<
@@ -38,9 +37,13 @@ export default function AlbumLevelCheck({
       {check.pending && <p role="status">Comparing with the saved edition…</p>}
       {check.error && <p role="alert">{check.error}</p>}
       {!check.pending && (check.error === "" || check.retryable) && (
-        <Button type="button" onClick={() => void check.compare()}>
+        <button
+          type="button"
+          className="text-link"
+          onClick={() => void check.compare()}
+        >
           {check.error ? "Try again" : "Compare with the saved edition"}
-        </Button>
+        </button>
       )}
     </>
   );

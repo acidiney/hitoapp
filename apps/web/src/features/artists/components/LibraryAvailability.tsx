@@ -18,9 +18,9 @@ export default function LibraryAvailability({
   if (albums.length === 0)
     return <p className="sr-only">Not linked to a library album</p>;
   return (
-    <ul aria-label="In your library">
+    <ul className="album-library-status" aria-label="In your library">
       {albums.map((album) => (
-        <li key={album.release_id}>
+        <li key={album.release_id} className="album-status">
           <p>
             {album.playable_count === 0
               ? `${tracks(album.track_count)} in your library, none playable yet`
