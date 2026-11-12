@@ -176,7 +176,7 @@
   bottom: var(--player);
   z-index: 2;
   width: calc(var(--sidebar) - 25px);
-  padding: 8px 4px 20px 12px;
+  padding: 14px 4px 14px 12px;
   background: var(--sidebar-bg);
   border-top: 1px solid var(--line);
   display: flex;
