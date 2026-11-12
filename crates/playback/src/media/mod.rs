@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaTrack {
+    pub id: uuid::Uuid,
     pub title: String,
     pub artist: String,
     pub album: String,
@@ -36,6 +37,7 @@ pub enum MediaCommand {
     Previous,
     Stop,
     Seek { position_ms: u64 },
+    SeekTrack { track: uuid::Uuid, position_us: u64 },
     SeekBy { forward: bool, delta_ms: u64 },
 }
 

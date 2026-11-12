@@ -1,10 +1,11 @@
 [workspace]
 members = ["crates/core", "apps/server", "crates/plugin-sdk", "apps/desktop", "crates/audio", "crates/playback", "plugins/folder", "plugins/spotify", "plugins/youtube", "plugins/jamendo", "plugins/listenbrainz", "apps/community", "crates/metadata-musicbrainz", "crates/debrid/real-debrid", "plugins/real-debrid", "crates/debrid/all-debrid", "crates/remote-audio", "plugins/all-debrid", "crates/debrid/torbox", "crates/debrid/premiumize", "plugins/torbox", "plugins/premiumize", "crates/testkit", "plugins/lrclib"]
-exclude = ["vendor/sqlx-sqlite"]
+exclude = ["vendor/sqlx-sqlite", "vendor/souvlaki"]
 resolver = "3"
 
 [patch.crates-io]
 sqlx-sqlite = { path = "vendor/sqlx-sqlite" }
+souvlaki = { path = "vendor/souvlaki" }
 
 [workspace.package]
 version = "0.1.0-dev"

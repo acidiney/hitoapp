@@ -63,6 +63,7 @@ pub fn create_metadata_dict(metadata: &OwnedMetadata) -> HashMap<String, Variant
     let mut insert = |k: &str, v| dict.insert(k.to_string(), Variant(v));
 
     let OwnedMetadata {
+        ref track_id,
         ref title,
         ref album,
         ref artist,
@@ -70,11 +71,12 @@ pub fn create_metadata_dict(metadata: &OwnedMetadata) -> HashMap<String, Variant
         ref duration,
     } = metadata;
 
-    // TODO: this is just a workaround to enable SetPosition.
-    let path = Path::new("/").unwrap();
-
-    // MPRIS
-    insert("mpris:trackid", Box::new(path));
+    if let Some(path) = track_id
+        .as_deref()
+        .and_then(|id| Path::new(id.to_owned()).ok())
+    {
+        insert("mpris:trackid", Box::new(path));
+    }
 
     if let Some(length) = duration {
         insert("mpris:length", Box::new(*length));
@@ -99,6 +101,7 @@ pub fn create_metadata_dict(metadata: &OwnedMetadata) -> HashMap<String, Variant
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct OwnedMetadata {
+    pub track_id: Option<String>,
     pub title: Option<String>,
     pub album: Option<String>,
     pub artist: Option<String>,
@@ -109,6 +112,7 @@ pub struct OwnedMetadata {
 impl From<MediaMetadata<'_>> for OwnedMetadata {
     fn from(other: MediaMetadata) -> Self {
         OwnedMetadata {
+            track_id: other.track_id.map(str::to_owned),
             title: other.title.map(|s| s.to_string()),
             artist: other.artist.map(|s| s.to_string()),
             album: other.album.map(|s| s.to_string()),

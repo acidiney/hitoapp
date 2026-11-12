@@ -19,6 +19,7 @@ pub enum MediaPlayback {
 /// The metadata of a media item.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct MediaMetadata<'a> {
+    pub track_id: Option<&'a str>,
     pub title: Option<&'a str>,
     pub album: Option<&'a str>,
     pub artist: Option<&'a str>,
@@ -49,6 +50,10 @@ pub enum MediaControlEvent {
     SeekBy(SeekDirection, Duration),
     /// Set the position/progress of the currently playing media item.
     SetPosition(MediaPosition),
+    SetTrackPosition {
+        track_id: String,
+        position: MediaPosition,
+    },
     /// Sets the volume. The value is intended to be from 0.0 to 1.0.
     /// But other values are also accepted. **It is up to the user to
     /// set constraints on this value.**

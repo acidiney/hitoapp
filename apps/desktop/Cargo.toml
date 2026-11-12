@@ -8,7 +8,8 @@ license.workspace = true
 [features]
 default = []
 device = ["hito-playback/device"]
-gui = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-build", "dep:souvlaki", "device"]
+native-media = ["dep:souvlaki"]
+gui = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-build", "native-media", "device"]
 
 [dependencies]
 hito-core = { path = "../../crates/core" }
@@ -44,6 +45,9 @@ sha2.workspace = true
 base64.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+dbus = "=0.9.12"
 
 [[bin]]
 name = "hito-desktop"

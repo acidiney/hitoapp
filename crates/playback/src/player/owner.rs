@@ -53,16 +53,16 @@ pub(super) async fn run(
                 }
             },
             command = async { media.as_mut().unwrap().next().await }, if media.is_some() => {
-                if let Some(actor) = state.owner.as_ref().map(|owned| owned.actor.clone())
-                    && let Some(sender) = host.upgrade()
+                if let Some(sender) = host.upgrade()
                     && sender.capacity() >= super::media::RESERVED_CLIENT_SLOTS
+                    && let Some(request) = media.as_ref().unwrap().request(state.owner.as_ref().map(|owned| owned.actor.clone()), command)
                 {
-                    let duration_ms = media.as_ref().unwrap().duration_ms();
-                    if sender.try_send(super::media::host_request(actor, command, duration_ms)).is_err() {
+                    tracing::debug!(event = "media_command_dispatching", scoped_seek = matches!(command, crate::MediaCommand::SeekTrack { .. }), "Dispatching system media command");
+                    if sender.try_send(request).is_err() {
                         tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
                     }
                 } else {
-                    tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
+                    tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy or the target was stale");
                 }
             },
             report = loader.next() => { state.loaded(report); },
@@ -81,6 +81,8 @@ pub(super) async fn run(
                     continuation.prepare(&mut state, &mut progress, request);
                     continue;
                 }
+                let host_command = matches!(&request.action, Action::Host { .. });
+                let scoped_seek = matches!(&request.action, Action::Host { command: crate::MediaCommand::SeekTrack { .. }, .. });
                 let response = result.and_then(|recordings| {
                     if let Action::CancelAudiobook { lease, id, command } = request.action {
                         if let Some(command) = command {
@@ -94,6 +96,9 @@ pub(super) async fn run(
                     }
                 });
                 tracing::debug!(event = "player_request_finished", elapsed_ms = request.started.elapsed().as_millis() as u64, success = response.is_ok(), "Playback request finished");
+                if host_command {
+                    tracing::debug!(event = "media_command_finished", scoped_seek, success = response.is_ok(), "System media command finished");
+                }
                 let _ = request.reply.send(response);
             },
             request = requests.recv(), if pending.is_none() => {

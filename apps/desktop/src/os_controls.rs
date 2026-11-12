@@ -69,6 +69,20 @@ pub(crate) fn command(event: MediaControlEvent) -> Option<MediaCommand> {
         MediaControlEvent::SetPosition(MediaPosition(position)) => MediaCommand::Seek {
             position_ms: position.as_millis().min(u64::MAX as u128) as u64,
         },
+        MediaControlEvent::SetTrackPosition {
+            track_id,
+            position: MediaPosition(position),
+        } => {
+            let id = track_id.strip_prefix("/org/hito/audio/track/")?;
+            if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return None;
+            }
+            let track = uuid::Uuid::parse_str(id).ok().filter(|id| !id.is_nil())?;
+            MediaCommand::SeekTrack {
+                track,
+                position_us: position.as_micros().try_into().ok()?,
+            }
+        }
         MediaControlEvent::SetVolume(_)
         | MediaControlEvent::OpenUri(_)
         | MediaControlEvent::Raise
@@ -78,7 +92,9 @@ pub(crate) fn command(event: MediaControlEvent) -> Option<MediaCommand> {
 
 impl Controls for OsControls {
     fn metadata(&mut self, metadata: &Metadata<'_>) {
+        let track_id = format!("/org/hito/audio/track/{}", metadata.track_id.simple());
         let result = self.0.set_metadata(MediaMetadata {
+            track_id: Some(&track_id),
             title: Some(metadata.title),
             artist: metadata.artist,
             album: metadata.album,

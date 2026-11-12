@@ -87,30 +87,23 @@ where
             let state = state.clone();
             let event_handler = event_handler.clone();
 
-            move |_, _, (_trackid, position): (Path, i64)| {
+            move |_, _, (track_id, position): (Path, i64)| {
                 let state = state.lock().unwrap();
-
-                // According to the MPRIS specification:
-
-                // TODO: If the TrackId argument is not the same as the current
-                // trackid, the call is ignored as stale.
-                // (Maybe it should be optional?)
-
-                if let Some(duration) = state.metadata.duration {
-                    // If the Position argument is greater than the track length, do nothing.
-                    if position > duration {
-                        return Ok(());
-                    }
+                let track_id = track_id.to_string();
+                if track_id == "/org/mpris/MediaPlayer2/TrackList/NoTrack"
+                    || state.metadata.track_id.as_deref() != Some(track_id.as_str())
+                    || position < 0
+                    || state
+                        .metadata
+                        .duration
+                        .map_or(true, |duration| position > duration)
+                {
+                    return Ok(());
                 }
-
-                // If the Position argument is less than 0, do nothing.
-                if let Ok(position) = u64::try_from(position) {
-                    let position = Duration::from_micros(position);
-
-                    (event_handler.lock().unwrap())(MediaControlEvent::SetPosition(MediaPosition(
-                        position,
-                    )));
-                }
+                (event_handler.lock().unwrap())(MediaControlEvent::SetTrackPosition {
+                    track_id,
+                    position: MediaPosition(Duration::from_micros(position as u64)),
+                });
                 Ok(())
             }
         });

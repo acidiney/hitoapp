@@ -14,6 +14,7 @@ pub trait Controls: Send + 'static {
 }
 
 pub struct Metadata<'a> {
+    pub track_id: uuid::Uuid,
     pub title: &'a str,
     pub artist: Option<&'a str>,
     pub album: Option<&'a str>,
@@ -112,6 +113,7 @@ impl<C: Controls> MediaSink for SystemMedia<C> {
             self.artwork.remove();
         }
         self.controls.metadata(&Metadata {
+            track_id: track.id,
             title: &track.title,
             artist: Some(track.artist.as_str()).filter(|artist| !artist.is_empty()),
             album: Some(track.album.as_str()).filter(|album| !album.is_empty()),
@@ -252,6 +254,7 @@ mod tests {
 
     fn track(artwork: bool) -> MediaTrack {
         MediaTrack {
+            id: uuid::Uuid::new_v4(),
             title: "Song".into(),
             artist: "Artist".into(),
             album: String::new(),
