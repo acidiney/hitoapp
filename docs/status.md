@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-12 qualified local server update
+
+The normal local server on port 8080 now runs immutable image `2be4fcd7`, containing the qualified production executable `6482808` and the nineteen web files built from frontend `b1e88d0f`. The packaged image first passed an isolated tmpfs deployment. Independent inspection verifies all 102 packaging evidence files and the executing binary; all nineteen public files match their expected bytes over HTTP. The evidence ledger hashes to `198f07a16888782882edfb0856a21d5d41a514ad1f570308f9b71362c47f654f`.
+
+A fresh online SQLite backup preserves 106,184,704 bytes with all 95 migration checksums, integrity and foreign-key checks passing. Both saved recovery identity files pass byte, ownership and private-file checks. The prepared runtime configuration changes only the image. The guarded normal-only replacement completes successfully, followed by fourteen expected HTTP statuses, all nineteen public-file checks and a read-only live database check. Migration receipts, integrity, foreign keys and both existing identities remain valid. Independent loopback reads also verify the served application and service-worker hashes. The operation receipt hashes to `13a418c2f44a07a2cfb9890dacb0a958f90d2c9dd40fd0465e6c5090823e02ae`.
+
+The previous image and fresh recovery snapshot are retained. No rollback or database restoration was needed. The preview and its watcher retain their exact container identities and start times. This updates the local development server only; it does not qualify authenticated playback against the live providers, update a plugin service or VPS, or complete the [public release gates](release-plan.md).
+
 ## 2026-11-12 current frontend and migration qualification
 
 Frozen frontend `b1e88d0f` passes 2,168 unit assertions, both TypeScript checks and its production build. The full default browser run selects 228 cases: 150 pass and 78 remain explicitly gated skips, with zero failures, retries or flaky results. All seventeen required cases pass, including remembered-edition loading, Add without playback, source fallback, timed-first lyrics and desktop/phone Now playing. Add is tested with an initially empty queue; preservation of an existing queue and exact source-request bodies are not established by that case.
