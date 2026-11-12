@@ -57,6 +57,22 @@
     padding-right: 0;
     padding-bottom: calc(var(--player) + var(--tabs));
   }
+  .app-shell::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: var(--tabs);
+    left: 0;
+    z-index: 29;
+    height: calc(var(--player) + 24px);
+    background: linear-gradient(
+      to top,
+      var(--bg) 0,
+      var(--bg) calc(100% - 32px),
+      transparent
+    );
+    pointer-events: none;
+  }
   .sidebar {
     position: static;
     display: block;
