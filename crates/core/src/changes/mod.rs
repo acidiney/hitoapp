@@ -111,7 +111,7 @@ impl ChangeHub {
         }
     }
 
-    fn subscribe(&self, account: &str) -> Result<broadcast::Receiver<Signal>> {
+    fn register(&self, account: &str) -> Result<Registration> {
         let mut accounts = self.accounts();
         let channel = accounts
             .entry(account.to_owned())
@@ -121,7 +121,11 @@ impl ChangeHub {
         if channel.sender.receiver_count() >= STREAMS_PER_ACCOUNT {
             return Err(Error::RateLimited(5));
         }
-        Ok(channel.sender.subscribe())
+        Ok(Registration {
+            hub: self.clone(),
+            account: account.to_owned(),
+            receiver: Some(channel.sender.subscribe()),
+        })
     }
 
     fn release(&self, account: &str) {
@@ -140,6 +144,27 @@ impl ChangeHub {
         self.accounts
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
+    }
+}
+
+struct Registration {
+    hub: ChangeHub,
+    account: String,
+    receiver: Option<broadcast::Receiver<Signal>>,
+}
+
+impl Registration {
+    fn close(&mut self) {
+        if let Some(receiver) = self.receiver.take() {
+            drop(receiver);
+            self.hub.release(&self.account);
+        }
+    }
+}
+
+impl Drop for Registration {
+    fn drop(&mut self) {
+        self.close();
     }
 }
 
@@ -163,12 +188,8 @@ impl Changes {
     pub async fn subscribe(&self, actor: &Actor) -> Result<ChangeStream> {
         actor.require_unlocked()?;
         actor.require_foreground_session()?;
-        let receiver = self.hub.subscribe(actor.id())?;
-        if let Err(error) = actor.check_session(&self.store).await {
-            drop(receiver);
-            self.hub.release(actor.id());
-            return Err(error);
-        }
-        Ok(ChangeStream::new(self.clone(), actor.clone(), receiver))
+        let registration = self.hub.register(actor.id())?;
+        actor.check_session(&self.store).await?;
+        Ok(ChangeStream::new(self.clone(), actor.clone(), registration))
     }
 }

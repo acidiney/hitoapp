@@ -1,8 +1,8 @@
-use super::{ChangeNotice, Changes, ResyncReason, Signal};
+use super::{ChangeNotice, Changes, Registration, ResyncReason, Signal};
 use crate::{Actor, Error};
 use std::time::{Duration, Instant};
 use tokio::{
-    sync::broadcast::{self, error::RecvError},
+    sync::broadcast::error::RecvError,
     time::{Interval, MissedTickBehavior},
 };
 use tracing::Instrument;
@@ -14,7 +14,7 @@ const SESSION_CHECK_DEADLINE: Duration = Duration::from_secs(1);
 pub struct ChangeStream {
     changes: Changes,
     actor: Actor,
-    receiver: Option<broadcast::Receiver<Signal>>,
+    registration: Registration,
     pending: Option<ChangeNotice>,
     checks: Interval,
     span: tracing::Span,
@@ -34,7 +34,7 @@ impl ChangeStream {
     pub(super) fn new(
         changes: Changes,
         actor: Actor,
-        receiver: broadcast::Receiver<Signal>,
+        registration: Registration,
     ) -> Self {
         let span = tracing::debug_span!(
             "change_stream",
@@ -50,7 +50,7 @@ impl ChangeStream {
         Self {
             changes,
             actor,
-            receiver: Some(receiver),
+            registration,
             pending: Some(ChangeNotice::Resync {
                 reason: ResyncReason::Connected,
             }),
@@ -74,7 +74,7 @@ impl ChangeStream {
             return Some(notice);
         }
         loop {
-            let receiver = self.receiver.as_mut()?;
+            let receiver = self.registration.receiver.as_mut()?;
             let wake = tokio::select! {
                 signal = receiver.recv() => Wake::Signal(signal),
                 _ = self.checks.tick() => Wake::Check,
@@ -114,7 +114,7 @@ impl ChangeStream {
                 }
                 Wake::Signal(Err(RecvError::Closed)) => {
                     self.outcome = "closed";
-                    self.receiver = None;
+                    self.registration.close();
                     return None;
                 }
             }
@@ -135,15 +135,14 @@ impl ChangeStream {
             Err(_) => "session_check_timed_out",
         };
         self.outcome = outcome;
-        self.receiver = None;
+        self.registration.close();
         true
     }
 }
 
 impl Drop for ChangeStream {
     fn drop(&mut self) {
-        self.receiver = None;
-        self.changes.hub.release(self.actor.id());
+        self.registration.close();
         tracing::dispatcher::with_default(&self.dispatch, || {
             self.span.in_scope(|| {
                 tracing::debug!(
