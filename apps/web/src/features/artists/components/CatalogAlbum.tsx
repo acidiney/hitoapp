@@ -5,6 +5,7 @@ import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
+import { albumEyebrow } from "../../catalog/model/albumEyebrow";
 import TrackTable from "../../playback/components/TrackTable";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
@@ -15,14 +16,6 @@ import CatalogFailure from "./CatalogFailure";
 import CatalogEditionSwitch from "./CatalogEditionSwitch";
 import LibraryAvailability from "./LibraryAvailability";
 import CatalogPlayNotes from "./CatalogPlayNotes";
-
-const kinds = {
-  album: "Album",
-  ep: "EP",
-  single: "Single",
-  broadcast: "Broadcast",
-  other: "Other",
-};
 
 export default function CatalogAlbum({
   context,
@@ -83,9 +76,7 @@ export default function CatalogAlbum({
       aria-busy={editions.pending || tracks.pending}
     >
       <AlbumHeader
-        eyebrow={[group.kind ? kinds[group.kind] : "Release", year]
-          .filter(Boolean)
-          .join(" · ")}
+        eyebrow={albumEyebrow(group.kind, year)}
         heading={heading}
         cover={
           <CatalogCover

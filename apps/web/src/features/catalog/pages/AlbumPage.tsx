@@ -14,6 +14,7 @@ import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
 import { releaseCreditLabel } from "../model/albumCredit";
+import { albumEyebrow } from "../model/albumEyebrow";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumHeader from "../components/AlbumHeader";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
@@ -93,7 +94,7 @@ export default function AlbumPage({
     <AlbumMergeContext.Provider value={merge}>
       <div className="detail-page">
         <AlbumHeader
-          eyebrow={["Album", release.year].filter(Boolean).join(" · ")}
+          eyebrow={albumEyebrow(null, release.year)}
           cover={
             <Artwork
               release={release.id}

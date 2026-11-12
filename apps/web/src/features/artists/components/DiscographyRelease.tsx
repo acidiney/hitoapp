@@ -9,6 +9,7 @@ import LibraryAvailability from "./LibraryAvailability";
 import ArtistEditions from "./ArtistEditions";
 import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
+import { releaseKinds } from "../../catalog/model/albumEyebrow";
 
 function releaseSubtitle(group: Schema<"CatalogReleaseGroup">, kind: string) {
   const year = group.first_release_date?.slice(0, 4);
@@ -29,14 +30,6 @@ function libraryLine(albums: Schema<"LibraryAlbum">[]) {
     ? count
     : `${count} · ${best.playable_count} playable`;
 }
-
-const kinds = {
-  album: "Album",
-  ep: "EP",
-  single: "Single",
-  broadcast: "Broadcast",
-  other: "Other",
-};
 
 export default function DiscographyRelease({
   account,
@@ -87,7 +80,7 @@ export default function DiscographyRelease({
       </li>
     );
   const availability = library ? releaseAvailability(library) : null;
-  const kind = group.kind ? kinds[group.kind] : "Release";
+  const kind = group.kind ? releaseKinds[group.kind] : "Release";
   if (release === undefined)
     return (
       <li className="release-card">
@@ -152,7 +145,7 @@ export default function DiscographyRelease({
       </p>
       <p className="meta-line">
         <span className={group.kind ? "" : "placeholder"}>
-          {group.kind ? kinds[group.kind] : "Type not provided"}
+          {group.kind ? releaseKinds[group.kind] : "Type not provided"}
         </span>
         {group.secondary_types.map((type) => (
           <span key={type}>{type}</span>
