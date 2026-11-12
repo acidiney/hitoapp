@@ -333,3 +333,37 @@ test("a remembered edition that cannot load falls back to your own tracks with T
     screen.queryByRole("heading", { name: "Showing only your tracks" }),
   ).toBeNull();
 });
+
+test("while a remembered edition loads the header shows at once with a track list loading state and never the library table", async () => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  serve({
+    [savedRead]: async () => {
+      await held;
+      return Response.json(mergedTrackList);
+    },
+  });
+  render(page(readyChoice));
+  expect(
+    screen.getByRole("heading", { level: 1, name: "Catalog album" }),
+  ).toBeTruthy();
+  expect(screen.getByText("Loading track list…").getAttribute("role")).toBe(
+    "status",
+  );
+  expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull();
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+  await act(async () => release());
+  const region = await screen.findByRole("region", {
+    name: "Album edition track list",
+  });
+  expect(await within(region).findByText("Catalog only song")).toBeTruthy();
+  expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
+  expect(screen.queryByText("Loading track list…")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull();
+});

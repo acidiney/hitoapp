@@ -11,6 +11,7 @@ import TrackRowActions from "../../playback/components/TrackRowActions";
 import {
   useAlbumMerge,
   useAlbumProgress,
+  useEditionLoading,
   useEditionPlayPublish,
 } from "../../catalog/components/AlbumMergeContext";
 import { albumEditionApi } from "../api/albumEditionApi";
@@ -124,6 +125,8 @@ export default function AlbumEditionTrackList({
     queue,
     owners,
   );
+  const waiting = comparison === null && !error;
+  useEditionLoading(waiting);
   useEditionPlayPublish(
     comparison === null
       ? null
@@ -333,7 +336,15 @@ export default function AlbumEditionTrackList({
       aria-busy={pending}
       className="edition-tracks"
     >
-      {pending && <p role="status">Loading edition track list…</p>}
+      {waiting && (
+        <div className="track-list-loading">
+          <span role="status" className="state-card-title">
+            Loading track list…
+          </span>
+          <span className="release-skeleton-line" aria-hidden="true" />
+          <span className="release-skeleton-line" aria-hidden="true" />
+        </div>
+      )}
       {error && (
         <MatchPanel title="Showing only your tracks">
           <p role="alert" className="match-alert">

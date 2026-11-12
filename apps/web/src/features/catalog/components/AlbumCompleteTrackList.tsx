@@ -1,6 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useContext, useEffect, useRef, useState } from "react";
-import { AlbumMergeContext } from "./AlbumMergeContext";
+import { useEffect, useRef, useState } from "react";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import AlbumReleaseMatch from "./AlbumReleaseMatch";
 
@@ -27,7 +26,6 @@ export default function AlbumCompleteTrackList({
   anchor,
   saved,
 }: Props) {
-  const merge = useContext(AlbumMergeContext);
   const edition = useAlbumEditionChoice(account, release, saved);
   const [lookupTagged] = useState(
     anchor !== null && saved.state.status === "unset" && saved.revision === 0,
@@ -157,7 +155,7 @@ export default function AlbumCompleteTrackList({
           }
         />
       )}
-      {linked && !merge.merged && (
+      {linked && !ready && !(view === "browse" && browseAnchor) && (
         <button
           type="button"
           className="text-action"

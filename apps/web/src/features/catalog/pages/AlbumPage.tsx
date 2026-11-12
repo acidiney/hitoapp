@@ -38,6 +38,9 @@ export default function AlbumPage({
   const [merged, setMerged] = useState(false);
   const [progress, setProgress] = useState<AlbumProgress | null>(null);
   const [editionPlay, setEditionPlay] = useState<EditionPlay | null>(null);
+  const [editionLoading, setEditionLoading] = useState(
+    detail.saved_edition?.state.status === "ready",
+  );
   const merge = useMemo(
     () => ({
       playlists,
@@ -47,6 +50,7 @@ export default function AlbumPage({
       setProgress,
       editionPlay,
       setEditionPlay,
+      setEditionLoading,
     }),
     [playlists, mutate, merged, editionPlay],
   );
@@ -137,7 +141,8 @@ export default function AlbumPage({
         />
         <div className="album-body">
           <ArtworkStatus release={release.id} />
-          {tracks.length && merged ? null : tracks.length ? (
+          {(tracks.length && merged) ||
+          editionLoading ? null : tracks.length ? (
             <>
               <TrackToolbar
                 tracks={tracks}
@@ -179,13 +184,15 @@ export default function AlbumPage({
                 saved={detail.saved_edition}
               />
             )}
-          {!merged && detail.saved_edition?.state.status !== "ready" && (
-            <Pagination
-              page={page}
-              query=""
-              path={`/albums/${encodeURIComponent(release.id)}`}
-            />
-          )}
+          {!merged &&
+            !editionLoading &&
+            detail.saved_edition?.state.status !== "ready" && (
+              <Pagination
+                page={page}
+                query=""
+                path={`/albums/${encodeURIComponent(release.id)}`}
+              />
+            )}
         </div>
       </div>
     </AlbumMergeContext.Provider>

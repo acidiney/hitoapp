@@ -24,6 +24,7 @@ export type AlbumMerge = {
   mutate: Mutate | null;
   setMerged: (merged: boolean) => void;
   merged: boolean;
+  setEditionLoading: (loading: boolean) => void;
 };
 
 export const AlbumMergeContext = createContext<AlbumMerge>({
@@ -34,6 +35,7 @@ export const AlbumMergeContext = createContext<AlbumMerge>({
   setProgress: () => {},
   setMerged: () => {},
   merged: false,
+  setEditionLoading: () => {},
 });
 
 export function useAlbumMerge(active: boolean): AlbumMerge {
@@ -91,4 +93,12 @@ export function useEditionPlayPublish(
     );
     return () => setEditionPlay(null);
   }, [tracks, durationMs, consentOff, halted, setEditionPlay]);
+}
+
+export function useEditionLoading(loading: boolean) {
+  const { setEditionLoading } = useContext(AlbumMergeContext);
+  useEffect(() => {
+    setEditionLoading(loading);
+  }, [loading, setEditionLoading]);
+  useEffect(() => () => setEditionLoading(false), [setEditionLoading]);
 }
