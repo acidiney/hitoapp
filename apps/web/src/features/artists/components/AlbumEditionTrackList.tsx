@@ -4,7 +4,7 @@ import { time } from "../../../shared/format";
 
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
-import Button from "../../../shared/ui/Button";
+import MatchPanel from "../../catalog/components/MatchPanel";
 import EditionTrackRow, { ownedRowState } from "./EditionTrackRow";
 import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
 import TrackRowActions from "../../playback/components/TrackRowActions";
@@ -335,12 +335,22 @@ export default function AlbumEditionTrackList({
     >
       {pending && <p role="status">Loading edition track list…</p>}
       {error && (
-        <>
-          <p role="alert">{error}</p>
-          <Button type="button" disabled={pending} onClick={() => void retry()}>
-            Try track list again
-          </Button>
-        </>
+        <MatchPanel title="Showing only your tracks">
+          <p role="alert" className="match-alert">
+            {error} Your tracks are listed and play as usual. The full track
+            list and adding the rest need the edition.
+          </p>
+          <div className="match-actions">
+            <button
+              type="button"
+              className="text-action"
+              disabled={pending}
+              onClick={() => void retry()}
+            >
+              Try again
+            </button>
+          </div>
+        </MatchPanel>
       )}
       {comparison && (
         <>

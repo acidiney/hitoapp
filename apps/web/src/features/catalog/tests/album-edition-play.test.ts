@@ -244,7 +244,11 @@ test("without an edition, header Play plays the library release tracks as before
     ),
   ).toEqual(albumDetail.tracks.items.map((track) => track.id));
   expect(player.select).not.toHaveBeenCalled();
-  expect(fetch).not.toHaveBeenCalled();
+  expect(
+    fetch.mock.calls.filter(
+      ([path]) => !String(path).endsWith("/tagged-edition"),
+    ),
+  ).toEqual([]);
 });
 
 function rowPlayButtons() {

@@ -128,9 +128,7 @@ async function openAlbum(page: Page, baseURL: string) {
     expect(audioConnection.id).not.toBe(connection.id);
 
     await page.goto(`/albums/${release}`);
-    await page
-      .getByRole("button", { name: "Show complete track list" })
-      .click();
+    await page.getByRole("button", { name: "Choose an edition" }).click();
     await page.getByRole("radio", { name: /Deluxe/ }).check();
     await page.getByRole("button", { name: "Use this" }).click();
     const region = page.getByRole("region", {

@@ -115,7 +115,7 @@ test("a remembered edition opens its complete track list on load with no discogr
   const fetch = serve();
   render(page(readyChoice));
   expect(
-    screen.queryByRole("button", { name: "Show complete track list" }),
+    screen.queryByRole("button", { name: "Choose an edition" }),
   ).toBeNull();
   const region = await screen.findByRole("region", {
     name: "Album edition track list",
@@ -131,7 +131,7 @@ test("choosing an edition remembers it with the displayed revision and the next 
   const fetch = serve();
   render(page({ revision: 3, state: { status: "unset" } }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await chooseFirstEdition();
   await waitFor(() => expect(calls(fetch, choose)).toHaveLength(1));
@@ -162,13 +162,13 @@ test("forgetting the edition clears it and returns to an explicit choice", async
     request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
     expected_revision: 3,
   });
-  await screen.findByRole("button", { name: "Show complete track list" });
+  await screen.findByRole("button", { name: "Choose an edition" });
   expect(
     screen.queryByRole("region", { name: "Album edition track list" }),
   ).toBeNull();
   expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull();
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",
@@ -206,7 +206,7 @@ test("a remembered edition that can no longer be read asks for a new choice with
   render(page(staleChoice));
   expect(screen.getByText(/saved edition can no longer be used/)).toBeTruthy();
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",
@@ -235,7 +235,7 @@ test("a failed save is reported while the compared track list stays visible", as
   });
   render(page({ revision: 0, state: { status: "unset" } }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   const region = await chooseFirstEdition();
   const alert = await screen.findByText(/Album save refused/);
@@ -268,7 +268,7 @@ test("a later page of the album has no remembered edition to show", () => {
   serve();
   render(page(null, null));
   expect(
-    screen.queryByRole("button", { name: "Show complete track list" }),
+    screen.queryByRole("button", { name: "Choose an edition" }),
   ).toBeNull();
 });
 
@@ -277,7 +277,7 @@ test("a stale remembered edition can be forgotten even when the album has no rev
   render(page(staleChoice, null));
   expect(screen.getByText(/needs a reviewed artist/)).toBeTruthy();
   expect(
-    screen.queryByRole("button", { name: "Show complete track list" }),
+    screen.queryByRole("button", { name: "Choose an edition" }),
   ).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
   await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
@@ -294,4 +294,42 @@ test("a link that turns stale while reading with no reviewed artist can still be
   render(page(readyChoice, null));
   await screen.findByText(/needs a reviewed artist/);
   expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
+});
+
+test("a remembered edition that cannot load falls back to your own tracks with Try again and no pagination", async () => {
+  let answer: () => Response = () => Response.json({ status: "unavailable" });
+  const fetch = serve({ [savedRead]: () => answer() });
+  render(
+    createElement(AlbumPage, {
+      errors: {},
+      native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+      user: { id: artistReviewAccount, username: "Listener", admin: false },
+      libraries: [],
+      playlists: [],
+      detail: {
+        ...albumDetail,
+        saved_edition: readyChoice,
+        tracks: { ...albumDetail.tracks, total: 200 },
+      },
+    }),
+  );
+  const fallback = await screen.findByRole("heading", {
+    name: "Showing only your tracks",
+  });
+  expect(fallback).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toMatch(/unavailable/);
+  expect(screen.getByRole("table", { name: "Tracks" })).toBeTruthy();
+  expect(screen.queryByRole("navigation", { name: /page/i })).toBeNull();
+  expect(screen.queryByRole("link", { name: /next/i })).toBeNull();
+  answer = () => Response.json(mergedTrackList);
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  const region = await screen.findByRole("region", {
+    name: "Album edition track list",
+  });
+  expect(await within(region).findByText("Catalog only song")).toBeTruthy();
+  expect(calls(fetch, savedRead)).toHaveLength(2);
+  expect(
+    screen.queryByRole("heading", { name: "Showing only your tracks" }),
+  ).toBeNull();
 });

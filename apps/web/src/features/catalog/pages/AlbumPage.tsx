@@ -179,7 +179,7 @@ export default function AlbumPage({
                 saved={detail.saved_edition}
               />
             )}
-          {!merged && (
+          {!merged && detail.saved_edition?.state.status !== "ready" && (
             <Pagination
               page={page}
               query=""

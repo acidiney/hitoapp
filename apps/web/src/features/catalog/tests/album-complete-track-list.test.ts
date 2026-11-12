@@ -98,7 +98,7 @@ function page(detail: Schema<"AlbumPageProps">["detail"] = albumDetail) {
 
 async function openEditions() {
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await pickRelease();
 }
@@ -121,7 +121,11 @@ function rowWith(region: HTMLElement, text: string) {
 test("the complete track list is explicit, ordered, and distinguishes library tracks from catalog-only tracks", async () => {
   const fetch = serve();
   render(page());
-  expect(fetch).not.toHaveBeenCalled();
+  expect(
+    fetch.mock.calls.filter(
+      ([path]) => !String(path).endsWith("/tagged-edition"),
+    ),
+  ).toEqual([]);
 
   const region = await chooseEdition();
   expect(JSON.parse(fetch.mock.calls.at(-1)![1]!.body as string)).toEqual({
@@ -343,7 +347,7 @@ test("an album without a reviewed artist offers no complete track list", () => {
   serve();
   render(page({ ...albumDetail, catalog_anchor: null }));
   expect(
-    screen.queryByRole("button", { name: "Show complete track list" }),
+    screen.queryByRole("button", { name: "Choose an edition" }),
   ).toBeNull();
 });
 
@@ -393,7 +397,7 @@ test("opening the complete track list never renders the artist's whole discograp
   serve();
   render(page());
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await screen.findByRole("heading", {
     name: "Which release is Catalog album?",
