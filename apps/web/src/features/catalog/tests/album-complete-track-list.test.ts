@@ -201,6 +201,34 @@ test("play on a catalog-only track saves it through its provider once and then p
   await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
 });
 
+test("add on a catalog-only track saves it through its provider without playing", async () => {
+  const fetch = serve();
+  player.playSelection.mockClear();
+  render(page());
+  const region = await chooseEdition();
+  const row = rowWith(region, "Catalog only song");
+  await act(async () => {
+    fireEvent.click(
+      within(row).getByRole("button", {
+        name: "Add Catalog only song to your library",
+      }),
+    );
+  });
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
+  const saves = fetch.mock.calls.filter(([path]) => path === adoption);
+  expect(saves).toHaveLength(1);
+  expect(JSON.parse(saves[0][1]!.body as string)).toEqual({
+    installation_revision: installation.revision,
+    provider_recording_id: "provider:two",
+  });
+  expect(player.playSelection).not.toHaveBeenCalled();
+  expect(
+    within(row).queryByRole("button", {
+      name: "Add Catalog only song to your library",
+    }),
+  ).toBeNull();
+});
+
 test("a library track plays directly and never calls a provider", async () => {
   const fetch = serve();
   render(page());

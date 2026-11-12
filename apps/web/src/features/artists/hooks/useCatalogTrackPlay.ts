@@ -71,6 +71,7 @@ export function useCatalogTrackPlay(
     key: string,
     action: string,
     obtain: Obtain,
+    then: "play" | "save" = "play",
   ) {
     const request = scope.capture();
     if (!request.active() || owner.pending !== null) return;
@@ -91,7 +92,7 @@ export function useCatalogTrackPlay(
     update({ pending: occurrence });
     log.debug(`${action}.started`, { request_id: requestId });
     try {
-      const prepared = player.prepareSelection();
+      const prepared = then === "play" ? player.prepareSelection() : null;
       let recording = owner.saved.get(key);
       if (!recording) {
         recording = await obtain(request.signal);
@@ -99,8 +100,10 @@ export function useCatalogTrackPlay(
         owner.saved = new Map(owner.saved).set(key, recording);
       }
       outcome = "saved";
-      await prepared(recording);
-      if (request.active()) outcome = "played";
+      if (prepared) {
+        await prepared(recording);
+        if (request.active()) outcome = "played";
+      }
     } catch (error) {
       if (request.active()) {
         outcome = "failed";
@@ -138,21 +141,30 @@ export function useCatalogTrackPlay(
       );
   }
 
-  async function play(occurrence: string, providerRecording: string) {
+  async function adoptThen(
+    then: "play" | "save",
+    occurrence: string,
+    providerRecording: string,
+  ) {
     if (!adoption) return;
     await run(
       occurrence,
       providerRecording,
-      "catalog_track_play",
+      then === "play" ? "catalog_track_play" : "catalog_track_save",
       adopt(
         adoption.installation_id,
         adoption.installation_revision,
         providerRecording,
       ),
+      then,
     );
   }
 
-  async function findAndPlay(occurrence: string, search: AudioSearch) {
+  async function findThen(
+    then: "play" | "save",
+    occurrence: string,
+    search: AudioSearch,
+  ) {
     await run(
       occurrence,
       foundKey(search.request.edition_id, occurrence),
@@ -169,6 +181,7 @@ export function useCatalogTrackPlay(
           throw new Error(searchMessages[found.status]);
         return found.recording;
       },
+      then,
     );
   }
 
@@ -176,7 +189,13 @@ export function useCatalogTrackPlay(
     saved: current?.saved ?? owner.saved,
     pending: current?.pending ?? null,
     failed: current?.failed ?? null,
-    play,
-    findAndPlay,
+    play: (occurrence: string, providerRecording: string) =>
+      adoptThen("play", occurrence, providerRecording),
+    save: (occurrence: string, providerRecording: string) =>
+      adoptThen("save", occurrence, providerRecording),
+    findAndPlay: (occurrence: string, search: AudioSearch) =>
+      findThen("play", occurrence, search),
+    findAndSave: (occurrence: string, search: AudioSearch) =>
+      findThen("save", occurrence, search),
   };
 }

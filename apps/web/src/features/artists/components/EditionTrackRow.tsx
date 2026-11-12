@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import ActionMenu from "../../../shared/ui/ActionMenu";
 
 export type EditionRowState =
@@ -31,6 +31,7 @@ export default function EditionTrackRow({
   play,
   failure,
   actions,
+  add,
 }: {
   number: ReactNode;
   title: string;
@@ -46,6 +47,7 @@ export default function EditionTrackRow({
   };
   failure?: string;
   actions?: ReactNode;
+  add?: { label: string; disabled: boolean; onAdd: () => void };
 }) {
   const isOwned = owned.includes(state);
   return (
@@ -81,6 +83,18 @@ export default function EditionTrackRow({
           >
             <Check size={16} strokeWidth={2.5} aria-hidden="true" />
           </span>
+        )}
+        {add && (
+          <button
+            type="button"
+            className="icon-button edition-row-add"
+            aria-label={add.label}
+            title="Add to your library"
+            disabled={add.disabled}
+            onClick={add.onAdd}
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
         )}
         {actions ??
           (play && (

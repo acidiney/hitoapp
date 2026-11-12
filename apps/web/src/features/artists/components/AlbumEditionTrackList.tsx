@@ -193,6 +193,11 @@ export default function AlbumEditionTrackList({
             disabled: catalog.pending !== null,
             onPlay: () => void catalog.play(track.id, track.recording_id!),
           }}
+          add={{
+            label: `Add ${track.title} to your library`,
+            disabled: catalog.pending !== null,
+            onAdd: () => void catalog.save(track.id, track.recording_id!),
+          }}
         />
       );
     return (
@@ -208,6 +213,15 @@ export default function AlbumEditionTrackList({
                 menuLabel: "Find audio and play",
                 disabled: catalog.pending !== null,
                 onPlay: () => void catalog.findAndPlay(track.id, search(track)),
+              }
+            : undefined
+        }
+        add={
+          comparison
+            ? {
+                label: `Add ${track.title} to your library`,
+                disabled: catalog.pending !== null,
+                onAdd: () => void catalog.findAndSave(track.id, search(track)),
               }
             : undefined
         }

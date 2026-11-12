@@ -562,6 +562,15 @@ a.album-artist:focus-visible {
 .edition-row-controls > * {
   pointer-events: auto;
 }
+.edition-row-add {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
 .edition-row-check {
   display: flex;
   align-items: center;
