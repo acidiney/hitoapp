@@ -6,6 +6,7 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import { headerCoverId } from "../../../shared/ui/collectionTint";
 import PlaylistHeader from "../components/PlaylistHeader";
+import { usePlaylistReadiness } from "../hooks/usePlaylistReadiness";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import PlaylistEditPanel, {
   PlaylistNameField,
@@ -91,8 +92,9 @@ export default function PlaylistPage({
   const artworkRetry = useArtworkRetryItem({ playlistId: detail.playlist.id });
   const [show, setShow] = useState<"all" | "ready" | "unready">("all");
   const savedRows = rowsFor(detail.entries);
+  const readiness = usePlaylistReadiness(user.id, detail.entries);
   const isReady = (row: TrackTableRow) =>
-    row.kind === "recording" && row.track.available;
+    row.kind === "recording" && readiness.isReady(row.track.id);
   const rows = edit.editing
     ? rowsFor(edit.entries)
     : savedRows.filter(
@@ -113,9 +115,7 @@ export default function PlaylistPage({
   const readOnlyNotice =
     "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play.";
   const editable = detail.playlist.kind === "local";
-  const ready = detail.entries.filter(
-    (entry) => entry.recording_id != null && entry.available,
-  ).length;
+  const ready = readiness.count;
   const eyebrow = followed
     ? `Followed from ${detail.origin?.attribution.label ?? "a provider"} · read-only`
     : detail.origin
