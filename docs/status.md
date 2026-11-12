@@ -1,5 +1,9 @@
 # Implementation status
 
+## 2026-11-12 active work stays local
+
+The owner removed VPS work from the active scope. Do not restore its DNS, deploy to it or resume remote operations. Backend implementation, local Docker verification and integration continue. Earlier VPS records below are historical evidence, not pending tasks.
+
 ## 2026-11-12 qualified local server update
 
 The normal local server on port 8080 now runs immutable image `2be4fcd7`, containing the qualified production executable `6482808` and the nineteen web files built from frontend `b1e88d0f`. The packaged image first passed an isolated tmpfs deployment. Independent inspection verifies all 102 packaging evidence files and the executing binary; all nineteen public files match their expected bytes over HTTP. The evidence ledger hashes to `198f07a16888782882edfb0856a21d5d41a514ad1f570308f9b71362c47f654f`.
