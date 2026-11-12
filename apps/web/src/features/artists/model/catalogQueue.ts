@@ -24,6 +24,8 @@ export const SEARCH_FAILING_MESSAGE =
 export type CatalogRun = {
   occurrences: readonly string[];
   failures: number;
+  ownedOnly: boolean;
+  known(occurrence: string): Schema<"Recording"> | undefined;
   stopped(): boolean;
   find(occurrence: string, signal: AbortSignal): Promise<Resolution>;
   mark(occurrence: string, state: RowState): void;
@@ -72,6 +74,12 @@ export async function nextFound(
     signal.throwIfAborted();
     if (run.stopped()) return null;
     const occurrence = run.occurrences[index];
+    if (run.ownedOnly) {
+      const known = run.known(occurrence);
+      if (!known) continue;
+      run.mark(occurrence, { status: "found", recording: known.id });
+      return { index, recording: known };
+    }
     run.mark(occurrence, { status: "finding" });
     let result: Resolution;
     try {
@@ -91,7 +99,9 @@ export async function nextFound(
     if (result.kind === "stop") {
       run.mark(occurrence, { status: "idle" });
       run.halt(result);
-      return null;
+      if (!result.consent) return null;
+      run.ownedOnly = true;
+      continue;
     }
     run.mark(occurrence, { status: result.kind });
     run.failures = result.kind === "failed" ? run.failures + 1 : 0;

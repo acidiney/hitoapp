@@ -14,6 +14,7 @@ import CatalogCover from "./CatalogCover";
 import CatalogFailure from "./CatalogFailure";
 import CatalogEditionSwitch from "./CatalogEditionSwitch";
 import LibraryAvailability from "./LibraryAvailability";
+import CatalogPlayNotes from "./CatalogPlayNotes";
 
 const kinds = {
   album: "Album",
@@ -153,20 +154,10 @@ export default function CatalogAlbum({
                 Checking for updates…
               </p>
             )}
-            {playback.consentOff && (
-              <p className="album-note" role="status">
-                Playing a catalog album searches your connected services, and
-                “Search connected services automatically” is off.{" "}
-                <Link href="/settings?section=privacy">
-                  Turn it on in Settings
-                </Link>
-              </p>
-            )}
-            {playback.halted && (
-              <p className="album-note" role="alert">
-                {playback.halted}
-              </p>
-            )}
+            <CatalogPlayNotes
+              consentOff={playback.consentOff}
+              halted={playback.halted}
+            />
           </>
         }
       />
