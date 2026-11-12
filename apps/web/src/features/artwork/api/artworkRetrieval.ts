@@ -66,10 +66,12 @@ function waitForPoll(signal: AbortSignal) {
 }
 
 let nextGeneration = 0;
+const SETTLED_LIMIT = 4096;
 
 export class ArtworkRetrieval {
   readonly generation = ++nextGeneration;
   private entries = new Map<string, Entry>();
+  private settled = new Map<string, ArtworkSnapshot>();
   private listeners = new Map<string, Set<() => void>>();
   private pending = new Set<Entry>();
   private waiting = new Set<() => void>();
@@ -90,6 +92,7 @@ export class ArtworkRetrieval {
       entry.controller.abort("cancelled");
     this.pending.clear();
     this.entries.clear();
+    this.settled.clear();
   }
 
   subscribe(target: ArtworkTarget, listener: () => void) {
@@ -110,7 +113,10 @@ export class ArtworkRetrieval {
   }
 
   snapshot(target: ArtworkTarget) {
-    return this.entries.get(keyFor(target))?.snapshot ?? idleArtwork;
+    const key = keyFor(target);
+    return (
+      this.entries.get(key)?.snapshot ?? this.settled.get(key) ?? idleArtwork
+    );
   }
 
   missing(target: ArtworkTarget, revision = 0) {
@@ -119,7 +125,7 @@ export class ArtworkRetrieval {
     const entry = this.entries.get(key);
     if (entry) {
       this.observeImage(entry, revision, true);
-    } else if (revision === 0) {
+    } else if (revision === 0 && !this.settled.has(key)) {
       this.start(target, { phase: "waiting", revision, imageFailed: true });
     }
   }
@@ -135,6 +141,7 @@ export class ArtworkRetrieval {
       for (const candidate of this.entries.values()) {
         if (candidate.running || this.pending.has(candidate)) continue;
         this.entries.delete(candidate.key);
+        this.remember(candidate);
         break;
       }
       if (this.entries.size >= 128) return;
@@ -153,8 +160,18 @@ export class ArtworkRetrieval {
     this.drain();
   }
 
+  private remember(entry: Entry) {
+    const { phase } = entry.snapshot;
+    if (phase !== "failed" && phase !== "unavailable") return;
+    this.settled.delete(entry.key);
+    this.settled.set(entry.key, entry.snapshot);
+    if (this.settled.size > SETTLED_LIMIT)
+      this.settled.delete(this.settled.keys().next().value!);
+  }
+
   retry(target: ArtworkTarget) {
     const key = keyFor(target);
+    this.settled.delete(key);
     const entry = this.entries.get(key);
     if (!this.active || (entry && (entry.running || this.pending.has(entry))))
       return;
@@ -172,6 +189,15 @@ export class ArtworkRetrieval {
     if (!this.active) return;
     const started = performance.now();
     let count = 0;
+    for (const [key, snapshot] of [...this.settled]) {
+      if (snapshot.phase !== "unavailable") continue;
+      this.settled.delete(key);
+      if (this.listeners.has(key)) {
+        const [kind, id] = JSON.parse(key) as [ArtworkKind, string];
+        this.missing({ kind, id });
+      }
+      count++;
+    }
     for (const entry of [...this.entries.values()]) {
       if (
         entry.running ||
