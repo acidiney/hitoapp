@@ -3,6 +3,10 @@ import type { Track } from "../model";
 import { trackTabHref } from "../../recordings/model/trackTabs";
 import { followableLines } from "../../lyrics/model/lyricContent";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
+import {
+  credentialsRequiredMessage,
+  pluginSettingsHref,
+} from "../../plugins/model/credentialError";
 import RouteLink from "../../../shared/ui/RouteLink";
 import FilterPills from "../../../shared/ui/FilterPills";
 import { useAccountSwitch } from "../../../shared/hooks/useAccountSwitch";
@@ -150,6 +154,27 @@ function TrackLyrics({
             onNavigate={leave}
           >
             Connect one in Settings
+          </RouteLink>
+        </div>
+      </StateCard>
+    );
+  if (state.status === "credentials")
+    return (
+      <StateCard
+        tone="failed"
+        label="Couldn't check"
+        title={credentialsRequiredMessage}
+      >
+        <div className="np-lyric-actions">
+          <button type="button" className="np-pill" onClick={retry}>
+            Retry
+          </button>
+          <RouteLink
+            className="np-link"
+            href={pluginSettingsHref}
+            onNavigate={leave}
+          >
+            Open plugin settings
           </RouteLink>
         </div>
       </StateCard>

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
 import { lyricsApi } from "../api/lyricsApi";
+import { credentialRequirement } from "../../plugins/model/credentialError";
+import { reportCredentialRequirement } from "../../plugins/model/credentialRequirements";
 import { lookupAutomatic, rememberedAutomatic } from "../api/automaticLyrics";
 import {
   readMatchesIdentity,
@@ -27,6 +29,7 @@ export type NowPlayingLyricsState =
   | { status: "no_provider"; providers: LyricChoice[] }
   | { status: "none_for_track"; providers: LyricChoice[] }
   | { status: "failed"; providers: LyricChoice[] }
+  | { status: "credentials"; providers: LyricChoice[] }
   | {
       status: "done";
       providers: LyricChoice[];
@@ -191,11 +194,21 @@ export function useNowPlayingLyrics(
           providers.current.find((item) => item.key === key) ??
           providers.current[0];
         outcome = await read(chosen, own.signal);
-      } catch {
+      } catch (error) {
+        const credentials = credentialRequirement(error);
         if (outcome !== "deadline")
-          outcome = own.signal.aborted ? "cancelled" : "failed";
-        if (!own.signal.aborted)
-          setState({ status: "failed", providers: providers.current });
+          outcome = own.signal.aborted
+            ? "cancelled"
+            : credentials
+              ? "credentials"
+              : "failed";
+        if (!own.signal.aborted) {
+          if (credentials) reportCredentialRequirement(account, credentials);
+          setState({
+            status: credentials ? "credentials" : "failed",
+            providers: providers.current,
+          });
+        }
       } finally {
         clearTimeout(timer);
         log.debug("lyrics.now_playing", {
