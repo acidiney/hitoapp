@@ -1,5 +1,13 @@
 # Implementation status
 
+## 2026-11-12 timed-first automatic lyrics
+
+Development source at `9b6dbece` now returns the first provider-ranked valid timed lyric document across compatible results, keeping the first plain document only as fallback after examining the complete bounded page. Valid v2 anchors and legacy v1 intervals count as timed. Strict title, artist, version, duration and exact provider-reference checks remain. Null documents are skipped; unreadable later compatible results remain unavailable. Unexamined continuations remain ambiguous. Explicit manual identities and choices are preserved.
+
+Fresh independent R1 review passes. A separate current-source Docker repeat passes the same 96 named cases: 31 automatic, 19 manual identities, 13 legacy timed, one dropped workflow and 32 LRCLIB service cases. Two pre-existing diagnostic ignores remain. The 54 prior host cases are retained with one explicit rename for the changed identity-count policy; ten automatic cases are added. This slice does not rerun the twelve playback lease cases. Selection and per-workflow negotiation have preserved failing/passing controls. Actual LRCLIB composition, malformed timing, provider order, twenty-candidate bounds, later authority withdrawal, TCP EOF, the original ten-second deadline, peer privacy and exact manual reads pass with owned fixtures.
+
+Strict Core/server all-target checks, production Core/server checks, formatting and actual Rust API reproduction pass on the same 2,635 combined backend/support inputs, including the accepted PWA code. API bytes remain `ac0cc1e3290410b59ba5865be6ed70436ad218e8ba362273abaefd4ad6229e2a`. All compiled inputs match integrated source. Fourteen actually executed binaries and their source are preserved; the receipt hashes to `93e7bc3c08b619b2d4816eaaab31bbb25dc76612bb1bf305f6753b472a76ed5c`. No frontend, wire field, migration, running image, VPS or `main` changed. Production packaging, current browser acceptance and deployment remain open. This selection does not establish audio alignment. See [the selection contract](plugin-timed-content.md#timed-first-automatic-selection).
+
 ## 2026-11-12 PWA production backend artifact
 
 The accepted backend at `419b86d5` now has a separately built Linux AArch64 production executable. Actual Cargo artifacts confirm Core/server features `[]`, SDK schema only, opt3/debug0/test=false, thin LTO and stripped symbols, without testkit or the development LRCLIB service. Independent inspection verifies all 4,247 archived source inputs, the 2,630 accepted backend/support inputs and 395 actual compiler artifacts. The 40,685,008-byte executable has SHA-256 `a78b469aa00a88c84d87110c6b32d14cbff108bb343a140d73b969e808ac238d`.
