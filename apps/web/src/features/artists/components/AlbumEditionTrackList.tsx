@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { time } from "../../../shared/format";
 
 import { usePlayer } from "../../playback/components/PlaybackProvider";
@@ -11,7 +11,10 @@ import TrackRowActions from "../../playback/components/TrackRowActions";
 import {
   useAlbumMerge,
   useAlbumProgress,
+  useEditionPlayPublish,
 } from "../../catalog/components/AlbumMergeContext";
+import { albumEditionApi } from "../api/albumEditionApi";
+import { useEditionPlayback } from "../hooks/useCatalogPlayback";
 import { creditText } from "../model/catalogAlbumRows";
 
 type Comparison = Extract<
@@ -56,12 +59,6 @@ export default function AlbumEditionTrackList({
     player,
     `${source.release}/${comparison?.edition.id ?? ""}`,
   );
-  const linked = new Map<string, Schema<"Recording">>(
-    comparison?.matches.map((match) => [
-      match.occurrence_id,
-      match.recording,
-    ]) ?? [],
-  );
   const play = (recording: Schema<"Recording">) =>
     void player.playQueue([recording], 0);
 
@@ -76,20 +73,78 @@ export default function AlbumEditionTrackList({
     },
   });
 
+  const audio = useMemo(
+    () =>
+      comparison?.edition.media.flatMap((medium) =>
+        medium.tracks.filter((track) => track.kind === "audio"),
+      ) ?? [],
+    [comparison],
+  );
+  const owners = useMemo(() => {
+    const owned = new Map<string, Schema<"Recording">>();
+    for (const match of comparison?.matches ?? [])
+      owned.set(match.occurrence_id, match.recording);
+    for (const track of audio) {
+      const saved =
+        (track.recording_id
+          ? catalog.saved.get(track.recording_id)
+          : undefined) ??
+        catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id));
+      if (saved && !owned.has(track.id)) owned.set(track.id, saved);
+    }
+    return owned;
+  }, [comparison, audio, catalog.saved]);
+  const queue = useMemo(
+    () =>
+      audio
+        .filter(
+          (track) =>
+            owners.has(track.id) ||
+            !comparison?.attached_occurrences.includes(track.id),
+        )
+        .map((track) => track.id),
+    [audio, owners, comparison],
+  );
+  const playback = useEditionPlayback(
+    {
+      scope: JSON.stringify([account, source.release, source.recording]),
+      find: (edition, occurrence, signal) =>
+        albumEditionApi.audio(
+          account,
+          source.release,
+          {
+            recording_id: source.recording,
+            association_id: comparison!.association_id,
+            release_group_id: comparison!.edition.release_group_id,
+            edition_id: edition,
+            occurrence_id: occurrence,
+          },
+          signal,
+        ),
+    },
+    comparison?.edition.id ?? null,
+    queue,
+    owners,
+  );
+  useEditionPlayPublish(
+    comparison === null
+      ? null
+      : {
+          tracks: audio.length,
+          durationMs: audio.reduce(
+            (sum, track) => sum + (track.duration_ms ?? 0),
+            0,
+          ),
+          consentOff: playback.consentOff,
+          halted: playback.halted,
+        },
+    { play: () => playback.start(0), shuffle: playback.shuffle },
+  );
+
   function libraryFor(track: Occurrence) {
-    return (
-      linked.get(track.id) ??
-      (track.recording_id
-        ? catalog.saved.get(track.recording_id)
-        : undefined) ??
-      catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id))
-    );
+    return owners.get(track.id) ?? playback.recordings.get(track.id);
   }
 
-  const audio =
-    comparison?.edition.media.flatMap((medium) =>
-      medium.tracks.filter((track) => track.kind === "audio"),
-    ) ?? [];
   const owned = audio.filter((track) => libraryFor(track)).length;
   const absent = comparison?.library_only.length ?? 0;
   useAlbumProgress(

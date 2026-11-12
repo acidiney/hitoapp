@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { Link, router } from "@inertiajs/react";
 import type { Track } from "../../playback/model";
 import type { TrackListing } from "../../playback/api/trackListing";
@@ -11,6 +12,7 @@ import ArtworkRetryMenu, {
 } from "../../artwork/components/ArtworkRetryMenu";
 import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
 import AlbumPlayActions from "./AlbumPlayActions";
+import { AlbumMergeContext } from "./AlbumMergeContext";
 
 export default function AlbumHeaderActions({
   release,
@@ -25,18 +27,24 @@ export default function AlbumHeaderActions({
   const detailsHref = `/albums/${encodeURIComponent(release)}/details`;
   const retry = useArtworkRetryItem({ release });
   const play = usePlayTracks(tracks, listing);
+  const { editionPlay: edition } = useContext(AlbumMergeContext);
   const items: ActionMenuItem[] = [
     {
       label: "Shuffle album",
-      disabled: tracks.length === 0,
-      onSelect: () => void play.shuffleAll(),
+      disabled: edition ? edition.tracks === 0 : tracks.length === 0,
+      onSelect: () => void (edition ? edition.shuffle() : play.shuffleAll()),
     },
     { label: "Edit album details", onSelect: () => router.visit(detailsHref) },
     ...(retry ? [retry] : []),
   ];
   return (
     <>
-      <AlbumPlayActions tracks={tracks} listing={listing} shuffle={!phone} />
+      <AlbumPlayActions
+        tracks={tracks}
+        listing={listing}
+        shuffle={!phone}
+        edition={edition}
+      />
       {phone ? (
         <ActionMenu
           label="More actions"

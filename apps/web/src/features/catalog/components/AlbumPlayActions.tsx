@@ -2,18 +2,21 @@ import { Play, Shuffle } from "lucide-react";
 import type { Track } from "../../playback/model";
 import type { TrackListing } from "../../playback/api/trackListing";
 import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
+import type { EditionPlay } from "./AlbumMergeContext";
 
 export default function AlbumPlayActions({
   tracks,
   listing,
   shuffle = true,
+  edition = null,
 }: {
   tracks: Track[];
   listing?: TrackListing;
   shuffle?: boolean;
+  edition?: EditionPlay | null;
 }) {
   const play = usePlayTracks(tracks, listing);
-  const empty = tracks.length === 0;
+  const empty = edition ? edition.tracks === 0 : tracks.length === 0;
   return (
     <>
       <button
@@ -22,7 +25,7 @@ export default function AlbumPlayActions({
         data-primary=""
         aria-label="Play album"
         disabled={empty}
-        onClick={() => void play.playAll()}
+        onClick={() => void (edition ? edition.play() : play.playAll())}
       >
         <Play size={16} fill="currentColor" aria-hidden="true" />
         Play
@@ -33,7 +36,7 @@ export default function AlbumPlayActions({
           className="pill-icon"
           aria-label="Shuffle album"
           disabled={empty}
-          onClick={() => void play.shuffleAll()}
+          onClick={() => void (edition ? edition.shuffle() : play.shuffleAll())}
         >
           <Shuffle size={18} aria-hidden="true" />
         </button>
