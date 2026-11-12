@@ -174,7 +174,10 @@ impl Catalog {
         };
         receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome, None).await?;
         tx.commit().await?;
-        if !matches!(outcome, SourceResolutionOutcome::Cancelled) {
+        if !matches!(
+            outcome,
+            SourceResolutionOutcome::Cancelled | SourceResolutionOutcome::ProtectedChoice
+        ) {
             self.changes.publish(
                 actor.id(),
                 [ChangeNotice::Sources {

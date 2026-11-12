@@ -238,7 +238,7 @@ async fn following_and_refreshing_a_playlist_notify_its_owner_only_when_entries_
         call(&app, "POST", &refresh, json!({"request_id": Uuid::new_v4()}), Some(&owner))
             .await
             .0,
-        StatusCode::OK
+        StatusCode::ACCEPTED
     );
     assert!(
         services
@@ -288,7 +288,7 @@ async fn following_and_refreshing_a_playlist_notify_its_owner_only_when_entries_
         call(&app, "POST", &refresh, json!({"request_id": Uuid::new_v4()}), Some(&owner))
             .await
             .0,
-        StatusCode::OK
+        StatusCode::ACCEPTED
     );
     assert!(
         services

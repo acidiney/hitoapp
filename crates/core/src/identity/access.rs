@@ -101,7 +101,6 @@ pub(crate) async fn library_access(
     }
 }
 
-#[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
 pub(crate) async fn recording_readers(
     connection: &mut SqliteConnection,
     recording: &str,
@@ -116,6 +115,7 @@ pub(crate) async fn recording_readers(
     .await?)
 }
 
+#[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
 pub(crate) async fn recording_access(
     connection: &mut SqliteConnection,
     actor: &Actor,
