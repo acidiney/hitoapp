@@ -27,6 +27,7 @@ Responses include a generated `X-Request-Id` for correlation. Errors use an `err
 | Private recent listening history | `GET /activity` |
 | Pause or resume recording history, delete history | `GET`/`PUT /history/preferences`, `DELETE /history` ([listening history](../guide/account.md)) |
 | Apply operations / pull accepted events | `POST /sync`, `GET /sync?cursor=0` |
+| Private change notices for open views ([details](#change-notices)) | `GET /changes/events` |
 
 Artwork returns PNG, JPEG, GIF, or WebP bytes with `Cache-Control: private, no-store`. Access follows the recording's library permissions. Missing images and inaccessible recordings return 404. Embedded front covers take priority, followed by other embedded pictures and neighboring `cover`, `folder`, or `front` JPEG/PNG files. The reader accepts regular files only, limits image bodies to 8 MiB and cumulative metadata reads to 16 MiB, and shares four blocking-reader permits across catalog clones. A canceled HTTP request retains its permit until the blocking read finishes. Compressed ID3 parsing is disabled because decompression bypasses the physical-read budget; artwork falls back to neighboring cover files when those tags cannot be read.
 
@@ -70,6 +71,40 @@ sequenceDiagram
 ```
 
 This is the server synchronization contract. A desktop cache and durable offline outbox are not implemented yet. The browser currently requires its server connection for edits and playback.
+
+## Change notices
+
+`GET /changes/events` is a server-sent event stream that tells open views of one account what to refetch. Each `data` frame is a `ChangeNotice` with a `kind` and only identifiers: never titles, names, paths or source details. The stream does not replace reads; clients refetch through the ordinary endpoints.
+
+| Kind | Fields | Meaning |
+| --- | --- | --- |
+| `resync` | `reason`: `connected` or `lagged` | Refetch everything that is open. `connected` is always the first frame, so a reconnect covers notices missed while disconnected. `lagged` means this stream fell behind and notices were dropped. |
+| `sources` | `recording_id` | The recording's sources, choice, resolution or preparation state changed. |
+| `recording` | `recording_id` | A recording edit or like changed. |
+| `recordings` | none | A release-level edit can change many recordings. |
+| `playlist` | `playlist_id` | The playlist or its entries changed. |
+| `playlists` | none | The playlist list changed. |
+| `artwork` | `entity` (`recording`, `release`, `playlist`), `id` | Provider artwork arrived. |
+
+Core capability services publish a notice only after their transaction commits, and only to the account that owns the change. A rolled-back batch or rejected command publishes nothing. Each account keeps one bounded in-memory channel of 32 notices; a stream that falls behind receives `resync` with reason `lagged` instead of buffering. An account can hold 8 open streams; more return 429. Notices are not stored, so a restart or reconnect relies on the `connected` resync.
+
+The stream authenticates through the shared session extractor and returns `Cache-Control: private, no-store`. It ends when its session signs out, is revoked, is locked, expires or is deleted with its account. Sign-out, revocation, password change, locking and account deletion end affected streams promptly; expiry and idle locks are noticed within 30 seconds.
+
+```mermaid
+sequenceDiagram
+  participant Service as Core capability service
+  participant DB as SQLite
+  participant Hub as Account change channel
+  participant Stream as Change stream
+  participant View as Open view
+  Service->>DB: Commit transaction
+  Service->>Hub: Publish ids and kind
+  Hub-->>Stream: Notice, or lagged when the channel overflowed
+  Stream-->>View: SSE data frame
+  View->>Service: Refetch through the ordinary endpoint
+```
+
+Current producers are synchronization batches, manual source choice and reset, automatic source resolution, source preparation requests and their ready, failed or blocked outcomes, and provider artwork jobs. Lyrics, plugin health, provider attachment and adoption, artist identity and catalog metadata refresh do not publish notices yet.
 
 ## Plugin contract
 
