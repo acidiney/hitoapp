@@ -71,6 +71,8 @@ pub mod provider_url_schema;
 pub mod recording_groups_schema;
 #[path = "recording_id_matches_schema.rs"]
 pub mod recording_id_matches_schema;
+#[path = "recording_lyric_identity_schema.rs"]
+pub mod recording_lyric_identity_schema;
 #[path = "replica_catalog_schema.rs"]
 pub mod replica_catalog_schema;
 #[path = "review_queue_schema.rs"]
@@ -518,6 +520,10 @@ pub async fn reference_94() -> SqliteConnection {
     replica_catalog_schema::reference(reference_93().await).await
 }
 
+pub async fn reference_95() -> SqliteConnection {
+    recording_lyric_identity_schema::reference(reference_94().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -567,6 +573,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         92 => reference_92().await,
         93 => reference_93().await,
         94 => reference_94().await,
+        95 => reference_95().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -806,6 +813,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 94),
+    )
+    .chain(
+        recording_lyric_identity_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 95),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
@@ -837,6 +850,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             count, 0,
             "historical state must not imply community consent, reporters, contributions or collection covers"
         );
+    }
+    if version >= 95 {
+        recording_lyric_identity_schema::assert_empty(connection).await;
     }
     if version >= 94 {
         replica_catalog_schema::assert_empty(connection).await;
