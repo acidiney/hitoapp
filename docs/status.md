@@ -1,5 +1,15 @@
 # Implementation status
 
+## 2026-11-12 independent default browser qualification
+
+The frozen frontend at `a23527fc` passes the default browser gate against the qualified production backend `6482808119921ab4fdddee9949596df4929e13bc854a11e9fa473ae37117000e`: 149 passes, 78 explicitly gated skips, zero failures, retries or flaky results. All fifteen required source-fallback, timed-first lyric, service-worker and desktop/phone Now playing cases pass. The account-switching plugin case that timed out in the previous packet passes in this run. The previous failed packet remains separate. A simulated phone viewport does not qualify physical Safari playback.
+
+All 2,166 unit assertions and both TypeScript checks pass. The final source differs from the original checked snapshot only by three CSS lines; the final Vite build and browser run use the separately frozen final source. Actual source, nineteen distribution files, three owned audio fixtures and the executing backend match their recorded hashes. Independent inspection verifies all 110 qualification files; the evidence ledger hashes to `b3c675d4f4bdb4554563cd8e6b126ee0a71c2cae349dd6e47036ebb5f75849ba`.
+
+Separate service-worker controls verify six public cache entries before and after sign-out, exact worker delivery, an unchanged-worker negative control and waiting/update/reload activation. Their assertions complete, but the helper retains an unidentified Node handle and exits through its teardown timeout with code 124. This remains an operational failure, not a clean control pass. Its earlier aborted-login control is also retained. No product assertion, retry count or timeout was relaxed.
+
+The isolated server used fresh tmpfs SQLite, owned read-only fixtures, no persistent application volume and no host port. Its owned containers and network are removed. Preview, its watcher, the normal server and VPS are unchanged. Later frontend commits, including remembered-edition loading and edition add-to-library actions, require fresh qualification. This result does not qualify the 78 skipped gates, physical audio, performance, platform packages or a public release.
+
 ## 2026-11-12 browser acceptance for source fallback, timed-first lyrics and the service worker
 
 These are tested development checks against the isolated `e2e-server` image built from this worktree. They are not a deployment or a public release. The full browser suite reports 147 named passes and 78 explicitly gated skips. These include owned-fixture and visual checks as well as live services.
@@ -38,7 +48,11 @@ A real private D-Bus test reproduced Linux MPRIS accepting SetPosition for the p
 
 ## 2026-11-12 change-events candidate review
 
-The separate change-events branch adds an account-private SSE stream and selected transaction-completion producers. It is not integrated here. The original session-lifetime defect is corrected in inspected source: receiver registration precedes the final authority check, and each private notice performs a bounded read-only check of current revocation, expiry and PIN-lock state. Notices do not renew activity. Final source review found that cancellation during the initial authority read could leave a dormant registration. A registration owner now spans that await and retires on cancellation, error or stream closure; its test-only failing candidate and correction are committed separately, but neither has been executed yet. Previous author-reported test runs do not qualify this last correction. Source and artwork workflows, shared-library recipients and other producer coverage remain incomplete. This review does not establish deployment or full-flow acceptance.
+The separate change-events branch at `0aca0e82` adds an account-private SSE stream and selected transaction-completion producers. It is not integrated here. Receiver registration precedes the final authority check, and each private notice performs a bounded read-only check of current revocation, expiry and PIN-lock state. Notices do not renew activity. A registration owner spans the initial authority await and retires on cancellation, error or stream closure.
+
+Fresh independent execution of preserved binaries passes all three exact registration cases and twelve HTTP stream cases, with zero ignored tests. The first replay ran no product tests because its tmpfs was mounted `noexec`; that failure remains preserved. A separate mount diagnostic confirmed the cause, and the corrected isolated replay exits 0 without OOM. Source and all four captured executable hashes remain unchanged across capture, diagnosis and replay. Independent inspection verifies all 52 replay files; the receipt hashes to `2a28f4f9a6dd0302ae56c6055cf14072e6d6c042e319b99c396c96420b24eae6`. Historical source-to-build provenance is not established by this replay. The broader author-reported API/source runs are separate evidence, not repeated here.
+
+Source and artwork workflows, shared-library recipients and other producer coverage remain incomplete. This verifies the registration and current HTTP lifetime behavior, not the complete feature, deployment or full-flow acceptance.
 
 ## 2026-11-12 timed-first automatic lyrics
 
