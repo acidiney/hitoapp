@@ -34,3 +34,5 @@
 /docs/Claude outputs/
 /deploy/vps/
 /docs/vps-deployment.md
+/.vscode/
+/.zed/
