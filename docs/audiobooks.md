@@ -1,6 +1,6 @@
 # Audiobooks in development
 
-Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages, explicit playlist grouping and bookmark create/remove controls are qualified in source. Explicit chapter/bookmark browser playback is qualified in the isolated package below. Durable book-wide Continue and native platform acceptance remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
+Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages, explicit playlist grouping and bookmark create/remove controls are qualified in source. Explicit chapter/bookmark browser playback is qualified in the isolated package below. Durable book-wide Continue and native platform acceptance remain unfinished. Migration 0048 is not deployed on the normal server.
 
 ## Ownership and identities
 
@@ -201,7 +201,7 @@ Two public core cases cover 10,000 chapters, batch bounds, duplicate anchors, cu
 
 The database-work fixture measures the actual public capability with 100,000 recordings, a 10,000-chapter book and 1,000 neighbouring books after reopening under inherited, absent and fresh statistics. Admission of 1,000 anchors uses approximately 61,000 or 72,000 SQLite VM steps, below the unchanged `5,000 + 250 × requested anchors` budget. This proves bounded admission work, not full-book browsing performance, memory use or release playback latency. Fixture setup and preservation reads are outside that measurement.
 
-These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. That sentence described the server when it ran migration 0046. The local development server now runs migrations through 0069 ([status](status.md#2026-10-29-to-2026-10-31-summary)).
+These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. That sentence described the server when it ran migration 0046. The local development server now runs migrations through 0069.
 
 
 ## Observed browser chapter checkpoints

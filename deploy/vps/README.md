@@ -2,7 +2,7 @@
 
 This configuration targets the existing `forge-alita` Linux amd64 host and the public origin you set in `HITO_PUBLIC_ORIGIN` (for example `https://hito.example.com`). It uses the host's existing Caddy service. Only Hito's server is published, on `127.0.0.1:18080`. Plugin ports are reachable on the separate `hito-vps` Docker network. There is no Docker socket, compiler, browser test service or reverse-proxy container in the runtime configuration.
 
-These files describe an installation. They are not evidence of a completed deployment or public release. Platform, provider, recovery and load acceptance remain recorded in [the release status](../../docs/status.md).
+These files describe an installation. They are not evidence of a completed deployment or public release.
 
 ## Build on the development machine
 

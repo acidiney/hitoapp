@@ -1,6 +1,6 @@
 # Native decoding fallback
 
-Development source can play authorized local and server-managed Opus through FFmpeg when Symphonia reports `Unsupported`. This work has not been deployed or included in a new desktop package. The [release plan](release-plan.md) remains open.
+Development source can play authorized local and server-managed Opus through FFmpeg when Symphonia reports `Unsupported`. This work has not been deployed or included in a new desktop package.
 
 ## Current policy and ownership
 
@@ -166,4 +166,4 @@ Strict broader acceptance, recovery replay bounds, startup/seek latency, referen
 
 An earlier thirteen-case native run failed once with `Native(Output)` during `Session::open`, before Resume. Subsequent twenty-open diagnostics, later fourteen- and fifteen-case runs and eleven existing native cases passed, including independent repeats. Those passes do not identify or fix the failure. It has not been classified as pre-existing. A diagnostic now reports static output failure categories and callback/xrun counts after worker join, outside the audio callback. No automatic retry was added.
 
-Broader codec and timing profiles, missing-tool installation behavior, additional rates/layouts, portable process input, macOS/Windows builds and physical output remain open. Opus gapless measurements, reference-hardware performance and packaged application acceptance are also required. Track these and the startup failure in [Playback and desktop](../TODO.md#playback-and-desktop).
+Broader codec and timing profiles, missing-tool installation behavior, additional rates/layouts, portable process input, macOS/Windows builds and physical output remain open. Opus gapless measurements, reference-hardware performance and packaged application acceptance are also required. Track these and the startup failure in Playback and desktop.

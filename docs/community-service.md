@@ -1,6 +1,6 @@
 # Community service
 
-`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below has a frozen packaged browser ranking check; reporting delivery and publication remain open. Private correction suggestions and maintainer decisions are implemented in the development service. Application correction submission, matching consumers and public operation remain unfinished under the [release plan](release-plan.md#community-service).
+`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below has a frozen packaged browser ranking check; reporting delivery and publication remain open. Private correction suggestions and maintainer decisions are implemented in the development service. Application correction submission, matching consumers and public operation remain unfinished.
 
 ## Application integration in development
 

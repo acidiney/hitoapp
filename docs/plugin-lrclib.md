@@ -76,7 +76,7 @@ This changes observability, not HTTP responses, cooldown policy, body limits, th
 
 Only the local LRCLIB sidecar was replaced with the qualified content-addressed executable. Its actual bytes match SHA-256 `a6118b5328fa148c819edd3d070eb58740a64aa4b3a680c0ead3fb0c776b06d1`, and its manifest returns HTTP 200. The service address, credential volume, environment and runtime hardening remain unchanged. The preview and normal Hito server also remain unchanged.
 
-This is a local diagnostics deployment. It includes no Hito backend image, VPS, `main` or public-release update, and does not establish that all provider failures are fixed. See [the qualification and rollout receipt](status.md#2026-11-11-lrclib-failure-diagnostics).
+This is a local diagnostics deployment. It includes no Hito backend image, VPS, `main` or public-release update, and does not establish that all provider failures are fixed.
 
 ## Live compatibility check
 

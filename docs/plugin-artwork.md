@@ -16,7 +16,7 @@ The independent final frontend repeat passes 472 cases across 148 files, both Ty
 
 Core fixtures also exercise the shared worker with 100,000 retained targets and one shared blob under inherited, absent and fresh SQLite statistics. Read, enqueue and worker work stay below their existing 10,000, 250,000 and 500,000 VM-step budgets. A deterministic pinned-reader case proves that fixture snapshots include committed WAL history; it preserves rows, row IDs, retained bytes, foreign keys and the intended statistics. These are query-work and fixture-consistency checks, not playback latency or public backup acceptance.
 
-Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The local development server ran migration 0046 when this was written and ran through 0081 on 2026-11-02 ([status](status.md#2026-11-02-architecture-summary)).
+Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The local development server ran migration 0046 when this was written and ran through 0081 on 2026-11-02.
 
 ```mermaid
 sequenceDiagram
@@ -87,7 +87,7 @@ A scoped scan of 831 captured server-log lines found no owned fixture metadata, 
 
 Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Host integration passed its second review. These checks do not establish platform or public-release acceptance.
 
-The local development host retrieves recording covers. It was deployed on migration 0046; whether the collection source above is live has no separate record. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
+The local development host retrieves recording covers. It was deployed on migration 0046; whether the collection source above is live has no separate record. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open.
 
 ## YouTube thumbnails in source
 

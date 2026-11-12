@@ -87,7 +87,7 @@ docker run --rm -v hito_hito-data:/data:ro -v "$PWD/backups:/backup" debian:book
 docker compose start server
 ```
 
-To restore, stop the server, extract into a new empty Docker volume, and start a separate Hito instance against that volume. Keep the original volume until the restored library has been checked. A stopped local whole-volume backup was restored and migrated in an isolated container with byte, permission, ownership and database checks. See [deployment evidence](status.md#running-local-deployment). Repeatable packaged backup/restore acceptance on every supported platform remains a release gate.
+To restore, stop the server, extract into a new empty Docker volume, and start a separate Hito instance against that volume. Keep the original volume until the restored library has been checked. A stopped local whole-volume backup was restored and migrated in an isolated container with byte, permission, ownership and database checks. Repeatable packaged backup/restore acceptance on every supported platform remains a release gate.
 
 ## Network and sessions
 

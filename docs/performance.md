@@ -4,7 +4,7 @@ This page records how Hito measures its three playback latency targets, what the
 
 ## Targets
 
-[The release plan](release-plan.md#release-gates) sets these gates for fixed, documented hardware and network:
+The release gates below apply to fixed, documented hardware and network:
 
 | Gate                      | Target (p95) | Meaning in this document                                                           |
 | ------------------------- | -----------: | ---------------------------------------------------------------------------------- |

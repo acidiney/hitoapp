@@ -1,6 +1,6 @@
 # Playlist downloads
 
-Playlist downloads are deployed to the normal local development server on migration 35. The [public-release plan](release-plan.md) remains unfinished and defines the required scope.
+Playlist downloads are deployed to the normal local development server on migration 35.
 
 Selecting **Download** retains the current playlist on the backend host. Reading a playlist, following it, importing it, or playing a track does not request a persistent copy. Web copies stay on the server; listening through the browser still requires that server connection.
 
@@ -68,6 +68,6 @@ Read-only checks against that same isolated server confirm the generated OpenAPI
 
 The normal local deployment uses that same release image. A fresh stopped whole-volume backup was restored into an isolated owned volume before rehearsal. Both the rehearsal and final normal migration ran the migration-only command before application startup. Their audits preserve exact typed rows and rowids across 80 prior tables, sequences, receipts, all non-SQLite files, keys and host identity, with the schema and backfills defined by the actual six migrations. All 35 checksums, foreign keys, database integrity and six FTS integrity checks pass.
 
-The application then started and stopped separately for runtime verification. Neither run changed database rows or managed files. The original port was restored after the normal checkpoint passed; the published runtime passes health, exact OpenAPI/assets and anonymous-player rejection. Other services and normal account connections were preserved. See [backup and deployment evidence](status.md#running-local-deployment). These checks establish this local upgrade, not platform or public-release acceptance.
+The application then started and stopped separately for runtime verification. Neither run changed database rows or managed files. The original port was restored after the normal checkpoint passed; the published runtime passes health, exact OpenAPI/assets and anonymous-player rejection. Other services and normal account connections were preserved. These checks establish this local upgrade, not platform or public-release acceptance.
 
 Local-original Download behavior, temporary playback-cache policy, disk reservations and exhaustion, forced crashes, broader source/provider races, Windows private ACLs, all desktop platforms and the release performance/codec gates remain open. Playlist downloads do not automatically match Spotify metadata to YouTube audio.
