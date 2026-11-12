@@ -60,13 +60,31 @@ The desktop host shows the playing track in the operating system's Now Playing s
 
 `SystemMedia` implements the owner's sink. It maps title, artist, album, duration and playing or paused state onto an OS controls interface, and drops empty artist and album strings. Bounded artwork is written to `media-artwork/` in the application data directory, in a directory with mode 0700 and a file with mode 0600, and passed as a `file:` URL. There is one file per track, reused when the same artwork is published again. It is deleted on the next track, on clear and on shutdown, and leftovers are removed at startup. The path goes to the operating system only. It is never logged.
 
-`OsControls` wraps the `souvlaki` crate, which uses MPNowPlayingInfoCenter and MPRemoteCommandCenter on macOS, SystemMediaTransportControls on Windows and MPRIS over D-Bus on Linux. It is compiled only with the `gui` feature. It is created on the sink thread at first use, after the window exists, because Windows needs the window handle. On Windows a missing handle is retried at the next update. Any other failure is final: the host logs one safe warning and playback continues without media keys.
+`OsControls` wraps the [checksum-pinned local `souvlaki` crate](../vendor/souvlaki/UPSTREAM.json), which uses MPNowPlayingInfoCenter and MPRemoteCommandCenter on macOS, SystemMediaTransportControls on Windows and MPRIS over D-Bus on Linux. The `native-media` feature enables this bridge without Tauri; `gui` retains both `native-media` and native `device` output. Controls are created on the sink thread at first use. Windows needs a window handle, and a missing handle is retried at the next update. Any other failure is final: the host logs one safe warning and playback continues without media keys.
+
+The playback publisher assigns a random opaque ID to each owned track occurrence. It changes on account, lease, entry, recording or selection changes, including replaying the same recording, and is invalidated on clear or drop. Metadata, artwork, duration, pause, ordinary seek and rate updates retain it. The Linux object path contains this random ID, rather than a private recording or queue identifier.
+
+MPRIS `SetPosition` ignores stale IDs, `NoTrack`, negative positions, unknown duration and positions beyond the known length. Original microseconds reach the playback driver before conversion. The driver retains the original account session, lease, entry, recording and selection with the queued host request. Final acceptance checks that binding and the current duration again. Delayed metadata publication or a queued selection change therefore cannot retarget an old seek to the new occurrence. Ordinary user absolute seeks keep their existing duration clamp.
+
+```mermaid
+sequenceDiagram
+  participant Client as MPRIS client
+  participant Bus as D-Bus controls
+  participant Driver as Playback driver / queue
+  participant Owner as Final playback acceptance
+  Client->>Bus: SetPosition(opaque ID, microseconds)
+  Bus->>Driver: Scoped seek after ID and bounds checks
+  Driver->>Owner: Retained session / lease / entry / recording / selection
+  Owner->>Owner: Recheck ownership and duration
+```
 
 Privacy. On Linux, MPRIS publishes the title, artist, album, duration, position and the `file:` artwork path on the user's D-Bus session bus, and any local client on that bus can read them and send transport commands. The 0700 directory and 0600 file do not hide the path from those clients, and a client running as the same user can read the file. The 0700 and 0600 modes also do nothing on Windows, where the artwork file relies on the ACL of the application data directory. macOS keeps the data in the system's Now Playing store. Do not treat the track metadata as private from other software running as the same user.
 
 Tauri's setup creates the command channel and passes the sink to `LocalHost::start_with_folders`. Hosts without a sink, including every test host, use `LocalHost::start` and behave as before.
 
-Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
+Bounded Linux Compose qualification on 2026-11-12 passed 41 named cases and two strict all-target Clippy checks. The cases comprise five sink tests, eight player-media tests, 22 media unit tests, one public identity case, four [real private-D-Bus cases](../apps/desktop/tests/linux_mpris.rs) and one [native queued-seek race](../crates/playback/tests/player/player_media_scope.rs). The native case was explicitly run through the owned clocked-audio fixture despite its ignored-by-default annotation. It holds metadata and command dispatch, queues Next and same-entry Select ahead of the captured host request, then checks stale rejection and actual positive seek positions.
+
+This qualifies the bounded Linux backend slice. It does not qualify a full GUI build, physical media panels, Windows or macOS execution, the alternate zbus backend, complete MPRIS behavior, packaged resources, signing, installers or an API export comparison. The device and release checklist remains in [the backlog](../TODO.md).
 
 ## Provider sign-in pages
 
