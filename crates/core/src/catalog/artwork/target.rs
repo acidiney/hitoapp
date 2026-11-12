@@ -20,15 +20,25 @@ pub(super) enum Target {
 }
 
 impl Target {
-    pub(super) fn change_notice(&self) -> ChangeNotice {
+    pub(super) fn change_notices(&self) -> Vec<ChangeNotice> {
         let (entity, id) = match self {
             Self::Recording { id, .. } => (ArtworkChangeEntity::Recording, id),
             Self::Release { id, .. } => (ArtworkChangeEntity::Release, id),
             Self::Playlist { id, .. } => (ArtworkChangeEntity::Playlist, id),
         };
-        ChangeNotice::Artwork {
+        let artwork = ChangeNotice::Artwork {
             entity,
             id: id.clone(),
+        };
+        match self {
+            Self::Playlist { id, .. } => vec![
+                artwork,
+                ChangeNotice::Playlist {
+                    playlist_id: id.clone(),
+                },
+                ChangeNotice::Playlists,
+            ],
+            _ => vec![artwork],
         }
     }
 

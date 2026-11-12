@@ -104,6 +104,24 @@ impl ChangeHub {
         }
     }
 
+    pub(crate) fn publish_to(&self, accounts: &[String], notices: &[ChangeNotice]) {
+        for account in accounts {
+            self.publish(account, notices.iter().cloned());
+        }
+    }
+
+    pub(crate) fn playlist_changed(&self, account: &str, playlist: impl Into<String>) {
+        self.publish(
+            account,
+            [
+                ChangeNotice::Playlist {
+                    playlist_id: playlist.into(),
+                },
+                ChangeNotice::Playlists,
+            ],
+        );
+    }
+
     pub(crate) fn sessions_changed(&self, account: &str) {
         let mut accounts = self.accounts();
         if let Some(channel) = live(&mut accounts, account) {

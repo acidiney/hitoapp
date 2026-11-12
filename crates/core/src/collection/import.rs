@@ -137,6 +137,8 @@ impl Collection {
         )
         .await?;
         tx.commit().await?;
+        self.changes
+            .playlist_changed(actor.id(), receipt.playlist_id.to_string());
         tracing::info!(
             outcome = "imported",
             entries = entry_count,

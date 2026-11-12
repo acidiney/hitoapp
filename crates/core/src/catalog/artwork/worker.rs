@@ -210,7 +210,7 @@ impl Catalog {
         tx.commit().await?;
         if status == "ready" {
             self.changes
-                .publish(&lease.user_id, [lease.target.change_notice()]);
+                .publish(&lease.user_id, lease.target.change_notices());
         }
         Ok(status)
     }
