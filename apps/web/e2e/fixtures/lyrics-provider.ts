@@ -1,11 +1,7 @@
-import {
-  createServer,
-  type IncomingMessage,
-  type ServerResponse,
-} from "node:http";
-import type { AddressInfo } from "node:net";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { APIRequestContext } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
+import { listenOwned } from "./owned-http-service";
 
 export type LyricsContent =
   | { kind: "plain"; lines: string[] }
@@ -161,16 +157,16 @@ export async function lyricsProvider() {
     response.writeHead(404).end();
   }
 
-  const server = createServer((request, response) => {
+  const server = await listenOwned("lyrics-provider", (request, response) => {
     void handle(request, response).catch(() => {
       state.unexpected++;
       if (!response.headersSent) response.writeHead(500);
       response.end();
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
-    address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/lyrics/`,
+    address: `http://127.0.0.1:${server.port}/lyrics/`,
+    server,
     token,
     state,
     calls,
@@ -181,10 +177,7 @@ export async function lyricsProvider() {
     reads: () => calls.filter((call) => call.startsWith("lyrics:")),
     close: async () => {
       for (const id of [...holds.keys()]) release(id);
-      server.closeAllConnections();
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      );
+      await server.close(10000);
     },
   };
 }

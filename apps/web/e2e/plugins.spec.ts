@@ -1,7 +1,6 @@
+import { listenOwned } from "./fixtures/owned-http-service";
 import { signOutFromShell } from "./fixtures/account";
 import { openAllManage } from "./fixtures/plugin-ui";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
@@ -83,26 +82,28 @@ test("an administrator offers only an address before connecting with the plugin 
     capabilities: ["search", "sources"],
     content_policy: { source_persistence: "playback_only" },
   };
-  const service = createServer((request, response) => {
-    if (request.url === "/fixture/v1/health") {
-      response.writeHead(404).end();
-      return;
-    }
-    requests.push({
-      authorization: request.headers.authorization,
-      cookie: request.headers.cookie,
-      protocol: request.headers["x-hito-plugin-protocol"],
-    });
-    if (request.url !== "/fixture/v1/manifest") {
-      response.writeHead(404).end();
-      return;
-    }
-    response
-      .writeHead(200, { "content-type": "application/json" })
-      .end(JSON.stringify(manifest));
-  });
-  await new Promise<void>((resolve) => service.listen(0, "127.0.0.1", resolve));
-  const address = `http://127.0.0.1:${(service.address() as AddressInfo).port}/fixture`;
+  const service = await listenOwned(
+    "plugins-automatic-name",
+    (request, response) => {
+      if (request.url === "/fixture/v1/health") {
+        response.writeHead(404).end();
+        return;
+      }
+      requests.push({
+        authorization: request.headers.authorization,
+        cookie: request.headers.cookie,
+        protocol: request.headers["x-hito-plugin-protocol"],
+      });
+      if (request.url !== "/fixture/v1/manifest") {
+        response.writeHead(404).end();
+        return;
+      }
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify(manifest));
+    },
+  );
+  const address = `http://127.0.0.1:${service.port}/fixture`;
   page.on("request", (request) => {
     if (request.url().startsWith(address)) {
       browserProviderRequests.push(request.url());
@@ -205,9 +206,7 @@ test("an administrator offers only an address before connecting with the plugin 
     expect(installationRequests.overflow).toBe(false);
   } finally {
     stopInstallationRequests();
-    await new Promise<void>((resolve, reject) =>
-      service.close((error) => (error ? reject(error) : resolve())),
-    );
+    await service.close(10000);
   }
 });
 
@@ -228,30 +227,33 @@ test.describe("account switching", () => {
     };
     let expectedToken: string | null = "browser-private-plugin-token";
     const requests: (string | undefined)[] = [];
-    const service = createServer((request, response) => {
-      if (request.url === "/fixture/v1/health") {
-        response.writeHead(404).end();
-        return;
-      }
-      requests.push(request.headers.authorization);
-      if (
-        request.url !== "/fixture/v1/manifest" ||
-        request.headers.authorization !==
-          (expectedToken ? `Bearer ${expectedToken}` : undefined)
-      ) {
-        response.writeHead(401).end("private fixture rejection");
-        return;
-      }
-      response
-        .writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify(manifest));
-    });
-    await new Promise<void>((resolve) =>
-      service.listen(0, "127.0.0.1", resolve),
+    const service = await listenOwned(
+      "plugins-account-switch",
+      (request, response) => {
+        if (request.url === "/fixture/v1/health") {
+          response.writeHead(404).end();
+          return;
+        }
+        requests.push(request.headers.authorization);
+        if (
+          request.url !== "/fixture/v1/manifest" ||
+          request.headers.authorization !==
+            (expectedToken ? `Bearer ${expectedToken}` : undefined)
+        ) {
+          response.writeHead(401).end("private fixture rejection");
+          return;
+        }
+        response
+          .writeHead(200, { "content-type": "application/json" })
+          .end(JSON.stringify(manifest));
+      },
+      true,
     );
-    const address = `http://127.0.0.1:${(service.address() as AddressInfo).port}/fixture/`;
+    const address = `http://127.0.0.1:${service.port}/fixture/`;
     try {
+      service.stage("signin-1");
       await signIn(page, "admin", "docker browser test password");
+      service.stage("withdraw-all");
       await withdrawEveryService(page);
       await page.getByRole("button", { name: /^This server/ }).click();
       await page.getByText("Advanced settings", { exact: true }).click();
@@ -335,6 +337,7 @@ test.describe("account switching", () => {
         .getByLabel("Bearer token (optional)", { exact: true })
         .fill(expectedToken!);
       const beforeReview = await pluginSettings(page);
+      service.stage("review-1");
       await reviewPluginInstallation(page, offeredService, manifest.name);
       expect(installationRequests.total).toBe(0);
       expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
@@ -371,6 +374,7 @@ test.describe("account switching", () => {
           )
         ).includes(expectedToken!),
       ).toBe(false);
+      service.stage("review-2");
       const reviewed = await reviewPluginInstallation(
         page,
         offeredService,
@@ -402,6 +406,7 @@ test.describe("account switching", () => {
         )
         .toBe(true);
       expect(requests[0]).toBe(`Bearer ${expectedToken}`);
+      service.stage("manifest-changed");
       manifest = {
         ...manifest,
         name: "Fixture collection updated",
@@ -453,6 +458,7 @@ test.describe("account switching", () => {
       await expect(
         page.getByLabel("New bearer token", { exact: true }),
       ).toHaveValue("wrong-token");
+      service.stage("token-replaced");
       expectedToken = "replacement-browser-token";
       await page
         .getByLabel("New bearer token", { exact: true })
@@ -479,6 +485,7 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("button", { name: "Check connection", exact: true }),
       ).toBeFocused();
+      service.stage("token-null");
       expectedToken = null;
       await openAllManage(page);
       await page
@@ -509,10 +516,12 @@ test.describe("account switching", () => {
       await expect(page.getByRole("region", { name: "People" })).toContainText(
         "plugin-listener",
       );
+      service.stage("signout-1");
       await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
+      service.stage("listener-signin");
       await signIn(page, "plugin-listener", "plugin listener password");
       await expect(
         page.getByRole("heading", {
@@ -529,6 +538,7 @@ test.describe("account switching", () => {
           exact: true,
         })
         .click();
+      service.stage("listener-review");
       const listenerReview = await reviewPluginInstallation(
         page,
         offeredService,
@@ -566,10 +576,12 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeFocused();
+      service.stage("signout-2");
       await signOutFromShell(page);
       await expect(
         page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
+      service.stage("admin-signin-2");
       await signIn(page, "admin", "docker browser test password");
       await expect(
         page.getByRole("heading", {
@@ -578,6 +590,7 @@ test.describe("account switching", () => {
         }),
       ).toBeVisible();
       await page.getByRole("button", { name: /^This server/ }).click();
+      service.stage("withdraw-final");
       await page.getByRole("button", { name: /^Withdraw / }).click();
       await page
         .getByRole("dialog")
@@ -592,13 +605,15 @@ test.describe("account switching", () => {
       await expect(
         page.getByRole("heading", { name: "Plugins", exact: true }),
       ).toBeFocused();
+      service.stage("body-done");
+      await expect.poll(() => service.snapshot().inFlight).toBe(0);
       expect(errors).toEqual([]);
       expect(installationRequests.overflow).toBe(false);
     } finally {
       stopInstallationRequests();
-      await new Promise<void>((resolve, reject) =>
-        service.close((error) => (error ? reject(error) : resolve())),
-      );
+      service.stage("closing");
+      await service.close(10000);
+      service.stage("closed");
     }
   });
 });
