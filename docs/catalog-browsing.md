@@ -4,6 +4,27 @@ The sidebar opens Albums and Artists alongside the track library. Albums show th
 
 Search uses FTS5 `unicode61` with case and diacritic folding and prefix matching for each word, as track search does. Searching `BJÖRK` can find `Björk`. Identity remains an exact, case-sensitive credit scoped to the account and library. Hito does not split `Artist feat. Guest` or infer that equal names identify the same person. Personal fields are described in [metadata editing](metadata.md). A credit also leaves the Artists list once every recording and release it holds belongs to a [chosen artist group](artist-identity-groups.md); that group card replaces it. Automatic provider matching remains future work.
 
+## Catalog cache in development
+
+The isolated backend cache branch now reuses validated public MusicBrainz profiles, discography pages, release-group edition pages and edition tracks. This work is not integrated or deployed. The fresh-provider behavior described later remains the deployed baseline. The cache contains provider data, never assembled account pages, personal choices or confirmation contexts. Account access, credit and metadata policy are checked again before returning a result.
+
+```mermaid
+flowchart LR
+  Read[Authorized catalog read] --> Cache[Shared public DTO cache]
+  Cache --> Check[Current account authority]
+  Check --> Result[Account-specific result]
+  Read --> Origin[Private refresh origin]
+  Origin --> Worker[Joined leased worker]
+  Worker --> Before[Current origin and expiry]
+  Before --> Provider[MusicBrainz]
+  Provider --> After[Current origin and lease again]
+  After --> Cache
+```
+
+Stale reads can return the last validated copy while bounded background work refreshes it. Retained reads and unconfirmed artist previews have different durable origin tags. An unconfirmed preview creates no artist association; its origin stores account and recording ownership, policy and digests of current credit and corrections. Sessions, raw review contexts and credited text are not persisted in refresh jobs. Only an authorized explicit read creates or renews interest. Retrying a job does not renew it.
+
+The missing preview refresh has a preserved failing/passing protocol test. On the passing source, thirty-five named executions cover the new held refresh, the twenty-five-case cache prefix, database ownership, table classification and existing review behavior. This is development evidence with temporary SQLite and owned protocol fixtures. Five-minute Review expiry, twenty-four-hour retained expiry, retry non-renewal, publication after expiry, complete erasure and upgrade coverage, indexed capacity bounds, full affected verification and independent final review remain open. See [current evidence](status.md#2026-11-12-backend-cache-and-credential-work-in-progress).
+
 ## Recordings have release appearances
 
 A recording identifies a performance. Its sources can describe several releases, so the recording's selected display metadata cannot define all album membership.
