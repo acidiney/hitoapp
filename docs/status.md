@@ -1,5 +1,19 @@
 # Implementation status
 
+## 2026-11-12 browser acceptance for source fallback, timed-first lyrics and the service worker
+
+These are tested development checks against the isolated `e2e-server` image built from this worktree. They are not a deployment or a public release. The full browser suite passes 147 cases with 78 live-service cases skipped by their gates.
+
+The album-track audio spec was split because its old expectation (a different title gets no match) contradicts the intended backend rule. Old-to-new mapping in `apps/web/e2e/provider-album-audio.spec.ts`:
+
+- The different-title step now saves the recording as a best guess. The spec checks the new library entry, playback, `match_kind` `best_guess`, the Best guess badge with Fix source, and that a later exact offer does not replace it.
+- A ready-less candidate with an offer of any title is the new no-match case. It publishes nothing, requests no audio and shows the confident-match message. The same lookup succeeds as `verified` once a ready source exists.
+- The provider-outage step is its own case: the row says unavailable, never no-match, and a retry after recovery plays.
+
+Timed-first lyrics run against the real server with an owned fake lyrics service that speaks the plugin protocol (`apps/web/e2e/lyrics-timed-first.spec.ts`). A plain result listed before a timed one shows the timed lines after one automatic request with body `{}`. Plain is shown only when no timed result exists. A later failed document shows Couldn't check, never plain lyrics, and Retry recovers. An incomplete result page shows Several matches. A plain choice saved by the user stays selected over an automatic timed alternative and causes no later automatic request. Changing track and signing out each end a held automatic lookup at the provider. The Lyrics tab does not offer a manual action while an automatic lookup is pending, so a late reply racing a manual choice stays covered by the existing component tests, not by a browser case. The Now playing dialog is not covered here. This does not establish audio alignment.
+
+The service worker spec (`apps/web/e2e/service-worker.spec.ts`) allows workers and uses no route stubs. It checks that the worker registers at scope `/`, controls the page and, after a signed-in session with playback, caches only hashed `/assets` files, the two public icons and the generated offline page, with no API, audio, JSON, query-string or other HTML entry, and none containing the account name. Signing out leaves the same cache contents. The entry `app.js` and `app.css` are not hashed, so they are never cached and the shell needs the network. An update is detected through a real `registration.update()` against a transparent loopback proxy that serves a changed `sw.js`; the toast appears and Reload activates the new worker. A non-loopback address of the test container confirms that no worker is registered outside a secure context. Not verified: behavior with an offline server in the browser, other browsers, and a TLS deployment.
+
 ## 2026-11-12 backend cache and credential work in progress
 
 The catalog cache, plugin credential handling and Linux media controls are being developed in separate backend worktrees. These changes are not integrated in this branch or deployed.

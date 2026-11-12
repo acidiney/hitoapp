@@ -1,6 +1,7 @@
 import type { Browser } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
+import { adminSessionPath, sharedAdminSession } from "./admin-session";
 
 export const memberPassword = "owned browser member password";
 
@@ -11,13 +12,18 @@ export async function createMembers(
   count: number,
 ) {
   const headers = { "x-hito-request": "1", origin: new URL(baseURL).origin };
-  const context = await browser.newContext({ baseURL });
-  const administrator = context.request;
-  const login = await administrator.post("/api/v1/login", {
-    headers,
-    data: { username: "admin", password: "docker browser test password" },
+  const context = await browser.newContext({
+    baseURL,
+    storageState: sharedAdminSession ? adminSessionPath : undefined,
   });
-  expect(login.status()).toBe(200);
+  const administrator = context.request;
+  if (!sharedAdminSession) {
+    const login = await administrator.post("/api/v1/login", {
+      headers,
+      data: { username: "admin", password: "docker browser test password" },
+    });
+    expect(login.status()).toBe(200);
+  }
   const libraries: Schema<"Library">[] = await (
     await administrator.get("/api/v1/libraries")
   ).json();

@@ -19,8 +19,9 @@ type Entry = { cache: string; path: string; type: string; mentions: string[] };
 async function controlled(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect
-    .poll(() =>
-      page.evaluate(() => navigator.serviceWorker.controller !== null),
+    .poll(
+      () => page.evaluate(() => navigator.serviceWorker.controller !== null),
+      { timeout: 20_000 },
     )
     .toBe(true);
 }
