@@ -155,9 +155,13 @@ test("the add button on a catalog-only edition row saves exactly that track with
     expect(
       newCalls.filter((call) => call === "v1/recordings/detail"),
     ).toHaveLength(1);
+    expect(newCalls.filter((call) => call === "v1/sources")).toHaveLength(1);
     expect(
-      newCalls.filter((call) =>
-        /sources|search|audio|catalog/.test(call),
+      newCalls.filter(
+        (call) =>
+          call !== "v1/recordings/detail" &&
+          call !== "v1/sources" &&
+          call !== "v1/catalog/editions/track-list",
       ),
     ).toEqual([]);
 
