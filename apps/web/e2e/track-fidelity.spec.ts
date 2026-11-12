@@ -13,7 +13,11 @@ const sizes: Record<
   "phone-dark": { width: 375, height: 812, scheme: "dark" },
 };
 
-test.use({ deviceScaleFactor: 2, viewport: { width: 1280, height: 800 } });
+test.use({
+  deviceScaleFactor: 2,
+  serviceWorkers: "block",
+  viewport: { width: 1280, height: 800 },
+});
 
 async function shot(page: Page, name: string, view: View = "desktop-dark") {
   const directory = process.env.TRACK_SHOTS;
