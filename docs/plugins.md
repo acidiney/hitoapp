@@ -281,6 +281,12 @@ The SDK provides `HealthReport` and a bounded `FailureTracker` (monotonic clock,
 
 Evidence: SDK wire and tracker cases (`crates/plugin-sdk/tests/wire/health.rs`), YouTube HTTP cases with an owned fake `yt-dlp` (`plugins/youtube/src/tests/health.rs`), core cases with an owned fake plugin (`crates/core/tests/plugins/health.rs`), HTTP cases (`apps/server/tests/api/plugin_health.rs`), DOM cases (`plugin-health.test.ts`) and a browser case with an owned stub plugin (`apps/web/e2e/plugin-health.spec.ts`).
 
+### Candidate credential diagnostics
+
+The isolated credential backend extends this behavior; it is not integrated or deployed. The SDK report still accepts only `ok` and `degraded`. Hito derives `credentials_required` from a service HTTP 401 after checking the current account connection and generation. HTTP 403 remains a generic refusal and does not create that diagnosis. A successful public manifest or health report does not clear an earlier protected-request rejection. Checked protected successes recover private state; remaining metadata and legacy paths are still being qualified. See [frontend behavior and candidate contract](frontend-lyrics-integration.md#candidate-plugin-credential-feedback).
+
+Do not expect every protected rejection to expose the same response. Checked lyric requests can return a private HTTP 409 with `plugin_credentials_required` and a current connection stamp. Generic provider search can return that code without a stamp. Retained-source resolution uses its existing successful HTTP response with `provider_unavailable`, or a ready result when another provider succeeds, while recording its diagnosis privately. The UI must not invent a stamp from its selected service. A successful refresh with an unchanged approved manifest increments the connection revision even when credentials are kept; a review-required response does not. Neither public manifest success nor that revision change proves that protected requests work.
+
 ### Optional source persistence declaration
 
 The development SDK and core accept a manifest-wide ceiling for new persistent transfers:
