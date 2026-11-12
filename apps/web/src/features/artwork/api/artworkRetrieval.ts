@@ -217,6 +217,29 @@ export class ArtworkRetrieval {
     this.start(target, { phase: "waiting", revision, imageFailed: false });
   }
 
+  refresh(target: ArtworkTarget) {
+    if (!this.active) return;
+    const key = keyFor(target);
+    const entry = this.entries.get(key);
+    if (entry && (entry.running || this.pending.has(entry))) return;
+    this.entries.delete(key);
+    if (!this.listeners.has(key)) return;
+    const refreshed: Entry = {
+      target,
+      key,
+      controller: new AbortController(),
+      snapshot: {
+        phase: "ready",
+        revision: ++this.revision,
+        imageFailed: false,
+      },
+      running: false,
+      imageStartedAt: performance.now(),
+    };
+    this.entries.set(key, refreshed);
+    for (const listener of this.listeners.get(key) ?? []) listener();
+  }
+
   refreshAvailability() {
     if (!this.active) return;
     const started = performance.now();

@@ -12,6 +12,14 @@ import {
   idleArtwork,
   type ArtworkKind,
 } from "../api/artworkRetrieval";
+import { onInvalidated } from "../../../shared/invalidation";
+
+function artworkTarget(id: string) {
+  const [kind, ...rest] = id.split(":");
+  return kind === "recording" || kind === "release" || kind === "playlist"
+    ? { kind: kind as ArtworkKind, id: rest.join(":") }
+    : undefined;
+}
 
 const ArtworkContext = createContext<ArtworkRetrieval | null>(null);
 
@@ -27,6 +35,14 @@ export function ArtworkProvider({
     retrieval.open();
     return () => retrieval.close();
   }, [retrieval]);
+  useEffect(
+    () =>
+      onInvalidated("artwork", (changed) => {
+        const target = changed && artworkTarget(changed);
+        if (target) retrieval.refresh(target);
+      }),
+    [retrieval],
+  );
   return (
     <ArtworkContext.Provider value={retrieval}>
       {children}
