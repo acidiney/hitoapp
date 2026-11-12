@@ -52,12 +52,14 @@ sequenceDiagram
   Note over Request,State: Stop without publishing the old outcome
 ```
 
-The source candidate checks fresh authority before later provider exchanges and private observations. This prevents the reproduced stale-snapshot schedules. It does not claim atomicity with every mutation that might happen after the final check. Automatic lyric lookup now rechecks the current session and connection after its transaction. Manual metadata review also passes its own failing/passing regression with the same fresh check. Selected-document and legacy lyric reads also pass their own logout regressions after fresh checks. Lyric target-state mutation companions remain separate unfinished work.
+The source candidate checks fresh authority before later provider exchanges and private observations. This prevents the reproduced stale-snapshot schedules. It does not claim atomicity with every mutation that might happen after the final check. All four lyric callbacks pass their own logout regressions after fresh session and connection checks.
+
+Automatic lookup also rechecks the full recording target and search metadata after ending its transaction. Its public title-edit regression proves that a response for the old title cannot mark the current connection invalid while the session remains valid. The test verifies the accepted edit and complete synchronization-history append, preserving other metadata, collections, identities and original audio. Manual metadata, selected-document and legacy target-change companions remain unfinished.
 
 ## Verification and integration
 
 Tests use public HTTP or Core capabilities, temporary SQLite, owned audio originals and protocol fixtures. A deterministic request-scoped barrier holds the actual open transaction while logout or reset commits and an independent session verifies the new state. A late HTTP rejection alone is insufficient: tests also compare complete private installation health after provider cleanup, along with collection, identity, source and original-file preservation.
 
-The source-choice slice passes twelve distinct directed cases. The automatic-lyrics correction passes four recovery cases and all 32 automatic-lyrics cases. This does not complete the feature. Remaining gates include lyric target-state freshness, shared fixture ownership, strict checks, combined capability and HTTP tests on the composed main branch, actual Rust contract reproduction, frontend integration and packaged end-to-end acceptance. The preview and its watcher must remain untouched during normal-server deployment work.
+The source-choice slice passes twelve distinct directed cases. After the automatic title-edit correction, seven recovery cases and all 32 automatic-lyrics cases pass on one unchanged source. This does not complete the feature. Remaining gates include the other lyric target-change companions, shared fixture ownership, strict checks, combined capability and HTTP tests on the composed main branch, actual Rust contract reproduction, frontend integration and packaged end-to-end acceptance. The preview and its watcher must remain untouched during normal-server deployment work.
 
 Logs contain safe outcomes, correlation IDs, counts and timings. They must never contain credentials, session material, raw bodies, audio, private paths, search text, titles or signed URLs.
