@@ -296,3 +296,43 @@ test("credentials_required health renders on the affected connection and the tok
     await setup.dispose();
   }
 });
+
+test("the Now Playing Lyrics panel shows the credential guidance for a rejected token while the audio keeps advancing", async ({
+  page,
+  baseURL,
+}) => {
+  if (!sharedAdminSession) await enterAdmin(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const origin = new URL(baseURL!).origin;
+  const track = await libraryTrack(page, trackTitle);
+  const setup = await connectSavedLyrics(
+    page.request,
+    page.request,
+    origin,
+    track,
+    `Credential lyrics ${suffix()}`,
+  );
+  try {
+    const saved = await listLyricIdentities(page.request, track.id);
+    setup.plugin.rotate();
+    await playFromLibrary(page);
+    await page
+      .getByRole("button", { name: "Open now playing", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Now playing" });
+    const lyrics = dialog.getByRole("region", { name: "Lyrics", exact: true });
+    await expect(lyrics.getByText(credentialMessage)).toBeVisible();
+    await expect(
+      lyrics.getByRole("link", { name: settingsLinkName }),
+    ).toHaveAttribute("href", pluginsPath);
+    await expect(
+      page.getByRole("heading", { name: "Sign in", exact: true }),
+    ).toHaveCount(0);
+    await expectAudioPlaying(page);
+    expect(await listLyricIdentities(page.request, track.id)).toEqual(saved);
+    expect(setup.plugin.rejected("v2/lyrics")).toBeGreaterThan(0);
+    expect(setup.plugin.accepted("v2/lyrics")).toBe(0);
+  } finally {
+    await setup.dispose();
+  }
+});
