@@ -22,3 +22,5 @@ mod artwork_rendition_images;
 mod artwork_renditions;
 
 mod artwork_storage;
+
+mod credited_artist_authority;
