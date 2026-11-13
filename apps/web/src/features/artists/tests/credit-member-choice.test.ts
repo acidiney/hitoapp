@@ -451,11 +451,9 @@ function renderTrack() {
 }
 
 function resetBodies(fetch: ReturnType<typeof serve>) {
+  const resetPath = `${memberBase}/artist-identity/reset`;
   return fetch.mock.calls
-    .filter(
-      ([path, init]) =>
-        init?.method === "POST" && path === `${memberBase}/artist-identity/reset`,
-    )
+    .filter(([path, init]) => init?.method === "POST" && path === resetPath)
     .map(([, init]) => JSON.parse(String(init?.body)));
 }
 

@@ -85,6 +85,10 @@ function CreditMemberRow({
   const workflow = useCreditMemberChoice(account, detail, member);
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
+  function close() {
+    workflow.dismiss();
+    setOpen(false);
+  }
   const latest = useRef(workflow);
   latest.current = workflow;
   useEffect(() => {
@@ -116,6 +120,15 @@ function CreditMemberRow({
         {!open && workflow.error && <p role="alert">{workflow.error}</p>}
       </div>
       <div className="rd-row-actions">
+        {state && state !== "unselected" && (
+          <Button
+            type="button"
+            disabled={workflow.pending !== null}
+            onClick={() => void workflow.reset()}
+          >
+            Clear choice
+          </Button>
+        )}
         <Button
           type="button"
           disabled={!workflow.choice}
@@ -132,7 +145,7 @@ function CreditMemberRow({
           member={member}
           workflow={workflow}
           opener={opener}
-          onClose={() => setOpen(false)}
+          onClose={close}
         />
       )}
     </li>
@@ -150,12 +163,16 @@ function CreditMemberDialog({
   opener: RefObject<HTMLElement | null>;
   onClose(): void;
 }) {
-  const { loaded, pending } = workflow;
+  const { loaded, pending, failed } = workflow;
   const latest = useRef(workflow);
   latest.current = workflow;
   useEffect(() => {
-    if (!loaded && pending === null) void latest.current.open();
-  }, [loaded, pending]);
+    void latest.current.refresh();
+  }, []);
+  useEffect(() => {
+    if (!loaded && pending === null && failed !== "load")
+      void latest.current.open();
+  }, [loaded, pending, failed]);
   const busy = pending === "choose";
   const preview = workflow.preview?.profile;
   function search(event: FormEvent) {
@@ -266,6 +283,11 @@ function CreditMemberDialog({
         </section>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
+      {failed === "load" && (
+        <Button type="button" onClick={() => void workflow.open()}>
+          Try again
+        </Button>
+      )}
       <footer className="review-actions">
         <Button disabled={busy} onClick={onClose}>
           Cancel

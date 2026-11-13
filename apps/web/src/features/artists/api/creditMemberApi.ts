@@ -107,4 +107,22 @@ export const creditMemberApi = {
       },
     );
   },
+  reset(
+    account: string,
+    recording: string,
+    artist: string,
+    body: Schema<"ResetRecordingArtistIdentity">,
+    signal: AbortSignal,
+  ) {
+    return requestJson<Schema<"CreditMemberIdentityChoiceReceipt">>(
+      `${base(recording, artist)}/artist-identity/reset`,
+      {
+        action: "credit_member_identity.reset",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+  },
 };
