@@ -4,7 +4,6 @@ import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { signOutFromShell } from "./fixtures/account";
 import { createMembers } from "./fixtures/member-accounts";
 import { libraryTrack } from "./fixtures/lyrics-library";
-import { trackTitleLink } from "./fixtures/track-row";
 import {
   connectCredentialPlugin,
   connectSavedLyrics,
@@ -24,10 +23,10 @@ import {
   networkQuiet,
   openSettingsPlugins,
   settingsLinkName,
-  showLyrics,
   submitSignIn,
   trackTitle,
   markLabel,
+  chooseManualLyrics,
 } from "./fixtures/credential-ui";
 
 const suffix = () => String(Date.now() % 1_000_000);
@@ -56,6 +55,7 @@ test.describe("account switching and listener sessions", () => {
     try {
       await page.goto("/");
       await submitSignIn(page, nameA);
+      await chooseManualLyrics(page);
       const track = await libraryTrack(page, trackTitle);
       setup = await connectSavedLyrics(
         members.administrator,
@@ -72,18 +72,27 @@ test.describe("account switching and listener sessions", () => {
         setup.service,
         tokenB,
       );
+      setup.plugin.openRoute("v2/lyrics/capabilities");
       setup.plugin.hold("v2/lyrics");
       await page.goto(`/recordings/${track.id}?tab=lyrics`);
-      await showLyrics(lyricsPanel(page));
+      const showA = lyricsPanel(page).getByRole("button", {
+        name: "Show lyrics",
+      });
+      await expect(showA).toBeVisible();
+      await showA.click();
       await setup.plugin.held("v2/lyrics");
+      expect(setup.plugin.accepted("v2/lyrics/capabilities")).toBeGreaterThan(
+        0,
+      );
 
       await signOutFromShell(page);
       await submitSignIn(page, nameB);
+      await chooseManualLyrics(page);
       setup.plugin.release("v2/lyrics");
       await expect.poll(() => setup!.plugin.rejected("v2/lyrics")).toBe(1);
       await networkQuiet(page);
 
-      await trackTitleLink(page.locator("main"), trackTitle).first().click();
+      await page.goto(`/recordings/${track.id}?tab=lyrics`);
       const panelB = await ensureLyricsTab(page);
       await networkQuiet(page);
       await expect(panelB.getByText(credentialMessage)).toHaveCount(0);
@@ -126,6 +135,7 @@ test.describe("account switching and listener sessions", () => {
     try {
       await page.goto("/");
       await submitSignIn(page, name);
+      await chooseManualLyrics(page);
       const track = await libraryTrack(page, trackTitle);
       setup = await connectSavedLyrics(
         members.administrator,

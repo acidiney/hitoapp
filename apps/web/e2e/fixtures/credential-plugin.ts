@@ -33,7 +33,12 @@ async function serveCredentialPlugin(
   health: HealthMode,
 ) {
   const manifestId = `org.hito.credential-e2e-${randomUUID().slice(0, 8)}`;
-  const state = { expected: newToken(), manifestOpen: false, health };
+  const state = {
+    expected: newToken(),
+    manifestOpen: false,
+    health,
+    openRoutes: new Set<string>(),
+  };
   const initial = state.expected;
   const log: RouteOutcome[] = [];
   const abandoned: string[] = [];
@@ -97,7 +102,9 @@ async function serveCredentialPlugin(
       response.writeHead(404).end();
       return;
     }
-    const open = route === "v1/manifest" && state.manifestOpen;
+    const open =
+      (route === "v1/manifest" && state.manifestOpen) ||
+      state.openRoutes.has(route);
     if (!open && request.headers.authorization !== `Bearer ${state.expected}`) {
       log.push({ route, outcome: "rejected" });
       response.writeHead(401).end();
@@ -138,6 +145,9 @@ async function serveCredentialPlugin(
     rotate: () => {
       state.expected = newToken();
       return state.expected;
+    },
+    openRoute: (route: string) => {
+      state.openRoutes.add(route);
     },
     restore: () => {
       state.expected = initial;

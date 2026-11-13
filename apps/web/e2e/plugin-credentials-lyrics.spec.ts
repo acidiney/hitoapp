@@ -67,7 +67,8 @@ test("a lyric plugin that rejects its saved token shows credential guidance with
     await expectAudioPlaying(page);
     await expectQueueHolds(page);
     expect(await listLyricIdentities(page.request, track.id)).toEqual(saved);
-    expect(setup.plugin.rejected("v2/lyrics")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics/capabilities")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics")).toBe(0);
     expect(setup.plugin.accepted("v2/lyrics")).toBe(0);
   } finally {
     await setup.dispose();
@@ -243,7 +244,8 @@ test("updating credentials with the valid token clears the mark and the lyrics r
     await expect(card.getByText(/needs its credentials updated/)).toHaveCount(
       0,
     );
-    expect(setup.plugin.rejected("v2/lyrics")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics/capabilities")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics")).toBe(0);
 
     await page.goBack();
     const back = await ensureLyricsTab(page);
@@ -255,7 +257,8 @@ test("updating credentials with the valid token clears the mark and the lyrics r
     await page.waitForTimeout(1_500);
     expect(setup.plugin.log).toHaveLength(settled);
     expect(setup.plugin.accepted("v2/lyrics")).toBe(1);
-    expect(setup.plugin.rejected("v2/lyrics")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics/capabilities")).toBe(1);
+    expect(setup.plugin.rejected("v2/lyrics")).toBe(0);
     await expectAudioPlaying(page);
   } finally {
     await setup.dispose();
@@ -413,7 +416,8 @@ test("the Now Playing Lyrics panel shows the credential guidance for a rejected 
     ).toHaveCount(0);
     await expectAudioPlaying(page);
     expect(await listLyricIdentities(page.request, track.id)).toEqual(saved);
-    expect(setup.plugin.rejected("v2/lyrics")).toBeGreaterThan(0);
+    expect(setup.plugin.rejected("v2/lyrics/capabilities")).toBeGreaterThan(0);
+    expect(setup.plugin.rejected("v2/lyrics")).toBe(0);
     expect(setup.plugin.accepted("v2/lyrics")).toBe(0);
   } finally {
     await setup.dispose();

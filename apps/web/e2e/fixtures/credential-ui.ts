@@ -162,3 +162,20 @@ export async function chooseService(scope: Locator, label: string) {
     .click();
   await scope.getByRole("option", { name: label, exact: true }).click();
 }
+
+export async function chooseManualLyrics(page: Page) {
+  await page
+    .getByRole("link", { name: "Account and settings", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Privacy & lock", exact: true })
+    .click();
+  const automatic = page.getByRole("switch", {
+    name: "Load lyrics automatically",
+  });
+  await expect(automatic).toBeVisible();
+  if ((await automatic.getAttribute("aria-checked")) === "true")
+    await automatic.click();
+  await expect(automatic).toHaveAttribute("aria-checked", "false");
+}
