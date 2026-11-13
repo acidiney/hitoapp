@@ -1,6 +1,4 @@
-#[path = "provider_attachment.rs"]
-#[allow(dead_code, unused_imports)]
-mod provider;
+use hito_core::test_support::provider_attachment as provider;
 pub use provider::ProviderServer;
 
 use super::support;
@@ -160,6 +158,28 @@ impl SavedRecording {
             before,
             _directory: directory,
         }
+    }
+
+    pub async fn prepare_private_title(&mut self, title: &str) {
+        support::synchronize(
+            &self.hito,
+            &self.actor,
+            vec![Action::RecordingTitleSet {
+                recording_id: Uuid::parse_str(&self.recording).unwrap(),
+                title: title.into(),
+            }],
+        )
+        .await;
+        self.before =
+            saved_state(&self.hito, &self.actor, &self.recording, &self.playlist_id).await;
+        assert_eq!(self.before["title"]["value"], title);
+    }
+
+    pub fn assert_original_preserved(&self) {
+        assert_eq!(
+            std::fs::read(self._directory.path().join("owned-provider.wav")).unwrap(),
+            self.original
+        );
     }
 
     pub async fn assert_preserved(&self) {

@@ -1,7 +1,5 @@
 use hito_core::test_support::hang_guard::HANG_CEILING;
-#[path = "../fixtures/resolution_unavailable.rs"]
-mod fixture;
-use hito_core::test_support::support;
+use hito_core::test_support::resolution_unavailable as fixture;
 
 use futures_util::FutureExt;
 use hito_core::ResolveSource;

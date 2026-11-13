@@ -1,7 +1,7 @@
-use hito_core::test_support::playlist_service as playlists;
+use super::playlist_service as playlists;
 pub use playlists::{ProviderServer, playlist};
 
-use hito_core::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};
+use crate::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};
 use serde_json::json;
 
 pub async fn connect(
