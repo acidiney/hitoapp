@@ -544,13 +544,6 @@
 }
 
 @media (max-width: 767px) {
-  .detail-page .edition-toolbar > .action-menu {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-  .detail-page .edition-toolbar .edition-chip-menu {
-    max-width: 100%;
-  }
   .detail-page .album-toolbar-note {
     margin-left: auto;
     font-size: 12px;

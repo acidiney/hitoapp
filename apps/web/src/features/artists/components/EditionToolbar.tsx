@@ -57,7 +57,9 @@ export default function EditionToolbar({
         />
       )}
       <span className="album-toolbar-note">
-        <span className="album-toolbar-note-full">Track list from {source}</span>
+        <span className="album-toolbar-note-full">
+          Track list from {source}
+        </span>
         <span className="album-toolbar-note-short" aria-hidden="true">
           From catalog
         </span>
