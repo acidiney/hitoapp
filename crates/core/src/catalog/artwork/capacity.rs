@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use sqlx::SqliteConnection;
 
 pub(super) const RESERVATION_BYTES: i64 = 2 * 1024 * 1024;
-const ACCOUNT_BYTES: i64 = 32 * 1024 * 1024;
+const ACCOUNT_BYTES: i64 = 128 * 1024 * 1024;
 const GLOBAL_BYTES: i64 = 256 * 1024 * 1024;
 const ACCOUNT_ASSETS: i64 = 1024;
 const GLOBAL_ASSETS: i64 = 8192;

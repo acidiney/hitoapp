@@ -182,6 +182,7 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::artist_identity::member_choose
         ))
         .routes(routes!(api::artist_identity::reset))
+        .routes(routes!(api::artist_identity::member_reset))
         .routes(routes!(api::artist_identity::apply_to_credit))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))

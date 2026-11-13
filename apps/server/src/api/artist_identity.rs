@@ -200,3 +200,35 @@ pub async fn member_choose(
     );
     Ok(Json(result?))
 }
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-identity/reset", operation_id = "reset_credit_member_identity",
+    params(("id" = String, Path), ("artist" = String, Path)), request_body = ResetRecordingArtistIdentity,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CreditMemberIdentityChoiceReceipt), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_credit_member_identity_reset", request_id = %request.request_id))]
+pub async fn member_reset(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+    JsonBody(request): JsonBody<ResetRecordingArtistIdentity>,
+) -> ApiResult<Json<CreditMemberIdentityChoiceReceipt>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .reset_credit_member_identity(&actor, &recording, &artist, request)
+        .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "accepted"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member identity HTTP reset completed"
+    );
+    Ok(Json(result?))
+}

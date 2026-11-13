@@ -3,7 +3,7 @@ use super::{
     fallback::{Basis, FALLBACK_POLICY},
     matching::{METADATA_POLICY, MusicalRecording, POLICY},
 };
-use crate::{Actor, Catalog, Error, Result, plugins::Operation};
+use crate::{Actor, Catalog, Error, PlaybackFailure, Result, plugins::Operation};
 use hito_plugin_sdk::{
     Capability, ProviderRecording, RecordingMetadata, RecordingRequest, SearchRequest, SourcePage,
 };
@@ -145,6 +145,7 @@ impl Candidate {
 
 pub(super) struct Page {
     pub(super) provider_unavailable: bool,
+    pub(super) failure: Option<PlaybackFailure>,
     installation: String,
     revision: i64,
     operation: Arc<Operation>,
@@ -171,6 +172,11 @@ impl Catalog {
                 &[Capability::Search, Capability::Sources],
             )
             .await?;
+        let operation = if subject.source.is_some() {
+            operation.playback_failures()
+        } else {
+            operation
+        };
         if matches!(
             check_exchange_authority(self, actor, subject, &operation).await?,
             Traversal::Superseded
@@ -258,6 +264,7 @@ impl Catalog {
         );
         Ok(Traversal::Current(Page {
             provider_unavailable: false,
+            failure: None,
             installation,
             revision,
             operation: Arc::new(operation),
@@ -297,6 +304,10 @@ impl Page {
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     self.provider_unavailable |= super::is_provider_unavailable(&error);
+                    PlaybackFailure::merge(
+                        &mut self.failure,
+                        PlaybackFailure::from_provider_error(&error),
+                    );
                     tracing::debug!(
                         event = "source_resolution_candidate_failed",
                         error_kind = error.code(),
@@ -361,6 +372,10 @@ impl Page {
                         Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                         Err(error) => {
                             self.provider_unavailable |= super::is_provider_unavailable(&error);
+                            PlaybackFailure::merge(
+                                &mut self.failure,
+                                PlaybackFailure::from_provider_error(&error),
+                            );
                             tracing::debug!(
                                 event = "source_resolution_candidate_failed",
                                 error_kind = error.code(),

@@ -24,3 +24,11 @@ mod artwork_renditions;
 mod artwork_storage;
 
 mod credited_artist_authority;
+
+mod artwork_thousand;
+#[path = "../fixtures/artwork_thousand_corpus.rs"]
+mod artwork_thousand_corpus;
+#[path = "../fixtures/artwork_thousand_http.rs"]
+mod artwork_thousand_http;
+#[path = "../fixtures/artwork_thousand_provider.rs"]
+mod artwork_thousand_provider;

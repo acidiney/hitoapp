@@ -170,17 +170,27 @@ impl Catalog {
         };
         let mut connection = self.store.pool.acquire().await?;
         authority::access(&mut connection, actor, recording).await?;
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "source_resolution_final_access_before_failure",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*connection) > 0,
+            "Owned source resolution final access checkpoint"
+        );
+        let failure = receipts::failure_on(&mut connection, actor.id(), &id).await?;
         drop(connection);
         let sources = self.sources(actor, recording).await?;
         let resolution_id = Uuid::parse_str(&id)
             .map_err(|_| Error::Internal("Stored source resolution identity is invalid".into()))?;
-        tracing::info!(event = "source_resolution_finished", resolution_id = %resolution_id, outcome = outcome.as_str(), elapsed_ms = started.elapsed().as_millis() as u64, "Source resolution finished");
+        tracing::info!(event = "source_resolution_finished", resolution_id = %resolution_id, outcome = outcome.as_str(), failure_reason = ?failure.map(|failure| failure.reason), retryable = failure.map(|failure| failure.retryable), elapsed_ms = started.elapsed().as_millis() as u64, "Source resolution finished");
         Ok(SourceResolution {
             request_id: request.request_id,
             resolution_id,
             recording_id: recording.into(),
             outcome,
             sources,
+            failure,
         })
     }
 
@@ -270,7 +280,7 @@ impl Catalog {
                     attempt,
                     Some(candidate),
                     Basis::Matched,
-                    candidates.provider_unavailable,
+                    &candidates,
                 )
                 .await?
             {
@@ -310,7 +320,7 @@ impl Catalog {
                         attempt,
                         None,
                         Basis::Matched,
-                        candidates.provider_unavailable,
+                        &candidates,
                     )
                     .await?
                 {
@@ -334,7 +344,7 @@ impl Catalog {
                     attempt,
                     Some(candidate),
                     Basis::ProviderRank { index },
-                    candidates.provider_unavailable,
+                    &candidates,
                 )
                 .await?
             {
@@ -371,7 +381,13 @@ async fn bounded<T>(
 fn is_provider_unavailable(error: &Error) -> bool {
     matches!(
         error,
-        Error::Upstream(_) | Error::ProviderBusy(_) | Error::PluginCredentialsRequired(_)
+        Error::PlaybackProvider { .. }
+            | Error::Upstream(_)
+            | Error::UpstreamNotice(_)
+            | Error::ProviderBusy(_)
+            | Error::PluginCredentialsRequired(_)
+            | Error::AuthorizationRequired(_)
+            | Error::OperationRejected(_)
     )
 }
 

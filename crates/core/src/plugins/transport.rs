@@ -1,4 +1,4 @@
-use crate::{Error, Result, admission::Accounts};
+use crate::{Error, PlaybackFailureReason, Result, admission::Accounts};
 pub(super) mod artwork;
 use hito_plugin_sdk::{
     DETAIL_PATH, MANIFEST_PATH, MAX_RECORDING_METADATA_BYTES, METADATA_PATH, Manifest,
@@ -27,6 +27,7 @@ pub(super) struct Admission {
 
 #[derive(Clone)]
 pub(super) struct ControlClient {
+    playback_failures: bool,
     client: reqwest::Client,
     slots: Arc<Semaphore>,
     accounts: Accounts,
@@ -57,6 +58,7 @@ impl ControlClient {
                 Error::Internal("Plugin HTTP transport could not be initialized".into())
             })?;
         Ok(Self {
+            playback_failures: false,
             client,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Default::default(),
@@ -69,6 +71,44 @@ impl ControlClient {
             preparation_slots: Arc::new(Semaphore::new(2)),
             preparation_accounts: Default::default(),
         })
+    }
+
+    pub(super) fn for_playback(&self) -> Self {
+        let mut client = self.clone();
+        client.playback_failures = true;
+        client
+    }
+
+    fn playback_error(&self, original: Error, reason: PlaybackFailureReason) -> Error {
+        if self.playback_failures {
+            Error::PlaybackProvider {
+                reason,
+                original: Box::new(original),
+            }
+        } else {
+            original
+        }
+    }
+
+    fn invalid_response(&self, message: &'static str) -> Error {
+        self.playback_error(
+            Error::Upstream(message),
+            PlaybackFailureReason::InvalidProviderResponse,
+        )
+    }
+
+    fn playback_status_error(&self, status: reqwest::StatusCode) -> Error {
+        let original = status_error(status);
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            return original;
+        }
+        let reason = match status.as_u16() {
+            408 | 429 | 500 | 502 | 503 | 504 => PlaybackFailureReason::ProviderUnavailable,
+            400..=499 | 501 | 505 => PlaybackFailureReason::ProviderRefused,
+            500..=599 => return original,
+            _ => PlaybackFailureReason::InvalidProviderResponse,
+        };
+        self.playback_error(original, reason)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
@@ -132,7 +172,7 @@ impl ControlClient {
             )
             .await?;
         page.validate(request.limit)
-            .map_err(|_| Error::Upstream("The provider returned invalid search results"))?;
+            .map_err(|_| self.invalid_response("The provider returned invalid search results"))?;
         Ok(page)
     }
 
@@ -158,13 +198,11 @@ impl ControlClient {
                 },
             )
             .await?;
-        recording
-            .validate()
-            .map_err(|_| Error::Upstream("The provider returned invalid recording details"))?;
+        recording.validate().map_err(|_| {
+            self.invalid_response("The provider returned invalid recording details")
+        })?;
         if recording.id != request.recording_id {
-            return Err(Error::Upstream(
-                "The provider returned a different recording",
-            ));
+            return Err(self.invalid_response("The provider returned a different recording"));
         }
         Ok(recording)
     }
@@ -205,11 +243,11 @@ impl ControlClient {
             .await?;
         metadata
             .validate()
-            .map_err(|_| Error::Upstream("The provider returned invalid musical metadata"))?;
+            .map_err(|_| self.invalid_response("The provider returned invalid musical metadata"))?;
         if metadata.recording.id != request.recording_id {
-            return Err(Error::Upstream(
-                "The provider returned metadata for a different recording",
-            ));
+            return Err(
+                self.invalid_response("The provider returned metadata for a different recording")
+            );
         }
         Ok(metadata)
     }
@@ -249,7 +287,7 @@ impl ControlClient {
             .await?;
         sources
             .validate()
-            .map_err(|_| Error::Upstream("The provider returned invalid sources"))?;
+            .map_err(|_| self.invalid_response("The provider returned invalid sources"))?;
         Ok(sources)
     }
 
@@ -305,7 +343,7 @@ impl ControlClient {
     ) -> Result<T> {
         self.exchange_optional_admitted(base_url, token, call, remaining, false)
             .await?
-            .ok_or(Error::Upstream("The plugin service rejected the request"))
+            .ok_or(self.invalid_response("The plugin service rejected the request"))
     }
 
     async fn exchange_optional_admitted<T: serde::de::DeserializeOwned>(
@@ -340,9 +378,15 @@ impl ControlClient {
             .await
             .map_err(|error| {
                 if error.is_timeout() {
-                    Error::Upstream(NOT_RESPONDING)
+                    self.playback_error(
+                        Error::Upstream(NOT_RESPONDING),
+                        PlaybackFailureReason::ProviderUnavailable,
+                    )
                 } else {
-                    Error::Upstream(COULD_NOT_REACH)
+                    self.playback_error(
+                        Error::Upstream(COULD_NOT_REACH),
+                        PlaybackFailureReason::ProviderUnavailable,
+                    )
                 }
             })?;
         let status = response.status();
@@ -356,18 +400,19 @@ impl ControlClient {
         }
         if !status.is_success() {
             if status.as_u16() == 422 {
-                return Err(refusal::read(response, maximum).await);
+                let original = refusal::read(response, maximum).await;
+                return Err(self.playback_error(original, PlaybackFailureReason::ProviderRefused));
             }
-            return Err(status_error(status));
+            return Err(self.playback_status_error(status));
         }
         if response
             .headers()
             .get("content-encoding")
             .is_some_and(|value| value != "identity")
         {
-            return Err(Error::Upstream(
-                "The plugin service returned an unsupported encoding",
-            ));
+            return Err(
+                self.invalid_response("The plugin service returned an unsupported encoding")
+            );
         }
         let json = response
             .headers()
@@ -376,35 +421,30 @@ impl ControlClient {
             .and_then(|v| v.split(';').next())
             .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"));
         if !json {
-            return Err(Error::Upstream(
-                "The plugin service did not return JSON data",
-            ));
+            return Err(self.invalid_response("The plugin service did not return JSON data"));
         }
         if response
             .content_length()
             .is_some_and(|length| length > maximum as u64)
         {
-            return Err(Error::Upstream(
-                "The plugin response exceeds the size limit",
-            ));
+            return Err(self.invalid_response("The plugin response exceeds the size limit"));
         }
         let mut bytes = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| Error::Upstream("The plugin response could not be read"))?
-        {
+        while let Some(chunk) = response.chunk().await.map_err(|_| {
+            self.playback_error(
+                Error::Upstream("The plugin response could not be read"),
+                PlaybackFailureReason::ProviderUnavailable,
+            )
+        })? {
             if chunk.len() > maximum.saturating_sub(bytes.len()) {
-                return Err(Error::Upstream(
-                    "The plugin response exceeds the size limit",
-                ));
+                return Err(self.invalid_response("The plugin response exceeds the size limit"));
             }
             bytes.extend_from_slice(&chunk);
         }
         *remaining -= bytes.len();
         serde_json::from_slice(&bytes)
             .map(Some)
-            .map_err(|_| Error::Upstream("The plugin service returned invalid JSON data"))
+            .map_err(|_| self.invalid_response("The plugin service returned invalid JSON data"))
     }
 }
 

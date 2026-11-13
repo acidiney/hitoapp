@@ -2348,6 +2348,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/credit-members/{artist}/artist-identity/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reset_credit_member_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/confirm": {
         parameters: {
             query?: never;
@@ -4994,6 +5010,12 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        PlaybackFailure: {
+            reason: components["schemas"]["PlaybackFailureReason"];
+            retryable: boolean;
+        };
+        /** @enum {string} */
+        PlaybackFailureReason: "provider_unavailable" | "provider_refused" | "credentials_required" | "invalid_provider_response";
         PlaybackLease: {
             /** Format: int64 */
             expires_at: number;
@@ -6248,6 +6270,7 @@ export interface components {
         /** @enum {string} */
         SourceRefreshPurpose: "manual" | "playback";
         SourceResolution: {
+            failure?: components["schemas"]["PlaybackFailure"] | null;
             outcome: components["schemas"]["SourceResolutionOutcome"];
             recording_id: string;
             /** Format: uuid */
@@ -18297,6 +18320,112 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_credit_member_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                artist: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetRecordingArtistIdentity"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditMemberIdentityChoiceReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

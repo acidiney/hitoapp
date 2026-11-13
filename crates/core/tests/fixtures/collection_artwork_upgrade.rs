@@ -2,7 +2,9 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::{borrow::Cow, path::Path};
 
-use super::schema::{artist_credit_target_schema, source_artist_trigger_schema};
+use super::schema::{
+    artist_credit_target_schema, playback_failure_schema, source_artist_trigger_schema,
+};
 
 pub const READY_RECORDING: &str = "20000000-0000-4000-8000-000000000001";
 pub const PENDING_RECORDING: &str = "20000000-0000-4000-8000-000000000002";
@@ -202,6 +204,11 @@ pub async fn assert_schema_preserved(
                     "'no_suitable_source','provider_unavailable'",
                 )
             });
+        }
+        if version >= 98 && expected.0 == "table" && expected.1 == "source_resolutions" {
+            expected.3 = expected
+                .3
+                .map(|ddl| playback_failure_schema::with_failure(&ddl));
         }
         if expected.0 == "table" && expected.1 == "playlist_follows" {
             expected.3 = expected.3.map(|ddl| {
