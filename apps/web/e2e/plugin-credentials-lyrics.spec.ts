@@ -438,3 +438,45 @@ test("the Now Playing Lyrics panel shows the credential guidance for a rejected 
     await setup.dispose();
   }
 });
+
+test("a new token typed before a capability review is the one saved when the review is accepted, and Manage stays open meanwhile", async ({
+  page,
+  baseURL,
+}) => {
+  if (!sharedAdminSession) await enterAdmin(page);
+  const origin = new URL(baseURL!).origin;
+  const track = await libraryTrack(page, trackTitle);
+  const label = `Credential review ${suffix()}`;
+  const setup = await connectSavedLyrics(
+    page.request,
+    page.request,
+    origin,
+    track,
+    label,
+  );
+  try {
+    const token = setup.plugin.rotate();
+    setup.plugin.state.addedCapabilities.push("artwork");
+    await page.goto("/");
+    await openSettingsPlugins(page);
+    const card = connectionCard(page, label);
+    const manage = card.getByRole("button", { name: "Manage", exact: true });
+    await manage.click();
+    await card.getByLabel("New bearer token").fill(token);
+    await card.getByRole("button", { name: "Save token" }).click();
+    const review = page.getByRole("dialog");
+    await expect(review).toBeVisible();
+    await expect(manage).toBeDisabled();
+    await expect(card.getByLabel("New bearer token")).toBeVisible();
+    const accepted = setup.plugin.accepted("v1/manifest");
+    await review.getByRole("button", { name: /^Accept / }).click();
+    await expect(
+      card.getByRole("status").filter({ hasText: "Connection checked." }),
+    ).toBeVisible();
+    await expect(manage).toBeEnabled();
+    expect(setup.plugin.accepted("v1/manifest")).toBeGreaterThan(accepted);
+    await expect(page.getByText(token)).toHaveCount(0);
+  } finally {
+    await setup.dispose();
+  }
+});
