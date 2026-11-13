@@ -135,6 +135,8 @@ type ServeOptions = {
   readbackFailures?: number;
   holdSearch?: Deferred;
   holdPreview?: Deferred;
+  holdReset?: Deferred;
+  holdPut?: Deferred;
 };
 
 const groupsPath = "/api/v1/artist-identity-groups/";
@@ -229,6 +231,7 @@ function serve(options: ServeOptions = {}) {
       const body = JSON.parse(String(init?.body));
       const replay = receipts.get(body.request_id);
       if (replay) return Response.json(replay);
+      if (options.holdReset) await options.holdReset.promise;
       selection = null;
       revision += 1;
       const receipt = {
@@ -253,6 +256,7 @@ function serve(options: ServeOptions = {}) {
       const body = JSON.parse(String(init?.body));
       const replay = receipts.get(body.request_id);
       if (replay) return Response.json(replay);
+      if (options.holdPut) await options.holdPut.promise;
       if (conflictOnce) {
         conflictOnce = false;
         selection = null;
@@ -878,6 +882,10 @@ test("the chooser is blocked while a reset is unresolved", async () => {
   fireEvent.click(choose);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(0);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Check again" }),
+  );
+  await within(row(featured.name)).findByText("Not chosen yet");
 });
 
 test("a failed first read shows the failure and can be tried again", async () => {
@@ -898,4 +906,127 @@ test("a failed first read shows the failure and can be tried again", async () =>
   expect(
     await within(dialog).findByRole("button", { name: "Use this artist" }),
   ).toBeTruthy();
+});
+
+function toggleSection() {
+  const toggle = screen.getByRole("button", { name: /^Credited artists/ });
+  fireEvent.click(toggle);
+  fireEvent.click(toggle);
+}
+
+async function holdClear(holdReset: Deferred) {
+  const fetch = serve({
+    initial: "selected",
+    groupNames: { [memberGroup]: savedName },
+    holdReset,
+  });
+  renderTrack();
+  await within(row(featured.name)).findByText(`Chosen: ${savedName}`);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
+  );
+  await waitFor(() => expect(resetBodies(fetch)).toHaveLength(1));
+  return fetch;
+}
+
+async function holdChoose(holdPut: Deferred) {
+  const fetch = serve({ holdPut });
+  renderTrack();
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const dialog = await reachPreview();
+  fireEvent.click(
+    await within(dialog).findByRole("button", { name: "Use this artist" }),
+  );
+  await waitFor(() =>
+    expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1),
+  );
+  return fetch;
+}
+
+function expectBlockedRow() {
+  const current = row(featured.name);
+  expect(within(current).getByText(unresolvedNote)).toBeTruthy();
+  expect(
+    isDisabled(within(current).getByRole("button", { name: "Choose artist" })),
+  ).toBe(true);
+}
+
+test("collapsing the section keeps an in-flight reset unresolved", async () => {
+  const holdReset = deferred();
+  const fetch = await holdClear(holdReset);
+  toggleSection();
+  expectBlockedRow();
+  expect(
+    isDisabled(
+      within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
+    ),
+  ).toBe(true);
+  holdReset.resolve();
+  await within(row(featured.name)).findByText("Not chosen yet");
+  expect(resetBodies(fetch)).toHaveLength(1);
+});
+
+test("collapsing the section keeps an in-flight choice unresolved", async () => {
+  const holdPut = deferred();
+  const fetch = await holdChoose(holdPut);
+  toggleSection();
+  const dialog = screen.getByRole("dialog", {
+    name: `Choose the artist for ${featured.name}`,
+  });
+  expectBlockedRow();
+  expect(
+    isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
+  ).toBe(true);
+  holdPut.resolve();
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
+});
+
+test("a remounted row adopts a reset the server may still commit", async () => {
+  const holdReset = deferred();
+  const fetch = await holdClear(holdReset);
+  cleanup();
+  renderTrack();
+  await within(row(featured.name)).findByText(`Chosen: ${savedName}`);
+  expectBlockedRow();
+  expect(
+    isDisabled(
+      within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
+    ),
+  ).toBe(true);
+  holdReset.resolve();
+  await act(async () => {});
+  const check = within(row(featured.name)).getByRole("button", {
+    name: "Check again",
+  });
+  await waitFor(() => expect(isDisabled(check)).toBe(false));
+  fireEvent.click(check);
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const bodies = resetBodies(fetch);
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toEqual(bodies[0]);
+});
+
+test("a remounted row adopts a choice the server may still commit", async () => {
+  const holdPut = deferred();
+  const fetch = await holdChoose(holdPut);
+  cleanup();
+  renderTrack();
+  await within(row(featured.name)).findByText("Not chosen yet");
+  expectBlockedRow();
+  holdPut.resolve();
+  await act(async () => {});
+  const check = within(row(featured.name)).getByRole("button", {
+    name: "Check again",
+  });
+  await waitFor(() => expect(isDisabled(check)).toBe(false));
+  fireEvent.click(check);
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  const puts = writeBodies(fetch, "PUT", memberIdentity);
+  expect(puts).toHaveLength(2);
+  expect(puts[1]).toEqual(puts[0]);
 });
