@@ -134,7 +134,45 @@ Hito waits two seconds to connect, ten seconds for headers and fifteen seconds f
 
 The `catalog` capability covers artist search, artist profiles, paged discographies, release editions and similar artists. Each feature has its own descriptor, such as `GET /v1/catalog/capabilities` for profiles and discographies. Paged reads use opaque cursors and an optional snapshot that must stay the same across pages.
 
-Similar artists use `GET /v1/catalog/similarity/capabilities` and `POST /v1/catalog/similarity/artists`. Hito sends a MusicBrainz artist ID and a limit up to 25. You return scored artists, never the requested artist itself. Edition listings have SDK types, but Hito does not use them on its pages yet.
+Similar artists use `GET /v1/catalog/similarity/capabilities` and `POST /v1/catalog/similarity/artists`. Hito sends a MusicBrainz artist ID and a limit up to 25. You return scored artists, never the requested artist itself.
+
+#### Look up one release group
+
+Implement this optional lookup to supply canonical release-group metadata without crawling an artist's discography. It uses the account's existing connection with approved `catalog` capability and its saved bearer token, if any. No new manifest capability is needed.
+
+Serve `GET /v1/catalog/release-groups/capabilities` with:
+
+```json
+{ "release_group_version": 1, "operations": ["release_group"] }
+```
+
+Accept `POST /v1/catalog/release-groups/detail` with:
+
+```json
+{ "release_group_id": "group:example:album" }
+```
+
+Return a bare `CatalogReleaseGroup`, with the exact requested group ID:
+
+```json
+{
+  "id": "group:example:album",
+  "title": "Example album",
+  "artist_credit": [{
+    "artist": { "id": "artist:example:performer", "name": "Example performer" },
+    "credited_name": "Example performer",
+    "join_phrase": ""
+  }],
+  "kind": "album",
+  "secondary_types": [],
+  "first_release_date": "2001-05-21",
+  "revision": null
+}
+```
+
+Keep the descriptor response within 4,096 bytes and the detail response within 32,768 bytes, as uncompressed JSON. Return metadata only, without audio, URLs or HTML. A 404 or 501 on the descriptor means this lookup is unsupported; other catalog features remain usable.
+
+For selected editions, keep returning the existing `CatalogEditionTrackList` metadata. Hito's Core derives the audio occurrence count and total duration, so plugins do not add header aggregates to either response. Group titles and dates describe the release group; edition titles and dates describe the selected edition.
 
 ### Lyrics
 

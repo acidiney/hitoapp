@@ -3,6 +3,7 @@ import Button from "../../../shared/ui/Button";
 import { Link } from "@inertiajs/react";
 import type { AutomaticOutcome } from "../model/lyricContent";
 import type { LyricFailure } from "../model/lyricFailure";
+import PluginSettingsLink from "../../plugins/components/PluginSettingsLink";
 import LyricState, { type LyricStateTone } from "./LyricState";
 
 export type LyricLookupProps = {
@@ -75,6 +76,7 @@ export default function LyricLookup({
       >
         <div className="lyric-card-actions">
           <Button onClick={onRetry}>Retry</Button>
+          {failure.kind === "credentials" && <PluginSettingsLink />}
         </div>
       </LyricStateCard>
     );

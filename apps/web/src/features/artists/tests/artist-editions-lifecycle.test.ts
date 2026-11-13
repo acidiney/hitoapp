@@ -38,8 +38,8 @@ const initial: Props = {
   account: artistReviewAccount,
   recording: artistReviewDetail.recording_id,
   association: artistAssociation,
-  profile: reviewedArtistProfile.profile,
-  group: editionGroup,
+  providerArtistId: reviewedArtistProfile.profile.artist.id,
+  releaseGroupId: editionGroup.id,
 };
 const lateTitle = "Private retired-owner edition";
 const freshTitle = "Current chosen edition";
@@ -55,7 +55,7 @@ function tracksOf(
     edition: {
       ...bonusTrackList.edition,
       id: edition.id,
-      release_group_id: props.group.id,
+      release_group_id: props.releaseGroupId,
       media: bonusTrackList.edition.media.map((medium, index) => ({
         ...medium,
         tracks: medium.tracks.map((track, position) =>
@@ -74,7 +74,7 @@ function currentPage(props: Props) {
     association_id: props.association.id,
     page: {
       ...lastEditionPage.page,
-      release_group_id: props.group.id,
+      release_group_id: props.releaseGroupId,
       items: [bonusEdition],
     },
   } satisfies Schema<"ReleaseGroupEditionsAvailability">;
@@ -133,14 +133,7 @@ test.each(["listing", "chosen track list"] as const)(
                   installation_id: "70000000-0000-4000-8000-000000000004",
                 },
               },
-              profile: {
-                ...initial.profile,
-                revision: "private-current-profile-revision",
-              },
-              group: {
-                ...initial.group,
-                id: "opaque:release-group/current-context",
-              },
+              releaseGroupId: "opaque:release-group/current-context",
             };
       expect(http.fetch).toHaveBeenCalledTimes(phase === "listing" ? 3 : 2);
       const before = http.fetch.mock.calls.length;
@@ -161,14 +154,14 @@ test.each(["listing", "chosen track list"] as const)(
         changed.account,
       );
       expect(JSON.parse(request?.body as string)).toEqual({
-        release_group_id: changed.group.id,
+        release_group_id: changed.releaseGroupId,
         limit: 20,
         continuation: null,
       });
       expect(
         JSON.parse(http.fetch.mock.calls[before + 1][1]?.body as string),
       ).toEqual({
-        release_group_id: changed.group.id,
+        release_group_id: changed.releaseGroupId,
         edition_id: bonusEdition.id,
       });
       await act(async () => held.release());

@@ -56,11 +56,12 @@ export default function ArtistDiscography({
       ...typed.groups.filter((group) => !known.has(group.id)),
     ];
   }, [workflow.groups, typed.groups]);
+  const groupIds = useMemo(() => groups.map((group) => group.id), [groups]);
   const library = useDiscographyLibrary(
     account,
     recording,
     association,
-    groups,
+    groupIds,
     showLibrary,
   );
   const refreshing = useCatalogRefreshing();

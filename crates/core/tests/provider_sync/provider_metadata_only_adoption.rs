@@ -1,6 +1,4 @@
-#[path = "../fixtures/provider_attachment.rs"]
-#[allow(unused_imports)]
-mod fixture;
+use hito_core::test_support::provider_attachment as fixture;
 use hito_core::test_support::support;
 
 use hito_core::{

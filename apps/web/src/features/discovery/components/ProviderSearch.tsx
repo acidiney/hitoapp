@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@inertiajs/react";
+import { PluginErrorText } from "../../plugins/components/PluginSettingsLink";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useDiscovery } from "../hooks/useDiscovery";
@@ -97,7 +98,7 @@ export default function ProviderSearch({
               tone="error"
               title={`${service_names[selected.service_id] ?? selected.manifest.name} could not finish.`}
             >
-              {discovery.error}{" "}
+              <PluginErrorText message={discovery.error} />{" "}
               <Link
                 className="text-link"
                 href="/discover"

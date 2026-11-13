@@ -6,6 +6,7 @@ import { log } from "../../../shared/log";
 
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { groupAssociation } from "../model/associationAuthority";
 
 const REQUEST_DEADLINE_MS = 20_000;
 export const AUTO_RETRY_DELAY_MS = 800;
@@ -14,32 +15,22 @@ const CHANGED_ARTIST =
 
 class FinalError extends Error {}
 
+type IdentityGroup = Schema<"ArtistIdentityGroupDetail">["group"];
 type Owner = { pending: boolean };
-type Ready = {
-  association: Schema<"ArtistAssociation">;
-  profile: Schema<"CatalogArtistProfile">;
-};
-type State = {
+type State<T> = {
   owner: Owner;
-  ready: Ready | null;
+  ready: T | null;
   pending: boolean;
   error: string;
 };
+type Resolve<T> = (
+  association: Schema<"ArtistAssociation">,
+  signal: AbortSignal,
+  report: (outcome: string) => void,
+) => Promise<T>;
 
-function empty(owner: Owner): State {
+function empty<T>(owner: Owner): State<T> {
   return { owner, ready: null, pending: false, error: "" };
-}
-
-function sameProvider(
-  left: Schema<"MetadataProvider">,
-  right: Schema<"MetadataProvider">,
-) {
-  return (
-    left.kind === right.kind &&
-    (left.kind === "builtin_musicbrainz" ||
-      (right.kind === "http_plugin" &&
-        left.installation_id === right.installation_id))
-  );
 }
 
 function unavailable(
@@ -57,9 +48,11 @@ function unavailable(
   }
 }
 
-export function useArtistGroupDiscography(
+function useGroupAnchor<T>(
   account: string,
-  group: Schema<"ArtistIdentityGroupDetail">["group"],
+  group: IdentityGroup,
+  event: string,
+  resolve: Resolve<T>,
 ) {
   const scope = useRequestScope(
     JSON.stringify([
@@ -71,10 +64,12 @@ export function useArtistGroupDiscography(
     ]),
   );
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
-  const [snapshot, setSnapshot] = useState(() => empty(owner));
-  const current = snapshot.owner === owner ? snapshot : empty(owner);
+  const [snapshot, setSnapshot] = useState(() => empty<T>(owner));
+  const current = snapshot.owner === owner ? snapshot : empty<T>(owner);
   const [retrying, setRetrying] = useState(false);
   const retryable = useRef(true);
+  const resolver = useRef(resolve);
+  resolver.current = resolve;
 
   async function browse(): Promise<boolean> {
     const request = scope.capture();
@@ -109,8 +104,8 @@ export function useArtistGroupDiscography(
       stop(error);
     }, REQUEST_DEADLINE_MS);
     if (request.signal.aborted) cancel();
-    setSnapshot({ ...empty(owner), pending: true });
-    log.debug("artist_group_discography.started", { request_id: requestId });
+    setSnapshot({ ...empty<T>(owner), pending: true });
+    log.debug(`${event}.started`, { request_id: requestId });
     try {
       const ready = await Promise.race([
         (async () => {
@@ -120,37 +115,17 @@ export function useArtistGroupDiscography(
             controller.signal,
           );
           check();
-          const association = associations.find(
-            (item) => item.id === group.name.association_id,
-          );
-          if (
-            !association ||
-            association.account_id !== account ||
-            association.recording_id !== group.name.recording_id ||
-            association.artist_id !== group.name.artist_id ||
-            association.provider_artist_id !== group.provider_artist_id ||
-            !sameProvider(association.provider, group.provider)
-          )
-            throw new FinalError(CHANGED_ARTIST);
-          const result = await artistReviewApi.profile(
-            account,
-            group.name.recording_id,
-            association.id,
+          const association = groupAssociation(associations, account, group);
+          if (!association) throw new FinalError(CHANGED_ARTIST);
+          const result = await resolver.current(
+            association,
             controller.signal,
+            (status) => {
+              outcome = status;
+            },
           );
           check();
-          if (result.status !== "available") {
-            outcome = result.status;
-            throw result.status === "unavailable"
-              ? new Error(unavailable(result.status))
-              : new FinalError(unavailable(result.status));
-          }
-          if (
-            result.association_id !== association.id ||
-            result.profile.artist.id !== group.provider_artist_id
-          )
-            throw new FinalError(CHANGED_ARTIST);
-          return { association, profile: result.profile };
+          return result;
         })(),
         stopped,
       ]);
@@ -163,7 +138,7 @@ export function useArtistGroupDiscography(
         if (outcome === "cancelled")
           outcome = timedOut ? "timed_out" : "failed";
         setSnapshot({
-          ...empty(owner),
+          ...empty<T>(owner),
           error: timedOut
             ? "Artist information timed out. Try again."
             : errorMessage(error),
@@ -177,7 +152,7 @@ export function useArtistGroupDiscography(
       owner.pending = false;
       const record =
         outcome === "failed" || outcome === "timed_out" ? log.warn : log.debug;
-      record("artist_group_discography.finished", {
+      record(`${event}.finished`, {
         request_id: requestId,
         reason: outcome,
         duration_ms: Math.round(performance.now() - started),
@@ -210,4 +185,44 @@ export function useArtistGroupDiscography(
   }, [owner, scope]);
 
   return { ...current, retrying, browse };
+}
+
+export function useArtistGroupDiscography(
+  account: string,
+  group: IdentityGroup,
+) {
+  return useGroupAnchor(
+    account,
+    group,
+    "artist_group_discography",
+    async (association, signal, report) => {
+      const result = await artistReviewApi.profile(
+        account,
+        group.name.recording_id,
+        association.id,
+        signal,
+      );
+      if (result.status !== "available") {
+        report(result.status);
+        throw result.status === "unavailable"
+          ? new Error(unavailable(result.status))
+          : new FinalError(unavailable(result.status));
+      }
+      if (
+        result.association_id !== association.id ||
+        result.profile.artist.id !== group.provider_artist_id
+      )
+        throw new FinalError(CHANGED_ARTIST);
+      return { association, profile: result.profile };
+    },
+  );
+}
+
+export function useCatalogAlbumAnchor(account: string, group: IdentityGroup) {
+  return useGroupAnchor(
+    account,
+    group,
+    "catalog_album_anchor",
+    async (association) => ({ association }),
+  );
 }

@@ -116,8 +116,8 @@ test("an opened catalog group pages editions on request and lists only the chose
         account: artistReviewAccount,
         recording: artistReviewDetail.recording_id,
         association: artistAssociation,
-        profile: reviewedArtistProfile.profile,
-        group: editionGroup,
+        providerArtistId: reviewedArtistProfile.profile.artist.id,
+        releaseGroupId: editionGroup.id,
       }),
     );
     const group = await screen.findByRole("region", { name: "Album" });

@@ -38,6 +38,7 @@ export class HttpError extends Error {
     readonly code?: string,
     readonly retryAfter?: number,
     readonly recordingId?: string,
+    readonly payload?: unknown,
   ) {
     super(message);
     this.name = "HttpError";
@@ -183,6 +184,7 @@ export async function request(path: string, options: RequestOptions) {
     code,
     Number.isFinite(wait) && wait >= 0 ? wait : undefined,
     recordingId,
+    data,
   );
 }
 

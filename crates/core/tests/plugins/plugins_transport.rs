@@ -58,7 +58,11 @@ async fn redirects_errors_non_json_and_oversized_bodies_leave_no_installation() 
             .await
             .err()
             .unwrap();
-        assert!(matches!(error, Error::Upstream(_)));
+        if status == StatusCode::UNAUTHORIZED {
+            assert!(matches!(&error, Error::PluginCredentialsRequired(None)));
+        } else {
+            assert!(matches!(&error, Error::Upstream(_)));
+        }
         assert!(!format!("{error:?}").contains("private upstream error"));
         assert_eq!(
             server.hits(),
@@ -163,7 +167,10 @@ async fn plugin_statuses_map_to_accurate_user_messages_without_leaking_the_body(
         (StatusCode::SERVICE_UNAVAILABLE, not_responding),
         (StatusCode::GATEWAY_TIMEOUT, not_responding),
         (StatusCode::TOO_MANY_REQUESTS, busy),
-        (StatusCode::UNAUTHORIZED, refused),
+        (
+            StatusCode::UNAUTHORIZED,
+            "Update this plugin connection's service credentials in Settings.",
+        ),
         (StatusCode::FORBIDDEN, refused),
         (StatusCode::BAD_REQUEST, rejected),
         (StatusCode::INTERNAL_SERVER_ERROR, rejected),
@@ -190,7 +197,12 @@ async fn plugin_statuses_map_to_accurate_user_messages_without_leaking_the_body(
             .await
             .err()
             .unwrap();
+        if status == StatusCode::UNAUTHORIZED {
+            assert!(matches!(&error, Error::PluginCredentialsRequired(None)));
+            assert_eq!(error.code(), "plugin_credentials_required");
+        }
         assert_eq!(error.to_string(), expected, "status {status}");
+        assert!(!error.to_string().contains("private upstream error"));
     }
 }
 

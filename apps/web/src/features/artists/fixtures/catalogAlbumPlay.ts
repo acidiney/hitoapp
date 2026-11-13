@@ -51,6 +51,7 @@ export const catalogAlbumTrackList = {
   association_id: artistAssociation.id,
   edition: catalogAlbumEdition,
   linked: [],
+  stats: { audio_tracks: 4, total_duration_ms: 250_000 },
 } satisfies Schema<"EditionTrackListAvailability">;
 
 export const oneEditionPage = {
@@ -84,8 +85,16 @@ export const automationSettings = (enabled: boolean) => ({
   automatic_service_search: enabled,
 });
 
-export const catalogAlbumElement = (context: ArtistEditionContext) =>
-  createElement(CatalogAlbum, { context, heading: "h4", playOnReady: false });
+export const catalogAlbumElement = (
+  context: ArtistEditionContext,
+  group: Schema<"CatalogReleaseGroup"> | null = editionGroup,
+) =>
+  createElement(CatalogAlbum, {
+    context,
+    group,
+    heading: "h4",
+    playOnReady: false,
+  });
 
 export const tracksOfEdition = (edition: { id: string }, firstTitle?: string) =>
   ({

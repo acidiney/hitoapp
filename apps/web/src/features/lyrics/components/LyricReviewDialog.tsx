@@ -9,6 +9,7 @@ import {
 import { lyricIdentityLimit, type LyricService } from "../model/lyricIdentity";
 import type { LyricFailure } from "../model/lyricFailure";
 import type { LyricCandidate } from "../hooks/useLyricSearch";
+import PluginSettingsLink from "../../plugins/components/PluginSettingsLink";
 import LyricState from "./LyricState";
 
 type Facts = {
@@ -108,6 +109,12 @@ export default function LyricReviewDialog({
       {failure && (
         <p className="review-hint" role="alert">
           {failure.message}
+          {failure.kind === "credentials" && (
+            <>
+              {" "}
+              <PluginSettingsLink />
+            </>
+          )}
         </p>
       )}
       <footer className="review-actions">

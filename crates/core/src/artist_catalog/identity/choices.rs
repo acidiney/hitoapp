@@ -141,7 +141,9 @@ impl ArtistCatalog {
         )
         .await?;
         let credit = Credit::capture(&mut tx, actor, recording).await?;
-        if !credit.matches(&association) || association.provider != request.context.provider {
+        if !credit.matches(&mut tx, actor, &association).await?
+            || association.provider != request.context.provider
+        {
             return Err(Error::Conflict(
                 "The reviewed artist association changed".into(),
             ));

@@ -18,7 +18,7 @@ pub(crate) use catalog_match::{AudioPermit, CatalogAudio, CatalogTrack};
 use cursor::Candidates;
 use fallback::Basis;
 pub(crate) use fallback::FALLBACK_POLICY;
-use provider::Subject;
+use provider::{RetainedSource, Subject};
 use publication::Publication;
 use receipts::{Admission, Attempt, Lease};
 use std::{future::Future, pin::Pin, time::Duration};
@@ -238,8 +238,11 @@ impl Catalog {
     ) -> Result<Option<SourceResolutionOutcome>> {
         let subject = Subject {
             musical: &attempt.target.musical,
-            recording: Some(recording),
-            binding: Some(&attempt.target.binding_id),
+            source: Some(RetainedSource {
+                recording,
+                target_digest: &attempt.target_digest,
+                binding: &attempt.target.binding_id,
+            }),
         };
         loop {
             let Some(next) = bounded(
@@ -363,6 +366,13 @@ async fn bounded<T>(
         _ = tokio::time::sleep_until(deadline) => None,
         result = work => Some(result),
     }
+}
+
+fn is_provider_unavailable(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::Upstream(_) | Error::ProviderBusy(_) | Error::PluginCredentialsRequired(_)
+    )
 }
 
 fn resolution_timeout() -> Error {

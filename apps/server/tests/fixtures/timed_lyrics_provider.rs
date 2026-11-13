@@ -29,6 +29,7 @@ const SNAPSHOT: &str = "owned-lyrics-snapshot:1";
 
 struct Observation {
     path: String,
+    method: Method,
     headers: HeaderMap,
     body: Value,
 }
@@ -44,6 +45,7 @@ struct Fixture {
 
 #[derive(Clone)]
 enum LyricsReply {
+    Status(StatusCode),
     Json(Value),
     Chunked(Vec<u8>),
 }
@@ -83,6 +85,10 @@ impl Provider {
             shutdown: Some(shutdown),
             task,
         }
+    }
+
+    pub async fn reject_lyrics(&self) {
+        *self.state.lyrics.write().await = LyricsReply::Status(StatusCode::UNAUTHORIZED);
     }
 
     pub async fn negative(&self) {
@@ -144,10 +150,23 @@ impl Provider {
     }
 
     pub async fn assert_calls(&self, descriptors: usize, lyrics: usize) {
+        self.assert_calls_with_manifest_credentials(&[TOKEN], descriptors, lyrics)
+            .await;
+    }
+
+    pub async fn assert_calls_with_manifest_credentials(
+        &self,
+        manifest_credentials: &[&str],
+        descriptors: usize,
+        lyrics: usize,
+    ) {
         let requests = self.state.requests.lock().await;
-        assert_eq!(requests.len(), 4 + descriptors + lyrics);
+        assert_eq!(
+            requests.len(),
+            3 + manifest_credentials.len() + descriptors + lyrics
+        );
         for (path, count) in [
-            ("/owned/v1/manifest", 1),
+            ("/owned/v1/manifest", manifest_credentials.len()),
             ("/owned/v1/playlists/detail", 2),
             ("/owned/v1/playlists/items", 1),
             ("/owned/v1/lyrics/capabilities", descriptors),
@@ -160,6 +179,19 @@ impl Provider {
                     .count(),
                 count
             );
+        }
+        for (request, credential) in requests
+            .iter()
+            .filter(|request| request.path == "/owned/v1/manifest")
+            .zip(manifest_credentials)
+        {
+            assert_eq!(request.method, Method::GET);
+            assert_eq!(request.body, Value::Null);
+            assert_eq!(
+                request.headers.get("authorization").unwrap(),
+                format!("Bearer {credential}").as_str()
+            );
+            assert_eq!(request.headers.get("x-hito-plugin-protocol").unwrap(), "1");
         }
         for request in requests
             .iter()
@@ -258,6 +290,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
     );
     requests.push(Observation {
         path: path.into(),
+        method: parts.method,
         headers: parts.headers,
         body,
     });
@@ -318,6 +351,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
         }
         "/owned/v1/lyrics" => {
             let value = match state.lyrics.read().await.clone() {
+                LyricsReply::Status(status) => return status.into_response(),
                 LyricsReply::Json(value) => value,
                 LyricsReply::Chunked(bytes) => {
                     let length = bytes.len();

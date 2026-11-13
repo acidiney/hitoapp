@@ -107,6 +107,8 @@ The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`
 - Check both before and during large builds. At either limit, stop starting builds and remove only inactive, regenerable Hito output.
 - Never run a global Docker prune. Never remove another project's artifacts or application data.
 
+Include host editor targets in that total. Rust-analyzer can compile build scripts and procedural macros even when no terminal build is running. During a Docker verification window, pause the project's language server if the compiler guard requires exclusive access. Check for open files before reclaiming its inactive output. Keep the original editor settings available for restoration; pausing work to recover the storage budget is separate from hiding a diagnostic. The provided dev container keeps editor tooling inside the Docker workflow.
+
 ## Catalog storage qualification
 
 `scripts/qualify-replica-catalog-storage.sh` runs formatting, strict Core test-target Clippy, the 100,000-fact catalog install/restart cases and an explicitly enabled real-ENOSPC case through Docker Compose. It uses source-specific targets, a shared Cargo lock, read-only sources and a dedicated ephemeral 64 MiB tmpfs. It never mounts normal server data. Exact counts and phase results are written beneath ignored `test-results/replica-catalog-storage/`.

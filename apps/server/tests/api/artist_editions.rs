@@ -11,8 +11,8 @@ use axum::{
 };
 use futures_util::FutureExt;
 use hito_core::{
-    ArtistReviewContext, EditionTrackListAvailability, MetadataProvider, ReadEditionTrackList,
-    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
+    ArtistReviewContext, EditionTrackListAvailability, EditionTrackStats, MetadataProvider,
+    ReadEditionTrackList, ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
 };
 use hito_plugin_sdk::{CatalogEditionTrackList, EditionTrackListRequest};
 use serde_json::{Value, json};
@@ -226,7 +226,11 @@ async fn exercise(
         tracks
             == json!(EditionTrackListAvailability::Available {
                 association_id: association.into(),
-                edition: catalog::expected_track_list(),
+                edition: Box::new(catalog::expected_track_list()),
+                stats: EditionTrackStats {
+                    audio_tracks: 4,
+                    total_duration_ms: None
+                },
                 linked: Vec::new(),
             })
     );

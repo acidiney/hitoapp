@@ -1,5 +1,4 @@
-#[path = "provider_attachment.rs"]
-mod provider;
+use hito_core::test_support::provider_attachment as provider;
 
 use super::support;
 use hito_core::{

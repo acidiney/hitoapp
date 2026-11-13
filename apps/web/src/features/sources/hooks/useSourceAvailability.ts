@@ -4,6 +4,7 @@ import { sourcesApi } from "../api/sourcesApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
+import { credentialFailureMessage } from "../../plugins/model/credentialRequirements";
 
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -127,9 +128,10 @@ export function useSourceAvailability(
           pending: false,
           verified: false,
           error:
-            error instanceof HttpError && error.status === 409
+            credentialFailureMessage(account, error) ??
+            (error instanceof HttpError && error.status === 409
               ? "Service temporarily busy."
-              : "Hito could not check audio availability. Try again.",
+              : "Hito could not check audio availability. Try again."),
         });
         log.warn("source_availability.check_failed", {
           ...fields,

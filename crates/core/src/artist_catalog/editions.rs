@@ -1,6 +1,6 @@
 use super::{
-    ArtistAssociation, EditionTrackListAvailability, REQUEST_BUDGET, ReadEditionTrackList,
-    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
+    ArtistAssociation, EditionTrackListAvailability, EditionTrackStats, REQUEST_BUDGET,
+    ReadEditionTrackList, ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
     authority::{ReviewedRead, ReviewedReadState},
     continuation,
 };
@@ -195,7 +195,8 @@ impl ArtistCatalog {
                         )
                         .await?,
                     association_id: found.association.id,
-                    edition: found.edition,
+                    stats: EditionTrackStats::from_edition(&found.edition),
+                    edition: Box::new(found.edition),
                 },
                 EditionRead::Missing(status) => status,
             },

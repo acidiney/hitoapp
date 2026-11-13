@@ -167,7 +167,7 @@ impl Chosen {
         else {
             panic!("edition tracks failed: code=provider_unavailable");
         };
-        edition
+        *edition
     }
 }
 

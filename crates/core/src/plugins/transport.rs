@@ -10,6 +10,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod catalog;
 mod catalog_editions;
+mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
 pub(super) mod health;
@@ -418,10 +419,13 @@ const NOT_RESPONDING: &str =
 const COULD_NOT_REACH: &str = "The plugin service could not be reached";
 
 fn status_error(status: reqwest::StatusCode) -> Error {
+    if status == reqwest::StatusCode::UNAUTHORIZED {
+        return Error::PluginCredentialsRequired(None);
+    }
     Error::Upstream(match status.as_u16() {
         502..=504 => NOT_RESPONDING,
         429 => "The music service is busy. Try again in a moment.",
-        401 | 403 => {
+        403 => {
             "The plugin service refused the request. Check the connection in Settings → Plugins."
         }
         _ => "The plugin service rejected the request",

@@ -113,6 +113,17 @@ impl Transport {
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
     }
 
+    pub(super) async fn catalog_release_group(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("release-group/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint
+            .query_pairs_mut()
+            .extend_pairs([("fmt", "json"), ("inc", "artist-credits")]);
+        self.json(endpoint, MAX_PROFILE_BODY_BYTES).await
+    }
+
     pub(super) async fn edition(&self, id: &str) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint

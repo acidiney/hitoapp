@@ -105,7 +105,7 @@ impl ArtistCatalog {
         let (shareable, shared) = match &latest {
             Some(latest) if !latest.linked && actor.require_admin().is_ok() => {
                 let builtin: bool = sqlx::query_scalar(
-                    "SELECT provider_kind='builtin_musicbrainz' FROM recording_artist_associations WHERE id=?",
+                    "SELECT provider_kind='builtin_musicbrainz' AND credit_target='whole_credit' FROM recording_artist_associations WHERE id=?",
                 )
                 .bind(&latest.association_id)
                 .fetch_one(&mut *tx)

@@ -177,6 +177,18 @@ pub struct ArtistIdentityGroupPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct CatalogAlbumPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<ArtistIdentityGroupDetail>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub release_group_id: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct AlbumPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -356,7 +368,7 @@ pub enum PageProps {
     Album(AlbumPageProps),
     ArtistIndex(ArtistIndexPageProps),
     ArtistIdentityGroup(ArtistIdentityGroupPageProps),
-    CatalogAlbum(ArtistIdentityGroupPageProps),
+    CatalogAlbum(CatalogAlbumPageProps),
     Artist(ArtistPageProps),
     RecordingDetails(Box<RecordingDetailsPageProps>),
     AlbumDetails(AlbumDetailsPageProps),

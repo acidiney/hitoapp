@@ -37,10 +37,10 @@ test("the artist page lists discography as album cards that open a real album pa
         table.getByRole("button", { name: `Play ${title}`, exact: true }),
       ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Play album" }),
+      page.getByRole("button", { name: "Play album", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Shuffle album" }),
+      page.getByRole("button", { name: "Shuffle album", exact: true }),
     ).toBeVisible();
     await expect(page.locator("header.album-header select")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Edition / })).toBeVisible();

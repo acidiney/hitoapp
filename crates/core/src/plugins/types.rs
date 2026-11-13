@@ -50,6 +50,7 @@ pub enum PluginHealthState {
     Ok,
     Degraded,
     Unreachable,
+    CredentialsRequired,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]

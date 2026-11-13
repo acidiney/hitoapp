@@ -41,6 +41,7 @@ flowchart TB
     pyoutube[plugins/youtube]
     pjamendo[plugins/jamendo]
     plb[plugins/listenbrainz]
+    plrc[plugins/lrclib]
     prd[plugins/real-debrid]
     pad[plugins/all-debrid]
     ptb[plugins/torbox]
@@ -70,6 +71,7 @@ flowchart TB
   pyoutube --> sdk
   pjamendo --> sdk
   plb --> sdk
+  plrc --> sdk
   prd --> sdk
   pad --> sdk
   ptb --> sdk
@@ -82,7 +84,7 @@ flowchart TB
   tb -.-> audio
 ```
 
-Four packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk` and `hito-community`. `hito-testkit` depends on the SDK only, for the fake plugin server. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The ListenBrainz and Jamendo plugins use the SDK and nothing else from Hito.
+Four packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk` and `hito-community`. `hito-testkit` depends on the SDK only, for the fake plugin server. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The ListenBrainz, Jamendo and LRCLIB plugins use the SDK and nothing else from Hito.
 
 `hito-testkit` is a dev-dependency of `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins. `hito-core` and three debrid crates (All-Debrid, TorBox, Premiumize) also list it as an optional dependency that only `test-support` enables. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. `hito-core`, `hito-audio`, the TorBox, All-Debrid and Premiumize crates and the TorBox and Premiumize plugins list themselves as a dev-dependency with `test-support` on, so plain `cargo test --workspace` works while normal builds never enable the feature. See [testing](testing.md) for how tests use these helpers.
 

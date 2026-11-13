@@ -204,7 +204,9 @@ test("a dismissed suggestion is listed in a disclosure and restored on request",
   );
   await waitFor(() =>
     expect(
-      screen.getAllByRole("radio", { name: /Already the artist of your other tracks/ }),
+      screen.getAllByRole("radio", {
+        name: /Already the artist of your other tracks/,
+      }),
     ).toHaveLength(2),
   );
   expect(restores).toEqual([{ group_id: strong }]);
@@ -230,7 +232,9 @@ test("a credit whose only suggestions are dismissed still offers to restore them
     await screen.findByRole("button", { name: "Choose the artist" }),
   );
   await screen.findByText("Dismissed suggestions (2)");
-  expect(screen.queryByText("Looks like an artist already in your library")).toBeNull();
+  expect(
+    screen.queryByText("Looks like an artist already in your library"),
+  ).toBeNull();
   const region = screen.getByRole("region", {
     name: "Suggested artists for this credit",
   });

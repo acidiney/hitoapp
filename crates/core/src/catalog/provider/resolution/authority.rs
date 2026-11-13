@@ -1,8 +1,31 @@
-use super::matching::MusicalRecording;
+use super::{matching::MusicalRecording, provider::RetainedSource};
 use crate::{Actor, Error, Result, identity::recording_access};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqliteConnection};
+
+pub(super) enum Traversal<T> {
+    Current(T),
+    Superseded,
+}
+
+pub(super) async fn current(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    source: Option<RetainedSource<'_>>,
+) -> Result<Traversal<()>> {
+    let Some(source) = source else {
+        actor.check_session_on(connection).await?;
+        return Ok(Traversal::Current(()));
+    };
+    let target = capture(connection, actor, source.recording).await?;
+    if protected(connection, actor, source.recording).await?
+        || target.digest()? != source.target_digest
+    {
+        return Ok(Traversal::Superseded);
+    }
+    Ok(Traversal::Current(()))
+}
 
 #[derive(Serialize)]
 pub(super) struct Target {

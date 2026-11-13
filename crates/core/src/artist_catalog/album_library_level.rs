@@ -127,34 +127,36 @@ mod tests {
     use hito_plugin_sdk::{CatalogEditionMedium, CatalogEditionTrackList, CatalogTrackOccurrence};
 
     fn read(kinds: &[CatalogTrackKind]) -> AlbumEditionTrackListAvailability {
+        let edition = Box::new(CatalogEditionTrackList {
+            id: "edition".into(),
+            release_group_id: "group".into(),
+            title: "Edition".into(),
+            artist_credit: None,
+            revision: None,
+            media: vec![CatalogEditionMedium {
+                position: 1,
+                title: None,
+                format: None,
+                tracks: kinds
+                    .iter()
+                    .enumerate()
+                    .map(|(index, kind)| CatalogTrackOccurrence {
+                        id: format!("occurrence-{index}"),
+                        position: index as u32,
+                        number: None,
+                        kind: *kind,
+                        title: "Track".into(),
+                        artist_credit: None,
+                        duration_ms: None,
+                        recording_id: None,
+                    })
+                    .collect(),
+            }],
+        });
         AlbumEditionTrackListAvailability::Available {
             association_id: "association".into(),
-            edition: Box::new(CatalogEditionTrackList {
-                id: "edition".into(),
-                release_group_id: "group".into(),
-                title: "Edition".into(),
-                artist_credit: None,
-                revision: None,
-                media: vec![CatalogEditionMedium {
-                    position: 1,
-                    title: None,
-                    format: None,
-                    tracks: kinds
-                        .iter()
-                        .enumerate()
-                        .map(|(index, kind)| CatalogTrackOccurrence {
-                            id: format!("occurrence-{index}"),
-                            position: index as u32,
-                            number: None,
-                            kind: *kind,
-                            title: "Track".into(),
-                            artist_credit: None,
-                            duration_ms: None,
-                            recording_id: None,
-                        })
-                        .collect(),
-                }],
-            }),
+            stats: crate::EditionTrackStats::from_edition(&edition),
+            edition,
             matches: Vec::new(),
             library_only: Vec::new(),
             attached_occurrences: Vec::new(),

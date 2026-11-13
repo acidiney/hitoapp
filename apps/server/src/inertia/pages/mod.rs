@@ -21,7 +21,7 @@ pub enum Screen<'a> {
     AlbumDetails(&'a str),
     ArtistIndex,
     ArtistIdentityGroup(&'a str),
-    CatalogAlbum(&'a str),
+    CatalogAlbum(&'a str, &'a str),
     Artist(&'a str),
     RecordingDetails(&'a str),
     Likes,
@@ -62,7 +62,17 @@ impl<'a> Screen<'a> {
             "/artists" => Self::ArtistIndex,
             _ if path.starts_with("/artist-groups/") && path.contains("/releases/") => {
                 let rest = path.trim_start_matches("/artist-groups/");
-                Self::CatalogAlbum(rest.split("/releases/").next().unwrap_or(rest))
+                match rest.split_once("/releases/") {
+                    Some((id, release_group))
+                        if !id.is_empty()
+                            && !release_group.is_empty()
+                            && !id.contains('/')
+                            && !release_group.contains('/') =>
+                    {
+                        Self::CatalogAlbum(id, release_group)
+                    }
+                    _ => Self::NotFound,
+                }
             }
             _ if path.starts_with("/artist-groups/") => {
                 Self::ArtistIdentityGroup(path.trim_start_matches("/artist-groups/"))
@@ -101,7 +111,7 @@ impl<'a> Screen<'a> {
             Self::AlbumDetails(_) => PageComponent::AlbumDetailsPage,
             Self::ArtistIndex => PageComponent::ArtistIndexPage,
             Self::ArtistIdentityGroup(_) => PageComponent::ArtistIdentityGroupPage,
-            Self::CatalogAlbum(_) => PageComponent::CatalogAlbumPage,
+            Self::CatalogAlbum(_, _) => PageComponent::CatalogAlbumPage,
             Self::Artist(_) => PageComponent::ArtistPage,
             Self::RecordingDetails(_) => PageComponent::RecordingDetailsPage,
             Self::Likes => PageComponent::LikesPage,
@@ -151,7 +161,9 @@ impl<'a> Screen<'a> {
             Self::AlbumDetails(id) => catalog::album_details(request, id).await,
             Self::ArtistIndex => catalog::artist_index(request).await,
             Self::ArtistIdentityGroup(id) => catalog::artist_identity_group(request, id).await,
-            Self::CatalogAlbum(id) => catalog::catalog_album(request, id).await,
+            Self::CatalogAlbum(id, release_group) => {
+                catalog::catalog_album(request, id, release_group).await
+            }
             Self::Artist(id) => catalog::artist(request, id).await,
             Self::RecordingDetails(id) => catalog::recording_details(request, id).await,
             Self::PlaylistIndex => playlists::index(request).await,

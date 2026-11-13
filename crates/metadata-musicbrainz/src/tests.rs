@@ -13,6 +13,7 @@ use tokio::{
     task::JoinHandle,
 };
 
+mod catalog_release_group;
 mod cover_art;
 mod discography;
 mod discography_context;

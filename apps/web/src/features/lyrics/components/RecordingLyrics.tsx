@@ -3,6 +3,7 @@ import Button from "../../../shared/ui/Button";
 import type { useRecordingLyrics } from "../hooks/useRecordingLyrics";
 import { accessMessage } from "../model/lyricFailure";
 import { identityNames, identityKey } from "../model/lyricIdentity";
+import PluginSettingsLink from "../../plugins/components/PluginSettingsLink";
 import LyricChangeDialog from "./LyricChangeDialog";
 import LyricFinder from "./LyricFinder";
 import LyricLookup, { LyricStateCard } from "./LyricLookup";
@@ -157,13 +158,16 @@ export default function RecordingLyrics({
           alert
           title={
             reader.failure &&
-            ["changed", "conflict", "gone"].includes(reader.failure.kind)
+            ["changed", "conflict", "gone", "credentials"].includes(
+              reader.failure.kind,
+            )
               ? reader.failure.message
               : `${sourceName ?? "The lyrics service"} didn't answer`
           }
         >
           <div className="lyric-card-actions">
             <Button onClick={reader.load}>Retry</Button>
+            {reader.failure?.kind === "credentials" && <PluginSettingsLink />}
             {tryAnother}
           </div>
         </LyricStateCard>

@@ -79,7 +79,7 @@ If audio is refused, YouTube still works as a search source. Play then looks in 
 
 - Docker running, with Compose version 2.20 or newer (`docker compose version`).
 - The repository cloned, and a terminal open in its folder.
-- Hito already working. See [Try Hito](../README.md#try-hito).
+- Hito already working. See [getting started](../guide/getting-started.md).
 - Free disk space. Building the two addons adds a few GB and several minutes on the first run.
 
 ## Start Spotify and YouTube

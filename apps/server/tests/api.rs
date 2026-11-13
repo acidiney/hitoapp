@@ -1,5 +1,39 @@
+#[path = "fixtures/source_authority_snapshot.rs"]
+mod source_authority_snapshot_fixture;
+
+#[path = "api/source_authority_snapshot.rs"]
+mod source_authority_snapshot;
+
+#[path = "api/source_resolution_hydration_credentials.rs"]
+mod source_resolution_hydration_credentials;
+
+#[path = "api/source_resolution_dispatch_authority.rs"]
+mod source_resolution_dispatch_authority;
+
 #[path = "api/support.rs"]
 mod support;
+
+#[path = "fixtures/artist_review_account.rs"]
+pub(crate) mod account;
+
+#[allow(dead_code)]
+#[path = "fixtures/automatic_lyric_lrclib.rs"]
+mod automatic_lrclib_fixture;
+
+#[path = "fixtures/credential_pressure.rs"]
+mod credential_pressure_fixture;
+
+#[allow(dead_code)]
+#[path = "fixtures/lyric_identity_library.rs"]
+mod lyric_identity_fixture;
+
+#[path = "fixtures/source_resolution_authority.rs"]
+mod source_authority_fixture;
+
+pub(crate) use source_credential_fixture::library as source_library_fixture;
+
+#[path = "fixtures/source_credential_lifecycle.rs"]
+mod source_credential_fixture;
 
 use hito_core::test_support::content_service as provider_fixture;
 
@@ -8,6 +42,42 @@ mod featured;
 
 #[path = "api/plugin_health.rs"]
 mod plugin_health;
+
+#[path = "api/lyric_service_credentials.rs"]
+mod lyric_service_credentials;
+
+#[path = "api/lyric_service_observation.rs"]
+mod lyric_service_observation;
+
+#[path = "api/lyric_service_recovery.rs"]
+mod lyric_service_recovery;
+
+#[path = "api/lyric_health_recovery.rs"]
+mod lyric_health_recovery;
+
+#[path = "api/lyric_credential_ordering.rs"]
+mod lyric_credential_ordering;
+
+#[path = "api/lyric_credential_replacement.rs"]
+mod lyric_credential_replacement;
+
+#[path = "api/source_service_observation.rs"]
+mod source_service_observation;
+
+#[path = "api/source_observation_target_reset.rs"]
+mod source_observation_target_reset;
+
+#[path = "api/source_observation_recovery.rs"]
+mod source_observation_recovery;
+
+#[path = "api/source_credential_lifecycle.rs"]
+mod source_credential_lifecycle;
+
+#[path = "api/source_credential_pressure.rs"]
+mod source_credential_pressure;
+
+#[path = "api/source_credential_pressure_inverse.rs"]
+mod source_credential_pressure_inverse;
 
 #[path = "api/account_sessions.rs"]
 mod account_sessions;
@@ -132,6 +202,10 @@ mod security;
 #[path = "api/artwork.rs"]
 mod artwork;
 
+#[path = "api/album_edition_stats.rs"]
+mod album_edition_stats;
+#[path = "fixtures/album_edition_stats.rs"]
+mod album_edition_stats_fixture;
 #[path = "api/album_editions.rs"]
 mod album_editions;
 #[path = "api/album_library_level.rs"]
@@ -148,6 +222,8 @@ mod artist_discography_library;
 mod artist_discography_type;
 #[path = "api/artist_editions.rs"]
 mod artist_editions;
+#[path = "api/artist_editions_cold.rs"]
+mod artist_editions_cold;
 #[path = "api/artist_identity.rs"]
 mod artist_identity;
 #[path = "api/artist_identity_access.rs"]
@@ -206,6 +282,14 @@ mod artist_similarity;
 mod artist_track_audio;
 #[path = "api/authorization_flow.rs"]
 mod authorization_flow;
+#[path = "api/catalog_album_header.rs"]
+mod catalog_album_header;
+#[path = "fixtures/catalog_album_header.rs"]
+mod catalog_album_header_fixture;
+#[path = "api/catalog_album_inertia_cold.rs"]
+mod catalog_album_inertia_cold;
+#[path = "api/credit_member_review_context.rs"]
+mod credit_member_review_context;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
 #[path = "api/metadata.rs"]

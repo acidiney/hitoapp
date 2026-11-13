@@ -19,6 +19,8 @@ pub mod artist_identity_selection_catalog;
 #[cfg(feature = "test-support")]
 pub mod artist_images;
 #[cfg(feature = "test-support")]
+pub mod artwork_admission;
+#[cfg(feature = "test-support")]
 pub mod audiobook_continue_library;
 #[cfg(feature = "test-support")]
 pub mod collection_artwork;
@@ -61,7 +63,14 @@ pub mod plugin_service;
 #[cfg(feature = "test-support")]
 pub mod podcast_audio_service;
 #[cfg(feature = "test-support")]
+pub mod provider_attachment;
+#[cfg(feature = "test-support")]
 pub mod provider_audio;
+#[cfg(feature = "test-support")]
+pub mod resolution_unavailable;
+#[cfg(feature = "test-support")]
+#[path = "../../tests/fixtures/collection_artwork_schema.rs"]
+pub mod schema_history;
 #[cfg(feature = "test-support")]
 pub mod support;
 

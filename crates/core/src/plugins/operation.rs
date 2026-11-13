@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use zeroize::Zeroizing;
 
 mod catalog_editions;
+mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
 mod health;
@@ -27,6 +28,7 @@ pub(crate) struct Operation {
     base_url: String,
     token: Option<Zeroizing<String>>,
     remote: super::transport::ControlClient,
+    health: super::health::Cache,
     media: super::media::MediaClient,
     store: crate::Store,
     credential: Option<Vec<u8>>,
@@ -88,6 +90,7 @@ impl Plugins {
             base_url: row.try_get("base_url")?,
             token,
             remote: self.remote.clone(),
+            health: self.health.clone(),
             media: self.media.clone(),
             store: self.store.clone(),
             credential,
@@ -96,6 +99,33 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) fn credential_observation(&self) -> super::health::CredentialTicket {
+        self.health.credential_ticket(self.connection_generation())
+    }
+
+    pub(crate) fn with_credential_context(
+        &self,
+        error: Error,
+        ticket: &super::health::CredentialTicket,
+    ) -> Error {
+        match error {
+            Error::PluginCredentialsRequired(_) => {
+                self.health
+                    .record_credentials(self.connection_generation(), ticket);
+                Error::PluginCredentialsRequired(Some(crate::PluginInstallationStamp {
+                    installation_id: self.installation.clone(),
+                    installation_revision: self.installation_revision,
+                }))
+            }
+            error => error,
+        }
+    }
+
+    pub(crate) fn credentials_verified(&self, ticket: &super::health::CredentialTicket) {
+        self.health
+            .clear_credentials(&self.connection_generation(), ticket);
+    }
+
     pub(crate) fn catalog_installation_revision(&self) -> i64 {
         self.installation_revision
     }

@@ -96,7 +96,24 @@ impl Catalog {
                     "The recording metadata changed. Try again.".into(),
                 ));
             }
+            #[cfg(feature = "test-support")]
+            tracing::debug!(
+                target: "hito_core::authority_snapshot_test",
+                point = "automatic_lyric_authority",
+                snapshot_current = true,
+                transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+                "Owned authority snapshot checkpoint"
+            );
             tx.commit().await?;
+            operation.check_current().await?;
+            let mut connection = self.store.pool.acquire().await?;
+            target.recheck(&mut connection, actor, recording).await?;
+            let current = AutomaticMetadata::capture(&mut connection, actor, recording).await?;
+            if current != metadata {
+                return Err(Error::Conflict(
+                    "The recording metadata changed. Try again.".into(),
+                ));
+            }
             Ok(())
         };
         let mut request = operation.lyric_request()?;

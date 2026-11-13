@@ -1,6 +1,4 @@
-#[path = "fixtures/tone_files.rs"]
-#[allow(dead_code)]
-mod tones;
+use hito_testkit::tone_files as tones;
 
 use hito_core::test_support::metadata_tag_logs::CapturedLogs;
 use hito_core::test_support::support;

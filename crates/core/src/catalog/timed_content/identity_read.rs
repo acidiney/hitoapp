@@ -226,8 +226,19 @@ impl Catalog {
         target.recheck(&mut tx, actor, recording).await?;
         selected.recheck(&mut tx, actor, recording).await?;
         operation.recheck(&mut tx).await?;
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "selected_lyric_authority",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+            "Owned authority snapshot checkpoint"
+        );
         tx.commit().await?;
-        Ok(())
+        operation.check_current().await?;
+        let mut connection = self.store.pool.acquire().await?;
+        target.recheck(&mut connection, actor, recording).await?;
+        selected.recheck(&mut connection, actor, recording).await
     }
 }
 

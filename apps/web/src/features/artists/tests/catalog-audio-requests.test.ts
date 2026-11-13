@@ -18,7 +18,8 @@ const context = {
   account: "account",
   recording: "recording",
   association: { id: "association" },
-  group: { id: "group" },
+  providerArtistId: "artist",
+  releaseGroupId: "group",
 } as unknown as ArtistEditionContext;
 const occurrences = ["one", "two", "three"];
 const remembered = new Map<string, never>();

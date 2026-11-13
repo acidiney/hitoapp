@@ -25,6 +25,7 @@ import {
 } from "../fixtures/catalogAlbumPlay";
 import { router } from "@inertiajs/react";
 import { forgetCatalog } from "../api/catalogCache";
+import { creditText } from "../model/catalogAlbumRows";
 
 const player = vi.hoisted(() => {
   const selected = vi.fn(async (_target: unknown) => true);
@@ -63,6 +64,14 @@ vi.mock("@inertiajs/react", () => ({
 
 const base = `/api/v1/recordings/${artistAssociation.recording_id}/artist-associations`;
 const missing = new Set<string>();
+let profileFails = false;
+type GroupReply = (signal?: AbortSignal | null) => Promise<Response>;
+const unsupportedGroup: GroupReply = async () =>
+  Response.json({ status: "unsupported" });
+let groupReply = unsupportedGroup;
+let groupAborted = false;
+let trackStats: unknown = undefined;
+const groupBodies: Array<{ release_group_id: string }> = [];
 const audioBodies: Array<{ occurrence_id: string; edition_id: string }> = [];
 const trackBodies: Array<{ edition_id: string }> = [];
 let linked: Array<{
@@ -75,7 +84,9 @@ function serve() {
     const body = init?.body ? JSON.parse(init.body as string) : null;
     if (path === base) return Response.json([artistAssociation]);
     if (path === `${base}/${artistAssociation.id}/profile`)
-      return Response.json(reviewedArtistProfile);
+      return profileFails
+        ? Response.json({ error: "Profile unavailable" }, { status: 500 })
+        : Response.json(reviewedArtistProfile);
     if (path === `${base}/${artistAssociation.id}/discography/library`)
       return Response.json({
         association_id: artistAssociation.id,
@@ -86,12 +97,17 @@ function serve() {
       });
     if (path === `${base}/${artistAssociation.id}/release-group-editions`)
       return Response.json(twoEditionsPage);
+    if (path === `${base}/${artistAssociation.id}/release-group`) {
+      groupBodies.push(body);
+      return groupReply(init?.signal);
+    }
     if (path === `${base}/${artistAssociation.id}/edition-track-list`) {
       trackBodies.push(body);
       return Response.json({
         ...catalogAlbumTrackList,
         edition: { ...catalogAlbumEdition, id: body.edition_id },
         linked,
+        ...(trackStats === undefined ? {} : { stats: trackStats }),
       });
     }
     if (path === `${base}/${artistAssociation.id}/edition-track-audio`) {
@@ -119,6 +135,11 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   missing.clear();
+  profileFails = false;
+  groupReply = unsupportedGroup;
+  groupBodies.length = 0;
+  groupAborted = false;
+  trackStats = undefined;
   audioBodies.length = 0;
   trackBodies.length = 0;
   mutate.mockClear();
@@ -128,7 +149,12 @@ afterEach(() => {
 
 async function openPage() {
   serve();
-  render(createElement(CatalogAlbumPage, artistIdentityBrowsing().detail));
+  render(
+    createElement(CatalogAlbumPage, {
+      ...artistIdentityBrowsing().detail,
+      release_group_id: editionGroup.id,
+    }),
+  );
   const list = await screen.findByRole("list", { name: "Tracks" });
   await within(list).findByText(catalogAlbumTitles[0]);
   return list;
@@ -341,4 +367,133 @@ test("finding audio makes the next visit read the track list again so the new li
       name: "In your library",
     }),
   ).toBeTruthy();
+});
+
+test("a cold direct album link loads its editions and tracks even when the artist profile request fails", async () => {
+  profileFails = true;
+  const fetch = serve();
+  render(
+    createElement(CatalogAlbumPage, {
+      ...artistIdentityBrowsing().detail,
+      release_group_id: editionGroup.id,
+    }),
+  );
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  const editions = fetch.mock.calls.filter(
+    ([path]) =>
+      path === `${base}/${artistAssociation.id}/release-group-editions`,
+  );
+  expect(editions.length).toBeGreaterThan(0);
+  expect(JSON.parse(editions[0][1]!.body as string)).toMatchObject({
+    release_group_id: editionGroup.id,
+  });
+  expect(
+    screen.getByRole("heading", { level: 1 }).textContent?.trim(),
+  ).toBeTruthy();
+});
+
+const canonicalGroup = {
+  ...editionGroup,
+  title: "Canonical release",
+  kind: "ep" as const,
+  first_release_date: "2011-04-02",
+};
+
+function headerStats() {
+  const stats = document.querySelector(".album-header .album-stats");
+  return (stats?.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+const editionCredit = creditText(catalogAlbumEdition.artist_credit);
+
+function openColdPage() {
+  render(
+    createElement(CatalogAlbumPage, {
+      ...artistIdentityBrowsing().detail,
+      release_group_id: editionGroup.id,
+    }),
+  );
+}
+
+test("a cold direct album link shows the provider's release group title, type and year while the artist profile fails", async () => {
+  profileFails = true;
+  groupReply = async () =>
+    Response.json({
+      status: "available",
+      association_id: artistAssociation.id,
+      group: canonicalGroup,
+    });
+  serve();
+  openColdPage();
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Canonical release" }),
+  ).toBeTruthy();
+  expect(screen.getByText("EP · 2011")).toBeTruthy();
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  expect(groupBodies).toEqual([{ release_group_id: editionGroup.id }]);
+});
+
+test("a slow release group read does not hold back the tracks or the edition title", async () => {
+  profileFails = true;
+  groupReply = (signal) =>
+    new Promise<Response>((_, reject) => {
+      signal?.addEventListener("abort", () => {
+        groupAborted = true;
+        reject(signal.reason);
+      });
+    });
+  serve();
+  openColdPage();
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  expect(groupBodies).toEqual([{ release_group_id: editionGroup.id }]);
+  expect(screen.getByRole("heading", { level: 1 }).textContent?.trim()).toBe(
+    catalogAlbumEdition.title,
+  );
+  expect(screen.getByRole("button", { name: /^Play album$/ })).toBeTruthy();
+  cleanup();
+  expect(groupAborted).toBe(true);
+});
+
+test("a release group read for another association is ignored and the edition title stays", async () => {
+  groupReply = async () =>
+    Response.json({
+      status: "available",
+      association_id: "another-association",
+      group: canonicalGroup,
+    });
+  serve();
+  openColdPage();
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  await waitFor(() =>
+    expect(groupBodies).toEqual([{ release_group_id: editionGroup.id }]),
+  );
+  expect(
+    screen.queryByRole("heading", { name: "Canonical release" }),
+  ).toBeNull();
+  expect(screen.queryByText("EP · 2011")).toBeNull();
+});
+
+test("the album header counts the audio tracks the server reports and leaves out the length when one is unknown", async () => {
+  trackStats = { audio_tracks: 3, total_duration_ms: null };
+  serve();
+  openColdPage();
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  await waitFor(() =>
+    expect(headerStats()).toBe(`${editionCredit} · 3 tracks`),
+  );
+});
+
+test("the album header shows the total length the server reports", async () => {
+  trackStats = { audio_tracks: 4, total_duration_ms: 3_660_000 };
+  serve();
+  openColdPage();
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  await waitFor(() =>
+    expect(headerStats()).toBe(`${editionCredit} · 4 tracks · 1 hr 1 min`),
+  );
 });

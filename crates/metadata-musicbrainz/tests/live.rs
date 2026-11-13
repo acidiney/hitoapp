@@ -186,6 +186,7 @@ fn error_code(error: Error) -> &'static str {
         Error::InvalidDiscographyRequest => "invalid_discography_request",
         Error::InvalidSearchRequest => "invalid_search_request",
         Error::InvalidEditionRequest => "invalid_edition_request",
+        Error::InvalidReleaseGroupRequest => "invalid_release_group_request",
         Error::InvalidLookupRequest => "invalid_lookup_request",
         Error::Transport => "transport_error",
         Error::Status(_) => "status_error",
@@ -193,6 +194,7 @@ fn error_code(error: Error) -> &'static str {
         Error::InvalidDiscography => "invalid_discography",
         Error::InvalidSearch => "invalid_search",
         Error::InvalidEdition => "invalid_edition",
+        Error::InvalidReleaseGroup => "invalid_release_group",
         Error::InvalidLookup => "invalid_lookup",
         Error::ResponseTooLarge => "response_too_large",
     }

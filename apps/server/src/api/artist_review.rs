@@ -9,7 +9,8 @@ use axum::{
 };
 use hito_core::{
     ArtistAssociation, ArtistCandidatePreviewAvailability, ArtistCandidateReleasesAvailability,
-    ArtistCandidateSearchAvailability, ArtistReviewContext, Error, MetadataProvider, Services,
+    ArtistCandidateSearchAvailability, ArtistReviewContext, CreditMemberReviewContext, Error,
+    MetadataProvider, Services,
 };
 use hito_plugin_sdk::ArtistSearchRequest;
 use serde::Deserialize;
@@ -66,6 +67,38 @@ pub async fn context(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist review context HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/context", operation_id = "begin_credit_member_review",
+    params(("id" = String, Path), ("artist" = String, Path)), request_body = BeginArtistReview,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CreditMemberReviewContext), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_credit_member_review_context", request_id = %Uuid::new_v4()))]
+pub async fn member_context(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+    JsonBody(request): JsonBody<BeginArtistReview>,
+) -> ApiResult<Json<CreditMemberReviewContext>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .begin_credit_member_review(&actor, &recording, &artist, request.provider)
+        .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "returned"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member review context HTTP request completed"
     );
     Ok(Json(result?))
 }

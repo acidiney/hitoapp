@@ -10,7 +10,7 @@ use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
 
-pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND assoc.provider_kind='builtin_musicbrainz'
+pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND assoc.credit_target='whole_credit' AND assoc.provider_kind='builtin_musicbrainz'
         AND EXISTS (SELECT 1 FROM shared_artist_correction_subjects subject
             JOIN shared_artist_corrections correction ON correction.seq=subject.correction_seq
             WHERE subject.retired_reason IS NULL AND subject.recording_id=assoc.recording_id AND subject.observation_id=assoc.observation_id
@@ -203,7 +203,12 @@ impl ArtistCatalog {
         actor.check_session(&self.store).await?;
         provider::validate_artist_id(&request.provider, &request.provider_artist_id)?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let credit = Credit::capture(&mut tx, actor, recording).await?;
+        let credit =
+            Credit::capture_for_artist(&mut tx, actor, recording, &request.artist_id).await?;
+        tracing::debug!(
+            credit_target = credit.target.storage_kind(),
+            "Artist association target captured"
+        );
         if credit.artist_id != request.artist_id
             || credit.source_id != request.source_id
             || credit.observation_id != request.observation_id
@@ -229,11 +234,13 @@ pub(super) async fn existing(
     recording: &str,
     request: &AssociateRecordingArtist,
 ) -> Result<Option<String>> {
+    let credit =
+        Credit::capture_for_artist(connection, actor, recording, &request.artist_id).await?;
     let (kind, installation) = authority::provider_columns(&request.provider);
     Ok(sqlx::query_scalar(
         "SELECT id FROM recording_artist_associations
             WHERE user_id=? AND recording_id=? AND artist_id=? AND source_id IS ? AND observation_id=?
-                AND provider_kind=? AND plugin_installation_id IS ? AND provider_artist_id=?",
+                AND provider_kind=? AND plugin_installation_id IS ? AND provider_artist_id=? AND credit_target=?",
     )
     .bind(actor.id())
     .bind(recording)
@@ -243,6 +250,7 @@ pub(super) async fn existing(
     .bind(kind)
     .bind(installation)
     .bind(&request.provider_artist_id)
+    .bind(credit.target.storage_kind())
     .fetch_optional(connection)
     .await?)
 }
@@ -266,6 +274,14 @@ pub(super) async fn retain(
     library: &str,
     request: &AssociateRecordingArtist,
 ) -> Result<ArtistAssociation> {
+    let credit =
+        Credit::capture_for_artist(connection, actor, recording, &request.artist_id).await?;
+    if credit.library_id != library
+        || credit.source_id != request.source_id
+        || credit.observation_id != request.observation_id
+    {
+        return Err(authority::changed());
+    }
     let (kind, installation) = authority::provider_columns(&request.provider);
     let id = if let Some(existing) = existing(connection, actor, recording, request).await? {
         if !association_changes::is_linked(connection, &existing).await? {
@@ -289,11 +305,11 @@ pub(super) async fn retain(
         }
         let id = Uuid::new_v4().to_string();
         sqlx::query("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,
-                source_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence)
-                VALUES (?,?,?,?,?,?,?,'recording_artist',?,?,?,'user_confirmed')")
+                source_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence,credit_target)
+                VALUES (?,?,?,?,?,?,?,'recording_artist',?,?,?,'user_confirmed',?)")
             .bind(&id).bind(actor.id()).bind(library).bind(recording).bind(&request.artist_id)
             .bind(&request.source_id).bind(&request.observation_id).bind(kind).bind(installation)
-            .bind(&request.provider_artist_id).execute(&mut *connection).await?;
+            .bind(&request.provider_artist_id).bind(credit.target.storage_kind()).execute(&mut *connection).await?;
         association_changes::append(connection, actor, recording, &id, true).await?;
         id
     };

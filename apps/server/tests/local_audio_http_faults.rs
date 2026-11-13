@@ -1,7 +1,6 @@
 #![cfg(target_os = "linux")]
 
-#[path = "../../../crates/core/tests/fixtures/read_fault_shim.rs"]
-mod shim;
+use hito_testkit::read_fault_shim as shim;
 
 use axum::{
     Router,

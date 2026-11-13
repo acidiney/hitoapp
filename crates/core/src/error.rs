@@ -1,3 +1,9 @@
+#[derive(Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
+pub struct PluginInstallationStamp {
+    pub installation_id: String,
+    pub installation_revision: i64,
+}
+
 #[derive(thiserror::Error)]
 pub enum Error {
     #[error("{0}")]
@@ -14,6 +20,8 @@ pub enum Error {
     WrongPassword,
     #[error("Too many attempts. Try again later.")]
     RateLimited(u64),
+    #[error("Artwork requests are full. Try again after pending requests finish.")]
+    ArtworkAdmissionBusy,
     #[error("{0}")]
     Conflict(String),
     #[error("This source is already used by another track")]
@@ -22,6 +30,8 @@ pub enum Error {
     ProviderBusy(&'static str),
     #[error("{0}")]
     AuthorizationRequired(&'static str),
+    #[error("Update this plugin connection's service credentials in Settings.")]
+    PluginCredentialsRequired(Option<PluginInstallationStamp>),
     #[error("{0}")]
     OperationRejected(String),
     #[error("{0}")]
@@ -64,10 +74,12 @@ impl Error {
             Self::Locked => "locked",
             Self::WrongPassword => "wrong_password",
             Self::RateLimited(_) => "rate_limited",
+            Self::ArtworkAdmissionBusy => "artwork_admission_busy",
             Self::Conflict(_) => "conflict",
             Self::AlreadyBound(_) => "already_bound",
             Self::ProviderBusy(_) => "provider_busy",
             Self::AuthorizationRequired(_) => "authorization_required",
+            Self::PluginCredentialsRequired(_) => "plugin_credentials_required",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) | Self::UpstreamNotice(_) => "upstream",
             Self::StreamTooSlow => "stream_too_slow",

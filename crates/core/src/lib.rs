@@ -45,13 +45,14 @@ pub use artist_catalog::{
     ArtistReviewRestoration, AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch,
     ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition,
     ConfirmArtistReviewCandidate, CoverageEvidence, CreditEvidence, CreditEvidenceKind,
-    DiscographyLibrary, DismissArtistMatchSuggestion, DismissArtistReviewCandidates,
-    EditionTrackListAvailability, FindAlbumTrackAudio, FindArtistTrackAudio, LibraryAlbum,
-    LibraryLevel, LibraryReleaseGroup, MatchArtistsFromProviderEvidence, MatchArtistsFromTags,
-    MetadataProvider, MetadataSettings, PromoteArtistCorrection, PromotionSource,
-    ReadAlbumEditionTrackList, ReadAlbumLibraryLevel, ReadArtistDiscography,
-    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions, ReadSimilarArtists,
-    RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
+    CreditMemberReviewContext, DiscographyLibrary, DismissArtistMatchSuggestion,
+    DismissArtistReviewCandidates, EditionTrackListAvailability, EditionTrackStats,
+    FindAlbumTrackAudio, FindArtistTrackAudio, LibraryAlbum, LibraryLevel, LibraryReleaseGroup,
+    MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
+    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadAlbumLibraryLevel,
+    ReadArtistDiscography, ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroup,
+    ReadReleaseGroupEditions, ReadSimilarArtists, RecordingArtistIdentityChoice,
+    RecordingArtistIdentityState, ReleaseGroupAvailability, ReleaseGroupEditionsAvailability,
     ResetRecordingArtistIdentity, RestoreArtistMatchSuggestion, RestoreArtistReviewCandidates,
     SavedAlbumEdition, SharedArtistCorrection, SharedArtistCorrectionQuery,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
@@ -107,7 +108,7 @@ pub use downloads::{
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
     PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
 };
-pub use error::{Error, Result};
+pub use error::{Error, PluginInstallationStamp, Result};
 pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
     AccountDeletion, AccountSummary, Actor, AuthSession, AvatarImage, ChangePassword, Credentials,

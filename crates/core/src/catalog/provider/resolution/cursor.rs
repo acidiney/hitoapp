@@ -1,5 +1,5 @@
 use super::{
-    authority,
+    authority::{self, Traversal},
     matching::MusicalRecording,
     provider::{Candidate, Page, Subject},
 };
@@ -25,6 +25,7 @@ pub(super) struct Candidates {
     connections: IntoIter<Connection>,
     page: Option<Page>,
     finished: VecDeque<Page>,
+    stopped: bool,
 }
 
 impl Candidates {
@@ -56,6 +57,7 @@ impl Candidates {
             connections: connections.into_iter(),
             page: None,
             finished: VecDeque::new(),
+            stopped: false,
         })
     }
 
@@ -65,15 +67,21 @@ impl Candidates {
         actor: &Actor,
         subject: &Subject<'_>,
     ) -> Result<Option<(usize, Candidate)>> {
-        while let Some(page) = self.finished.front_mut() {
-            {
-                let mut connection = catalog.store.pool.acquire().await?;
-                authority::check(&mut connection, actor, subject.recording).await?;
+        loop {
+            if !self.current(catalog, actor, subject).await? {
+                return Ok(None);
             }
+            let Some(page) = self.finished.front_mut() else {
+                return Ok(None);
+            };
             let ranked = page.next_by_provider_rank(catalog, actor, subject).await;
             self.provider_unavailable |= page.provider_unavailable;
             match ranked {
-                Ok(Some(found)) => return Ok(Some(found)),
+                Ok(Traversal::Current(Some(found))) => return Ok(Some(found)),
+                Ok(Traversal::Superseded) => {
+                    self.stop();
+                    return Ok(None);
+                }
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     self.provider_unavailable |=
@@ -84,11 +92,10 @@ impl Candidates {
                         "Source resolution provider exchange failed"
                     );
                 }
-                Ok(None) => {}
+                Ok(Traversal::Current(None)) => {}
             }
             self.finished.pop_front();
         }
-        Ok(None)
     }
 
     pub(super) async fn next(
@@ -98,15 +105,18 @@ impl Candidates {
         subject: &Subject<'_>,
     ) -> Result<Option<Candidate>> {
         loop {
-            {
-                let mut connection = catalog.store.pool.acquire().await?;
-                authority::check(&mut connection, actor, subject.recording).await?;
+            if !self.current(catalog, actor, subject).await? {
+                return Ok(None);
             }
             if let Some(page) = self.page.as_mut() {
                 let candidate = page.next(catalog, actor, subject).await;
                 self.provider_unavailable |= page.provider_unavailable;
                 match candidate {
-                    Ok(Some(candidate)) => return Ok(Some(candidate)),
+                    Ok(Traversal::Current(Some(candidate))) => return Ok(Some(candidate)),
+                    Ok(Traversal::Superseded) => {
+                        self.stop();
+                        return Ok(None);
+                    }
                     Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                     Err(error) => {
                         self.provider_unavailable |=
@@ -117,7 +127,7 @@ impl Candidates {
                             "Source resolution provider exchange failed"
                         );
                     }
-                    Ok(None) => {}
+                    Ok(Traversal::Current(None)) => {}
                 }
                 self.finished.extend(self.page.take());
                 continue;
@@ -128,18 +138,21 @@ impl Candidates {
             match catalog
                 .search_resolution_connection(
                     actor,
-                    subject.musical,
+                    subject,
                     connection.id,
                     connection.revision,
                     &self.query,
                 )
                 .await
             {
-                Ok(page) => self.page = Some(page),
+                Ok(Traversal::Current(page)) => self.page = Some(page),
+                Ok(Traversal::Superseded) => {
+                    self.stop();
+                    return Ok(None);
+                }
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
-                    self.provider_unavailable |=
-                        matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                    self.provider_unavailable |= super::is_provider_unavailable(&error);
                     tracing::debug!(
                         event = "source_resolution_provider_failed",
                         error_kind = error.code(),
@@ -148,5 +161,31 @@ impl Candidates {
                 }
             }
         }
+    }
+
+    async fn current(
+        &mut self,
+        catalog: &Catalog,
+        actor: &Actor,
+        subject: &Subject<'_>,
+    ) -> Result<bool> {
+        if self.stopped {
+            return Ok(false);
+        }
+        let mut tx = catalog.store.pool.begin().await?;
+        let current = authority::current(&mut tx, actor, subject.source).await?;
+        tx.commit().await?;
+        if matches!(current, Traversal::Superseded) {
+            self.stop();
+            return Ok(false);
+        }
+        Ok(true)
+    }
+
+    fn stop(&mut self) {
+        self.stopped = true;
+        self.page = None;
+        self.finished.clear();
+        self.connections = Vec::new().into_iter();
     }
 }

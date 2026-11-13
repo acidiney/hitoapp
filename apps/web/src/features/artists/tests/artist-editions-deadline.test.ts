@@ -45,8 +45,8 @@ test.each(["editions", "track list"] as const)(
         account: artistReviewAccount,
         recording: artistReviewDetail.recording_id,
         association: artistAssociation,
-        profile: reviewedArtistProfile.profile,
-        group: editionGroup,
+        providerArtistId: reviewedArtistProfile.profile.artist.id,
+        releaseGroupId: editionGroup.id,
       }),
     );
     const endpoint =

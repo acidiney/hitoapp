@@ -1,7 +1,5 @@
 use hito_core::test_support::hang_guard::HANG_CEILING;
-#[path = "../fixtures/provider_attachment.rs"]
-#[allow(dead_code, unused_imports)]
-mod fixture;
+use hito_core::test_support::provider_attachment as fixture;
 use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, HeaderValue, StatusCode};

@@ -27,11 +27,12 @@ export type CatalogTrackControls = {
 
 export function useCatalogTracks(
   context: ArtistEditionContext,
+  group: Schema<"CatalogReleaseGroup"> | null,
   withLibrary: boolean,
   mutate?: Mutate,
 ) {
-  const { account, recording, association, group } = context;
-  const album = useCatalogAlbum(context);
+  const { account, recording, association, releaseGroupId } = context;
+  const album = useCatalogAlbum(context, group);
   const edition = album.editions.chosen?.id ?? null;
   const { linked: remembered } = album.tracks;
   const rememberedByRow = useMemo(() => {
@@ -48,14 +49,15 @@ export function useCatalogTracks(
     album.rows.map((row) => row.id),
     rememberedByRow,
   );
+  const groupIds = useMemo(() => [releaseGroupId], [releaseGroupId]);
   const library = useDiscographyLibrary(
     account,
     recording,
     association,
-    [group],
+    groupIds,
     withLibrary,
   );
-  const linked = library.albums[group.id]?.[0]?.release_id ?? null;
+  const linked = library.albums[releaseGroupId]?.[0]?.release_id ?? null;
   const { seed } = playback;
   const ready = album.rows.length > 0;
 
@@ -69,7 +71,7 @@ export function useCatalogTracks(
         {
           recording_id: recording,
           association_id: association.id,
-          release_group_id: group.id,
+          release_group_id: releaseGroupId,
           edition_id: edition,
         },
         controller.signal,
@@ -87,7 +89,15 @@ export function useCatalogTracks(
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [account, recording, association.id, group.id, linked, edition, ready]);
+  }, [
+    account,
+    recording,
+    association.id,
+    releaseGroupId,
+    linked,
+    edition,
+    ready,
+  ]);
 
   const rows: CatalogTrack[] = album.rows.map((row) => {
     const found = playback.recordings.get(row.id) ?? null;
@@ -115,7 +125,6 @@ export function useCatalogTracks(
 
   return {
     ...album,
-    occurrences: album.rows,
     playback,
     library,
     linked,

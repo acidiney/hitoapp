@@ -72,7 +72,10 @@ test("opening the same catalog album again reuses the provider answers", async (
     throw new Error(`Unexpected request ${path}`);
   });
   vi.stubGlobal("fetch", fetch);
-  const detail = artistIdentityBrowsing().detail;
+  const detail = {
+    ...artistIdentityBrowsing().detail,
+    release_group_id: editionGroup.id,
+  };
   for (let visit = 0; visit < 2; visit++) {
     const view = render(createElement(CatalogAlbumPage, detail));
     const table = await screen.findByRole("list", { name: "Tracks" });
@@ -80,7 +83,7 @@ test("opening the same catalog album again reuses the provider answers", async (
     view.unmount();
   }
   await waitFor(() => expect(fetch).toHaveBeenCalled());
-  expect(counts["/" + artistAssociation.id + "/profile"]).toBe(1);
+  expect(counts["/" + artistAssociation.id + "/profile"]).toBeUndefined();
   expect(counts["/" + artistAssociation.id + "/release-group-editions"]).toBe(
     1,
   );

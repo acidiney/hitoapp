@@ -2,7 +2,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::{borrow::Cow, path::Path};
 
-use super::schema::source_artist_trigger_schema;
+use super::schema::{artist_credit_target_schema, source_artist_trigger_schema};
 
 pub const READY_RECORDING: &str = "20000000-0000-4000-8000-000000000001";
 pub const PENDING_RECORDING: &str = "20000000-0000-4000-8000-000000000002";
@@ -169,6 +169,7 @@ pub async fn assert_schema_preserved(
             .await
             .unwrap();
     let after = schema(connection).await;
+    let credit_targets = artist_credit_target_schema::declarations();
     for object in before.iter().filter(|object| {
         !changed.contains(&object.1.as_str())
             && !replaced
@@ -182,6 +183,17 @@ pub async fn assert_schema_preserved(
                 .any(|(kind, name)| *kind == expected.0 && *name == expected.1)
         {
             expected.3 = Some(source_artist_trigger_schema::definition(&expected.1));
+        }
+        if version >= 96
+            && artist_credit_target_schema::REPLACED
+                .iter()
+                .any(|(kind, name)| *kind == expected.0 && *name == expected.1)
+        {
+            expected = credit_targets
+                .iter()
+                .find(|current| current.0 == expected.0 && current.1 == expected.1)
+                .unwrap()
+                .clone();
         }
         if expected.0 == "table" && expected.1 == "source_resolutions" {
             expected.3 = expected.3.map(|ddl| {

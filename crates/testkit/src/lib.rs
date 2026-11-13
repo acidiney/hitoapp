@@ -1,6 +1,10 @@
 pub mod audio;
 pub mod fake_plugin;
+pub mod held_authority_snapshot;
 pub mod logs;
 pub mod plugin_server;
+#[cfg(target_os = "linux")]
+pub mod read_fault_shim;
 pub mod tls;
 pub mod tls_api;
+pub mod tone_files;

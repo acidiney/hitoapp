@@ -89,7 +89,7 @@ export function useAutomaticLyrics(
     } catch (error) {
       if (!active.active()) return;
       reason = "failed";
-      const failure = lyricFailure(error, "search");
+      const failure = lyricFailure(error, "automatic");
       setSnapshot({
         owner: run.owner,
         pending: false,

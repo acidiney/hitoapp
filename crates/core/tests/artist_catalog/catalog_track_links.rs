@@ -1,6 +1,4 @@
-#[path = "../fixtures/provider_attachment.rs"]
-#[allow(dead_code, unused_imports)]
-mod audio_provider;
+use hito_core::test_support::provider_attachment as audio_provider;
 #[path = "../fixtures/album_complete_library.rs"]
 #[allow(dead_code)]
 mod library;

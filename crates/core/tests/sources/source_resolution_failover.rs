@@ -1,10 +1,5 @@
+use crate::{resolution_failover_fixture as protocol, resolution_musical_fixture as saved};
 use hito_core::test_support::hang_guard::HANG_CEILING;
-#[path = "../fixtures/resolution_failover.rs"]
-mod protocol;
-#[path = "../fixtures/resolution_musical.rs"]
-#[allow(dead_code)]
-mod saved;
-use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{Error, OpenedAudio, ResolveSource};

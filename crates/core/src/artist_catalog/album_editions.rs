@@ -1,6 +1,7 @@
 use super::{
-    ArtistAssociation, LINKED, MetadataProvider, MetadataSettings, REQUEST_BUDGET,
-    ReadEditionTrackList, associations, authority::Credit, editions::EditionRead, policy, provider,
+    ArtistAssociation, EditionTrackStats, LINKED, MetadataProvider, MetadataSettings,
+    REQUEST_BUDGET, ReadEditionTrackList, associations, authority::Credit, editions::EditionRead,
+    policy, provider,
 };
 use crate::{
     Actor, AlbumCatalogAnchor, ArtistCatalog, Browse, Error, Recording, Release, ReleaseDetail,
@@ -47,6 +48,7 @@ pub enum AlbumEditionTrackListAvailability {
     Available {
         association_id: String,
         edition: Box<CatalogEditionTrackList>,
+        stats: EditionTrackStats,
         matches: Vec<CatalogTrackMatch>,
         library_only: Vec<ReleaseTrack>,
         attached_occurrences: Vec<String>,
@@ -213,6 +215,7 @@ impl ArtistCatalog {
             });
         Ok(AlbumEditionTrackListAvailability::Available {
             association_id: association.id,
+            stats: EditionTrackStats::from_edition(&edition),
             edition: Box::new(edition),
             matches,
             library_only,
@@ -432,7 +435,9 @@ pub(super) async fn readable_association(
         return Ok(None);
     }
     match Credit::capture(connection, actor, recording).await {
-        Ok(credit) if credit.matches(&association) => Ok(Some(association)),
+        Ok(credit) if credit.matches(connection, actor, &association).await? => {
+            Ok(Some(association))
+        }
         Ok(_) | Err(Error::NotFound) => Ok(None),
         Err(error) => Err(error),
     }

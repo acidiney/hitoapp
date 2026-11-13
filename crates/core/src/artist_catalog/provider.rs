@@ -4,8 +4,9 @@ use hito_metadata_musicbrainz::MusicBrainzClient;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
     ArtistSearchRequest, ArtistSimilarityPage, ArtistSimilarityRequest, Capability,
-    CatalogArtistProfile, CatalogEditionOperation, CatalogEditionTrackList,
+    CatalogArtistProfile, CatalogEditionOperation, CatalogEditionTrackList, CatalogReleaseGroup,
     EditionTrackListRequest, ReleaseGroupEditionsPage, ReleaseGroupEditionsRequest,
+    ReleaseGroupRequest,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -119,6 +120,30 @@ impl Connection {
         match self {
             Self::Builtin(_) => Ok(true),
             Self::Http(connection) => connection.catalog_edition_supported(operation).await,
+        }
+    }
+
+    pub(super) async fn release_group_supported(&self) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(true),
+            Self::Http(operation) => operation.catalog_release_group_supported().await,
+        }
+    }
+
+    pub(super) async fn release_group(
+        &self,
+        request: &ReleaseGroupRequest,
+    ) -> Result<CatalogReleaseGroup> {
+        match self {
+            Self::Builtin(client) => client
+                .release_group(ReleaseGroupRequest {
+                    release_group_id: request.release_group_id.clone(),
+                })
+                .await
+                .map_err(|_| {
+                    Error::Upstream("The metadata provider could not return a valid release group")
+                }),
+            Self::Http(operation) => operation.catalog_release_group(request).await,
         }
     }
 

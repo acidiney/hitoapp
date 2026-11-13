@@ -1,5 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
+import { PluginErrorText } from "../../plugins/components/PluginSettingsLink";
 import { Play, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Track } from "../../playback/model";
@@ -90,7 +91,7 @@ export default function SourceAvailability({
       </div>
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          <PluginErrorText message={error} />
         </p>
       )}
       {sources && sources.length > 0 && (

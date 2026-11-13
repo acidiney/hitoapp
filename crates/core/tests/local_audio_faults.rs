@@ -1,7 +1,6 @@
 #![cfg(target_os = "linux")]
 
-#[path = "fixtures/read_fault_shim.rs"]
-mod shim;
+use hito_testkit::read_fault_shim as shim;
 
 use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::test_support::metadata_tag_logs::CapturedLogs;

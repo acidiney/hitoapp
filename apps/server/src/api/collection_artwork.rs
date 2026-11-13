@@ -33,6 +33,7 @@ pub async fn release_availability(
     (status = 202, body = ReleaseArtworkFetch), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
     (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 429, body = ErrorResponse, headers(("Retry-After" = String, description = "Retry after this many seconds"))),
     (status = 500, body = ErrorResponse),
 ))]
 pub async fn fetch_release(

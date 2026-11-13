@@ -27,7 +27,7 @@ export function useDiscographyLibrary(
   account: string,
   recording: string,
   association: Schema<"ArtistAssociation">,
-  groups: Schema<"CatalogReleaseGroup">[],
+  groupIds: string[],
   enabled: boolean,
 ) {
   const scope = useRequestScope(
@@ -37,7 +37,7 @@ export function useDiscographyLibrary(
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
   const missing = enabled
-    ? groups.map((group) => group.id).filter((id) => !(id in current.albums))
+    ? groupIds.filter((id) => !(id in current.albums))
     : [];
 
   async function load(ids: string[]) {

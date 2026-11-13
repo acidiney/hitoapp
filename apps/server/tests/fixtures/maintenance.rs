@@ -1,3 +1,4 @@
+use hito_core::test_support::schema_history;
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, Row, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::{
@@ -546,8 +547,35 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         .fetch_all(&mut reference)
         .await
         .unwrap();
+    let credit_targets = schema_history::artist_credit_target_schema::declarations();
+    for declared in &credit_targets {
+        assert!(
+            expected.contains(declared),
+            "0096 must retain its exact declared {} {}",
+            declared.0,
+            declared.1
+        );
+    }
     for object in &prior {
         let mut declared = object.clone();
+        if schema_history::artist_credit_target_schema::REPLACED
+            .iter()
+            .any(|(kind, name)| *kind == declared.0 && *name == declared.1)
+        {
+            declared = credit_targets
+                .iter()
+                .find(|current| current.0 == declared.0 && current.1 == declared.1)
+                .unwrap()
+                .clone();
+        }
+        if schema_history::source_artist_trigger_schema::REPLACED
+            .iter()
+            .any(|(kind, name)| *kind == declared.0 && *name == declared.1)
+        {
+            declared.3 = Some(schema_history::source_artist_trigger_schema::definition(
+                &declared.1,
+            ));
+        }
         if declared.0 == "trigger" && declared.1 == "recording_artist_association_retained" {
             assert!(
                 expected.iter().any(|current| {
@@ -911,6 +939,10 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("trigger", "source_unavailable_on_withdrawal"),
         ("trigger", "source_available_again"),
     ];
+    declared_additions.extend_from_slice(schema_history::offline_replicas_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::replica_catalog_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::recording_lyric_identity_schema::ADDED);
+    declared_additions.extend_from_slice(schema_history::artist_credit_target_schema::ADDED);
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
@@ -959,6 +991,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
             "maintenance must not invent consent, community work, or collection covers"
         );
     }
+    schema_history::offline_replicas_schema::assert_empty(connection).await;
+    schema_history::replica_catalog_schema::assert_empty(connection).await;
+    schema_history::recording_lyric_identity_schema::assert_empty(connection).await;
     reference.close().await.unwrap();
 }
 

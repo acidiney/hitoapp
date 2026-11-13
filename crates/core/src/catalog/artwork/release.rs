@@ -157,7 +157,9 @@ impl Catalog {
             return Ok(());
         }
         match self.enqueue_release_artwork(actor, release).await {
-            Ok(_) | Err(Error::Conflict(_) | Error::Invalid(_)) => Ok(()),
+            Ok(_) | Err(Error::Conflict(_) | Error::Invalid(_) | Error::ArtworkAdmissionBusy) => {
+                Ok(())
+            }
             Err(error) => Err(error),
         }
     }

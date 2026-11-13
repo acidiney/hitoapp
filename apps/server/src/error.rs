@@ -13,6 +13,8 @@ pub struct ErrorResponse {
     pub code: Option<ErrorCode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recording_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin_connection: Option<hito_core::PluginInstallationStamp>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -22,6 +24,8 @@ pub enum ErrorCode {
     Locked,
     WrongPassword,
     AlreadyBound,
+    PluginCredentialsRequired,
+    ArtworkAdmissionBusy,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -43,10 +47,11 @@ impl IntoResponse for ApiError {
             Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::UnsupportedAudio => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            Error::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
+            Error::RateLimited(_) | Error::ArtworkAdmissionBusy => StatusCode::TOO_MANY_REQUESTS,
             Error::Conflict(_)
             | Error::ProviderBusy(_)
             | Error::AuthorizationRequired(_)
+            | Error::PluginCredentialsRequired(_)
             | Error::AlreadyBound(_)
             | Error::OperationRejected(_) => StatusCode::CONFLICT,
             Error::Upstream(_) | Error::UpstreamNotice(_) | Error::StreamTooSlow => {
@@ -60,6 +65,8 @@ impl IntoResponse for ApiError {
             Error::Locked => Some(ErrorCode::Locked),
             Error::WrongPassword => Some(ErrorCode::WrongPassword),
             Error::AlreadyBound(_) => Some(ErrorCode::AlreadyBound),
+            Error::PluginCredentialsRequired(_) => Some(ErrorCode::PluginCredentialsRequired),
+            Error::ArtworkAdmissionBusy => Some(ErrorCode::ArtworkAdmissionBusy),
             _ => None,
         };
         let error = if matches!(
@@ -96,10 +103,15 @@ impl IntoResponse for ApiError {
         };
         let retry_after = match &self.0 {
             Error::RateLimited(seconds) => Some([("retry-after", seconds.to_string())]),
+            Error::ArtworkAdmissionBusy => Some([("retry-after", "2".to_string())]),
             _ => None,
         };
         let recording_id = match &self.0 {
             Error::AlreadyBound(recording) => recording.clone(),
+            _ => None,
+        };
+        let plugin_connection = match &self.0 {
+            Error::PluginCredentialsRequired(installation) => installation.clone(),
             _ => None,
         };
         (
@@ -109,6 +121,7 @@ impl IntoResponse for ApiError {
                 error,
                 code,
                 recording_id,
+                plugin_connection,
             }),
         )
             .into_response()
@@ -122,6 +135,7 @@ pub fn response(status: StatusCode, message: &str) -> Response {
             error: message.into(),
             code: None,
             recording_id: None,
+            plugin_connection: None,
         }),
     )
         .into_response()

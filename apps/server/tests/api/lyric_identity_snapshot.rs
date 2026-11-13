@@ -1,0 +1,205 @@
+use super::fixture;
+use crate::account;
+use axum::http::{HeaderMap, StatusCode};
+use futures_util::FutureExt;
+use hito_core::test_support::hang_guard::HANG_CEILING;
+use hito_plugin_sdk::{
+    LYRICS_V2_CAPABILITIES_PATH, LYRICS_V2_PATH, MANIFEST_PATH, METADATA_PATH, SEARCH_PATH,
+};
+use hito_testkit::fake_plugin::{FakePlugin, Reply};
+use hito_testkit::held_authority_snapshot::HeldSnapshot;
+use serde_json::{Value, json};
+use std::{
+    panic::{AssertUnwindSafe, resume_unwind},
+    time::{Duration, Instant},
+};
+use tokio::task::JoinSet;
+use tracing::instrument::WithSubscriber;
+use tracing_subscriber::prelude::*;
+
+type Response = (StatusCode, HeaderMap, Value);
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn logout_committed_during_manual_metadata_postcheck_preserves_private_credential_health() {
+    let mut plugin = fixture::reviewed_plugin(
+        "org.hito.identity-metadata-snapshot",
+        "Owned manual metadata snapshot lyrics",
+    )
+    .start()
+    .await;
+    let hold = HeldSnapshot::within_span("lyric_identity_authority", "lyric_metadata_postcheck");
+    let mut requests = JoinSet::new();
+    let mut setup = None;
+    let result = tokio::time::timeout(
+        HANG_CEILING,
+        AssertUnwindSafe(Box::pin(exercise(
+            &plugin,
+            &hold,
+            &mut setup,
+            &mut requests,
+        )))
+        .catch_unwind(),
+    )
+    .await;
+    hold.release();
+    requests.abort_all();
+    let drained = tokio::time::timeout(Duration::from_secs(3), async {
+        while requests.join_next().await.is_some() {}
+    })
+    .await;
+    let stopped = plugin.finish().await;
+    if let Some(setup) = &setup {
+        setup.library.assert_original();
+    }
+    assert!(drained.is_ok(), "All owned HTTP tasks must drain");
+    assert!(stopped, "The owned protocol provider must join");
+    let (current, expected) = match result {
+        Ok(Ok(value)) => value,
+        Ok(Err(panic)) => resume_unwind(panic),
+        Err(_) => panic!("The owned metadata snapshot workflow must settle within its deadline"),
+    };
+    assert_eq!(
+        current, expected,
+        "A manual metadata protected401 checked through a snapshot older than committed logout must not publish private credential health"
+    );
+}
+
+async fn exercise(
+    plugin: &FakePlugin,
+    hold: &HeldSnapshot,
+    setup_owner: &mut Option<fixture::ReviewedSetup>,
+    requests: &mut JoinSet<Response>,
+) -> (Value, Value) {
+    let setup = setup_owner.insert(fixture::ReviewedSetup::prepare(plugin).await);
+    let library = &mut setup.library;
+    let inspector = account::Account::login(
+        &library.app,
+        "owner",
+        "owned artist review administrator password",
+    )
+    .await;
+    assert_eq!(inspector.id, library.account.id);
+    let path = format!("{}/identities/review", setup.base);
+    let (status, review) = library
+        .account
+        .request(&library.app, "POST", &path, setup.candidate.clone())
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        review["candidate"],
+        serde_json::to_value(fixture::document_recovery_metadata()).unwrap()
+    );
+    let (status, identity) = library
+        .account
+        .request(
+            &library.app,
+            "POST",
+            &format!("{}/identities", setup.base),
+            json!({"candidate":setup.candidate,"review_stamp":review["review_stamp"]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(identity["selector"]["kind"], "reviewed");
+    let state = fixture::ReviewedState::prepare(library, &setup.installation).await;
+    let baseline = state.capture(library, &setup.base, &identity).await;
+    let before = fixture::private_settings(library).await;
+    let expected = before["installations"][0].clone();
+    assert_eq!(expected["id"], setup.installation["id"]);
+    assert_eq!(expected["health"]["state"], "ok");
+    assert_eq!(plugin.requests_for(METADATA_PATH).len(), 2);
+    let manifests = plugin.requests_for(MANIFEST_PATH).len();
+    let health = plugin.health_requests().len();
+    plugin.on(METADATA_PATH, |request| {
+        fixture::assert_document_owner(request);
+        assert_eq!(
+            request.json(),
+            json!({"recording_id":"owned:document-recovery"})
+        );
+        Reply::Status(StatusCode::UNAUTHORIZED)
+    });
+    let app = library.app.clone();
+    let headers = library.account.headers();
+    let candidate = setup.candidate.clone();
+    hito_testkit::logs::anchor_callsite_interest();
+    let subscriber = tracing_subscriber::registry().with(hold.clone());
+    requests.spawn(
+        async move { account::exchange(&app, "POST", &path, candidate, headers).await }
+            .with_subscriber(subscriber),
+    );
+    hold.entered().await;
+    assert_eq!(plugin.requests_for(METADATA_PATH).len(), 3);
+    assert!(requests.try_join_next().is_none());
+    let held_at = Instant::now();
+    let (status, _) = tokio::time::timeout(
+        Duration::from_secs(2),
+        library
+            .account
+            .request(&library.app, "POST", "/api/v1/logout", Value::Null),
+    )
+    .await
+    .unwrap();
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    hold.assert_held();
+    let (status, rejected_headers, rejected) = account::exchange(
+        &library.app,
+        "GET",
+        "/api/v1/plugins",
+        Value::Null,
+        library.account.headers(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(rejected_headers["cache-control"], "private, no-store");
+    assert!(rejected.get("plugin_connection").is_none());
+    let (status, headers, during) = account::exchange(
+        &library.app,
+        "GET",
+        "/api/v1/plugins",
+        Value::Null,
+        inspector.headers(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["cache-control"], "private, no-store");
+    assert_eq!(during, before);
+    hold.assert_held();
+    assert!(requests.try_join_next().is_none());
+    hold.release();
+    let response = tokio::time::timeout(Duration::from_secs(2), requests.join_next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    hold.assert_returned();
+    assert_eq!(response.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(response.1["cache-control"], "private, no-store");
+    assert!(response.2.get("plugin_connection").is_none());
+    assert!(response.2.get("code").is_none());
+    assert!(response.2.get("candidate").is_none());
+    assert!(response.2.get("review_stamp").is_none());
+    let encoded = response.2.to_string();
+    for private in [
+        fixture::TOKEN,
+        "owned-document-peer-token",
+        "owned:document-recovery",
+        "Owned reviewed document title",
+        "Owned reviewed document artist",
+        plugin.url.as_str(),
+    ] {
+        assert!(!encoded.contains(private));
+    }
+    library.account = inspector;
+    let after = fixture::private_settings(library).await;
+    let current = state
+        .assert_preserved(library, &setup.installation, &setup.base, &baseline, &after)
+        .await;
+    assert_eq!(plugin.requests_for(METADATA_PATH).len(), 3);
+    assert_eq!(plugin.requests_for(MANIFEST_PATH).len(), manifests);
+    assert_eq!(plugin.health_requests().len(), health);
+    for path in [SEARCH_PATH, LYRICS_V2_CAPABILITIES_PATH, LYRICS_V2_PATH] {
+        assert!(plugin.requests_for(path).is_empty());
+    }
+    assert_eq!(plugin.unexpected(), 0);
+    assert!(held_at.elapsed() < Duration::from_secs(20));
+    (current, expected)
+}

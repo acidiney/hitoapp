@@ -8,6 +8,7 @@ pub enum Error {
     InvalidSearchRequest,
     InvalidEditionRequest,
     InvalidLookupRequest,
+    InvalidReleaseGroupRequest,
     Transport,
     Status(u16),
     InvalidResponse,
@@ -15,6 +16,7 @@ pub enum Error {
     InvalidSearch,
     InvalidEdition,
     InvalidLookup,
+    InvalidReleaseGroup,
     ResponseTooLarge,
 }
 
@@ -27,6 +29,7 @@ impl Error {
             Self::InvalidSearchRequest => "invalid_search_request",
             Self::InvalidEditionRequest => "invalid_edition_request",
             Self::InvalidLookupRequest => "invalid_lookup_request",
+            Self::InvalidReleaseGroupRequest => "invalid_release_group_request",
             Self::Transport => "transport_error",
             Self::Status(_) => "status_error",
             Self::InvalidResponse => "invalid_response",
@@ -34,6 +37,7 @@ impl Error {
             Self::InvalidSearch => "invalid_search",
             Self::InvalidEdition => "invalid_edition",
             Self::InvalidLookup => "invalid_lookup",
+            Self::InvalidReleaseGroup => "invalid_release_group",
             Self::ResponseTooLarge => "response_too_large",
         }
     }
@@ -48,6 +52,9 @@ impl fmt::Display for Error {
             Self::InvalidSearchRequest => "Use a valid MusicBrainz artist search request",
             Self::InvalidEditionRequest => "Use a valid MusicBrainz edition catalog request",
             Self::InvalidLookupRequest => "Use a canonical identifier for the MusicBrainz lookup",
+            Self::InvalidReleaseGroupRequest => {
+                "Use a canonical MusicBrainz release-group identifier"
+            }
             Self::Transport => "The MusicBrainz service could not be reached",
             Self::Status(_) => "The MusicBrainz service rejected the request",
             Self::InvalidResponse => "The MusicBrainz service returned an invalid artist profile",
@@ -57,6 +64,9 @@ impl fmt::Display for Error {
             Self::InvalidSearch => "The MusicBrainz service returned invalid artist search results",
             Self::InvalidEdition => "The MusicBrainz service returned invalid edition metadata",
             Self::InvalidLookup => "The MusicBrainz service returned an invalid identifier lookup",
+            Self::InvalidReleaseGroup => {
+                "The MusicBrainz service returned an invalid release group"
+            }
             Self::ResponseTooLarge => "The MusicBrainz response exceeds the size limit",
         })
     }

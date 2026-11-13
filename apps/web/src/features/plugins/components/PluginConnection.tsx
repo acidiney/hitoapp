@@ -14,6 +14,10 @@ import { declaredCapabilities } from "../model/capabilityRows";
 import { friendlyTime } from "../../../shared/format";
 import { pluginHealthNotice } from "../model/pluginHealth";
 import {
+  connectionNeedsCredentials,
+  useCredentialRequirements,
+} from "../model/credentialRequirements";
+import {
   capabilityChips,
   newCapabilities,
   serviceSummary,
@@ -59,7 +63,7 @@ export default function PluginConnection({
 }) {
   const checkButton = useRef<HTMLButtonElement>(null);
   const removeButton = useRef<HTMLButtonElement>(null);
-  const [token, setToken] = useState("");
+  const tokenField = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [waiting, setWaiting] = useState<Proposal | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -87,12 +91,15 @@ export default function PluginConnection({
     );
     return () => controller.abort();
   }, [checkDeclaration, canCheck, id, firstRevision]);
+  function clearTokenField() {
+    if (tokenField.current) tokenField.current.value = "";
+  }
   async function check(accept = false) {
     const result = await actions.refresh(plugin, {
       revision: plugin.revision,
       accept_manifest_digest: accept ? review?.digest : null,
-      credential: token
-        ? { action: "replace", bearer_token: token }
+      credential: tokenField.current?.value
+        ? { action: "replace", bearer_token: tokenField.current.value }
         : { action: "keep" },
     });
     if (result?.kind === "review_required") {
@@ -102,7 +109,7 @@ export default function PluginConnection({
     if (result?.kind === "updated") {
       setReview(null);
       setWaiting(null);
-      setToken("");
+      clearTokenField();
       setStatus("Connection checked.");
       focusAfterCommit("check");
     }
@@ -112,8 +119,18 @@ export default function PluginConnection({
     void check();
   }
   const chips = capabilityChips(plugin.manifest.capabilities);
-  const notice = pluginHealthNotice(plugin.manifest.name, plugin.health);
-  const state = connectionState(plugin);
+  const credentialFlags = useCredentialRequirements(account);
+  const credentialsRequired = connectionNeedsCredentials(
+    credentialFlags,
+    plugin,
+  );
+  const notice = credentialsRequired
+    ? {
+        title: `${plugin.manifest.name} needs its credentials updated.`,
+        hint: "Save a new token under Manage. Your library, playlists and playback are not affected.",
+      }
+    : pluginHealthNotice(plugin.manifest.name, plugin.health);
+  const state = connectionState(plugin, credentialsRequired);
   const panelId = `plugin-manage-${plugin.id}`;
   return (
     <li className="plugin-connection">
@@ -126,6 +143,7 @@ export default function PluginConnection({
         <Button
           aria-expanded={manage}
           aria-controls={panelId}
+          disabled={actions.pending || review !== null}
           onClick={() => setManage((value) => !value)}
         >
           Manage
@@ -144,6 +162,15 @@ export default function PluginConnection({
       {notice && (
         <div className="plugin-health">
           <SectionWarning title={notice.title}>{notice.hint}</SectionWarning>
+          {credentialsRequired && !manage && (
+            <Button
+              aria-controls={panelId}
+              aria-label={`Update credentials for ${plugin.manifest.name}`}
+              onClick={() => setManage(true)}
+            >
+              Update credentials
+            </Button>
+          )}
         </div>
       )}
       {waiting && !review && (
@@ -298,11 +325,10 @@ export default function PluginConnection({
                   type="password"
                   autoComplete="off"
                   maxLength={4096}
-                  value={token}
+                  ref={tokenField}
                   required
                   disabled={actions.pending || !storageReady}
-                  onChange={(event) => {
-                    setToken(event.target.value);
+                  onChange={() => {
                     setReview(null);
                     setStatus("");
                   }}
@@ -321,7 +347,7 @@ export default function PluginConnection({
                     disabled={actions.pending}
                     onClick={async () => {
                       if (await actions.clearCredential(plugin)) {
-                        setToken("");
+                        clearTokenField();
                         setReview(null);
                         setStatus("Saved token cleared.");
                         focusAfterCommit("check");
@@ -344,7 +370,7 @@ export default function PluginConnection({
           onAccept={() => void check(true)}
           onDecline={() => {
             setReview(null);
-            setToken("");
+            clearTokenField();
             focusAfterCommit("check");
           }}
         />

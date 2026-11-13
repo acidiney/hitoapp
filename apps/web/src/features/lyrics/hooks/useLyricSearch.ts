@@ -10,6 +10,10 @@ import {
 } from "../model/lyricFailure";
 import type { LyricService } from "../model/lyricIdentity";
 import { useLatestRun } from "./useLatestRun";
+import {
+  clearCredentialRequirementAfterProtectedSuccess,
+  credentialMarkVersion,
+} from "../../plugins/model/credentialRequirements";
 
 export type LyricCandidate = Schema<"ProviderRecording">;
 
@@ -61,6 +65,7 @@ export function useLyricSearch(
       action: "search",
       request_id: requestId,
     });
+    const mark = credentialMarkVersion(account, service.installation_id);
     try {
       const page = await lyricsApi.candidates(
         account,
@@ -73,6 +78,12 @@ export function useLyricSearch(
         active.signal,
       );
       if (!active.active()) return;
+      clearCredentialRequirementAfterProtectedSuccess(
+        account,
+        service.installation_id,
+        service.installation_revision,
+        mark,
+      );
       outcome = page.items.length === 0 ? "empty" : "found";
       setSnapshot({ ...empty(run.owner), candidates: page.items });
     } catch (error) {

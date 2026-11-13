@@ -7,6 +7,7 @@ import { log } from "../../../shared/log";
 
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { associationAuthorizes } from "../model/associationAuthority";
 
 const PAGE_LIMIT = 20;
 const MAX_PAGES = 50;
@@ -16,8 +17,8 @@ export type ArtistEditionContext = {
   account: string;
   recording: string;
   association: Schema<"ArtistAssociation">;
-  profile: Schema<"CatalogArtistProfile">;
-  group: Schema<"CatalogReleaseGroup">;
+  providerArtistId: string;
+  releaseGroupId: string;
   release?: string;
   onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 };
@@ -72,7 +73,7 @@ export function useArtistEditions(
   context: ArtistEditionContext,
   browseOnMount = false,
 ) {
-  const { account, recording, association, profile, group } = context;
+  const { account, recording, association, releaseGroupId } = context;
   const scope = useRequestScope(JSON.stringify(context));
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
@@ -84,9 +85,7 @@ export function useArtistEditions(
       !request.active() ||
       owner.pending ||
       (!restarting && (current.limited || current.pages >= MAX_PAGES)) ||
-      association.account_id !== account ||
-      association.recording_id !== recording ||
-      association.provider_artist_id !== profile.artist.id
+      !associationAuthorizes(context)
     )
       return;
     owner.pending = true;
@@ -137,7 +136,7 @@ export function useArtistEditions(
           account,
           recording,
           association.id,
-          { release_group_id: group.id, limit: PAGE_LIMIT, continuation },
+          { release_group_id: releaseGroupId, limit: PAGE_LIMIT, continuation },
           controller.signal,
           restarting,
         ),
@@ -152,7 +151,7 @@ export function useArtistEditions(
       }
       if (
         result.association_id !== association.id ||
-        result.page.release_group_id !== group.id
+        result.page.release_group_id !== releaseGroupId
       )
         throw new Error(
           "These editions did not belong to this saved artist review and release group. Browse again.",

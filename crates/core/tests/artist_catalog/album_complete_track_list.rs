@@ -20,6 +20,7 @@ async fn a_selected_edition_merges_with_the_library_only_by_exact_provider_ident
     let AlbumEditionTrackListAvailability::Available {
         association_id,
         edition,
+        stats: _,
         matches,
         library_only,
         attached_occurrences,

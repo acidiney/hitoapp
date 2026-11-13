@@ -18,6 +18,7 @@ export type AlbumFacts = {
 
 type Props = {
   context: ArtistEditionContext & { release: string };
+  group: Schema<"CatalogReleaseGroup">;
   album: AlbumFacts;
   suggested: boolean;
   automatic: boolean;
@@ -31,6 +32,7 @@ type Props = {
 
 export default function AlbumEditionStep({
   context,
+  group,
   album,
   suggested,
   automatic,
@@ -41,7 +43,7 @@ export default function AlbumEditionStep({
   different,
   dismiss,
 }: Props) {
-  const { group, release } = context;
+  const { release } = context;
   const workflow = useArtistEditions(context, true);
   const comparison = useAlbumEditionTrackList(
     context,

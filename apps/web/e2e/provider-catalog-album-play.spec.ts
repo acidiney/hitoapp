@@ -33,7 +33,7 @@ test("a catalog album plays like a library album: Play starts the first track, q
     await expect(table.getByRole("listitem")).toHaveCount(4);
     expect(artist.provider.state.searches).toEqual([]);
 
-    await page.getByRole("button", { name: "Play album" }).click();
+    await page.getByRole("button", { name: "Play album", exact: true }).click();
     const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
@@ -85,7 +85,7 @@ test("with automatic service search off, Play says why, links to the setting and
     await page
       .getByRole("link", { name: `Open ${catalogAlbum.groupTitle}` })
       .click();
-    await page.getByRole("button", { name: "Play album" }).click();
+    await page.getByRole("button", { name: "Play album", exact: true }).click();
     const note = page.getByRole("status").filter({
       hasText: "Search connected services automatically",
     });

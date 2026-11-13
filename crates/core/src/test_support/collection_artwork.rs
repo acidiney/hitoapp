@@ -148,6 +148,13 @@ impl ArtworkServer {
     pub async fn requests(&self) -> Vec<ArtworkRequest> {
         self.requests.lock().await.clone()
     }
+
+    pub async fn shutdown(mut self) {
+        self.task.abort();
+        if let Err(error) = (&mut self.task).await {
+            assert!(error.is_cancelled(), "the owned artwork provider must join");
+        }
+    }
 }
 
 impl Drop for ArtworkServer {

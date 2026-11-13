@@ -41,6 +41,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         AlbumDetailsPageProps,
         ArtistIndexPageProps,
         ArtistIdentityGroupPageProps,
+        CatalogAlbumPageProps,
         ArtistPageProps,
         RecordingDetailsPageProps,
         PlaylistIndexPageProps,
@@ -164,6 +165,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         ))
         .routes(routes!(api::artist_catalog::update_automation))
         .routes(routes!(api::artist_review::context))
+        .routes(routes!(api::artist_review::member_context))
         .routes(routes!(api::artist_review::search))
         .routes(routes!(api::artist_review::preview))
         .routes(routes!(api::artist_review::releases))
@@ -210,6 +212,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::album_editions::choose))
         .routes(routes!(api::album_editions::clear))
         .routes(routes!(api::artist_editions::list))
+        .routes(routes!(api::artist_release_group::read))
         .routes(routes!(api::artist_editions::track_list))
         .routes(routes!(api::artist_editions::track_audio))
         .routes(routes!(api::featured::shelf))
