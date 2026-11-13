@@ -125,7 +125,6 @@ export function useCatalogTracks(
 
   return {
     ...album,
-    occurrences: album.rows,
     playback,
     library,
     linked,

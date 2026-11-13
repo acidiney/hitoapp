@@ -9,7 +9,7 @@ import { albumEyebrow } from "../../catalog/model/albumEyebrow";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
-import { longDuration, totalMs } from "../model/catalogAlbumRows";
+import { statsText } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
 import CatalogTrackList from "./CatalogTrackList";
 import CatalogFailure from "./CatalogFailure";
@@ -35,16 +35,8 @@ export default function CatalogAlbum({
   playlists?: Schema<"Playlist">[];
 }) {
   const { mutate } = useMutation(context.account);
-  const {
-    editions,
-    tracks,
-    rows,
-    occurrences,
-    credit,
-    playback,
-    linked,
-    controls,
-  } = useCatalogTracks(context, group, withLibrary, mutate);
+  const { editions, tracks, rows, credit, playback, linked, controls } =
+    useCatalogTracks(context, group, withLibrary, mutate);
   const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;
@@ -57,7 +49,6 @@ export default function CatalogAlbum({
     void starter.current(0);
   }, [playOnReady, ready]);
   const title = group?.title || editions.chosen?.title || "Release";
-  const duration = totalMs(occurrences);
   const owned = rows.filter((row) => row.recording).length;
   const filter = owned > 0 ? chosenFilter : "all";
   const year = group?.first_release_date?.slice(0, 4);
@@ -93,11 +84,7 @@ export default function CatalogAlbum({
             <span className="album-artist">{credit}</span>
           ))
         }
-        stats={
-          rows.length > 0
-            ? `${rows.length} ${rows.length === 1 ? "track" : "tracks"}${duration > 0 ? ` · ${longDuration(duration)}` : ""}`
-            : null
-        }
+        stats={rows.length > 0 && tracks.stats ? statsText(tracks.stats) : null}
         status={
           rows.length === 0 ? null : owned === 0 ? (
             <span className="album-status">Not in your library</span>

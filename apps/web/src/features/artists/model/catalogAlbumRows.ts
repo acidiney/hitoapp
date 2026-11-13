@@ -39,8 +39,11 @@ export function albumRows(
   );
 }
 
-export function totalMs(rows: CatalogRow[]): number {
-  return rows.reduce((sum, row) => sum + (row.durationMs ?? 0), 0);
+export function statsText(stats: Schema<"EditionTrackStats">): string {
+  const count = `${stats.audio_tracks} ${stats.audio_tracks === 1 ? "track" : "tracks"}`;
+  return stats.total_duration_ms === null
+    ? count
+    : `${count} · ${longDuration(stats.total_duration_ms)}`;
 }
 
 export function longDuration(ms: number): string {

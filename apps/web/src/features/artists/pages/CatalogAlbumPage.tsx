@@ -3,6 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import { rememberedReleaseGroup } from "../api/catalogCache";
 import CatalogAlbum from "../components/CatalogAlbum";
 import { useCatalogAlbumAnchor } from "../hooks/useArtistGroupDiscography";
+import { useCatalogReleaseGroup } from "../hooks/useCatalogReleaseGroup";
 
 export default function CatalogAlbumPage({
   user,
@@ -16,9 +17,17 @@ export default function CatalogAlbumPage({
     new URL(url, window.location.origin).searchParams.get("play") === "1";
   const anchor = useCatalogAlbumAnchor(user.id, group);
   const association = anchor.ready?.association ?? null;
-  const summary = association
-    ? rememberedReleaseGroup(user.id, association.id, releaseGroupId)
-    : null;
+  const fresh = useCatalogReleaseGroup(
+    user.id,
+    group.name.recording_id,
+    association,
+    releaseGroupId,
+  );
+  const summary =
+    fresh ??
+    (association
+      ? rememberedReleaseGroup(user.id, association.id, releaseGroupId)
+      : null);
   const artistHref = `/artist-groups/${encodeURIComponent(group.id)}`;
   return (
     <>

@@ -8,7 +8,8 @@ const INVALID_RESPONSE =
   "Hito returned an invalid edition response. Try again.";
 const availabilityStatuses: Record<
   | Schema<"ReleaseGroupEditionsAvailability">["status"]
-  | Schema<"EditionTrackListAvailability">["status"],
+  | Schema<"EditionTrackListAvailability">["status"]
+  | Schema<"ReleaseGroupAvailability">["status"],
   true
 > = {
   available: true,
@@ -21,7 +22,8 @@ const availabilityStatuses: Record<
 async function json<
   T extends
     | Schema<"ReleaseGroupEditionsAvailability">
-    | Schema<"EditionTrackListAvailability">,
+    | Schema<"EditionTrackListAvailability">
+    | Schema<"ReleaseGroupAvailability">,
 >(response: Response): Promise<T> {
   let value: unknown;
   try {
@@ -42,6 +44,32 @@ async function json<
 }
 
 export const artistEditionApi = {
+  async group(
+    account: string,
+    recording: string,
+    association: string,
+    body: Schema<"ReadReleaseGroup">,
+    signal: AbortSignal,
+  ): Promise<Schema<"ReleaseGroupAvailability">> {
+    return cachedRead(
+      account,
+      ["group", recording, association, body],
+      async (loadSignal) =>
+        json<Schema<"ReleaseGroupAvailability">>(
+          await request(
+            `/recordings/${part(recording)}/artist-associations/${part(association)}/release-group`,
+            {
+              action: "artist_release_group.read",
+              method: "POST",
+              account,
+              body,
+              signal: loadSignal,
+            },
+          ),
+        ),
+      signal,
+    );
+  },
   async editions(
     account: string,
     recording: string,

@@ -28,5 +28,6 @@ export function useArtistEditionTrackList(
     ...state,
     edition: result?.edition ?? null,
     linked: result?.linked ?? noLinks,
+    stats: result?.stats ?? null,
   };
 }
