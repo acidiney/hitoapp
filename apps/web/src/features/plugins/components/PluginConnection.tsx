@@ -63,7 +63,7 @@ export default function PluginConnection({
 }) {
   const checkButton = useRef<HTMLButtonElement>(null);
   const removeButton = useRef<HTMLButtonElement>(null);
-  const [token, setToken] = useState("");
+  const tokenField = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [waiting, setWaiting] = useState<Proposal | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -91,12 +91,15 @@ export default function PluginConnection({
     );
     return () => controller.abort();
   }, [checkDeclaration, canCheck, id, firstRevision]);
+  function clearTokenField() {
+    if (tokenField.current) tokenField.current.value = "";
+  }
   async function check(accept = false) {
     const result = await actions.refresh(plugin, {
       revision: plugin.revision,
       accept_manifest_digest: accept ? review?.digest : null,
-      credential: token
-        ? { action: "replace", bearer_token: token }
+      credential: tokenField.current?.value
+        ? { action: "replace", bearer_token: tokenField.current.value }
         : { action: "keep" },
     });
     if (result?.kind === "review_required") {
@@ -106,7 +109,7 @@ export default function PluginConnection({
     if (result?.kind === "updated") {
       setReview(null);
       setWaiting(null);
-      setToken("");
+      clearTokenField();
       setStatus("Connection checked.");
       focusAfterCommit("check");
     }
@@ -321,11 +324,10 @@ export default function PluginConnection({
                   type="password"
                   autoComplete="off"
                   maxLength={4096}
-                  value={token}
+                  ref={tokenField}
                   required
                   disabled={actions.pending || !storageReady}
-                  onChange={(event) => {
-                    setToken(event.target.value);
+                  onChange={() => {
                     setReview(null);
                     setStatus("");
                   }}
@@ -344,7 +346,7 @@ export default function PluginConnection({
                     disabled={actions.pending}
                     onClick={async () => {
                       if (await actions.clearCredential(plugin)) {
-                        setToken("");
+                        clearTokenField();
                         setReview(null);
                         setStatus("Saved token cleared.");
                         focusAfterCommit("check");
@@ -367,7 +369,7 @@ export default function PluginConnection({
           onAccept={() => void check(true)}
           onDecline={() => {
             setReview(null);
-            setToken("");
+            clearTokenField();
             focusAfterCommit("check");
           }}
         />
