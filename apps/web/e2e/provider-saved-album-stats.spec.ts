@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { albumEdition } from "./fixtures/album-edition-provider";
 import { longTrack, savedAlbum } from "./fixtures/saved-album";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
 
@@ -78,8 +79,13 @@ test("another account does not see someone else's chosen edition or its totals",
     });
     expect(login.status()).toBe(200);
     const other = await peer.newPage();
+    const dispatched = album.fixture.calls.length;
     const response = await other.goto(`/albums/${album.release}`);
-    expect([200, 404]).toContain(response?.status());
+    expect(response?.status()).toBe(404);
+    expect(album.fixture.calls.length).toBe(dispatched);
+    await expect(
+      other.getByText(album.fixture.titles[albumEdition.first]),
+    ).toHaveCount(0);
     await expect(other.getByText(/1 hr 0 min/)).toHaveCount(0);
     await expect(
       other.getByRole("region", { name: "Album edition track list" }),
