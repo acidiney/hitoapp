@@ -8,7 +8,8 @@ use hito_core::test_support::{
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-const REFERENCE: &str = "https://links.example/owned/private-credential-link?token=owned-link-token";
+const REFERENCE: &str =
+    "https://links.example/owned/private-credential-link?token=owned-link-token";
 
 struct Observed {
     response: Value,
@@ -55,12 +56,7 @@ async fn a_current_source_link401_identifies_only_its_approved_connection() {
 
 async fn prepare(setup: &Setup, server: &SourceLinkServer) -> Context {
     let installation = connect(setup, server).await;
-    let owner = Account::login(
-        &setup.app,
-        "admin",
-        "administrator test password",
-    )
-    .await;
+    let owner = Account::login(&setup.app, "admin", "administrator test password").await;
     let (status, refreshed) = owner
         .request(
             &setup.app,
@@ -125,11 +121,11 @@ async fn exercise(setup: &Setup, server: &SourceLinkServer, context: &Context) -
     let peer_before = plugins(setup, &context.peer).await;
     let row = installation(&before, context.connection["id"].as_str().unwrap());
     assert_eq!(row["revision"], context.connection["revision"]);
-    assert_eq!(row["health"], json!({"state": "ok", "reason": null, "since": null}));
     assert_eq!(
-        peer_before["installations"].as_array().unwrap().len(),
-        1
+        row["health"],
+        json!({"state": "ok", "reason": null, "since": null})
     );
+    assert_eq!(peer_before["installations"].as_array().unwrap().len(), 1);
     assert_eq!(
         peer_before["installations"][0]["id"],
         context.peer_connection["id"]
@@ -141,7 +137,10 @@ async fn exercise(setup: &Setup, server: &SourceLinkServer, context: &Context) -
     let path = format!("/api/v1/recordings/{}/sources/lookup", setup.recording);
     let calls_before = server.lookup_requests().len();
     for (id, revision) in [
-        (json!(context.connection["id"]), json!(context.connection["revision"])),
+        (
+            json!(context.connection["id"]),
+            json!(context.connection["revision"]),
+        ),
         (
             context.peer_connection["id"].clone(),
             context.peer_connection["revision"].clone(),
@@ -184,9 +183,13 @@ async fn exercise(setup: &Setup, server: &SourceLinkServer, context: &Context) -
         response["error"],
         "Update this plugin connection's service credentials in Settings."
     );
-    assert!(response.as_object().unwrap().keys().all(|key| {
-        matches!(key.as_str(), "error" | "code" | "plugin_connection")
-    }));
+    assert!(
+        response
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|key| { matches!(key.as_str(), "error" | "code" | "plugin_connection") })
+    );
     let encoded = response.to_string();
     assert!(!encoded.contains(REFERENCE));
     assert!(!encoded.contains("owned-link-token"));

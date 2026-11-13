@@ -157,7 +157,8 @@ async fn http_lookup_requires_the_listener_session_before_any_service_call() {
         let setup = owned.setup.as_ref().unwrap();
         let installation = connect(setup, &server).await;
         for token in [None, Some("not-a-session")] {
-            let (status, cache, _) = lookup(setup, token, body(&installation, KNOWN_REFERENCE)).await;
+            let (status, cache, _) =
+                lookup(setup, token, body(&installation, KNOWN_REFERENCE)).await;
             assert_eq!(status, StatusCode::UNAUTHORIZED);
             assert_eq!(cache.as_deref(), Some("private, no-store"));
         }
@@ -284,11 +285,12 @@ async fn an_upstream_credential_refusal_is_not_a_listener_sign_out() {
 #[tokio::test]
 async fn http_lookup_on_an_old_approval_requires_review_before_any_service_call() {
     fixture::run(async |owned| {
-        let server = owned.server_with_capabilities(
-            "org.hito.http-upgraded-source-link-fixture",
-            [Capability::Search, Capability::Sources],
-        )
-        .await;
+        let server = owned
+            .server_with_capabilities(
+                "org.hito.http-upgraded-source-link-fixture",
+                [Capability::Search, Capability::Sources],
+            )
+            .await;
         let setup = owned.setup.as_ref().unwrap();
         let installation = connect(setup, &server).await;
         let (status, cache, _) = lookup(

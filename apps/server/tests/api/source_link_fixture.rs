@@ -9,8 +9,8 @@ use hito_core::{
         source_link_service::SourceLinkServer,
     },
 };
-use hito_testkit::fake_plugin::Gate;
 use hito_plugin_sdk::Capability;
+use hito_testkit::fake_plugin::Gate;
 use serde_json::{Value, json};
 use std::{
     panic::{AssertUnwindSafe, resume_unwind},

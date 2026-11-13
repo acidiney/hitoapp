@@ -1,8 +1,8 @@
 use super::connect;
 use futures_util::FutureExt;
 use hito_core::{
-    Actor, AdoptProviderRecording, CoreConfig, Credentials, Error, HostDeviceId,
-    ProviderCandidate, Services,
+    Actor, AdoptProviderRecording, CoreConfig, Credentials, Error, HostDeviceId, ProviderCandidate,
+    Services,
     test_support::{
         database_owner::DatabaseOwner, hang_guard::hang_guard,
         source_link_service::SourceLinkServer, support,

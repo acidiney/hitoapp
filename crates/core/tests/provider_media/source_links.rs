@@ -248,11 +248,12 @@ async fn invalid_references_are_rejected_before_any_service_call() {
 #[tokio::test]
 async fn an_old_approval_never_grants_source_links_until_the_owner_accepts_the_change() {
     run("source-link-approval", async |owned| {
-        let server = owned.server_with_capabilities(
-            "org.hito.upgraded-source-link-fixture",
-            [Capability::Search, Capability::Sources],
-        )
-        .await;
+        let server = owned
+            .server_with_capabilities(
+                "org.hito.upgraded-source-link-fixture",
+                [Capability::Search, Capability::Sources],
+            )
+            .await;
         let world = owned.world.as_ref().unwrap();
         let installation = connect(&world.hito, &world.actor, &server).await;
         let refused = lookup(world, &world.actor, &installation, KNOWN_REFERENCE).await;
@@ -418,10 +419,12 @@ async fn revoke_during_lookup(revocation: Revocation) {
             }
         }
         gate.open();
-        let result = tokio::time::timeout(Duration::from_secs(3), async { owned.requests.join_next().await.unwrap() })
-            .await
-            .expect("revocation must finish the lookup promptly")
-            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            owned.requests.join_next().await.unwrap()
+        })
+        .await
+        .expect("revocation must finish the lookup promptly")
+        .unwrap();
         match revocation {
             Revocation::Logout => assert!(
                 matches!(result, Err(Error::Unauthorized)),
@@ -497,10 +500,12 @@ async fn a_not_found_answer_after_revocation_reports_the_revocation() {
         gate.entered().await;
         world.hito.identity.logout(&token).await.unwrap();
         gate.open();
-        let result = tokio::time::timeout(Duration::from_secs(3), async { owned.requests.join_next().await.unwrap() })
-            .await
-            .unwrap()
-            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            owned.requests.join_next().await.unwrap()
+        })
+        .await
+        .unwrap()
+        .unwrap();
         assert!(
             matches!(result, Err(Error::Unauthorized)),
             "{:?}",
@@ -535,10 +540,12 @@ async fn cancelling_the_lookup_finishes_promptly_without_a_candidate() {
         };
         gate.entered().await;
         cancel.send(()).unwrap();
-        let result = tokio::time::timeout(Duration::from_secs(3), async { owned.requests.join_next().await.unwrap() })
-            .await
-            .expect("cancellation must finish the lookup promptly")
-            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            owned.requests.join_next().await.unwrap()
+        })
+        .await
+        .expect("cancellation must finish the lookup promptly")
+        .unwrap();
         assert!(
             matches!(result, Err(Error::Upstream(_))),
             "{:?}",
@@ -574,10 +581,12 @@ async fn a_stalled_answer_body_is_retired_on_cancellation() {
         };
         gate.entered().await;
         cancel.send(()).unwrap();
-        let result = tokio::time::timeout(Duration::from_secs(3), async { owned.requests.join_next().await.unwrap() })
-            .await
-            .unwrap()
-            .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            owned.requests.join_next().await.unwrap()
+        })
+        .await
+        .unwrap()
+        .unwrap();
         assert!(
             matches!(result, Err(Error::Upstream(_))),
             "{:?}",
@@ -606,7 +615,9 @@ async fn upstream_failures_are_sanitized_and_keep_the_listener_session() {
             ),
             (
                 "owned-echo",
-                Answer::Raw(json!({"recording": recording("owned-echo"), "reference": "owned-echo"})),
+                Answer::Raw(
+                    json!({"recording": recording("owned-echo"), "reference": "owned-echo"}),
+                ),
             ),
         ] {
             server.answer(reference, answer);
@@ -617,7 +628,10 @@ async fn upstream_failures_are_sanitized_and_keep_the_listener_session() {
                         assert_eq!(stamp.installation_id, installation.id);
                         assert_eq!(stamp.installation_revision, installation.revision);
                     }
-                    other => panic!("expected a stamped credential refusal, got {:?}", other.err()),
+                    other => panic!(
+                        "expected a stamped credential refusal, got {:?}",
+                        other.err()
+                    ),
                 }
                 continue;
             }
@@ -642,7 +656,8 @@ async fn lookup_logs_carry_safe_outcomes_and_never_the_reference() {
         let server = owned.server().await;
         let world = owned.world.as_ref().unwrap();
         let installation = connect(&world.hito, &world.actor, &server).await;
-        let private = "https://links.example/owned/private-link-sentinel?token=private-token-sentinel";
+        let private =
+            "https://links.example/owned/private-link-sentinel?token=private-token-sentinel";
         server.answer(
             private,
             Answer::Recording(recording("private-recording-sentinel")),

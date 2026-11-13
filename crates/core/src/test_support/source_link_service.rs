@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use hito_plugin_sdk::{
-    Capability, DETAIL_PATH, HEALTH_PATH, MANIFEST_PATH, Manifest, PROTOCOL_VERSION, RECORDING_LOOKUP_PATH,
-    RecordingLookupRequest, SOURCES_PATH,
+    Capability, DETAIL_PATH, HEALTH_PATH, MANIFEST_PATH, Manifest, PROTOCOL_VERSION,
+    RECORDING_LOOKUP_PATH, RecordingLookupRequest, SOURCES_PATH,
 };
 use hito_testkit::fake_plugin::{self as fake, FakePlugin, Gate, RecordedRequest};
 use serde_json::{Value, json};
