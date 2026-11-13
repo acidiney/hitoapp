@@ -358,3 +358,9 @@ mod credit_member_review_preview_fixture;
 mod credit_member_review_preview_security;
 #[path = "fixtures/credit_member_review_preview_security.rs"]
 mod credit_member_review_preview_security_fixture;
+
+#[path = "api/credit_member_review_confirm.rs"]
+mod credit_member_review_confirm;
+
+#[path = "api/credit_member_review_main_target.rs"]
+mod credit_member_review_main_target;
