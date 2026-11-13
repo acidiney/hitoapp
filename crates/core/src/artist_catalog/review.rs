@@ -234,7 +234,7 @@ impl<'a> Authority<'a> {
         Ok(current)
     }
 
-    async fn recheck_on(
+    pub(super) async fn recheck_on(
         self,
         transaction: &mut SqliteConnection,
         actor: &Actor,

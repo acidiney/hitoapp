@@ -367,6 +367,45 @@ pub async fn confirm(
     Ok(Json(result?))
 }
 
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/confirm", operation_id = "confirm_credit_member_review",
+    params(("id" = String, Path), ("artist" = String, Path)), request_body = SelectCreditMemberCandidate,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistAssociation), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_credit_member_review_confirm", request_id = %Uuid::new_v4()))]
+pub async fn member_confirm(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+    JsonBody(request): JsonBody<SelectCreditMemberCandidate>,
+) -> ApiResult<Json<ArtistAssociation>> {
+    let started = Instant::now();
+    let result = async {
+        if recording != request.context.recording_id || artist != request.context.artist_id {
+            return Err(Error::NotFound);
+        }
+        services
+            .artist_catalog
+            .confirm_credit_member_review(&actor, &request.context, &request.provider_artist_id)
+            .await
+    }
+    .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map(|_| "returned")
+            .unwrap_or_else(|error| error.code()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member review confirmation HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
 fn require_recording(recording: &str, context: &ArtistReviewContext) -> hito_core::Result<()> {
     if recording != context.recording_id {
         return Err(Error::Invalid(

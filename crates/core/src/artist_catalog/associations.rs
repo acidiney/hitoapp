@@ -3,6 +3,7 @@ use super::{
     CoverageEvidence, CreditEvidence, CreditEvidenceKind, MAX_ASSOCIATIONS,
     MAX_RETAINED_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET, association_changes,
     authority::{self, Credit},
+    credit_target::CreditTarget,
     policy, provider,
 };
 use crate::{Actor, ArtistCatalog, Error, Result, identity::recording_access};
@@ -236,6 +237,16 @@ pub(super) async fn existing(
 ) -> Result<Option<String>> {
     let credit =
         Credit::capture_for_artist(connection, actor, recording, &request.artist_id).await?;
+    existing_for_target(connection, actor, recording, request, &credit.target).await
+}
+
+async fn existing_for_target(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    request: &AssociateRecordingArtist,
+    target: &CreditTarget,
+) -> Result<Option<String>> {
     let (kind, installation) = authority::provider_columns(&request.provider);
     Ok(sqlx::query_scalar(
         "SELECT id FROM recording_artist_associations
@@ -250,7 +261,7 @@ pub(super) async fn existing(
     .bind(kind)
     .bind(installation)
     .bind(&request.provider_artist_id)
-    .bind(credit.target.storage_kind())
+    .bind(target.storage_kind())
     .fetch_optional(connection)
     .await?)
 }
@@ -276,14 +287,37 @@ pub(super) async fn retain(
 ) -> Result<ArtistAssociation> {
     let credit =
         Credit::capture_for_artist(connection, actor, recording, &request.artist_id).await?;
+    retain_target(
+        connection,
+        actor,
+        recording,
+        library,
+        request,
+        &credit.target,
+    )
+    .await
+}
+
+pub(super) async fn retain_target(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    library: &str,
+    request: &AssociateRecordingArtist,
+    target: &CreditTarget,
+) -> Result<ArtistAssociation> {
+    let credit = Credit::capture_target(connection, actor, recording, target).await?;
     if credit.library_id != library
+        || credit.artist_id != request.artist_id
         || credit.source_id != request.source_id
         || credit.observation_id != request.observation_id
     {
         return Err(authority::changed());
     }
     let (kind, installation) = authority::provider_columns(&request.provider);
-    let id = if let Some(existing) = existing(connection, actor, recording, request).await? {
+    let id = if let Some(existing) =
+        existing_for_target(connection, actor, recording, request, &credit.target).await?
+    {
         if !association_changes::is_linked(connection, &existing).await? {
             association_changes::ensure_room(connection, actor, recording).await?;
             association_changes::append(connection, actor, recording, &existing, true).await?;

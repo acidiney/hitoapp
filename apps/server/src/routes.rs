@@ -172,6 +172,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_review::member_preview))
         .routes(routes!(api::artist_review::releases))
         .routes(routes!(api::artist_review::confirm))
+        .routes(routes!(api::artist_review::member_confirm))
         .routes(routes!(
             api::artist_identity::read,
             api::artist_identity::choose
