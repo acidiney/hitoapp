@@ -1,5 +1,5 @@
 use super::{
-    authority,
+    authority::{self, Traversal},
     fallback::{Basis, FALLBACK_POLICY},
     matching::{METADATA_POLICY, MusicalRecording, POLICY},
 };
@@ -16,10 +16,16 @@ use std::{
 
 const DETAIL_LIMIT: usize = 3;
 
+#[derive(Clone, Copy)]
+pub(super) struct RetainedSource<'a> {
+    pub(super) recording: &'a str,
+    pub(super) target_digest: &'a str,
+    pub(super) binding: &'a str,
+}
+
 pub(super) struct Subject<'a> {
     pub(super) musical: &'a MusicalRecording,
-    pub(super) recording: Option<&'a str>,
-    pub(super) binding: Option<&'a str>,
+    pub(super) source: Option<RetainedSource<'a>>,
 }
 
 enum CandidateEvidence {
@@ -151,11 +157,11 @@ impl Catalog {
     pub(super) async fn search_resolution_connection(
         &self,
         actor: &Actor,
-        musical: &MusicalRecording,
+        subject: &Subject<'_>,
         installation: String,
         revision: i64,
         query: &str,
-    ) -> Result<Page> {
+    ) -> Result<Traversal<Page>> {
         let operation = self
             .plugins
             .operation(
@@ -165,18 +171,69 @@ impl Catalog {
                 &[Capability::Search, Capability::Sources],
             )
             .await?;
-        let mut page = operation
+        if matches!(
+            check_exchange_authority(self, actor, subject, &operation).await?,
+            Traversal::Superseded
+        ) {
+            return Ok(Traversal::Superseded);
+        }
+        let observation = operation.credential_observation();
+        let result = operation
             .search(&SearchRequest {
                 query: query.into(),
                 cursor: None,
                 limit: 20,
             })
-            .await?;
+            .await;
+        let mut tx = self.store.pool.begin().await?;
+        if matches!(
+            authority::current(&mut tx, actor, subject.source).await?,
+            Traversal::Superseded
+        ) {
+            tx.commit().await?;
+            return Ok(Traversal::Superseded);
+        }
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "source_search_postcheck",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+            "Owned authority snapshot checkpoint"
+        );
+        let mut generation = match operation.recheck(&mut tx).await {
+            Ok(()) => Ok(()),
+            Err(error @ (Error::NotFound | Error::Conflict(_))) => Err(error),
+            Err(error) => return Err(error),
+        };
+        tx.commit().await?;
+        if generation.is_ok() {
+            generation = match operation.check_current().await {
+                Ok(()) => Ok(()),
+                Err(error @ (Error::NotFound | Error::Conflict(_))) => Err(error),
+                Err(error) => return Err(error),
+            };
+        }
         {
             let mut connection = self.store.pool.acquire().await?;
-            actor.check_session_on(&mut connection).await?;
-            operation.recheck(&mut connection).await?;
+            if matches!(
+                authority::current(&mut connection, actor, subject.source).await?,
+                Traversal::Superseded
+            ) {
+                return Ok(Traversal::Superseded);
+            }
         }
+        let current_source = subject.source.is_some() && generation.is_ok();
+        if current_source && result.is_ok() {
+            operation.credentials_verified(&observation);
+        }
+        let mut page = match result {
+            Err(error @ Error::PluginCredentialsRequired(_)) if current_source => {
+                return Err(operation.with_credential_context(error, &observation));
+            }
+            result => result?,
+        };
+        generation?;
         let returned_count = page.items.len();
         let ranked = page
             .items
@@ -187,9 +244,9 @@ impl Catalog {
             .collect::<Vec<_>>();
         page.items.retain(|candidate| {
             if operation.metadata_approved() {
-                musical.plausible_metadata_summary(candidate)
+                subject.musical.plausible_metadata_summary(candidate)
             } else {
-                musical.plausible(candidate)
+                subject.musical.plausible(candidate)
             }
         });
         tracing::debug!(
@@ -199,7 +256,7 @@ impl Catalog {
             detail_limit = DETAIL_LIMIT,
             "Source resolution search candidates filtered"
         );
-        Ok(Page {
+        Ok(Traversal::Current(Page {
             provider_unavailable: false,
             installation,
             revision,
@@ -207,7 +264,7 @@ impl Catalog {
             summaries: page.items.into_iter().take(DETAIL_LIMIT),
             ranked: ranked.into_iter(),
             hydrated: HashMap::new(),
-        })
+        }))
     }
 }
 
@@ -217,11 +274,10 @@ impl Page {
         catalog: &Catalog,
         actor: &Actor,
         subject: &Subject<'_>,
-    ) -> Result<Option<Candidate>> {
-        let (recording, musical) = (subject.recording, subject.musical);
+    ) -> Result<Traversal<Option<Candidate>>> {
         loop {
             let Some(summary) = self.summaries.next() else {
-                return Ok(None);
+                return Ok(Traversal::Current(None));
             };
             let occupied = self.occupied(catalog, actor, subject, &summary).await?;
             if occupied {
@@ -235,8 +291,9 @@ impl Page {
             let request = RecordingRequest {
                 recording_id: summary.id.clone(),
             };
-            let candidate = match self.hydrate(catalog, actor, recording, &request).await {
-                Ok(candidate) => candidate,
+            let candidate = match self.hydrate(catalog, actor, subject, &request).await {
+                Ok(Traversal::Current(candidate)) => candidate,
+                Ok(Traversal::Superseded) => return Ok(Traversal::Superseded),
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     self.provider_unavailable |= super::is_provider_unavailable(&error);
@@ -250,7 +307,7 @@ impl Page {
                 }
             };
             let technical = candidate.technical_rejection_for(&summary.id);
-            let rejection = technical.or_else(|| candidate.matching_rejection(musical));
+            let rejection = technical.or_else(|| candidate.matching_rejection(subject.musical));
             if let Some(reason) = rejection {
                 tracing::debug!(
                     event = "source_resolution_candidate_rejected",
@@ -261,7 +318,7 @@ impl Page {
                     .insert(summary.id.clone(), technical.is_none().then_some(candidate));
                 continue;
             }
-            return Ok(Some(candidate));
+            return Ok(Traversal::Current(Some(candidate)));
         }
     }
 
@@ -270,31 +327,37 @@ impl Page {
         catalog: &Catalog,
         actor: &Actor,
         subject: &Subject<'_>,
-    ) -> Result<Option<(usize, Candidate)>> {
+    ) -> Result<Traversal<Option<(usize, Candidate)>>> {
         loop {
             let Some((rank, summary)) = self.ranked.next() else {
-                return Ok(None);
+                return Ok(Traversal::Current(None));
             };
             if self.occupied(catalog, actor, subject, &summary).await? {
                 continue;
             }
             let candidate = match self.hydrated.remove(&summary.id) {
-                Some(Some(candidate)) => candidate,
+                Some(Some(candidate)) => {
+                    if matches!(
+                        check_exchange_authority(catalog, actor, subject, &self.operation).await?,
+                        Traversal::Superseded
+                    ) {
+                        return Ok(Traversal::Superseded);
+                    }
+                    candidate
+                }
                 Some(None) => continue,
                 None => {
                     let request = RecordingRequest {
                         recording_id: summary.id.clone(),
                     };
-                    match self
-                        .hydrate(catalog, actor, subject.recording, &request)
-                        .await
-                    {
-                        Ok(candidate)
+                    match self.hydrate(catalog, actor, subject, &request).await {
+                        Ok(Traversal::Current(candidate))
                             if candidate.technical_rejection_for(&summary.id).is_none() =>
                         {
                             candidate
                         }
-                        Ok(_) => continue,
+                        Ok(Traversal::Current(_)) => continue,
+                        Ok(Traversal::Superseded) => return Ok(Traversal::Superseded),
                         Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                         Err(error) => {
                             self.provider_unavailable |= super::is_provider_unavailable(&error);
@@ -308,7 +371,7 @@ impl Page {
                     }
                 }
             };
-            return Ok(Some((rank, candidate)));
+            return Ok(Traversal::Current(Some((rank, candidate))));
         }
     }
 
@@ -320,7 +383,12 @@ impl Page {
         summary: &ProviderRecording,
     ) -> Result<bool> {
         let mut connection = catalog.store.pool.acquire().await?;
-        authority::check(&mut connection, actor, subject.recording).await?;
+        authority::check(
+            &mut connection,
+            actor,
+            subject.source.map(|source| source.recording),
+        )
+        .await?;
         self.operation.recheck(&mut connection).await?;
         Ok(sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS(SELECT 1 FROM provider_items candidate
@@ -328,7 +396,7 @@ impl Page {
             WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
                 AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)",
         )
-        .bind(subject.binding)
+        .bind(subject.source.map(|source| source.binding))
         .bind(&self.installation)
         .bind(&summary.id)
         .fetch_one(&mut *connection)
@@ -339,40 +407,115 @@ impl Page {
         &self,
         catalog: &Catalog,
         actor: &Actor,
-        recording: Option<&str>,
+        subject: &Subject<'_>,
         request: &RecordingRequest,
-    ) -> Result<Candidate> {
+    ) -> Result<Traversal<Candidate>> {
+        if matches!(
+            check_exchange_authority(catalog, actor, subject, &self.operation).await?,
+            Traversal::Superseded
+        ) {
+            return Ok(Traversal::Superseded);
+        }
+        let observation = subject
+            .source
+            .map(|_| self.operation.credential_observation());
         let details = self.operation.recording_details(request).await;
-        self.recheck(catalog, actor, recording).await?;
-        let details = details?;
+        if matches!(
+            check_exchange_authority(catalog, actor, subject, &self.operation).await?,
+            Traversal::Superseded
+        ) {
+            return Ok(Traversal::Superseded);
+        }
+        let details = match (observation.as_ref(), details) {
+            (Some(observation), Ok(details)) => {
+                self.operation.credentials_verified(observation);
+                details
+            }
+            (Some(observation), Err(error)) => {
+                return Err(self.operation.with_credential_context(error, observation));
+            }
+            (None, result) => result?,
+        };
+        let observation = subject
+            .source
+            .map(|_| self.operation.credential_observation());
         let sources = self.operation.sources(request).await;
-        self.recheck(catalog, actor, recording).await?;
-        let sources = sources?;
+        if matches!(
+            check_exchange_authority(catalog, actor, subject, &self.operation).await?,
+            Traversal::Superseded
+        ) {
+            return Ok(Traversal::Superseded);
+        }
+        let sources = match (observation.as_ref(), sources) {
+            (Some(observation), Ok(sources)) => {
+                self.operation.credentials_verified(observation);
+                sources
+            }
+            (Some(observation), Err(error)) => {
+                return Err(self.operation.with_credential_context(error, observation));
+            }
+            (None, result) => result?,
+        };
         let evidence = if self.operation.metadata_approved() {
+            let observation = subject
+                .source
+                .map(|_| self.operation.credential_observation());
             let metadata = self.operation.recording_metadata(request).await;
-            self.recheck(catalog, actor, recording).await?;
-            CandidateEvidence::Musical(Box::new(metadata?))
+            if matches!(
+                check_exchange_authority(catalog, actor, subject, &self.operation).await?,
+                Traversal::Superseded
+            ) {
+                return Ok(Traversal::Superseded);
+            }
+            let metadata = match (observation.as_ref(), metadata) {
+                (Some(observation), Ok(metadata)) => {
+                    self.operation.credentials_verified(observation);
+                    metadata
+                }
+                (Some(observation), Err(error)) => {
+                    return Err(self.operation.with_credential_context(error, observation));
+                }
+                (None, result) => result?,
+            };
+            CandidateEvidence::Musical(Box::new(metadata))
         } else {
             CandidateEvidence::Legacy
         };
-        Ok(Candidate {
+        Ok(Traversal::Current(Candidate {
             installation: self.installation.clone(),
             installation_revision: self.revision,
             operation: Arc::clone(&self.operation),
             details,
             sources,
             evidence,
-        })
+        }))
     }
+}
 
-    async fn recheck(
-        &self,
-        catalog: &Catalog,
-        actor: &Actor,
-        recording: Option<&str>,
-    ) -> Result<()> {
-        let mut connection = catalog.store.pool.acquire().await?;
-        authority::check(&mut connection, actor, recording).await?;
-        self.operation.recheck(&mut connection).await
+async fn check_exchange_authority(
+    catalog: &Catalog,
+    actor: &Actor,
+    subject: &Subject<'_>,
+    operation: &Operation,
+) -> Result<Traversal<()>> {
+    let mut tx = catalog.store.pool.begin().await?;
+    let current = authority::current(&mut tx, actor, subject.source).await?;
+    if matches!(current, Traversal::Current(())) {
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "source_exchange",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+            "Owned authority snapshot checkpoint"
+        );
+        operation.recheck(&mut tx).await?;
     }
+    tx.commit().await?;
+    if matches!(current, Traversal::Current(())) {
+        operation.check_current().await?;
+        let mut connection = catalog.store.pool.acquire().await?;
+        return authority::current(&mut connection, actor, subject.source).await;
+    }
+    Ok(current)
 }

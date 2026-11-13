@@ -1,7 +1,5 @@
+use crate::resolution_musical_fixture as fixture;
 use hito_core::test_support::hang_guard::HANG_CEILING;
-#[path = "../fixtures/resolution_musical.rs"]
-mod fixture;
-use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{OpenedAudio, ResolveSource, SourceResolutionOutcome};

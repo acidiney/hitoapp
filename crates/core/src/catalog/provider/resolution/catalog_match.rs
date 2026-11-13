@@ -56,8 +56,7 @@ impl Catalog {
         }
         let subject = Subject {
             musical: &musical,
-            recording: None,
-            binding: None,
+            source: None,
         };
         let (found, basis) = match candidates.next(self, actor, &subject).await? {
             Some(candidate) => (Some(candidate), Basis::Matched),
