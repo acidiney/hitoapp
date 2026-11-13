@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { artistEditionApi } from "../api/artistEditionApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
@@ -75,7 +75,6 @@ export function useArtistEditions(
   const { account, recording, association, profile, group } = context;
   const scope = useRequestScope(JSON.stringify(context));
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
-  const initialOwner = useRef(owner);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 
@@ -225,7 +224,7 @@ export function useArtistEditions(
   }
 
   useEffect(() => {
-    if (!browseOnMount || owner !== initialOwner.current) return;
+    if (!browseOnMount) return;
     let active = true;
     queueMicrotask(() => {
       if (active) void load(null);

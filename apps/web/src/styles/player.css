@@ -88,8 +88,20 @@
 .transport-buttons .icon-button[aria-label^="Repeat"] {
   color: var(--muted);
 }
-.transport-buttons .selected {
-  color: var(--link);
+.transport-buttons .icon-button.selected {
+  position: relative;
+  color: var(--action);
+}
+.transport-buttons .icon-button.selected::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .play-button {
   border: 0;
@@ -297,4 +309,7 @@
   .queue-order .icon-button {
     min-width: 32px;
   }
+}
+.play-glyph {
+  transform: translateX(6%);
 }

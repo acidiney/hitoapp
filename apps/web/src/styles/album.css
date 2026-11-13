@@ -95,19 +95,17 @@
 .album-note a {
   color: var(--link);
 }
-.release-card[data-open] .album-header {
-  padding: 0;
-  background: transparent;
-}
-.release-card[data-open] .album-header :is(h4, h5) {
-  font-size: 28px;
-}
 
-.album-toolbar {
+.track-list-loading {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+.track-list-loading .release-skeleton-line:last-child {
+  width: 70%;
 }
 .album-toolbar-note {
   margin-left: auto;
@@ -119,36 +117,6 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px 40px 40px;
-}
-.album-edition .listbox-control {
-  min-width: 0;
-  width: auto;
-  gap: 8px;
-  padding: 0 12px 0 16px;
-  border-color: var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.album-edition .listbox {
-  grid-auto-flow: column;
-  align-items: center;
-  gap: 8px;
-}
-.album-edition .listbox-label {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--muted);
-}
-.album-edition .listbox-control > svg {
-  width: 14px;
-  height: 14px;
-  color: inherit;
-}
-.release-card .album-body {
-  padding: 0;
 }
 a.album-artist:hover,
 a.album-artist:focus-visible {
@@ -389,6 +357,7 @@ a.album-artist:focus-visible {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  margin-bottom: 12px;
 }
 .edition-toolbar::-webkit-scrollbar {
   display: none;
@@ -430,8 +399,7 @@ a.album-artist:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.edition-tracks .disc-header,
-.edition-group-title {
+.edition-tracks .disc-header {
   display: block;
   margin: 20px 0 4px 12px;
   padding: 0;
@@ -463,6 +431,7 @@ a.album-artist:focus-visible {
     "number credit status time controls"
     "failure failure failure failure failure";
   align-items: center;
+  align-content: center;
   column-gap: 14px;
   min-height: 56px;
   padding: 0 4px 0 12px;
@@ -492,6 +461,15 @@ a.album-artist:focus-visible {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.edition-row-item[aria-current="true"] .edition-row-open {
+  background: var(--subtle);
+}
+.edition-row-item[aria-current="true"] .edition-row-title {
+  color: var(--link);
+}
+.edition-row-number .playing-bars {
+  height: 14px;
+}
 .edition-row-title {
   grid-area: title;
   overflow: hidden;
@@ -501,6 +479,9 @@ a.album-artist:focus-visible {
 }
 .edition-row-sub {
   display: contents;
+}
+.edition-row-sub > span {
+  position: relative;
 }
 .edition-row-credit {
   grid-area: credit;
@@ -556,6 +537,15 @@ a.album-artist:focus-visible {
 }
 .edition-row-controls > * {
   pointer-events: auto;
+}
+.edition-row-add {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  color: var(--ink-soft);
 }
 .edition-row-check {
   display: flex;

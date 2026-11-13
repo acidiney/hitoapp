@@ -87,7 +87,11 @@ function ProviderResult({
       <div className="provider-result-copy">
         <h3>{hit.title}</h3>
         <p>
-          {[knownArtist(hit.artist), service, where]
+          {[
+            knownArtist(hit.artist) || knownArtist(saved?.artist),
+            service,
+            where,
+          ]
             .filter(Boolean)
             .join(" · ")}
         </p>

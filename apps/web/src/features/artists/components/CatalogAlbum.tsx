@@ -1,27 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
-import { Play, Shuffle } from "lucide-react";
 import type { Schema } from "../../../shared/schema";
 import { useMutation } from "../../../shared/hooks/useMutation";
-import Button from "../../../shared/ui/Button";
 import AlbumHeader from "../../catalog/components/AlbumHeader";
-import TrackTable from "../../playback/components/TrackTable";
+import AlbumActions from "../../catalog/components/AlbumActions";
+import AlbumProgressLine from "../../catalog/components/AlbumProgressLine";
+import { albumEyebrow } from "../../catalog/model/albumEyebrow";
 import { useCatalogRefreshing } from "../api/catalogCache";
 import { useCatalogTracks } from "../hooks/useCatalogTracks";
 import type { ArtistEditionContext } from "../hooks/useArtistEditions";
 import { longDuration, totalMs } from "../model/catalogAlbumRows";
 import CatalogCover from "./CatalogCover";
+import CatalogTrackList from "./CatalogTrackList";
 import CatalogFailure from "./CatalogFailure";
-import CatalogEditionSwitch from "./CatalogEditionSwitch";
-import LibraryAvailability from "./LibraryAvailability";
-
-const kinds = {
-  album: "Album",
-  ep: "EP",
-  single: "Single",
-  broadcast: "Broadcast",
-  other: "Other",
-};
+import EditionToolbar, { type EditionFilter } from "./EditionToolbar";
+import { editionLabel } from "../model/editionLabel";
+import CatalogPlayNotes from "./CatalogPlayNotes";
 
 export default function CatalogAlbum({
   context,
@@ -47,10 +41,10 @@ export default function CatalogAlbum({
     occurrences,
     credit,
     playback,
-    library,
+    linked,
     controls,
   } = useCatalogTracks(context, withLibrary, mutate);
-  const owned = library.albums[group.id] ?? [];
+  const [chosenFilter, setFilter] = useState<EditionFilter>("all");
   const refreshing = useCatalogRefreshing();
   const ready = rows.length > 0;
   const started = useRef(false);
@@ -61,15 +55,10 @@ export default function CatalogAlbum({
     started.current = true;
     void starter.current(0);
   }, [playOnReady, ready]);
-  if (!editions.opened)
-    return (
-      <Button type="button" onClick={() => void editions.browse()}>
-        Open album
-      </Button>
-    );
   const title = group.title || editions.chosen?.title || "Release";
   const duration = totalMs(occurrences);
-  const switchable = editions.editions.length > 1 || !!editions.continuation;
+  const owned = rows.filter((row) => row.recording).length;
+  const filter = owned > 0 ? chosenFilter : "all";
   const year = group.first_release_date?.slice(0, 4);
   const catalogName =
     context.association.provider.kind === "builtin_musicbrainz"
@@ -82,9 +71,7 @@ export default function CatalogAlbum({
       aria-busy={editions.pending || tracks.pending}
     >
       <AlbumHeader
-        eyebrow={[group.kind ? kinds[group.kind] : "Release", year]
-          .filter(Boolean)
-          .join(" · ")}
+        eyebrow={albumEyebrow(group.kind, year)}
         heading={heading}
         cover={
           <CatalogCover
@@ -111,84 +98,69 @@ export default function CatalogAlbum({
             : null
         }
         status={
-          withLibrary &&
-          owned.length === 0 && (
+          rows.length === 0 ? null : owned === 0 ? (
             <span className="album-status">Not in your library</span>
+          ) : (
+            <AlbumProgressLine
+              progress={{ owned, total: rows.length, elsewhere: 0 }}
+            />
           )
         }
         actions={
-          <>
-            <button
-              type="button"
-              className="pill-action"
-              data-primary=""
-              aria-label="Play album"
-              disabled={!ready}
-              onClick={() => void playback.start(0)}
-            >
-              <Play size={16} fill="currentColor" aria-hidden="true" />
-              Play
-            </button>
-            <button
-              type="button"
-              className="pill-icon"
-              aria-label="Shuffle album"
-              disabled={!ready}
-              onClick={() => void playback.shuffle()}
-            >
-              <Shuffle size={18} aria-hidden="true" />
-            </button>
-          </>
+          <AlbumActions
+            play={{
+              disabled: !ready,
+              play: () => void playback.start(0),
+              shuffle: () => void playback.shuffle(),
+            }}
+            detailsHref={
+              linked ? `/albums/${encodeURIComponent(linked)}/details` : null
+            }
+            retry={null}
+          />
         }
         notes={
           <>
-            {withLibrary && owned.length > 0 && (
-              <LibraryAvailability
-                account={context.account}
-                albums={owned}
-                group={group.id}
-              />
-            )}
             {refreshing && (
               <p className="album-note" role="status">
                 Checking for updates…
               </p>
             )}
-            {playback.consentOff && (
-              <p className="album-note" role="status">
-                Playing a catalog album searches your connected services, and
-                “Search connected services automatically” is off.{" "}
-                <Link href="/settings?section=privacy">
-                  Turn it on in Settings
-                </Link>
-              </p>
-            )}
-            {playback.halted && (
-              <p className="album-note" role="alert">
-                {playback.halted}
-              </p>
-            )}
+            <CatalogPlayNotes
+              consentOff={playback.consentOff}
+              halted={playback.halted}
+            />
           </>
         }
       />
       <div className="album-body">
-        <div className="album-toolbar">
-          {switchable && (
-            <CatalogEditionSwitch
-              editions={editions.editions}
-              chosen={editions.chosen?.id ?? ""}
-              pending={editions.pending}
-              more={!editions.error && !!editions.continuation}
-              onChoose={editions.choose}
-              onMore={() => void editions.more()}
-            />
-          )}
-          {rows.length > 0 && (
-            <span className="album-toolbar-note">
-              Track list from {catalogName}
-            </span>
-          )}
-        </div>
+        {editions.chosen && (
+          <EditionToolbar
+            name={editionLabel(editions.chosen)}
+            total={rows.length}
+            owned={owned}
+            filter={filter}
+            onFilter={setFilter}
+            source={catalogName}
+            items={[
+              ...editions.editions.map((edition) => ({
+                id: edition.id,
+                label: editionLabel(edition),
+                disabled: editions.pending,
+                onSelect: () => editions.choose(edition.id),
+              })),
+              ...(!editions.error && editions.continuation
+                ? [
+                    {
+                      label: "Load more editions",
+                      disabled: editions.pending,
+                      onSelect: () => void editions.more(),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )}
         {(editions.pending || tracks.pending) && (
           <p role="status">Loading tracks…</p>
         )}
@@ -223,9 +195,10 @@ export default function CatalogAlbum({
           )}
         {editions.limited && <p>Showing the first 50 pages of editions.</p>}
         {rows.length > 0 && (
-          <TrackTable
-            rows={rows}
-            catalog={controls}
+          <CatalogTrackList
+            tracks={rows}
+            controls={controls}
+            filter={filter}
             playlists={playlists}
             mutate={mutate}
           />

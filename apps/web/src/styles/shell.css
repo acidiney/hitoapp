@@ -173,10 +173,10 @@
   line-height: 1.4;
   position: fixed;
   left: 12px;
-  bottom: calc(var(--player) + 12px);
+  bottom: var(--player);
   z-index: 2;
   width: calc(var(--sidebar) - 25px);
-  padding: 8px 4px 8px 12px;
+  padding: 14px 4px 14px 12px;
   background: var(--sidebar-bg);
   border-top: 1px solid var(--line);
   display: flex;

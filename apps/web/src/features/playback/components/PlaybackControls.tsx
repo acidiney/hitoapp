@@ -114,7 +114,7 @@ export function TransportButtons() {
         {playing ? (
           <Pause size={16} fill="currentColor" />
         ) : (
-          <Play size={16} fill="currentColor" />
+          <Play size={16} fill="currentColor" className="play-glyph" />
         )}
       </button>
       <button
@@ -136,6 +136,7 @@ export function TransportButtons() {
             : undefined
         }
         aria-label={`Repeat: ${state.repeat}`}
+        aria-pressed={state.repeat !== "off"}
         onClick={() => player.repeat()}
       >
         <Repeat size={16} />

@@ -36,6 +36,12 @@ function typing(target: EventTarget | null): boolean {
   );
 }
 
+let pointerControl: Element | null = null;
+
+export function notePointer(target: EventTarget | null) {
+  pointerControl = target instanceof Element ? target.closest(OWN_SPACE) : null;
+}
+
 function ignored(event: KeyboardEvent): boolean {
   return (
     event.defaultPrevented ||
@@ -52,6 +58,7 @@ export function resolveShortcut(
   event: KeyboardEvent,
   state: ShortcutState,
 ): ShortcutCommand | null {
+  if (event.key === "Tab") pointerControl = null;
   if (ignored(event)) return null;
   if (event.key === "?") return "help";
   if (event.shiftKey) {
@@ -64,8 +71,8 @@ export function resolveShortcut(
   if (state.chord && GO_TO[key]) return GO_TO[key];
   if (key === " ") {
     const own =
-      event.target instanceof Element && event.target.closest(OWN_SPACE);
-    return own ? null : "togglePlay";
+      event.target instanceof Element ? event.target.closest(OWN_SPACE) : null;
+    return own && own !== pointerControl ? null : "togglePlay";
   }
   return LETTERS[key] ?? null;
 }

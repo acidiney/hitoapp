@@ -12,6 +12,7 @@ pub(crate) struct TrackKey {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Observation<'a> {
     pub account: &'a str,
+    pub lease: Uuid,
     pub entry: Uuid,
     pub recording: Uuid,
     pub playing: bool,
@@ -51,6 +52,8 @@ struct Anchor {
 }
 
 struct Current {
+    id: Uuid,
+    lease: Uuid,
     key: TrackKey,
     loaded: Option<Loaded>,
     artwork: Option<Arc<MediaArtwork>>,
@@ -102,6 +105,8 @@ impl Publisher {
             };
             started = Some(key.clone());
             self.current = Some(Current {
+                id: Uuid::new_v4(),
+                lease: observation.lease,
                 key,
                 loaded: None,
                 artwork: None,
@@ -111,6 +116,14 @@ impl Publisher {
             });
         }
         if let Some(current) = &mut self.current {
+            if current.lease != observation.lease
+                || current
+                    .latest
+                    .is_some_and(|latest| latest.selection != observation.selection)
+            {
+                current.id = Uuid::new_v4();
+                current.lease = observation.lease;
+            }
             current.latest = Some(LatestState {
                 playing: observation.playing,
                 rate: observation.rate,
@@ -148,6 +161,10 @@ impl Publisher {
             .is_some_and(|current| &current.key == key)
     }
 
+    pub fn track_id(&self) -> Option<Uuid> {
+        self.current.as_ref().map(|current| current.id)
+    }
+
     pub fn duration_ms(&self) -> Option<u64> {
         let current = self.current.as_ref()?;
         let loaded = current.loaded.as_ref()?;
@@ -177,7 +194,8 @@ impl Publisher {
             return;
         };
         let unchanged = current.shown_track.as_ref().is_some_and(|shown| {
-            shown.duration_ms.map(|ms| ms / 1000) == duration.map(|ms| ms / 1000)
+            shown.id == current.id
+                && shown.duration_ms.map(|ms| ms / 1000) == duration.map(|ms| ms / 1000)
                 && match (&shown.artwork, &current.artwork) {
                     (Some(shown), Some(current)) => Arc::ptr_eq(shown, current),
                     (None, None) => true,
@@ -186,6 +204,7 @@ impl Publisher {
         });
         if !unchanged {
             let track = MediaTrack {
+                id: current.id,
                 title: loaded.title.clone(),
                 artist: loaded.artist.clone(),
                 album: loaded.album.clone(),
@@ -258,6 +277,7 @@ mod tests {
     fn obs(account: &str, entry: Uuid) -> Observation<'_> {
         Observation {
             account,
+            lease: Uuid::from_u128(3),
             entry,
             recording: entry,
             playing: true,
@@ -276,8 +296,9 @@ mod tests {
             server_duration_ms,
         }
     }
-    fn track(title: &str, duration_ms: Option<u64>) -> Event {
+    fn track(id: Uuid, title: &str, duration_ms: Option<u64>) -> Event {
         Event::Track(MediaTrack {
+            id,
             title: title.into(),
             artist: "Artist".into(),
             album: "".into(),
@@ -321,7 +342,7 @@ mod tests {
         assert_eq!(
             fake.take(),
             vec![
-                track("Song", Some(200_000)),
+                track(publisher.track_id().unwrap(), "Song", Some(200_000)),
                 Event::Playback(MediaPlayback::Playing {
                     position_ms: 1000,
                     rate: 1000
@@ -366,10 +387,12 @@ mod tests {
         let (mut publisher, fake) = setup();
         let mut observation = obs("a", ENTRY);
         begin(&mut publisher, &observation, "Song", 200_000);
+        let original = publisher.track_id().unwrap();
         fake.take();
         observation.position_ms = 90_000;
         observation.seek_id = Some(Uuid::from_u128(9));
         publisher.observe(Some(&observation));
+        assert_eq!(publisher.track_id(), Some(original));
         assert_eq!(
             fake.take(),
             vec![Event::Playback(MediaPlayback::Playing {
@@ -379,6 +402,7 @@ mod tests {
         );
         observation.rate = 1500;
         publisher.observe(Some(&observation));
+        assert_eq!(publisher.track_id(), Some(original));
         assert_eq!(
             fake.take(),
             vec![Event::Playback(MediaPlayback::Playing {
@@ -388,7 +412,19 @@ mod tests {
         );
         observation.selection = 2;
         publisher.observe(Some(&observation));
-        assert_eq!(fake.take().len(), 1);
+        let replay = publisher.track_id().unwrap();
+        assert!(!replay.is_nil());
+        assert_ne!(replay, original);
+        assert_eq!(
+            fake.take(),
+            vec![
+                track(replay, "Song", Some(200_000)),
+                Event::Playback(MediaPlayback::Playing {
+                    position_ms: 90_000,
+                    rate: 1500
+                })
+            ]
+        );
     }
 
     #[test]
@@ -403,7 +439,10 @@ mod tests {
         assert_eq!(publisher.duration_ms(), Some(220_000));
         observation.duration_ms = Some(215_300);
         publisher.observe(Some(&observation));
-        assert_eq!(fake.take(), vec![track("Song", Some(215_300))]);
+        assert_eq!(
+            fake.take(),
+            vec![track(publisher.track_id().unwrap(), "Song", Some(215_300))]
+        );
         assert_eq!(publisher.duration_ms(), Some(215_300));
     }
 
@@ -513,5 +552,42 @@ mod tests {
         publisher.clear();
         publisher.clear();
         assert_eq!(fake.take(), vec![Event::Clear]);
+    }
+    #[test]
+    fn identity_is_stable_for_metadata_and_anchor_updates_but_changes_for_lease_and_occurrence() {
+        let (mut publisher, _) = setup();
+        let mut observation = obs("a", ENTRY);
+        begin(&mut publisher, &observation, "Song", 200_000);
+        let first = publisher.track_id().unwrap();
+        observation.playing = false;
+        observation.position_ms = 10_000;
+        observation.duration_ms = Some(199_000);
+        publisher.observe(Some(&observation));
+        let key = TrackKey {
+            account: "a".into(),
+            entry: ENTRY,
+            recording: ENTRY,
+        };
+        publisher.loaded(&key, Some(loaded("Song", 199_000)));
+        publisher.artwork(
+            &key,
+            Some(MediaArtwork {
+                content_type: "image/png",
+                bytes: vec![1],
+            }),
+        );
+        assert_eq!(publisher.track_id(), Some(first));
+        observation.selection += 1;
+        publisher.observe(Some(&observation));
+        let replay = publisher.track_id().unwrap();
+        assert_ne!(first, replay);
+        observation.lease = Uuid::new_v4();
+        publisher.observe(Some(&observation));
+        let claimed = publisher.track_id().unwrap();
+        assert_ne!(replay, claimed);
+        publisher.clear();
+        assert!(publisher.track_id().is_none());
+        publisher.observe(Some(&observation));
+        assert_ne!(publisher.track_id(), Some(claimed));
     }
 }

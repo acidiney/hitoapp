@@ -145,6 +145,7 @@ mod tests {
     }
     fn track(title: &str) -> MediaTrack {
         MediaTrack {
+            id: uuid::Uuid::new_v4(),
             title: title.into(),
             artist: String::new(),
             album: String::new(),

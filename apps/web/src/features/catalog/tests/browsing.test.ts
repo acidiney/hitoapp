@@ -19,7 +19,7 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
 vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
-const navigation = vi.hoisted(() => ({ get: vi.fn() }));
+const navigation = vi.hoisted(() => ({ get: vi.fn(), visit: vi.fn() }));
 vi.mock("@inertiajs/react", () => ({
   router: navigation,
   useRemember: (initial: unknown) => useState(initial),
@@ -198,11 +198,11 @@ test("an album with unknown credit keeps its card and detail links without inven
       'a[href="/artists/null"], a[href="/artists/undefined"]',
     ),
   ).toHaveLength(0);
-  expect(
-    screen
-      .getByRole("link", { name: "Edit album details" })
-      .getAttribute("href"),
-  ).toBe(`/albums/${release.id}/details`);
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Edit album details" }));
+  expect(navigation.visit).toHaveBeenCalledWith(
+    `/albums/${release.id}/details`,
+  );
   expect(
     [...document.querySelectorAll("tbody .track-title")].map(
       (node) => node.textContent,

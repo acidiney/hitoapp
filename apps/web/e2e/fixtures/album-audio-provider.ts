@@ -16,8 +16,14 @@ export async function albumAudioProvider() {
   const token = "browser-private-album-audio-token";
   const id = "e2e:audio/unidentified";
   const source = "e2e:audio-source/unidentified";
-  const state: { outage: boolean; offer: Offer; unexpected: number } = {
+  const state: {
+    outage: boolean;
+    ready: boolean;
+    offer: Offer;
+    unexpected: number;
+  } = {
     outage: false,
+    ready: true,
     offer: {
       title: unidentified,
       artist: albumEdition.artistName,
@@ -76,7 +82,7 @@ export async function albumAudioProvider() {
         });
       case "v1/sources":
         return reply({
-          items: [{ id: source, label: "Original", ready: true }],
+          items: [{ id: source, label: "Original", ready: state.ready }],
         });
       default:
         state.unexpected++;

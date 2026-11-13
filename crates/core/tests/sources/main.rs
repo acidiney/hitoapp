@@ -10,6 +10,7 @@ mod source_resolution_admission;
 mod source_resolution_bound_candidate;
 mod source_resolution_canonical_live;
 mod source_resolution_capacity_outcome;
+mod source_resolution_catalog_video_ranking;
 mod source_resolution_evidence_upgrade;
 mod source_resolution_failover;
 mod source_resolution_featured_title;

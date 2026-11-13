@@ -1,4 +1,7 @@
-import { choose, optionsOf } from "../../../test/listbox";
+import {
+  editionOptions,
+  chooseEdition,
+} from "../../catalog/fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -10,8 +13,6 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import ArtistDiscography from "../components/ArtistDiscography";
-import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import { editionGroup } from "../fixtures/artistEditions";
 import {
   artistAssociation,
@@ -21,6 +22,7 @@ import {
 } from "../fixtures/artistReview";
 import {
   catalogAlbumEdition,
+  catalogAlbumElement,
   catalogAlbumTitles,
   catalogAlbumTrackList,
   foundRecording,
@@ -92,8 +94,6 @@ afterEach(() => {
 
 function serve(options: { editions?: unknown } = {}) {
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
-    if (path === `${base}/discography`)
-      return Response.json(firstDiscographyPage);
     if (path === `${base}/release-group-editions`)
       return Response.json(options.editions ?? oneEditionPage);
     if (path === `${base}/edition-track-list`) {
@@ -122,27 +122,17 @@ function serve(options: { editions?: unknown } = {}) {
   return fetch;
 }
 
-async function openCard() {
+async function openAlbum() {
   render(
-    createElement(ArtistDiscography, {
+    catalogAlbumElement({
       account: artistReviewAccount,
       recording: artistReviewDetail.recording_id,
       association: artistAssociation,
       profile: reviewedArtistProfile.profile,
+      group: editionGroup,
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Browse discography" }));
-  const groups = await screen.findByRole("list", {
-    name: "Discography releases",
-  });
-  return within(await within(groups).findByRole("listitem"));
-}
-
-async function openAlbum() {
-  const card = await openCard();
-  fireEvent.click(
-    card.getByRole("button", { name: `Open ${editionGroup.title}` }),
-  );
+  const card = within(await screen.findByRole("region", { name: "Album" }));
   await card.findByRole("button", { name: `Play ${catalogAlbumTitles[0]}` });
   return card;
 }
@@ -161,8 +151,8 @@ test("an opened catalog album names itself once, hides a lone edition and the un
     card.queryByText(/Audio availability has not been checked/),
   ).toBeNull();
   expect(card.queryByText("Catalog only")).toBeNull();
-  const table = card.getByRole("table", { name: "Tracks" });
-  const rows = within(table).getAllByRole("row").slice(1);
+  const table = card.getByRole("list", { name: "Tracks" });
+  const rows = within(table).getAllByRole("listitem");
   expect(rows).toHaveLength(4);
   expect(within(rows[0]).getByText("1:01")).toBeTruthy();
   expect(card.getByRole("button", { name: "Play album" })).toBeTruthy();
@@ -172,9 +162,8 @@ test("an opened catalog album names itself once, hides a lone edition and the un
 test("two editions offer one compact switcher that reads the other edition's tracks", async () => {
   const fetch = serve({ editions: twoEditionsPage });
   const card = await openAlbum();
-  const switcher = card.getByRole("combobox", { name: "Edition" });
-  expect(optionsOf(switcher)).toHaveLength(2);
-  choose(switcher, 1);
+  expect(editionOptions()).toHaveLength(2);
+  chooseEdition(1);
   await waitFor(() =>
     expect(
       fetch.mock.calls
@@ -219,9 +208,9 @@ test("Play resolves only the first track now, queues it and lets the rest follow
   ]);
   await waitFor(() => {
     const skipped = card
-      .getAllByRole("row")
+      .getAllByRole("listitem")
       .find((row) => row.textContent?.includes(catalogAlbumTitles[2]))!;
-    expect(within(skipped).getByText("No source")).toBeTruthy();
+    expect(within(skipped).getByText(/No audio found/)).toBeTruthy();
   });
   expect(selection.more.remaining()).toBe(0);
   expect(fetch).toHaveBeenCalled();
@@ -266,7 +255,7 @@ test("clicking a track row plays from that track and a first track that is not f
   ]);
   const selection = player.selected.mock.calls[0][0] as { queue: unknown[] };
   expect(selection.queue).toEqual([foundRecording(2)]);
-  expect(card.getByText("No source")).toBeTruthy();
+  expect(card.getByText(/No audio found/)).toBeTruthy();
 });
 
 test("without the automatic service search choice Play explains itself, links to the setting and Shuffle leaves the player's shuffle alone", async () => {
@@ -363,7 +352,7 @@ test("once playback started, leaving the page or switching edition does not stop
   const selection = player.selected.mock.calls[0][0] as {
     more: { next(signal: AbortSignal): Promise<unknown[]> };
   };
-  choose(card.getByRole("combobox", { name: "Edition" }), 1);
+  chooseEdition(1);
   expect(await selection.more.next(new AbortController().signal)).toEqual([
     foundRecording(1),
   ]);
@@ -386,7 +375,7 @@ test("switching edition while a track is being searched retires the old search",
     fireEvent.click(card.getByRole("button", { name: "Play album" }));
   });
   await waitFor(() => expect(audioBodies).toHaveLength(1));
-  choose(card.getByRole("combobox", { name: "Edition" }), 1);
+  chooseEdition(1);
   release();
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 30));

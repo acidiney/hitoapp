@@ -10,33 +10,39 @@ export default function EditionToolbar({
   filter,
   onFilter,
   items,
+  source,
 }: {
-  name: string;
+  name: string | null;
   total: number;
   owned: number;
   filter: EditionFilter;
   onFilter: (filter: EditionFilter) => void;
   items: ActionMenuItem[];
+  source: string;
 }) {
   return (
     <div className="edition-toolbar">
-      <button
-        type="button"
-        className="edition-chip"
-        aria-pressed={filter === "all"}
-        onClick={() => onFilter("all")}
-      >
-        All {total}
-      </button>
-      <button
-        type="button"
-        className="edition-chip"
-        aria-pressed={filter === "library"}
-        onClick={() => onFilter("library")}
-      >
-        In my library {owned}
-      </button>
-      {items.length > 0 && (
+      {owned > 0 && (
+        <>
+          <button
+            type="button"
+            className="edition-chip"
+            aria-pressed={filter === "all"}
+            onClick={() => onFilter("all")}
+          >
+            All {total}
+          </button>
+          <button
+            type="button"
+            className="edition-chip"
+            aria-pressed={filter === "library"}
+            onClick={() => onFilter("library")}
+          >
+            In my library {owned}
+          </button>
+        </>
+      )}
+      {name && items.length > 0 && (
         <ActionMenu
           label={`Edition ${name}`}
           triggerClassName="edition-chip edition-chip-menu"
@@ -50,6 +56,7 @@ export default function EditionToolbar({
           }
         />
       )}
+      <span className="album-toolbar-note">Track list from {source}</span>
     </div>
   );
 }

@@ -55,6 +55,7 @@ enum Action {
     Host {
         command: crate::MediaCommand,
         duration_ms: Option<u64>,
+        scope: Option<media::TrackScope>,
     },
     Queue {
         lease: Uuid,

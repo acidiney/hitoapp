@@ -7,7 +7,7 @@ mod loopback;
 mod media_tools;
 #[cfg(feature = "gui")]
 mod native_picker;
-#[cfg(feature = "gui")]
+#[cfg(feature = "native-media")]
 mod os_controls;
 mod storage;
 mod system_media;
@@ -20,7 +20,7 @@ pub use loopback::{DEFAULT_RETURN_PORT, InvalidReturnPort, RETURN_PORT_SETTING, 
 pub use media_tools::MediaToolSearch;
 #[cfg(feature = "gui")]
 pub use native_picker::NativePicker;
-#[cfg(feature = "gui")]
+#[cfg(feature = "native-media")]
 pub use os_controls::{OsControls, WindowHandle};
 use std::path::PathBuf;
 pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};

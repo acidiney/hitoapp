@@ -49,7 +49,3 @@ export function nextRepeat(
 ): PlaybackView["repeat"] {
   return mode === "off" ? "all" : mode === "all" ? "one" : "off";
 }
-
-export function previousIndex(current: number) {
-  return Math.max(0, current - 1);
-}

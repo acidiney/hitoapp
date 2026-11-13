@@ -1,4 +1,3 @@
-import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -56,7 +55,7 @@ test("a playlist row flips from No source to Ready when its source is resolved, 
       null,
       createElement(
         TrackActionsProvider,
-        { account: "alice", playlists: [] as Schema<"Playlist">[] },
+        { account: "alice", playlists: [], children: null },
         createElement(TrackTable, {
           rows: [row("r1"), row("r2")],
           playlists: [],

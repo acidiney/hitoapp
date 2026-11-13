@@ -1,7 +1,7 @@
 use super::{Action, PlayerAction, PlayerCommand, PlayerError, Request, ownership::State};
 use crate::media::{
     MediaCommand, MediaIntegration, artwork,
-    publisher::{Loaded, Observation, Publisher, TrackKey},
+    publisher::{Loaded, Observation, Publisher, TrackKey, reconcile},
 };
 use hito_core::{Actor, Catalog};
 use std::{
@@ -37,11 +37,26 @@ struct Target {
     attempt: usize,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct TrackScope {
+    lease: Uuid,
+    entry: Uuid,
+    recording: Uuid,
+    selection: u64,
+}
+
+struct CommandTarget {
+    id: Uuid,
+    actor: Actor,
+    scope: TrackScope,
+}
+
 pub(super) struct Driver {
     publisher: Publisher,
     commands: Option<mpsc::Receiver<MediaCommand>>,
     catalog: Catalog,
     target: Option<Target>,
+    command_target: Option<CommandTarget>,
     text: Option<TextLoading>,
     artwork: Option<ArtworkLoading>,
     pending: Option<MediaCommand>,
@@ -74,6 +89,12 @@ pub(super) fn action(command: MediaCommand, view: &View) -> Option<PlayerAction>
         MediaCommand::Previous => Some(PlayerAction::Previous {}),
         MediaCommand::Stop => Some(PlayerAction::Clear {}),
         MediaCommand::Seek { position_ms } => seek(position_ms),
+        MediaCommand::SeekTrack { position_us, .. } => {
+            let duration = view.duration_ms?;
+            (u128::from(position_us) <= u128::from(duration) * 1000).then_some(PlayerAction::Seek {
+                position_ms: position_us / 1000,
+            })
+        }
         MediaCommand::SeekBy { forward, delta_ms } => seek(if forward {
             view.position_ms.saturating_add(delta_ms)
         } else {
@@ -93,6 +114,7 @@ impl Driver {
             commands: Some(integration.commands),
             catalog,
             target: None,
+            command_target: None,
             text: None,
             artwork: None,
             pending: None,
@@ -119,6 +141,7 @@ impl Driver {
             position.entry == Some(current.id) && position.selection == snapshot.selection;
         let observation = Observation {
             account: &owned.actor.user().id,
+            lease: owned.lease,
             entry: current.id,
             recording: current.recording_id,
             playing: owned.playing,
@@ -153,13 +176,41 @@ impl Driver {
                 attempt: 0,
             });
         }
+        let track_id = self.publisher.track_id();
+        if self.command_target.as_ref().map(|target| target.id) != track_id {
+            self.command_target = track_id.map(|id| CommandTarget {
+                id,
+                actor: owned.actor.clone(),
+                scope: TrackScope {
+                    lease: owned.lease,
+                    entry: current.id,
+                    recording: current.recording_id,
+                    selection: snapshot.selection,
+                },
+            });
+        }
     }
 
     fn drop_track(&mut self) {
         self.publisher.observe(None);
         self.target = None;
+        self.command_target = None;
         self.text = None;
         self.artwork = None;
+    }
+
+    pub fn request(&self, actor: Option<Actor>, command: MediaCommand) -> Option<Request> {
+        let (actor, scope) = if let MediaCommand::SeekTrack { track, .. } = command {
+            self.duration_ms()?;
+            let target = self
+                .command_target
+                .as_ref()
+                .filter(|target| target.id == track)?;
+            (target.actor.clone(), Some(target.scope))
+        } else {
+            (actor?, None)
+        };
+        Some(host_request(actor, command, self.duration_ms(), scope))
     }
 
     pub async fn next(&mut self) -> MediaCommand {
@@ -235,14 +286,41 @@ impl State {
         actor: &Actor,
         command: MediaCommand,
         duration_ms: Option<u64>,
+        scope: Option<TrackScope>,
     ) -> Result<PlayerCommand, PlayerError> {
         let owned = self
             .owner
             .as_ref()
             .filter(|owned| owned.actor.same_session(actor))
             .ok_or(PlayerError::Conflict)?;
+        let snapshot = owned.queue.snapshot();
+        let duration_ms = if matches!(command, MediaCommand::SeekTrack { .. }) {
+            let bound = scope.ok_or(PlayerError::Conflict)?;
+            let current = snapshot.current.ok_or(PlayerError::Conflict)?;
+            if bound.lease != owned.lease
+                || bound.entry != current.id
+                || bound.recording != current.recording_id
+                || bound.selection != snapshot.selection
+            {
+                tracing::debug!(
+                    event = "media_scoped_seek_rejected",
+                    reason = "stale_track",
+                    "Scoped system seek rejected"
+                );
+                return Err(PlayerError::Conflict);
+            }
+            let position = owned.position.borrow();
+            let decoded = (position.entry == Some(current.id)
+                && position.selection == snapshot.selection)
+                .then_some(position.duration_ms)
+                .flatten();
+            let known = duration_ms.ok_or(PlayerError::Invalid)?;
+            reconcile(decoded, known)
+        } else {
+            duration_ms
+        };
         let view = View {
-            has_current: owned.queue.snapshot().current.is_some(),
+            has_current: snapshot.current.is_some(),
             desired_playing: owned.desired_playing,
             position_ms: owned.position.borrow().position_ms,
             duration_ms,
@@ -264,6 +342,7 @@ pub(super) fn host_request(
     actor: Actor,
     command: MediaCommand,
     duration_ms: Option<u64>,
+    scope: Option<TrackScope>,
 ) -> Request {
     let (reply, _) = oneshot::channel();
     Request {
@@ -271,6 +350,7 @@ pub(super) fn host_request(
         action: Action::Host {
             command,
             duration_ms,
+            scope,
         },
         reply,
         span: tracing::Span::current(),

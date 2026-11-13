@@ -4,6 +4,7 @@ import type { Schema } from "../../../shared/schema";
 import { useArtistCreditIdentity } from "../hooks/useArtistCreditIdentity";
 import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
 import { useArtistMatchingStatus } from "../hooks/useArtistMatchingStatus";
+import { useCreditTailOffer } from "../hooks/useCreditTailOffer";
 import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
 import ArtistChoiceOptions from "./ArtistChoiceOptions";
 import Button from "../../../shared/ui/Button";
@@ -73,6 +74,13 @@ export default function ArtistCreditIdentity({
     identity.cancel();
   };
   const partly = matched && (read?.undecided_tracks ?? 0) > 0;
+  const tail = useCreditTailOffer(
+    account,
+    artist.id,
+    partly && read ? read.chosen : null,
+    refresh,
+  );
+  const offer = partly ? tail.offer : null;
   const open = () => {
     setChoosing(true);
     identity.find();
@@ -133,21 +141,54 @@ export default function ArtistCreditIdentity({
           matched yet.
         </p>
       )}
-      {partly && (
+      {partly && offer && (
+        <>
+          <div className="identity-actions">
+            <Button
+              variant="primary"
+              disabled={tail.pending || busy}
+              onClick={() => void tail.confirm()}
+            >
+              {offer.undecidedTracks === 1
+                ? `Use ${offer.group.name.value} for the other track`
+                : `Use ${offer.group.name.value} for the other ${offer.undecidedTracks} tracks`}
+            </Button>
+            <button
+              ref={opener}
+              id="choose-artist"
+              type="button"
+              className="text-action"
+              disabled={tail.pending}
+              onClick={open}
+            >
+              Choose a different artist
+            </button>
+          </div>
+          {tail.pending && (
+            <p role="status" className="muted">
+              Applying the artist to the other tracks…
+            </p>
+          )}
+          {tail.error && <p role="alert">{tail.error}</p>}
+        </>
+      )}
+      {partly && !offer && (
         <>
           <p className="muted">
             Say which artist this credit is, and Hito groups its tracks under
             that artist.
           </p>
-          <button
-            ref={opener}
-            id="choose-artist"
-            type="button"
-            className="text-action"
-            onClick={open}
-          >
-            Choose the artist
-          </button>
+          <div className="identity-actions">
+            <button
+              ref={opener}
+              id="choose-artist"
+              type="button"
+              className="text-action"
+              onClick={open}
+            >
+              Choose the artist
+            </button>
+          </div>
         </>
       )}
       {choosing && (
@@ -200,24 +241,31 @@ export default function ArtistCreditIdentity({
             </p>
           )}
           {identity.step === "confirming" && identity.selected && (
-            <div role="group" aria-label="Confirm artist identity">
+            <div
+              role="group"
+              aria-label="Confirm artist identity"
+              className="identity-confirm"
+            >
               <p>
-                Use {identity.selected.name.value} for every track you can
-                access under the credit {artist.name}? A track keeps its choice
-                when it already has a different reviewed artist, or when a
-                different artist's choice needs review. Tracks never chosen,
-                reset, or needing review for this artist are updated. You can
-                reset any track later.
+                Use {identity.selected.name.value} for every track credited{" "}
+                {artist.name}?
               </p>
-              <Button
-                type="button"
-                onClick={() => identity.apply(identity.selected!)}
-              >
-                Confirm
-              </Button>
-              <Button type="button" onClick={identity.cancel}>
-                Cancel
-              </Button>
+              <p className="muted">
+                Tracks with a different reviewed artist, or whose other artist
+                needs review, keep their choice. You can reset any track later.
+              </p>
+              <footer className="review-actions credit-dialog-actions">
+                <Button type="button" onClick={identity.cancel}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => identity.apply(identity.selected!)}
+                >
+                  Confirm
+                </Button>
+              </footer>
             </div>
           )}
           {identity.step === "applying" && <p>Applying the artist identity…</p>}
@@ -227,7 +275,7 @@ export default function ArtistCreditIdentity({
               Retry the same artist identity request
             </Button>
           )}
-          {!showChoices && (
+          {!showChoices && identity.step !== "confirming" && (
             <footer className="review-actions credit-dialog-actions">
               <Button disabled={busy} onClick={closeChoosing}>
                 Close

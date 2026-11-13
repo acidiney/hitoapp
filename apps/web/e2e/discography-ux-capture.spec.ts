@@ -44,7 +44,7 @@ test("capture the discography grid and the catalog album", async ({
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       }
       await expect(
-        page.getByRole("table", { name: "Tracks" }).first(),
+        page.getByRole("list", { name: "Tracks" }).first(),
       ).toBeVisible();
       await page.waitForTimeout(800);
       await page.screenshot({

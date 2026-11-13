@@ -95,7 +95,7 @@ test.each(["editions", "track list"] as const)(
       await flush();
       expect(reads()).toHaveLength(4);
       expect(screen.queryByRole("alert")).toBeNull();
-      expect(screen.getByRole("table", { name: "Tracks" })).toBeTruthy();
+      expect(screen.getByRole("list", { name: "Tracks" })).toBeTruthy();
       const completed = warn.mock.calls.filter(
         ([event]) =>
           event ===

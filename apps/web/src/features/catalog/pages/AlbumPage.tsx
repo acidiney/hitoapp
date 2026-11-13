@@ -4,7 +4,9 @@ import RouteLink from "../../../shared/ui/RouteLink";
 
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { longDuration } from "../../artists/model/catalogAlbumRows";
-import AlbumHeaderActions from "../components/AlbumHeaderActions";
+import AlbumActions from "../components/AlbumActions";
+import { usePlayTracks } from "../../playback/hooks/usePlayTracks";
+import { useArtworkRetryItem } from "../../artwork/components/ArtworkRetryMenu";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
@@ -14,33 +16,17 @@ import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
 import { releaseCreditLabel } from "../model/albumCredit";
+import { albumEyebrow } from "../model/albumEyebrow";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumHeader from "../components/AlbumHeader";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 import {
   AlbumMergeContext,
   type AlbumProgress,
+  type EditionPlay,
 } from "../components/AlbumMergeContext";
-
-function AlbumProgressLine({ progress }: { progress: AlbumProgress }) {
-  const { owned, total, elsewhere } = progress;
-  const percent = total === 0 ? 0 : Math.round((owned / total) * 100);
-  return (
-    <span className="album-status" data-tone="progress">
-      <span
-        className="album-progress"
-        role="img"
-        aria-label={`${owned} of ${total} tracks in your library`}
-      >
-        <span style={{ width: `${percent}%` }} />
-      </span>
-      <span>
-        {owned} of {total} in your library
-        {elsewhere > 0 ? ` · ${elsewhere} more not in this edition` : ""}
-      </span>
-    </span>
-  );
-}
+import AlbumProgressLine from "../components/AlbumProgressLine";
+import CatalogPlayNotes from "../../artists/components/CatalogPlayNotes";
 
 export default function AlbumPage({
   user,
@@ -51,9 +37,22 @@ export default function AlbumPage({
   const { mutate } = useMutation(user.id);
   const [merged, setMerged] = useState(false);
   const [progress, setProgress] = useState<AlbumProgress | null>(null);
+  const [editionPlay, setEditionPlay] = useState<EditionPlay | null>(null);
+  const [editionLoading, setEditionLoading] = useState(
+    detail.saved_edition?.state.status === "ready",
+  );
   const merge = useMemo(
-    () => ({ playlists, mutate, setMerged, merged, setProgress }),
-    [playlists, mutate, merged],
+    () => ({
+      playlists,
+      mutate,
+      setMerged,
+      merged,
+      setProgress,
+      editionPlay,
+      setEditionPlay,
+      setEditionLoading,
+    }),
+    [playlists, mutate, merged, editionPlay],
   );
   const tracks = page.items.map((track) => ({
     ...track,
@@ -75,76 +74,100 @@ export default function AlbumPage({
   const sharedTrackArtist =
     trackArtistIds.size === 1 ? ([...trackArtistIds][0] ?? null) : null;
   const artistId = release.artist_id ?? sharedTrackArtist;
-  const duration = longDuration(release.duration_ms);
+  const trackCount = editionPlay?.tracks ?? release.track_count;
+  const durationMs = editionPlay?.durationMs ?? release.duration_ms;
+  const duration = longDuration(durationMs);
+  const libraryPlay = usePlayTracks(tracks, listing);
+  const retry = useArtworkRetryItem({ release: release.id });
+  const play = editionPlay
+    ? {
+        disabled: editionPlay.tracks === 0,
+        play: () => void editionPlay.play(),
+        shuffle: () => void editionPlay.shuffle(),
+      }
+    : {
+        disabled: tracks.length === 0,
+        play: () => void libraryPlay.playAll(),
+        shuffle: () => void libraryPlay.shuffleAll(),
+      };
   return (
-    <div className="detail-page">
-      <AlbumHeader
-        eyebrow={["Album", release.year].filter(Boolean).join(" · ")}
-        cover={
-          <Artwork
-            release={release.id}
-            fallback={{
-              id: release.id,
-              title: release.title,
-              artist: release.artist,
-            }}
-          />
-        }
-        title={release.title}
-        credit={
-          credit &&
-          (artistId ? (
-            <RouteLink
-              className="album-artist"
-              href={`/artists/${encodeURIComponent(artistId)}`}
-            >
-              {credit}
-            </RouteLink>
+    <AlbumMergeContext.Provider value={merge}>
+      <div className="detail-page">
+        <AlbumHeader
+          eyebrow={albumEyebrow(null, release.year)}
+          cover={
+            <Artwork
+              release={release.id}
+              fallback={{
+                id: release.id,
+                title: release.title,
+                artist: release.artist,
+              }}
+            />
+          }
+          title={release.title}
+          credit={
+            credit &&
+            (artistId ? (
+              <RouteLink
+                className="album-artist"
+                href={`/artists/${encodeURIComponent(artistId)}`}
+              >
+                {credit}
+              </RouteLink>
+            ) : (
+              <span className="album-artist" data-plain="">
+                {credit}
+              </span>
+            ))
+          }
+          stats={`${trackCount} ${trackCount === 1 ? "track" : "tracks"}${durationMs >= 60_000 ? ` · ${duration}` : ""}`}
+          status={progress && <AlbumProgressLine progress={progress} />}
+          actions={
+            <AlbumActions
+              play={play}
+              detailsHref={`/albums/${encodeURIComponent(release.id)}/details`}
+              retry={retry}
+            />
+          }
+          notes={
+            editionPlay && (
+              <CatalogPlayNotes
+                consentOff={editionPlay.consentOff}
+                halted={editionPlay.halted}
+              />
+            )
+          }
+        />
+        <div className="album-body">
+          <ArtworkStatus release={release.id} />
+          {(tracks.length && merged) ||
+          editionLoading ? null : tracks.length ? (
+            <>
+              <TrackToolbar
+                tracks={tracks}
+                listing={listing}
+                label="album"
+                withPlay={false}
+              />
+              <TrackTable
+                rows={tracks.map<TrackTableRow>((track) => ({
+                  kind: "recording",
+                  track,
+                }))}
+                listing={listing}
+                offset={page.offset}
+                playlists={playlists}
+                mutate={mutate}
+                without={sharedArtist ? ["album", "artist"] : ["album"]}
+              />
+            </>
           ) : (
-            <span className="album-artist" data-plain="">
-              {credit}
-            </span>
-          ))
-        }
-        stats={`${release.track_count} ${release.track_count === 1 ? "track" : "tracks"}${release.duration_ms >= 60_000 ? ` · ${duration}` : ""}`}
-        status={progress && <AlbumProgressLine progress={progress} />}
-        actions={
-          <AlbumHeaderActions
-            release={release.id}
-            tracks={tracks}
-            listing={listing}
-          />
-        }
-      />
-      <div className="album-body">
-        <ArtworkStatus release={release.id} />
-        {tracks.length && merged ? null : tracks.length ? (
-          <>
-            <TrackToolbar
-              tracks={tracks}
-              listing={listing}
-              label="album"
-              withPlay={false}
+            <EmptyState
+              title="No tracks on this page"
+              text="Return to the previous page to listen to this album."
             />
-            <TrackTable
-              rows={tracks.map<TrackTableRow>((track) => ({
-                kind: "recording",
-                track,
-              }))}
-              listing={listing}
-              offset={page.offset}
-              playlists={playlists}
-              mutate={mutate}
-              without={sharedArtist ? ["album", "artist"] : ["album"]}
-            />
-          </>
-        ) : (
-          <EmptyState
-            title="No tracks on this page"
-            text="Return to the previous page to listen to this album."
-          />
-        )}
-        <AlbumMergeContext.Provider value={merge}>
+          )}
           {detail.saved_edition &&
             (detail.catalog_anchor ||
               detail.saved_edition.state.status !== "unset") && (
@@ -161,15 +184,17 @@ export default function AlbumPage({
                 saved={detail.saved_edition}
               />
             )}
-        </AlbumMergeContext.Provider>
-        {!merged && (
-          <Pagination
-            page={page}
-            query=""
-            path={`/albums/${encodeURIComponent(release.id)}`}
-          />
-        )}
+          {!merged &&
+            !editionLoading &&
+            detail.saved_edition?.state.status !== "ready" && (
+              <Pagination
+                page={page}
+                query=""
+                path={`/albums/${encodeURIComponent(release.id)}`}
+              />
+            )}
+        </div>
       </div>
-    </div>
+    </AlbumMergeContext.Provider>
   );
 }

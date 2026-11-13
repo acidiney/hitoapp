@@ -288,3 +288,32 @@ test("a shelf of albums is a wrapping grid", () => {
   expect(added.querySelector("ul.home-grid")).toBeTruthy();
   expect(added.querySelector(".shelf-row")).toBeNull();
 });
+
+test("unheard albums encode their id in the album link", () => {
+  render(
+    createElement(
+      HomePage,
+      props({
+        unheard: [
+          {
+            release_id: "a/b c",
+            title: "Odd",
+            artist: "Shore",
+            inferred_artist: null,
+            played: 1,
+            remaining: 1,
+            tracks: [track("t9", "Odd one")],
+          },
+        ],
+      }),
+    ),
+  );
+  const section = screen.getByRole("region", {
+    name: "Unheard, near what you like",
+  });
+  expect(
+    within(section)
+      .getByRole("link", { name: "Open Odd" })
+      .getAttribute("href"),
+  ).toBe("/albums/a%2Fb%20c");
+});

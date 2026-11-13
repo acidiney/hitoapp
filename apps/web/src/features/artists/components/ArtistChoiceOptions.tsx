@@ -37,7 +37,7 @@ export default function ArtistChoiceOptions({
     ...suggestions.map((item) => ({
       key: `suggestion-${item.group.id}`,
       name: item.group.name.value,
-      reason: `You reviewed this artist · ${plural(item.undecided_tracks, "track", "tracks")} would use it · ${evidence(item)}`,
+      reason: `Already the artist of your other tracks · ${plural(item.undecided_tracks, "track", "tracks")} would use it · ${evidence(item)}`,
       run: () => onSuggestion(item.group),
     })),
     ...groups.map((group) => ({

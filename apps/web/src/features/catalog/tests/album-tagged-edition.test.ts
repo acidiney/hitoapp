@@ -92,15 +92,14 @@ const paths = (fetch: ReturnType<typeof serve>) =>
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("an album with a tagged release id opens on that exact edition without browsing", async () => {
+test("an album with a tagged release id opens on that exact edition by default without browsing", async () => {
   const fetch = serve(() =>
     Response.json({ status: "found", edition: savedEdition }),
   );
   render(page(unset));
-  expect(fetch).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
+  expect(
+    screen.queryByRole("button", { name: "Show complete track list" }),
+  ).toBeNull();
   const region = await screen.findByRole("region", {
     name: "Album edition track list",
   });
@@ -120,7 +119,7 @@ test("an album with a tagged release id opens on that exact edition without brow
   expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull();
 });
 
-test("without a usable tagged edition the discography browser opens as before", async () => {
+test("without a usable tagged edition the album keeps its own tracks and offers to choose an edition", async () => {
   for (const answer of [
     () => Response.json({ status: "none" }),
     () => Response.json({ error: "busy" }, { status: 500 }),
@@ -128,12 +127,13 @@ test("without a usable tagged edition the discography browser opens as before", 
     const fetch = serve(answer);
     const view = render(page(unset));
     fireEvent.click(
-      screen.getByRole("button", { name: "Show complete track list" }),
+      await screen.findByRole("button", { name: "Choose an edition" }),
     );
     await screen.findByRole("heading", {
       name: "Which release is Catalog album?",
     });
     expect(paths(fetch)[0]).toBe(tagged);
+    expect(paths(fetch).filter((path) => path === tagged)).toHaveLength(1);
     expect(paths(fetch)).not.toContain(comparison);
     view.unmount();
     vi.unstubAllGlobals();
@@ -148,9 +148,10 @@ test("an owner's choice or an earlier decision never asks for the tagged edition
   for (const saved of [readyChoice, decided]) {
     const fetch = serve(() => Response.json({ status: "none" }));
     const view = render(page(saved));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show complete track list" }),
-    );
+    if (saved.state.status !== "ready")
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Choose an edition" }),
+      );
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     expect(paths(fetch)).not.toContain(tagged);
     view.unmount();
@@ -165,9 +166,6 @@ test("leaving the page while the lookup is pending aborts its request", async ()
     return new Promise<Response>(() => {});
   });
   const view = render(page(unset));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
-  );
   await waitFor(() => expect(paths(fetch)).toContain(tagged));
   expect(signal?.aborted).toBe(false);
   view.unmount();

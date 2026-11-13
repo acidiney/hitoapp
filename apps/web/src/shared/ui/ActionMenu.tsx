@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 export type ActionMenuItem = {
+  id?: string;
   label: string;
   onSelect?(): void;
   items?: ActionMenuItem[];
@@ -216,7 +217,7 @@ export default function ActionMenu({
             )}
             {shown.map((item) => (
               <button
-                key={item.label}
+                key={item.id ?? item.label}
                 type="button"
                 role="menuitem"
                 className="action-menu-item"

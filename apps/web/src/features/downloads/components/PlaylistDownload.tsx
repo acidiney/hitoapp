@@ -1,3 +1,4 @@
+import ActionMenu, { type ActionMenuItem } from "../../../shared/ui/ActionMenu";
 import type { Schema } from "../../../shared/schema";
 import { createContext, useContext, type ReactNode } from "react";
 import { Download } from "lucide-react";
@@ -64,7 +65,7 @@ function summary(download: PlaylistDownloadState["download"]) {
   };
 }
 
-export function PlaylistDownloadButton() {
+export function usePlaylistDownloadAction() {
   const { checking, pending, requested, retryKind, start, remove, retry } =
     useDownloadState();
   const retrying = retryKind !== null && !pending;
@@ -76,15 +77,50 @@ export function PlaylistDownloadButton() {
       ? "Remove download"
       : "Download";
   const action = retryKind ? retry : requested ? remove : start;
+  return {
+    label,
+    icon: !requested && !retrying,
+    disabled: checking || pending,
+    run: () => void action(),
+  };
+}
+
+export function PlaylistDownloadButton() {
+  const download = usePlaylistDownloadAction();
   return (
     <Button
       className="tint-secondary"
-      disabled={checking || pending}
-      onClick={() => void action()}
+      disabled={download.disabled}
+      onClick={download.run}
     >
-      {!requested && !retrying && <Download size={17} aria-hidden="true" />}
-      {label}
+      {download.icon && <Download size={17} aria-hidden="true" />}
+      {download.label}
     </Button>
+  );
+}
+
+export function PlaylistDownloadMenu({
+  label,
+  items,
+}: {
+  label: string;
+  items: ActionMenuItem[];
+}) {
+  const download = usePlaylistDownloadAction();
+  return (
+    <ActionMenu
+      label={label}
+      triggerClassName="icon-round"
+      items={[
+        ...items.slice(0, 1),
+        {
+          label: download.label,
+          disabled: download.disabled,
+          onSelect: download.run,
+        },
+        ...items.slice(1),
+      ]}
+    />
   );
 }
 

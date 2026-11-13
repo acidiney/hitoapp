@@ -1,14 +1,12 @@
 import type { Schema } from "../../../shared/schema";
-import { useState } from "react";
 import { router } from "@inertiajs/react";
 
 import CatalogCover from "./CatalogCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
-import LibraryAvailability from "./LibraryAvailability";
 import ArtistEditions from "./ArtistEditions";
-import CatalogAlbum from "./CatalogAlbum";
 import MediaCard from "../../../shared/ui/MediaCard";
+import { releaseKinds } from "../../catalog/model/albumEyebrow";
 
 function releaseSubtitle(group: Schema<"CatalogReleaseGroup">, kind: string) {
   const year = group.first_release_date?.slice(0, 4);
@@ -29,14 +27,6 @@ function libraryLine(albums: Schema<"LibraryAlbum">[]) {
     ? count
     : `${count} · ${best.playable_count} playable`;
 }
-
-const kinds = {
-  album: "Album",
-  ep: "EP",
-  single: "Single",
-  broadcast: "Broadcast",
-  other: "Other",
-};
 
 export default function DiscographyRelease({
   account,
@@ -61,33 +51,8 @@ export default function DiscographyRelease({
   release?: string;
   onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
-  const [view, setView] = useState<"card" | "open" | "play">("card");
-  if (release === undefined && view !== "card")
-    return (
-      <li className="release-card" data-open="">
-        <CatalogAlbum
-          context={{
-            account,
-            recording,
-            association,
-            profile,
-            group,
-            onAlbumEdition,
-          }}
-          heading={Heading}
-          playOnReady={view === "play"}
-        />
-        {library && (
-          <LibraryAvailability
-            account={account}
-            albums={library}
-            group={group.id}
-          />
-        )}
-      </li>
-    );
   const availability = library ? releaseAvailability(library) : null;
-  const kind = group.kind ? kinds[group.kind] : "Release";
+  const kind = group.kind ? releaseKinds[group.kind] : "Release";
   if (release === undefined)
     return (
       <li className="release-card">
@@ -123,11 +88,11 @@ export default function DiscographyRelease({
           }
           openLabel={`Open ${group.title}`}
           href={albumHref?.(group.id)}
-          onOpen={() => setView("open")}
+          disabled={!albumHref}
           onPlay={
             albumHref
               ? () => router.get(`${albumHref(group.id)}?play=1`)
-              : () => setView("play")
+              : undefined
           }
         />
       </li>
@@ -152,7 +117,7 @@ export default function DiscographyRelease({
       </p>
       <p className="meta-line">
         <span className={group.kind ? "" : "placeholder"}>
-          {group.kind ? kinds[group.kind] : "Type not provided"}
+          {group.kind ? releaseKinds[group.kind] : "Type not provided"}
         </span>
         {group.secondary_types.map((type) => (
           <span key={type}>{type}</span>
@@ -168,13 +133,6 @@ export default function DiscographyRelease({
             availability.label ??
             (library?.length === 0 ? "Not in your library" : undefined)
           }
-        />
-      )}
-      {library && (
-        <LibraryAvailability
-          account={account}
-          albums={library}
-          group={group.id}
         />
       )}
       <ArtistEditions

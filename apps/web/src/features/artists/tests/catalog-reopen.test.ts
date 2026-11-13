@@ -75,7 +75,7 @@ test("opening the same catalog album again reuses the provider answers", async (
   const detail = artistIdentityBrowsing().detail;
   for (let visit = 0; visit < 2; visit++) {
     const view = render(createElement(CatalogAlbumPage, detail));
-    const table = await screen.findByRole("table", { name: "Tracks" });
+    const table = await screen.findByRole("list", { name: "Tracks" });
     await within(table).findByText(catalogAlbumTitles[0]);
     view.unmount();
   }

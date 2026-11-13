@@ -67,17 +67,22 @@ export function associationEvidenceText(
 }
 
 const tracksBy: Record<Association["evidence"], string> = {
-  matched_file_tag_artist_id: "an artist identifier in the file's tags",
-  matched_recording_id: "the recording identifier in the file's tags",
-  matched_isrc: "its ISRC",
-  matched_provider_url: "the provider's artist page",
-  matched_name_discography: "the artist's name, corroborated by its recordings",
-  matched_credit_evidence: "other tracks of this credit",
+  matched_file_tag_artist_id: "from an artist identifier in the file tags",
+  matched_recording_id: "from the recording identifier in the file tags",
+  matched_isrc: "from the ISRC",
+  matched_provider_url: "from the provider's artist page",
+  matched_name_discography: "from the artist's name and recordings",
+  matched_credit_evidence: "from other tracks of this credit",
   matched_credit_coverage:
-    "the share of this artist's tracks the credit covers",
-  user_confirmed_candidate: "a candidate you confirmed",
-  user_confirmed: "your own choice",
+    "because the credit covers enough of this artist's tracks",
+  user_confirmed_candidate: "you confirmed",
+  user_confirmed: "you chose yourself",
 };
+
+function listed(parts: string[]) {
+  if (parts.length < 2) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
 
 export function chosenEvidenceText(
   evidence: Schema<"ArtistMatchChosen">["evidence"],
@@ -85,7 +90,7 @@ export function chosenEvidenceText(
   if (evidence.every((how) => how.evidence === "user_confirmed")) return null;
   const parts = evidence.map(
     (how) =>
-      `${how.tracks === 1 ? "1 track" : `${how.tracks} tracks`}: ${tracksBy[how.evidence]}`,
+      `${how.tracks === 1 ? "1 track" : `${how.tracks} tracks`} ${tracksBy[how.evidence]}`,
   );
-  return `Matched from: ${parts.join("; ")}`;
+  return `Matched on ${listed(parts)}.`;
 }

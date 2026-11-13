@@ -6,7 +6,6 @@ import {
   isValidPage,
   nextRepeat,
   planMove,
-  previousIndex,
   successorAfterRemove,
 } from "../browser/QueueModel";
 
@@ -92,10 +91,4 @@ test("repeat cycles off, all, one", () => {
   expect(nextRepeat("off")).toBe("all");
   expect(nextRepeat("all")).toBe("one");
   expect(nextRepeat("one")).toBe("off");
-});
-
-test("previous never goes below the first entry", () => {
-  expect(previousIndex(3)).toBe(2);
-  expect(previousIndex(0)).toBe(0);
-  expect(previousIndex(-1)).toBe(0);
 });

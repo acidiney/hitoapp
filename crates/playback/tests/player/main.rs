@@ -8,6 +8,7 @@ mod player_authority;
 mod player_claims;
 mod player_controls;
 mod player_media;
+mod player_media_scope;
 mod player_privacy;
 mod player_queue;
 mod player_queue_capacity;

@@ -43,3 +43,9 @@ test("an album without its own artist shows the server's inferred credit", () =>
     "Owner",
   ]);
 });
+
+test("an album tile encodes its id in the album link", () => {
+  const data = home([{ artist: "Owner", inferred_artist: null }]);
+  data.recent_albums[0].id = "a/b c?d";
+  expect(quickAccess(data, [])[0].href).toBe("/albums/a%2Fb%20c%3Fd");
+});

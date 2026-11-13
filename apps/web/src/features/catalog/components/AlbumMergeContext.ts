@@ -1,23 +1,41 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import type { Schema } from "../../../shared/schema";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 
 export type AlbumProgress = { owned: number; total: number; elsewhere: number };
 
+export type EditionPlayState = {
+  tracks: number;
+  durationMs: number;
+  consentOff: boolean;
+  halted: string;
+};
+
+export type EditionPlay = EditionPlayState & {
+  play: () => Promise<boolean>;
+  shuffle: () => Promise<void>;
+};
+
 export type AlbumMerge = {
+  editionPlay: EditionPlay | null;
+  setEditionPlay: (play: EditionPlay | null) => void;
   setProgress: (progress: AlbumProgress | null) => void;
   playlists: Schema<"Playlist">[];
   mutate: Mutate | null;
   setMerged: (merged: boolean) => void;
   merged: boolean;
+  setEditionLoading: (loading: boolean) => void;
 };
 
 export const AlbumMergeContext = createContext<AlbumMerge>({
+  editionPlay: null,
+  setEditionPlay: () => {},
   playlists: [],
   mutate: null,
   setProgress: () => {},
   setMerged: () => {},
   merged: false,
+  setEditionLoading: () => {},
 });
 
 export function useAlbumMerge(active: boolean): AlbumMerge {
@@ -44,4 +62,43 @@ export function useAlbumProgress(progress: AlbumProgress | null) {
     );
     return () => setProgress(null);
   }, [owned, total, elsewhere, setProgress]);
+}
+
+export function useEditionPlayPublish(
+  state: EditionPlayState | null,
+  actions: Pick<EditionPlay, "play" | "shuffle">,
+) {
+  const { setEditionPlay } = useContext(AlbumMergeContext);
+  const latest = useRef(actions);
+  latest.current = actions;
+  const tracks = state?.tracks;
+  const durationMs = state?.durationMs;
+  const consentOff = state?.consentOff;
+  const halted = state?.halted;
+  useEffect(() => {
+    setEditionPlay(
+      tracks === undefined ||
+        durationMs === undefined ||
+        consentOff === undefined ||
+        halted === undefined
+        ? null
+        : {
+            tracks,
+            durationMs,
+            consentOff,
+            halted,
+            play: () => latest.current.play(),
+            shuffle: () => latest.current.shuffle(),
+          },
+    );
+    return () => setEditionPlay(null);
+  }, [tracks, durationMs, consentOff, halted, setEditionPlay]);
+}
+
+export function useEditionLoading(loading: boolean) {
+  const { setEditionLoading } = useContext(AlbumMergeContext);
+  useEffect(() => {
+    setEditionLoading(loading);
+  }, [loading, setEditionLoading]);
+  useEffect(() => () => setEditionLoading(false), [setEditionLoading]);
 }

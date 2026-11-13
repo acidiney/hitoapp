@@ -110,7 +110,8 @@ impl State {
             Action::Host {
                 command,
                 duration_ms,
-            } => Action::Submit(self.resolve_host(actor, command, duration_ms)?),
+                scope,
+            } => Action::Submit(self.resolve_host(actor, command, duration_ms, scope)?),
             action => action,
         };
         match action {

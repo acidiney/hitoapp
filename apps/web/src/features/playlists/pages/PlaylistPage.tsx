@@ -6,6 +6,7 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import { headerCoverId } from "../../../shared/ui/collectionTint";
 import PlaylistHeader from "../components/PlaylistHeader";
+import { usePlaylistReadiness } from "../hooks/usePlaylistReadiness";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import PlaylistEditPanel, {
   PlaylistNameField,
@@ -27,9 +28,14 @@ import PlaylistMetadataRefresh from "../components/PlaylistMetadataRefresh";
 import {
   PlaylistDownloadProvider,
   PlaylistDownloadButton,
+  PlaylistDownloadMenu,
   PlaylistDownloadStrip,
 } from "../../downloads/components/PlaylistDownload";
-import ActionMenu from "../../../shared/ui/ActionMenu";
+import ActionMenu, { type ActionMenuItem } from "../../../shared/ui/ActionMenu";
+import {
+  PHONE_QUERY,
+  useMediaQuery,
+} from "../../../shared/hooks/useMediaQuery";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
@@ -91,8 +97,10 @@ export default function PlaylistPage({
   const artworkRetry = useArtworkRetryItem({ playlistId: detail.playlist.id });
   const [show, setShow] = useState<"all" | "ready" | "unready">("all");
   const savedRows = rowsFor(detail.entries);
+  const readiness = usePlaylistReadiness(user.id, detail.entries);
+  const phone = useMediaQuery(PHONE_QUERY);
   const isReady = (row: TrackTableRow) =>
-    row.kind === "recording" && row.track.available;
+    row.kind === "recording" && readiness.isReady(row.track.id);
   const rows = edit.editing
     ? rowsFor(edit.entries)
     : savedRows.filter(
@@ -110,12 +118,19 @@ export default function PlaylistPage({
     });
     if (result.ok) router.visit("/playlists");
   }
+  const moreItems: ActionMenuItem[] = [
+    ...(artworkRetry ? [artworkRetry] : []),
+    {
+      label: "Delete playlist",
+      destructive: true,
+      disabled: pending,
+      onSelect: () => void remove(),
+    },
+  ];
   const readOnlyNotice =
     "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play.";
   const editable = detail.playlist.kind === "local";
-  const ready = detail.entries.filter(
-    (entry) => entry.recording_id != null && entry.available,
-  ).length;
+  const ready = readiness.count;
   const eyebrow = followed
     ? `Followed from ${detail.origin?.attribution.label ?? "a provider"} · read-only`
     : detail.origin
@@ -167,7 +182,7 @@ export default function PlaylistPage({
                 }
               />
             )}
-            {editable && !edit.editing && (
+            {editable && !edit.editing && !phone && (
               <Button type="button" onClick={edit.begin}>
                 Edit
               </Button>
@@ -197,20 +212,24 @@ export default function PlaylistPage({
                 )}
               </>
             )}
-            {!edit.editing && <PlaylistDownloadButton />}
-            <ActionMenu
-              label="More options"
-              triggerClassName="icon-round"
-              items={[
-                ...(artworkRetry ? [artworkRetry] : []),
-                {
-                  label: "Delete playlist",
-                  destructive: true,
-                  disabled: pending,
-                  onSelect: () => void remove(),
-                },
-              ]}
-            />
+            {!edit.editing && !phone && <PlaylistDownloadButton />}
+            {phone && !edit.editing ? (
+              <PlaylistDownloadMenu
+                label="More options"
+                items={[
+                  ...(editable
+                    ? [{ label: "Edit", onSelect: edit.begin }]
+                    : []),
+                  ...moreItems,
+                ]}
+              />
+            ) : (
+              <ActionMenu
+                label="More options"
+                triggerClassName="icon-round"
+                items={moreItems}
+              />
+            )}
           </>
         }
       />

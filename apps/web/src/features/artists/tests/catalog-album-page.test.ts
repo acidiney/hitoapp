@@ -1,3 +1,4 @@
+import { chooseEdition } from "../../catalog/fixtures/editionMenu";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
@@ -23,7 +24,6 @@ import {
   twoEditionsPage,
 } from "../fixtures/catalogAlbumPlay";
 import { router } from "@inertiajs/react";
-import { choose } from "../../../test/listbox";
 import { forgetCatalog } from "../api/catalogCache";
 
 const player = vi.hoisted(() => {
@@ -129,15 +129,34 @@ afterEach(() => {
 async function openPage() {
   serve();
   render(createElement(CatalogAlbumPage, artistIdentityBrowsing().detail));
-  const table = await screen.findByRole("table", { name: "Tracks" });
-  await within(table).findByText(catalogAlbumTitles[0]);
-  return table;
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  return list;
 }
 
-test("a catalog release opens as its own page with the ordered tracks in standard rows", async () => {
-  const table = await openPage();
+function rowOf(list: HTMLElement, title: string) {
+  const row = within(list)
+    .getAllByRole("listitem")
+    .find(
+      (item) => item.querySelector(".edition-row-title")?.textContent === title,
+    );
+  if (!row) throw new Error(`No row ${title}`);
+  return row;
+}
+
+function openRowMenu(row: HTMLElement, title: string) {
+  fireEvent.click(
+    within(row).getByRole("button", {
+      name: new RegExp(`^(More actions|Actions) for ${title}$`),
+    }),
+  );
+}
+
+test("a catalog release opens as its own page with the ordered tracks in edition rows that always name the credit", async () => {
+  const list = await openPage();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toBeTruthy();
-  const rows = within(table).getAllByRole("row").slice(1);
+  expect(screen.queryByRole("table")).toBeNull();
+  const rows = within(list).getAllByRole("listitem");
   expect(
     rows.map((row) =>
       within(row)
@@ -145,12 +164,28 @@ test("a catalog release opens as its own page with the ordered tracks in standar
         .getAttribute("aria-label"),
     ),
   ).toEqual(catalogAlbumTitles.map((title) => `Play ${title}`));
+  for (const row of rows) {
+    expect(row.querySelector(".edition-row-credit")?.textContent).toBeTruthy();
+    expect(row.textContent).toContain("Not in your library");
+    expect(
+      within(row).getByRole("button", { name: /^Add .* to your library$/ }),
+    ).toBeTruthy();
+    expect(
+      within(row).queryByRole("img", { name: "In your library" }),
+    ).toBeNull();
+  }
+  expect(screen.queryByRole("button", { name: /^In my library/ })).toBeNull();
+  const header = document.querySelector<HTMLElement>(".album-header")!;
+  expect(within(header).getByText("Not in your library")).toBeTruthy();
+  expect(
+    within(header).queryByRole("img", { name: /tracks in your library/ }),
+  ).toBeNull();
 });
 
 test("playing a catalog row selects through the shared player queue", async () => {
-  const table = await openPage();
+  const list = await openPage();
   fireEvent.click(
-    within(table).getByRole("button", {
+    within(list).getByRole("button", {
       name: `Play ${catalogAlbumTitles[1]}`,
     }),
   );
@@ -165,56 +200,64 @@ test("playing a catalog row selects through the shared player queue", async () =
   expect(audioBodies[0].occurrence_id.endsWith("/2")).toBe(true);
 });
 
-test("a row without audio can find it and then offers like and details like a library row", async () => {
-  const table = await openPage();
+test("adding a row finds its audio, marks it in your library with the check and enables the library filter", async () => {
+  const list = await openPage();
   const title = catalogAlbumTitles[0];
-  expect(
-    within(table).queryByRole("button", { name: `Like ${title}` }),
-  ).toBeNull();
   fireEvent.click(
-    within(table).getByRole("button", { name: `Find audio for ${title}` }),
-  );
-  const details = await within(table).findByRole("link", { name: title });
-  expect(details.getAttribute("href")).toBe("/recordings/recording-found-1");
-  fireEvent.click(within(table).getByRole("button", { name: `Like ${title}` }));
-  await waitFor(() =>
-    expect(mutate).toHaveBeenCalledWith({
-      kind: "like_set",
-      recording_id: "recording-found-1",
-      liked: true,
+    within(rowOf(list, title)).getByRole("button", {
+      name: `Add ${title} to your library`,
     }),
   );
+  await within(rowOf(list, title)).findByRole("img", {
+    name: "In your library",
+  });
   expect(
-    await within(table).findByRole("button", { name: `Unlike ${title}` }),
+    within(rowOf(list, title)).queryByRole("button", {
+      name: `Add ${title} to your library`,
+    }),
+  ).toBeNull();
+  const header = document.querySelector<HTMLElement>(".album-header")!;
+  expect(within(header).getByText("1 of 4 in your library")).toBeTruthy();
+  expect(
+    within(header).getByRole("img", { name: "1 of 4 tracks in your library" }),
   ).toBeTruthy();
+  expect(within(header).queryByText("Not in your library")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "In my library 1" }));
+  expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "All 4" }));
+  expect(within(list).getAllByRole("listitem")).toHaveLength(4);
+  openRowMenu(rowOf(list, title), title);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Track details" }));
+  expect(router.visit).toHaveBeenCalledWith("/recordings/recording-found-1");
   expect(player.selected).not.toHaveBeenCalled();
 });
 
 test("a track with no confident match says so and lets the owner retry or connect services", async () => {
-  const table = await openPage();
+  const list = await openPage();
   const title = catalogAlbumTitles[2];
   missing.add("opaque:occurrence/play/3");
   fireEvent.click(
-    within(table).getByRole("button", { name: `Find audio for ${title}` }),
+    within(rowOf(list, title)).getByRole("button", {
+      name: `Add ${title} to your library`,
+    }),
   );
-  expect(await within(table).findByText("No source")).toBeTruthy();
+  await waitFor(() =>
+    expect(rowOf(list, title).textContent).toContain("No audio found"),
+  );
   expect(
-    within(table).getByRole("button", {
-      name: `Try again to find audio for ${title}`,
+    within(rowOf(list, title)).getByRole("button", {
+      name: `Add ${title} to your library`,
     }),
   ).toBeTruthy();
-  fireEvent.click(
-    within(table).getByRole("button", { name: `Actions for ${title}` }),
-  );
+  openRowMenu(rowOf(list, title), title);
   fireEvent.click(screen.getByRole("menuitem", { name: "Connect services" }));
   expect(router.visit).toHaveBeenCalledWith("/settings?section=music");
 });
 
-test("the edition switcher is a listbox above the tracks and loads that edition's tracks", async () => {
+test("the edition chip menu above the tracks names the catalog and loads the chosen edition's tracks", async () => {
   await openPage();
-  const control = screen.getByRole("combobox", { name: "Edition" });
-  expect(document.querySelector("select[aria-label='Edition']")).toBeNull();
-  choose(control, 1);
+  expect(screen.getByText(/^Track list from /)).toBeTruthy();
+  chooseEdition(1);
   await waitFor(() =>
     expect(trackBodies.map((body) => body.edition_id)).toContain(
       twoEditionsPage.page.items[1].id,
@@ -222,17 +265,10 @@ test("the edition switcher is a listbox above the tracks and loads that edition'
   );
 });
 
-test("an unfound row has details and like buttons that find audio first", async () => {
-  const table = await openPage();
+test("an unfound row's menu finds audio before liking it or opening its details", async () => {
+  const list = await openPage();
   const title = catalogAlbumTitles[3];
-  expect(
-    within(table).queryByRole("button", {
-      name: `Find audio and like ${title}`,
-    }),
-  ).toBeNull();
-  fireEvent.click(
-    within(table).getByRole("button", { name: `Actions for ${title}` }),
-  );
+  openRowMenu(rowOf(list, title), title);
   fireEvent.click(
     screen.getByRole("menuitem", { name: "Find audio and like" }),
   );
@@ -243,39 +279,37 @@ test("an unfound row has details and like buttons that find audio first", async 
       liked: true,
     }),
   );
-  expect(
-    await within(table).findByRole("button", { name: `Unlike ${title}` }),
-  ).toBeTruthy();
+  await within(rowOf(list, title)).findByRole("img", {
+    name: "In your library",
+  });
   const other = catalogAlbumTitles[0];
-  fireEvent.click(
-    within(table).getByRole("button", { name: `Actions for ${other}` }),
-  );
+  openRowMenu(rowOf(list, other), other);
   fireEvent.click(screen.getByRole("menuitem", { name: "Track details" }));
   await waitFor(() =>
     expect(router.get).toHaveBeenCalledWith("/recordings/recording-found-1"),
   );
 });
 
-test("a row linked to a saved recording opens as a library row and plays without a new search", async () => {
+test("a row linked to a saved recording shows as in your library and plays without a new search", async () => {
   const title = catalogAlbumTitles[1];
   linked = [
     { occurrence_id: "opaque:occurrence/play/2", recording: foundRecording(1) },
   ];
-  const table = await openPage();
-  const details = await within(table).findByRole("link", { name: title });
-  expect(details.getAttribute("href")).toBe("/recordings/recording-found-2");
+  const list = await openPage();
+  await within(rowOf(list, title)).findByRole("img", {
+    name: "In your library",
+  });
   expect(
-    within(table).getByRole("button", { name: `Like ${title}` }),
-  ).toBeTruthy();
-  expect(
-    within(table).queryByRole("button", { name: `Find audio for ${title}` }),
+    within(rowOf(list, title)).queryByRole("button", {
+      name: `Add ${title} to your library`,
+    }),
   ).toBeNull();
   expect(
-    within(table).getByRole("button", {
-      name: `Find audio for ${catalogAlbumTitles[0]}`,
+    within(list).getByRole("button", {
+      name: `Add ${catalogAlbumTitles[0]} to your library`,
     }),
   ).toBeTruthy();
-  fireEvent.click(within(table).getByRole("button", { name: `Play ${title}` }));
+  fireEvent.click(within(list).getByRole("button", { name: `Play ${title}` }));
   await waitFor(() => expect(player.selected).toHaveBeenCalledTimes(1));
   const target = player.selected.mock.calls[0][0] as {
     queue: Array<{ id: string }>;
@@ -285,13 +319,16 @@ test("a row linked to a saved recording opens as a library row and plays without
 });
 
 test("finding audio makes the next visit read the track list again so the new link shows", async () => {
-  const table = await openPage();
+  const list = await openPage();
+  const title = catalogAlbumTitles[0];
   fireEvent.click(
-    within(table).getByRole("button", {
-      name: `Find audio for ${catalogAlbumTitles[0]}`,
+    within(list).getByRole("button", {
+      name: `Add ${title} to your library`,
     }),
   );
-  await within(table).findByRole("link", { name: catalogAlbumTitles[0] });
+  await within(rowOf(list, title)).findByRole("img", {
+    name: "In your library",
+  });
   cleanup();
   linked = [
     { occurrence_id: "opaque:occurrence/play/1", recording: foundRecording(0) },
@@ -300,6 +337,8 @@ test("finding audio makes the next visit read the track list again so the new li
   const again = await openPage();
   expect(trackBodies).toHaveLength(1);
   expect(
-    await within(again).findByRole("link", { name: catalogAlbumTitles[0] }),
+    await within(rowOf(again, title)).findByRole("img", {
+      name: "In your library",
+    }),
   ).toBeTruthy();
 });

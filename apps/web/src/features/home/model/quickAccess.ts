@@ -19,7 +19,7 @@ function albumTile(album: Schema<"HomeAlbum">): QuickTile {
   const credit = releaseCreditLabel(album);
   return {
     key: `album-${album.id}`,
-    href: `/albums/${album.id}`,
+    href: `/albums/${encodeURIComponent(album.id)}`,
     title: album.title,
     subtitle: credit ? `Album · ${credit}` : "Album",
     kind: "release",

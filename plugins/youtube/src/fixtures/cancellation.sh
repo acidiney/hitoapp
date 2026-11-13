@@ -16,7 +16,9 @@ fi
 printf '%s\n' invocation >> "$directory/calls"
 selector=
 for argument in "$@"; do
-    selector=$argument
+    case "$argument" in
+        'https://music.youtube.com/search?q='*) selector=$argument ;;
+    esac
 done
 case "$selector" in
     'https://music.youtube.com/search?q=private-first-query-sentinel#songs') slot=first ;;
