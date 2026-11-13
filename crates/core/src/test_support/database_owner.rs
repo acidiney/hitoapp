@@ -65,6 +65,19 @@ pub struct Retirement {
     pub resources_retired: bool,
 }
 
+pub struct PoolReservation {
+    connections: Vec<sqlx::pool::PoolConnection<sqlx::Sqlite>>,
+    _owner: DatabaseOwner,
+}
+
+impl PoolReservation {
+    pub async fn release(mut self) {
+        for connection in &mut self.connections {
+            connection.return_to_pool().await;
+        }
+    }
+}
+
 impl DatabaseOwner {
     pub fn retain(directory: Arc<tempfile::TempDir>) -> Self {
         let (changed, _) = watch::channel(Resources::default());
@@ -92,6 +105,34 @@ impl DatabaseOwner {
         DatabaseObservation {
             tracker: self.inner.tracker.clone(),
         }
+    }
+
+    pub async fn reserve_all(&self) -> Result<PoolReservation> {
+        let pool = {
+            let state = self
+                .inner
+                .tracker
+                .state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            if state.resources.closing {
+                return Err(Error::Conflict("The owned test database is closing".into()));
+            }
+            self.inner
+                .pool
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .clone()
+                .ok_or_else(|| Error::Conflict("The owned test database is not open".into()))?
+        };
+        let mut connections = Vec::new();
+        for _ in 0..pool.options().get_max_connections() {
+            connections.push(pool.acquire().await?);
+        }
+        Ok(PoolReservation {
+            connections,
+            _owner: self.clone(),
+        })
     }
 
     pub fn hold_opening(&self, gate: &OpeningGate) {

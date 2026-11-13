@@ -123,7 +123,6 @@ async fn malformed_oversized_or_wrong_identity_upstream_results_are_unavailable_
     assert_eq!(prepared.read().await["status"], "unavailable");
     prepared.provider.reply("v2_lyrics", document);
     for status in [
-        StatusCode::UNAUTHORIZED,
         StatusCode::FORBIDDEN,
         StatusCode::TOO_MANY_REQUESTS,
         StatusCode::BAD_GATEWAY,

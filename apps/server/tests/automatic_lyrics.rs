@@ -19,6 +19,8 @@ mod authority;
 mod availability;
 #[path = "automatic_lyrics/cancellation.rs"]
 mod cancellation;
+#[path = "automatic_lyrics/credentials.rs"]
+mod credentials;
 #[path = "automatic_lyrics/isolation.rs"]
 mod isolation;
 #[path = "automatic_lyrics/logging.rs"]

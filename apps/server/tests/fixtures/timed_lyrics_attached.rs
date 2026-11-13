@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -26,6 +26,7 @@ pub const NAME: &str = "Owned attached lyric provider";
 
 struct Fixture {
     lyrics_enabled: bool,
+    reject_lyrics: AtomicBool,
     version: AtomicUsize,
     manifest: AtomicUsize,
     detail: AtomicUsize,
@@ -54,6 +55,7 @@ impl Provider {
     async fn with_lyrics(lyrics_enabled: bool) -> Self {
         let state = Arc::new(Fixture {
             lyrics_enabled,
+            reject_lyrics: AtomicBool::new(false),
             version: AtomicUsize::new(1),
             manifest: AtomicUsize::new(0),
             detail: AtomicUsize::new(0),
@@ -87,6 +89,10 @@ impl Provider {
 
     pub fn reference(&self) -> ProviderRecordingRef {
         self.state.reference()
+    }
+
+    pub fn reject_lyrics(&self) {
+        self.state.reject_lyrics.store(true, Ordering::SeqCst);
     }
 
     pub fn advance(&self) {
@@ -218,6 +224,9 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
                     }) =>
         {
             state.lyrics.fetch_add(1, Ordering::SeqCst);
+            if state.reject_lyrics.load(Ordering::SeqCst) {
+                return StatusCode::UNAUTHORIZED.into_response();
+            }
             json!(LyricsResponse {
                 recording: state.reference(),
                 lyrics: None

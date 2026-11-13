@@ -239,8 +239,7 @@ impl Page {
                 Ok(candidate) => candidate,
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
-                    self.provider_unavailable |=
-                        matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                    self.provider_unavailable |= super::is_provider_unavailable(&error);
                     tracing::debug!(
                         event = "source_resolution_candidate_failed",
                         error_kind = error.code(),
@@ -298,8 +297,7 @@ impl Page {
                         Ok(_) => continue,
                         Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                         Err(error) => {
-                            self.provider_unavailable |=
-                                matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                            self.provider_unavailable |= super::is_provider_unavailable(&error);
                             tracing::debug!(
                                 event = "source_resolution_candidate_failed",
                                 error_kind = error.code(),

@@ -66,6 +66,10 @@ impl HealthServer {
         self.plugin.fault(HEALTH_PATH, Fault::Delay(delay));
     }
 
+    pub fn stall_body(&self) -> std::sync::Arc<hito_testkit::fake_plugin::Gate> {
+        self.plugin.stall_body(HEALTH_PATH, 1)
+    }
+
     pub fn require_bearer(&self, token: &str) {
         self.plugin.require_bearer(token);
     }

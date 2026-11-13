@@ -365,6 +365,13 @@ async fn bounded<T>(
     }
 }
 
+fn is_provider_unavailable(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::Upstream(_) | Error::ProviderBusy(_) | Error::PluginCredentialsRequired(_)
+    )
+}
+
 fn resolution_timeout() -> Error {
     Error::Upstream("Source resolution exceeded the time limit")
 }
