@@ -1,6 +1,6 @@
 FROM rust:1.99-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS rust-tools
 WORKDIR /workspace
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg pkg-config libdbus-1-dev && rm -rf /var/lib/apt/lists/*
 RUN rustup component add rustfmt clippy rust-src rust-analyzer
 ENV CARGO_TARGET_DIR=/build/target
 
