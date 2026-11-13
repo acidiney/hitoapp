@@ -132,7 +132,7 @@ async fn opening_schema_95_preserves_the_existing_artist_choice_and_all_prior_ro
         .fetch_all(&mut connection)
         .await
         .unwrap();
-        assert_eq!(history, (1..=96).collect::<Vec<_>>());
+        assert_eq!(history, (1..=97).collect::<Vec<_>>());
         let targets: Vec<String> = sqlx::query_scalar(
             "SELECT credit_target FROM recording_artist_associations ORDER BY id",
         )
