@@ -5010,6 +5010,12 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        PlaybackFailure: {
+            reason: components["schemas"]["PlaybackFailureReason"];
+            retryable: boolean;
+        };
+        /** @enum {string} */
+        PlaybackFailureReason: "provider_unavailable" | "provider_refused" | "credentials_required" | "invalid_provider_response";
         PlaybackLease: {
             /** Format: int64 */
             expires_at: number;
@@ -6264,6 +6270,7 @@ export interface components {
         /** @enum {string} */
         SourceRefreshPurpose: "manual" | "playback";
         SourceResolution: {
+            failure?: components["schemas"]["PlaybackFailure"] | null;
             outcome: components["schemas"]["SourceResolutionOutcome"];
             recording_id: string;
             /** Format: uuid */

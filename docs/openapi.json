@@ -29254,6 +29254,31 @@
           }
         }
       },
+      "PlaybackFailure": {
+        "type": "object",
+        "required": [
+          "reason",
+          "retryable"
+        ],
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/PlaybackFailureReason"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlaybackFailureReason": {
+        "type": "string",
+        "enum": [
+          "provider_unavailable",
+          "provider_refused",
+          "credentials_required",
+          "invalid_provider_response"
+        ]
+      },
       "PlaybackLease": {
         "type": "object",
         "required": [
@@ -34336,6 +34361,16 @@
           "sources"
         ],
         "properties": {
+          "failure": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlaybackFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "outcome": {
             "$ref": "#/components/schemas/SourceResolutionOutcome"
           },

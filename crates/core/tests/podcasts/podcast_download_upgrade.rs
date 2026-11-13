@@ -56,9 +56,9 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .await
         .expecting_audiobooks()
         .await
-        .expecting_collection_artwork()
-        .await
         .expecting_unavailable_outcome()
+        .await
+        .expecting_collection_artwork()
         .await;
     all.run(&mut connection).await.unwrap();
     assert_version(&mut connection, collection_artwork_schema::latest_version()).await;
@@ -483,13 +483,14 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_96().await;
+        let mut reference = collection_artwork_schema::reference_98().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED
             .iter()
             .chain(collection_artwork_schema::source_artist_trigger_schema::REPLACED)
             .chain(collection_artwork_schema::artist_credit_target_schema::REPLACED)
+            .chain(collection_artwork_schema::playback_failure_schema::REPLACED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
@@ -551,6 +552,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::replica_catalog_schema::ADDED)
             .chain(collection_artwork_schema::recording_lyric_identity_schema::ADDED)
             .chain(collection_artwork_schema::artist_credit_target_schema::ADDED)
+            .chain(collection_artwork_schema::credit_member_identity_choice_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(

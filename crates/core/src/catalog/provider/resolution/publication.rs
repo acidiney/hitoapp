@@ -1,5 +1,6 @@
 use super::{
     SourceResolutionOutcome, authority,
+    cursor::Candidates,
     fallback::Basis,
     provider::Candidate,
     receipts::{self, Attempt},
@@ -24,7 +25,7 @@ impl Catalog {
         attempt: &Attempt,
         candidate: Option<Candidate>,
         basis: Basis,
-        provider_unavailable: bool,
+        providers: &Candidates,
     ) -> Result<Publication> {
         tracing::debug!(
             event = "source_resolution_write_started",
@@ -119,12 +120,15 @@ impl Catalog {
             sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision,musical_metadata) VALUES (?,?,?,?,?,?,?,?)")
                 .bind(&attempt.id).bind(&binding.id).bind(candidate.policy(basis)).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
             SourceResolutionOutcome::Ready
-        } else if provider_unavailable {
+        } else if providers.provider_unavailable {
             SourceResolutionOutcome::ProviderUnavailable
         } else {
             SourceResolutionOutcome::NoSuitableSource
         };
-        receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome).await?;
+        let failure = matches!(outcome, SourceResolutionOutcome::ProviderUnavailable)
+            .then_some(providers.failure)
+            .flatten();
+        receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome, failure).await?;
         tx.commit().await?;
         tracing::info!(
             event = "source_resolution_committed",
@@ -155,7 +159,7 @@ impl Catalog {
         } else {
             outcome
         };
-        receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome).await?;
+        receipts::finish_on(&mut tx, &attempt.id, Some(&attempt.token), outcome, None).await?;
         tx.commit().await?;
         Ok(outcome)
     }

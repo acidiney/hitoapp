@@ -61,6 +61,8 @@ pub mod name_rule_schema;
 pub mod offline_replicas_schema;
 #[path = "pin_lock_schema.rs"]
 pub mod pin_schema;
+#[path = "playback_failure_schema.rs"]
+pub mod playback_failure_schema;
 #[path = "plugin_authorization_delivery_schema.rs"]
 pub mod plugin_authorization_delivery_schema;
 #[path = "plugin_authorization_status_schema.rs"]
@@ -536,6 +538,10 @@ pub async fn reference_97() -> SqliteConnection {
     credit_member_identity_choice_schema::reference(reference_96().await).await
 }
 
+pub async fn reference_98() -> SqliteConnection {
+    playback_failure_schema::reference(reference_97().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -588,6 +594,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         95 => reference_95().await,
         96 => reference_96().await,
         97 => reference_97().await,
+        98 => reference_98().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(

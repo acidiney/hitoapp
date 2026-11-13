@@ -102,6 +102,11 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) fn playback_failures(mut self) -> Self {
+        self.remote = self.remote.for_playback();
+        self
+    }
+
     pub(crate) fn credential_observation(&self) -> super::health::CredentialTicket {
         self.health.credential_ticket(self.connection_generation())
     }
