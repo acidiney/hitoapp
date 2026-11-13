@@ -82,6 +82,7 @@ async function connectCreditMembers(page: Page, baseURL: string) {
     }
   }
   let recordingId = "";
+  let libraryId = "";
   try {
     const service = await send<Schema<"PluginService">>(
       "POST",
@@ -111,6 +112,7 @@ async function connectCreditMembers(page: Page, baseURL: string) {
       } satisfies Schema<"AdoptProviderRecording">,
     );
     recordingId = adopted.id;
+    libraryId = adopted.library_id;
     original = await read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     );
@@ -138,6 +140,7 @@ async function connectCreditMembers(page: Page, baseURL: string) {
     provider,
     headers,
     recordingId,
+    libraryId,
     members,
     memberPath,
     wholeCredit: () =>
@@ -297,22 +300,41 @@ test("another account sees no member choice the first account made", async ({
       data: { username: accounts.names[0], password: memberPassword },
     });
     expect(login.status()).toBe(200);
+    const me = (await (await peer.request.get("/api/v1/me")).json()) as
+      Schema<"User">;
+    const grant = await page.request.put(
+      `/api/v1/libraries/${fixture.libraryId}/members/${me.id}`,
+      { headers: fixture.headers },
+    );
+    expect(grant.ok()).toBe(true);
+    const visible = await peer.request.get(
+      `/api/v1/recordings/${fixture.recordingId}/artist-identity`,
+    );
+    expect(visible.status()).toBe(200);
     const read = await peer.request.get(fixture.memberPath(members.guest));
-    if (read.status() === 200) {
-      const choice =
-        (await read.json()) as Schema<"RecordingCreditMemberIdentityChoice">;
-      expect(choice.state.status).toBe("unselected");
-    } else expect(read.status()).toBe(404);
-    expect(await read.text()).not.toContain(candidate);
+    expect(read.status()).toBe(200);
+    const choice =
+      (await read.json()) as Schema<"RecordingCreditMemberIdentityChoice">;
+    expect(choice.state.status).toBe("unselected");
+    expect(choice.revision).toBe(0);
 
     const other = await peer.newPage();
-    await other.goto(`/recordings/${fixture.recordingId}`);
+    await openCreditedArtists(other, fixture.recordingId);
+    await other.getByRole("button", { name: "Credited artists (2)" }).click();
+    await expect(memberRow(other, credits.guest)).toContainText(
+      "Not chosen yet",
+    );
+    await expect(memberRow(other, credits.lead)).toContainText(
+      "Not chosen yet",
+    );
     await expect(other.getByText(candidate)).toHaveCount(0);
 
     const own = (await (
       await page.request.get(fixture.memberPath(members.guest))
     ).json()) as Schema<"RecordingCreditMemberIdentityChoice">;
     expect(own.state.status).toBe("selected");
+    await expect(guest).toContainText(`Chosen: ${candidate}`);
+    expect(fixture.provider.state.unexpected).toBe(0);
   } finally {
     try {
       await peer?.close();
@@ -374,6 +396,7 @@ test("a member choice whose response is lost offers Check again, replays the sam
     ).json()) as Schema<"RecordingCreditMemberIdentityChoice">;
     expect(stored.state.status).toBe("selected");
     expect(stored.revision).toBe(1);
+    expect(fixture.provider.state.unexpected).toBe(0);
   } finally {
     await fixture.close();
   }
@@ -423,6 +446,7 @@ test("dark-mode evidence of the credited artists disclosure, list, choice dialog
       await guest.getByRole("button", { name: "Clear choice" }).click();
       await expect(guest).toContainText("Not chosen yet");
     }
+    expect(fixture.provider.state.unexpected).toBe(0);
   } finally {
     await fixture.close();
   }

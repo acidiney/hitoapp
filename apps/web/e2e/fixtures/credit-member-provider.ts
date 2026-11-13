@@ -32,8 +32,14 @@ export async function creditMemberProvider(
   const token = "browser-private-credit-member-token";
   const state = { searches: 0, profiles: 0, unexpected: 0 };
   const server = createServer(async (request, response) => {
-    if (request.headers.authorization !== `Bearer ${token}`) {
-      response.writeHead(401).end();
+    if (
+      request.headers.cookie ||
+      request.headers["x-hito-plugin-protocol"] !== "1" ||
+      (request.headers.authorization !== `Bearer ${token}` &&
+        !(request.url === "/members/v1/manifest" && !request.headers.authorization))
+    ) {
+      state.unexpected++;
+      response.writeHead(400).end();
       return;
     }
     const route = new URL(
