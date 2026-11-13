@@ -15,6 +15,7 @@ import {
   useEditionPlayPublish,
 } from "../../catalog/components/AlbumMergeContext";
 import { albumEditionApi } from "../api/albumEditionApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { useEditionPlayback } from "../hooks/useCatalogPlayback";
 import { creditText } from "../model/catalogAlbumRows";
 import {
@@ -112,8 +113,25 @@ export default function AlbumEditionTrackList({
   const playback = useEditionPlayback(
     {
       scope: JSON.stringify([account, source.release, source.recording]),
-      find: (edition, occurrence, signal) =>
-        albumEditionApi.audio(
+      find: async (edition, occurrence, signal) => {
+        const adoption = comparison!.adoption;
+        const identity = audio.find(
+          (track) => track.id === occurrence,
+        )?.recording_id;
+        if (adoption && identity)
+          return {
+            status: "saved" as const,
+            recording: await pluginsApi.adopt(
+              account,
+              adoption.installation_id,
+              {
+                installation_revision: adoption.installation_revision,
+                provider_recording_id: identity,
+              },
+              signal,
+            ),
+          };
+        return albumEditionApi.audio(
           account,
           source.release,
           {
@@ -124,7 +142,8 @@ export default function AlbumEditionTrackList({
             occurrence_id: occurrence,
           },
           signal,
-        ),
+        );
+      },
     },
     comparison?.edition.id ?? null,
     queue,
