@@ -387,8 +387,8 @@ export class ArtworkRetrieval {
         log.debug("artwork.admission_busy", {
           account_id: this.account,
           mode: entry.target.kind,
-          attempt: rejected,
-          wait_ms: wait * 1000,
+          count: rejected,
+          duration_ms: wait * 1000,
         });
         this.publish(entry, "waiting");
       }
