@@ -13,9 +13,7 @@ mod remote;
 #[path = "audio_quality/representation.rs"]
 mod representation;
 
-#[path = "../../../crates/core/tests/fixtures/tone_files.rs"]
-#[allow(dead_code)]
-mod tones;
+use hito_testkit::tone_files as tones;
 
 use axum::{
     body::Body,

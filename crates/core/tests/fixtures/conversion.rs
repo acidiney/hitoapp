@@ -1,5 +1,4 @@
-#[path = "tone_files.rs"]
-pub mod tones;
+pub use hito_testkit::tone_files as tones;
 
 use hito_core::test_support::support;
 use hito_core::{
