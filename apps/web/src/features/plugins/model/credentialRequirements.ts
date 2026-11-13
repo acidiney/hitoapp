@@ -14,6 +14,7 @@ const empty: Flags = new Map();
 const byAccount = new Map<string, Flags>();
 const listeners = new Set<() => void>();
 let versions = 0;
+const recoveries = new Set<(account: string) => void>();
 
 function publish(account: string, next: Flags) {
   if (next.size === 0) byAccount.delete(account);
@@ -59,6 +60,14 @@ export function clearCredentialRequirementAfterProtectedSuccess(
   )
     return;
   clearCredentialRequirement(account, installationId);
+  recoveries.forEach((listener) => listener(account));
+}
+
+export function onCredentialRecovered(listener: (account: string) => void) {
+  recoveries.add(listener);
+  return () => {
+    recoveries.delete(listener);
+  };
 }
 
 export function clearCredentialRequirement(

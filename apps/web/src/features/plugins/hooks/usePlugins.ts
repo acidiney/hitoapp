@@ -7,12 +7,14 @@ import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
 import { useRefreshArtworkAvailability } from "../../artwork/components/ArtworkProvider";
+import { onCredentialRecovered } from "../model/credentialRequirements";
 
 export function usePlugins(account: string) {
   const scope = useRequestScope(account);
   const refreshArtworkAvailability = useRefreshArtworkAvailability(account);
   const owner = useMemo(() => ({ scope, generation: 0 }), [scope]);
   const busy = useRef<typeof owner | null>(null);
+  const recoveryPending = useRef<typeof owner | null>(null);
   const [snapshot, setSnapshot] = useState<{
     owner: typeof owner;
     data: Schema<"PluginSettings">;
@@ -61,6 +63,16 @@ export function usePlugins(account: string) {
     [owner],
   );
 
+  useEffect(
+    () =>
+      onCredentialRecovered((recovered) => {
+        if (recovered !== account) return;
+        if (busy.current === owner) recoveryPending.current = owner;
+        else reload((value) => value + 1);
+      }),
+    [account, owner],
+  );
+
   async function perform<T>(
     action: string,
     operation: (signal: AbortSignal) => Promise<T>,
@@ -97,6 +109,10 @@ export function usePlugins(account: string) {
     } finally {
       if (busy.current === owner) busy.current = null;
       if (request.active()) setPending(null);
+      if (recoveryPending.current === owner) {
+        recoveryPending.current = null;
+        if (request.active()) reload((value) => value + 1);
+      }
     }
   }
   const replace = (
