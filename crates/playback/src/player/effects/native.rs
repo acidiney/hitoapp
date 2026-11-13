@@ -1,3 +1,5 @@
+mod acquisition;
+
 use super::{
     Key, Target, Update,
     controls::Controls,
@@ -6,11 +8,22 @@ use super::{
     sources::Sources,
 };
 use crate::{PlayerError, PlayerPhase, Session, Status};
+use acquisition::{
+    Acquisition, FinalizationId, FinalizationTaskResult, FinalizationTasks, Finalized,
+};
 use hito_core::{Catalog, PlaybackAccess};
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::watch;
+use tokio::time::{Instant, sleep_until};
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+#[cfg(test)]
+struct FinalizationArm {
+    entered: tokio::sync::oneshot::Sender<()>,
+    release: tokio::sync::oneshot::Receiver<()>,
+    handled: tokio::sync::oneshot::Sender<()>,
+}
 
 enum Boundary {
     Open,
@@ -19,7 +32,17 @@ enum Boundary {
 }
 
 pub(crate) struct Native {
+    catalog: Catalog,
+    playback: PlaybackAccess,
     sources: Sources,
+    acquisition: Option<Acquisition>,
+    acquired: Option<(Key, uuid::Uuid)>,
+    finalizing: FinalizationTasks,
+    deadline_pending: Option<FinalizationId>,
+    #[cfg(test)]
+    finalization_handled: Option<tokio::sync::oneshot::Sender<()>>,
+    #[cfg(test)]
+    finalization_arm: Option<FinalizationArm>,
     target: Option<Target>,
     session: Option<Arc<Session>>,
     observed: Option<watch::Receiver<crate::Snapshot>>,
@@ -37,12 +60,22 @@ pub(crate) struct Native {
 impl Native {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
         Self {
+            catalog: catalog.clone(),
+            playback: playback.clone(),
             lookahead: Lookahead::new(catalog.clone(), playback.clone()),
             track: 0,
             crossed: None,
             tail: None,
             boundary: Boundary::Open,
             sources: Sources::new(catalog, playback),
+            acquisition: None,
+            acquired: None,
+            finalizing: FinalizationTasks::new(),
+            deadline_pending: None,
+            #[cfg(test)]
+            finalization_handled: None,
+            #[cfg(test)]
+            finalization_arm: None,
             target: None,
             session: None,
             observed: None,
@@ -53,11 +86,211 @@ impl Native {
             update: None,
         }
     }
+    fn start_acquisition(
+        &mut self,
+        key: Key,
+        demand: uuid::Uuid,
+        play_revision: u64,
+        seek_id: Option<uuid::Uuid>,
+        restoration_id: Option<uuid::Uuid>,
+    ) {
+        if self
+            .acquisition
+            .as_ref()
+            .is_some_and(|run| run.key == key && run.demand == demand)
+            || self.acquired == Some((key, demand))
+        {
+            return;
+        }
+        self.deadline_pending = None;
+        self.acquisition = Some(Acquisition::start(
+            key,
+            demand,
+            play_revision,
+            seek_id,
+            restoration_id,
+        ));
+    }
+    fn spawn_finalization<D, A>(&mut self, id: FinalizationId, drain: D, access: A)
+    where
+        D: Future<Output = bool> + Send + 'static,
+        A: Future<Output = Result<(), PlayerError>> + Send + 'static,
+    {
+        let pending: Pending<Finalized> = Box::pin(async move {
+            let (drained, access) = tokio::join!(drain, access);
+            Finalized {
+                id,
+                drained,
+                access,
+            }
+        });
+        self.finalizing.spawn(id, pending);
+    }
+    #[cfg(test)]
+    pub(super) fn arm_finalizer_for_test(
+        &mut self,
+        entered: tokio::sync::oneshot::Sender<()>,
+        release: tokio::sync::oneshot::Receiver<()>,
+        handled: tokio::sync::oneshot::Sender<()>,
+    ) {
+        self.finalization_arm = Some(FinalizationArm {
+            entered,
+            release,
+            handled,
+        });
+    }
+    fn acquisition_progressed(&mut self) -> bool {
+        let (Some(run), Some(target), Some(session)) = (
+            self.acquisition.as_mut(),
+            self.target.as_ref(),
+            self.session.as_ref(),
+        ) else {
+            return false;
+        };
+        if run.key != target.key
+            || !target.playing
+            || !target.permitted
+            || !target.output
+            || run.play_revision != target.play_revision
+            || run.seek_id != target.seek.map(|seek| seek.id)
+            || run.restoration_id != target.restoration.map(|restoration| restoration.id)
+            || !self.controls.configured()
+        {
+            return false;
+        }
+        let restored = self
+            .controls
+            .restored()
+            .map(|restored| (restored.id, restored.baseline));
+        run.observe(
+            target,
+            session.snapshot(),
+            self.controls.configured(),
+            self.controls.applied_seek(),
+            restored,
+        )
+    }
+    fn begin_deadline_finalization(&mut self) {
+        let Some(run) = self.acquisition.take() else {
+            return;
+        };
+        if !self.target.as_ref().is_some_and(|target| {
+            target.key == run.key && target.playing && target.permitted && target.output
+        }) {
+            return;
+        }
+        let id = run.finalization_id();
+        let elapsed_ms = run.started.elapsed().as_millis() as u64;
+        tracing::info!(
+            event = "player_acquisition_deadline",
+            request_id = %run.demand,
+            elapsed_ms,
+            attempts = run.attempts,
+            "Native playback acquisition deadline reached"
+        );
+        self.deadline_pending = Some(id);
+        self.update = None;
+        if let Some(session) = &self.session {
+            session.stop();
+        }
+        let catalog = self.catalog.clone();
+        let playback = self.playback.clone();
+        let mut lookahead = std::mem::replace(
+            &mut self.lookahead,
+            Lookahead::new(catalog.clone(), playback.clone()),
+        );
+        self.observed = None;
+        self.controls
+            .retire(self.session.as_ref().map(|session| session.snapshot()));
+        self.track = 0;
+        self.crossed = None;
+        self.tail = None;
+        self.boundary = Boundary::Open;
+        let session = self.session.take();
+        let closing = self.closing.take();
+        self.sources.reset(None);
+        let mut fresh_sources = Sources::new(catalog.clone(), playback);
+        fresh_sources.reset(Some(run.key));
+        let mut sources = std::mem::replace(&mut self.sources, fresh_sources);
+        let target = self.target.as_ref();
+        let actor = target.map(|target| target.actor.clone());
+        let recording = target.map(|target| target.recording);
+        let drain = async move {
+            let mut drained = true;
+            lookahead.close().await;
+            if let Some(session) = session {
+                match Arc::into_inner(session) {
+                    Some(session) => drained = session.close().await.is_ok(),
+                    None => drained = false,
+                }
+            }
+            if let Some(mut closing) = closing {
+                closing.as_mut().await;
+            }
+            sources.close().await;
+            drained
+        };
+        let access = async move {
+            match (actor, recording) {
+                (Some(actor), Some(recording)) => catalog
+                    .recordings_by_ids(&actor, &[recording])
+                    .await
+                    .map(|_| ())
+                    .map_err(PlayerError::from),
+                _ => Err(PlayerError::Unavailable),
+            }
+        };
+        self.spawn_finalization(id, drain, access);
+    }
+    fn finish_finalization(&mut self, result: Finalized) -> Option<Update> {
+        if self.deadline_pending != Some(result.id) {
+            return None;
+        }
+        self.deadline_pending = None;
+        let target = self.target.as_ref()?;
+        if target.key != result.id.key
+            || !target.playing
+            || !target.permitted
+            || !target.output
+            || target.play_revision != result.id.play_revision
+            || target.seek.map(|seek| seek.id) != result.id.seek_id
+            || target.restoration.map(|restoration| restoration.id) != result.id.restoration_id
+        {
+            return None;
+        }
+        if !result.drained {
+            self.failed = true;
+            return Some(self.status(PlayerPhase::Failed, Some(PlayerError::Playback)));
+        }
+        match result.access {
+            Ok(()) => Some(self.exhausted(PlayerError::Playback)),
+            Err(error) => {
+                self.failed = true;
+                Some(self.status(PlayerPhase::Failed, Some(error)))
+            }
+        }
+    }
+    fn finish_finalization_panic(&mut self, id: Option<FinalizationId>) -> Option<Update> {
+        if !acquisition::failed_finalization_is_current(
+            self.deadline_pending,
+            id,
+            self.target.as_ref().map(|target| target.key),
+        ) {
+            return None;
+        }
+        self.deadline_pending = None;
+        self.failed = true;
+        Some(self.status(PlayerPhase::Failed, Some(PlayerError::Playback)))
+    }
     pub fn sync(&mut self, target: Option<Target>) {
         let key = target.as_ref().map(|target| target.key);
         let crossed = self.crossed.take();
         let mut suspended_now = false;
         if self.target.as_ref().map(|target| target.key) != key {
+            self.acquisition = None;
+            self.acquired = None;
+            self.deadline_pending = None;
+            self.update = None;
             self.suspended = false;
             if self.session.is_some() && key.is_some() && crossed == key {
                 self.adopt();
@@ -68,6 +301,10 @@ impl Native {
                 self.controls = Controls::default();
             }
         } else if crossed.is_some() {
+            self.acquisition = None;
+            self.acquired = None;
+            self.deadline_pending = None;
+            self.update = None;
             self.retire();
             self.sources.reset(key);
             self.failed = false;
@@ -89,12 +326,19 @@ impl Native {
                 .map(|r| r.id)
                 != Some(restoration.id)
         {
+            self.update = None;
+            if let Some(run) = &mut self.acquisition {
+                run.restoration_id = Some(restoration.id);
+                run.reset_baseline();
+            }
+            self.deadline_pending = None;
             self.controls.request_restoration(restoration);
         }
         if target.as_ref().is_some_and(|target| !target.permitted) {
-            if self.suspended {
-                self.update = None;
-            }
+            self.acquisition = None;
+            self.acquired = None;
+            self.deadline_pending = None;
+            self.update = None;
             if self.target.as_ref().is_none_or(|target| target.permitted) {
                 self.retire();
                 self.sources.reset(target.as_ref().map(|target| target.key));
@@ -104,10 +348,11 @@ impl Native {
             return;
         }
         if target.as_ref().is_some_and(|target| !target.output) {
-            if self.suspended {
-                self.update = None;
-            }
-            if self.session.is_some() {
+            self.acquisition = None;
+            self.acquired = None;
+            self.deadline_pending = None;
+            self.update = None;
+            if self.session.is_some() || self.sources.has_demand() {
                 self.retire();
                 self.sources.reset(target.as_ref().map(|target| target.key));
             }
@@ -117,6 +362,15 @@ impl Native {
         if let Some(seek) = target.as_ref().and_then(|target| target.seek)
             && self.target.as_ref().and_then(|target| target.seek) != Some(seek)
         {
+            self.update = None;
+            if let Some(run) = &mut self.acquisition {
+                run.seek_id = Some(seek.id);
+                run.restoration_id = target
+                    .as_ref()
+                    .and_then(|target| target.restoration.map(|r| r.id));
+                run.reset_baseline();
+            }
+            self.deadline_pending = None;
             if self.controls.busy() {
                 self.retire();
             }
@@ -137,6 +391,9 @@ impl Native {
             .as_ref()
             .filter(|next| !next.playing && self.target.as_ref().is_some_and(|old| old.playing))
         {
+            self.acquisition = None;
+            self.deadline_pending = None;
+            self.update = None;
             if self.sources.has_demand() && (self.session.is_none() || !self.controls.configured())
             {
                 self.suspended = true;
@@ -162,6 +419,9 @@ impl Native {
                     .as_ref()
                     .is_some_and(|old| old.play_revision != next.play_revision)
         }) {
+            self.acquisition = None;
+            self.deadline_pending = None;
+            self.update = None;
             if self.failed {
                 self.sources.reset(target.as_ref().map(|target| target.key));
             }
@@ -177,16 +437,64 @@ impl Native {
             );
         }
         self.target = target;
+        #[cfg(test)]
+        if let Some(target) = self
+            .target
+            .as_ref()
+            .filter(|target| target.playing && target.permitted && target.output)
+            && let Some(demand) = self
+                .sources
+                .prepare_request(&target.actor, &target.recording.to_string())
+            && let Some(arm) = self.finalization_arm.take()
+        {
+            let id = FinalizationId {
+                key: target.key,
+                demand,
+                play_revision: target.play_revision,
+                seek_id: target.seek.map(|seek| seek.id),
+                restoration_id: target.restoration.map(|restoration| restoration.id),
+            };
+            self.deadline_pending = Some(id);
+            self.finalization_handled = Some(arm.handled);
+            self.spawn_finalization(id, async { true }, async move {
+                let _ = arm.entered.send(());
+                let _ = arm.release.await;
+                Ok(())
+            });
+        }
         if suspended_now || restoring_suspended_idle {
             self.update = Some(self.status(PlayerPhase::Idle, None));
+        }
+        if self.suspended {
+            return;
+        }
+        let acquisition_start = self.target.as_ref().and_then(|target| {
+            if !target.playing || self.acquisition.is_some() || self.deadline_pending.is_some() {
+                return None;
+            }
+            self.sources
+                .prepare_request(&target.actor, &target.recording.to_string())
+                .map(|demand| {
+                    (
+                        target.key,
+                        demand,
+                        target.play_revision,
+                        target.seek.map(|seek| seek.id),
+                        target.restoration.map(|restoration| restoration.id),
+                    )
+                })
+        });
+        if let Some((key, demand, play_revision, seek_id, restoration_id)) = acquisition_start {
+            self.start_acquisition(key, demand, play_revision, seek_id, restoration_id);
         }
         let Some(target) = self.target.as_ref() else {
             return;
         };
-        if self.suspended {
-            return;
-        }
-        if self.closing.is_none() && self.session.is_none() && !self.failed {
+        if self.closing.is_none()
+            && self.session.is_none()
+            && !self.failed
+            && self.deadline_pending.is_none()
+        {
             if let Some(grant) = self.sources.current() {
                 let session = Arc::new(Session::start(grant.clone()));
                 self.observed = Some(session.subscribe());
@@ -197,7 +505,11 @@ impl Native {
             }
             if self
                 .sources
-                .request(&target.actor, &target.recording.to_string())
+                .prepare_request(&target.actor, &target.recording.to_string())
+                .is_some()
+                && self
+                    .sources
+                    .request(&target.actor, &target.recording.to_string())
             {
                 self.update = Some(self.status(PlayerPhase::Resolving, None));
             }
@@ -289,29 +601,106 @@ impl Native {
         Some(update)
     }
     pub async fn next(&mut self) -> Update {
+        if self
+            .acquisition
+            .as_ref()
+            .is_some_and(|run| Instant::now() >= run.deadline_at)
+        {
+            self.begin_deadline_finalization();
+        }
         if let Some(update) = self.update.take() {
             return update;
         }
         loop {
+            let acquisition = self
+                .acquisition
+                .as_ref()
+                .map(|run| (run.attempts, run.started));
             tokio::select! {
                 biased;
+                _ = async {
+                    if let Some(deadline) = self.acquisition.as_ref().map(|run| run.deadline_at) {
+                        sleep_until(deadline).await;
+                    } else {
+                        std::future::pending().await
+                    }
+                }, if self.acquisition.is_some() => {
+                    self.begin_deadline_finalization();
+                },
+                result = self.finalizing.join_next(), if !self.finalizing.is_empty() => {
+                    match result {
+                        Some(FinalizationTaskResult::Finished(result)) => {
+                            if let Some(update) = self.finish_finalization(result) {
+                                return update;
+                            }
+                            #[cfg(test)]
+                            if let Some(handled) = self.finalization_handled.take() {
+                                let _ = handled.send(());
+                            }
+                        }
+                        Some(FinalizationTaskResult::Panicked(id)) => {
+                            if let Some(update) = self.finish_finalization_panic(id) {
+                                return update;
+                                }
+                            #[cfg(test)]
+                            if let Some(handled) = self.finalization_handled.take() {
+                                let _ = handled.send(());
+                            }
+                        }
+                        None => (),
+                    }
+                },
+                _ = async {
+                    if let Some(backoff) = self.acquisition.as_ref().and_then(|run| run.backoff_at) {
+                        sleep_until(backoff).await;
+                    } else {
+                        std::future::pending().await
+                    }
+                }, if self.acquisition.as_ref().is_some_and(|run| run.backoff_at.is_some()) => {
+                    if let Some(run) = &mut self.acquisition {
+                        run.backoff_at = None;
+                        run.attempts = run.attempts.saturating_add(1);
+                    }
+                    if self.sources.restart_attempt() {
+                        return self.status(PlayerPhase::Resolving, None);
+                    }
+                },
                 _ = async { self.closing.as_mut().unwrap().await }, if self.closing.is_some() => {
                     self.closing = None;
                     if self.target.is_some() && !self.suspended {
                         return if self.failed { self.status(PlayerPhase::Failed, Some(self.sources.failure())) } else { self.status(PlayerPhase::Resolving, None) };
                     }
                 },
-                grant = self.sources.next() => {
+                grant = self.sources.next_with_attempt(acquisition) => {
                     if self.suspended { continue; }
                     match grant {
                         Ok(Some(_)) => return self.status(PlayerPhase::Resolving, None),
                         Ok(None) => return self.exhausted(self.sources.failure()),
-                        Err(error) => return self.exhausted(error),
+                        Err(failure) if failure.cancelled => {
+                            self.sources.restart_attempt();
+                            return self.status(PlayerPhase::Resolving, None);
+                        },
+                        Err(failure) if failure.retryable
+                            && self.acquisition.as_ref().is_some_and(|run| run.attempts < 3) => {
+                                let run = self.acquisition.as_mut().unwrap();
+                                let delay = match run.attempts {
+                                    1 => Duration::from_millis(500),
+                                    _ => Duration::from_millis(1000),
+                                };
+                                run.backoff_at = Some(Instant::now() + delay);
+                                return self.status(PlayerPhase::Resolving, None);
+                        },
+                        Err(failure) => return self.exhausted(failure.error),
                     }
                 },
                 result = self.controls.next() => {
                     if let Err(error) = result { return self.recover(Some(error)); }
                     if let Some(update) = self.crossing() { return update; }
+                    if self.acquisition_progressed()
+                        && let Some(run) = self.acquisition.take()
+                    {
+                        self.acquired = Some((run.key, run.demand));
+                    }
                     return self.held(self.snapshot());
                 },
                 event = self.lookahead.next(self.session.as_ref()), if self.lookahead.active() => {
@@ -328,6 +717,11 @@ impl Native {
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
                     if changed.is_err() { return self.recover(None); }
                     if let Some(update) = self.crossing() { return update; }
+                    if self.acquisition_progressed()
+                        && let Some(run) = self.acquisition.take()
+                    {
+                        self.acquired = Some((run.key, run.demand));
+                    }
                     let update = self.snapshot();
                     if update.phase == PlayerPhase::Failed { return self.recover(None); }
                     return self.held(update);
@@ -426,11 +820,16 @@ impl Native {
         }
     }
     fn recover(&mut self, error: Option<crate::Error>) -> Update {
+        self.acquired = None;
         let unverified = error == Some(crate::Error::Access)
             || self.session.as_ref().is_some_and(|session| {
                 let snapshot = session.snapshot();
                 snapshot.status == Status::Revoked || snapshot.error == Some(crate::Error::Access)
             });
+        if unverified || error == Some(crate::Error::Native(hito_audio::Error::OutputUnavailable)) {
+            self.acquisition = None;
+            self.deadline_pending = None;
+        }
         let failure = failure_of(error.or_else(|| {
             self.session
                 .as_ref()
@@ -455,6 +854,9 @@ impl Native {
         )
     }
     fn exhausted(&mut self, error: PlayerError) -> Update {
+        self.acquisition = None;
+        self.acquired = None;
+        self.deadline_pending = None;
         self.failed = true;
         let mut update = self.status(PlayerPhase::Failed, Some(error));
         update.exhausted = matches!(
@@ -465,6 +867,9 @@ impl Native {
     }
     pub async fn close(&mut self) {
         self.target = None;
+        self.acquisition = None;
+        self.acquired = None;
+        self.deadline_pending = None;
         self.sources.reset(None);
         self.retire();
         if let Some(mut closing) = self.closing.take() {
@@ -472,6 +877,7 @@ impl Native {
         }
         self.lookahead.close().await;
         self.sources.close().await;
+        while self.finalizing.join_next().await.is_some() {}
         tracing::info!(event = "player_native_closed", "Native effect owner joined");
     }
 }
@@ -484,22 +890,4 @@ fn failure_of(error: Option<crate::Error>) -> PlayerError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_an_output_format_failure_has_its_own_player_error() {
-        assert_eq!(
-            failure_of(Some(crate::Error::Native(hito_audio::Error::OutputFormat))),
-            PlayerError::OutputFormat
-        );
-        for other in [
-            Some(crate::Error::Native(hito_audio::Error::Decode)),
-            Some(crate::Error::Native(hito_audio::Error::OutputUnavailable)),
-            Some(crate::Error::Input),
-            None,
-        ] {
-            assert_eq!(failure_of(other), PlayerError::Playback);
-        }
-    }
-}
+mod tests;

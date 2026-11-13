@@ -7,10 +7,17 @@ use hito_core::{
 };
 use std::{future::Future, pin::Pin};
 use tokio::sync::oneshot;
+use tokio::time::Instant;
 use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type Read = Result<(PlaybackCandidates, Option<PlaybackSource>), PlayerError>;
+#[derive(Debug)]
+pub(super) struct PassFailure {
+    pub error: PlayerError,
+    pub retryable: bool,
+    pub cancelled: bool,
+}
 #[derive(Clone)]
 struct Demand {
     id: Uuid,
@@ -38,6 +45,7 @@ pub(super) struct Sources {
     needs_refresh: bool,
     exhausted: bool,
     error: PlayerError,
+    pass_retryable: bool,
 }
 impl Sources {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
@@ -63,6 +71,7 @@ impl Sources {
             needs_refresh: false,
             exhausted: false,
             error: PlayerError::Playback,
+            pass_retryable: true,
         }
     }
     pub fn reset(&mut self, key: Option<Key>) {
@@ -84,6 +93,7 @@ impl Sources {
         self.needs_refresh = false;
         self.exhausted = false;
         self.error = PlayerError::Playback;
+        self.pass_retryable = true;
     }
     pub fn current(&self) -> Option<&PlaybackSource> {
         self.current.as_ref()
@@ -94,15 +104,14 @@ impl Sources {
     pub fn failed(&mut self, error: PlayerError) {
         self.current = None;
         self.error = error;
+        self.pass_retryable = false;
     }
     pub fn failure(&self) -> PlayerError {
         self.error
     }
-    pub fn request(&mut self, actor: &Actor, recording: &str) -> bool {
+    pub fn prepare_request(&mut self, actor: &Actor, recording: &str) -> Option<Uuid> {
         if self.demand.is_none() {
-            let Some(key) = self.key else {
-                return false;
-            };
+            let key = self.key?;
             self.demand = Some(Demand {
                 id: Uuid::new_v4(),
                 key,
@@ -110,6 +119,24 @@ impl Sources {
                 recording: recording.to_owned(),
             });
         }
+        self.demand.as_ref().map(|demand| demand.id)
+    }
+    pub fn request(&mut self, actor: &Actor, recording: &str) -> bool {
+        self.prepare_request(actor, recording);
+        self.start()
+    }
+    pub fn restart_attempt(&mut self) -> bool {
+        if self.reading.is_some() || self.refreshing.is_some() || self.discovering.is_some() {
+            return false;
+        }
+        self.candidates = None;
+        self.current = None;
+        self.exhausted = false;
+        self.error = PlayerError::Playback;
+        self.refreshed = true;
+        self.needs_refresh = false;
+        self.discovery_allowed = true;
+        self.pass_retryable = true;
         self.start()
     }
     fn start(&mut self) -> bool {
@@ -164,7 +191,13 @@ impl Sources {
         }));
         true
     }
-    pub async fn next(&mut self) -> Result<Option<PlaybackSource>, PlayerError> {
+    pub async fn next(&mut self) -> Result<Option<PlaybackSource>, PassFailure> {
+        self.next_with_attempt(None).await
+    }
+    pub async fn next_with_attempt(
+        &mut self,
+        acquisition: Option<(u8, Instant)>,
+    ) -> Result<Option<PlaybackSource>, PassFailure> {
         loop {
             tokio::select! {
                 biased;
@@ -175,7 +208,14 @@ impl Sources {
                     if current {
                         self.candidates = None;
                         tracing::debug!(event = "player_sources_refreshed", success = result.is_ok(), selection = key.selection, "Provider refresh finished; reading current sources");
-                        if result == Err(PlayerError::Unauthorized) { self.exhausted = true; return Err(PlayerError::Unauthorized); }
+                        match result {
+                            Err(PlayerError::Unauthorized) => {
+                                self.exhausted = true;
+                                return Err(PassFailure { error: PlayerError::Unauthorized, retryable: false, cancelled: false });
+                            }
+                            Err(_) => self.pass_retryable = false,
+                            Ok(_) => (),
+                        }
                     } else {
                         tracing::debug!(event = "player_sources_refresh_retired", selection = key.selection, "Ignoring provider refresh from a retired demand");
                     }
@@ -197,11 +237,22 @@ impl Sources {
                         Outcome::Failed(error) => {
                             self.error = merged(self.error, error);
                             self.exhausted = true;
-                            return Err(self.error);
+                            return Err(PassFailure { error: self.error, retryable: false, cancelled: false });
                         },
-                        Outcome::Exhausted | Outcome::Cancelled | Outcome::Deadline => {
+                        Outcome::NoSuitable => {
                             self.exhausted = true;
-                            return Err(self.error);
+                            return Err(PassFailure { error: self.error, retryable: self.pass_retryable, cancelled: false });
+                        },
+                        Outcome::ProviderUnavailable { retryable } => {
+                            self.exhausted = true;
+                            return Err(PassFailure { error: self.error, retryable: self.pass_retryable && retryable, cancelled: false });
+                        },
+                        Outcome::Cancelled => {
+                            return Err(PassFailure { error: self.error, retryable: false, cancelled: true });
+                        },
+                        Outcome::ProtectedChoice => {
+                            self.exhausted = true;
+                            return Err(PassFailure { error: self.error, retryable: false, cancelled: false });
                         },
                     }
                 },
@@ -218,7 +269,8 @@ impl Sources {
                         Ok((candidates, None)) => self.candidates = Some(candidates),
                         Err(error) => {
                             self.error = merged(self.error, error);
-                            if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable) { self.exhausted = true; return Err(self.error); }
+                            self.pass_retryable = false;
+                            if matches!(error, PlayerError::Unauthorized | PlayerError::Unavailable) { self.exhausted = true; return Err(PassFailure { error: self.error, retryable: false, cancelled: false }); }
                         },
                     }
                     if self.refreshed {
@@ -228,14 +280,23 @@ impl Sources {
                                 == Some(CandidatesEnd::Exhausted)
                         {
                             self.discovery_allowed = false;
+                            let (attempt, started) = acquisition
+                                .map_or((1, None), |(attempt, started)| {
+                                    (attempt, Some(started))
+                                });
                             self.discovering = Some(Discovery::start(
-                                self.catalog.clone(), self.demand.clone().unwrap(),
+                                self.catalog.clone(),
+                                self.demand.clone().unwrap(),
+                                attempt,
+                                started,
                             ));
                             continue;
                         }
                         self.exhausted = true;
                         tracing::debug!(event = "player_sources_exhausted", "Cached and refreshed sources exhausted");
-                        return Err(self.error);
+                        let retryable = self.pass_retryable && self.error == PlayerError::Playback
+                            && !matches!(self.candidates.as_ref().and_then(PlaybackCandidates::ended), Some(CandidatesEnd::FallbackOff | CandidatesEnd::AttemptLimit));
+                        return Err(PassFailure { error: self.error, retryable, cancelled: false });
                     }
                     self.needs_refresh = true;
                     self.start();

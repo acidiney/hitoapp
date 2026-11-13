@@ -71,6 +71,18 @@ impl Effects {
     pub fn native(catalog: hito_core::Catalog, playback: hito_core::PlaybackAccess) -> Self {
         Self::Native(Box::new(native::Native::new(catalog, playback)))
     }
+    #[cfg(all(test, feature = "device"))]
+    pub(super) fn native_with_held_finalizer(
+        catalog: hito_core::Catalog,
+        playback: hito_core::PlaybackAccess,
+        entered: tokio::sync::oneshot::Sender<()>,
+        release: tokio::sync::oneshot::Receiver<()>,
+        handled: tokio::sync::oneshot::Sender<()>,
+    ) -> Self {
+        let mut native = native::Native::new(catalog, playback);
+        native.arm_finalizer_for_test(entered, release, handled);
+        Self::Native(Box::new(native))
+    }
     pub fn enabled(&self) -> bool {
         !matches!(self, Self::Disabled)
     }
