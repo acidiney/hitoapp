@@ -119,7 +119,6 @@ impl Catalog {
         let (found, ticket) = operation.lookup_source_link(&lookup).await?;
         {
             let mut snapshot = self.store.pool.begin().await?;
-            let after = authority(&mut snapshot, actor, recording).await?;
             #[cfg(feature = "test-support")]
             tracing::debug!(
                 target: "hito_core::authority_snapshot_test",
@@ -129,6 +128,7 @@ impl Catalog {
                 "Owned authority snapshot checkpoint"
             );
             operation.recheck(&mut snapshot).await?;
+            let after = authority(&mut snapshot, actor, recording).await?;
             snapshot.commit().await?;
             if after != before {
                 return Err(Error::Conflict(
