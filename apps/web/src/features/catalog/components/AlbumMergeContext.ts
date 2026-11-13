@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type { Schema } from "../../../shared/schema";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 
@@ -97,8 +103,8 @@ export function useEditionPlayPublish(
 
 export function useEditionLoading(loading: boolean) {
   const { setEditionLoading } = useContext(AlbumMergeContext);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setEditionLoading(loading);
   }, [loading, setEditionLoading]);
-  useEffect(() => () => setEditionLoading(false), [setEditionLoading]);
+  useLayoutEffect(() => () => setEditionLoading(false), [setEditionLoading]);
 }
