@@ -179,7 +179,7 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 
-test("play on a catalog-only track plays the album from that row through the edition playback, not a provider save", async () => {
+test("play on an identified catalog-only track plays the album from that row and adds that track from the catalog, not through a search", async () => {
   const fetch = serve({
     [audio]: () =>
       Response.json({ status: "saved", recording: savedRecording }),
@@ -203,9 +203,13 @@ test("play on a catalog-only track plays the album from that row through the edi
     queue: Schema<"Recording">[];
   };
   expect(selection.queue).toEqual([savedRecording]);
-  expect(fetch.mock.calls.filter(([path]) => path === adoption)).toHaveLength(
-    0,
-  );
+  const adopted = fetch.mock.calls.filter(([path]) => path === adoption);
+  expect(adopted).toHaveLength(1);
+  expect(JSON.parse(adopted[0][1]!.body as string)).toEqual({
+    installation_revision: installation.revision,
+    provider_recording_id: "provider:two",
+  });
+  expect(fetch.mock.calls.filter(([path]) => path === audio)).toHaveLength(0);
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 

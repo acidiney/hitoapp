@@ -189,17 +189,25 @@ test("the album header counts the edition's tracks once the edition is shown", a
   );
 });
 
-test("with automatic service search off, header Play keeps to the owned tracks in edition order and explains why", async () => {
+test("with automatic service search off, header Play adds identified tracks from the catalog, skips the unidentified one without a search and explains why", async () => {
   serve();
   searchOn = false;
   render(page());
   const selection = await playFromHeader();
   expect(selection.queue).toEqual([firstLibraryRecording]);
+  expect(adoptBodies).toEqual([]);
   expect(await drain(selection)).toEqual([
     firstLibraryRecording.id,
+    savedRecording.id,
     otherRelease.id,
   ]);
-  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-1-2"]);
+  expect(adoptBodies).toEqual([
+    {
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
+    },
+  ]);
+  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-2-2"]);
   expect(
     await screen.findByText(/Search connected services automatically/),
   ).toBeTruthy();
@@ -226,15 +234,19 @@ test("header Shuffle with an edition starts the edition through the catalog path
     firstLibraryRecording.id,
   ]);
   expect(audioBodies).toEqual([]);
+  expect(adoptBodies).toEqual([]);
   expect(await drain(selection)).toEqual([
     firstLibraryRecording.id,
     savedRecording.id,
     otherRelease.id,
   ]);
-  expect(audioBodies.map((body) => body.occurrence_id)).toEqual([
-    "occ-1-2",
-    "occ-2-2",
+  expect(adoptBodies).toEqual([
+    {
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
+    },
   ]);
+  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-2-2"]);
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 
