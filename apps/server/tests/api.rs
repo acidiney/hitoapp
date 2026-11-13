@@ -288,8 +288,14 @@ mod catalog_album_header;
 mod catalog_album_header_fixture;
 #[path = "api/catalog_album_inertia_cold.rs"]
 mod catalog_album_inertia_cold;
+#[path = "fixtures/credit_member_review_context_boundaries.rs"]
+mod credit_member_boundary_fixture;
 #[path = "api/credit_member_review_context.rs"]
 mod credit_member_review_context;
+#[path = "api/credit_member_review_context_boundaries.rs"]
+mod credit_member_review_context_boundaries;
+#[path = "api/credit_member_review_search.rs"]
+mod credit_member_review_search;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
 #[path = "api/metadata.rs"]
