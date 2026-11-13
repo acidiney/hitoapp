@@ -102,8 +102,9 @@ function expectNoSecret(field: HTMLInputElement) {
 }
 
 test("a typed bearer token never becomes a value attribute or page text while entering, saving or after saving", async () => {
-  let finish: (value: Awaited<ReturnType<typeof pluginsApi.refresh>>) => void =
-    () => {};
+  let finish: (
+    value: Awaited<ReturnType<typeof pluginsApi.refresh>>,
+  ) => void = () => {};
   vi.mocked(pluginsApi.refresh).mockImplementation(
     () =>
       new Promise((resolve) => {
@@ -112,7 +113,9 @@ test("a typed bearer token never becomes a value attribute or page text while en
   );
   show(installation("a", "Lyrics A", 3));
   await screen.findByRole("heading", { name: "Lyrics A" });
-  fireEvent.click(within(card("Lyrics A")).getByRole("button", { name: "Manage" }));
+  fireEvent.click(
+    within(card("Lyrics A")).getByRole("button", { name: "Manage" }),
+  );
   const field = screen.getByLabelText<HTMLInputElement>("New bearer token");
   fireEvent.change(field, { target: { value: secret } });
   expect(field.value).toBe(secret);
@@ -129,7 +132,9 @@ test("a typed bearer token never becomes a value attribute or page text while en
     finish({ kind: "updated", installation: installation("a", "Lyrics A", 4) }),
   );
   await screen.findByText("Connection checked.");
-  expect(screen.getByLabelText<HTMLInputElement>("New bearer token").value).toBe("");
+  expect(
+    screen.getByLabelText<HTMLInputElement>("New bearer token").value,
+  ).toBe("");
   expectNoSecret(screen.getByLabelText<HTMLInputElement>("New bearer token"));
 });
 
@@ -137,11 +142,15 @@ test("a failed save keeps the typed token only in the field property, never in a
   vi.mocked(pluginsApi.refresh).mockRejectedValue(new Error("Save failed"));
   show(installation("a", "Lyrics A", 3));
   await screen.findByRole("heading", { name: "Lyrics A" });
-  fireEvent.click(within(card("Lyrics A")).getByRole("button", { name: "Manage" }));
+  fireEvent.click(
+    within(card("Lyrics A")).getByRole("button", { name: "Manage" }),
+  );
   const field = screen.getByLabelText<HTMLInputElement>("New bearer token");
   fireEvent.change(field, { target: { value: secret } });
   fireEvent.click(screen.getByRole("button", { name: "Save token" }));
   await waitFor(() => expect(pluginsApi.refresh).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(document.body.textContent).toContain("Save failed"));
+  await waitFor(() =>
+    expect(document.body.textContent).toContain("Save failed"),
+  );
   expectNoSecret(field);
 });
