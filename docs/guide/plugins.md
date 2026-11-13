@@ -118,7 +118,9 @@ None of the reference plugins need an account sign-in today.
 
 ## Change or remove a token
 
-Select **Manage** on the plugin's card. Under **Connection details**, enter a **New bearer token** and select **Save token**. Hito checks it before saving. **Clear saved token** removes it.
+If a card says **Credentials need updating**, select **Update credentials** or **Manage**. Under **Connection details**, enter a **New bearer token**, select **Save token**, then retry the failed action. The token stays private to your account. **Clear saved token** removes it.
+
+A plugin can answer a public connection check while rejecting your token for lyrics or audio. Saving a token doesn't confirm that every capability accepts it. Use **Reconnect** for **Account sign-in** when **Sign in again needed** appears.
 
 ## Disconnect a plugin
 
