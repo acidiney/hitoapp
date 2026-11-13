@@ -208,7 +208,8 @@ async fn unlink_source(
         "SELECT assoc.provider_kind,assoc.observation_id,assoc.provider_artist_id,
             (SELECT change.linked FROM recording_artist_association_changes change
              WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1)
-         FROM recording_artist_associations assoc WHERE assoc.id=? AND assoc.user_id=? AND assoc.recording_id=?",
+         FROM recording_artist_associations assoc WHERE assoc.id=? AND assoc.user_id=? AND assoc.recording_id=?
+            AND assoc.credit_target='whole_credit'",
     )
     .bind(association)
     .bind(actor.id())

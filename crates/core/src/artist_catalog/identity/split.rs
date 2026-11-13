@@ -111,7 +111,8 @@ async fn destination_side(
         "SELECT assoc.id FROM recording_artist_associations assoc
          WHERE assoc.user_id=? AND assoc.recording_id=? AND assoc.provider_kind=?
             AND assoc.plugin_installation_id IS ? AND assoc.provider_artist_id=?
-            AND assoc.artist_id=? AND assoc.observation_id=? AND assoc.source_id IS ? AND {LINKED}"
+            AND assoc.artist_id=? AND assoc.observation_id=? AND assoc.source_id IS ?
+            AND assoc.credit_target='whole_credit' AND {LINKED}"
     ))
     .bind(actor.id())
     .bind(recording)
@@ -125,7 +126,7 @@ async fn destination_side(
     .await?;
     let association = association.ok_or_else(no_review)?;
     let loaded = associations::load(connection, actor, recording, &association).await?;
-    if !credit.matches(&loaded) {
+    if !credit.matches(connection, actor, &loaded).await? {
         return Err(no_review());
     }
     Ok(Side {

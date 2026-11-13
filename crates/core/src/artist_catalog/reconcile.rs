@@ -14,9 +14,15 @@ pub(crate) async fn retire_stale(
             AND (SELECT change.linked FROM recording_artist_association_changes change
                  WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id
                  ORDER BY change.revision DESC LIMIT 1)=0
-            AND NOT EXISTS (SELECT 1 FROM account_recording_credits credit
-                WHERE credit.user_id=assoc.user_id AND credit.recording_id=assoc.recording_id
-                    AND credit.artist_id=assoc.artist_id)",
+            AND NOT (
+                (assoc.credit_target='whole_credit' AND EXISTS (SELECT 1 FROM account_recording_credits credit
+                    WHERE credit.user_id=assoc.user_id AND credit.recording_id=assoc.recording_id
+                        AND credit.artist_id=assoc.artist_id))
+                OR EXISTS (SELECT 1 FROM account_recording_credit_members member
+                    WHERE member.user_id=assoc.user_id AND member.recording_id=assoc.recording_id
+                        AND member.artist_id=assoc.artist_id AND
+                            ((assoc.credit_target='main_member' AND member.role='main')
+                                OR (assoc.credit_target='featured_member' AND member.role='featured'))))",
     );
     let retired = unlinks.build().execute(&mut **tx).await?.rows_affected();
     let mut splits = scope.recordings();

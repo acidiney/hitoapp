@@ -10,6 +10,7 @@ pub(crate) mod automation;
 mod candidate_releases;
 mod confirmation;
 mod continuation;
+mod credit_target;
 mod discography;
 mod discovery;
 mod editions;

@@ -7,6 +7,8 @@ mod album_edition_upgrade;
 mod album_library_level;
 mod album_tagged_edition;
 mod album_track_audio;
+mod artist_catalog_credit_member_shareability;
+mod artist_catalog_credit_members;
 mod artist_catalog_credit_review;
 mod artist_catalog_descriptor_compatibility;
 mod artist_catalog_discography;

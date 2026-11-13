@@ -56,11 +56,11 @@ impl ArtistCatalog {
             if !policy::selected(&settings, &association.provider) {
                 return Ok(ArtistProfileAvailability::Unavailable);
             }
-            let credit = match Credit::capture(&mut tx, actor, recording).await {
+            let credit = match Credit::capture_association(&mut tx, actor, &association).await {
                 Err(Error::NotFound) => return Ok(ArtistProfileAvailability::Unavailable),
                 result => result?,
             };
-            if !credit.matches(&association) {
+            if !credit.matches(&mut tx, actor, &association).await? {
                 return Ok(ArtistProfileAvailability::Unavailable);
             }
             tx.commit().await?;

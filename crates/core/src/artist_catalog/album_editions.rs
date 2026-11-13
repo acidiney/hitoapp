@@ -432,7 +432,9 @@ pub(super) async fn readable_association(
         return Ok(None);
     }
     match Credit::capture(connection, actor, recording).await {
-        Ok(credit) if credit.matches(&association) => Ok(Some(association)),
+        Ok(credit) if credit.matches(connection, actor, &association).await? => {
+            Ok(Some(association))
+        }
         Ok(_) | Err(Error::NotFound) => Ok(None),
         Err(error) => Err(error),
     }

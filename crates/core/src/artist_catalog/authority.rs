@@ -1,7 +1,9 @@
 use super::{
     ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider,
     associations::{self, LINKED},
-    continuation, policy,
+    continuation,
+    credit_target::CreditTarget,
+    policy,
     provider::Connection,
 };
 use crate::{Actor, ArtistCatalog, Error, Result, identity::recording_access};
@@ -44,11 +46,11 @@ impl<'a> ReviewedRead<'a> {
             if !policy::selected(&settings, &association.provider) {
                 return Ok(ReviewedReadState::Unavailable);
             }
-            let credit = match Credit::capture(&mut tx, actor, recording).await {
+            let credit = match Credit::capture_association(&mut tx, actor, &association).await {
                 Err(Error::NotFound) => return Ok(ReviewedReadState::Unavailable),
                 result => result?,
             };
-            if !credit.matches(&association) {
+            if !credit.matches(&mut tx, actor, &association).await? {
                 return Ok(ReviewedReadState::Unavailable);
             }
             tx.commit().await?;
@@ -94,6 +96,8 @@ impl<'a> ReviewedRead<'a> {
 
 #[derive(PartialEq, Eq, serde::Serialize, sqlx::FromRow)]
 pub(super) struct Credit {
+    #[sqlx(skip)]
+    pub target: CreditTarget,
     pub library_id: String,
     pub access_grant: String,
     pub artist_id: String,
@@ -141,15 +145,69 @@ impl Credit {
             .bind(actor.id()).bind(recording).fetch_optional(connection).await?.ok_or(Error::NotFound)
     }
 
-    pub(super) fn matches(&self, association: &ArtistAssociation) -> bool {
-        self.library_id == association.library_id
-            && self.artist_id == association.artist_id
-            && self.source_id == association.source_id
-            && self.observation_id == association.observation_id
+    pub(super) async fn capture_for_artist(
+        connection: &mut SqliteConnection,
+        actor: &Actor,
+        recording: &str,
+        artist: &str,
+    ) -> Result<Self> {
+        let credit = Self::capture(connection, actor, recording).await?;
+        if credit.artist_id == artist {
+            return Ok(credit);
+        }
+        CreditTarget::capture_member(connection, actor, recording, credit, artist, None).await
+    }
+
+    pub(super) async fn capture_association(
+        connection: &mut SqliteConnection,
+        actor: &Actor,
+        association: &ArtistAssociation,
+    ) -> Result<Self> {
+        let target = CreditTarget::for_association(connection, actor, association).await?;
+        Self::capture_target(connection, actor, &association.recording_id, &target).await
+    }
+
+    async fn capture_target(
+        connection: &mut SqliteConnection,
+        actor: &Actor,
+        recording: &str,
+        target: &CreditTarget,
+    ) -> Result<Self> {
+        let credit = Self::capture(connection, actor, recording).await?;
+        match target {
+            CreditTarget::WholeCredit => Ok(credit),
+            CreditTarget::NamedMember { artist_id, role } => {
+                CreditTarget::capture_member(
+                    connection,
+                    actor,
+                    recording,
+                    credit,
+                    artist_id,
+                    Some(*role),
+                )
+                .await
+            }
+        }
+    }
+
+    pub(super) async fn matches(
+        &self,
+        connection: &mut SqliteConnection,
+        actor: &Actor,
+        association: &ArtistAssociation,
+    ) -> Result<bool> {
+        Ok(
+            self.target == CreditTarget::for_association(connection, actor, association).await?
+                && self.library_id == association.library_id
+                && self.artist_id == association.artist_id
+                && self.source_id == association.source_id
+                && self.observation_id == association.observation_id,
+        )
     }
 
     pub(super) fn matches_review(&self, context: &ArtistReviewContext) -> bool {
-        self.library_id == context.library_id
+        self.target == CreditTarget::WholeCredit
+            && self.library_id == context.library_id
             && self.artist_id == context.artist_id
             && self.credited_name == context.credited_name
             && self.source_id == context.source_id
@@ -188,8 +246,10 @@ impl Credit {
         association: &ArtistAssociation,
         policy_revision: i64,
     ) -> Result<()> {
-        let current = Self::capture(connection, actor, &association.recording_id).await?;
-        if current != *self || !current.matches(association) {
+        let current =
+            Self::capture_target(connection, actor, &association.recording_id, &self.target)
+                .await?;
+        if current != *self || !current.matches(connection, actor, association).await? {
             return Err(changed());
         }
         let policy = policy::read(connection, actor).await?;

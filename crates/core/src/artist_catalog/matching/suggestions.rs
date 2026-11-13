@@ -397,7 +397,7 @@ async fn facts(
     );
     query.push_bind(user.clone());
     query.push(format!(
-        " AND assoc.recording_id=item.value AND NOT ({LINKED}))),
+        " AND assoc.recording_id=item.value AND assoc.credit_target='whole_credit' AND NOT ({LINKED}))),
         scope AS (SELECT id FROM undecided UNION SELECT id FROM member),
         appear AS (
             SELECT source.recording_id,meta.release_id FROM sources source
