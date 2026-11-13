@@ -88,13 +88,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function settingsSequence(...healths: Schema<"PluginHealthState">[]) {
-  for (const state of healths)
-    vi.mocked(pluginsApi.settings).mockResolvedValueOnce({
-      services: [service],
-      installations: [installation("a", "Lyrics A", 3, wireHealth(state))],
-      credential_storage_ready: true,
+type Phase = "before" | "after";
+
+function serveSettings(
+  before: Schema<"PluginSettings">,
+  after: Schema<"PluginSettings">,
+) {
+  const state = { phase: "before" as Phase, afterReads: 0 };
+  vi.mocked(pluginsApi.settings).mockImplementation(async () => {
+    if (state.phase === "after") state.afterReads += 1;
+    return state.phase === "after" ? after : before;
+  });
+  return state;
+}
+
+function settings(
+  ...items: Schema<"PluginInstallation">[]
+): Schema<"PluginSettings"> {
+  return {
+    services: [service],
+    installations: items,
+    credential_storage_ready: true,
+  };
+}
+
+async function settle() {
+  for (;;) {
+    const calls =
+      vi.mocked(pluginsApi.settings).mock.calls.length +
+      vi.mocked(pluginsApi.checkDeclaration).mock.calls.length;
+    await act(async () => {
+      await Promise.allSettled([
+        ...vi.mocked(pluginsApi.settings).mock.results.map((result) => result.value),
+        ...vi
+          .mocked(pluginsApi.checkDeclaration)
+          .mock.results.map((result) => result.value),
+      ]);
     });
+    const now =
+      vi.mocked(pluginsApi.settings).mock.calls.length +
+      vi.mocked(pluginsApi.checkDeclaration).mock.calls.length;
+    if (now === calls) return;
+  }
 }
 
 function mount() {
@@ -106,56 +141,67 @@ function mount() {
   );
 }
 
+const reads = () => vi.mocked(pluginsApi.settings).mock.calls.length;
+
+function recover(state: { phase: Phase }) {
+  state.phase = "after";
+  const version = credentialMarkVersion("bob", "a");
+  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
+}
+
 test("a fresh protected success re-reads the mounted settings once and clears the stale credentials_required health", async () => {
-  settingsSequence("credentials_required", "ok");
+  const state = serveSettings(
+    settings(installation("a", "Lyrics A", 3, wireHealth("credentials_required"))),
+    settings(installation("a", "Lyrics A", 3, wireHealth("ok"))),
+  );
   const plugins = vi.fn();
   const stop = onInvalidated("plugins", plugins);
   mount();
   await screen.findByRole("heading", { name: "Lyrics A" });
   act(() => reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } }));
+  await settle();
+  const baseline = reads();
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
-  const version = credentialMarkVersion("bob", "a");
-  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
-  await waitFor(() =>
-    expect(card("Lyrics A").textContent).not.toContain("Credentials need updating"),
-  );
-  expect(pluginsApi.settings).toHaveBeenCalledTimes(2);
+
+  recover(state);
+  await waitFor(() => expect(state.afterReads).toBe(1));
+  await settle();
+  expect(reads()).toBe(baseline + 1);
+  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
   expect(plugins).not.toHaveBeenCalled();
   stop();
 });
 
-test("the mounted card stays marked when the re-read health still reports credentials_required", async () => {
-  settingsSequence("credentials_required", "credentials_required");
+test("the mounted card stays marked when the post-recovery read still reports credentials_required", async () => {
+  const marked = settings(
+    installation("a", "Lyrics A", 3, wireHealth("credentials_required")),
+  );
+  const state = serveSettings(marked, marked);
   mount();
   await screen.findByRole("heading", { name: "Lyrics A" });
   act(() => reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } }));
-  const version = credentialMarkVersion("bob", "a");
-  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
-  await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
+  await settle();
+  const baseline = reads();
+
+  recover(state);
+  await waitFor(() => expect(state.afterReads).toBe(1));
+  await settle();
+  expect(reads()).toBe(baseline + 1);
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
 });
 
 test("a recovery published while an unrelated plugin removal is pending still re-reads once after the removal and keeps a rejected peer marked", async () => {
-  const first = {
-    services: [service],
-    installations: [
+  const state = serveSettings(
+    settings(
       installation("a", "Lyrics A", 3, wireHealth("credentials_required")),
       installation("b", "Lyrics B", 5, wireHealth("ok")),
       installation("c", "Lyrics C", 2, wireHealth("credentials_required")),
-    ],
-    credential_storage_ready: true,
-  };
-  const second = {
-    services: [service],
-    installations: [
+    ),
+    settings(
       installation("a", "Lyrics A", 3, wireHealth("ok")),
       installation("c", "Lyrics C", 2, wireHealth("credentials_required")),
-    ],
-    credential_storage_ready: true,
-  };
-  vi.mocked(pluginsApi.settings)
-    .mockResolvedValueOnce(first)
-    .mockResolvedValueOnce(second);
+    ),
+  );
   let release: () => void = () => {};
   vi.mocked(pluginsApi.remove).mockImplementation(
     () =>
@@ -169,21 +215,21 @@ test("a recovery published while an unrelated plugin removal is pending still re
     reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } });
     reportCredentialRequirement("bob", { stamp: { installationId: "c", installationRevision: 2 } });
   });
+  await settle();
+  const baseline = reads();
   fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Manage" }));
   fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Remove" }));
   const dialog = await screen.findByRole("dialog", { name: "Remove Lyrics B?" });
   fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(pluginsApi.remove).toHaveBeenCalledTimes(1));
 
-  const version = credentialMarkVersion("bob", "a");
-  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
+  recover(state);
+  expect(state.afterReads).toBe(0);
   await act(async () => release());
-
-  await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
-  await waitFor(() =>
-    expect(card("Lyrics A").textContent).not.toContain("Credentials need updating"),
-  );
+  await waitFor(() => expect(state.afterReads).toBe(1));
+  await settle();
+  expect(reads()).toBe(baseline + 1);
+  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
   expect(card("Lyrics C").textContent).toContain("Credentials need updating");
   expect(screen.queryByRole("heading", { name: "Lyrics B" })).toBeNull();
-  expect(pluginsApi.settings).toHaveBeenCalledTimes(2);
 });
