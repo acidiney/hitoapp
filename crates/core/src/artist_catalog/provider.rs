@@ -76,6 +76,23 @@ impl Connection {
         }
     }
 
+    pub(super) async fn preview_supported(
+        &self,
+        observe_credentials: bool,
+    ) -> CatalogDiscoveryResponse<bool> {
+        match self {
+            Self::Builtin(_) => CatalogDiscoveryResponse {
+                result: Ok(true),
+                observation: None,
+            },
+            Self::Http(operation) => {
+                operation
+                    .catalog_profile_supported_checked(observe_credentials)
+                    .await
+            }
+        }
+    }
+
     pub(super) async fn discovery_supported(
         &self,
         observe_credentials: bool,
@@ -251,6 +268,24 @@ impl Connection {
                     })
             }
             Self::Http(operation) => operation.catalog_artist_profile(request).await,
+        }
+    }
+
+    pub(super) async fn preview_profile(
+        &self,
+        request: &ArtistProfileRequest,
+        observe_credentials: bool,
+    ) -> CatalogDiscoveryResponse<CatalogArtistProfile> {
+        match self {
+            Self::Builtin(_) => CatalogDiscoveryResponse {
+                result: self.profile(request).await,
+                observation: None,
+            },
+            Self::Http(operation) => {
+                operation
+                    .catalog_artist_profile_checked(request, observe_credentials)
+                    .await
+            }
         }
     }
 

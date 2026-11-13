@@ -10,6 +10,7 @@ use zeroize::Zeroizing;
 
 mod catalog_discovery;
 mod catalog_editions;
+mod catalog_profile;
 mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
@@ -130,36 +131,6 @@ impl Operation {
 
     pub(crate) fn catalog_installation_revision(&self) -> i64 {
         self.installation_revision
-    }
-
-    pub(crate) async fn catalog_profile_supported(&self) -> Result<bool> {
-        self.check_catalog().await?;
-        let result = self
-            .remote
-            .catalog_profile_supported_admitted(
-                &self.base_url,
-                self.token.as_deref().map(String::as_str),
-            )
-            .await;
-        self.check_catalog().await?;
-        result
-    }
-
-    pub(crate) async fn catalog_artist_profile(
-        &self,
-        request: &hito_plugin_sdk::ArtistProfileRequest,
-    ) -> Result<hito_plugin_sdk::CatalogArtistProfile> {
-        self.check_catalog().await?;
-        let result = self
-            .remote
-            .catalog_artist_profile_admitted(
-                &self.base_url,
-                self.token.as_deref().map(String::as_str),
-                request,
-            )
-            .await;
-        self.check_catalog().await?;
-        result
     }
 
     pub(crate) async fn catalog_discography_supported(&self) -> Result<bool> {
