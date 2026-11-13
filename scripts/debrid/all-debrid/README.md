@@ -2,7 +2,7 @@
 
 This packages the accepted metadata service as a separate process. Its frozen
 image passes the offline metadata, authentication, input-preservation, TRACE and
-idle-SIGTERM audit. See [the qualified image and limits](../../../docs/debrid-adapters.md#alldebrid-restricted-package).
+idle-SIGTERM audit. See [the qualified image and limits](../../../docs/guide/plugins.md).
 Live AllDebrid, audio formats, active-media shutdown and a Hito account
 connection remain unqualified.
 
