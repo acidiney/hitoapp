@@ -2,6 +2,12 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Schema } from "../../src/shared/schema";
 
+export const sharedCredit = {
+  title: "Shared credit members fixture",
+  lead: "Shared Lead Credit",
+  guest: "Shared Guest Credit",
+};
+
 export function creditMemberCredits(label: string) {
   const lead = `Lead ${label}`;
   const guest = `Guest ${label}`;
@@ -19,7 +25,12 @@ export function creditMemberCredits(label: string) {
     recordingId: `e2e:recording/members-${label}`,
     title: `Members ${label}`,
     credit: `${lead} feat. ${guest}`,
-    catalog: [catalog(lead, "lead"), catalog(guest, "guest")],
+    catalog: [
+      catalog(lead, "lead"),
+      catalog(guest, "guest"),
+      catalog(sharedCredit.lead, "shared-lead"),
+      catalog(sharedCredit.guest, "shared-guest"),
+    ],
   };
 }
 

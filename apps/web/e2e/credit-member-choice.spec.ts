@@ -5,6 +5,7 @@ import type { Schema } from "../src/shared/schema";
 import {
   creditMemberCredits,
   creditMemberProvider,
+  sharedCredit,
 } from "./fixtures/credit-member-provider";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
 
@@ -14,7 +15,11 @@ const sizes = [
   ["phone", { width: 390, height: 844 }],
 ] as const;
 
-async function connectCreditMembers(page: Page, baseURL: string) {
+async function connectCreditMembers(
+  page: Page,
+  baseURL: string,
+  adoption = true,
+) {
   const label = randomUUID().slice(0, 8);
   const credits = creditMemberCredits(label);
   const provider = await creditMemberProvider(label, credits);
@@ -103,16 +108,18 @@ async function connectCreditMembers(page: Page, baseURL: string) {
       } satisfies Schema<"InstallPlugin">,
       201,
     );
-    const adopted = await send<Schema<"Recording">>(
-      "POST",
-      `/api/v1/plugins/${connection.id}/recordings`,
-      {
-        installation_revision: connection.revision,
-        provider_recording_id: credits.recordingId,
-      } satisfies Schema<"AdoptProviderRecording">,
-    );
-    recordingId = adopted.id;
-    libraryId = adopted.library_id;
+    if (adoption) {
+      const adopted = await send<Schema<"Recording">>(
+        "POST",
+        `/api/v1/plugins/${connection.id}/recordings`,
+        {
+          installation_revision: connection.revision,
+          provider_recording_id: credits.recordingId,
+        } satisfies Schema<"AdoptProviderRecording">,
+      );
+      recordingId = adopted.id;
+      libraryId = adopted.library_id;
+    }
     original = await read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     );
@@ -121,13 +128,15 @@ async function connectCreditMembers(page: Page, baseURL: string) {
       enabled: true,
       providers: [{ kind: "http_plugin", installation_id: connection.id }],
     } satisfies Schema<"UpdateMetadataSettings">);
-    const artists = await read<Schema<"Page_Artist">>(
-      `/api/v1/artists?q=${label}`,
-    );
-    const named = (name: string) =>
-      artists.items.find((artist) => artist.name === name)!.id;
-    members.lead = named(credits.lead);
-    members.guest = named(credits.guest);
+    if (adoption) {
+      const artists = await read<Schema<"Page_Artist">>(
+        `/api/v1/artists?q=${label}`,
+      );
+      const named = (name: string) =>
+        artists.items.find((artist) => artist.name === name)!.id;
+      members.lead = named(credits.lead);
+      members.guest = named(credits.guest);
+    }
   } catch (error) {
     await close();
     throw error;
@@ -266,29 +275,75 @@ test("credited artists stay unread until opened, keep a per-member choice across
   }
 });
 
-test("another account sees no member choice the first account made", async ({
+test("a second account with access to a shared recording reads no member choice the first account made, and cannot read the first account's personal recording", async ({
   page,
   browser,
   baseURL,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   const fixture = await connectCreditMembers(page, baseURL!);
   let accounts: Awaited<ReturnType<typeof createMembers>> | undefined;
   let peer: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+  let folder: { library: string; id: string; revision: number } | undefined;
   try {
-    const { credits, members } = fixture;
-    const candidate = credits.catalog[1].candidate.artist.name;
-    await openCreditedArtists(page, fixture.recordingId);
-    await page.getByRole("button", { name: "Credited artists (2)" }).click();
-    const guest = memberRow(page, credits.guest);
-    const dialog = await previewMemberArtist(
-      page,
-      guest,
-      credits.guest,
-      candidate,
+    const { credits } = fixture;
+    const candidate = credits.catalog[3].candidate.artist.name;
+
+    await page.goto("/settings");
+    await page
+      .getByRole("button", { name: "Add music folder", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", {
+      name: "Add a music folder",
+      exact: true,
+    });
+    await picker
+      .getByRole("button", { name: "Open Credits", exact: true })
+      .click();
+    await picker
+      .getByRole("button", { name: "Use this folder", exact: true })
+      .click();
+    await expect(picker).toBeHidden();
+    await expect(
+      page
+        .locator(".music-folder-row")
+        .filter({ hasText: "Credits" })
+        .filter({ hasText: "1 file read" }),
+    ).toHaveCount(1, { timeout: 20_000 });
+
+    const found = (await (
+      await page.request.get(
+        `/api/v1/recordings?q=${encodeURIComponent(sharedCredit.title)}`,
+      )
+    ).json()) as Schema<"RecordingPage">;
+    const shared = found.items.find(
+      (item) => item.title === sharedCredit.title,
+    )!;
+    expect(shared).toBeTruthy();
+    const listed = await page.request.get(
+      `/api/v1/libraries/${shared.library_id}/folders`,
     );
-    await dialog.getByRole("button", { name: "Use this artist" }).click();
-    await expect(guest).toContainText(`Chosen: ${candidate}`);
+    const mine = ((await listed.json()) as Schema<"MusicFolder">[]).find(
+      (item) => item.name === "Credits",
+    )!;
+    folder = {
+      library: shared.library_id,
+      id: mine.id,
+      revision: mine.revision,
+    };
+    expect(shared.credited_artists.map((member) => member.name)).toEqual([
+      sharedCredit.lead,
+      sharedCredit.guest,
+    ]);
+    expect(shared.credited_artists.map((member) => member.role)).toEqual([
+      "main",
+      "featured",
+    ]);
+    const guestId = shared.credited_artists[1].artist_id!;
+    expect(guestId).toBeTruthy();
+    const sharedMemberPath = `/api/v1/recordings/${shared.id}/credit-members/${guestId}/artist-identity`;
 
     accounts = await createMembers(browser, baseURL!, "credit-members", 1);
     peer = await browser.newContext({
@@ -300,18 +355,35 @@ test("another account sees no member choice the first account made", async ({
       data: { username: accounts.names[0], password: memberPassword },
     });
     expect(login.status()).toBe(200);
-    const me = (await (await peer.request.get("/api/v1/me")).json()) as
-      Schema<"User">;
+    const me = (await (
+      await peer.request.get("/api/v1/me")
+    ).json()) as Schema<"User">;
     const grant = await page.request.put(
-      `/api/v1/libraries/${fixture.libraryId}/members/${me.id}`,
+      `/api/v1/libraries/${shared.library_id}/members/${me.id}`,
       { headers: fixture.headers },
     );
-    expect(grant.ok()).toBe(true);
-    const visible = await peer.request.get(
-      `/api/v1/recordings/${fixture.recordingId}/artist-identity`,
+    expect(grant.status()).toBe(204);
+
+    const peerView = await peer.request.get(
+      `/api/v1/recordings?q=${encodeURIComponent(sharedCredit.title)}`,
     );
-    expect(visible.status()).toBe(200);
-    const read = await peer.request.get(fixture.memberPath(members.guest));
+    const peerPage = (await peerView.json()) as Schema<"RecordingPage">;
+    const peerShared = peerPage.items.find((item) => item.id === shared.id);
+    expect(peerShared).toBeTruthy();
+
+    await openCreditedArtists(page, shared.id);
+    await page.getByRole("button", { name: "Credited artists (2)" }).click();
+    const guest = memberRow(page, sharedCredit.guest);
+    const dialog = await previewMemberArtist(
+      page,
+      guest,
+      sharedCredit.guest,
+      candidate,
+    );
+    await dialog.getByRole("button", { name: "Use this artist" }).click();
+    await expect(guest).toContainText(`Chosen: ${candidate}`);
+
+    const read = await peer.request.get(sharedMemberPath);
     expect(read.status()).toBe(200);
     const choice =
       (await read.json()) as Schema<"RecordingCreditMemberIdentityChoice">;
@@ -319,22 +391,43 @@ test("another account sees no member choice the first account made", async ({
     expect(choice.revision).toBe(0);
 
     const other = await peer.newPage();
-    await openCreditedArtists(other, fixture.recordingId);
+    other.on("pageerror", (error) => errors.push(error.message));
+    await openCreditedArtists(other, shared.id);
     await other.getByRole("button", { name: "Credited artists (2)" }).click();
-    await expect(memberRow(other, credits.guest)).toContainText(
+    await expect(memberRow(other, sharedCredit.guest)).toContainText(
       "Not chosen yet",
     );
-    await expect(memberRow(other, credits.lead)).toContainText(
+    await expect(memberRow(other, sharedCredit.lead)).toContainText(
       "Not chosen yet",
     );
     await expect(other.getByText(candidate)).toHaveCount(0);
 
     const own = (await (
-      await page.request.get(fixture.memberPath(members.guest))
+      await page.request.get(sharedMemberPath)
     ).json()) as Schema<"RecordingCreditMemberIdentityChoice">;
     expect(own.state.status).toBe("selected");
+    expect(own.revision).toBe(1);
+    await page.reload();
+    await page.getByRole("tab", { name: /^Metadata/ }).click();
+    await page.getByRole("button", { name: "Credited artists (2)" }).click();
     await expect(guest).toContainText(`Chosen: ${candidate}`);
+
+    const personal = await peer.request.get(
+      fixture.memberPath(fixture.members.guest),
+    );
+    expect(personal.status()).toBe(404);
+    expect(await personal.text()).not.toContain(candidate);
     expect(fixture.provider.state.unexpected).toBe(0);
+    expect(errors).toEqual([]);
+
+    const reset = await page.request.post(`${sharedMemberPath}/reset`, {
+      headers: fixture.headers,
+      data: {
+        request_id: randomUUID(),
+        expected_revision: own.revision,
+      } satisfies Schema<"ResetRecordingArtistIdentity">,
+    });
+    expect(reset.ok()).toBe(true);
   } finally {
     try {
       await peer?.close();
@@ -342,7 +435,15 @@ test("another account sees no member choice the first account made", async ({
       try {
         await accounts?.close();
       } finally {
-        await fixture.close();
+        try {
+          if (folder)
+            await page.request.delete(`/api/v1/folders/${folder.id}`, {
+              headers: fixture.headers,
+              data: { revision: folder.revision },
+            });
+        } finally {
+          await fixture.close();
+        }
       }
     }
   }
