@@ -371,6 +371,12 @@ test("a second account with access to a shared recording reads no member choice 
     const peerPage = (await peerView.json()) as Schema<"RecordingPage">;
     const peerShared = peerPage.items.find((item) => item.id === shared.id);
     expect(peerShared).toBeTruthy();
+    const peerGuestId = (peerShared?.credited_artists ?? []).find(
+      (member) =>
+        member.name === sharedCredit.guest && member.role === "featured",
+    )?.id;
+    expect(peerGuestId).toBeTruthy();
+    const peerMemberPath = `/api/v1/recordings/${shared.id}/credit-members/${peerGuestId}/artist-identity`;
 
     await openCreditedArtists(page, shared.id);
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
@@ -384,7 +390,7 @@ test("a second account with access to a shared recording reads no member choice 
     await dialog.getByRole("button", { name: "Use this artist" }).click();
     await expect(guest).toContainText(`Chosen: ${candidate}`);
 
-    const read = await peer.request.get(sharedMemberPath);
+    const read = await peer.request.get(peerMemberPath);
     expect(read.status()).toBe(200);
     const choice =
       (await read.json()) as Schema<"RecordingCreditMemberIdentityChoice">;
