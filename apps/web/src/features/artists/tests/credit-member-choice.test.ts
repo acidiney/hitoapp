@@ -127,7 +127,11 @@ type ServeOptions = {
   resetNetworkFailures?: number;
   elsewhere?: Schema<"ArtistIdentitySelection">;
   groupNames?: Record<string, string>;
-  badReceipt?: "revision" | "selection";
+  badReceipt?: "revision" | "jump" | "selection" | "association";
+  losePuts?: number;
+  loseResets?: number;
+  conflictOnce?: boolean;
+  initialReadFailures?: number;
   readbackFailures?: number;
   holdSearch?: Deferred;
   holdPreview?: Deferred;
@@ -145,7 +149,14 @@ function serve(options: ServeOptions = {}) {
   let selection: Schema<"ArtistIdentitySelection"> | null =
     options.initial === "selected" ? original : null;
   let readbackFailures = 0;
-  let resetFailures = options.resetNetworkFailures ?? 0;
+  let initialFailures = options.initialReadFailures ?? 0;
+  let losePuts = options.losePuts ?? 0;
+  let loseResets = options.loseResets ?? 0;
+  let conflictOnce = options.conflictOnce ?? false;
+  const receipts = new Map<
+    string,
+    Schema<"CreditMemberIdentityChoiceReceipt">
+  >();
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
     if (
@@ -183,6 +194,10 @@ function serve(options: ServeOptions = {}) {
       });
     }
     if (method === "GET" && path === `${memberBase}/artist-identity`) {
+      if (initialFailures > 0) {
+        initialFailures--;
+        return Response.json({ error: "read failed" }, { status: 500 });
+      }
       if (readbackFailures > 0) {
         readbackFailures--;
         return Response.json({ error: "readback failed" }, { status: 500 });
@@ -211,37 +226,67 @@ function serve(options: ServeOptions = {}) {
     if (method === "POST" && path === `${memberBase}/artist-review/confirm`)
       return Response.json(memberAssociation);
     if (method === "POST" && path === `${memberBase}/artist-identity/reset`) {
-      if (resetFailures > 0) {
-        resetFailures--;
-        throw new TypeError("network down");
-      }
       const body = JSON.parse(String(init?.body));
+      const replay = receipts.get(body.request_id);
+      if (replay) return Response.json(replay);
       selection = null;
       revision += 1;
-      return Response.json({
+      const receipt = {
         artist_id: featured.artist_id,
         recording_id: detail.recording_id,
         request_id: body.request_id,
         revision,
         role: featured.role,
         selection: null,
-      } satisfies Schema<"CreditMemberIdentityChoiceReceipt">);
+      } satisfies Schema<"CreditMemberIdentityChoiceReceipt">;
+      receipts.set(body.request_id, receipt);
+      readbackFailures = options.readbackFailures ?? 0;
+      if (loseResets > 0) {
+        loseResets--;
+        throw new TypeError("network down");
+      }
+      return Response.json(receipt);
     }
     if (method === "PUT" && path === `${memberBase}/artist-identity`) {
       if (options.conflict)
         return Response.json({ error: "stale" }, { status: 409 });
       const body = JSON.parse(String(init?.body));
-      selection = options.elsewhere ?? original;
-      revision = options.elsewhere ? 2 : 1;
-      readbackFailures = options.readbackFailures ?? 0;
-      return Response.json({
+      const replay = receipts.get(body.request_id);
+      if (replay) return Response.json(replay);
+      if (conflictOnce) {
+        conflictOnce = false;
+        selection = null;
+        revision = 3;
+        return Response.json({ error: "stale" }, { status: 409 });
+      }
+      const committed = revision + 1;
+      const receipt = {
         artist_id: featured.artist_id,
         recording_id: detail.recording_id,
         request_id: body.request_id,
-        revision: options.badReceipt === "revision" ? 0 : 1,
+        revision:
+          options.badReceipt === "revision"
+            ? 0
+            : options.badReceipt === "jump"
+              ? committed + 1
+              : committed,
         role: featured.role,
-        selection: options.badReceipt === "selection" ? null : original,
-      } satisfies Schema<"CreditMemberIdentityChoiceReceipt">);
+        selection:
+          options.badReceipt === "selection"
+            ? null
+            : options.badReceipt === "association"
+              ? { ...original, association_id: elsewhere.association_id }
+              : original,
+      } satisfies Schema<"CreditMemberIdentityChoiceReceipt">;
+      receipts.set(body.request_id, receipt);
+      selection = options.elsewhere ?? original;
+      revision = options.elsewhere ? committed + 1 : committed;
+      readbackFailures = options.readbackFailures ?? 0;
+      if (losePuts > 0) {
+        losePuts--;
+        throw new TypeError("network down");
+      }
+      return Response.json(receipt);
     }
     throw new Error(`Unexpected request ${method} ${path}`);
   });
@@ -450,11 +495,22 @@ function renderTrack() {
   openSection();
 }
 
-function resetBodies(fetch: ReturnType<typeof serve>) {
-  const resetPath = `${memberBase}/artist-identity/reset`;
+function writeBodies(
+  fetch: ReturnType<typeof serve>,
+  method: string,
+  target: string,
+) {
   return fetch.mock.calls
-    .filter(([path, init]) => init?.method === "POST" && path === resetPath)
+    .filter(([path, init]) => init?.method === method && path === target)
     .map(([, init]) => JSON.parse(String(init?.body)));
+}
+
+function resetBodies(fetch: ReturnType<typeof serve>) {
+  return writeBodies(fetch, "POST", `${memberBase}/artist-identity/reset`);
+}
+
+function isDisabled(button: HTMLElement) {
+  return (button as HTMLButtonElement).disabled;
 }
 
 function loadCalls(fetch: ReturnType<typeof serve>, path: string) {
@@ -518,29 +574,6 @@ test("clearing a member works when no metadata provider can be loaded", async ()
   expect(within(row(featured.name)).queryByRole("alert")).toBeNull();
 });
 
-test("retrying an unconfirmed clear replays the same request", async () => {
-  const fetch = serve({
-    initial: "selected",
-    resetNetworkFailures: 1,
-    groupNames: { [memberGroup]: savedName },
-  });
-  renderTrack();
-  await within(row(featured.name)).findByText(`Chosen: ${savedName}`);
-  fireEvent.click(
-    within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
-  );
-  await within(row(featured.name)).findByRole("alert");
-  expect(within(row(featured.name)).getByText(/^Chosen/)).toBeTruthy();
-  fireEvent.click(
-    within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
-  );
-  await within(row(featured.name)).findByText("Not chosen yet");
-  const bodies = resetBodies(fetch);
-  expect(bodies).toHaveLength(2);
-  expect(bodies[1]).toEqual(bodies[0]);
-  expect(bodies[0].expected_revision).toBe(1);
-});
-
 test("a failed settings load stops after one request and retries only on request", async () => {
   const options: ServeOptions = {};
   const fetch = serve(options);
@@ -602,10 +635,10 @@ test("after choosing, an unnamed server selection is labelled generically", asyn
   );
 });
 
-test.each(["revision", "selection"] as const)(
-  "a receipt with a bad %s is not trusted",
+test.each(["revision", "jump", "selection", "association"] as const)(
+  "a receipt with a bad %s is not trusted and the real choice is read",
   async (badReceipt) => {
-    serve({ badReceipt });
+    const fetch = serve({ badReceipt });
     renderTrack();
     await within(row(featured.name)).findByText("Not chosen yet");
     const dialog = await reachPreview();
@@ -613,7 +646,15 @@ test.each(["revision", "selection"] as const)(
       await within(dialog).findByRole("button", { name: "Use this artist" }),
     );
     await within(dialog).findByRole("alert");
-    expect(within(row(featured.name)).queryByText(/^Chosen/)).toBeNull();
+    await within(row(featured.name)).findByText("Chosen");
+    expect(
+      within(row(featured.name)).queryByText(
+        `Chosen: ${artistPreview.profile.artist.name}`,
+      ),
+    ).toBeNull();
+    expect(
+      writeBodies(fetch, "PUT", `${memberBase}/artist-identity`),
+    ).toHaveLength(1);
   },
 );
 
@@ -681,8 +722,180 @@ test("cancelling after an accepted choice keeps it and re-reads the real choice"
   );
   await within(dialog).findByRole("alert");
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-  await within(row(featured.name)).findByText("Chosen");
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
   expect(
     fetch.mock.calls.filter(([, init]) => init?.method === "PUT"),
   ).toHaveLength(1);
+});
+
+const memberIdentity = `${memberBase}/artist-identity`;
+const unresolvedNote = "Hito could not confirm the last change to this credit.";
+
+async function chooseAndLose(options: ServeOptions) {
+  const fetch = serve(options);
+  renderTrack();
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const dialog = await reachPreview();
+  fireEvent.click(
+    await within(dialog).findByRole("button", { name: "Use this artist" }),
+  );
+  await within(dialog).findByRole("alert");
+  return { fetch, dialog };
+}
+
+test("a choice whose response was lost is replayed with the same request", async () => {
+  const { fetch, dialog } = await chooseAndLose({ losePuts: 1 });
+  expect(within(row(featured.name)).getByText(unresolvedNote)).toBeTruthy();
+  expect(
+    isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
+  ).toBe(true);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  const puts = writeBodies(fetch, "PUT", memberIdentity);
+  expect(puts).toHaveLength(2);
+  expect(puts[1]).toEqual(puts[0]);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("a lost choice response can be checked again from the row after cancelling", async () => {
+  const { fetch, dialog } = await chooseAndLose({ losePuts: 1 });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(
+    isDisabled(
+      within(row(featured.name)).getByRole("button", { name: "Choose artist" }),
+    ),
+  ).toBe(true);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Check again" }),
+  );
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  const puts = writeBodies(fetch, "PUT", memberIdentity);
+  expect(puts).toHaveLength(2);
+  expect(puts[1].request_id).toBe(puts[0].request_id);
+});
+
+test("an accepted choice with a failed readback blocks new writes until checked", async () => {
+  const { fetch, dialog } = await chooseAndLose({ readbackFailures: 1 });
+  expect(
+    isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
+  ).toBe(true);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
+});
+
+test("a rejected choice is dropped, re-read, and a new attempt uses the new revision", async () => {
+  const fetch = serve({ conflictOnce: true });
+  renderTrack();
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const dialog = await reachPreview();
+  fireEvent.click(
+    await within(dialog).findByRole("button", { name: "Use this artist" }),
+  );
+  await within(dialog).findByText(
+    "This artist changed. Refresh and try again.",
+  );
+  await waitFor(() =>
+    expect(
+      isDisabled(
+        within(dialog).getByRole("button", { name: "Use this artist" }),
+      ),
+    ).toBe(false),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Use this artist" }),
+  );
+  await within(row(featured.name)).findByText(
+    `Chosen: ${artistPreview.profile.artist.name}`,
+  );
+  const puts = writeBodies(fetch, "PUT", memberIdentity);
+  expect(puts).toHaveLength(2);
+  expect(puts[0].expected_revision).toBe(0);
+  expect(puts[1].expected_revision).toBe(3);
+  expect(puts[1].request_id).not.toBe(puts[0].request_id);
+});
+
+async function clearAndLose(options: ServeOptions) {
+  const fetch = serve({
+    initial: "selected",
+    groupNames: { [memberGroup]: savedName },
+    ...options,
+  });
+  renderTrack();
+  await within(row(featured.name)).findByText(`Chosen: ${savedName}`);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
+  );
+  await within(row(featured.name)).findByRole("alert");
+  return fetch;
+}
+
+test("a reset whose response was lost is replayed with the same request", async () => {
+  const fetch = await clearAndLose({ loseResets: 1 });
+  expect(
+    isDisabled(
+      within(row(featured.name)).getByRole("button", { name: "Clear choice" }),
+    ),
+  ).toBe(true);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Check again" }),
+  );
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const bodies = resetBodies(fetch);
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toEqual(bodies[0]);
+  expect(bodies[0].expected_revision).toBe(1);
+});
+
+test("a reset receipt with a failed readback stays unresolved until read", async () => {
+  const fetch = await clearAndLose({ readbackFailures: 1 });
+  expect(within(row(featured.name)).getByText(/^Chosen/)).toBeTruthy();
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Check again" }),
+  );
+  await within(row(featured.name)).findByText("Not chosen yet");
+  expect(resetBodies(fetch)).toHaveLength(1);
+  expect(
+    within(row(featured.name)).queryByRole("button", { name: "Check again" }),
+  ).toBeNull();
+});
+
+test("the chooser is blocked while a reset is unresolved", async () => {
+  const fetch = await clearAndLose({ loseResets: 1 });
+  const choose = within(row(featured.name)).getByRole("button", {
+    name: "Choose artist",
+  });
+  expect(isDisabled(choose)).toBe(true);
+  fireEvent.click(choose);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(0);
+});
+
+test("a failed first read shows the failure and can be tried again", async () => {
+  serve({ initialReadFailures: 1 });
+  renderTrack();
+  await within(row(featured.name)).findByText("Could not load");
+  expect(within(row(featured.name)).getByRole("alert")).toBeTruthy();
+  expect(
+    isDisabled(
+      within(row(featured.name)).getByRole("button", { name: "Choose artist" }),
+    ),
+  ).toBe(true);
+  fireEvent.click(
+    within(row(featured.name)).getByRole("button", { name: "Try again" }),
+  );
+  await within(row(featured.name)).findByText("Not chosen yet");
+  const dialog = await reachPreview();
+  expect(
+    await within(dialog).findByRole("button", { name: "Use this artist" }),
+  ).toBeTruthy();
 });
