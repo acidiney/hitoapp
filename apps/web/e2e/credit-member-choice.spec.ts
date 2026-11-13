@@ -291,7 +291,7 @@ test("a second account with access to a shared recording reads no member choice 
     const { credits } = fixture;
     const candidate = credits.catalog[3].candidate.artist.name;
 
-    await page.goto("/settings");
+    await page.goto("/settings?section=music");
     await page
       .getByRole("button", { name: "Add music folder", exact: true })
       .click();
