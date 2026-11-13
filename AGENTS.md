@@ -38,6 +38,8 @@ Prefer the smallest model that makes the correct behavior unsurprising. Do not k
 
 Several agents may work in this repository at the same time, each in its own worktree. Assume the processes, containers and volumes you did not start belong to someone else.
 
+For work orchestrated by Codex, use Sol 6.1 (`gpt-6.1-sol`) for detailed specifications and code review, and Luna (`gpt-6-luna`) for implementation. The orchestrator delegates implementation, reviews the changes and verifies the results. Respect any owner or model the developer explicitly assigns, including the separate frontend owner. Keep context and review scope focused to control token use.
+
 ## Glossary
 
 - **Account**: one person signed in to a server. The first account is the **administrator**.
