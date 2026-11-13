@@ -2,7 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import CatalogCover from "../../artists/components/CatalogCover";
 import MediaCard from "../../../shared/ui/MediaCard";
 import { groupSubtitle } from "../model/releaseMatch";
-import MatchPanel from "./MatchPanel";
+import MatchDialog from "./MatchDialog";
 
 export default function ReleasePicker({
   title,
@@ -22,7 +22,11 @@ export default function ReleasePicker({
   dismiss: () => void;
 }) {
   return (
-    <MatchPanel title={`Which release is ${title}?`} busy={pending}>
+    <MatchDialog
+      title={`Which release is ${title}?`}
+      busy={pending}
+      onClose={dismiss}
+    >
       <ul className="release-grid" aria-label="Releases to choose from">
         {groups.map((group) => (
           <li key={group.id} className="release-card">
@@ -60,6 +64,6 @@ export default function ReleasePicker({
           Just show my tracks
         </button>
       </div>
-    </MatchPanel>
+    </MatchDialog>
   );
 }

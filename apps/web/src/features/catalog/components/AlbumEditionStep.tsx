@@ -157,6 +157,17 @@ export default function AlbumEditionStep({
       </MatchPanel>
     );
 
+  if (
+    !changing &&
+    ((workflow.pending && workflow.editions.length === 0) ||
+      (automatic && settled && workflow.editions.length === 1))
+  )
+    return (
+      <MatchPanel title={group.title} busy>
+        <p role="status">Loading editions…</p>
+      </MatchPanel>
+    );
+
   const title =
     suggested && !changing
       ? `Is this ${group.title}${year ? ` from ${year}` : ""}?`
@@ -178,6 +189,7 @@ export default function AlbumEditionStep({
       }}
       different={different}
       dismiss={dismiss}
+      close={changing ? () => setChanging(false) : dismiss}
       more={
         workflow.continuation && !workflow.pending
           ? () => void workflow.more()
