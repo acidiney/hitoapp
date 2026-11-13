@@ -36,7 +36,23 @@ test("on a phone the album header shows its whole credit line and track list sou
     const stats = page.locator(".album-header .album-stats");
     await expect(stats).toContainText(`${catalogAlbum.tracks.length} tracks`);
     await shownWhole(stats);
-    await shownWhole(page.getByText(/^Track list from /));
+    const note = page.getByText("From catalog", { exact: true });
+    await shownWhole(note);
+    const edition = page.getByRole("button", { name: /^Edition / });
+    const noteBox = (await note.boundingBox())!;
+    const editionBox = (await edition.boundingBox())!;
+    expect(noteBox.y).toBeGreaterThanOrEqual(editionBox.y);
+    expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(
+      editionBox.y + editionBox.height,
+    );
+    const firstRow = page
+      .getByRole("list", { name: "Tracks" })
+      .getByRole("listitem")
+      .first();
+    const rowBox = (await firstRow.boundingBox())!;
+    expect(rowBox.y - (editionBox.y + editionBox.height)).toBeLessThanOrEqual(
+      16,
+    );
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
