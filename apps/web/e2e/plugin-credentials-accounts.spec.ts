@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ensureFixtureLibrary } from "./fixtures/credential-library";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { signOutFromShell } from "./fixtures/account";
 import { createMembers } from "./fixtures/member-accounts";
@@ -30,6 +31,10 @@ import {
 } from "./fixtures/credential-ui";
 
 const suffix = () => String(Date.now() % 1_000_000);
+
+test.beforeAll(async ({ browser }, info) => {
+  await ensureFixtureLibrary(browser, info.project.use.baseURL!);
+});
 
 test.describe("account switching and listener sessions", () => {
   test.use({ storageState: { cookies: [], origins: [] } });

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ensureFixtureLibrary } from "./fixtures/credential-library";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { libraryTrack } from "./fixtures/lyrics-library";
 import {
@@ -24,6 +25,10 @@ import {
   showLyrics,
   trackTitle,
 } from "./fixtures/credential-ui";
+
+test.beforeAll(async ({ browser }, info) => {
+  await ensureFixtureLibrary(browser, info.project.use.baseURL!);
+});
 
 const suffix = () => String(Date.now() % 1_000_000);
 
