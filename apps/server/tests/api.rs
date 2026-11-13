@@ -1,5 +1,31 @@
+#[path = "fixtures/source_authority_snapshot.rs"]
+mod source_authority_snapshot_fixture;
+
+#[path = "api/source_authority_snapshot.rs"]
+mod source_authority_snapshot;
+
+#[path = "api/source_resolution_hydration_credentials.rs"]
+mod source_resolution_hydration_credentials;
+
+#[path = "api/source_resolution_dispatch_authority.rs"]
+mod source_resolution_dispatch_authority;
+
 #[path = "api/support.rs"]
 mod support;
+
+#[path = "fixtures/artist_review_account.rs"]
+pub(crate) mod account;
+
+#[path = "fixtures/credential_pressure.rs"]
+mod credential_pressure_fixture;
+
+#[path = "fixtures/source_resolution_authority.rs"]
+mod source_authority_fixture;
+
+pub(crate) use source_credential_fixture::library as source_library_fixture;
+
+#[path = "fixtures/source_credential_lifecycle.rs"]
+mod source_credential_fixture;
 
 use hito_core::test_support::content_service as provider_fixture;
 
@@ -8,6 +34,24 @@ mod featured;
 
 #[path = "api/plugin_health.rs"]
 mod plugin_health;
+
+#[path = "api/source_service_observation.rs"]
+mod source_service_observation;
+
+#[path = "api/source_observation_target_reset.rs"]
+mod source_observation_target_reset;
+
+#[path = "api/source_observation_recovery.rs"]
+mod source_observation_recovery;
+
+#[path = "api/source_credential_lifecycle.rs"]
+mod source_credential_lifecycle;
+
+#[path = "api/source_credential_pressure.rs"]
+mod source_credential_pressure;
+
+#[path = "api/source_credential_pressure_inverse.rs"]
+mod source_credential_pressure_inverse;
 
 #[path = "api/account_sessions.rs"]
 mod account_sessions;
