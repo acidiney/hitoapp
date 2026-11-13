@@ -258,9 +258,9 @@ test("credited artists stay unread until opened, keep a per-member choice across
 
     await guest.getByRole("button", { name: "Clear choice" }).click();
     await expect(guest).toContainText("Not chosen yet");
-    await expect(guest.getByRole("button", { name: "Clear choice" })).toHaveCount(
-      0,
-    );
+    await expect(
+      guest.getByRole("button", { name: "Clear choice" }),
+    ).toHaveCount(0);
     await page.reload();
     await page.getByRole("tab", { name: /^Metadata/ }).click();
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
@@ -333,15 +333,13 @@ test("a second account with access to a shared recording reads no member choice 
       id: mine.id,
       revision: mine.revision,
     };
-    expect(shared.credited_artists.map((member) => member.name)).toEqual([
+    const members = shared.credited_artists ?? [];
+    expect(members.map((member) => member.name)).toEqual([
       sharedCredit.lead,
       sharedCredit.guest,
     ]);
-    expect(shared.credited_artists.map((member) => member.role)).toEqual([
-      "main",
-      "featured",
-    ]);
-    const guestId = shared.credited_artists[1].artist_id!;
+    expect(members.map((member) => member.role)).toEqual(["main", "featured"]);
+    const guestId = members[1]?.id;
     expect(guestId).toBeTruthy();
     const sharedMemberPath = `/api/v1/recordings/${shared.id}/credit-members/${guestId}/artist-identity`;
 
