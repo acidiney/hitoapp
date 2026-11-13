@@ -399,11 +399,14 @@ export async function connectCredentialPlugin(
       },
     };
   } catch (error) {
-    try {
-      if (service) await withdrawService(administrator, origin, service);
-    } finally {
-      await plugin.close();
-    }
+    const failures: unknown[] = [];
+    if (service)
+      await withdrawService(administrator, origin, service).catch((failure) =>
+        failures.push(failure),
+      );
+    await plugin.close().catch((failure) => failures.push(failure));
+    for (const failure of failures)
+      console.warn("Credential plugin cleanup failed", failure);
     throw error;
   }
 }
