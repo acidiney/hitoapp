@@ -352,7 +352,11 @@ async fn legacy_edition(
 #[path = "catalog_album_header_parallel.rs"]
 mod parallel;
 
+#[path = "catalog_album_header_credentials.rs"]
+mod credentials;
 
 #[path = "catalog_album_header_stats.rs"]
 mod stats;
 
+#[path = "catalog_album_header_cancellation.rs"]
+mod cancellation;
