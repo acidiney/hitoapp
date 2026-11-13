@@ -6,6 +6,8 @@ import {
   render,
   screen,
   waitFor,
+  within,
+  fireEvent,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
@@ -131,4 +133,57 @@ test("the mounted card stays marked when the re-read health still reports creden
   act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
   await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
+});
+
+test("a recovery published while an unrelated plugin removal is pending still re-reads once after the removal and keeps a rejected peer marked", async () => {
+  const first = {
+    services: [service],
+    installations: [
+      installation("a", "Lyrics A", 3, wireHealth("credentials_required")),
+      installation("b", "Lyrics B", 5, wireHealth("ok")),
+      installation("c", "Lyrics C", 2, wireHealth("credentials_required")),
+    ],
+    credential_storage_ready: true,
+  };
+  const second = {
+    services: [service],
+    installations: [
+      installation("a", "Lyrics A", 3, wireHealth("ok")),
+      installation("c", "Lyrics C", 2, wireHealth("credentials_required")),
+    ],
+    credential_storage_ready: true,
+  };
+  vi.mocked(pluginsApi.settings)
+    .mockResolvedValueOnce(first)
+    .mockResolvedValueOnce(second);
+  let release: () => void = () => {};
+  vi.mocked(pluginsApi.remove).mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  mount();
+  await screen.findByRole("heading", { name: "Lyrics A" });
+  act(() => {
+    reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } });
+    reportCredentialRequirement("bob", { stamp: { installationId: "c", installationRevision: 2 } });
+  });
+  fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Manage" }));
+  fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Remove" }));
+  const dialog = await screen.findByRole("dialog", { name: "Remove Lyrics B?" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(pluginsApi.remove).toHaveBeenCalledTimes(1));
+
+  const version = credentialMarkVersion("bob", "a");
+  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
+  await act(async () => release());
+
+  await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
+  await waitFor(() =>
+    expect(card("Lyrics A").textContent).not.toContain("Credentials need updating"),
+  );
+  expect(card("Lyrics C").textContent).toContain("Credentials need updating");
+  expect(screen.queryByRole("heading", { name: "Lyrics B" })).toBeNull();
+  expect(pluginsApi.settings).toHaveBeenCalledTimes(2);
 });
