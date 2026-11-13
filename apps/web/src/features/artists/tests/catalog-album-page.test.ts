@@ -63,6 +63,7 @@ vi.mock("@inertiajs/react", () => ({
 
 const base = `/api/v1/recordings/${artistAssociation.recording_id}/artist-associations`;
 const missing = new Set<string>();
+let profileFails = false;
 const audioBodies: Array<{ occurrence_id: string; edition_id: string }> = [];
 const trackBodies: Array<{ edition_id: string }> = [];
 let linked: Array<{
@@ -75,7 +76,9 @@ function serve() {
     const body = init?.body ? JSON.parse(init.body as string) : null;
     if (path === base) return Response.json([artistAssociation]);
     if (path === `${base}/${artistAssociation.id}/profile`)
-      return Response.json(reviewedArtistProfile);
+      return profileFails
+        ? Response.json({ error: "Profile unavailable" }, { status: 500 })
+        : Response.json(reviewedArtistProfile);
     if (path === `${base}/${artistAssociation.id}/discography/library`)
       return Response.json({
         association_id: artistAssociation.id,
@@ -119,6 +122,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   missing.clear();
+  profileFails = false;
   audioBodies.length = 0;
   trackBodies.length = 0;
   mutate.mockClear();
@@ -340,5 +344,23 @@ test("finding audio makes the next visit read the track list again so the new li
     await within(rowOf(again, title)).findByRole("img", {
       name: "In your library",
     }),
+  ).toBeTruthy();
+});
+
+test("a cold direct album link loads its editions and tracks even when the artist profile request fails", async () => {
+  profileFails = true;
+  const fetch = serve();
+  render(createElement(CatalogAlbumPage, artistIdentityBrowsing().detail));
+  const list = await screen.findByRole("list", { name: "Tracks" });
+  await within(list).findByText(catalogAlbumTitles[0]);
+  const editions = fetch.mock.calls.filter(
+    ([path]) => path === `${base}/${artistAssociation.id}/release-group-editions`,
+  );
+  expect(editions.length).toBeGreaterThan(0);
+  expect(JSON.parse(editions[0][1]!.body as string)).toMatchObject({
+    release_group_id: editionGroup.id,
+  });
+  expect(
+    screen.getByRole("heading", { level: 1 }).textContent?.trim(),
   ).toBeTruthy();
 });
