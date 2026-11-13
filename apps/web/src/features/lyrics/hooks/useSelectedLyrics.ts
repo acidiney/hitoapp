@@ -15,6 +15,10 @@ import {
 } from "../model/lyricFailure";
 import { identityKey, type LyricIdentity } from "../model/lyricIdentity";
 import { useLatestRun } from "./useLatestRun";
+import {
+  clearCredentialRequirementAfterProtectedSuccess,
+  credentialMarkVersion,
+} from "../../plugins/model/credentialRequirements";
 
 type State = {
   owner: object;
@@ -66,6 +70,7 @@ export function useSelectedLyrics(
       action: "read_selected",
       request_id: requestId,
     });
+    const mark = credentialMarkVersion(account, identity.installation_id);
     try {
       const result = await lyricsApi.readSelected(
         account,
@@ -87,6 +92,13 @@ export function useSelectedLyrics(
         onFailure(failure);
         return;
       }
+      if (result.status === "ready_v1" || result.status === "ready_v2")
+        clearCredentialRequirementAfterProtectedSuccess(
+          account,
+          identity.installation_id,
+          identity.installation_revision,
+          mark,
+        );
       const shown = selectedLyricsOutcome(result);
       outcome = shown.kind;
       setSnapshot({

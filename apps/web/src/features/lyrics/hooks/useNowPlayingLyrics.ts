@@ -3,7 +3,6 @@ import { log } from "../../../shared/log";
 import { onInvalidated } from "../../../shared/invalidation";
 import { lyricsApi } from "../api/lyricsApi";
 import { credentialRequirement } from "../../plugins/model/credentialError";
-import { reportCredentialRequirement } from "../../plugins/model/credentialRequirements";
 import { lookupAutomatic, rememberedAutomatic } from "../api/automaticLyrics";
 import {
   readMatchesIdentity,
@@ -16,6 +15,11 @@ import {
   identityNames,
   type LyricIdentity,
 } from "../model/lyricIdentity";
+import {
+  clearCredentialRequirementAfterProtectedSuccess,
+  credentialMarkVersion,
+  reportCredentialRequirement,
+} from "../../plugins/model/credentialRequirements";
 
 export type LyricChoice = {
   key: string;
@@ -67,6 +71,7 @@ export function useNowPlayingLyrics(
       signal: AbortSignal,
     ): Promise<SelectedLyricsOutcome["kind"] | "changed"> => {
       const identity = choice.identity;
+      const mark = credentialMarkVersion(account, identity.installation_id);
       const result = await lyricsApi.readSelected(
         account,
         recording,
@@ -84,6 +89,13 @@ export function useNowPlayingLyrics(
         setState({ status: "failed", providers: providers.current });
         return "changed";
       }
+      if (result.status === "ready_v1" || result.status === "ready_v2")
+        clearCredentialRequirementAfterProtectedSuccess(
+          account,
+          identity.installation_id,
+          identity.installation_revision,
+          mark,
+        );
       const outcome: SelectedLyricsOutcome = selectedLyricsOutcome(result);
       if (outcome.kind === "unavailable" || outcome.kind === "cancelled") {
         setState({

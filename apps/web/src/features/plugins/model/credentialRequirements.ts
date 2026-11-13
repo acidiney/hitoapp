@@ -7,11 +7,13 @@ import {
   healthNeedsCredentials,
 } from "./credentialError";
 
-type Flags = ReadonlyMap<string, number>;
+type Mark = { readonly revision: number; readonly version: number };
+type Flags = ReadonlyMap<string, Mark>;
 
 const empty: Flags = new Map();
 const byAccount = new Map<string, Flags>();
 const listeners = new Set<() => void>();
+let versions = 0;
 
 function publish(account: string, next: Flags) {
   if (next.size === 0) byAccount.delete(account);
@@ -26,11 +28,37 @@ export function reportCredentialRequirement(
   const stamp = requirement.stamp;
   if (!stamp) return;
   const current = byAccount.get(account) ?? empty;
-  if (current.get(stamp.installationId) === stamp.installationRevision) return;
+  versions += 1;
   publish(
     account,
-    new Map(current).set(stamp.installationId, stamp.installationRevision),
+    new Map(current).set(stamp.installationId, {
+      revision: stamp.installationRevision,
+      version: versions,
+    }),
   );
+}
+
+export function credentialMarkVersion(
+  account: string,
+  installationId: string,
+): number | null {
+  return byAccount.get(account)?.get(installationId)?.version ?? null;
+}
+
+export function clearCredentialRequirementAfterProtectedSuccess(
+  account: string,
+  installationId: string,
+  installationRevision: number,
+  version: number | null,
+) {
+  const mark = byAccount.get(account)?.get(installationId);
+  if (
+    !mark ||
+    mark.revision !== installationRevision ||
+    mark.version !== version
+  )
+    return;
+  clearCredentialRequirement(account, installationId);
 }
 
 export function clearCredentialRequirement(
@@ -66,7 +94,7 @@ export function connectionNeedsCredentials(
   plugin: Pick<Schema<"PluginInstallation">, "id" | "revision" | "health">,
 ): boolean {
   return (
-    flags.get(plugin.id) === plugin.revision ||
+    flags.get(plugin.id)?.revision === plugin.revision ||
     healthNeedsCredentials(plugin.health)
   );
 }
