@@ -380,3 +380,8 @@ mod credit_member_identity_reset;
 
 #[path = "fixtures/credit_member_identity_reset.rs"]
 mod credit_member_identity_reset_fixture;
+
+#[path = "api/credit_member_identity_reset_authority.rs"]
+mod credit_member_identity_reset_authority;
+#[path = "fixtures/credit_member_identity_reset_authority.rs"]
+mod credit_member_identity_reset_authority_fixture;
