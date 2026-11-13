@@ -16,8 +16,16 @@ mod support;
 #[path = "fixtures/artist_review_account.rs"]
 pub(crate) mod account;
 
+#[allow(dead_code)]
+#[path = "fixtures/automatic_lyric_lrclib.rs"]
+mod automatic_lrclib_fixture;
+
 #[path = "fixtures/credential_pressure.rs"]
 mod credential_pressure_fixture;
+
+#[allow(dead_code)]
+#[path = "fixtures/lyric_identity_library.rs"]
+mod lyric_identity_fixture;
 
 #[path = "fixtures/source_resolution_authority.rs"]
 mod source_authority_fixture;
@@ -34,6 +42,24 @@ mod featured;
 
 #[path = "api/plugin_health.rs"]
 mod plugin_health;
+
+#[path = "api/lyric_service_credentials.rs"]
+mod lyric_service_credentials;
+
+#[path = "api/lyric_service_observation.rs"]
+mod lyric_service_observation;
+
+#[path = "api/lyric_service_recovery.rs"]
+mod lyric_service_recovery;
+
+#[path = "api/lyric_health_recovery.rs"]
+mod lyric_health_recovery;
+
+#[path = "api/lyric_credential_ordering.rs"]
+mod lyric_credential_ordering;
+
+#[path = "api/lyric_credential_replacement.rs"]
+mod lyric_credential_replacement;
 
 #[path = "api/source_service_observation.rs"]
 mod source_service_observation;
