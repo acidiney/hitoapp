@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { catalogAlbum } from "./fixtures/catalog-album-provider";
 import { connectCatalogArtist } from "./fixtures/catalog-album-setup";
 import { createMembers, memberPassword } from "./fixtures/member-accounts";
@@ -109,9 +109,11 @@ test("another account cannot open someone else's album link", async ({
 }) => {
   test.setTimeout(120_000);
   const artist = await connectCatalogArtist(page, baseURL!);
-  const members = await createMembers(browser, baseURL!, "cold-album", 1);
-  const peer = await browser.newContext({ baseURL });
+  let members: Awaited<ReturnType<typeof createMembers>> | undefined;
+  let peer: BrowserContext | undefined;
   try {
+    members = await createMembers(browser, baseURL!, "cold-album", 1);
+    peer = await browser.newContext({ baseURL });
     const login = await peer.request.post("/api/v1/login", {
       headers: { "x-hito-request": "1", origin: new URL(baseURL!).origin },
       data: { username: members.names[0], password: memberPassword },
@@ -125,9 +127,15 @@ test("another account cannot open someone else's album link", async ({
     for (const title of [catalogAlbum.groupTitle, ...catalogAlbum.tracks])
       await expect(other.getByText(title)).toHaveCount(0);
   } finally {
-    await peer.close();
-    await members.close();
-    await artist.close();
+    try {
+      await peer?.close();
+    } finally {
+      try {
+        await members?.close();
+      } finally {
+        await artist.close();
+      }
+    }
   }
 });
 
