@@ -64,17 +64,22 @@ export function useCatalogPlayback(
   occurrences: readonly string[],
   remembered: ReadonlyMap<string, Schema<"Recording">>,
 ) {
-  const { account, recording, association, group } = context;
+  const { account, recording, association, releaseGroupId } = context;
   return useEditionPlayback(
     {
-      scope: JSON.stringify([account, recording, association.id, group.id]),
+      scope: JSON.stringify([
+        account,
+        recording,
+        association.id,
+        releaseGroupId,
+      ]),
       find: (edition, occurrence, signal) =>
         artistEditionApi.audio(
           account,
           recording,
           association.id,
           {
-            release_group_id: group.id,
+            release_group_id: releaseGroupId,
             edition_id: edition,
             occurrence_id: occurrence,
           },
