@@ -147,8 +147,9 @@ test("a fresh lyrics read that succeeds again with the same token clears the mar
     setup.plugin.rotate();
     await playFromLibrary(page);
     await page.evaluate(() => {
-      (window as unknown as { credentialRecovery?: string }).credentialRecovery =
-        "same-document";
+      (
+        window as unknown as { credentialRecovery?: string }
+      ).credentialRecovery = "same-document";
     });
     const sameDocument = () =>
       page.evaluate(
@@ -163,7 +164,9 @@ test("a fresh lyrics read that succeeds again with the same token clears the mar
     await expect(
       page.getByRole("heading", { name: "Plugins", exact: true }),
     ).toBeVisible();
-    await expect(connectionCard(page, label).getByText(markLabel)).toBeVisible();
+    await expect(
+      connectionCard(page, label).getByText(markLabel),
+    ).toBeVisible();
     const revision = (await pluginSettings(page.request)).installations.find(
       (installation) => installation.manifest.name === label,
     )!.revision;
@@ -173,7 +176,9 @@ test("a fresh lyrics read that succeeds again with the same token clears the mar
     const fresh = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        response.url().endsWith(`/recordings/${track.id}/lyrics/identities/read`) &&
+        response
+          .url()
+          .endsWith(`/recordings/${track.id}/lyrics/identities/read`) &&
         response.status() === 200,
     );
     await page.goBack();
@@ -229,9 +234,7 @@ test("updating credentials with the valid token clears the mark and the lyrics r
     await card
       .getByRole("button", { name: `Update credentials for ${label}` })
       .click();
-    await card
-      .getByLabel("New bearer token")
-      .fill(setup.plugin.currentToken());
+    await card.getByLabel("New bearer token").fill(setup.plugin.currentToken());
     await card.getByRole("button", { name: "Save token" }).click();
     await expect(
       card.getByRole("status").filter({ hasText: "Connection checked." }),
@@ -294,9 +297,9 @@ test("after a stamped error a keep refresh raises the revision by one and the ol
     const connection = connectionCard(page, label);
     await expect(connection).toBeVisible();
     await expect(connection.getByText(markLabel)).toHaveCount(0);
-    await expect(connection.getByText(/needs its credentials updated/)).toHaveCount(
-      0,
-    );
+    await expect(
+      connection.getByText(/needs its credentials updated/),
+    ).toHaveCount(0);
     await expect(connection.locator(".plugin-status")).toHaveText(/^Connected/);
     await expect(
       connection.getByRole("button", { name: /^Update credentials/ }),

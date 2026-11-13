@@ -121,9 +121,7 @@ test("a plugin_credentials_required 409 shows the credential message and the set
 });
 
 test("after a credential update the failed read is retried once and no loop follows", async () => {
-  apis.read
-    .mockRejectedValueOnce(credentialError())
-    .mockResolvedValue(ready);
+  apis.read.mockRejectedValueOnce(credentialError()).mockResolvedValue(ready);
   open();
   await screen.findByText(message);
   await act(async () => {
@@ -147,7 +145,9 @@ test("a 401 keeps the generic failure, marks nothing, and the selected provider 
   open();
   expect(await screen.findByText("Lyrics could not be loaded.")).toBeTruthy();
   expect(screen.queryByText(message)).toBeNull();
-  expect(screen.queryByRole("link", { name: "Open plugin settings" })).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: "Open plugin settings" }),
+  ).toBeNull();
   expect(flags.result.current.size).toBe(0);
   await waitFor(() => expect(apis.read).toHaveBeenCalledTimes(1));
   expect(apis.read.mock.calls[0][2]).toEqual({

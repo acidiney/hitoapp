@@ -76,9 +76,9 @@ export async function expectQueueHolds(page: Page, title = trackTitle) {
     .getByRole("button", { name: /^Open queue/ });
   await toggle.click();
   const queue = page.locator("#queue-panel");
-  await expect(queue.getByRole("region", { name: "Now playing" })).toContainText(
-    title,
-  );
+  await expect(
+    queue.getByRole("region", { name: "Now playing" }),
+  ).toContainText(title);
   await queue.getByRole("button", { name: "Close queue" }).click();
   await expect(queue).toBeHidden();
 }

@@ -177,9 +177,7 @@ test("an unstamped credential 409 from Discover search shows generic guidance wi
     plugin.rotate();
     await page.goto("/discover");
     const search = page.getByRole("search", { name: "Music service search" });
-    await search
-      .getByRole("searchbox", { name: "Search music" })
-      .fill("Relay");
+    await search.getByRole("searchbox", { name: "Search music" }).fill("Relay");
     await search.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText(credentialMessage).first()).toBeVisible();
     const link = page.getByRole("link", { name: settingsLinkName });

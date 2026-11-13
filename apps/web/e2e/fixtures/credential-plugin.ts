@@ -74,7 +74,8 @@ async function serveCredentialPlugin(
       if (value) outgoing[name] = value;
     }
     const length = upstream.headers.get("content-length");
-    if (request.method === "HEAD" && length) outgoing["content-length"] = length;
+    if (request.method === "HEAD" && length)
+      outgoing["content-length"] = length;
     response
       .writeHead(upstream.status, outgoing)
       .end(Buffer.from(await upstream.arrayBuffer()));
@@ -231,8 +232,7 @@ export async function installConnection(
       bearer_token: token,
     } satisfies Schema<"InstallPlugin">,
   });
-  if (installed.status() !== 201)
-    throw new Error("The connection was refused");
+  if (installed.status() !== 201) throw new Error("The connection was refused");
   return (await installed.json()) as Schema<"PluginInstallation">;
 }
 

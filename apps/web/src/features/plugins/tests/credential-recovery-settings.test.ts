@@ -119,7 +119,9 @@ async function settle() {
       vi.mocked(pluginsApi.checkDeclaration).mock.calls.length;
     await act(async () => {
       await Promise.allSettled([
-        ...vi.mocked(pluginsApi.settings).mock.results.map((result) => result.value),
+        ...vi
+          .mocked(pluginsApi.settings)
+          .mock.results.map((result) => result.value),
         ...vi
           .mocked(pluginsApi.checkDeclaration)
           .mock.results.map((result) => result.value),
@@ -146,19 +148,27 @@ const reads = () => vi.mocked(pluginsApi.settings).mock.calls.length;
 function recover(state: { phase: Phase }) {
   state.phase = "after";
   const version = credentialMarkVersion("bob", "a");
-  act(() => clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version));
+  act(() =>
+    clearCredentialRequirementAfterProtectedSuccess("bob", "a", 3, version),
+  );
 }
 
 test("a fresh protected success re-reads the mounted settings once and clears the stale credentials_required health", async () => {
   const state = serveSettings(
-    settings(installation("a", "Lyrics A", 3, wireHealth("credentials_required"))),
+    settings(
+      installation("a", "Lyrics A", 3, wireHealth("credentials_required")),
+    ),
     settings(installation("a", "Lyrics A", 3, wireHealth("ok"))),
   );
   const plugins = vi.fn();
   const stop = onInvalidated("plugins", plugins);
   mount();
   await screen.findByRole("heading", { name: "Lyrics A" });
-  act(() => reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } }));
+  act(() =>
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "a", installationRevision: 3 },
+    }),
+  );
   await settle();
   const baseline = reads();
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
@@ -167,7 +177,9 @@ test("a fresh protected success re-reads the mounted settings once and clears th
   await waitFor(() => expect(state.afterReads).toBe(1));
   await settle();
   expect(reads()).toBe(baseline + 1);
-  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
+  expect(card("Lyrics A").textContent).not.toContain(
+    "Credentials need updating",
+  );
   expect(plugins).not.toHaveBeenCalled();
   stop();
 });
@@ -179,7 +191,11 @@ test("the mounted card stays marked when the post-recovery read still reports cr
   const state = serveSettings(marked, marked);
   mount();
   await screen.findByRole("heading", { name: "Lyrics A" });
-  act(() => reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } }));
+  act(() =>
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "a", installationRevision: 3 },
+    }),
+  );
   await settle();
   const baseline = reads();
 
@@ -212,14 +228,24 @@ test("a recovery published while an unrelated plugin removal is pending still re
   mount();
   await screen.findByRole("heading", { name: "Lyrics A" });
   act(() => {
-    reportCredentialRequirement("bob", { stamp: { installationId: "a", installationRevision: 3 } });
-    reportCredentialRequirement("bob", { stamp: { installationId: "c", installationRevision: 2 } });
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "a", installationRevision: 3 },
+    });
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "c", installationRevision: 2 },
+    });
   });
   await settle();
   const baseline = reads();
-  fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Manage" }));
-  fireEvent.click(within(card("Lyrics B")).getByRole("button", { name: "Remove" }));
-  const dialog = await screen.findByRole("dialog", { name: "Remove Lyrics B?" });
+  fireEvent.click(
+    within(card("Lyrics B")).getByRole("button", { name: "Manage" }),
+  );
+  fireEvent.click(
+    within(card("Lyrics B")).getByRole("button", { name: "Remove" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Remove Lyrics B?",
+  });
   fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(pluginsApi.remove).toHaveBeenCalledTimes(1));
 
@@ -229,7 +255,9 @@ test("a recovery published while an unrelated plugin removal is pending still re
   await waitFor(() => expect(state.afterReads).toBe(1));
   await settle();
   expect(reads()).toBe(baseline + 1);
-  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
+  expect(card("Lyrics A").textContent).not.toContain(
+    "Credentials need updating",
+  );
   expect(card("Lyrics C").textContent).toContain("Credentials need updating");
   expect(screen.queryByRole("heading", { name: "Lyrics B" })).toBeNull();
 });
