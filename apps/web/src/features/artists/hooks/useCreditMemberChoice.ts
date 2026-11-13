@@ -329,9 +329,7 @@ export function useCreditMemberChoice(
     if (!fresh) return;
     hold(null);
     setSnapshot((value) =>
-      value.owner === owner
-        ? { ...value, ...fresh, unresolved: false }
-        : value,
+      value.owner === owner ? { ...value, ...fresh, unresolved: false } : value,
     );
   }
 

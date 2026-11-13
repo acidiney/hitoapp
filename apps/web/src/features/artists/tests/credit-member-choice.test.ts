@@ -248,6 +248,8 @@ function serve(options: ServeOptions = {}) {
         loseResets--;
         throw new TypeError("network down");
       }
+      if (init?.signal?.aborted)
+        throw new DOMException("Aborted", "AbortError");
       return Response.json(receipt);
     }
     if (method === "PUT" && path === `${memberBase}/artist-identity`) {
@@ -290,6 +292,8 @@ function serve(options: ServeOptions = {}) {
         losePuts--;
         throw new TypeError("network down");
       }
+      if (init?.signal?.aborted)
+        throw new DOMException("Aborted", "AbortError");
       return Response.json(receipt);
     }
     throw new Error(`Unexpected request ${method} ${path}`);
@@ -975,7 +979,7 @@ test("collapsing the section keeps an in-flight choice unresolved", async () => 
   });
   expectBlockedRow();
   expect(
-    isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
+    isDisabled(within(dialog).getByRole("button", { name: "Saving artist…" })),
   ).toBe(true);
   holdPut.resolve();
   await within(row(featured.name)).findByText(
