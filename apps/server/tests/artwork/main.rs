@@ -14,3 +14,9 @@ mod artwork_normalization;
 mod artwork_normalization_fixture;
 #[path = "../fixtures/artwork_normalization_provider.rs"]
 mod artwork_normalization_provider;
+
+#[path = "../fixtures/artwork_rendition_http.rs"]
+mod artwork_rendition_http;
+#[path = "../fixtures/artwork_rendition_images.rs"]
+mod artwork_rendition_images;
+mod artwork_renditions;

@@ -42,6 +42,7 @@ pub struct Library {
     app: Option<Router>,
     provider: Option<FakePlugin>,
     original_audio: Vec<u8>,
+    original_cover: Vec<u8>,
 }
 
 impl Library {
@@ -55,6 +56,7 @@ impl Library {
             app: None,
             provider: None,
             original_audio: Vec::new(),
+            original_cover: provider::COVER.to_vec(),
         }
     }
 
@@ -76,6 +78,23 @@ impl Library {
         assert_eq!(decoded.dimensions(), (1024, 768));
         assert_ne!(decoded.get_pixel(32, 32), decoded.get_pixel(500, 350));
         assert_ne!(decoded.get_pixel(500, 350), decoded.get_pixel(700, 590));
+    }
+
+    pub fn use_cover(&mut self, bytes: Vec<u8>, content_type: &'static str) {
+        assert!(!bytes.is_empty() && bytes.len() <= 2 * 1024 * 1024);
+        std::fs::write(self.directory.path().join("music/cover.png"), &bytes).unwrap();
+        self.original_cover = bytes.clone();
+        let mut headers = HeaderMap::new();
+        headers.insert("content-type", content_type.parse().unwrap());
+        self.provider().reply(
+            "v1/artwork",
+            hito_testkit::fake_plugin::Reply::Raw {
+                status: StatusCode::OK,
+                headers,
+                body: bytes,
+                chunked: false,
+            },
+        );
     }
 
     pub fn hito(&self) -> &Services {
@@ -281,7 +300,7 @@ impl Library {
         );
         assert_eq!(
             Sha256::digest(std::fs::read(music.join("cover.png")).unwrap()),
-            Sha256::digest(provider::COVER)
+            Sha256::digest(&self.original_cover)
         );
     }
 
