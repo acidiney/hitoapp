@@ -202,6 +202,10 @@ mod security;
 #[path = "api/artwork.rs"]
 mod artwork;
 
+#[path = "api/album_edition_stats.rs"]
+mod album_edition_stats;
+#[path = "fixtures/album_edition_stats.rs"]
+mod album_edition_stats_fixture;
 #[path = "api/album_editions.rs"]
 mod album_editions;
 #[path = "api/album_library_level.rs"]
