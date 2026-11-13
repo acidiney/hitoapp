@@ -28,13 +28,32 @@ type Preview = Extract<
 >;
 type Selection = Schema<"ArtistIdentitySelection">;
 type Receipt = Schema<"CreditMemberIdentityChoiceReceipt">;
-type Phase = "read" | "load" | "search" | "preview" | "choose" | "reset";
-type ResetAttempt = { requestId: string; revision: number };
+type Phase =
+  | "read"
+  | "load"
+  | "search"
+  | "preview"
+  | "choose"
+  | "reset"
+  | "check";
+type Write =
+  | {
+      kind: "choose";
+      body: Schema<"ChooseCreditMemberIdentity">;
+      name: string;
+      receipt: Receipt | null;
+    }
+  | {
+      kind: "reset";
+      body: Schema<"ResetRecordingArtistIdentity">;
+      receipt: Receipt | null;
+    }
+  | { kind: "read"; receipt: null };
 type Owner = {
   generation: number;
   controller: AbortController | null;
   phase: Phase | null;
-  attempt: ResetAttempt | null;
+  write: Write | null;
 };
 type State = {
   owner: Owner;
@@ -50,7 +69,7 @@ type State = {
   pending: Phase | null;
   error: string;
   failed: Phase | null;
-  unconfirmed: boolean;
+  unresolved: boolean;
 };
 
 function empty(owner: Owner, query: string): State {
@@ -68,8 +87,12 @@ function empty(owner: Owner, query: string): State {
     pending: null,
     error: "",
     failed: null,
-    unconfirmed: false,
+    unresolved: false,
   };
+}
+
+function writing(phase: Phase | null) {
+  return phase === "choose" || phase === "reset" || phase === "check";
 }
 
 function rejected(error: unknown) {
@@ -114,7 +137,7 @@ export function useCreditMemberChoice(
     generation: 0,
     controller: null,
     phase: null,
-    attempt: null,
+    write: null,
   }));
   const [snapshot, setSnapshot] = useState(() => empty(owner, member.name));
   const current =
@@ -150,18 +173,19 @@ export function useCreditMemberChoice(
 
   function requireReceipt(
     receipt: Receipt,
-    requestId: string,
-    previous: number,
+    write: Extract<Write, { kind: "choose" | "reset" }>,
   ) {
-    if (
-      receipt.request_id !== requestId ||
-      receipt.recording_id !== recording ||
-      receipt.artist_id !== artist ||
-      receipt.role !== member.role ||
-      !Number.isSafeInteger(receipt.revision) ||
-      receipt.revision <= previous
-    )
-      throw new Error("Invalid credited artist receipt");
+    const exact =
+      receipt.request_id === write.body.request_id &&
+      receipt.recording_id === recording &&
+      receipt.artist_id === artist &&
+      receipt.role === member.role &&
+      receipt.revision === write.body.expected_revision + 1;
+    const expected =
+      write.kind === "choose"
+        ? receipt.selection?.association_id === write.body.association_id
+        : !receipt.selection;
+    if (!exact || !expected) throw new Error("Invalid credited artist receipt");
     return receipt;
   }
 
@@ -179,7 +203,7 @@ export function useCreditMemberChoice(
     publish: (result: T) => Partial<State>,
   ): Promise<T | null> {
     const request = scope.capture();
-    if (!request.active() || owner.phase === "choose") return null;
+    if (!request.active() || writing(owner.phase)) return null;
     cancel();
     const controller = new AbortController();
     owner.controller = controller;
@@ -221,14 +245,8 @@ export function useCreditMemberChoice(
                 ...value,
                 error: failure(error),
                 failed: phase,
-                results:
-                  phase === "choose" || phase === "reset"
-                    ? value.results
-                    : null,
-                preview:
-                  phase === "choose" || phase === "reset"
-                    ? value.preview
-                    : null,
+                results: writing(phase) ? value.results : null,
+                preview: writing(phase) ? value.preview : null,
               }
             : value,
         );
@@ -292,65 +310,116 @@ export function useCreditMemberChoice(
     );
   }
 
-  async function refresh() {
-    if (!current.unconfirmed || owner.phase) return;
-    await run(
-      "read",
-      {},
-      (signal) => readChoice(signal, null),
-      ({ choice, name }) => ({ choice, name, unconfirmed: false }),
+  async function discard(signal: AbortSignal) {
+    owner.write = { kind: "read", receipt: null };
+    const fresh = await readChoice(signal, null).catch(() => null);
+    if (!fresh) return;
+    owner.write = null;
+    setSnapshot((value) =>
+      value.owner === owner
+        ? { ...value, ...fresh, unresolved: false }
+        : value,
     );
+  }
+
+  async function settle(signal: AbortSignal) {
+    const write = owner.write;
+    if (!write) throw new Error("There is no change to check.");
+    if (write.kind !== "read" && write.receipt === null) {
+      let receipt: Receipt;
+      try {
+        receipt =
+          write.kind === "choose"
+            ? await creditMemberApi.choose(
+                account,
+                recording,
+                artist,
+                write.body,
+                signal,
+              )
+            : await creditMemberApi.reset(
+                account,
+                recording,
+                artist,
+                write.body,
+                signal,
+              );
+      } catch (error) {
+        if (rejected(error)) await discard(signal);
+        throw error;
+      }
+      try {
+        write.receipt = requireReceipt(receipt, write);
+      } catch (error) {
+        await discard(signal);
+        throw error;
+      }
+    }
+    const receipt = write.receipt;
+    const known =
+      write.kind === "choose" && receipt?.selection
+        ? { name: write.name, selection: receipt.selection }
+        : null;
+    const readback = await readChoice(signal, known);
+    if (receipt && readback.choice.revision < receipt.revision)
+      throw new Error("Invalid credited artist response");
+    owner.write = null;
+    return readback;
+  }
+
+  function settled({ choice, name }: { choice: Choice; name: string | null }) {
+    return { choice, name, preview: null, results: null, unresolved: false };
+  }
+
+  function markUnresolved() {
+    setSnapshot((value) =>
+      value.owner === owner ? { ...value, unresolved: true } : value,
+    );
+  }
+
+  async function checkAgain() {
+    const write = owner.write;
+    if (!write || owner.phase) return null;
+    const done = await run("check", {}, settle, settled);
+    return done === null ? null : write.kind;
+  }
+
+  async function refresh() {
+    const write = owner.write;
+    if (write && (write.kind === "read" || write.receipt)) await checkAgain();
   }
 
   async function reset() {
     const choice = current.choice;
-    if (!choice || choice.state.status === "unselected" || owner.phase)
+    if (
+      !choice ||
+      choice.state.status === "unselected" ||
+      owner.phase ||
+      owner.write
+    )
       return false;
-    const attempt = owner.attempt ?? {
-      requestId: createUuid(),
-      revision: choice.revision,
-    };
-    owner.attempt = attempt;
     const done = await run(
       "reset",
       {},
-      async (signal) => {
-        let receipt: Receipt;
-        try {
-          receipt = await creditMemberApi.reset(
-            account,
-            recording,
-            artist,
-            {
-              request_id: attempt.requestId,
-              expected_revision: attempt.revision,
-            },
-            signal,
-          );
-        } catch (error) {
-          if (rejected(error)) {
-            owner.attempt = null;
-            const fresh = await readChoice(signal, null).catch(() => null);
-            if (fresh)
-              setSnapshot((value) =>
-                value.owner === owner ? { ...value, ...fresh } : value,
-              );
-          }
-          throw error;
-        }
-        requireReceipt(receipt, attempt.requestId, attempt.revision);
-        if (receipt.selection)
-          throw new Error("Invalid credited artist receipt");
-        owner.attempt = null;
-        return readChoice(signal, null);
+      (signal) => {
+        owner.write = {
+          kind: "reset",
+          body: {
+            request_id: createUuid(),
+            expected_revision: choice.revision,
+          },
+          receipt: null,
+        };
+        markUnresolved();
+        return settle(signal);
       },
-      ({ choice, name }) => ({ choice, name }),
+      settled,
     );
     return done !== null;
   }
 
   function dismiss() {
-    if (owner.phase === "choose") return;
+    if (writing(owner.phase)) return;
     const running =
       owner.phase === "load" ||
       owner.phase === "search" ||
@@ -399,7 +468,7 @@ export function useCreditMemberChoice(
   }
 
   function edit(change: Partial<State>) {
-    if (!scope.capture().active() || owner.phase === "choose") return;
+    if (!scope.capture().active() || writing(owner.phase)) return;
     cancel();
     setSnapshot((value) =>
       value.owner === owner
@@ -487,7 +556,8 @@ export function useCreditMemberChoice(
   async function choose() {
     const preview = current.preview;
     const choice = current.choice;
-    if (!preview || !choice || !provider?.available) return false;
+    if (!preview || !choice || !provider?.available || owner.write)
+      return false;
     const done = await run(
       "choose",
       {},
@@ -514,41 +584,21 @@ export function useCreditMemberChoice(
           throw new Error(
             "The artist confirmation did not belong to this credited artist and provider.",
           );
-        const requestId = createUuid();
-        owner.attempt = null;
-        const receipt = await creditMemberApi.choose(
-          account,
-          recording,
-          artist,
-          {
-            request_id: requestId,
+        owner.write = {
+          kind: "choose",
+          name: preview.profile.artist.name,
+          receipt: null,
+          body: {
+            request_id: createUuid(),
             expected_revision: choice.revision,
             association_id: confirmed.id,
             context: preview.context,
           },
-          signal,
-        );
-        setSnapshot((value) =>
-          value.owner === owner ? { ...value, unconfirmed: true } : value,
-        );
-        requireReceipt(receipt, requestId, choice.revision);
-        const selection = receipt.selection;
-        if (!selection) throw new Error("Invalid credited artist receipt");
-        const readback = await readChoice(signal, {
-          name: preview.profile.artist.name,
-          selection,
-        });
-        if (readback.choice.revision < receipt.revision)
-          throw new Error("Invalid credited artist response");
-        return readback;
+        };
+        markUnresolved();
+        return settle(signal);
       },
-      ({ choice, name }) => ({
-        choice,
-        name,
-        preview: null,
-        results: null,
-        unconfirmed: false,
-      }),
+      settled,
     );
     return done !== null;
   }
@@ -558,6 +608,7 @@ export function useCreditMemberChoice(
     provider,
     read,
     refresh,
+    checkAgain,
     reset,
     dismiss,
     open,

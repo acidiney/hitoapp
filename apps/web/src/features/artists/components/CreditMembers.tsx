@@ -95,8 +95,10 @@ function CreditMemberRow({
     void latest.current.read();
   }, []);
   const state = workflow.choice?.state.status;
-  const text =
-    state === "selected"
+  const unreadable = workflow.failed === "read" && !workflow.choice;
+  const text = unreadable
+    ? "Could not load"
+    : state === "selected"
       ? workflow.name
         ? `Chosen: ${workflow.name}`
         : "Chosen"
@@ -117,13 +119,34 @@ function CreditMemberRow({
           {ROLES[member.role]}
         </span>
         <p>{text}</p>
+        {workflow.unresolved && (
+          <p>Hito could not confirm the last change to this credit.</p>
+        )}
         {!open && workflow.error && <p role="alert">{workflow.error}</p>}
       </div>
       <div className="rd-row-actions">
-        {state && state !== "unselected" && (
+        {unreadable && (
           <Button
             type="button"
             disabled={workflow.pending !== null}
+            onClick={() => void workflow.read()}
+          >
+            Try again
+          </Button>
+        )}
+        {workflow.unresolved && (
+          <Button
+            type="button"
+            disabled={workflow.pending !== null}
+            onClick={() => void workflow.checkAgain()}
+          >
+            Check again
+          </Button>
+        )}
+        {state && state !== "unselected" && (
+          <Button
+            type="button"
+            disabled={workflow.pending !== null || workflow.unresolved}
             onClick={() => void workflow.reset()}
           >
             Clear choice
@@ -131,7 +154,7 @@ function CreditMemberRow({
         )}
         <Button
           type="button"
-          disabled={!workflow.choice}
+          disabled={!workflow.choice || workflow.unresolved}
           onClick={(event) => {
             opener.current = event.currentTarget;
             setOpen(true);
@@ -283,6 +306,19 @@ function CreditMemberDialog({
         </section>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
+      {workflow.unresolved && (
+        <Button
+          type="button"
+          disabled={workflow.pending !== null}
+          onClick={() =>
+            void workflow
+              .checkAgain()
+              .then((kind) => kind === "choose" && onClose())
+          }
+        >
+          Check again
+        </Button>
+      )}
       {failed === "load" && (
         <Button type="button" onClick={() => void workflow.open()}>
           Try again
@@ -294,7 +330,9 @@ function CreditMemberDialog({
         </Button>
         <Button
           variant="primary"
-          disabled={!preview || workflow.pending !== null}
+          disabled={
+            !preview || workflow.pending !== null || workflow.unresolved
+          }
           onClick={() =>
             void workflow.choose().then((done) => done && onClose())
           }
