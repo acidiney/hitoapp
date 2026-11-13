@@ -107,7 +107,12 @@ test("a newer first Follow status reloads stale server-rendered entries and appl
     headers: { "x-hito-account": before.user.id },
     signal: expect.any(AbortSignal),
   });
-  expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Playlist updates" })).getByText(
+      "Ready",
+      { exact: true },
+    ),
+  ).toBeTruthy();
   expect(rows().map((row) => row.textContent)).toEqual(oldEntries);
   expect(
     screen.getByRole("heading", { name: before.detail.playlist.name }),
