@@ -1,5 +1,5 @@
 use super::{
-    Artwork, Catalog, assets, credited_artist,
+    Artwork, Catalog, assets, availability, capacity, credited_artist,
     lookups::{self, LookupState, RETRY_AFTER_SECONDS},
     rendition,
 };
@@ -16,7 +16,10 @@ const LEASE_SECONDS: i64 = 60;
 const BUSY_RETRY_SECONDS: i64 = 5;
 
 pub(super) enum Fetch {
-    Found(ProviderArtwork),
+    Found(
+        ProviderArtwork,
+        Option<Box<credited_artist::PhotoAuthority>>,
+    ),
     Absent,
     Deferred,
 }
@@ -73,11 +76,12 @@ pub enum CoverArtLookup {
 }
 
 #[derive(FromRow)]
-struct Lookup {
-    user_id: String,
-    kind: String,
-    mbid: String,
+pub(super) struct Lookup {
+    pub(super) user_id: String,
+    pub(super) kind: String,
+    pub(super) mbid: String,
     attempts: i64,
+    pub(super) lease_until: i64,
 }
 
 fn identifier(kind: CoverArtKind, id: &str) -> Result<()> {
@@ -111,6 +115,13 @@ pub(crate) async fn enqueue(
     {
         return Ok(());
     }
+    let wanted = lookups::read(connection, account, kind, mbid)
+        .await?
+        .is_none_or(|lookup| lookup.state.is_answered_absent() && lookup.aged);
+    if !wanted {
+        return Ok(());
+    }
+    capacity::admit_image(connection, account).await?;
     if pending_lookups(connection, account).await? >= MAX_PENDING_PER_ACCOUNT {
         return Ok(());
     }
@@ -181,7 +192,7 @@ pub(crate) async fn queue_observed_release_covers(
         )
         .await
         {
-            Ok(()) | Err(Error::Invalid(_)) => {}
+            Ok(()) | Err(Error::Invalid(_) | Error::ArtworkStorageFull) => {}
             Err(error) => return Err(error),
         }
     }
@@ -200,6 +211,12 @@ impl Catalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let found = lookups::lookup_status(&mut tx, actor.id(), kind, mbid).await?;
+        if matches!(found, CoverArtLookup::Unknown)
+            && !kind.is_artist_photo()
+            && availability::automatic_artwork_allowed(&mut tx, actor.id()).await?
+        {
+            capacity::admit_image(&mut tx, actor.id()).await?;
+        }
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         if matches!(found, CoverArtLookup::Unknown) && kind.is_artist_photo() {
@@ -270,7 +287,7 @@ impl Catalog {
         Ok(found)
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(lookup_attempt_id))]
     pub async fn run_next_cover_art_lookup_until(
         &self,
         shutdown: impl std::future::Future<Output = ()> + Send,
@@ -279,17 +296,18 @@ impl Catalog {
             return Ok(false);
         };
         let started = Instant::now();
+        let attempt_id = Uuid::new_v4();
+        tracing::Span::current().record("lookup_attempt_id", tracing::field::display(attempt_id));
         let kind = CoverArtKind::from_stored(&lookup.kind)?;
-        let allowed: Option<bool> =
-            sqlx::query_scalar("SELECT artwork FROM account_metadata_automation WHERE user_id = ?")
-                .bind(&lookup.user_id)
-                .fetch_optional(&self.store.pool)
-                .await?;
-        if !allowed.unwrap_or(true) {
-            self.forget_cover_lookup(&lookup).await?;
+        let admission = self.admit_cover_lookup(&lookup).await?;
+        if admission != "admitted" {
             tracing::info!(
-                event = "cover_art_dropped",
-                "Cover art lookup dropped: setting is off"
+                event = "cover_art_lookup",
+                lookup_attempt_id = %attempt_id,
+                account_id = %lookup.user_id,
+                outcome = admission,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Cover art lookup finished"
             );
             return Ok(true);
         }
@@ -297,20 +315,21 @@ impl Catalog {
             biased;
             _ = shutdown => {
                 self.finish_cover_lookup(&lookup, LookupState::Queued, None, 0, 0).await?;
-                tracing::info!(event = "cover_art_interrupted", "Cover art lookup interrupted");
+                tracing::info!(event = "cover_art_interrupted", lookup_attempt_id = %attempt_id,
+                    elapsed_ms = started.elapsed().as_millis() as u64, "Cover art lookup interrupted");
                 return Ok(true);
             }
             fetched = self.fetch_cover(kind, &lookup) => fetched,
         };
         let outcome = match fetched {
-            Ok(Fetch::Found(remote)) => {
+            Ok(Fetch::Found(remote, authority)) => {
                 match tokio::task::spawn_blocking(move || rendition::decode(remote))
                     .await
                     .map_err(|_| Error::Internal("Cover art validation stopped".into()))?
                 {
                     Ok(image) => {
-                        self.publish_cover(&lookup, image).await?;
-                        "ready"
+                        self.publish_cover(&lookup, image, authority.as_deref())
+                            .await?
                     }
                     Err(_) => {
                         self.finish_cover_lookup(
@@ -341,7 +360,7 @@ impl Catalog {
                 .await?;
                 "deferred"
             }
-            Err(error) => {
+            Err(_) => {
                 let attempts = lookup.attempts + 1;
                 if attempts >= MAX_ATTEMPTS {
                     self.finish_cover_lookup(&lookup, LookupState::Unavailable, None, attempts, 0)
@@ -351,12 +370,14 @@ impl Catalog {
                     self.finish_cover_lookup(&lookup, LookupState::Queued, None, attempts, delay)
                         .await?;
                 }
-                tracing::debug!(error = %error, "Cover art lookup failed");
+                tracing::debug!(outcome = "provider_unavailable", "Cover art lookup failed");
                 "failed"
             }
         };
         tracing::info!(
             event = "cover_art_lookup",
+            lookup_attempt_id = %attempt_id,
+            account_id = %lookup.user_id,
             outcome,
             elapsed_ms = started.elapsed().as_millis() as u64,
             "Cover art lookup finished"
@@ -384,10 +405,13 @@ impl Catalog {
         cover
             .map(|cover| {
                 cover.map_or(Fetch::Absent, |cover| {
-                    Fetch::Found(ProviderArtwork {
-                        content_type: cover.content_type,
-                        bytes: cover.bytes,
-                    })
+                    Fetch::Found(
+                        ProviderArtwork {
+                            content_type: cover.content_type,
+                            bytes: cover.bytes,
+                        },
+                        None,
+                    )
                 })
             })
             .map_err(|error| error.to_string())
@@ -411,7 +435,7 @@ impl Catalog {
                 WHERE (state = 'queued' AND next_attempt_at <= unixepoch())
                    OR (state = 'running' AND lease_until <= unixepoch())
                 ORDER BY next_attempt_at,updated_at LIMIT 1)
-             RETURNING user_id,kind,mbid,attempts",
+             RETURNING user_id,kind,mbid,attempts,lease_until",
         )
         .bind(LEASE_SECONDS)
         .fetch_optional(&mut *tx)
@@ -431,7 +455,8 @@ impl Catalog {
         sqlx::query(
             "UPDATE cover_art_lookups SET state = ?,content_hash = ?,attempts = ?,
                 next_attempt_at = unixepoch() + ?,lease_until = NULL,updated_at = unixepoch()
-             WHERE user_id = ? AND kind = ? AND mbid = ? AND state = 'running'",
+             WHERE user_id = ? AND kind = ? AND mbid = ? AND state = 'running'
+                AND content_hash IS NULL AND lease_until = ? AND lease_until > unixepoch()",
         )
         .bind(state.stored())
         .bind(hash)
@@ -440,42 +465,71 @@ impl Catalog {
         .bind(&lookup.user_id)
         .bind(&lookup.kind)
         .bind(&lookup.mbid)
+        .bind(lookup.lease_until)
         .execute(&self.store.pool)
         .await?;
         Ok(())
     }
 
-    async fn forget_cover_lookup(&self, lookup: &Lookup) -> Result<()> {
-        sqlx::query("DELETE FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?")
-            .bind(&lookup.user_id)
-            .bind(&lookup.kind)
-            .bind(&lookup.mbid)
-            .execute(&self.store.pool)
-            .await?;
-        Ok(())
+    async fn admit_cover_lookup(&self, lookup: &Lookup) -> Result<&'static str> {
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let eligible = current_lookup(&mut tx, lookup).await?
+            && (lookup.kind != CoverArtKind::CreditedArtist.stored()
+                || credited_artist::target(&mut tx, &lookup.user_id, &lookup.mbid)
+                    .await?
+                    .is_some());
+        let outcome = if !eligible {
+            "authority_changed"
+        } else {
+            match capacity::admit_image(&mut tx, &lookup.user_id).await {
+                Ok(()) => "admitted",
+                Err(Error::ArtworkStorageFull) => "storage_full",
+                Err(error) => return Err(error),
+            }
+        };
+        if outcome != "admitted" {
+            forget_lookup(&mut tx, lookup).await?;
+        }
+        tx.commit().await?;
+        Ok(outcome)
     }
 
     async fn publish_cover(
         &self,
         lookup: &Lookup,
         image: rendition::ValidatedArtwork,
-    ) -> Result<()> {
+        authority: Option<&credited_artist::PhotoAuthority>,
+    ) -> Result<&'static str> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let hash = assets::store(&mut tx, &lookup.user_id, image).await?;
-        sqlx::query(
-            "UPDATE cover_art_lookups SET state = 'ready',content_hash = ?,attempts = 0,
-                lease_until = NULL,updated_at = unixepoch()
-             WHERE user_id = ? AND kind = ? AND mbid = ? AND state = 'running'",
-        )
-        .bind(&hash)
-        .bind(&lookup.user_id)
-        .bind(&lookup.kind)
-        .bind(&lookup.mbid)
-        .execute(&mut *tx)
-        .await?;
-        assets::prune(&mut tx, Some(&lookup.user_id)).await?;
+        let current = if !current_lookup(&mut tx, lookup).await? {
+            false
+        } else {
+            match (CoverArtKind::from_stored(&lookup.kind)?, authority) {
+                (CoverArtKind::CreditedArtist, Some(authority)) => {
+                    authority
+                        .current_on(&mut tx, &lookup.user_id, &lookup.mbid)
+                        .await?
+                }
+                (CoverArtKind::CreditedArtist, None) | (_, Some(_)) => false,
+                (_, None) => true,
+            }
+        };
+        let outcome = if !current {
+            forget_lookup(&mut tx, lookup).await?;
+            "authority_changed"
+        } else {
+            match assets::publish_lookup(&mut tx, lookup, image).await {
+                Ok(true) => "ready",
+                Ok(false) => "superseded",
+                Err(Error::ArtworkStorageFull) => {
+                    forget_lookup(&mut tx, lookup).await?;
+                    "storage_full"
+                }
+                Err(error) => return Err(error),
+            }
+        };
         tx.commit().await?;
-        Ok(())
+        Ok(outcome)
     }
 }
 
@@ -486,4 +540,34 @@ async fn pending_lookups(connection: &mut SqliteConnection, account: &str) -> Re
     .bind(account)
     .fetch_one(connection)
     .await?)
+}
+
+async fn current_lookup(connection: &mut SqliteConnection, lookup: &Lookup) -> Result<bool> {
+    let current: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM cover_art_lookups lookup JOIN users u ON u.id = lookup.user_id
+         WHERE lookup.user_id = ? AND lookup.kind = ? AND lookup.mbid = ?
+            AND lookup.state = 'running' AND lookup.content_hash IS NULL
+            AND lookup.lease_until = ? AND lookup.lease_until > unixepoch())",
+    )
+    .bind(&lookup.user_id)
+    .bind(&lookup.kind)
+    .bind(&lookup.mbid)
+    .bind(lookup.lease_until)
+    .fetch_one(&mut *connection)
+    .await?;
+    Ok(current && availability::automatic_artwork_allowed(connection, &lookup.user_id).await?)
+}
+
+async fn forget_lookup(connection: &mut SqliteConnection, lookup: &Lookup) -> Result<()> {
+    sqlx::query(
+        "DELETE FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?
+            AND state = 'running' AND content_hash IS NULL AND lease_until = ?",
+    )
+    .bind(&lookup.user_id)
+    .bind(&lookup.kind)
+    .bind(&lookup.mbid)
+    .bind(lookup.lease_until)
+    .execute(connection)
+    .await?;
+    Ok(())
 }

@@ -173,9 +173,13 @@ impl Catalog {
         } else {
             match result {
                 Ok(Some(image)) => {
-                    assets::publish(&mut tx, &lease.user_id, &lease.target, &lease.id, image)
-                        .await?;
-                    ("ready", None, 0, 0)
+                    match assets::publish(&mut tx, &lease.user_id, &lease.target, &lease.id, image)
+                        .await
+                    {
+                        Ok(()) => ("ready", None, 0, 0),
+                        Err(Error::ArtworkStorageFull) => ("failed", Some("storage_full"), 0, 0),
+                        Err(error) => return Err(error),
+                    }
                 }
                 Err(error) => {
                     tracing::debug!(job_id = %lease.id, error_code = error.code(), "Artwork attempt did not publish");

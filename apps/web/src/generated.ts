@@ -4293,7 +4293,7 @@ export interface components {
             total_duration_ms: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy" | "artwork_storage_full";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
@@ -10587,6 +10587,15 @@ export interface operations {
             };
             /** @description There is no image, or retrieval is switched off */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Artwork storage is full; existing images remain retained */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20969,6 +20978,14 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

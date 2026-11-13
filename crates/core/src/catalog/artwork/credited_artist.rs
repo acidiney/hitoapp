@@ -1,5 +1,5 @@
 use super::{Catalog, cover_art::Fetch};
-use crate::{Actor, Error, Result};
+use crate::{Actor, Error, Result, plugins::Operation};
 use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest, Capability};
 use sqlx::{FromRow, SqliteConnection};
 
@@ -57,11 +57,42 @@ pub(super) fn valid_identifier(id: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, PartialEq, Eq)]
 pub(super) struct Target {
+    account_id: String,
+    artist_id: String,
+    library_id: String,
+    recording_id: String,
+    observation_id: String,
+    binding_id: String,
+    binding_revision: i64,
+    credit_position: i64,
+    artist_operation_id: Option<String>,
     installation_id: String,
     installation_revision: i64,
     provider_artist_id: String,
+}
+
+pub(super) struct PhotoAuthority {
+    operation: Operation,
+    target: Target,
+}
+
+impl PhotoAuthority {
+    pub(super) async fn current_on(
+        &self,
+        connection: &mut SqliteConnection,
+        account: &str,
+        artist: &str,
+    ) -> Result<bool> {
+        if let Err(error) = self.operation.recheck(connection).await {
+            return match error {
+                Error::Conflict(_) | Error::NotFound => Ok(false),
+                error => Err(error),
+            };
+        }
+        Ok(target(connection, account, artist).await?.as_ref() == Some(&self.target))
+    }
 }
 
 pub(super) async fn target(
@@ -70,9 +101,14 @@ pub(super) async fn target(
     artist: &str,
 ) -> Result<Option<Target>> {
     Ok(sqlx::query_as(&format!(
-        "SELECT p.id AS installation_id, p.revision AS installation_revision,
+        "SELECT a.user_id AS account_id,a.id AS artist_id,r.library_id,r.id AS recording_id,
+            o.id AS observation_id,binding.id AS binding_id,binding.revision AS binding_revision,
+            credit.position AS credit_position,
+            (SELECT personal.artist_operation_id FROM personal_recording_metadata personal
+             WHERE personal.user_id = a.user_id AND personal.recording_id = r.id) AS artist_operation_id,
+            p.id AS installation_id,p.revision AS installation_revision,
             credit.provider_artist_id AS provider_artist_id
-         {PROVIDER_CREDIT} AND a.user_id = ? AND a.id = ? ORDER BY r.id LIMIT 1"
+         {PROVIDER_CREDIT} AND a.user_id = ? AND a.id = ? ORDER BY r.id,credit.position LIMIT 1"
     ))
     .bind(account)
     .bind(artist)
@@ -100,10 +136,13 @@ impl Catalog {
             .await?;
         let request = ArtworkRequest {
             entity: ArtworkEntity::Artist,
-            provider_id: target.provider_artist_id,
+            provider_id: target.provider_artist_id.clone(),
         };
         match operation.artwork(&request).await {
-            Ok(Some(photo)) => Ok(Fetch::Found(photo)),
+            Ok(Some(photo)) => Ok(Fetch::Found(
+                photo,
+                Some(Box::new(PhotoAuthority { operation, target })),
+            )),
             Ok(None) => Ok(Fetch::Deferred),
             Err(Error::NotFound | Error::Invalid(_)) => Ok(Fetch::Absent),
             Err(error) => Err(error),

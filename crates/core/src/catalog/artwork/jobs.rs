@@ -5,7 +5,7 @@ use sqlx::SqliteConnection;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-pub(super) const RESERVATION_BYTES: i64 = 2 * 1024 * 1024;
+pub(super) use super::capacity::{RESERVATION_BYTES, admit_job as capacity};
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -242,38 +242,6 @@ pub(super) async fn fetch_row(
     .fetch_optional(connection)
     .await?
     .ok_or(Error::NotFound)
-}
-
-pub(super) async fn capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {
-    let (account_assets, account_bytes): (i64, i64) = sqlx::query_as(
-        "SELECT count(*),coalesce(sum(length(bytes)),0) FROM artwork_assets WHERE user_id = ?",
-    )
-    .bind(account)
-    .fetch_one(&mut *connection)
-    .await?;
-    let (global_assets, global_bytes): (i64, i64) =
-        sqlx::query_as("SELECT count(*),coalesce(sum(length(bytes)),0) FROM artwork_assets")
-            .fetch_one(&mut *connection)
-            .await?;
-    let (account_pending, account_reserved): (i64, i64) = sqlx::query_as(
-        "SELECT count(*),coalesce(sum(reservation_bytes),0) FROM artwork_fetches WHERE user_id = ? AND status IN ('queued','running')",
-    ).bind(account).fetch_one(&mut *connection).await?;
-    let (global_pending, global_reserved): (i64, i64) = sqlx::query_as(
-        "SELECT count(*),coalesce(sum(reservation_bytes),0) FROM artwork_fetches WHERE status IN ('queued','running')",
-    ).fetch_one(connection).await?;
-    if account_pending >= 16 || global_pending >= 128 {
-        return Err(Error::ArtworkAdmissionBusy);
-    }
-    if account_bytes + account_reserved + RESERVATION_BYTES > 32 * 1024 * 1024
-        || global_bytes + global_reserved + RESERVATION_BYTES > 256 * 1024 * 1024
-        || account_assets + account_pending >= 1024
-        || global_assets + global_pending >= 8192
-    {
-        return Err(Error::Conflict(
-            "Artwork storage is full. Existing artwork has been retained.".into(),
-        ));
-    }
-    Ok(())
 }
 
 pub(super) async fn maintain(connection: &mut SqliteConnection) -> Result<()> {

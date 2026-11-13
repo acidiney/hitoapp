@@ -26,6 +26,7 @@ pub enum ErrorCode {
     AlreadyBound,
     PluginCredentialsRequired,
     ArtworkAdmissionBusy,
+    ArtworkStorageFull,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -48,7 +49,8 @@ impl IntoResponse for ApiError {
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::UnsupportedAudio => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Error::RateLimited(_) | Error::ArtworkAdmissionBusy => StatusCode::TOO_MANY_REQUESTS,
-            Error::Conflict(_)
+            Error::ArtworkStorageFull
+            | Error::Conflict(_)
             | Error::ProviderBusy(_)
             | Error::AuthorizationRequired(_)
             | Error::PluginCredentialsRequired(_)
@@ -67,6 +69,7 @@ impl IntoResponse for ApiError {
             Error::AlreadyBound(_) => Some(ErrorCode::AlreadyBound),
             Error::PluginCredentialsRequired(_) => Some(ErrorCode::PluginCredentialsRequired),
             Error::ArtworkAdmissionBusy => Some(ErrorCode::ArtworkAdmissionBusy),
+            Error::ArtworkStorageFull => Some(ErrorCode::ArtworkStorageFull),
             _ => None,
         };
         let error = if matches!(

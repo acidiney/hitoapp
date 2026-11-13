@@ -1,6 +1,8 @@
-use super::{Artwork, Catalog, rendition::ValidatedArtwork, target::Target};
+use super::{
+    Artwork, Catalog, capacity, cover_art::Lookup, rendition::ValidatedArtwork, target::Target,
+};
 use crate::{Actor, Error, Result, identity::recording_access};
-use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
+use sqlx::{Connection, QueryBuilder, Sqlite, SqliteConnection};
 
 impl Catalog {
     pub(super) async fn retained_artwork(
@@ -59,7 +61,7 @@ pub(super) fn stored((content_type, bytes): (String, Vec<u8>)) -> Result<Artwork
     })
 }
 
-pub(super) async fn store(
+async fn store(
     connection: &mut SqliteConnection,
     account: &str,
     image: ValidatedArtwork,
@@ -77,7 +79,9 @@ pub(super) async fn publish(
     fetch: &str,
     image: ValidatedArtwork,
 ) -> Result<()> {
-    let hash = store(&mut *connection, account, image).await?;
+    let before = capacity::usage(connection, account, None).await?;
+    let mut publication = connection.begin().await?;
+    let hash = store(&mut publication, account, image).await?;
     let retained = match target {
         Target::Recording { id, observation_id, .. } => sqlx::query(
             "INSERT INTO recording_artwork(user_id,recording_id,observation_id,fetch_id,content_hash) VALUES (?,?,?,?,?) ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id = excluded.observation_id,fetch_id = excluded.fetch_id,content_hash = excluded.content_hash",
@@ -92,10 +96,51 @@ pub(super) async fn publish(
     retained
         .bind(fetch)
         .bind(&hash)
-        .execute(&mut *connection)
+        .execute(&mut *publication)
         .await?;
-    prune(connection, Some(account)).await?;
+    prune(&mut publication, Some(account)).await?;
+    let after = capacity::usage(&mut publication, account, Some(fetch)).await?;
+    if let Err(error) = capacity::publication(before, after) {
+        publication.rollback().await?;
+        return Err(error);
+    }
+    publication.commit().await?;
     Ok(())
+}
+
+pub(super) async fn publish_lookup(
+    connection: &mut SqliteConnection,
+    lookup: &Lookup,
+    image: ValidatedArtwork,
+) -> Result<bool> {
+    let before = capacity::usage(connection, &lookup.user_id, None).await?;
+    let mut publication = connection.begin().await?;
+    let hash = store(&mut publication, &lookup.user_id, image).await?;
+    let changed = sqlx::query(
+        "UPDATE cover_art_lookups SET state = 'ready',content_hash = ?,attempts = 0,
+            lease_until = NULL,updated_at = unixepoch()
+         WHERE user_id = ? AND kind = ? AND mbid = ? AND state = 'running'
+            AND content_hash IS NULL AND lease_until = ? AND lease_until > unixepoch()",
+    )
+    .bind(&hash)
+    .bind(&lookup.user_id)
+    .bind(&lookup.kind)
+    .bind(&lookup.mbid)
+    .bind(lookup.lease_until)
+    .execute(&mut *publication)
+    .await?;
+    if changed.rows_affected() == 0 {
+        publication.rollback().await?;
+        return Ok(false);
+    }
+    prune(&mut publication, Some(&lookup.user_id)).await?;
+    let after = capacity::usage(&mut publication, &lookup.user_id, None).await?;
+    if let Err(error) = capacity::publication(before, after) {
+        publication.rollback().await?;
+        return Err(error);
+    }
+    publication.commit().await?;
+    Ok(true)
 }
 
 pub(super) async fn prune(connection: &mut SqliteConnection, account: Option<&str>) -> Result<()> {

@@ -86,6 +86,7 @@ pub async fn artwork(
         content(("image/png"), ("image/jpeg"), ("image/gif"), ("image/webp")),
         headers(("Cache-Control" = String, description = "private, no-store"))),
     (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse),
 ))]
 pub async fn release_artwork(
     State(services): State<Services>,
@@ -116,6 +117,7 @@ pub(super) fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<R
     (status = 202, description = "The image is queued or being retrieved; ask again shortly", body = ErrorResponse),
     (status = 401, body = ErrorResponse),
     (status = 404, description = "There is no image, or retrieval is switched off", body = ErrorResponse),
+    (status = 409, description = "Artwork storage is full; existing images remain retained", body = ErrorResponse),
     (status = 422, body = ErrorResponse),
     (status = 502, description = "The image source could not be reached; it is asked again later", body = ErrorResponse),
 ))]

@@ -4,6 +4,7 @@ use sqlx::QueryBuilder;
 mod assets;
 mod availability;
 mod budget;
+mod capacity;
 mod cover_art;
 mod credited_artist;
 mod id3_picture;

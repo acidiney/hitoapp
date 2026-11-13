@@ -1,4 +1,4 @@
-use super::{Artwork, Catalog, assets, availability, jobs};
+use super::{Artwork, Catalog, assets, availability, capacity, jobs};
 use crate::{Actor, Error, Result};
 use jobs::EntityKind;
 use serde::Serialize;
@@ -143,7 +143,9 @@ impl Catalog {
         let wanted = availability::automatic_artwork_allowed(&mut tx, actor.id()).await?
             && !sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM artwork_fetches WHERE user_id = ? AND release_id = ?
-                 AND entity_kind = 'release' AND status IN ('queued','running','failed'))",
+                 AND entity_kind = 'release'
+                    AND (status IN ('queued','running')
+                        OR (status = 'failed' AND coalesce(error,'') != 'storage_full')))",
             )
             .bind(actor.id())
             .bind(release)
@@ -152,6 +154,9 @@ impl Catalog {
             && availability::approved_release_provider(&mut tx, actor.id(), release)
                 .await?
                 .is_some();
+        if wanted {
+            capacity::admit_image(&mut tx, actor.id()).await?;
+        }
         tx.commit().await?;
         if !wanted {
             return Ok(());

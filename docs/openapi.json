@@ -5514,6 +5514,16 @@
               }
             }
           },
+          "409": {
+            "description": "Artwork storage is full; existing images remain retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/json": {
@@ -19102,6 +19112,15 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -25977,7 +25996,8 @@
           "wrong_password",
           "already_bound",
           "plugin_credentials_required",
-          "artwork_admission_busy"
+          "artwork_admission_busy",
+          "artwork_storage_full"
         ]
       },
       "ErrorResponse": {

@@ -150,7 +150,7 @@ impl ArtistCatalog {
                 )
                 .await
                 {
-                    Ok(()) | Err(Error::Invalid(_)) => {}
+                    Ok(()) | Err(Error::Invalid(_) | Error::ArtworkStorageFull) => {}
                     Err(error) => return Err(error),
                 }
             }
