@@ -20,7 +20,7 @@ struct Demand {
 }
 struct Refresh {
     cancel: Option<oneshot::Sender<()>>,
-    done: Pending<(Key, Result<bool, PlayerError>)>,
+    done: Pending<(Key, Uuid, Result<bool, PlayerError>)>,
 }
 pub(super) struct Sources {
     catalog: Catalog,
@@ -88,6 +88,9 @@ impl Sources {
     pub fn current(&self) -> Option<&PlaybackSource> {
         self.current.as_ref()
     }
+    pub fn has_demand(&self) -> bool {
+        self.demand.is_some() && !self.exhausted
+    }
     pub fn failed(&mut self, error: PlayerError) {
         self.current = None;
         self.error = error;
@@ -127,6 +130,7 @@ impl Sources {
             self.refreshed = true;
             self.needs_refresh = false;
             let catalog = self.catalog.clone();
+            let demand_id = demand.id;
             let (cancel, cancelled) = oneshot::channel();
             self.refreshing = Some(Refresh {
                 cancel: Some(cancel),
@@ -137,7 +141,7 @@ impl Sources {
                         })
                         .await
                         .map_err(PlayerError::from);
-                    (demand.key, result)
+                    (demand.key, demand_id, result)
                 }),
             });
             return true;
@@ -164,12 +168,16 @@ impl Sources {
         loop {
             tokio::select! {
                 biased;
-                (key, result) = async { self.refreshing.as_mut().unwrap().done.as_mut().await }, if self.refreshing.is_some() => {
+                (key, demand_id, result) = async { self.refreshing.as_mut().unwrap().done.as_mut().await }, if self.refreshing.is_some() => {
                     self.refreshing = None;
-                    if self.key == Some(key) {
+                    let current = self.key == Some(key)
+                        && self.demand.as_ref().is_some_and(|demand| demand.id == demand_id);
+                    if current {
                         self.candidates = None;
                         tracing::debug!(event = "player_sources_refreshed", success = result.is_ok(), selection = key.selection, "Provider refresh finished; reading current sources");
                         if result == Err(PlayerError::Unauthorized) { self.exhausted = true; return Err(PlayerError::Unauthorized); }
+                    } else {
+                        tracing::debug!(event = "player_sources_refresh_retired", selection = key.selection, "Ignoring provider refresh from a retired demand");
                     }
                     self.start();
                 },
