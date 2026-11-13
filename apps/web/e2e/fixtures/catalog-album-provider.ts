@@ -29,6 +29,7 @@ export const catalogOtherReleases = [
 
 export type CatalogAlbumState = {
   available: Set<string>;
+  failing: Set<string>;
   outage: boolean;
   searches: string[];
   unexpected: number;
@@ -41,6 +42,7 @@ export async function catalogAlbumProvider() {
   const token = "browser-private-catalog-album-token";
   const state: CatalogAlbumState = {
     available: new Set(catalogAlbum.tracks),
+    failing: new Set(),
     outage: false,
     searches: [],
     unexpected: 0,
@@ -95,7 +97,7 @@ export async function catalogAlbumProvider() {
       response
         .writeHead(200, { "content-type": "application/json" })
         .end(JSON.stringify(payload));
-    if (state.outage && route !== "v1/manifest")
+    if ((state.outage && route !== "v1/manifest") || state.failing.has(route))
       return response.writeHead(503).end();
     switch (route) {
       case "v1/manifest":
