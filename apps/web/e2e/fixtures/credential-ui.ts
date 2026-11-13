@@ -141,10 +141,7 @@ export async function submitSignIn(page: Page, username: string) {
 
 export async function openSettingsPlugins(page: Page) {
   await page
-    .getByRole("link", { name: "Account and settings", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Plugins", exact: true })
     .click();
   await expect(
