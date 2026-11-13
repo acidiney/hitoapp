@@ -544,6 +544,28 @@
 }
 
 @media (max-width: 767px) {
+  .detail-page .edition-toolbar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+  .detail-page .edition-toolbar > .edition-source {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .detail-page .edition-source > .action-menu {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .detail-page .edition-source .edition-chip-menu {
+    max-width: 100%;
+  }
+  .detail-page .edition-source .edition-chip-menu > * {
+    flex: none;
+  }
+  .detail-page .edition-source .edition-chip-name {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
   .detail-page .album-toolbar-note {
     margin-left: auto;
     font-size: 12px;

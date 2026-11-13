@@ -374,6 +374,19 @@ a.album-artist:focus-visible {
 .edition-toolbar > * {
   flex: none;
 }
+.edition-filters,
+.edition-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edition-filters > *,
+.edition-source > * {
+  flex: none;
+}
+.edition-toolbar > .edition-source {
+  flex: 1 0 auto;
+}
 .edition-chip {
   box-sizing: border-box;
   display: inline-flex;

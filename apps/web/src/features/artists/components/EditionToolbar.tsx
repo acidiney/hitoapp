@@ -23,7 +23,7 @@ export default function EditionToolbar({
   return (
     <div className="edition-toolbar">
       {owned > 0 && (
-        <>
+        <div className="edition-filters">
           <button
             type="button"
             className="edition-chip"
@@ -40,30 +40,32 @@ export default function EditionToolbar({
           >
             In my library {owned}
           </button>
-        </>
+        </div>
       )}
-      {name && items.length > 0 && (
-        <ActionMenu
-          label={`Edition ${name}`}
-          triggerClassName="edition-chip edition-chip-menu"
-          items={items}
-          icon={
-            <>
-              <span className="edition-chip-label">Edition</span>
-              <span className="edition-chip-name">{name}</span>
-              <ChevronDown size={14} aria-hidden="true" />
-            </>
-          }
-        />
-      )}
-      <span className="album-toolbar-note">
-        <span className="album-toolbar-note-full">
-          Track list from {source}
+      <div className="edition-source">
+        {name && items.length > 0 && (
+          <ActionMenu
+            label={`Edition ${name}`}
+            triggerClassName="edition-chip edition-chip-menu"
+            items={items}
+            icon={
+              <>
+                <span className="edition-chip-label">Edition</span>
+                <span className="edition-chip-name">{name}</span>
+                <ChevronDown size={14} aria-hidden="true" />
+              </>
+            }
+          />
+        )}
+        <span className="album-toolbar-note">
+          <span className="album-toolbar-note-full">
+            Track list from {source}
+          </span>
+          <span className="album-toolbar-note-short" aria-hidden="true">
+            From catalog
+          </span>
         </span>
-        <span className="album-toolbar-note-short" aria-hidden="true">
-          From catalog
-        </span>
-      </span>
+      </div>
     </div>
   );
 }
