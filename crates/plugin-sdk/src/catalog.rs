@@ -3,6 +3,7 @@ mod discography_filter;
 mod discovery;
 mod edition;
 mod edition_listing;
+mod release_group;
 mod similarity;
 
 pub use discography::{
@@ -29,6 +30,11 @@ pub use edition::{
 pub use edition_listing::{
     CatalogEditionSummary, RELEASE_GROUP_EDITIONS_PATH, ReleaseGroupEditionsPage,
     ReleaseGroupEditionsRequest,
+};
+pub use release_group::{
+    CATALOG_RELEASE_GROUP_CAPABILITIES_PATH, CATALOG_RELEASE_GROUP_PATH,
+    CATALOG_RELEASE_GROUP_VERSION, CatalogReleaseGroupCapabilities, CatalogReleaseGroupOperation,
+    MAX_CATALOG_RELEASE_GROUP_BYTES, ReleaseGroupRequest,
 };
 
 pub use similarity::{
