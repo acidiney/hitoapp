@@ -30,6 +30,8 @@ export const catalogOtherReleases = [
 export type CatalogAlbumState = {
   available: Set<string>;
   failing: Set<string>;
+  routes: string[];
+  editionsUnsupported: boolean;
   outage: boolean;
   searches: string[];
   unexpected: number;
@@ -43,6 +45,8 @@ export async function catalogAlbumProvider() {
   const state: CatalogAlbumState = {
     available: new Set(catalogAlbum.tracks),
     failing: new Set(),
+    routes: [],
+    editionsUnsupported: false,
     outage: false,
     searches: [],
     unexpected: 0,
@@ -85,6 +89,7 @@ export async function catalogAlbumProvider() {
       return;
     }
     const route = url.pathname.replace(/^\/catalog-album\//, "");
+    state.routes.push(route);
     if (route === "v1/audio") {
       audioRequests.push(url.searchParams.get("source_id") ?? "");
       serveAudio(request, response, audio);
@@ -115,7 +120,9 @@ export async function catalogAlbumProvider() {
       case "v1/catalog/editions/capabilities":
         return reply({
           edition_version: 1,
-          operations: ["release_group_editions", "edition_track_list"],
+          operations: state.editionsUnsupported
+            ? []
+            : ["release_group_editions", "edition_track_list"],
         });
       case "v1/catalog/artists/profile":
         return reply({

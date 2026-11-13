@@ -46,6 +46,28 @@ test("a cold direct album link loads its editions and tracks while the artist pr
       page.getByRole("button", { name: "Play album" }),
     ).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
+    const audioBodies: unknown[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname.endsWith("/edition-track-audio"))
+        audioBodies.push(request.postDataJSON());
+    });
+    const interlude = catalogAlbum.tracks[1];
+    await page
+      .getByRole("list", { name: "Tracks" })
+      .getByRole("button", { name: `Play ${interlude}`, exact: true })
+      .click();
+    const player = page.locator("audio[data-hito-player]");
+    await expect
+      .poll(() =>
+        player.evaluate((element: HTMLAudioElement) => element.currentTime),
+      )
+      .toBeGreaterThan(0.2);
+    expect(audioBodies.length).toBeGreaterThan(0);
+    for (const body of audioBodies)
+      expect(body).toMatchObject({
+        release_group_id: catalogAlbum.groupId,
+        edition_id: catalogAlbum.editionId,
+      });
     expect(reads).toEqual([]);
     expect(artist.provider.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
@@ -96,8 +118,10 @@ test("another account cannot open someone else's album link", async ({
     });
     expect(login.status()).toBe(200);
     const other = await peer.newPage();
+    const dispatched = artist.provider.state.routes.length;
     const response = await other.goto(albumPath(artist.path));
     expect(response?.status()).toBe(404);
+    expect(artist.provider.state.routes.length).toBe(dispatched);
     for (const title of [catalogAlbum.groupTitle, ...catalogAlbum.tracks])
       await expect(other.getByText(title)).toHaveCount(0);
   } finally {
@@ -124,6 +148,28 @@ test("an album whose editions are unavailable says so and recovers on retry", as
       .getByRole("button", { name: "Try editions again" })
       .click();
     await expectTracks(page);
+  } finally {
+    await artist.close();
+  }
+});
+
+test("an album whose provider cannot browse editions says so without reading the artist profile", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(120_000);
+  const artist = await connectCatalogArtist(page, baseURL!);
+  try {
+    artist.provider.state.editionsUnsupported = true;
+    const reads = profileReads(page);
+    await page.goto(albumPath(artist.path));
+    const region = page.getByRole("region", { name: "Album" });
+    await expect(region.getByRole("alert")).toHaveText(
+      "This provider does not support edition browsing.",
+    );
+    await expect(page.getByRole("list", { name: "Tracks" })).toHaveCount(0);
+    expect(reads).toEqual([]);
+    expect(artist.provider.state.unexpected).toBe(0);
   } finally {
     await artist.close();
   }
