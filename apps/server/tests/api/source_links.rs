@@ -352,3 +352,6 @@ async fn http_lookup_on_an_old_approval_requires_review_before_any_service_call(
     })
     .await;
 }
+
+#[path = "source_link_credentials.rs"]
+mod credentials;

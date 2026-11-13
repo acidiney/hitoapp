@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use hito_plugin_sdk::{
-    Capability, DETAIL_PATH, MANIFEST_PATH, Manifest, PROTOCOL_VERSION, RECORDING_LOOKUP_PATH,
+    Capability, DETAIL_PATH, HEALTH_PATH, MANIFEST_PATH, Manifest, PROTOCOL_VERSION, RECORDING_LOOKUP_PATH,
     RecordingLookupRequest, SOURCES_PATH,
 };
 use hito_testkit::fake_plugin::{self as fake, FakePlugin, Gate, RecordedRequest};
@@ -73,6 +73,9 @@ impl SourceLinkServer {
             authorization: None,
             content_policy: None,
         })
+        .get(HEALTH_PATH, |_| {
+            fake::Reply::Json(json!({"state": "ok", "reason": null, "since": null}))
+        })
         .post(RECORDING_LOOKUP_PATH, {
             let answers = answers.clone();
             move |request| lookup(&answers, request)
@@ -140,6 +143,10 @@ impl SourceLinkServer {
             .into_iter()
             .map(|request| request.json())
             .collect()
+    }
+
+    pub fn health_requests(&self) -> usize {
+        self.plugin.health_requests().len()
     }
 
     pub fn lookup_requests(&self) -> Vec<RecordedRequest> {
