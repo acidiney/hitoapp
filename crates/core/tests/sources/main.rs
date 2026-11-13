@@ -30,6 +30,7 @@ mod source_resolution_global_admission;
 mod source_resolution_musical_evidence;
 mod source_resolution_provider_order;
 mod source_resolution_provider_rank_fallback;
+mod source_resolution_refusal;
 mod source_resolution_revocation;
 mod source_resolution_search_order;
 mod source_resolution_unavailable;
