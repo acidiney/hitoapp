@@ -16,7 +16,6 @@ import RowPlay from "./RowPlay";
 import LongPressRow from "./LongPressRow";
 import TrackAvailabilityNote from "./TrackAvailabilityNote";
 import TrackRowSource from "./TrackRowSource";
-import CatalogRowActions, { CatalogRowNote } from "./CatalogRowActions";
 import TrackNames, { artistHref, albumHref } from "./TrackNames";
 import { trackHref } from "./TrackRowMenu";
 import Artwork from "../../artwork/components/Artwork";
@@ -37,29 +36,8 @@ export type TrackRow = Track & {
   entry_id?: string;
 };
 
-export type CatalogRowView = {
-  id: string;
-  number: string;
-  title: string;
-  artist: string;
-  album: string | null;
-  artistShown: boolean;
-  durationMs: number | null;
-  status: "idle" | "finding" | "found" | "not_found" | "failed";
-  recording: TrackRow | null;
-};
-
-export type CatalogControls = {
-  play(index: number): void;
-  find(index: number): void;
-  open(index: number): void;
-  like(index: number): void;
-  mutated(action: Schema<"Action">): void;
-};
-
 export type TrackTableRow =
   | { kind: "recording"; track: TrackRow }
-  | { kind: "catalog"; row: CatalogRowView }
   | {
       kind: "retained";
       entry: Pick<
@@ -104,7 +82,6 @@ export default function TrackTable({
   mutate,
   listing,
   edit,
-  catalog,
   without = [],
   artistPage,
   layout,
@@ -112,7 +89,6 @@ export default function TrackTable({
 }: {
   layout?: "library" | "playlist";
   selection?: RowSelection;
-  catalog?: CatalogControls;
   edit?: PlaylistEdit;
   rows: TrackTableRow[];
   listing?: TrackListing;
@@ -145,19 +121,13 @@ export default function TrackTable({
     if (target.closest("a, button, input, label, [role='menu']")) return;
     start();
   }
-  const anyAlbum = rows.some((row) =>
-    row.kind === "recording"
-      ? row.track.album != null
-      : row.kind === "catalog"
-        ? row.row.album != null || row.row.recording?.album != null
-        : false,
+  const anyAlbum = rows.some(
+    (row) => row.kind === "recording" && row.track.album != null,
   );
   const creditedElsewhere = (row: TrackTableRow) =>
-    row.kind === "catalog"
-      ? row.row.artistShown
-      : artistPage === undefined ||
-        row.kind !== "recording" ||
-        row.track.artist_id !== artistPage;
+    artistPage === undefined ||
+    row.kind !== "recording" ||
+    row.track.artist_id !== artistPage;
   const showArtist =
     !layout && !without.includes("artist") && rows.some(creditedElsewhere);
   const showAlbum =
@@ -194,34 +164,14 @@ export default function TrackTable({
         </thead>
         <tbody>
           {rows.map((row, index) => {
-            const track =
-              row.kind === "recording"
-                ? row.track
-                : row.kind === "catalog"
-                  ? row.row.recording
-                  : null;
-            const view = row.kind === "catalog" ? row.row : null;
-            const display =
-              row.kind === "recording"
-                ? row.track
-                : row.kind === "catalog"
-                  ? row.row
-                  : row.entry;
+            const track = row.kind === "recording" ? row.track : null;
+            const display = row.kind === "recording" ? row.track : row.entry;
             const rowId =
-              row.kind === "recording"
-                ? row.track.row_id
-                : row.kind === "catalog"
-                  ? row.row.id
-                  : row.entry.entry_id;
-            const album = track?.album ?? view?.album ?? null;
+              row.kind === "recording" ? row.track.row_id : row.entry.entry_id;
+            const album = track?.album ?? null;
             const albumLink = track ? albumHref(track) : null;
             const artistLink = track ? artistHref(track) : null;
-            const duration =
-              track !== null
-                ? track.duration_ms
-                : view !== null
-                  ? view.durationMs
-                  : null;
+            const duration = track !== null ? track.duration_ms : null;
             const playState = rowPlayState(nowPlaying, track);
             return (
               <LongPressRow
@@ -230,14 +180,7 @@ export default function TrackTable({
                   selection && track ? () => selection.toggle(rowId) : undefined
                 }
                 onClick={(event) =>
-                  tapRow(
-                    event,
-                    view && catalog
-                      ? () => catalog.play(index)
-                      : track
-                        ? () => play(track)
-                        : null,
-                  )
+                  tapRow(event, track ? () => play(track) : null)
                 }
                 aria-current={playState ? "true" : undefined}
                 className={[
@@ -258,13 +201,6 @@ export default function TrackTable({
                         onChange={() => selection.toggle(rowId)}
                       />
                     </label>
-                  ) : view && catalog ? (
-                    <RowPlay
-                      title={view.title}
-                      number={view.number}
-                      state={playState}
-                      onPlay={() => catalog.play(index)}
-                    />
                   ) : track ? (
                     <RowPlay
                       title={track.title}
@@ -292,15 +228,7 @@ export default function TrackTable({
                       />
                     </span>
                   )}
-                  {view && !track ? (
-                    <Artwork
-                      fallback={{
-                        id: view.id,
-                        title: view.album ?? view.title,
-                        artist: view.artist,
-                      }}
-                    />
-                  ) : track ? (
+                  {track ? (
                     <Artwork
                       release={
                         layout === "library"
@@ -322,15 +250,11 @@ export default function TrackTable({
                       <Link className="track-title" href={trackHref(track.id)}>
                         {track.title}
                       </Link>
-                    ) : view ? (
-                      <span className="track-title">{view.title}</span>
                     ) : (
                       <span className="retained-title">{display.title}</span>
                     )}
                     <div className="track-sub">
-                      {view && !track ? (
-                        <CatalogRowNote status={view.status} />
-                      ) : row.kind === "retained" ? (
+                      {row.kind === "retained" ? (
                         <small>{retainedNote(row.entry.origin)}</small>
                       ) : layout ? null : (
                         <TrackAvailabilityNote track={track!} />
@@ -377,21 +301,12 @@ export default function TrackTable({
                   {duration == null ? "—" : time(duration / 1000)}
                 </td>
                 <td className="actions-column">
-                  {view && !track && catalog ? (
-                    <CatalogRowActions
-                      title={view.title}
-                      status={view.status}
-                      onFind={() => catalog.find(index)}
-                      onOpen={() => catalog.open(index)}
-                      onLike={() => catalog.like(index)}
-                    />
-                  ) : track ? (
+                  {track ? (
                     <TrackRowActions
                       track={track}
                       playlists={playlists}
                       playlist={playlist}
                       mutate={mutate}
-                      onMutationAccepted={catalog?.mutated}
                       liking={!edit?.active}
                       replaceMenu={
                         edit?.active && playlist?.kind === "local" ? (

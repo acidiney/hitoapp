@@ -310,3 +310,6 @@
     min-width: 32px;
   }
 }
+.play-glyph {
+  transform: translateX(6%);
+}

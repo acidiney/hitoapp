@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { requestJson } from "../../../shared/http";
+import { HttpError, requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 export type ArtworkKind = "recording" | "release" | "playlist";
@@ -66,10 +66,43 @@ function waitForPoll(signal: AbortSignal) {
 }
 
 let nextGeneration = 0;
+const SETTLED_LIMIT = 4096;
+const ADMISSION_BUSY = "artwork_admission_busy";
+const ADMISSION_ATTEMPTS = 5;
+const ADMISSION_WAIT_SECONDS = 2;
+const ADMISSION_MAX_WAIT_SECONDS = 30;
+const deferred = Symbol("admission deferred");
+
+function admissionBusy(error: unknown): error is HttpError {
+  return (
+    error instanceof HttpError &&
+    error.status === 429 &&
+    error.code === ADMISSION_BUSY
+  );
+}
+
+function sleepUntil(time: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => {
+        signal.removeEventListener("abort", cancel);
+        resolve();
+      },
+      Math.max(0, time - Date.now()),
+    );
+    function cancel() {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+  });
+}
 
 export class ArtworkRetrieval {
   readonly generation = ++nextGeneration;
   private entries = new Map<string, Entry>();
+  private settled = new Map<string, ArtworkSnapshot>();
   private listeners = new Map<string, Set<() => void>>();
   private pending = new Set<Entry>();
   private waiting = new Set<() => void>();
@@ -77,6 +110,7 @@ export class ArtworkRetrieval {
   private workflows = 0;
   private revision = 0;
   private active = true;
+  private admissionUntil = 0;
 
   constructor(readonly account: string) {}
 
@@ -90,6 +124,7 @@ export class ArtworkRetrieval {
       entry.controller.abort("cancelled");
     this.pending.clear();
     this.entries.clear();
+    this.settled.clear();
   }
 
   subscribe(target: ArtworkTarget, listener: () => void) {
@@ -110,7 +145,10 @@ export class ArtworkRetrieval {
   }
 
   snapshot(target: ArtworkTarget) {
-    return this.entries.get(keyFor(target))?.snapshot ?? idleArtwork;
+    const key = keyFor(target);
+    return (
+      this.entries.get(key)?.snapshot ?? this.settled.get(key) ?? idleArtwork
+    );
   }
 
   missing(target: ArtworkTarget, revision = 0) {
@@ -119,7 +157,7 @@ export class ArtworkRetrieval {
     const entry = this.entries.get(key);
     if (entry) {
       this.observeImage(entry, revision, true);
-    } else if (revision === 0) {
+    } else if (revision === 0 && !this.settled.has(key)) {
       this.start(target, { phase: "waiting", revision, imageFailed: true });
     }
   }
@@ -135,6 +173,7 @@ export class ArtworkRetrieval {
       for (const candidate of this.entries.values()) {
         if (candidate.running || this.pending.has(candidate)) continue;
         this.entries.delete(candidate.key);
+        this.remember(candidate);
         break;
       }
       if (this.entries.size >= 128) return;
@@ -153,8 +192,18 @@ export class ArtworkRetrieval {
     this.drain();
   }
 
+  private remember(entry: Entry) {
+    const { phase } = entry.snapshot;
+    if (phase !== "failed" && phase !== "unavailable") return;
+    this.settled.delete(entry.key);
+    this.settled.set(entry.key, entry.snapshot);
+    if (this.settled.size > SETTLED_LIMIT)
+      this.settled.delete(this.settled.keys().next().value!);
+  }
+
   retry(target: ArtworkTarget) {
     const key = keyFor(target);
+    this.settled.delete(key);
     const entry = this.entries.get(key);
     if (!this.active || (entry && (entry.running || this.pending.has(entry))))
       return;
@@ -172,6 +221,15 @@ export class ArtworkRetrieval {
     if (!this.active) return;
     const started = performance.now();
     let count = 0;
+    for (const [key, snapshot] of [...this.settled]) {
+      if (snapshot.phase !== "unavailable") continue;
+      this.settled.delete(key);
+      if (this.listeners.has(key)) {
+        const [kind, id] = JSON.parse(key) as [ArtworkKind, string];
+        this.missing({ kind, id });
+      }
+      count++;
+    }
     for (const entry of [...this.entries.values()]) {
       if (
         entry.running ||
@@ -281,11 +339,13 @@ export class ArtworkRetrieval {
     path: string,
     action: string,
     method: "GET" | "POST" = "GET",
+    admission = false,
   ): Promise<T> {
     const { signal } = entry.controller;
     await this.acquire(signal);
     try {
       if (!this.current(entry)) throw signal.reason;
+      if (admission && Date.now() < this.admissionUntil) throw deferred;
       return await requestJson<T>(path, {
         action,
         method,
@@ -295,6 +355,43 @@ export class ArtworkRetrieval {
     } finally {
       this.requests--;
       this.waiting.values().next().value?.();
+    }
+  }
+
+  private async admit(entry: Entry, path: string): Promise<ArtworkJob> {
+    const { signal } = entry.controller;
+    for (let rejected = 0; ; ) {
+      while (Date.now() < this.admissionUntil)
+        await sleepUntil(this.admissionUntil, signal);
+      if (!this.current(entry)) throw signal.reason;
+      try {
+        return await this.read<ArtworkJob>(
+          entry,
+          path,
+          "artwork.fetch",
+          "POST",
+          true,
+        );
+      } catch (error) {
+        if (error === deferred) continue;
+        if (!admissionBusy(error) || ++rejected >= ADMISSION_ATTEMPTS)
+          throw error;
+        const wait = Math.min(
+          Math.max(error.retryAfter ?? ADMISSION_WAIT_SECONDS, 1),
+          ADMISSION_MAX_WAIT_SECONDS,
+        );
+        this.admissionUntil = Math.max(
+          this.admissionUntil,
+          Date.now() + wait * 1000,
+        );
+        log.debug("artwork.admission_busy", {
+          account_id: this.account,
+          mode: entry.target.kind,
+          attempt: rejected,
+          wait_ms: wait * 1000,
+        });
+        this.publish(entry, "waiting");
+      }
     }
   }
 
@@ -326,12 +423,7 @@ export class ArtworkRetrieval {
         reason = "no_provider";
         return;
       }
-      job = await this.read<ArtworkJob>(
-        entry,
-        `${base}/fetch`,
-        "artwork.fetch",
-        "POST",
-      );
+      job = await this.admit(entry, `${base}/fetch`);
       while (this.current(entry)) {
         const matches =
           target.kind === "recording"

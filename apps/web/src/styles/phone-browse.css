@@ -1,6 +1,6 @@
 @media (max-width: 767px) {
   :root {
-    --phone-top: max(56px, calc(env(safe-area-inset-top) + 16px));
+    --phone-top: max(24px, calc(env(safe-area-inset-top) + 16px));
     line-height: 1.45;
   }
   main#main,

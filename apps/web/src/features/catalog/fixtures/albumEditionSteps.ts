@@ -18,7 +18,7 @@ export async function confirmEdition() {
 
 export async function openFromAlbum() {
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
   await pickRelease();
   return confirmEdition();

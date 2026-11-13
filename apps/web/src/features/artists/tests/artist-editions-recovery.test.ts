@@ -1,4 +1,9 @@
-import { choose, optionsOf } from "../../../test/listbox";
+import {
+  queryEditionChip,
+  editionOptions,
+  loadMoreEditions,
+  canLoadMoreEditions,
+} from "../../catalog/fixtures/editionMenu";
 import {
   act,
   fireEvent,
@@ -65,7 +70,7 @@ test("a rejected later-page token can be restarted explicitly after server key l
     await act(async () => {
       await detail.entered;
     });
-    fireEvent.click(screen.getByRole("button", { name: "Load more editions" }));
+    loadMoreEditions();
     expect((await screen.findByRole("alert")).textContent).toBe(
       "The catalog continuation is invalid.",
     );
@@ -98,22 +103,20 @@ test("a rejected later-page token can be restarted explicitly after server key l
     });
     expect(detail.signal()?.aborted).toBe(true);
     expect(detail.aborts()).toBe(1);
-    expect(screen.queryByRole("table", { name: "Tracks" })).toBeNull();
-    expect(
-      screen.getByRole("combobox", { name: "Edition" }).textContent,
-    ).toContain("Standard edition");
+    expect(screen.queryByRole("list", { name: "Tracks" })).toBeNull();
+    expect(queryEditionChip()).toBeNull();
     await act(async () => {
       restart.release();
     });
     await within(
-      await screen.findByRole("table", { name: "Tracks" }),
+      await screen.findByRole("list", { name: "Tracks" }),
     ).findAllByText("Tema repetido");
     await act(async () => {
       detail.release();
     });
-    expect(
-      screen.queryByRole("combobox", { name: "Edition" })?.textContent ?? "",
-    ).not.toContain("Standard edition");
+    expect(queryEditionChip()?.textContent ?? "").not.toContain(
+      "Standard edition",
+    );
     expect(screen.queryByText(lateTitle)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(http.fetch).toHaveBeenCalledTimes(7);
@@ -138,20 +141,16 @@ test("a conflicting edition continuation offers only an explicit restart and rep
   http.reply(tracksOfEdition(bonusEdition));
   const view = render(catalogAlbumElement(props));
   try {
-    await screen.findByRole("table", { name: "Tracks" });
-    fireEvent.click(screen.getByRole("button", { name: "Load more editions" }));
+    await screen.findByRole("list", { name: "Tracks" });
+    loadMoreEditions();
     await screen.findByRole("alert");
     expect(
       screen.queryByRole("button", { name: "Try editions again" }),
     ).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Load more editions" }),
-    ).toBeNull();
+    expect(canLoadMoreEditions()).toBe(false);
     expect(http.fetch).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole("button", { name: "Restart editions" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("combobox", { name: "Edition" })).toBeNull(),
-    );
+    await waitFor(() => expect(queryEditionChip()).toBeNull());
     await flush();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(
@@ -192,22 +191,23 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
   }
   const view = render(catalogAlbumElement(props));
   try {
-    await screen.findByRole("table", { name: "Tracks" });
-    const options = () =>
-      optionsOf(screen.getByRole("combobox", { name: "Edition" }));
+    await screen.findByRole("list", { name: "Tracks" });
+    const album = screen.getByRole("region", { name: "Album" });
     for (let page = 2; page <= 50; page++) {
-      fireEvent.click(screen.getByText("Load more editions"));
-      await waitFor(() => expect(options()).toHaveLength(page));
+      loadMoreEditions();
+      await waitFor(() => {
+        expect(http.fetch).toHaveBeenCalledTimes(page + 1);
+        expect(album.getAttribute("aria-busy")).toBe("false");
+      });
     }
+    expect(editionOptions()).toHaveLength(50);
     expect(http.fetch).toHaveBeenCalledTimes(51);
     expect(
       screen.getByText("Showing the first 50 pages of editions.", {
         exact: true,
       }),
     ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Load more editions" }),
-    ).toBeNull();
+    expect(canLoadMoreEditions()).toBe(false);
     const reads = http.fetch.mock.calls.filter(([path]) =>
       path.endsWith("/release-group-editions"),
     );

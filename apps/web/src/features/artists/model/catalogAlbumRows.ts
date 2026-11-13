@@ -30,10 +30,7 @@ export function albumRows(
               id: track.id,
               number: `${discs > 1 ? `${medium.position}.` : ""}${track.number ?? track.position}`,
               title: track.title,
-              credit:
-                creditText(track.artist_credit) === albumCredit
-                  ? null
-                  : creditText(track.artist_credit),
+              credit: creditText(track.artist_credit) ?? albumCredit,
               durationMs: track.duration_ms ?? null,
             },
           ]

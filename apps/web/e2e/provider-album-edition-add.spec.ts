@@ -97,9 +97,7 @@ test("the add button on a catalog-only edition row saves exactly that track with
     await post(`${review}/confirm`, choice);
 
     await page.goto(`/albums/${release}`);
-    await page
-      .getByRole("button", { name: "Show complete track list" })
-      .click();
+    await page.getByRole("button", { name: "Choose an edition" }).click();
     await page.getByRole("radio", { name: /Deluxe/ }).check();
     await page.getByRole("button", { name: "Use this" }).click();
 
@@ -177,14 +175,12 @@ test("the add button on a catalog-only edition row saves exactly that track with
     expect(fixture.audioRequests).toEqual([]);
     await expect
       .poll(() =>
-        page
-          .locator("audio[data-hito-player]")
-          .evaluateAll((elements) =>
-            elements.every((element) => {
-              const audio = element as HTMLAudioElement;
-              return audio.paused && audio.currentTime === 0;
-            }),
-          ),
+        page.locator("audio[data-hito-player]").evaluateAll((elements) =>
+          elements.every((element) => {
+            const audio = element as HTMLAudioElement;
+            return audio.paused && audio.currentTime === 0;
+          }),
+        ),
       )
       .toBe(true);
     await expect(playButton).toHaveAttribute("aria-label", playLabel!);

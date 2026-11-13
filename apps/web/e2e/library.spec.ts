@@ -278,7 +278,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(page).toHaveURL(/\/albums\/[^/]+$/);
   const albumUrl = page.url();
   await page
-    .getByRole("link", { name: "Edit album details", exact: true })
+    .locator(".album-header")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Edit album details", exact: true })
     .click();
   await page
     .getByLabel("Album title", { exact: true })
@@ -359,7 +363,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .getByRole("link", { name: "My fixture album", exact: true })
     .click();
   await page
-    .getByRole("link", { name: "Edit album details", exact: true })
+    .locator(".album-header")
+    .getByRole("button", { name: "More actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Edit album details", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Use source title", exact: true })

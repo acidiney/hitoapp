@@ -1,6 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useContext, useState } from "react";
-import { AlbumMergeContext } from "./AlbumMergeContext";
+import { useEffect, useRef, useState } from "react";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import AlbumReleaseMatch from "./AlbumReleaseMatch";
 
@@ -27,9 +26,13 @@ export default function AlbumCompleteTrackList({
   anchor,
   saved,
 }: Props) {
-  const merge = useContext(AlbumMergeContext);
   const edition = useAlbumEditionChoice(account, release, saved);
-  const [chosenView, setView] = useState<View>("closed");
+  const [lookupTagged] = useState(
+    anchor !== null && saved.state.status === "unset" && saved.revision === 0,
+  );
+  const [chosenView, setView] = useState<View>(
+    lookupTagged ? "looking" : "closed",
+  );
   const [tagged, setTagged] = useState<Schema<"SavedAlbumEdition"> | null>(
     null,
   );
@@ -47,20 +50,21 @@ export default function AlbumCompleteTrackList({
         }
       : null);
 
-  async function open() {
-    if (ready) return setView("saved");
-    if (!browseAnchor) return;
-    if (state.status === "unset" && edition.choice.revision === 0) {
-      setView("looking");
-      const found = await lookup.find();
-      if (found === "stopped") return;
-      if (found !== "none") {
-        setTagged(found);
-        return setView("tagged");
-      }
-    }
-    setView("browse");
-  }
+  const findTagged = useRef(lookup.find);
+  findTagged.current = lookup.find;
+  useEffect(() => {
+    if (!lookupTagged) return;
+    let active = true;
+    void findTagged.current().then((found) => {
+      if (!active || found === "stopped") return;
+      if (found === "none") return setView("closed");
+      setTagged(found);
+      setView("tagged");
+    });
+    return () => {
+      active = false;
+    };
+  }, [lookupTagged]);
 
   function stale() {
     edition.stale();
@@ -92,13 +96,13 @@ export default function AlbumCompleteTrackList({
           </Button>
         </>
       )}
-      {view === "closed" && (browseAnchor || ready) && (
+      {view === "closed" && browseAnchor && !ready && (
         <button
           type="button"
           className="text-action"
-          onClick={() => void open()}
+          onClick={() => setView("browse")}
         >
-          Show complete track list
+          Choose an edition
         </button>
       )}
       {view === "looking" && (
@@ -151,7 +155,7 @@ export default function AlbumCompleteTrackList({
           }
         />
       )}
-      {linked && !merge.merged && (
+      {linked && !ready && !(view === "browse" && browseAnchor) && (
         <button
           type="button"
           className="text-action"

@@ -122,7 +122,7 @@ test("an album without a cover source keeps Retry artwork inside the header menu
   artwork.state = { imageFailed: true, phase: "unavailable", retry };
   render(createElement(AlbumPage, page()));
   expect(screen.queryByText("Retry artwork")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
   fireEvent.click(screen.getByRole("menuitem", { name: "Retry artwork" }));
   expect(retry).toHaveBeenCalledTimes(1);
 });

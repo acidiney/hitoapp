@@ -102,14 +102,12 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     const detailsBefore = fixture.details.length;
     await page.goto(`/albums/${release}`);
     await expect(
-      page.getByRole("button", { name: "Show complete track list" }),
+      page.getByRole("button", { name: "Choose an edition" }),
     ).toBeVisible();
     expect(fixture.calls.filter((call) => call.includes("editions"))).toEqual(
       [],
     );
-    await page
-      .getByRole("button", { name: "Show complete track list" })
-      .click();
+    await page.getByRole("button", { name: "Choose an edition" }).click();
     await expect(
       page.getByRole("heading", {
         name: `Is this ${albumEdition.releaseTitle}?`,
@@ -169,17 +167,19 @@ test("an album compares a chosen edition with its library and saves a catalog tr
       page.getByRole("table", { name: "Tracks" }).getByRole("row"),
     ).not.toHaveCount(0);
     fixture.state.outage = false;
-    await page.getByRole("button", { name: "Try track list again" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Showing only your tracks" }),
+    ).toBeVisible();
+    await page
+      .getByRole("region", { name: "Album edition track list" })
+      .getByRole("button", { name: "Try again", exact: true })
+      .click();
     await expect(region.getByRole("listitem")).toHaveCount(3);
-    const notInEdition = region.getByRole("list", {
-      name: "In this album only",
-    });
-    await expect(notInEdition).toContainText(
-      fixture.titles[albumEdition.second],
-    );
-    await expect(notInEdition).toContainText(
-      fixture.titles[albumEdition.bonus],
-    );
+    const lastDisc = region
+      .getByRole("list", { name: /^Disc \d+ tracks$/ })
+      .last();
+    await expect(lastDisc).toContainText(fixture.titles[albumEdition.second]);
+    await expect(lastDisc).toContainText(fixture.titles[albumEdition.bonus]);
 
     await expect
       .poll(async () => {
@@ -190,7 +190,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     const catalogCalls = fixture.calls.length;
     await page.reload();
     await expect(
-      page.getByRole("button", { name: "Show complete track list" }),
+      page.getByRole("button", { name: "Choose an edition" }),
     ).toHaveCount(0);
     const remembered = page.getByRole("region", {
       name: "Album edition track list",
@@ -209,11 +209,11 @@ test("an album compares a chosen edition with its library and saves a catalog tr
 
     await openEditionMenu(page, "Forget edition");
     await expect(
-      page.getByRole("button", { name: "Show complete track list" }),
+      page.getByRole("button", { name: "Choose an edition" }),
     ).toBeVisible();
     await page.reload();
     await expect(
-      page.getByRole("button", { name: "Show complete track list" }),
+      page.getByRole("button", { name: "Choose an edition" }),
     ).toBeVisible();
     const cleared = await page.request.get(`/api/v1/releases/${release}`);
     expect((await cleared.json()).saved_edition.state).toEqual({

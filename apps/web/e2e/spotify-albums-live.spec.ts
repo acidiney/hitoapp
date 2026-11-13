@@ -420,7 +420,11 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     );
     phase8Step = 13;
     await page
-      .getByRole("link", { name: "Edit album details", exact: true })
+      .locator(".album-header")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit album details", exact: true })
       .click();
     phase8Step = 14;
     liveCheck(

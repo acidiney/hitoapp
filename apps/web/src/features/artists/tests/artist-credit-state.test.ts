@@ -184,18 +184,10 @@ test("a credit says in plain words how its tracks were matched", async () => {
     status("idle"),
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
-  const how = await screen.findByText(/^Matched from:/);
-  for (const part of [
-    "85 tracks: the share of this artist's tracks the credit covers",
-    "1 track: its ISRC",
-    "12 tracks: an artist identifier in the file's tags",
-    "2 tracks: the provider's artist page",
-    "5 tracks: the artist's name, corroborated by its recordings",
-    "3 tracks: other tracks of this credit",
-    "3 tracks: a candidate you confirmed",
-    "1 track: your own choice",
-  ])
-    expect(how.textContent).toContain(part);
+  const how = await screen.findByText(/^Matched on /);
+  expect(how.textContent).toBe(
+    "Matched on 85 tracks because the credit covers enough of this artist's tracks, 1 track from the ISRC, 12 tracks from an artist identifier in the file tags, 2 tracks from the provider's artist page, 5 tracks from the artist's name and recordings, 3 tracks from other tracks of this credit, 3 tracks you confirmed and 1 track you chose yourself.",
+  );
 });
 
 test("a credit chosen only by the account lists no automatic evidence", async () => {
@@ -214,5 +206,5 @@ test("a credit chosen only by the account lists no automatic evidence", async ()
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
   await screen.findByText(/chosen by you/);
-  expect(screen.queryByText(/^Matched from:/)).toBeNull();
+  expect(screen.queryByText(/^Matched on /)).toBeNull();
 });

@@ -49,14 +49,51 @@ async function whileEither<T>(
   }
 }
 
+export type CatalogAudio = {
+  scope: string;
+  find(
+    edition: string,
+    occurrence: string,
+    signal: AbortSignal,
+  ): Promise<Schema<"AlbumTrackAudio">>;
+};
+
 export function useCatalogPlayback(
   context: ArtistEditionContext,
   edition: string | null,
   occurrences: readonly string[],
   remembered: ReadonlyMap<string, Schema<"Recording">>,
 ) {
-  const player = usePlayer();
   const { account, recording, association, group } = context;
+  return useEditionPlayback(
+    {
+      scope: JSON.stringify([account, recording, association.id, group.id]),
+      find: (edition, occurrence, signal) =>
+        artistEditionApi.audio(
+          account,
+          recording,
+          association.id,
+          {
+            release_group_id: group.id,
+            edition_id: edition,
+            occurrence_id: occurrence,
+          },
+          signal,
+        ),
+    },
+    edition,
+    occurrences,
+    remembered,
+  );
+}
+
+export function useEditionPlayback(
+  audio: CatalogAudio,
+  edition: string | null,
+  occurrences: readonly string[],
+  remembered: ReadonlyMap<string, Schema<"Recording">>,
+) {
+  const player = usePlayer();
   const [rows, setRows] = useState<ReadonlyMap<string, RowState>>(new Map());
   const [recordings, setRecordings] = useState<
     ReadonlyMap<string, Schema<"Recording">>
@@ -92,7 +129,7 @@ export function useCatalogPlayback(
       for (const finder of pending) finder.abort();
       pending.clear();
     };
-  }, [life, account, recording, association.id, group.id, edition]);
+  }, [life, audio.scope, edition]);
 
   useEffect(() => {
     for (const [occurrence, recording] of remembered)
@@ -112,17 +149,7 @@ export function useCatalogPlayback(
     for (let attempt = 0; ; attempt++) {
       let outcome: Schema<"AlbumTrackAudio">;
       try {
-        outcome = await artistEditionApi.audio(
-          account,
-          recording,
-          association.id,
-          {
-            release_group_id: group.id,
-            edition_id: edition!,
-            occurrence_id: occurrence,
-          },
-          signal,
-        );
+        outcome = await audio.find(edition!, occurrence, signal);
       } catch (error) {
         if (signal.aborted) throw error;
         log.warn("catalog_track_find.failed", { reason: errorMessage(error) });
@@ -150,6 +177,8 @@ export function useCatalogPlayback(
     return {
       occurrences,
       failures: 0,
+      ownedOnly: false,
+      known: (occurrence) => saved.current.get(occurrence),
       stopped: () => owned && controller.signal.aborted,
       find: (occurrence, signal) =>
         owned
@@ -228,6 +257,7 @@ export function useCatalogPlayback(
       outcome = "found";
       const feeding = run(controller, false);
       feeding.failures = catalog.failures;
+      feeding.ownedOnly = catalog.ownedOnly;
       const began = await select({
         queue: [first.recording],
         index: 0,

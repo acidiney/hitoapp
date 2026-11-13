@@ -89,9 +89,9 @@ function page(detail: Schema<"AlbumPageProps">["detail"]) {
   });
 }
 
-const open = () =>
+const open = async () =>
   fireEvent.click(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   );
 
 afterEach(() => vi.unstubAllGlobals());
@@ -99,7 +99,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("a release that is the only match with a single track list is used without asking", async () => {
   serve();
   render(page(matched));
-  open();
+  await open();
   await screen.findByRole("region", { name: "Album edition track list" });
   expect(await screen.findByRole("button", { name: /^Edition / })).toBeTruthy();
   await screen.findByRole("region", { name: "Album edition track list" });
@@ -122,7 +122,7 @@ test("a matched release with several track lists asks which one, with the sugges
       }),
   });
   render(page(matched));
-  open();
+  await open();
   await screen.findByRole("heading", {
     name: `Is this ${editionGroup.title} from 2024?`,
   });
@@ -150,7 +150,7 @@ test("it's a different release opens a styled release list to pick from", async 
       }),
   });
   render(page(matched));
-  open();
+  await open();
   fireEvent.click(
     await screen.findByRole("button", { name: "It's a different release" }),
   );
@@ -168,12 +168,12 @@ test("it's a different release opens a styled release list to pick from", async 
 test("just show my tracks closes the complete track list", async () => {
   serve();
   render(page(albumDetail));
-  open();
+  await open();
   fireEvent.click(
     await screen.findByRole("button", { name: "Just show my tracks" }),
   );
   expect(
-    screen.getByRole("button", { name: "Show complete track list" }),
+    await screen.findByRole("button", { name: "Choose an edition" }),
   ).toBeTruthy();
 });
 
@@ -186,7 +186,7 @@ test("editions that cannot be loaded leave only the album's tracks and offer Try
         : Response.json({ ...firstEditionPage, continuation: null }),
   });
   render(page(matched));
-  open();
+  await open();
   await screen.findByRole("heading", { name: "Showing only your tracks" });
   expect(screen.getByRole("alert").textContent).toContain(
     "Your 2 tracks are listed and play as usual",
@@ -206,7 +206,7 @@ test("a release with no editions says so and offers no retry", async () => {
       }),
   });
   render(page(matched));
-  open();
+  await open();
   await screen.findByRole("heading", {
     name: "No editions listed for this album",
   });
@@ -221,7 +221,7 @@ test("a release with no editions says so and offers no retry", async () => {
 test("while the release lookup runs the album keeps its own track list and shows only a small status line", async () => {
   serve({ [associations]: () => new Promise<Response>(() => {}) });
   render(page(matched));
-  open();
+  await open();
   const status = await screen.findByText("Looking for this album's release…");
   expect(status.getAttribute("role")).toBe("status");
   expect(
@@ -240,7 +240,7 @@ test("a stalled artist lookup resolves to Showing only your tracks instead of lo
   try {
     serve({ [associations]: () => new Promise<Response>(() => {}) });
     render(page(matched));
-    open();
+    await open();
     await screen.findByText("Looking for this album's release…");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_500);
@@ -263,7 +263,7 @@ test("an album whose title is a remix is not lined up with the original release 
     },
   };
   render(page(remix));
-  open();
+  await open();
   await screen.findByRole("heading", {
     name: `Which release is ${remix.release.title}?`,
   });

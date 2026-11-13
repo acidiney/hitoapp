@@ -113,6 +113,11 @@
   color: var(--on-ink);
   font-weight: 700;
 }
+.pills button[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--on-ink);
+  opacity: 0.88;
+}
 .switch-row {
   display: flex;
   align-items: center;

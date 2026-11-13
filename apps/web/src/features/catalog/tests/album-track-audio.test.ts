@@ -104,9 +104,11 @@ function rowWith(region: HTMLElement, text: string) {
 }
 
 const findButton = (row: HTMLElement) =>
-  within(row).getByRole("button", { name: "Find audio for Catalog only song" });
+  within(row).getByRole("button", {
+    name: "Add Catalog only song to your library",
+  });
 
-test("finding audio sends only identities, the server saves the match and the saved recording plays", async () => {
+test("adding a catalog row sends only identities and the server saves the match without playing", async () => {
   const fetch = serve();
   render(page());
   const region = await chooseEdition();
@@ -114,7 +116,7 @@ test("finding audio sends only identities, the server saves the match and the sa
   await act(async () => {
     fireEvent.click(findButton(row));
   });
-  await waitFor(() => expect(player.playSelection).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
   const searches = fetch.mock.calls.filter(([path]) => path === audio);
   expect(searches).toHaveLength(1);
   expect(JSON.parse(searches[0][1]!.body as string)).toEqual({
@@ -127,8 +129,7 @@ test("finding audio sends only identities, the server saves the match and the sa
   expect(
     fetch.mock.calls.some(([path]) => anyAdoption.test(String(path))),
   ).toBe(false);
-  expect(player.playSelection).toHaveBeenCalledWith(savedRecording);
-  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
+  expect(player.playSelection).not.toHaveBeenCalled();
 });
 
 test("a search refused because automatic service search is off says how to turn it on", async () => {
@@ -167,8 +168,8 @@ test("an uncertain match saves nothing, says so and can be retried", async () =>
   await act(async () => {
     fireEvent.click(findButton(row));
   });
-  await waitFor(() => expect(player.playSelection).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
+  expect(within(row).queryByRole("alert")).toBeNull();
 });
 
 test("an audio provider outage is honest and retryable while the album stays playable", async () => {
@@ -187,7 +188,8 @@ test("an audio provider outage is honest and retryable while the album stays pla
   await act(async () => {
     fireEvent.click(findButton(row));
   });
-  await waitFor(() => expect(player.playSelection).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(row.textContent).toMatch(/Ready|In your library/));
+  expect(player.playSelection).not.toHaveBeenCalled();
 });
 
 test("without a connected audio provider the track explains what to connect", async () => {

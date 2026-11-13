@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { Check, Plus } from "lucide-react";
-import ActionMenu from "../../../shared/ui/ActionMenu";
+import type { Schema } from "../../../shared/schema";
+import ActionMenu, { type ActionMenuItem } from "../../../shared/ui/ActionMenu";
+import type { RowPlayState } from "../../playback/hooks/useNowPlaying";
+import {
+  PlayingBars,
+  PlayingStatus,
+} from "../../playback/components/PlayingBars";
 
 export type EditionRowState =
   | "ready"
@@ -21,6 +27,16 @@ const words: Record<EditionRowState, string> = {
 
 const owned: EditionRowState[] = ["ready", "library"];
 
+export function ownedRowState(recording: Schema<"Recording">): {
+  state: EditionRowState;
+  detail?: string;
+} {
+  if (recording.available) return { state: "ready", detail: "Local" };
+  if (recording.plays_from_services)
+    return { state: "ready", detail: "from your services" };
+  return { state: "library" };
+}
+
 export default function EditionTrackRow({
   number,
   title,
@@ -32,6 +48,8 @@ export default function EditionTrackRow({
   failure,
   actions,
   add,
+  more = [],
+  playing = null,
 }: {
   number: ReactNode;
   title: string;
@@ -48,10 +66,16 @@ export default function EditionTrackRow({
   failure?: string;
   actions?: ReactNode;
   add?: { label: string; disabled: boolean; onAdd: () => void };
+  more?: ActionMenuItem[];
+  playing?: RowPlayState;
 }) {
   const isOwned = owned.includes(state);
   return (
-    <li className="edition-row-item" data-state={state}>
+    <li
+      className="edition-row-item"
+      data-state={state}
+      aria-current={playing ? "true" : undefined}
+    >
       {play && (
         <button
           type="button"
@@ -61,7 +85,16 @@ export default function EditionTrackRow({
           onClick={play.onPlay}
         />
       )}
-      <p className="edition-row-number">{number}</p>
+      <p className="edition-row-number">
+        {playing ? (
+          <>
+            <PlayingBars state={playing} />
+            <PlayingStatus state={playing} />
+          </>
+        ) : (
+          number
+        )}
+      </p>
       <p className="edition-row-title">{title}</p>
       <p className="edition-row-sub">
         <span className="edition-row-status">
@@ -109,6 +142,7 @@ export default function EditionTrackRow({
                     disabled: play.disabled,
                     onSelect: play.onPlay,
                   },
+                  ...more,
                 ]}
               />
             </div>

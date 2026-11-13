@@ -324,7 +324,11 @@ test("source-free imported albums preserve unknown credits through personal edit
     ).toBe(true);
     await page.locator(`a[href="${albumPath}"]`).first().click();
     await page
-      .getByRole("link", { name: "Edit album details", exact: true })
+      .locator(".album-header")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit album details", exact: true })
       .click();
     await expect(
       page.getByText("Album details", { exact: true }),
@@ -379,7 +383,11 @@ test("source-free imported albums preserve unknown credits through personal edit
       page.locator(`a[href="/artists/${personalized.release.artist_id}"]`),
     ).toHaveText(personal);
     await page
-      .getByRole("link", { name: "Edit album details", exact: true })
+      .locator(".album-header")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit album details", exact: true })
       .click();
     stage = "reset to real unknown credit";
     const resetId = await creditAction(

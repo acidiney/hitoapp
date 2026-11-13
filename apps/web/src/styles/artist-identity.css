@@ -39,3 +39,13 @@
     flex-direction: column-reverse;
   }
 }
+.identity-confirm {
+  display: grid;
+  gap: 8px;
+}
+.identity-confirm > p {
+  margin: 0;
+}
+.identity-confirm > footer.credit-dialog-actions {
+  margin-top: 16px;
+}
