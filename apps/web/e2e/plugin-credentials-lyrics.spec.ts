@@ -127,6 +127,56 @@ test("only the connection named by the stamp shows Credentials need updating in 
   }
 });
 
+test("a fresh lyrics read that succeeds again with the same token clears the mark without a credential update", async ({
+  page,
+  baseURL,
+}) => {
+  if (!sharedAdminSession) await enterAdmin(page);
+  const origin = new URL(baseURL!).origin;
+  const track = await libraryTrack(page, trackTitle);
+  const label = `Credential recovery ${suffix()}`;
+  const setup = await connectSavedLyrics(
+    page.request,
+    page.request,
+    origin,
+    track,
+    label,
+  );
+  try {
+    setup.plugin.rotate();
+    await playFromLibrary(page);
+    const panel = await openLyricsFromLibrary(page);
+    await showLyrics(panel);
+    await expect(panel.getByRole("alert")).toContainText(credentialMessage);
+    await panel.getByRole("link", { name: settingsLinkName }).click();
+    await expect(connectionCard(page, label).getByText(markLabel)).toBeVisible();
+    const revision = (await pluginSettings(page.request)).installations.find(
+      (installation) => installation.manifest.name === label,
+    )!.revision;
+
+    setup.plugin.restore();
+    const reopened = await openLyricsFromLibrary(page);
+    await showLyrics(reopened);
+    const retry = reopened.getByRole("button", { name: "Retry" });
+    if (await retry.isVisible()) await retry.click();
+    await expect(reopened.getByText("Plain river line")).toBeVisible();
+    await expect(reopened.getByRole("alert")).toHaveCount(0);
+
+    await page.goto(pluginsPath);
+    const card = connectionCard(page, label);
+    await expect(card).toBeVisible();
+    await expect(card.getByText(markLabel)).toHaveCount(0);
+    expect(
+      (await pluginSettings(page.request)).installations.find(
+        (installation) => installation.manifest.name === label,
+      )!.revision,
+    ).toBe(revision);
+    expect(setup.plugin.accepted("v2/lyrics")).toBeGreaterThan(0);
+  } finally {
+    await setup.dispose();
+  }
+});
+
 test("updating credentials with the valid token clears the mark and the lyrics read succeeds with exactly one retry", async ({
   page,
   baseURL,

@@ -138,6 +138,9 @@ async function serveCredentialPlugin(
       state.expected = newToken();
       return state.expected;
     },
+    restore: () => {
+      state.expected = initial;
+    },
     hold: (route: string) => {
       holds.set(
         route,
