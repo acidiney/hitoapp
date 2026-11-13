@@ -116,7 +116,7 @@ impl Catalog {
                 &[Capability::Sources, Capability::SourceLinks],
             )
             .await?;
-        let found = operation.lookup_source_link(&lookup).await;
+        let (found, ticket) = operation.lookup_source_link(&lookup).await?;
         {
             let mut connection = self.store.pool.acquire().await?;
             let after = authority(&mut connection, actor, recording).await?;
@@ -127,7 +127,14 @@ impl Catalog {
                 ));
             }
         }
-        let metadata = found?.ok_or(Error::NotFound)?;
+        let metadata = match found {
+            Ok(Some(metadata)) => {
+                operation.credentials_verified(&ticket);
+                metadata
+            }
+            Ok(None) => return Err(Error::NotFound),
+            Err(error) => return Err(operation.with_credential_context(error, &ticket)),
+        };
         Ok(ProviderCandidate {
             installation_id,
             installation_revision: operation.catalog_installation_revision(),

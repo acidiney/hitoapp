@@ -262,7 +262,10 @@ async fn an_upstream_credential_refusal_is_not_a_listener_sign_out() {
         assert_eq!(status, StatusCode::CONFLICT);
         let error: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(error["code"], "plugin_credentials_required");
-        assert!(error.get("plugin_connection").is_none());
+        assert_eq!(
+            error["plugin_connection"],
+            json!({"installation_id": installation.id, "installation_revision": installation.revision})
+        );
         assert_eq!(cache.as_deref(), Some("private, no-store"));
         assert!(!text.contains("owned-refused"));
         let (status, _) = call(

@@ -611,7 +611,13 @@ async fn upstream_failures_are_sanitized_and_keep_the_listener_session() {
             server.answer(reference, answer);
             let result = lookup(world, &world.actor, &installation, reference).await;
             if reference == "owned-unauthorized" {
-                assert!(matches!(result, Err(Error::PluginCredentialsRequired(None))));
+                match result {
+                    Err(Error::PluginCredentialsRequired(Some(stamp))) => {
+                        assert_eq!(stamp.installation_id, installation.id);
+                        assert_eq!(stamp.installation_revision, installation.revision);
+                    }
+                    other => panic!("expected a stamped credential refusal, got {:?}", other.err()),
+                }
                 continue;
             }
             match result {
