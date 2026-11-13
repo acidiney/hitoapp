@@ -1,3 +1,9 @@
+#[path = "api/source_resolution_failure.rs"]
+mod source_resolution_failure;
+
+#[path = "fixtures/source_resolution_failure.rs"]
+mod source_resolution_failure_fixture;
+
 #[path = "fixtures/source_authority_snapshot.rs"]
 mod source_authority_snapshot_fixture;
 
