@@ -10,6 +10,7 @@ mod album_track_audio;
 mod artist_catalog_credit_member_shareability;
 mod artist_catalog_credit_members;
 mod artist_catalog_credit_review;
+mod artist_catalog_credit_target_upgrade;
 mod artist_catalog_descriptor_compatibility;
 mod artist_catalog_discography;
 mod artist_catalog_discography_type;

@@ -94,7 +94,8 @@ pub(super) async fn assert_preserved(connection: &mut SqliteConnection, before: 
     for projection in before {
         assert!(
             typed_rows(connection, &projection.statement).await == projection.rows,
-            "migration must retain every prior typed column, row and rowid, including migration receipts"
+            "migration must retain every prior typed column, row and rowid, including migration receipts: {}",
+            projection.statement
         );
     }
 }
