@@ -280,3 +280,6 @@ async fn keys(connection: &mut SqliteConnection) -> Vec<(i64, String, String)> {
         .await
         .unwrap()
 }
+
+#[path = "artist_credit_member_choices_upgrade.rs"]
+mod member_choices97;
