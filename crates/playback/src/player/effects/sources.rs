@@ -1,13 +1,19 @@
 use super::Key;
 use crate::PlayerError;
-use hito_core::{Actor, Catalog, PlaybackAccess, PlaybackCandidates, PlaybackSource};
+mod discovery;
+use discovery::{Discovery, Outcome};
+use hito_core::{
+    Actor, CandidatesEnd, Catalog, PlaybackAccess, PlaybackCandidates, PlaybackSource,
+};
 use std::{future::Future, pin::Pin};
 use tokio::sync::oneshot;
+use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type Read = Result<(PlaybackCandidates, Option<PlaybackSource>), PlayerError>;
 #[derive(Clone)]
 struct Demand {
+    id: Uuid,
     key: Key,
     actor: Actor,
     recording: String,
@@ -25,6 +31,8 @@ pub(super) struct Sources {
     current: Option<PlaybackSource>,
     reading: Option<Pending<Read>>,
     refreshing: Option<Refresh>,
+    discovering: Option<Discovery>,
+    discovery_allowed: bool,
     refreshed: bool,
     refresh_allowed: bool,
     needs_refresh: bool,
@@ -48,6 +56,8 @@ impl Sources {
             current: None,
             reading: None,
             refreshing: None,
+            discovering: None,
+            discovery_allowed: refresh_allowed,
             refreshed: !refresh_allowed,
             refresh_allowed,
             needs_refresh: false,
@@ -61,6 +71,10 @@ impl Sources {
         {
             let _ = cancel.send(());
         }
+        if let Some(discovery) = &self.discovering {
+            discovery.cancel();
+        }
+        self.discovery_allowed = self.refresh_allowed;
         self.key = key;
         self.demand = None;
         self.candidates = None;
@@ -87,6 +101,7 @@ impl Sources {
                 return false;
             };
             self.demand = Some(Demand {
+                id: Uuid::new_v4(),
                 key,
                 actor: actor.clone(),
                 recording: recording.to_owned(),
@@ -95,7 +110,11 @@ impl Sources {
         self.start()
     }
     fn start(&mut self) -> bool {
-        if self.current.is_some() || self.reading.is_some() || self.exhausted {
+        if self.current.is_some()
+            || self.reading.is_some()
+            || self.discovering.is_some()
+            || self.exhausted
+        {
             return false;
         }
         let Some(demand) = self.demand.clone() else {
@@ -154,10 +173,35 @@ impl Sources {
                     }
                     self.start();
                 },
+                report = async { self.discovering.as_mut().unwrap().finished().await }, if self.discovering.is_some() => {
+                    self.discovering = None;
+                    if self.key != Some(report.key)
+                        || self.demand.as_ref().is_none_or(|demand| demand.id != report.demand)
+                    {
+                        self.start();
+                        continue;
+                    }
+                    match report.outcome {
+                        Outcome::Ready => {
+                            self.candidates = None;
+                            self.start();
+                        },
+                        Outcome::Failed(error) => {
+                            self.error = merged(self.error, error);
+                            self.exhausted = true;
+                            return Err(self.error);
+                        },
+                        Outcome::Exhausted | Outcome::Cancelled | Outcome::Deadline => {
+                            self.exhausted = true;
+                            return Err(self.error);
+                        },
+                    }
+                },
                 result = async { self.reading.as_mut().unwrap().await }, if self.reading.is_some() => {
                     self.reading = None;
                     match result {
                         Ok((candidates, Some(grant))) => {
+                            self.discovery_allowed = false;
                             self.candidates = Some(candidates);
                             self.current = Some(grant.clone());
                             tracing::debug!(event = "player_source_selected", source_id = grant.source_id(), refreshed = self.refreshed, "Authorized playback source selected");
@@ -170,6 +214,17 @@ impl Sources {
                         },
                     }
                     if self.refreshed {
+                        if self.discovery_allowed
+                            && self.error != PlayerError::OutputFormat
+                            && self.candidates.as_ref().and_then(PlaybackCandidates::ended)
+                                == Some(CandidatesEnd::Exhausted)
+                        {
+                            self.discovery_allowed = false;
+                            self.discovering = Some(Discovery::start(
+                                self.catalog.clone(), self.demand.clone().unwrap(),
+                            ));
+                            continue;
+                        }
                         self.exhausted = true;
                         tracing::debug!(event = "player_sources_exhausted", "Cached and refreshed sources exhausted");
                         return Err(self.error);
@@ -185,6 +240,9 @@ impl Sources {
         self.reset(None);
         if let Some(mut refresh) = self.refreshing.take() {
             let _ = refresh.done.as_mut().await;
+        }
+        if let Some(mut discovery) = self.discovering.take() {
+            let _ = discovery.finished().await;
         }
     }
 }
