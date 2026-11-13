@@ -192,7 +192,7 @@ test("an album track without a catalog identity is saved as a best guess when on
       row.getByRole("img", { name: "In your library" }),
     ).toBeVisible();
     expect(await total()).toBe(before + 1);
-    expect(audio.audioRequests.length).toBeGreaterThan(0);
+    expect(audio.audioRequests).toEqual([]);
     await album.play.click();
     const player = page.locator("audio[data-hito-player]");
     await expect
@@ -200,6 +200,7 @@ test("an album track without a catalog identity is saved as a best guess when on
         player.evaluate((element: HTMLAudioElement) => element.currentTime),
       )
       .toBeGreaterThan(0.2);
+    expect(audio.audioRequests.length).toBeGreaterThan(0);
 
     const adopted = await page.request.get(
       `/api/v1/recordings?q=${encodeURIComponent("A different song")}`,
