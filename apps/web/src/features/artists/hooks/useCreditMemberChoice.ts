@@ -50,6 +50,7 @@ type Write =
     }
   | { kind: "read"; receipt: null };
 type Owner = {
+  key: string;
   generation: number;
   controller: AbortController | null;
   phase: Phase | null;
@@ -72,6 +73,8 @@ type State = {
   unresolved: boolean;
 };
 
+const pendingWrites = new Map<string, Write>();
+
 function empty(owner: Owner, query: string): State {
   return {
     owner,
@@ -87,7 +90,7 @@ function empty(owner: Owner, query: string): State {
     pending: null,
     error: "",
     failed: null,
-    unresolved: false,
+    unresolved: owner.write !== null,
   };
 }
 
@@ -133,12 +136,16 @@ export function useCreditMemberChoice(
       detail.selected_observation?.id,
     ]),
   );
-  const [owner] = useState<Owner>(() => ({
-    generation: 0,
-    controller: null,
-    phase: null,
-    write: null,
-  }));
+  const [owner] = useState<Owner>(() => {
+    const key = JSON.stringify([account, recording, artist]);
+    return {
+      key,
+      generation: 0,
+      controller: null,
+      phase: null,
+      write: pendingWrites.get(key) ?? null,
+    };
+  });
   const [snapshot, setSnapshot] = useState(() => empty(owner, member.name));
   const current =
     snapshot.owner === owner ? snapshot : empty(owner, member.name);
@@ -310,11 +317,17 @@ export function useCreditMemberChoice(
     );
   }
 
+  function hold(write: Write | null) {
+    owner.write = write;
+    if (write) pendingWrites.set(owner.key, write);
+    else pendingWrites.delete(owner.key);
+  }
+
   async function discard(signal: AbortSignal) {
-    owner.write = { kind: "read", receipt: null };
+    hold({ kind: "read", receipt: null });
     const fresh = await readChoice(signal, null).catch(() => null);
     if (!fresh) return;
-    owner.write = null;
+    hold(null);
     setSnapshot((value) =>
       value.owner === owner
         ? { ...value, ...fresh, unresolved: false }
@@ -363,7 +376,7 @@ export function useCreditMemberChoice(
     const readback = await readChoice(signal, known);
     if (receipt && readback.choice.revision < receipt.revision)
       throw new Error("Invalid credited artist response");
-    owner.write = null;
+    hold(null);
     return readback;
   }
 
@@ -402,14 +415,14 @@ export function useCreditMemberChoice(
       "reset",
       {},
       (signal) => {
-        owner.write = {
+        hold({
           kind: "reset",
           body: {
             request_id: createUuid(),
             expected_revision: choice.revision,
           },
           receipt: null,
-        };
+        });
         markUnresolved();
         return settle(signal);
       },
@@ -584,7 +597,7 @@ export function useCreditMemberChoice(
           throw new Error(
             "The artist confirmation did not belong to this credited artist and provider.",
           );
-        owner.write = {
+        hold({
           kind: "choose",
           name: preview.profile.artist.name,
           receipt: null,
@@ -594,7 +607,7 @@ export function useCreditMemberChoice(
             association_id: confirmed.id,
             context: preview.context,
           },
-        };
+        });
         markUnresolved();
         return settle(signal);
       },

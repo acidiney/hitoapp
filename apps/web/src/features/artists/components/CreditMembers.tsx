@@ -29,6 +29,7 @@ export default function CreditMembers({
     (member): member is Member => member.artist_id !== null,
   );
   const [expanded, setExpanded] = useState(false);
+  const [opened, setOpened] = useState(false);
   if (members.length === 0) return null;
   return (
     <section className="rd-card track-credit-members">
@@ -38,7 +39,10 @@ export default function CreditMembers({
           className="track-disclosure"
           aria-expanded={expanded}
           aria-controls="credited-artists"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => {
+            setExpanded(!expanded);
+            setOpened(true);
+          }}
         >
           Credited artists ({members.length})
         </button>
@@ -49,7 +53,7 @@ export default function CreditMembers({
         aria-label="Credited artists"
         hidden={!expanded}
       >
-        {expanded && (
+        {opened && (
           <ul className="rd-rows">
             {members.map((member) => (
               <CreditMemberRow
