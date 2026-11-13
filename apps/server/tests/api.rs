@@ -364,3 +364,8 @@ mod credit_member_review_confirm;
 
 #[path = "api/credit_member_review_main_target.rs"]
 mod credit_member_review_main_target;
+
+#[path = "api/credit_member_identity_choice.rs"]
+mod credit_member_identity_choice;
+#[path = "fixtures/credit_member_identity_choice.rs"]
+mod credit_member_identity_choice_fixture;
