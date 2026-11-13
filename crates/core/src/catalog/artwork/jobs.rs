@@ -262,9 +262,7 @@ pub(super) async fn capacity(connection: &mut SqliteConnection, account: &str) -
         "SELECT count(*),coalesce(sum(reservation_bytes),0) FROM artwork_fetches WHERE status IN ('queued','running')",
     ).fetch_one(connection).await?;
     if account_pending >= 16 || global_pending >= 128 {
-        return Err(Error::Conflict(
-            "Artwork requests are full. Try again after pending requests finish.".into(),
-        ));
+        return Err(Error::ArtworkAdmissionBusy);
     }
     if account_bytes + account_reserved + RESERVATION_BYTES > 32 * 1024 * 1024
         || global_bytes + global_reserved + RESERVATION_BYTES > 256 * 1024 * 1024

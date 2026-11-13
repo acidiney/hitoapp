@@ -19,6 +19,8 @@ pub mod artist_identity_selection_catalog;
 #[cfg(feature = "test-support")]
 pub mod artist_images;
 #[cfg(feature = "test-support")]
+pub mod artwork_admission;
+#[cfg(feature = "test-support")]
 pub mod audiobook_continue_library;
 #[cfg(feature = "test-support")]
 pub mod collection_artwork;

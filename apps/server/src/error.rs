@@ -25,6 +25,7 @@ pub enum ErrorCode {
     WrongPassword,
     AlreadyBound,
     PluginCredentialsRequired,
+    ArtworkAdmissionBusy,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -46,7 +47,7 @@ impl IntoResponse for ApiError {
             Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::UnsupportedAudio => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            Error::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
+            Error::RateLimited(_) | Error::ArtworkAdmissionBusy => StatusCode::TOO_MANY_REQUESTS,
             Error::Conflict(_)
             | Error::ProviderBusy(_)
             | Error::AuthorizationRequired(_)
@@ -65,6 +66,7 @@ impl IntoResponse for ApiError {
             Error::WrongPassword => Some(ErrorCode::WrongPassword),
             Error::AlreadyBound(_) => Some(ErrorCode::AlreadyBound),
             Error::PluginCredentialsRequired(_) => Some(ErrorCode::PluginCredentialsRequired),
+            Error::ArtworkAdmissionBusy => Some(ErrorCode::ArtworkAdmissionBusy),
             _ => None,
         };
         let error = if matches!(
@@ -101,6 +103,7 @@ impl IntoResponse for ApiError {
         };
         let retry_after = match &self.0 {
             Error::RateLimited(seconds) => Some([("retry-after", seconds.to_string())]),
+            Error::ArtworkAdmissionBusy => Some([("retry-after", "2".to_string())]),
             _ => None,
         };
         let recording_id = match &self.0 {

@@ -9054,6 +9054,23 @@
               }
             }
           },
+          "429": {
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Retry after this many seconds"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -14922,6 +14939,23 @@
               }
             }
           },
+          "429": {
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Retry after this many seconds"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -18492,6 +18526,23 @@
             }
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Retry after this many seconds"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -24899,7 +24950,8 @@
           "locked",
           "wrong_password",
           "already_bound",
-          "plugin_credentials_required"
+          "plugin_credentials_required",
+          "artwork_admission_busy"
         ]
       },
       "ErrorResponse": {

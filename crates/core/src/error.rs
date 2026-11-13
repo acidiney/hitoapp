@@ -20,6 +20,8 @@ pub enum Error {
     WrongPassword,
     #[error("Too many attempts. Try again later.")]
     RateLimited(u64),
+    #[error("Artwork requests are full. Try again after pending requests finish.")]
+    ArtworkAdmissionBusy,
     #[error("{0}")]
     Conflict(String),
     #[error("This source is already used by another track")]
@@ -72,6 +74,7 @@ impl Error {
             Self::Locked => "locked",
             Self::WrongPassword => "wrong_password",
             Self::RateLimited(_) => "rate_limited",
+            Self::ArtworkAdmissionBusy => "artwork_admission_busy",
             Self::Conflict(_) => "conflict",
             Self::AlreadyBound(_) => "already_bound",
             Self::ProviderBusy(_) => "provider_busy",

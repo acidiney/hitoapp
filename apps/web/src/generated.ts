@@ -4147,7 +4147,7 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
@@ -13252,6 +13252,16 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: {
+                headers: {
+                    /** @description Retry after this many seconds */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -17683,6 +17693,16 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: {
+                headers: {
+                    /** @description Retry after this many seconds */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -20357,6 +20377,16 @@ export interface operations {
             };
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: {
+                headers: {
+                    /** @description Retry after this many seconds */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
