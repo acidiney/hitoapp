@@ -152,9 +152,7 @@ test("an album whose editions are unavailable says so and recovers on retry", as
     await expect(region.getByRole("alert")).toBeVisible();
     await expect(page.getByRole("list", { name: "Tracks" })).toHaveCount(0);
     artist.provider.state.failing.clear();
-    await region
-      .getByRole("button", { name: "Try editions again" })
-      .click();
+    await region.getByRole("button", { name: "Try editions again" }).click();
     await expectTracks(page);
   } finally {
     await artist.close();
