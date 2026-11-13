@@ -101,6 +101,15 @@ const CANDIDATE: &str = "owned-transient-candidate";
 const SOURCE: &str = "owned-transient-audio";
 
 pub async fn start() -> Fixture {
+    start_with_ready_searches(1).await
+}
+
+#[allow(dead_code)]
+pub async fn start_for_resume() -> Fixture {
+    start_with_ready_searches(2).await
+}
+
+async fn start_with_ready_searches(ready_searches: usize) -> Fixture {
     let mut owned = None;
     let mut provider = None;
     let mut replaced = None;
@@ -143,7 +152,7 @@ pub async fn start() -> Fixture {
                 order.lock().unwrap().push('B');
                 match searches.fetch_add(1, Ordering::SeqCst) {
                     0 => Reply::Status(StatusCode::SERVICE_UNAVAILABLE),
-                    1 => Reply::Json(ready.clone()),
+                    attempt if attempt <= ready_searches => Reply::Json(ready.clone()),
                     _ => {
                         invalid_search.store(true, Ordering::SeqCst);
                         Reply::Status(StatusCode::BAD_REQUEST)
