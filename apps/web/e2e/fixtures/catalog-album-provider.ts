@@ -32,6 +32,8 @@ export type CatalogAlbumState = {
   failing: Set<string>;
   routes: string[];
   editionsUnsupported: boolean;
+  groupDetail: "supported" | "legacy" | "held";
+  groupRequests: string[];
   outage: boolean;
   searches: string[];
   unexpected: number;
@@ -47,11 +49,32 @@ export async function catalogAlbumProvider() {
     failing: new Set(),
     routes: [],
     editionsUnsupported: false,
+    groupDetail: "supported",
+    groupRequests: [],
     outage: false,
     searches: [],
     unexpected: 0,
   };
   const audioRequests: string[] = [];
+  let releaseHeld!: () => void;
+  const held = new Promise<void>((resolve) => {
+    releaseHeld = resolve;
+  });
+  const canonicalGroup = {
+    id: catalogAlbum.groupId,
+    title: catalogAlbum.groupTitle,
+    artist_credit: [
+      {
+        artist: null,
+        credited_name: catalogAlbum.artistName,
+        join_phrase: "",
+      },
+    ],
+    kind: "album",
+    secondary_types: [],
+    first_release_date: "2019-05-17",
+    revision: null,
+  };
   const idOf = (title: string) => `e2e:audio/${title}`;
   const titleOf = (id: string) =>
     catalogAlbum.tracks.find((title) => idOf(title) === id) ??
@@ -157,23 +180,21 @@ export async function catalogAlbumProvider() {
               first_release_date: release.date,
               revision: null,
             })),
-            {
-              id: catalogAlbum.groupId,
-              title: catalogAlbum.groupTitle,
-              artist_credit: [
-                {
-                  artist: null,
-                  credited_name: catalogAlbum.artistName,
-                  join_phrase: "",
-                },
-              ],
-              kind: "album",
-              secondary_types: [],
-              first_release_date: "2019-05-17",
-              revision: null,
-            },
+            canonicalGroup,
           ],
         });
+      case "v1/catalog/release-groups/capabilities":
+        if (state.groupDetail === "legacy")
+          return response.writeHead(404).end();
+        return reply({
+          release_group_version: 1,
+          operations: ["release_group"],
+        });
+      case "v1/catalog/release-groups/detail":
+        state.groupRequests.push(String(value.release_group_id));
+        if (value.release_group_id !== catalogAlbum.groupId) break;
+        if (state.groupDetail === "held") await held;
+        return reply(canonicalGroup);
       case "v1/catalog/release-groups/editions":
         return reply({
           release_group_id: catalogAlbum.groupId,
@@ -254,6 +275,7 @@ export async function catalogAlbumProvider() {
     state,
     audioRequests,
     close: async () => {
+      releaseHeld();
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
