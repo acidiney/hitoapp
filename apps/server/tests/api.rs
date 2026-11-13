@@ -288,6 +288,8 @@ mod catalog_album_header;
 mod catalog_album_header_fixture;
 #[path = "api/catalog_album_inertia_cold.rs"]
 mod catalog_album_inertia_cold;
+#[path = "api/catalog_edition_digest.rs"]
+mod catalog_edition_digest;
 #[path = "fixtures/credit_member_review_context_boundaries.rs"]
 mod credit_member_boundary_fixture;
 #[path = "api/credit_member_review_context.rs"]
@@ -341,3 +343,8 @@ mod member_search_credential_provider;
 mod member_search_dispatch_gate;
 #[path = "fixtures/member_search_order_library.rs"]
 mod member_search_order_library;
+
+#[path = "api/catalog_edition_digest_parity.rs"]
+mod catalog_edition_digest_parity;
+#[path = "fixtures/catalog_edition_digest_parity.rs"]
+mod catalog_edition_digest_parity_fixture;
