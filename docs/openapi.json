@@ -15257,6 +15257,148 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/context": {
+      "post": {
+        "operationId": "begin_credit_member_review",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artist",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginArtistReview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditMemberReviewContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/download": {
       "get": {
         "operationId": "recording_download",
@@ -20835,6 +20977,7 @@
             "required": [
               "association_id",
               "edition",
+              "stats",
               "matches",
               "library_only",
               "attached_occurrences",
@@ -20879,6 +21022,9 @@
                 "items": {
                   "$ref": "#/components/schemas/CatalogTrackMatch"
                 }
+              },
+              "stats": {
+                "$ref": "#/components/schemas/EditionTrackStats"
               },
               "status": {
                 "type": "string",
@@ -24699,6 +24845,91 @@
             "$ref": "#/components/schemas/CreditRole"
           }
         }
+      },
+      "CreditMemberReviewContext": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "recording_id",
+          "library_id",
+          "artist_id",
+          "credited_name",
+          "role",
+          "source_id",
+          "observation_id",
+          "artist_operation_id",
+          "access_grant_id",
+          "metadata_binding",
+          "provider",
+          "policy_revision",
+          "connection"
+        ],
+        "properties": {
+          "access_grant_id": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "artist_id": {
+            "type": "string"
+          },
+          "artist_operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connection": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArtistReviewConnection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credited_name": {
+            "type": "string"
+          },
+          "library_id": {
+            "type": "string"
+          },
+          "metadata_binding": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArtistReviewMetadataBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observation_id": {
+            "type": "string"
+          },
+          "policy_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/MetadataProvider"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "CreditRole": {
         "type": "string",

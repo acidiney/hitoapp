@@ -1,7 +1,7 @@
 use super::{CatalogTrackMatch, EditionTrackStats};
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile, CatalogEditionTrackList,
-    CatalogReleaseTypeFilter, ReleaseGroupEditionsPage,
+    CatalogReleaseTypeFilter, CreditRole, ReleaseGroupEditionsPage,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -157,6 +157,29 @@ pub struct ArtistReviewContext {
     pub library_id: String,
     pub artist_id: String,
     pub credited_name: String,
+    #[schema(required = true)]
+    pub source_id: Option<String>,
+    pub observation_id: String,
+    #[schema(required = true)]
+    pub artist_operation_id: Option<String>,
+    pub access_grant_id: String,
+    #[schema(required = true)]
+    pub metadata_binding: Option<ArtistReviewMetadataBinding>,
+    pub provider: MetadataProvider,
+    pub policy_revision: i64,
+    #[schema(required = true)]
+    pub connection: Option<ArtistReviewConnection>,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CreditMemberReviewContext {
+    pub account_id: String,
+    pub recording_id: String,
+    pub library_id: String,
+    pub artist_id: String,
+    pub credited_name: String,
+    pub role: CreditRole,
     #[schema(required = true)]
     pub source_id: Option<String>,
     pub observation_id: String,

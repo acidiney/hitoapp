@@ -2332,6 +2332,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["begin_credit_member_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/download": {
         parameters: {
             query?: never;
@@ -3143,6 +3159,7 @@ export interface components {
             is_album_release: boolean;
             library_only: components["schemas"]["ReleaseTrack"][];
             matches: components["schemas"]["CatalogTrackMatch"][];
+            stats: components["schemas"]["EditionTrackStats"];
             /** @enum {string} */
             status: "available";
         } | {
@@ -4069,6 +4086,23 @@ export interface components {
             join?: string | null;
             name: string;
             role: components["schemas"]["CreditRole"];
+        };
+        CreditMemberReviewContext: {
+            access_grant_id: string;
+            account_id: string;
+            artist_id: string;
+            artist_operation_id: string | null;
+            connection: components["schemas"]["ArtistReviewConnection"] | null;
+            credited_name: string;
+            library_id: string;
+            metadata_binding: components["schemas"]["ArtistReviewMetadataBinding"] | null;
+            observation_id: string;
+            /** Format: int64 */
+            policy_revision: number;
+            provider: components["schemas"]["MetadataProvider"];
+            recording_id: string;
+            role: components["schemas"]["CreditRole"];
+            source_id: string | null;
         };
         /** @enum {string} */
         CreditRole: "main" | "featured";
@@ -17957,6 +17991,112 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    begin_credit_member_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                artist: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginArtistReview"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditMemberReviewContext"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

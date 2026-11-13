@@ -182,6 +182,7 @@ export const mergedTrackList = {
     installation_revision: installation.revision,
   },
   is_album_release: true,
+  stats: { audio_tracks: 4, total_duration_ms: 4000 },
 } satisfies Schema<"AlbumEditionTrackListAvailability">;
 
 export const unsavableTrackList = {

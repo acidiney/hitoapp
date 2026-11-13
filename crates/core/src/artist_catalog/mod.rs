@@ -71,8 +71,8 @@ pub use types::{
     ArtistDiscographyAvailability, ArtistMatchingState, ArtistMatchingStatus,
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
     ArtistReviewMetadataBinding, AssociateRecordingArtist, CoverageEvidence, CreditEvidence,
-    CreditEvidenceKind, EditionTrackListAvailability, MetadataProvider, MetadataSettings,
-    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
+    CreditEvidenceKind, CreditMemberReviewContext, EditionTrackListAvailability, MetadataProvider,
+    MetadataSettings, ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
     ReleaseGroupEditionsAvailability, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 

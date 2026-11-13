@@ -175,7 +175,12 @@ impl Credit {
         if credit.artist_id == artist {
             return Ok(credit);
         }
-        CreditTarget::capture_member(connection, actor, recording, credit, artist, None).await
+        CreditTarget::capture_member(connection, actor, recording, credit, artist, None)
+            .await
+            .map_err(|error| match error {
+                Error::NotFound => changed(),
+                error => error,
+            })
     }
 
     pub(super) async fn capture_association(
@@ -187,7 +192,7 @@ impl Credit {
         Self::capture_target(connection, actor, &association.recording_id, &target).await
     }
 
-    async fn capture_target(
+    pub(super) async fn capture_target(
         connection: &mut SqliteConnection,
         actor: &Actor,
         recording: &str,

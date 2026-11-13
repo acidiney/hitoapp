@@ -79,7 +79,13 @@ impl CreditTarget {
         .bind(artist)
         .fetch_optional(connection)
         .await?;
-        let (name, role) = member.ok_or(super::authority::changed())?;
+        let (name, role) = member.ok_or_else(|| {
+            if expected_role.is_some() {
+                super::authority::changed()
+            } else {
+                Error::NotFound
+            }
+        })?;
         let role = match role.as_str() {
             "main" => CreditRole::Main,
             "featured" => CreditRole::Featured,
