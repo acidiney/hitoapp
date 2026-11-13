@@ -1,0 +1,7 @@
+INSERT INTO libraries(id,name) VALUES ('owned-work-library','Owned shared migration work library');
+INSERT INTO releases(id,library_id,title,artist,identity_key) VALUES ('00000000-0000-4000-8000-000000000082','owned-work-library','Owned shared migration album','Ada','owned-shared-work-album');
+INSERT INTO recordings(id,library_id,release_id,title,artist,duration_ms) VALUES ('00000000-0000-4000-8000-000000000081','owned-work-library','00000000-0000-4000-8000-000000000082','Owned shared migration track','Ada',100000);
+INSERT INTO sources(id,recording_id,provider,provider_id,ready) VALUES ('owned-work-source','00000000-0000-4000-8000-000000000081','local','owned-work-source',0);
+INSERT INTO metadata_observations(id,source_id,recording_id,release_id,provider,origin,inspection_version,title,artist,duration_ms) VALUES ('owned-work-observation','owned-work-source','00000000-0000-4000-8000-000000000081','00000000-0000-4000-8000-000000000082','local','file_inspection',1,'Owned shared migration track','Ada',100000);
+UPDATE recordings SET metadata_source_id='owned-work-source',metadata_observation_id='owned-work-observation' WHERE id='00000000-0000-4000-8000-000000000081';
+INSERT INTO source_metadata(source_id,release_id,title,artist,duration_ms,observation_id) VALUES ('owned-work-source','00000000-0000-4000-8000-000000000082','Owned shared migration track','Ada',100000,'owned-work-observation');
