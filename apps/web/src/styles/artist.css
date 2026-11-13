@@ -544,7 +544,11 @@
 }
 
 @media (max-width: 767px) {
+  .detail-page .edition-toolbar {
+    flex-wrap: wrap;
+  }
   .detail-page .album-toolbar-note {
+    flex: 1 1 100%;
     margin-left: 0;
     font-size: 12px;
   }

@@ -720,6 +720,10 @@
     margin-top: 4px;
     color: var(--muted);
   }
+  .album-stats {
+    overflow: visible;
+    white-space: normal;
+  }
   .album-status {
     grid-column: 1 / -1;
     grid-row: 4;
