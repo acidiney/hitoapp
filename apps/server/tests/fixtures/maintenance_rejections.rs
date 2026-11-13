@@ -1,4 +1,5 @@
 use super::fixture;
+use hito_core::test_support::schema_history;
 use sqlx::{Connection, Row, SqliteConnection, sqlite::SqliteConnectOptions};
 use std::{
     collections::BTreeMap,
@@ -60,8 +61,24 @@ pub(super) async fn state(database: &Path) -> State {
             .fetch_all(&mut connection)
             .await
             .unwrap();
+    let declared_additions = [
+        schema_history::offline_replicas_schema::ADDED,
+        schema_history::replica_catalog_schema::ADDED,
+        schema_history::recording_lyric_identity_schema::ADDED,
+    ];
+    let schema_limit = 727
+        + declared_additions
+            .iter()
+            .map(|objects| objects.len())
+            .sum::<usize>();
+    let table_limit = 172
+        + declared_additions
+            .iter()
+            .flat_map(|objects| objects.iter())
+            .filter(|object| object.0 == "table")
+            .count();
     assert!(
-        schema.len() <= 727,
+        schema.len() <= schema_limit,
         "owned schema snapshot bound exceeded: objects={} tables={} indexes={} triggers={} views={}",
         schema.len(),
         schema.iter().filter(|object| object.0 == "table").count(),
@@ -72,7 +89,7 @@ pub(super) async fn state(database: &Path) -> State {
     let tables: Vec<(String, bool)> = sqlx::query_as("SELECT name,wr=0 FROM pragma_table_list WHERE schema='main' AND type IN ('table','shadow','virtual') AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name")
         .fetch_all(&mut connection).await.unwrap();
     assert!(
-        tables.len() <= 172,
+        tables.len() <= table_limit,
         "owned snapshot table bound exceeded: {}",
         tables.len()
     );

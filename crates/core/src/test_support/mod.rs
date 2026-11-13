@@ -63,6 +63,9 @@ pub mod podcast_audio_service;
 #[cfg(feature = "test-support")]
 pub mod provider_audio;
 #[cfg(feature = "test-support")]
+#[path = "../../tests/fixtures/collection_artwork_schema.rs"]
+pub mod schema_history;
+#[cfg(feature = "test-support")]
 pub mod support;
 
 #[cfg(feature = "test-support")]
