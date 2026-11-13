@@ -51,6 +51,14 @@ pub struct Fixture {
 
 impl Fixture {
     pub async fn start() -> Self {
+        Self::start_with_no_suitable(false).await
+    }
+
+    pub async fn start_no_suitable() -> Self {
+        Self::start_with_no_suitable(true).await
+    }
+
+    async fn start_with_no_suitable(no_suitable: bool) -> Self {
         hang_guard(
             "owned occurrence retry setup",
             Box::pin(async {
@@ -162,7 +170,7 @@ impl Fixture {
                 );
                 let order = Arc::new(Mutex::new(Vec::new()));
                 let first = discovery('A', false, &order, &invalid, &original).await;
-                let second = discovery('B', true, &order, &invalid, &original).await;
+                let second = discovery('B', !no_suitable, &order, &invalid, &original).await;
                 let first_installation = connect(&services, &actor, &first).await;
                 let second_installation = connect(&services, &actor, &second).await;
                 let metadata_before = preserved_metadata(&services, &actor, recording).await;
@@ -241,6 +249,23 @@ impl Fixture {
             && target.len() == 1
             && target[0].liked
             && sentinel.is_some_and(|position| position.position_ms == 400)
+            && std::fs::read(self.directory.path().join("owned-provider.wav")).unwrap()
+                == self.original
+            && std::fs::read(self.directory.path().join("music/sentinel.wav")).unwrap()
+                == self.sentinel_original
+    }
+
+    pub async fn preserved_target_and_files(&self) -> bool {
+        let metadata = preserved_metadata(&self.services, &self.actor, self.recording).await;
+        let target = self
+            .services
+            .catalog
+            .recordings_by_ids(&self.actor, &[self.recording])
+            .await
+            .unwrap();
+        metadata == self.metadata_before
+            && target.len() == 1
+            && target[0].liked
             && std::fs::read(self.directory.path().join("owned-provider.wav")).unwrap()
                 == self.original
             && std::fs::read(self.directory.path().join("music/sentinel.wav")).unwrap()
