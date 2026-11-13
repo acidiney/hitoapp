@@ -20,3 +20,5 @@ mod artwork_rendition_http;
 #[path = "../fixtures/artwork_rendition_images.rs"]
 mod artwork_rendition_images;
 mod artwork_renditions;
+
+mod artwork_storage;

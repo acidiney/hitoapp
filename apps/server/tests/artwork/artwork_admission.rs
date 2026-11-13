@@ -104,7 +104,16 @@ async fn release_reads_preserve_recordings_while_artwork_admission_is_saturated(
             )
             .await
             .unwrap();
-        assert_eq!(image.status(), StatusCode::NOT_FOUND);
+        assert_eq!(image.status(), StatusCode::CONFLICT);
+        let image = image.into_body().collect().await.unwrap().to_bytes();
+        let image: Value = serde_json::from_slice(&image).unwrap();
+        assert_eq!(
+            image,
+            serde_json::json!({
+                "error": "Artwork storage is full. Existing artwork has been retained.",
+                "code": "artwork_storage_full"
+            })
+        );
         let response = app
             .oneshot(
                 Request::builder()
