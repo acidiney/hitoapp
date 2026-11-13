@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { creditMemberApi } from "../api/creditMemberApi";
 import { artistIdentityApi } from "../api/artistIdentityApi";
 import { HttpError } from "../../../shared/http";
@@ -89,10 +89,11 @@ export function useCreditMemberChoice(
       detail.selected_observation?.id,
     ]),
   );
-  const owner = useMemo<Owner>(
-    () => ({ generation: 0, controller: null, phase: null }),
-    [scope],
-  );
+  const [owner] = useState<Owner>(() => ({
+    generation: 0,
+    controller: null,
+    phase: null,
+  }));
   const [snapshot, setSnapshot] = useState(() => empty(owner, member.name));
   const current =
     snapshot.owner === owner ? snapshot : empty(owner, member.name);

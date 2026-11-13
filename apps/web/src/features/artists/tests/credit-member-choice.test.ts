@@ -246,7 +246,9 @@ test("members without an artist id are not listed", async () => {
       copies: { canonical_id: detail.recording_id, copies: [] },
     }),
   );
-  expect(screen.queryByRole("button", { name: /^Credited artists/ })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /^Credited artists/ }),
+  ).toBeNull();
   expect(container.innerHTML).not.toContain("Credited artists");
 });
 
@@ -328,14 +330,17 @@ test("opening the track makes no credit member request until the section is open
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   await screen.findByRole("button", { name: "Change artist" });
   expect(
-    fetch.mock.calls.filter(([path]) => String(path).includes("/credit-members/")),
+    fetch.mock.calls.filter(([path]) =>
+      String(path).includes("/credit-members/"),
+    ),
   ).toEqual([]);
   fireEvent.click(toggle);
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
   await within(row(featured.name)).findByText("Not chosen yet");
   expect(
-    fetch.mock.calls.filter(([path]) => String(path).includes("/credit-members/"))
-      .length,
+    fetch.mock.calls.filter(([path]) =>
+      String(path).includes("/credit-members/"),
+    ).length,
   ).toBe(2);
 });
 

@@ -85,9 +85,10 @@ function CreditMemberRow({
   const workflow = useCreditMemberChoice(account, detail, member);
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
-  const { read } = workflow;
+  const latest = useRef(workflow);
+  latest.current = workflow;
   useEffect(() => {
-    void read();
+    void latest.current.read();
   }, []);
   const state = workflow.choice?.state.status;
   const text =
@@ -149,9 +150,11 @@ function CreditMemberDialog({
   opener: RefObject<HTMLElement | null>;
   onClose(): void;
 }) {
-  const { open, loaded, pending } = workflow;
+  const { loaded, pending } = workflow;
+  const latest = useRef(workflow);
+  latest.current = workflow;
   useEffect(() => {
-    if (!loaded && pending === null) void open();
+    if (!loaded && pending === null) void latest.current.open();
   }, [loaded, pending]);
   const busy = pending === "choose";
   const preview = workflow.preview?.profile;
