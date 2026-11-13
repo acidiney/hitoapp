@@ -5,8 +5,9 @@ use crate::{
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
-    ArtistSearchRequest, CatalogArtistProfile, CatalogEditionTrackList, EditionTrackListRequest,
-    ReleaseGroupEditionsPage, ReleaseGroupEditionsRequest,
+    ArtistSearchRequest, CatalogArtistProfile, CatalogEditionTrackList, CatalogReleaseGroup,
+    EditionTrackListRequest, ReleaseGroupEditionsPage, ReleaseGroupEditionsRequest,
+    ReleaseGroupRequest,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -147,6 +148,45 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(|page| page.items.len()).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz release-group editions completed"
+        );
+        result
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "catalog_release_group", request_id = tracing::field::Empty))]
+    pub async fn release_group(
+        &self,
+        request: ReleaseGroupRequest,
+    ) -> Result<CatalogReleaseGroup, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            request
+                .validate()
+                .map_err(|_| Error::InvalidReleaseGroupRequest)?;
+            let id = Uuid::parse_str(&request.release_group_id)
+                .map_err(|_| Error::InvalidReleaseGroupRequest)?;
+            if id.hyphenated().to_string() != request.release_group_id {
+                return Err(Error::InvalidReleaseGroupRequest);
+            }
+            let bytes = self
+                .transport
+                .catalog_release_group(&request.release_group_id)
+                .await
+                .map_err(|error| match error {
+                    Error::InvalidResponse => Error::InvalidReleaseGroup,
+                    error => error,
+                })?;
+            discography::release_group(&bytes, &request)
+        }
+        .await;
+        tracing::debug!(
+            outcome = result
+                .as_ref()
+                .map(|_| "success")
+                .unwrap_or_else(|error| error.code()),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz release-group lookup completed"
         );
         result
     }

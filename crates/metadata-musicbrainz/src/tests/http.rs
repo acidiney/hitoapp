@@ -3,7 +3,7 @@ use axum::{
     Router,
     body::{Body, Bytes},
     extract::{Request, State},
-    http::{StatusCode, Uri},
+    http::{Method, StatusCode, Uri},
     response::Response,
 };
 use hito_plugin_sdk::{ArtistProfileRequest, CatalogArtistProfile};
@@ -38,6 +38,7 @@ impl Reply {
 struct StateData {
     replies: VecDeque<Reply>,
     requests: Vec<Uri>,
+    methods: Vec<Method>,
 }
 
 pub(super) struct Fixture {
@@ -52,6 +53,7 @@ impl Fixture {
         let state = Arc::new(Mutex::new(StateData {
             replies: replies.into(),
             requests: Vec::new(),
+            methods: Vec::new(),
         }));
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -98,6 +100,14 @@ impl Fixture {
             .clone()
     }
 
+    pub fn methods(&self) -> Vec<Method> {
+        self.state
+            .lock()
+            .expect("the fixture state must lock")
+            .methods
+            .clone()
+    }
+
     pub async fn close(mut self) {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
@@ -129,6 +139,7 @@ impl Drop for Fixture {
 async fn respond(State(state): State<Arc<Mutex<StateData>>>, request: Request) -> Response {
     let mut state = state.lock().expect("the fixture state must lock");
     state.requests.push(request.uri().clone());
+    state.methods.push(request.method().clone());
     let Some(reply) = state.replies.pop_front() else {
         return Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)

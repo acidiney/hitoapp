@@ -1,7 +1,7 @@
 use crate::Error;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogArtistRef, CatalogCreditMember,
-    CatalogReleaseGroup, CatalogReleaseGroupKind, CatalogReleaseTypeFilter,
+    CatalogReleaseGroup, CatalogReleaseGroupKind, CatalogReleaseTypeFilter, ReleaseGroupRequest,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -139,6 +139,21 @@ pub(super) fn page(
     page.validate_for(request)
         .map_err(|_| Error::InvalidDiscography)?;
     Ok(page)
+}
+
+pub(super) fn release_group(
+    bytes: &[u8],
+    request: &ReleaseGroupRequest,
+) -> Result<CatalogReleaseGroup, Error> {
+    let group: ReleaseGroup =
+        serde_json::from_slice(bytes).map_err(|_| Error::InvalidReleaseGroup)?;
+    let group = group
+        .into_catalog()
+        .map_err(|_| Error::InvalidReleaseGroup)?;
+    group
+        .validate_for(request)
+        .map_err(|_| Error::InvalidReleaseGroup)?;
+    Ok(group)
 }
 
 impl ReleaseGroup {
