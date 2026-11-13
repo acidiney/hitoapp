@@ -29,7 +29,7 @@ async fn migrated_database() -> &'static [u8] {
 }
 
 pub async fn library(host: &str) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
-    library_with_musicbrainz(host, None).await
+    library_configured(host, |_| {}).await
 }
 
 pub async fn library_with_musicbrainz(
