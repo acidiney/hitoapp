@@ -7,6 +7,7 @@ pub mod artist_identity;
 pub mod artist_identity_groups;
 pub mod artist_matching;
 pub mod artist_profiles;
+pub mod artist_release_group;
 pub mod artist_review;
 pub mod artist_review_queue;
 pub mod artist_similarity;

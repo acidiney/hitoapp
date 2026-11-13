@@ -34,6 +34,26 @@ impl<'a> ReviewedRead<'a> {
         association: &str,
     ) -> Result<ReviewedReadState<'a>> {
         let admission = catalog.admit(actor.id())?;
+        Self::capture_admitted(catalog, actor, recording, association, admission).await
+    }
+
+    pub(super) async fn capture_release_group(
+        catalog: &'a ArtistCatalog,
+        actor: &'a Actor,
+        recording: &str,
+        association: &str,
+    ) -> Result<ReviewedReadState<'a>> {
+        let admission = catalog.admit_release_group(actor.id())?;
+        Self::capture_admitted(catalog, actor, recording, association, admission).await
+    }
+
+    async fn capture_admitted(
+        catalog: &'a ArtistCatalog,
+        actor: &'a Actor,
+        recording: &str,
+        association: &str,
+        admission: (OwnedSemaphorePermit, OwnedSemaphorePermit),
+    ) -> Result<ReviewedReadState<'a>> {
         let (association, credit, policy_revision) = {
             let mut tx = catalog.store.pool.begin().await?;
             actor.check_session_on(&mut tx).await?;

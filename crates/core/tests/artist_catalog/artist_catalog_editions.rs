@@ -175,7 +175,7 @@ async fn exercise(library: &library::Library, server: &provider::CatalogServer) 
         panic!("The exact selected edition must return metadata for every occurrence");
     };
     assert_eq!(association_id, association.id);
-    assert!(edition == provider::expected_track_list());
+    assert!(*edition == provider::expected_track_list());
     assert_ne!(edition.media[0].tracks[0].id, edition.media[1].tracks[0].id);
     assert_eq!(
         edition.media[0].tracks[0].recording_id,

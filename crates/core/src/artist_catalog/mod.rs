@@ -13,6 +13,7 @@ mod continuation;
 mod credit_target;
 mod discography;
 mod discovery;
+mod edition_stats;
 mod editions;
 pub(crate) mod erasure;
 mod genre_lookups;
@@ -25,6 +26,7 @@ mod profile;
 mod provider;
 mod radio;
 pub(crate) mod reconcile;
+mod release_group;
 mod review;
 mod shared_corrections;
 mod similar_artists;
@@ -54,7 +56,9 @@ pub use association_changes::{
     UnlinkRecordingArtist,
 };
 pub(crate) use associations::LINKED;
+pub use edition_stats::EditionTrackStats;
 pub use radio::ArtistRadio;
+pub use release_group::{ReadReleaseGroup, ReleaseGroupAvailability};
 pub use shared_corrections::{
     PromoteArtistCorrection, PromotionSource, SharedArtistCorrection, SharedArtistCorrectionQuery,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
@@ -90,6 +94,8 @@ pub struct ArtistCatalog {
     builtin: MusicBrainzClient,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    release_group_slots: Arc<Semaphore>,
+    release_group_accounts: Accounts,
     background_slots: Arc<Semaphore>,
     background_accounts: Accounts,
     continuations: continuation::Key,
@@ -111,6 +117,8 @@ impl ArtistCatalog {
             builtin,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Accounts::new(1),
+            release_group_slots: Arc::new(Semaphore::new(2)),
+            release_group_accounts: Accounts::new(1),
             background_slots: Arc::new(Semaphore::new(1)),
             background_accounts: Accounts::new(1),
             continuations: continuation::Key::new(),
@@ -140,6 +148,19 @@ impl ArtistCatalog {
                 Error::Conflict("Artist profile requests are busy. Try again.".into())
             })?;
         let account = self.accounts.enter(account)?;
+        Ok((global, account))
+    }
+
+    fn admit_release_group(
+        &self,
+        account: &str,
+    ) -> Result<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {
+        let global = self
+            .release_group_slots
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Conflict("Album metadata requests are busy. Try again.".into()))?;
+        let account = self.release_group_accounts.enter(account)?;
         Ok((global, account))
     }
 }

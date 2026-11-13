@@ -51,6 +51,7 @@ export const catalogAlbumTrackList = {
   association_id: artistAssociation.id,
   edition: catalogAlbumEdition,
   linked: [],
+  stats: { audio_tracks: 4, total_duration_ms: 250_000 },
 } satisfies Schema<"EditionTrackListAvailability">;
 
 export const oneEditionPage = {

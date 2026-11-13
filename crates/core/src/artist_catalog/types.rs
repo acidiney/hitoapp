@@ -1,4 +1,4 @@
-use super::CatalogTrackMatch;
+use super::{CatalogTrackMatch, EditionTrackStats};
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile, CatalogEditionTrackList,
     CatalogReleaseTypeFilter, ReleaseGroupEditionsPage,
@@ -354,7 +354,8 @@ pub struct ReadEditionTrackList {
 pub enum EditionTrackListAvailability {
     Available {
         association_id: String,
-        edition: CatalogEditionTrackList,
+        edition: Box<CatalogEditionTrackList>,
+        stats: EditionTrackStats,
         linked: Vec<CatalogTrackMatch>,
     },
     Disabled,

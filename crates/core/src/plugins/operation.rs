@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use zeroize::Zeroizing;
 
 mod catalog_editions;
+mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
 mod health;

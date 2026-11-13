@@ -279,7 +279,7 @@ async fn exercise(
         panic!("The explicit retry must return the selected bonus edition");
     };
     assert_eq!(association_id, association.id);
-    assert!(edition == provider::expected_track_list());
+    assert!(*edition == provider::expected_track_list());
     assert!(
         !track_gate.has_retired(),
         "The exact metadata retry must finish while the original handler remains held"

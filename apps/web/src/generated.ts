@@ -2092,6 +2092,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/artist-associations/{association}/release-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recording_artist_release_group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/artist-associations/{association}/release-group-editions": {
         parameters: {
             query?: never;
@@ -4135,6 +4151,7 @@ export interface components {
             association_id: string;
             edition: components["schemas"]["CatalogEditionTrackList"];
             linked: components["schemas"]["CatalogTrackMatch"][];
+            stats: components["schemas"]["EditionTrackStats"];
             /** @enum {string} */
             status: "available";
         } | {
@@ -4149,6 +4166,11 @@ export interface components {
         } | {
             /** @enum {string} */
             status: "cancelled";
+        };
+        EditionTrackStats: {
+            audio_tracks: number;
+            /** Format: int64 */
+            total_duration_ms: number | null;
         };
         /** @enum {string} */
         ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required" | "artwork_admission_busy";
@@ -5474,6 +5496,9 @@ export interface components {
             installation_revision: number;
             observation_id: string;
         };
+        ReadReleaseGroup: {
+            release_group_id: string;
+        };
         ReadReleaseGroupEditions: {
             continuation?: string | null;
             /** Format: int32 */
@@ -5695,6 +5720,24 @@ export interface components {
             track_total: number | null;
             /** Format: int32 */
             year: number | null;
+        };
+        ReleaseGroupAvailability: {
+            association_id: string;
+            group: components["schemas"]["CatalogReleaseGroup"];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
         };
         ReleaseGroupEditionsAvailability: {
             association_id: string;
@@ -16505,6 +16548,114 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_artist_release_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                association: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadReleaseGroup"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseGroupAvailability"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

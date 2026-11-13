@@ -10,6 +10,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod catalog;
 mod catalog_editions;
+mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
 pub(super) mod health;
