@@ -330,3 +330,14 @@ mod plugin_connection;
 mod plugins;
 #[path = "api/storage.rs"]
 mod storage;
+
+#[path = "api/member_search_credential_dispatch_order.rs"]
+mod member_search_credential_dispatch_order;
+#[path = "fixtures/member_search_credential_order.rs"]
+mod member_search_credential_order_fixture;
+#[path = "fixtures/member_search_credential_provider.rs"]
+mod member_search_credential_provider;
+#[path = "fixtures/member_search_dispatch_gate.rs"]
+mod member_search_dispatch_gate;
+#[path = "fixtures/member_search_order_library.rs"]
+mod member_search_order_library;
