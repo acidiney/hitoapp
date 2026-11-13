@@ -483,12 +483,13 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_95().await;
+        let mut reference = collection_artwork_schema::reference_96().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED
             .iter()
             .chain(collection_artwork_schema::source_artist_trigger_schema::REPLACED)
+            .chain(collection_artwork_schema::artist_credit_target_schema::REPLACED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
@@ -505,6 +506,15 @@ impl RetainedState {
                     .insert(key.clone(), declared_indexes.remove(&key).unwrap());
             }
         }
+        let credit_target_index = (
+            "recording_artist_associations".to_owned(),
+            "sqlite_autoindex_recording_artist_associations_2".to_owned(),
+        );
+        assert!(self.indexes.contains_key(&credit_target_index));
+        self.indexes.insert(
+            credit_target_index.clone(),
+            declared_indexes.remove(&credit_target_index).unwrap(),
+        );
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()
             .chain(collection_artwork_schema::RANKING_ADDED)
@@ -540,6 +550,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::offline_replicas_schema::ADDED)
             .chain(collection_artwork_schema::replica_catalog_schema::ADDED)
             .chain(collection_artwork_schema::recording_lyric_identity_schema::ADDED)
+            .chain(collection_artwork_schema::artist_credit_target_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
