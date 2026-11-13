@@ -4147,10 +4147,11 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound";
+        ErrorCode: "operation_rejected" | "locked" | "wrong_password" | "already_bound" | "plugin_credentials_required";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
+            plugin_connection?: components["schemas"]["PluginInstallationStamp"] | null;
             recording_id?: string | null;
         };
         FeaturedEntry: {
@@ -5261,7 +5262,7 @@ export interface components {
             state: components["schemas"]["PluginHealthState"];
         };
         /** @enum {string} */
-        PluginHealthState: "ok" | "degraded" | "unreachable";
+        PluginHealthState: "ok" | "degraded" | "unreachable" | "credentials_required";
         PluginInstallation: {
             /** Format: int64 */
             checked_at: number;
@@ -5276,6 +5277,11 @@ export interface components {
         PluginInstallationPreview: {
             digest: string;
             manifest: components["schemas"]["Manifest"];
+        };
+        PluginInstallationStamp: {
+            installation_id: string;
+            /** Format: int64 */
+            installation_revision: number;
         };
         PluginRefresh: {
             installation: components["schemas"]["PluginInstallation"];

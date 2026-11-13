@@ -132,6 +132,7 @@ pub async fn cover_art(
                 error: "The cover is being retrieved".into(),
                 code: None,
                 recording_id: None,
+                plugin_connection: None,
             }),
         )
             .into_response()),

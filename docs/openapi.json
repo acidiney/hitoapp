@@ -24898,7 +24898,8 @@
           "operation_rejected",
           "locked",
           "wrong_password",
-          "already_bound"
+          "already_bound",
+          "plugin_credentials_required"
         ]
       },
       "ErrorResponse": {
@@ -24919,6 +24920,16 @@
           },
           "error": {
             "type": "string"
+          },
+          "plugin_connection": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PluginInstallationStamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "recording_id": {
             "type": [
@@ -29527,7 +29538,8 @@
         "enum": [
           "ok",
           "degraded",
-          "unreachable"
+          "unreachable",
+          "credentials_required"
         ]
       },
       "PluginInstallation": {
@@ -29585,6 +29597,22 @@
           },
           "manifest": {
             "$ref": "#/components/schemas/Manifest"
+          }
+        }
+      },
+      "PluginInstallationStamp": {
+        "type": "object",
+        "required": [
+          "installation_id",
+          "installation_revision"
+        ],
+        "properties": {
+          "installation_id": {
+            "type": "string"
+          },
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -107,7 +107,7 @@ pub use downloads::{
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
     PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
 };
-pub use error::{Error, Result};
+pub use error::{Error, PluginInstallationStamp, Result};
 pub use hito_plugin_sdk::CreditRole;
 pub use identity::{
     AccountDeletion, AccountSummary, Actor, AuthSession, AvatarImage, ChangePassword, Credentials,

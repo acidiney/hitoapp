@@ -52,6 +52,7 @@ pub fn response() -> Response {
             error: "Too many attempts. Try again in a minute.".into(),
             code: None,
             recording_id: None,
+            plugin_connection: None,
         }),
     )
         .into_response()
