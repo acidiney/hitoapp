@@ -18,7 +18,7 @@ export default function TrackRowSource({
     track === null || track.available || !!track.plays_from_services,
   );
   if (track === null) return <StatusDot status="none" />;
-  if (track.available) return <StatusDot status="ready" detail="Local" />;
+  if (track.available) return <StatusDot status="ready" />;
   if (resolved?.ready)
     return (
       <StatusDot

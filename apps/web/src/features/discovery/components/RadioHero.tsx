@@ -19,7 +19,7 @@ function mixLine(radio: Schema<"ArtistRadio">): string {
 }
 
 function Availability({ track }: { track: Schema<"Recording"> }) {
-  if (track.available) return <>Ready · Local</>;
+  if (track.available) return <>Ready</>;
   if (track.plays_from_services) return <>Ready · from your services</>;
   return <>No source</>;
 }

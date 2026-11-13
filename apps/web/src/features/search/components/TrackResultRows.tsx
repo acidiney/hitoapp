@@ -26,7 +26,7 @@ import { findAudioHref } from "../../recordings/model/trackTabs";
 import { RESULT_ROW } from "../hooks/useResultKeys";
 
 function Availability({ track }: { track: TrackRow }) {
-  if (track.available) return <StatusDot status="ready" detail="Local" />;
+  if (track.available) return <StatusDot status="ready" />;
   if (track.plays_from_services === true)
     return <StatusDot status="ready" detail="from your services" />;
   if (track.plays_from_services === false)
