@@ -83,7 +83,7 @@ test("opening the same catalog album again reuses the provider answers", async (
     view.unmount();
   }
   await waitFor(() => expect(fetch).toHaveBeenCalled());
-  expect(counts["/" + artistAssociation.id + "/profile"]).toBe(1);
+  expect(counts["/" + artistAssociation.id + "/profile"]).toBeUndefined();
   expect(counts["/" + artistAssociation.id + "/release-group-editions"]).toBe(
     1,
   );
