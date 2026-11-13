@@ -29,6 +29,8 @@ pub mod correction_schema;
 pub mod coverage_matches_schema;
 #[path = "credit_matches_schema.rs"]
 pub mod credit_matches_schema;
+#[path = "credit_member_identity_choice_schema.rs"]
+pub mod credit_member_identity_choice_schema;
 #[path = "credit_member_schema.rs"]
 pub mod credit_member_schema;
 #[path = "credited_artist_photos_schema.rs"]
@@ -530,6 +532,10 @@ pub async fn reference_96() -> SqliteConnection {
     artist_credit_target_schema::reference(reference_95().await).await
 }
 
+pub async fn reference_97() -> SqliteConnection {
+    credit_member_identity_choice_schema::reference(reference_96().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -581,6 +587,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         94 => reference_94().await,
         95 => reference_95().await,
         96 => reference_96().await,
+        97 => reference_97().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -826,6 +833,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 95),
+    )
+    .chain(
+        credit_member_identity_choice_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 97),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
@@ -857,6 +870,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             count, 0,
             "historical state must not imply community consent, reporters, contributions or collection covers"
         );
+    }
+    if version >= 97 {
+        credit_member_identity_choice_schema::assert_empty(connection).await;
     }
     if version >= 95 {
         recording_lyric_identity_schema::assert_empty(connection).await;
