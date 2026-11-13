@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { dateOnly } from "../../../shared/format";
 import ArtistReview from "../../artists/components/ArtistReview";
+import CreditMembers from "../../artists/components/CreditMembers";
 import { opensArtistSearch } from "../../artists/model/artistSearchLink";
 import MetadataDetails from "../../metadata/components/MetadataDetails";
 import RecordingCredits from "../../metadata/components/RecordingCredits";
@@ -47,6 +48,17 @@ export default function TrackMetadata({
         account={account}
         detail={detail}
         openSearch={opensArtistSearch(window.location.search)}
+      />
+      <CreditMembers
+        key={JSON.stringify([
+          "credit-members",
+          account,
+          detail.recording_id,
+          source?.id,
+          detail.artist.operation_id,
+        ])}
+        account={account}
+        detail={detail}
       />
       <section className="track-block" aria-labelledby="track-origin-heading">
         <h2 id="track-origin-heading">Where these details come from</h2>
