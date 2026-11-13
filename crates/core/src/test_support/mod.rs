@@ -72,6 +72,8 @@ pub mod resolution_unavailable;
 #[path = "../../tests/fixtures/collection_artwork_schema.rs"]
 pub mod schema_history;
 #[cfg(feature = "test-support")]
+pub mod source_link_service;
+#[cfg(feature = "test-support")]
 pub mod support;
 
 #[cfg(feature = "test-support")]

@@ -46,6 +46,9 @@ use hito_core::test_support::content_service as provider_fixture;
 #[path = "api/featured.rs"]
 mod featured;
 
+#[path = "api/source_links.rs"]
+mod source_links;
+
 #[path = "api/plugin_health.rs"]
 mod plugin_health;
 

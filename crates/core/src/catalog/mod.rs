@@ -11,8 +11,8 @@ mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
-    AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
-    ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
+    AdoptProviderRecording, AttachReviewedProviderSource, LookupSourceLink, PrepareSource,
+    ProviderCandidate, ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub(crate) use provider::{AudioPermit, CatalogAudio, CatalogTrack};
