@@ -118,9 +118,18 @@ impl Catalog {
             .await?;
         let (found, ticket) = operation.lookup_source_link(&lookup).await?;
         {
-            let mut connection = self.store.pool.acquire().await?;
-            let after = authority(&mut connection, actor, recording).await?;
-            operation.recheck(&mut connection).await?;
+            let mut snapshot = self.store.pool.begin().await?;
+            let after = authority(&mut snapshot, actor, recording).await?;
+            #[cfg(feature = "test-support")]
+            tracing::debug!(
+                target: "hito_core::authority_snapshot_test",
+                point = "source_link_postcheck",
+                snapshot_current = true,
+                transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*snapshot) > 0,
+                "Owned authority snapshot checkpoint"
+            );
+            operation.recheck(&mut snapshot).await?;
+            snapshot.commit().await?;
             if after != before {
                 return Err(Error::Conflict(
                     "The recording changed during the lookup. Paste the link again.".into(),
