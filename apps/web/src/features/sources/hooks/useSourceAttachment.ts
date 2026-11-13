@@ -130,10 +130,9 @@ export function useSourceAttachment(
     } catch (error) {
       if (active()) {
         reason = "failed";
+        const outcome = failure(account, error);
         setSnapshot((value) =>
-          active() && value.owner === owner
-            ? { ...value, ...failure(account, error) }
-            : value,
+          active() && value.owner === owner ? { ...value, ...outcome } : value,
         );
       }
       return false;
