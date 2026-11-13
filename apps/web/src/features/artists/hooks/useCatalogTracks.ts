@@ -89,7 +89,15 @@ export function useCatalogTracks(
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [account, recording, association.id, releaseGroupId, linked, edition, ready]);
+  }, [
+    account,
+    recording,
+    association.id,
+    releaseGroupId,
+    linked,
+    edition,
+    ready,
+  ]);
 
   const rows: CatalogTrack[] = album.rows.map((row) => {
     const found = playback.recordings.get(row.id) ?? null;

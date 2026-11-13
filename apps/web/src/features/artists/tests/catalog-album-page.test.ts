@@ -364,7 +364,8 @@ test("a cold direct album link loads its editions and tracks even when the artis
   const list = await screen.findByRole("list", { name: "Tracks" });
   await within(list).findByText(catalogAlbumTitles[0]);
   const editions = fetch.mock.calls.filter(
-    ([path]) => path === `${base}/${artistAssociation.id}/release-group-editions`,
+    ([path]) =>
+      path === `${base}/${artistAssociation.id}/release-group-editions`,
   );
   expect(editions.length).toBeGreaterThan(0);
   expect(JSON.parse(editions[0][1]!.body as string)).toMatchObject({
