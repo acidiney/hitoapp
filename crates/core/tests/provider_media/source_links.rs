@@ -3,15 +3,16 @@ use hito_core::test_support::source_link_service::{
     Answer, KNOWN_RECORDING, KNOWN_REFERENCE, SourceLinkServer, recording,
 };
 use hito_core::{
-    Actor, Credentials, Error, InstallPlugin, LookupSourceLink, OfferPluginService,
-    PluginCredential, PluginInstallation, PluginRefresh, ProviderCandidate, RefreshPlugin,
-    Services, SetPin,
+    Actor, AttachReviewedProviderSource, ChooseSource, Credentials, Error, InstallPlugin,
+    LookupSourceLink, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
+    ProviderCandidate, RefreshPlugin, Services, SetPin,
 };
 use hito_plugin_sdk::Capability;
-use hito_testkit::logs::LogCapture;
+use hito_testkit::{held_authority_snapshot::HeldSnapshot, logs::LogCapture};
 use serde_json::{Value, json};
 use std::{future::pending, time::Duration};
 use tracing::instrument::WithSubscriber;
+use tracing_subscriber::prelude::*;
 
 const PASSWORD: &str = "indexing test password";
 
@@ -677,6 +678,91 @@ async fn lookup_logs_carry_safe_outcomes_and_never_the_reference() {
             "private-recording-sentinel",
             "links.example",
         ]);
+    })
+    .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_source_choice_made_during_the_connection_recheck_publishes_no_candidate() {
+    run("source-link-choice-during-recheck", async |owned| {
+        let server = owned.server().await;
+        let world = owned.world.as_ref().unwrap();
+        let installation = connect(&world.hito, &world.actor, &server).await;
+        let candidate = lookup(world, &world.actor, &installation, KNOWN_REFERENCE)
+            .await
+            .unwrap();
+        let review = world
+            .hito
+            .catalog
+            .review_provider_source(&world.actor, &world.recording, candidate.clone())
+            .await
+            .unwrap();
+        world
+            .hito
+            .catalog
+            .attach_provider_source(
+                &world.actor,
+                &world.recording,
+                AttachReviewedProviderSource {
+                    candidate,
+                    review_stamp: review.review_stamp,
+                },
+            )
+            .await
+            .unwrap();
+        let attached = world
+            .hito
+            .catalog
+            .sources(&world.actor, &world.recording)
+            .await
+            .unwrap()
+            .remove(0);
+        let lookups = server.lookup_references().len();
+        let held = HeldSnapshot::at("source_link_postcheck");
+        {
+            let catalog = world.hito.catalog.clone();
+            let recording = world.recording.clone();
+            let request = request(&installation, KNOWN_REFERENCE);
+            let actor = world.actor.clone();
+            owned.requests.spawn(
+                async move {
+                    catalog
+                        .lookup_source_link(&actor, &recording, request, pending())
+                        .await
+                }
+                .with_subscriber(tracing_subscriber::registry().with(held.clone())),
+            );
+        }
+        held.entered().await;
+        let chosen = world
+            .hito
+            .catalog
+            .choose_source(
+                &world.actor,
+                &world.recording,
+                ChooseSource {
+                    request_id: uuid::Uuid::new_v4(),
+                    source_id: uuid::Uuid::parse_str(&attached.id).unwrap(),
+                },
+            )
+            .await;
+        held.release();
+        chosen.unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            owned.requests.join_next().await.unwrap()
+        })
+        .await
+        .expect("the held lookup must finish once released")
+        .unwrap();
+        held.assert_returned();
+        assert!(
+            matches!(result, Err(Error::Conflict(_))),
+            "{:?}",
+            result
+                .as_ref()
+                .map(|candidate| &candidate.provider_recording_id)
+        );
+        assert_eq!(server.lookup_references().len(), lookups + 1);
     })
     .await;
 }
