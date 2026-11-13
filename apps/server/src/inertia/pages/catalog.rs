@@ -202,29 +202,49 @@ pub(super) async fn artist(request: PageRequest<'_>, id: &str) -> ApiResult<Page
     }))
 }
 
-pub(super) async fn catalog_album(request: PageRequest<'_>, id: &str) -> ApiResult<PageProps> {
+pub(super) async fn catalog_album(
+    request: PageRequest<'_>,
+    id: &str,
+    release_group: &str,
+) -> ApiResult<PageProps> {
+    let invalid = || hito_core::Error::Invalid("Use a valid catalog release-group path".into());
+    if release_group.match_indices('%').any(|(index, _)| {
+        !release_group
+            .as_bytes()
+            .get(index + 1..index + 3)
+            .is_some_and(|bytes| bytes.iter().all(u8::is_ascii_hexdigit))
+    }) {
+        return Err(invalid().into());
+    }
+    let decoded = percent_encoding::percent_decode_str(release_group)
+        .decode_utf8()
+        .map_err(|_| invalid())?;
+    if decoded.trim().is_empty() || decoded.chars().any(char::is_control) {
+        return Err(invalid().into());
+    }
+    let release_group_id = request
+        .requested("release_group_id")
+        .then(|| decoded.into_owned());
     let detail = request
-        .when("detail", async {
-            Ok(request
-                .services
-                .artist_catalog
-                .artist_identity_group(
-                    request.actor,
-                    id,
-                    ArtistIdentityGroupBrowse {
-                        library: None,
-                        library_offset: None,
-                        recording_offset: None,
-                        release_offset: None,
-                        limit: Some(1),
-                    },
-                )
-                .await?)
-        })
+        .services
+        .artist_catalog
+        .artist_identity_group(
+            request.actor,
+            id,
+            ArtistIdentityGroupBrowse {
+                library: None,
+                library_offset: None,
+                recording_offset: None,
+                release_offset: None,
+                limit: Some(1),
+            },
+        )
         .await?;
-    Ok(PageProps::CatalogAlbum(ArtistIdentityGroupPageProps {
+    let detail = request.requested("detail").then_some(detail);
+    Ok(PageProps::CatalogAlbum(CatalogAlbumPageProps {
         shared: request.shared,
         detail,
+        release_group_id,
     }))
 }
 

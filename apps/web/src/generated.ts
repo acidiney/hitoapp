@@ -3824,6 +3824,10 @@ export interface components {
             /** Format: int64 */
             installation_revision: number;
         };
+        CatalogAlbumPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["ArtistIdentityGroupDetail"];
+            release_group_id: string;
+        };
         /** @enum {string} */
         CatalogArtistKind: "person" | "group" | "orchestra" | "choir" | "character" | "other";
         CatalogArtistProfile: {

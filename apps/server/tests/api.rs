@@ -220,6 +220,8 @@ mod artist_discography_type;
 mod artist_editions;
 #[path = "api/artist_editions_cold.rs"]
 mod artist_editions_cold;
+#[path = "api/catalog_album_inertia_cold.rs"]
+mod catalog_album_inertia_cold;
 #[path = "api/artist_identity.rs"]
 mod artist_identity;
 #[path = "api/artist_identity_access.rs"]

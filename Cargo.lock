@@ -2778,6 +2778,7 @@ dependencies = [
  "hyper-util",
  "image",
  "lofty",
+ "percent-encoding",
  "serde",
  "serde_json",
  "sha2",

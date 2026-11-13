@@ -41,6 +41,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         AlbumDetailsPageProps,
         ArtistIndexPageProps,
         ArtistIdentityGroupPageProps,
+        CatalogAlbumPageProps,
         ArtistPageProps,
         RecordingDetailsPageProps,
         PlaylistIndexPageProps,

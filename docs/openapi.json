@@ -23610,6 +23610,28 @@
           }
         }
       },
+      "CatalogAlbumPageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "detail",
+              "release_group_id"
+            ],
+            "properties": {
+              "detail": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupDetail"
+              },
+              "release_group_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "CatalogArtistKind": {
         "type": "string",
         "enum": [
