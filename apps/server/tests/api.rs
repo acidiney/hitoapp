@@ -348,3 +348,8 @@ mod member_search_order_library;
 mod catalog_edition_digest_parity;
 #[path = "fixtures/catalog_edition_digest_parity.rs"]
 mod catalog_edition_digest_parity_fixture;
+
+#[path = "api/credit_member_review_preview.rs"]
+mod credit_member_review_preview;
+#[path = "fixtures/credit_member_review_preview.rs"]
+mod credit_member_review_preview_fixture;
