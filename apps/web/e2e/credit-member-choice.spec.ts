@@ -308,8 +308,11 @@ test("a second account with access to a shared recording reads no member choice 
     await expect(picker).toBeHidden();
     await expect(
       page
-        .locator(".music-folder-row")
-        .filter({ hasText: "Credits" })
+        .getByRole("list", { name: "Connected music folders" })
+        .getByRole("listitem")
+        .filter({
+          has: page.getByRole("heading", { name: "Credits", exact: true }),
+        })
         .filter({ hasText: "1 file read" }),
     ).toHaveCount(1, { timeout: 20_000 });
 
