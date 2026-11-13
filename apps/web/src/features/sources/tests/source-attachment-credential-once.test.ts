@@ -24,7 +24,12 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     services: [
-      { id: "service", name: "Provider", base_url: "https://p.example/", revision: 1 },
+      {
+        id: "service",
+        name: "Provider",
+        base_url: "https://p.example/",
+        revision: 1,
+      },
     ],
     installations: [
       {
