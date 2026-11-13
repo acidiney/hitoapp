@@ -1,8 +1,7 @@
 use super::{
-    Catalog,
-    assets::{self, ValidatedArtwork},
-    jobs,
+    Catalog, assets, jobs,
     lease::Lease,
+    rendition::{self, ValidatedArtwork},
 };
 use crate::{Error, Result, plugins::ProviderArtwork};
 use hito_plugin_sdk::Capability;
@@ -79,7 +78,7 @@ impl Catalog {
         };
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            assets::decode(remote)
+            rendition::decode(remote)
         })
         .await
         .map_err(|_| Error::Internal("Artwork validation stopped".into()))?

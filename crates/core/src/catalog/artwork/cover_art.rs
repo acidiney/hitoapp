@@ -1,6 +1,7 @@
 use super::{
     Artwork, Catalog, assets, credited_artist,
     lookups::{self, LookupState, RETRY_AFTER_SECONDS},
+    rendition,
 };
 use crate::{Actor, Error, Result, plugins::ProviderArtwork};
 use hito_metadata_musicbrainz::CoverKind;
@@ -303,7 +304,7 @@ impl Catalog {
         };
         let outcome = match fetched {
             Ok(Fetch::Found(remote)) => {
-                match tokio::task::spawn_blocking(move || assets::decode(remote))
+                match tokio::task::spawn_blocking(move || rendition::decode(remote))
                     .await
                     .map_err(|_| Error::Internal("Cover art validation stopped".into()))?
                 {
@@ -454,7 +455,11 @@ impl Catalog {
         Ok(())
     }
 
-    async fn publish_cover(&self, lookup: &Lookup, image: assets::ValidatedArtwork) -> Result<()> {
+    async fn publish_cover(
+        &self,
+        lookup: &Lookup,
+        image: rendition::ValidatedArtwork,
+    ) -> Result<()> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let hash = assets::store(&mut tx, &lookup.user_id, image).await?;
         sqlx::query(

@@ -13,6 +13,7 @@ mod lookups;
 mod playlist;
 mod reader;
 mod release;
+mod rendition;
 mod target;
 #[cfg(test)]
 #[path = "artwork/tests/work.rs"]
