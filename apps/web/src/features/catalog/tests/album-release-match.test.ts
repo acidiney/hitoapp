@@ -123,16 +123,17 @@ test("a matched release with several track lists asks which one, with the sugges
   });
   render(page(matched));
   await open();
-  await screen.findByRole("heading", {
+  const dialog = await screen.findByRole("dialog", {
     name: `Is this ${editionGroup.title} from 2024?`,
   });
-  const radios = await screen.findAllByRole("radio");
+  const radios = await within(dialog).findAllByRole("radio");
   expect(radios).toHaveLength(2);
   expect((radios[0] as HTMLInputElement).checked).toBe(true);
   expect(fetch.mock.calls.map(([path]) => path)).not.toContain(comparison);
   fireEvent.click(radios[1]);
-  fireEvent.click(screen.getByRole("button", { name: "Use this" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Use this" }));
   await screen.findByRole("region", { name: "Album edition track list" });
+  expect(screen.queryByRole("dialog")).toBeNull();
   const call = fetch.mock.calls.find(([path]) => path === comparison)!;
   expect(JSON.parse(call[1]!.body as string).edition_id).toBe(bonusEdition.id);
 });
@@ -270,5 +271,55 @@ test("an album whose title is a remix is not lined up with the original release 
   expect(screen.queryByText(/^Lined up with/)).toBeNull();
   expect(
     screen.getByRole("button", { name: "Choose the release" }),
+  ).toBeTruthy();
+});
+
+test("closing the edition question with Escape keeps only the album's own tracks", async () => {
+  serve({
+    [editions]: () =>
+      Response.json({
+        ...firstEditionPage,
+        continuation: null,
+        page: {
+          ...firstEditionPage.page,
+          items: [...firstEditionPage.page.items, bonusEdition],
+        },
+      }),
+  });
+  render(page(matched));
+  await open();
+  const dialog = await screen.findByRole("dialog", {
+    name: `Is this ${editionGroup.title} from 2024?`,
+  });
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    await screen.findByRole("button", { name: "Choose an edition" }),
+  ).toBeTruthy();
+});
+
+test("picking a different release keeps the question in a dialog", async () => {
+  serve({
+    [editions]: () =>
+      Response.json({
+        ...firstEditionPage,
+        continuation: null,
+        page: {
+          ...firstEditionPage.page,
+          items: [...firstEditionPage.page.items, bonusEdition],
+        },
+      }),
+  });
+  render(page(matched));
+  await open();
+  const question = await screen.findByRole("dialog");
+  fireEvent.click(
+    within(question).getByRole("button", { name: "It's a different release" }),
+  );
+  const picker = await screen.findByRole("dialog", {
+    name: `Which release is ${matched.release.title}?`,
+  });
+  expect(
+    within(picker).getByRole("list", { name: "Releases to choose from" }),
   ).toBeTruthy();
 });
