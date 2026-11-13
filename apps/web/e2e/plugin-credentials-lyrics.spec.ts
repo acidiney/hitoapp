@@ -24,6 +24,7 @@ import {
   settingsLinkName,
   showLyrics,
   trackTitle,
+  openSettingsPlugins,
 } from "./fixtures/credential-ui";
 
 test.beforeAll(async ({ browser }, info) => {
@@ -145,33 +146,57 @@ test("a fresh lyrics read that succeeds again with the same token clears the mar
   try {
     setup.plugin.rotate();
     await playFromLibrary(page);
+    await page.evaluate(() => {
+      (window as unknown as { credentialRecovery?: string }).credentialRecovery =
+        "same-document";
+    });
+    const sameDocument = () =>
+      page.evaluate(
+        () =>
+          (window as unknown as { credentialRecovery?: string })
+            .credentialRecovery,
+      );
     const panel = await openLyricsFromLibrary(page);
     await showLyrics(panel);
     await expect(panel.getByRole("alert")).toContainText(credentialMessage);
     await panel.getByRole("link", { name: settingsLinkName }).click();
+    await expect(
+      page.getByRole("heading", { name: "Plugins", exact: true }),
+    ).toBeVisible();
     await expect(connectionCard(page, label).getByText(markLabel)).toBeVisible();
     const revision = (await pluginSettings(page.request)).installations.find(
       (installation) => installation.manifest.name === label,
     )!.revision;
+    const acceptedBefore = setup.plugin.accepted("v2/lyrics");
 
     setup.plugin.restore();
-    const reopened = await openLyricsFromLibrary(page);
+    const fresh = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith(`/recordings/${track.id}/lyrics/identities/read`) &&
+        response.status() === 200,
+    );
+    await page.goBack();
+    const reopened = await ensureLyricsTab(page);
     await showLyrics(reopened);
     const retry = reopened.getByRole("button", { name: "Retry" });
     if (await retry.isVisible()) await retry.click();
+    const read = await (await fresh).json();
+    expect(["ready_v1", "ready_v2"]).toContain(read.status);
     await expect(reopened.getByText("Plain river line")).toBeVisible();
     await expect(reopened.getByRole("alert")).toHaveCount(0);
+    expect(setup.plugin.accepted("v2/lyrics")).toBeGreaterThan(acceptedBefore);
 
-    await page.goto(pluginsPath);
-    const card = connectionCard(page, label);
-    await expect(card).toBeVisible();
-    await expect(card.getByText(markLabel)).toHaveCount(0);
+    await openSettingsPlugins(page);
+    expect(await sameDocument()).toBe("same-document");
     expect(
       (await pluginSettings(page.request)).installations.find(
         (installation) => installation.manifest.name === label,
       )!.revision,
     ).toBe(revision);
-    expect(setup.plugin.accepted("v2/lyrics")).toBeGreaterThan(0);
+    const card = connectionCard(page, label);
+    await expect(card).toBeVisible();
+    await expect(card.getByText(markLabel)).toHaveCount(0);
   } finally {
     await setup.dispose();
   }
