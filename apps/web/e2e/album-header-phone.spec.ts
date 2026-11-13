@@ -136,12 +136,7 @@ for (const width of [320, 390]) {
       expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(
         editionBox.y + editionBox.height,
       );
-      const parts = [
-        await boxOf(all),
-        await boxOf(mine),
-        editionBox,
-        noteBox,
-      ];
+      const parts = [await boxOf(all), await boxOf(mine), editionBox, noteBox];
       for (let i = 0; i < parts.length; i++)
         for (let j = i + 1; j < parts.length; j++)
           expect(apart(parts[i], parts[j])).toBe(true);
