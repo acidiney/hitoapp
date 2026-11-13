@@ -95,8 +95,8 @@ export function useCreditTailOffer(
       if (!request.active()) return;
       setView((current) => ({ ...current, offer: found }));
       log.debug("credit_tail_offer.loaded", {
-        offered: found !== null,
-        pages,
+        enabled: found !== null,
+        count: pages,
         duration_ms: Math.round(performance.now() - started),
       });
     })();
