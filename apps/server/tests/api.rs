@@ -294,8 +294,18 @@ mod credit_member_boundary_fixture;
 mod credit_member_review_context;
 #[path = "api/credit_member_review_context_boundaries.rs"]
 mod credit_member_review_context_boundaries;
+#[path = "fixtures/credit_member_review_credentials.rs"]
+mod credit_member_review_credentials;
+#[path = "fixtures/credit_member_review_credentials_provider.rs"]
+mod credit_member_review_credentials_provider;
+#[path = "fixtures/credit_member_review_owned.rs"]
+mod credit_member_review_owned;
 #[path = "api/credit_member_review_search.rs"]
 mod credit_member_review_search;
+#[path = "api/credit_member_review_search_credentials.rs"]
+mod credit_member_review_search_credentials;
+#[path = "api/credit_member_review_search_stale.rs"]
+mod credit_member_review_search_stale;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
 #[path = "api/metadata.rs"]
