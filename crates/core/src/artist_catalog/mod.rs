@@ -71,9 +71,10 @@ pub use types::{
     ArtistDiscographyAvailability, ArtistMatchingState, ArtistMatchingStatus,
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
     ArtistReviewMetadataBinding, AssociateRecordingArtist, CoverageEvidence, CreditEvidence,
-    CreditEvidenceKind, CreditMemberReviewContext, EditionTrackListAvailability, MetadataProvider,
-    MetadataSettings, ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
-    ReleaseGroupEditionsAvailability, UpdateAutomaticLookups, UpdateMetadataSettings,
+    CreditEvidenceKind, CreditMemberCandidateSearchAvailability, CreditMemberReviewContext,
+    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadArtistDiscography,
+    ReadEditionTrackList, ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
+    UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 
 use crate::{Catalog, Error, HostDeviceId, Plugins, Result, admission::Accounts, store::Store};

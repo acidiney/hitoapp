@@ -21,6 +21,7 @@ async fn a_selected_edition_merges_with_the_library_only_by_exact_provider_ident
         association_id,
         edition,
         stats: _,
+        edition_digest: _,
         matches,
         library_only,
         attached_occurrences,

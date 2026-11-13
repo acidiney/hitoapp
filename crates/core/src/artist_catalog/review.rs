@@ -184,10 +184,9 @@ pub(super) async fn recheck(
     context: &ArtistReviewContext,
     connection: Option<&Connection>,
 ) -> Result<bool> {
-    let mut tx = catalog.store.pool.begin().await?;
-    let current = recheck_on(&mut tx, actor, context, connection).await?;
-    tx.commit().await?;
-    Ok(current)
+    Authority::Whole(context)
+        .recheck(catalog, actor, connection)
+        .await
 }
 
 pub(super) async fn recheck_on(
@@ -196,33 +195,110 @@ pub(super) async fn recheck_on(
     context: &ArtistReviewContext,
     connection: Option<&Connection>,
 ) -> Result<bool> {
-    if context.account_id != actor.id() {
-        return Err(Error::NotFound);
+    Authority::Whole(context)
+        .recheck_on(transaction, actor, connection)
+        .await
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum Authority<'a> {
+    Whole(&'a ArtistReviewContext),
+    Member(&'a CreditMemberReviewContext),
+}
+
+impl<'a> Authority<'a> {
+    pub(super) fn provider(self) -> &'a MetadataProvider {
+        match self {
+            Self::Whole(context) => &context.provider,
+            Self::Member(context) => &context.provider,
+        }
     }
-    context.provider.validate()?;
-    actor.check_session_on(transaction).await?;
-    recording_access(transaction, actor, &context.recording_id).await?;
-    let settings = policy::read(transaction, actor).await?;
-    if !settings.enabled {
-        return Ok(false);
+
+    pub(super) fn is_member(self) -> bool {
+        matches!(self, Self::Member(_))
     }
-    if settings.revision != context.policy_revision
-        || !policy::selected(&settings, &context.provider)
-    {
-        return Err(policy::changed());
+
+    pub(super) async fn recheck(
+        self,
+        catalog: &ArtistCatalog,
+        actor: &Actor,
+        connection: Option<&Connection>,
+    ) -> Result<bool> {
+        let mut tx = catalog.store.pool.begin().await?;
+        let current = self.recheck_on(&mut tx, actor, connection).await?;
+        tx.commit().await?;
+        if current && self.is_member() {
+            let mut fresh = catalog.store.pool.acquire().await?;
+            return self.recheck_on(&mut fresh, actor, connection).await;
+        }
+        Ok(current)
     }
-    let current = Credit::capture(transaction, actor, &context.recording_id).await?;
-    if !current.matches_review(context) {
-        return Err(authority::changed());
-    }
-    policy::approved(transaction, actor, &context.provider).await?;
-    if let Some(connection) = connection {
-        if connection.review_connection() != context.connection {
+
+    async fn recheck_on(
+        self,
+        transaction: &mut SqliteConnection,
+        actor: &Actor,
+        connection: Option<&Connection>,
+    ) -> Result<bool> {
+        let (account, recording, provider, policy_revision, expected_connection) = match self {
+            Self::Whole(context) => (
+                &context.account_id,
+                &context.recording_id,
+                &context.provider,
+                context.policy_revision,
+                &context.connection,
+            ),
+            Self::Member(context) => (
+                &context.account_id,
+                &context.recording_id,
+                &context.provider,
+                context.policy_revision,
+                &context.connection,
+            ),
+        };
+        if account.as_str() != actor.id() {
+            return Err(Error::NotFound);
+        }
+        if self.is_member() {
+            actor.require_foreground_session()?;
+        }
+        provider.validate()?;
+        actor.check_session_on(transaction).await?;
+        recording_access(transaction, actor, recording).await?;
+        let settings = policy::read(transaction, actor).await?;
+        if !settings.enabled {
+            return Ok(false);
+        }
+        if settings.revision != policy_revision || !policy::selected(&settings, provider) {
+            return Err(policy::changed());
+        }
+        let matches = match self {
+            Self::Whole(context) => Credit::capture(transaction, actor, recording)
+                .await?
+                .matches_review(context),
+            Self::Member(context) => {
+                let target = CreditTarget::NamedMember {
+                    artist_id: context.artist_id.clone(),
+                    role: context.role,
+                };
+                Credit::capture_target(transaction, actor, recording, &target)
+                    .await
+                    .map_err(member_authority_changed)?
+                    .matches_member_review(context)
+            }
+        };
+        if !matches {
             return Err(authority::changed());
         }
-        connection.recheck(transaction).await?;
+        policy::approved(transaction, actor, provider).await?;
+        if let Some(connection) = connection {
+            if connection.review_connection().as_ref() != expected_connection.as_ref() {
+                return Err(authority::changed());
+            }
+            connection.recheck(transaction).await?;
+        }
+        Ok(true)
     }
-    Ok(true)
 }
 
 fn member_authority_changed(error: Error) -> Error {

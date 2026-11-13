@@ -221,6 +221,31 @@ impl ArtistCandidateSearchAvailability {
 
 #[derive(Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
+pub enum CreditMemberCandidateSearchAvailability {
+    Available {
+        context: Box<CreditMemberReviewContext>,
+        page: ArtistSearchPage,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl CreditMemberCandidateSearchAvailability {
+    pub(super) fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
 pub enum ArtistCandidatePreviewAvailability {
     Available {
         context: Box<ArtistReviewContext>,
@@ -377,6 +402,7 @@ pub struct ReadEditionTrackList {
 pub enum EditionTrackListAvailability {
     Available {
         association_id: String,
+        edition_digest: String,
         edition: Box<CatalogEditionTrackList>,
         stats: EditionTrackStats,
         linked: Vec<CatalogTrackMatch>,

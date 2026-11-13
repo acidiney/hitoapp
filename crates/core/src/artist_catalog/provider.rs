@@ -1,5 +1,8 @@
 use super::{ArtistReviewConnection, MetadataProvider};
-use crate::{Actor, ArtistCatalog, Error, Result, plugins::Operation};
+use crate::{
+    Actor, ArtistCatalog, Error, Result,
+    plugins::{CatalogDiscoveryResponse, Operation},
+};
 use hito_metadata_musicbrainz::MusicBrainzClient;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -73,10 +76,20 @@ impl Connection {
         }
     }
 
-    pub(super) async fn discovery_supported(&self) -> Result<bool> {
+    pub(super) async fn discovery_supported(
+        &self,
+        observe_credentials: bool,
+    ) -> CatalogDiscoveryResponse<bool> {
         match self {
-            Self::Builtin(_) => Ok(true),
-            Self::Http(operation) => operation.catalog_discovery_supported().await,
+            Self::Builtin(_) => CatalogDiscoveryResponse {
+                result: Ok(true),
+                observation: None,
+            },
+            Self::Http(operation) => {
+                operation
+                    .catalog_discovery_supported(observe_credentials)
+                    .await
+            }
         }
     }
 
@@ -189,22 +202,33 @@ impl Connection {
         }
     }
 
-    pub(super) async fn search(&self, request: &ArtistSearchRequest) -> Result<ArtistSearchPage> {
+    pub(super) async fn search(
+        &self,
+        request: &ArtistSearchRequest,
+        observe_credentials: bool,
+    ) -> CatalogDiscoveryResponse<ArtistSearchPage> {
         match self {
-            Self::Builtin(client) => client
-                .artist_search(ArtistSearchRequest {
-                    query: request.query.clone(),
-                    cursor: request.cursor.clone(),
-                    snapshot: request.snapshot.clone(),
-                    limit: request.limit,
-                })
-                .await
-                .map_err(|_| {
-                    Error::Upstream(
-                        "The metadata provider could not return valid artist candidates",
-                    )
-                }),
-            Self::Http(operation) => operation.catalog_artist_search(request).await,
+            Self::Builtin(client) => CatalogDiscoveryResponse {
+                result: client
+                    .artist_search(ArtistSearchRequest {
+                        query: request.query.clone(),
+                        cursor: request.cursor.clone(),
+                        snapshot: request.snapshot.clone(),
+                        limit: request.limit,
+                    })
+                    .await
+                    .map_err(|_| {
+                        Error::Upstream(
+                            "The metadata provider could not return valid artist candidates",
+                        )
+                    }),
+                observation: None,
+            },
+            Self::Http(operation) => {
+                operation
+                    .catalog_artist_search(request, observe_credentials)
+                    .await
+            }
         }
     }
 

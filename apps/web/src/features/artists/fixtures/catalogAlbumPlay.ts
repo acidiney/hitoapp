@@ -52,6 +52,7 @@ export const catalogAlbumTrackList = {
   edition: catalogAlbumEdition,
   linked: [],
   stats: { audio_tracks: 4, total_duration_ms: 250_000 },
+  edition_digest: "owned-test-edition-digest:catalog-album",
 } satisfies Schema<"EditionTrackListAvailability">;
 
 export const oneEditionPage = {

@@ -2348,6 +2348,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["search_credit_member_candidates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/download": {
         parameters: {
             query?: never;
@@ -3156,6 +3172,7 @@ export interface components {
             association_id: string;
             attached_occurrences: string[];
             edition: components["schemas"]["CatalogEditionTrackList"];
+            edition_digest: string;
             is_album_release: boolean;
             library_only: components["schemas"]["ReleaseTrack"][];
             matches: components["schemas"]["CatalogTrackMatch"][];
@@ -4087,6 +4104,24 @@ export interface components {
             name: string;
             role: components["schemas"]["CreditRole"];
         };
+        CreditMemberCandidateSearchAvailability: {
+            context: components["schemas"]["CreditMemberReviewContext"];
+            page: components["schemas"]["ArtistSearchPage"];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
         CreditMemberReviewContext: {
             access_grant_id: string;
             account_id: string;
@@ -4184,6 +4219,7 @@ export interface components {
         EditionTrackListAvailability: {
             association_id: string;
             edition: components["schemas"]["CatalogEditionTrackList"];
+            edition_digest: string;
             linked: components["schemas"]["CatalogTrackMatch"][];
             stats: components["schemas"]["EditionTrackStats"];
             /** @enum {string} */
@@ -5859,6 +5895,10 @@ export interface components {
         };
         SearchArtistCandidates: {
             context: components["schemas"]["ArtistReviewContext"];
+            search: components["schemas"]["ArtistSearchRequest"];
+        };
+        SearchCreditMemberCandidates: {
+            context: components["schemas"]["CreditMemberReviewContext"];
             search: components["schemas"]["ArtistSearchRequest"];
         };
         SearchPage: {
@@ -18022,6 +18062,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditMemberReviewContext"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_credit_member_candidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                artist: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchCreditMemberCandidates"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditMemberCandidateSearchAvailability"];
                 };
             };
             400: {

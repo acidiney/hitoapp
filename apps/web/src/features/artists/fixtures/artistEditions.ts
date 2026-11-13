@@ -122,4 +122,5 @@ export const bonusTrackList = {
     ],
   },
   stats: { audio_tracks: 2, total_duration_ms: 251_000 },
+  edition_digest: "owned-test-edition-digest:bonus",
 } satisfies Schema<"EditionTrackListAvailability">;

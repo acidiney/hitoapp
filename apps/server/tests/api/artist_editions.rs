@@ -226,6 +226,16 @@ async fn exercise(
         tracks
             == json!(EditionTrackListAvailability::Available {
                 association_id: association.into(),
+                edition_digest: format!(
+                    "{:x}",
+                    <sha2::Sha256 as sha2::Digest>::digest(
+                        serde_json::to_vec(&(
+                            "hito.catalog-edition.v1",
+                            catalog::expected_track_list()
+                        ))
+                        .unwrap()
+                    )
+                ),
                 edition: Box::new(catalog::expected_track_list()),
                 stats: EditionTrackStats {
                     audio_tracks: 4,

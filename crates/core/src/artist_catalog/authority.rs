@@ -1,5 +1,6 @@
 use super::{
-    ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider,
+    ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, CreditMemberReviewContext,
+    MetadataProvider,
     associations::{self, LINKED},
     continuation,
     credit_target::CreditTarget,
@@ -232,6 +233,28 @@ impl Credit {
 
     pub(super) fn matches_review(&self, context: &ArtistReviewContext) -> bool {
         self.target == CreditTarget::WholeCredit
+            && self.library_id == context.library_id
+            && self.artist_id == context.artist_id
+            && self.credited_name == context.credited_name
+            && self.source_id == context.source_id
+            && self.observation_id == context.observation_id
+            && self.access_grant == context.access_grant_id
+            && self.credit_operation == context.artist_operation_id
+            && self.metadata_binding_id.as_deref()
+                == context
+                    .metadata_binding
+                    .as_ref()
+                    .map(|binding| binding.id.as_str())
+            && self.metadata_binding_revision
+                == context
+                    .metadata_binding
+                    .as_ref()
+                    .map(|binding| binding.revision)
+    }
+
+    pub(super) fn matches_member_review(&self, context: &CreditMemberReviewContext) -> bool {
+        matches!(&self.target, CreditTarget::NamedMember { artist_id, role }
+            if artist_id == &context.artist_id && role == &context.role)
             && self.library_id == context.library_id
             && self.artist_id == context.artist_id
             && self.credited_name == context.credited_name

@@ -183,6 +183,7 @@ export const mergedTrackList = {
   },
   is_album_release: true,
   stats: { audio_tracks: 4, total_duration_ms: 4000 },
+  edition_digest: "owned-test-edition-digest:merged",
 } satisfies Schema<"AlbumEditionTrackListAvailability">;
 
 export const unsavableTrackList = {

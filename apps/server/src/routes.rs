@@ -167,6 +167,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_review::context))
         .routes(routes!(api::artist_review::member_context))
         .routes(routes!(api::artist_review::search))
+        .routes(routes!(api::artist_review::member_search))
         .routes(routes!(api::artist_review::preview))
         .routes(routes!(api::artist_review::releases))
         .routes(routes!(api::artist_review::confirm))

@@ -155,6 +155,7 @@ mod tests {
         });
         AlbumEditionTrackListAvailability::Available {
             association_id: "association".into(),
+            edition_digest: super::super::editions::edition_digest(&edition).unwrap(),
             stats: crate::EditionTrackStats::from_edition(&edition),
             edition,
             matches: Vec::new(),

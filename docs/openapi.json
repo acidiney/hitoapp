@@ -15399,6 +15399,148 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/search": {
+      "post": {
+        "operationId": "search_credit_member_candidates",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artist",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchCreditMemberCandidates"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditMemberCandidateSearchAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/download": {
       "get": {
         "operationId": "recording_download",
@@ -20976,6 +21118,7 @@
             "type": "object",
             "required": [
               "association_id",
+              "edition_digest",
               "edition",
               "stats",
               "matches",
@@ -21007,6 +21150,9 @@
               },
               "edition": {
                 "$ref": "#/components/schemas/CatalogEditionTrackList"
+              },
+              "edition_digest": {
+                "type": "string"
               },
               "is_album_release": {
                 "type": "boolean"
@@ -24846,6 +24992,88 @@
           }
         }
       },
+      "CreditMemberCandidateSearchAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "context",
+              "page",
+              "status"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/CreditMemberReviewContext"
+              },
+              "page": {
+                "$ref": "#/components/schemas/ArtistSearchPage"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "CreditMemberReviewContext": {
         "type": "object",
         "required": [
@@ -25263,6 +25491,7 @@
             "type": "object",
             "required": [
               "association_id",
+              "edition_digest",
               "edition",
               "stats",
               "linked",
@@ -25274,6 +25503,9 @@
               },
               "edition": {
                 "$ref": "#/components/schemas/CatalogEditionTrackList"
+              },
+              "edition_digest": {
+                "type": "string"
               },
               "linked": {
                 "type": "array",
@@ -32248,6 +32480,22 @@
         "properties": {
           "context": {
             "$ref": "#/components/schemas/ArtistReviewContext"
+          },
+          "search": {
+            "$ref": "#/components/schemas/ArtistSearchRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SearchCreditMemberCandidates": {
+        "type": "object",
+        "required": [
+          "context",
+          "search"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/CreditMemberReviewContext"
           },
           "search": {
             "$ref": "#/components/schemas/ArtistSearchRequest"

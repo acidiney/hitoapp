@@ -9,6 +9,7 @@ use hito_plugin_sdk::{
     CatalogEditionOperation, CatalogEditionTrackList, EditionTrackListRequest,
     ReleaseGroupEditionsRequest,
 };
+use sha2::{Digest, Sha256};
 use std::{future::Future, time::Instant};
 use uuid::Uuid;
 
@@ -195,6 +196,7 @@ impl ArtistCatalog {
                         )
                         .await?,
                     association_id: found.association.id,
+                    edition_digest: found.edition_digest,
                     stats: EditionTrackStats::from_edition(&found.edition),
                     edition: Box::new(found.edition),
                 },
@@ -262,6 +264,7 @@ impl ArtistCatalog {
             .validate_for(&provider_request)
             .map_err(|_| Error::Upstream("The provider returned an invalid edition track list"))?;
         Ok(EditionRead::Available(Box::new(EditionFound {
+            edition_digest: edition_digest(&edition)?,
             playback_revision: read.connection.saving_revision(),
             association: read.association,
             edition,
@@ -269,9 +272,16 @@ impl ArtistCatalog {
     }
 }
 
+pub(super) fn edition_digest(edition: &CatalogEditionTrackList) -> Result<String> {
+    let encoded = serde_json::to_vec(&("hito.catalog-edition.v1", edition))
+        .map_err(|_| Error::Internal("The catalog edition could not be encoded".into()))?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
+}
+
 pub(super) struct EditionFound {
     pub association: ArtistAssociation,
     pub edition: CatalogEditionTrackList,
+    pub edition_digest: String,
     pub playback_revision: Option<i64>,
 }
 

@@ -47,6 +47,7 @@ pub struct CatalogAdoption {
 pub enum AlbumEditionTrackListAvailability {
     Available {
         association_id: String,
+        edition_digest: String,
         edition: Box<CatalogEditionTrackList>,
         stats: EditionTrackStats,
         matches: Vec<CatalogTrackMatch>,
@@ -134,10 +135,13 @@ impl ArtistCatalog {
         let (detail, read) = self
             .read_album_edition_tracks(actor, release, request)
             .await?;
-        let (association, edition, playback_revision) = match read {
-            EditionRead::Available(found) => {
-                (found.association, found.edition, found.playback_revision)
-            }
+        let (association, edition, edition_digest, playback_revision) = match read {
+            EditionRead::Available(found) => (
+                found.association,
+                found.edition,
+                found.edition_digest,
+                found.playback_revision,
+            ),
             EditionRead::Missing(status) => return Ok(status.into()),
         };
         let remembered = self
@@ -215,6 +219,7 @@ impl ArtistCatalog {
             });
         Ok(AlbumEditionTrackListAvailability::Available {
             association_id: association.id,
+            edition_digest,
             stats: EditionTrackStats::from_edition(&edition),
             edition: Box::new(edition),
             matches,

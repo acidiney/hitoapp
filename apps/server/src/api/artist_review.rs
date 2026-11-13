@@ -9,8 +9,9 @@ use axum::{
 };
 use hito_core::{
     ArtistAssociation, ArtistCandidatePreviewAvailability, ArtistCandidateReleasesAvailability,
-    ArtistCandidateSearchAvailability, ArtistReviewContext, CreditMemberReviewContext, Error,
-    MetadataProvider, Services,
+    ArtistCandidateSearchAvailability, ArtistReviewContext,
+    CreditMemberCandidateSearchAvailability, CreditMemberReviewContext, Error, MetadataProvider,
+    Services,
 };
 use hito_plugin_sdk::ArtistSearchRequest;
 use serde::Deserialize;
@@ -28,6 +29,13 @@ pub struct BeginArtistReview {
 #[serde(deny_unknown_fields)]
 pub struct SearchArtistCandidates {
     pub context: ArtistReviewContext,
+    pub search: ArtistSearchRequest,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SearchCreditMemberCandidates {
+    pub context: CreditMemberReviewContext,
     pub search: ArtistSearchRequest,
 }
 
@@ -141,6 +149,49 @@ pub async fn search(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist candidate search HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-review/search", operation_id = "search_credit_member_candidates",
+    params(("id" = String, Path), ("artist" = String, Path)), request_body = SearchCreditMemberCandidates,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CreditMemberCandidateSearchAvailability), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_credit_member_candidate_search", request_id = %Uuid::new_v4()))]
+pub async fn member_search(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+    JsonBody(request): JsonBody<SearchCreditMemberCandidates>,
+) -> ApiResult<Json<CreditMemberCandidateSearchAvailability>> {
+    let started = Instant::now();
+    let result = async {
+        if recording != request.context.recording_id || artist != request.context.artist_id {
+            return Err(Error::NotFound);
+        }
+        services
+            .artist_catalog
+            .search_credit_member_candidates_until(
+                &actor,
+                &request.context,
+                request.search,
+                std::future::pending(),
+            )
+            .await
+    }
+    .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "returned"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member candidate search HTTP request completed"
     );
     Ok(Json(result?))
 }
