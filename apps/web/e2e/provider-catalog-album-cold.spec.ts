@@ -43,7 +43,7 @@ test("a cold direct album link loads its editions and tracks while the artist pr
     ).toBeVisible();
     await expectTracks(page);
     await expect(
-      page.getByRole("button", { name: "Play album" }),
+      page.getByRole("button", { name: "Play album", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
     const audioBodies: unknown[] = [];
