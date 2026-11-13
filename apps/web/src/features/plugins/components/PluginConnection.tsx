@@ -143,6 +143,7 @@ export default function PluginConnection({
         <Button
           aria-expanded={manage}
           aria-controls={panelId}
+          disabled={actions.pending || review !== null}
           onClick={() => setManage((value) => !value)}
         >
           Manage
