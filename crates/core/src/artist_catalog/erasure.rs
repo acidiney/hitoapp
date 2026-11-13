@@ -142,6 +142,7 @@ pub(crate) async fn erase_account(connection: &mut SqliteConnection, account: &s
 
 pub(crate) fn account_statements() -> Vec<String> {
     let mut statements: Vec<String> = [
+        "DELETE FROM recording_artist_member_identity_choices WHERE user_id=?1",
         "DELETE FROM recording_artist_identity_choices WHERE user_id=?1",
         "DELETE FROM album_edition_choices WHERE user_id=?1",
         "DELETE FROM catalog_track_links WHERE user_id=?1",
@@ -195,6 +196,7 @@ pub(crate) fn recording_statements(recordings: &str) -> Vec<String> {
         "(SELECT id FROM recording_artist_associations WHERE recording_id IN {recordings})"
     );
     let mut statements: Vec<String> = [
+        "DELETE FROM recording_artist_member_identity_choices",
         "DELETE FROM recording_artist_identity_choices",
         "DELETE FROM album_edition_choices",
         "DELETE FROM catalog_track_links",

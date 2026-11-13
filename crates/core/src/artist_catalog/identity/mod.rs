@@ -2,7 +2,9 @@ mod change_state;
 mod changes;
 pub(in crate::artist_catalog) mod choices;
 mod credit;
+mod group_targets;
 pub(in crate::artist_catalog) mod groups;
+mod member_choices;
 pub(in crate::artist_catalog) mod receipts;
 mod reset;
 mod split;
@@ -19,6 +21,7 @@ pub use changes::{
     SplitDestination, UndoArtistIdentityChange,
 };
 pub(crate) use groups::{ChosenRecordings, CreditAlias};
+pub(crate) use member_choices::retire_changed as retire_member_choices;
 pub use types::*;
 
 use crate::Result;

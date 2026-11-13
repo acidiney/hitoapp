@@ -9,8 +9,9 @@ use axum::{
 };
 use hito_core::{
     ApplyArtistIdentityToCredit, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
-    ChooseRecordingArtistIdentity, RecordingArtistIdentityChoice, ResetRecordingArtistIdentity,
-    Services,
+    ChooseCreditMemberIdentity, ChooseRecordingArtistIdentity, CreditMemberIdentityChoiceReceipt,
+    RecordingArtistIdentityChoice, RecordingCreditMemberIdentityChoice,
+    ResetRecordingArtistIdentity, Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -137,6 +138,65 @@ pub async fn apply_to_credit(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist identity credit HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(get, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-identity", operation_id = "recording_credit_member_identity_choice",
+    params(("id" = String, Path), ("artist" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = RecordingCreditMemberIdentityChoice), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_credit_member_identity_read", request_id = %Uuid::new_v4()))]
+pub async fn member_read(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+) -> ApiResult<Json<RecordingCreditMemberIdentityChoice>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .recording_credit_member_identity_choice(&actor, &recording, &artist)
+        .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "returned"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member identity HTTP read completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(put, path = "/api/v1/recordings/{id}/credit-members/{artist}/artist-identity", operation_id = "choose_credit_member_identity",
+    params(("id" = String, Path), ("artist" = String, Path)), request_body = ChooseCreditMemberIdentity,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CreditMemberIdentityChoiceReceipt), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_credit_member_identity_choose", request_id = %Uuid::new_v4()))]
+pub async fn member_choose(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((recording, artist)): Path<(String, String)>,
+    JsonBody(request): JsonBody<ChooseCreditMemberIdentity>,
+) -> ApiResult<Json<CreditMemberIdentityChoiceReceipt>> {
+    let started = Instant::now();
+    let result = services
+        .artist_catalog
+        .choose_credit_member_identity(&actor, &recording, &artist, request)
+        .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |_| "accepted"),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Credit member identity HTTP choice completed"
     );
     Ok(Json(result?))
 }

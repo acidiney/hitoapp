@@ -67,6 +67,15 @@ impl Scope<'_> {
         self.push_filter(&mut query, Some("choice.user_id"));
         query
     }
+    fn member_chosen_recordings(&self) -> QueryBuilder<'static, Sqlite> {
+        let mut query = QueryBuilder::new(
+            "WITH targets AS MATERIALIZED (SELECT choice.user_id,r.id AS recording_id
+             FROM recordings r JOIN recording_artist_member_identity_choices choice ON choice.recording_id=r.id
+             WHERE choice.retired=0 AND choice.association_id IS NOT NULL",
+        );
+        self.push_filter(&mut query, Some("choice.user_id"));
+        query
+    }
 }
 
 const REGISTER_TEXT_CREDITS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
@@ -172,6 +181,8 @@ pub(super) async fn refresh(tx: &mut Transaction<'_, Sqlite>, scope: Scope<'_>) 
         }
     }
     crate::artist_catalog::identity::retire_changed(tx, scope.chosen_recordings()).await?;
+    crate::artist_catalog::identity::retire_member_choices(tx, scope.member_chosen_recordings())
+        .await?;
     crate::artist_catalog::reconcile::retire_stale(tx, &scope).await?;
     tracing::trace!(changed, "Account recording credits refreshed");
     Ok(())

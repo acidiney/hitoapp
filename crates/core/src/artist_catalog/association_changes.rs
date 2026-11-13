@@ -339,6 +339,15 @@ pub(super) async fn append(
         .bind(actor.id())
         .bind(recording)
         .bind(association)
+        .execute(&mut *connection)
+        .await?;
+        sqlx::query(
+            "UPDATE recording_artist_member_identity_choices SET retired=1,revision=revision+1
+             WHERE user_id=? AND recording_id=? AND association_id=? AND retired=0",
+        )
+        .bind(actor.id())
+        .bind(recording)
+        .bind(association)
         .execute(connection)
         .await?;
     }

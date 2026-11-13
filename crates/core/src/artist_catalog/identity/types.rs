@@ -1,4 +1,7 @@
-use crate::{ArtistReviewContext, MetadataProvider, Page, Recording, Release};
+use crate::{
+    ArtistReviewContext, CreditMemberReviewContext, CreditRole, MetadataProvider, Page, Recording,
+    Release,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -10,6 +13,34 @@ pub struct ChooseRecordingArtistIdentity {
     pub expected_revision: i64,
     pub association_id: Uuid,
     pub context: ArtistReviewContext,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChooseCreditMemberIdentity {
+    pub request_id: Uuid,
+    pub expected_revision: i64,
+    pub association_id: Uuid,
+    pub context: CreditMemberReviewContext,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RecordingCreditMemberIdentityChoice {
+    pub recording_id: String,
+    pub artist_id: String,
+    pub role: CreditRole,
+    pub revision: i64,
+    pub state: RecordingArtistIdentityState,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct CreditMemberIdentityChoiceReceipt {
+    pub request_id: Uuid,
+    pub recording_id: String,
+    pub artist_id: String,
+    pub role: CreditRole,
+    pub revision: i64,
+    pub selection: Option<ArtistIdentitySelection>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]

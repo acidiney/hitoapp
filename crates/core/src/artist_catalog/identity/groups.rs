@@ -1,3 +1,7 @@
+use super::group_targets::visible as read_visible;
+pub(in crate::artist_catalog) use super::group_targets::{
+    Groups, visible_in, whole_visible as visible,
+};
 use super::*;
 use crate::artist_catalog::LINKED;
 use crate::{
@@ -69,8 +73,8 @@ async fn attach_credited_photos(
     let ids: Vec<String> = groups.iter().map(|group| group.id.clone()).collect();
     let mut query = visible_in(actor, None, Groups::Many(&ids));
     query.push(
-        ", credits AS (SELECT v.group_id, v.artist_id AS id, v.user_id, count(*) AS recordings
-            FROM visible v GROUP BY v.group_id, v.artist_id)
+        ", credits AS (SELECT v.group_id, v.artist_id AS id, v.user_id, count(DISTINCT v.recording_id) AS recordings
+            FROM eligible v GROUP BY v.group_id, v.artist_id)
         SELECT c.group_id, c.id FROM credits c WHERE ",
     );
     query.push(credited_artist_photo_exists("c"));
@@ -91,7 +95,7 @@ pub(in crate::artist_catalog) async fn group_summary(
     actor: &Actor,
     group: &str,
 ) -> Result<Option<ArtistIdentityGroup>> {
-    let mut query = visible(actor, None, Some(group));
+    let mut query = read_visible(actor, None, Some(group));
     query.push("SELECT * FROM summary");
     let row: Option<Summary> = query.build_query_as().fetch_optional(connection).await?;
     row.map(Summary::project).transpose()
@@ -123,12 +127,12 @@ impl ArtistCatalog {
         let terms = search_terms(query.q.as_deref().unwrap_or_default())?;
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let mut count = visible(actor, query.library.as_deref(), None);
+        let mut count = read_visible(actor, query.library.as_deref(), None);
         count.push("SELECT count(*) FROM summary");
         filter_member_names(&mut count, actor, &terms);
         let total = count.build_query_scalar().fetch_one(&mut *tx).await?;
         let exact = exact_names(&mut tx, actor, &query, &terms).await?;
-        let mut selected = visible(actor, query.library.as_deref(), None);
+        let mut selected = read_visible(actor, query.library.as_deref(), None);
         selected.push("SELECT * FROM summary");
         filter_member_names(&mut selected, actor, &terms);
         selected
@@ -144,8 +148,29 @@ impl ArtistCatalog {
             .map(Summary::project)
             .collect::<Result<Vec<_>>>()?;
         attach_credited_photos(&mut tx, actor, &mut items).await?;
-        actor.check_session_on(&mut tx).await?;
+        let represented: Vec<String> = items
+            .iter()
+            .map(|group| group.name.recording_id.clone())
+            .collect();
+        let access = super::group_targets::capture_read_access(
+            &mut tx,
+            actor,
+            query.library.as_deref(),
+            None,
+            &represented,
+        )
+        .await?;
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "artist_identity_groups_read",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+            "Owned authority snapshot checkpoint"
+        );
         tx.commit().await?;
+        let mut fresh = self.store.pool.acquire().await?;
+        super::group_targets::check_read_access(&mut fresh, actor, &access).await?;
         Ok(Page {
             items,
             total,
@@ -182,7 +207,7 @@ impl ArtistCatalog {
         let release_offset = browse.release_offset.unwrap_or(0).max(0);
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let mut summary = visible(actor, browse.library.as_deref(), Some(group));
+        let mut summary = read_visible(actor, browse.library.as_deref(), Some(group));
         summary.push("SELECT * FROM summary");
         let row: Summary = summary
             .build_query_as()
@@ -191,12 +216,12 @@ impl ArtistCatalog {
             .ok_or(Error::NotFound)?;
         let mut group = row.project()?;
         attach_credited_photos(&mut tx, actor, std::slice::from_mut(&mut group)).await?;
-        let mut libraries = visible(actor, browse.library.as_deref(), Some(&group.id));
+        let mut libraries = read_visible(actor, browse.library.as_deref(), Some(&group.id));
         libraries.push("SELECT v.library_id,count(*) AS recording_count,
             (SELECT count(DISTINCT a.release_id) FROM appearances a WHERE a.library_id=v.library_id) AS release_count
             FROM visible v GROUP BY v.library_id ORDER BY v.library_id LIMIT ").push_bind(limit).push(" OFFSET ").push_bind(library_offset);
         let library_items = libraries.build_query_as().fetch_all(&mut *tx).await?;
-        let mut members = visible(actor, browse.library.as_deref(), Some(&group.id));
+        let mut members = read_visible(actor, browse.library.as_deref(), Some(&group.id));
         members.push("SELECT recording_id,artist_id,association_id,revision FROM visible ORDER BY name COLLATE NOCASE,recording_id LIMIT ").push_bind(limit).push(" OFFSET ").push_bind(recording_offset);
         let rows: Vec<(String, String, String, i64)> =
             members.build_query_as().fetch_all(&mut *tx).await?;
@@ -209,7 +234,7 @@ impl ArtistCatalog {
             })
             .collect::<Result<Vec<_>>>()?;
         let recordings = recordings_on(&mut tx, &self.host, actor, &ids).await?;
-        let recording_items = recordings
+        let recording_items: Vec<ArtistIdentityGroupMember> = recordings
             .into_iter()
             .zip(rows)
             .map(
@@ -223,13 +248,35 @@ impl ArtistCatalog {
                 },
             )
             .collect();
-        let mut releases = visible(actor, browse.library.as_deref(), Some(&group.id));
+        let mut releases = read_visible(actor, browse.library.as_deref(), Some(&group.id));
         releases.push("SELECT DISTINCT a.id FROM appearances p JOIN account_releases a ON a.id=p.release_id AND a.user_id=").push_bind(actor.id().to_owned())
             .push(" ORDER BY a.title COLLATE NOCASE,a.id LIMIT ").push_bind(limit).push(" OFFSET ").push_bind(release_offset);
         let release_ids: Vec<String> = releases.build_query_scalar().fetch_all(&mut *tx).await?;
         let release_items = releases_by_ids_on(&mut tx, actor, &release_ids).await?;
-        actor.check_session_on(&mut tx).await?;
+        let mut represented: Vec<String> = recording_items
+            .iter()
+            .map(|member: &ArtistIdentityGroupMember| member.recording.id.clone())
+            .collect();
+        represented.push(group.name.recording_id.clone());
+        let access = super::group_targets::capture_read_access(
+            &mut tx,
+            actor,
+            browse.library.as_deref(),
+            Some(&group.id),
+            &represented,
+        )
+        .await?;
+        #[cfg(feature = "test-support")]
+        tracing::debug!(
+            target: "hito_core::authority_snapshot_test",
+            point = "artist_identity_group_read",
+            snapshot_current = true,
+            transaction_open = <sqlx::sqlite::SqliteTransactionManager as sqlx::TransactionManager>::get_transaction_depth(&*tx) > 0,
+            "Owned authority snapshot checkpoint"
+        );
         tx.commit().await?;
+        let mut fresh = self.store.pool.acquire().await?;
+        super::group_targets::check_read_access(&mut fresh, actor, &access).await?;
         Ok(ArtistIdentityGroupDetail {
             libraries: Page {
                 items: library_items,
@@ -270,7 +317,7 @@ async fn exact_names(
     let mut exact: Vec<String> = Vec::new();
     let mut offset = 0;
     while offset < MAX_EXACT_SCAN {
-        let mut candidates = visible(actor, query.library.as_deref(), None);
+        let mut candidates = read_visible(actor, query.library.as_deref(), None);
         candidates.push("SELECT id,name FROM summary");
         filter_member_names(&mut candidates, actor, terms);
         candidates
@@ -352,7 +399,7 @@ mod fold_tests {
 
 fn filter_member_names(query: &mut QueryBuilder<'static, Sqlite>, actor: &Actor, terms: &str) {
     if !terms.is_empty() {
-        query.push(" WHERE id IN (SELECT group_id FROM visible WHERE artist_rowid IN (SELECT rowid FROM account_artists_fts WHERE account_artists_fts MATCH ")
+        query.push(" WHERE id IN (SELECT group_id FROM eligible WHERE artist_rowid IN (SELECT rowid FROM account_artists_fts WHERE account_artists_fts MATCH ")
             .push_bind(scoped_terms(actor, "name", terms)).push("))");
     }
 }
@@ -435,68 +482,6 @@ impl std::ops::DerefMut for ChosenRecordings {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
-}
-
-pub(in crate::artist_catalog) fn visible(
-    actor: &Actor,
-    library: Option<&str>,
-    group: Option<&str>,
-) -> QueryBuilder<'static, Sqlite> {
-    visible_in(actor, library, group.map_or(Groups::Any, Groups::One))
-}
-
-pub(in crate::artist_catalog) enum Groups<'a> {
-    Any,
-    One(&'a str),
-    Many(&'a [String]),
-}
-
-pub(in crate::artist_catalog) fn visible_in(
-    actor: &Actor,
-    library: Option<&str>,
-    groups: Groups<'_>,
-) -> QueryBuilder<'static, Sqlite> {
-    let mut query = QueryBuilder::new(
-        "WITH visible AS (
-        SELECT choice.group_id,choice.recording_id,choice.revision,choice.association_id,choice.artist_id,
-            choice.selection_order,r.library_id,artist.name,artist.rowid AS artist_rowid,choice.user_id ",
-    );
-    query.push(current_choices());
-    query.push_bind(actor.id().to_owned());
-    if let Some(library) = library {
-        query
-            .push(" AND r.library_id=")
-            .push_bind(library.to_owned());
-    }
-    match groups {
-        Groups::Any => {}
-        Groups::One(group) => {
-            query
-                .push(" AND choice.group_id=")
-                .push_bind(group.to_owned());
-        }
-        Groups::Many(groups) => {
-            query
-                .push(" AND choice.group_id IN (SELECT value FROM json_each(")
-                .push_bind(serde_json::to_string(groups).unwrap_or_else(|_| "[]".into()))
-                .push("))");
-        }
-    }
-    query.push("), appearances AS (
-        SELECT v.group_id,v.recording_id,v.library_id,m.release_id FROM visible v
-        JOIN sources source ON source.recording_id=v.recording_id JOIN source_metadata m ON m.source_id=source.id
-        JOIN account_releases release ON release.id=m.release_id AND release.user_id=v.user_id AND release.library_id=v.library_id
-        UNION
-        SELECT v.group_id,v.recording_id,v.library_id,p.release_id FROM visible v
-        JOIN provider_release_appearances p ON p.recording_id=v.recording_id
-        JOIN account_releases release ON release.id=p.release_id AND release.user_id=v.user_id AND release.library_id=v.library_id
-    ), labels AS (SELECT v.*,row_number() OVER (PARTITION BY group_id ORDER BY selection_order,recording_id) AS ordinal FROM visible v),
-    summary AS (SELECT g.id,g.provider_kind,g.plugin_installation_id,g.provider_artist_id,label.name,label.artist_rowid,label.recording_id,label.artist_id,label.association_id,
-        (SELECT count(DISTINCT v.library_id) FROM visible v WHERE v.group_id=g.id) AS library_count,
-        (SELECT count(*) FROM visible v WHERE v.group_id=g.id) AS recording_count,
-        (SELECT count(DISTINCT a.release_id) FROM appearances a WHERE a.group_id=g.id) AS release_count
-        FROM account_artist_identity_groups g JOIN labels label ON label.group_id=g.id AND label.ordinal=1 AND label.user_id=g.user_id) ");
-    query
 }
 
 pub(in crate::artist_catalog) async fn chosen_groups_by_musicbrainz_id(
