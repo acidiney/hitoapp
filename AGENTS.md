@@ -100,7 +100,7 @@ Tests use real temporary SQLite and owned, deterministic audio fixtures. Never c
 - Open a pull request only when the developer asks.
 - Title a PR in Conventional Commits form, such as `fix(web): wrap the album credit line on phones`.
 - In the PR body, describe the problem in a sentence or two, then the fix and the evidence. Write it in plain language and run it through the unslop skill before you post it.
-- Evidence is images or a short video of the change in the running app whenever the change can be seen: before and after images for a visible change, a video for motion or a flow across several screens. Test results support the evidence; they do not replace it. Attach the images or video to the PR itself, and do not commit PR-only screenshots.
+- When a change shows in the app, its evidence is before and after images of the running app, or a short video for motion or a flow across screens. Test results back the evidence up but don't replace it. Attach the images or video to the PR itself, and never commit PR-only screenshots.
 - One request is one pull request.
 
 ## Documentation
