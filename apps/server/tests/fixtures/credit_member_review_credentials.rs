@@ -280,7 +280,12 @@ pub async fn prepare(library: &Library) -> Context {
     }
 }
 
-async fn private_snapshot(app: &Router, owner: &Account, recording: &str, playlist: &str) -> Value {
+pub(crate) async fn private_snapshot(
+    app: &Router,
+    owner: &Account,
+    recording: &str,
+    playlist: &str,
+) -> Value {
     let (status, progress) = owner
         .request(
             app,

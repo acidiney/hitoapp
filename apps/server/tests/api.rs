@@ -353,3 +353,8 @@ mod catalog_edition_digest_parity_fixture;
 mod credit_member_review_preview;
 #[path = "fixtures/credit_member_review_preview.rs"]
 mod credit_member_review_preview_fixture;
+
+#[path = "api/credit_member_review_preview_security.rs"]
+mod credit_member_review_preview_security;
+#[path = "fixtures/credit_member_review_preview_security.rs"]
+mod credit_member_review_preview_security_fixture;

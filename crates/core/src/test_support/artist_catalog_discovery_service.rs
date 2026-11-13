@@ -1,5 +1,6 @@
 pub use super::observed::ObservedRequest;
 use super::observed::observed;
+use axum::http::StatusCode;
 use hito_plugin_sdk::{
     ArtistProfileRequest, ArtistSearchCandidate, ArtistSearchPage, ArtistSearchRequest,
     CATALOG_DISCOVERY_VERSION, CATALOG_VERSION, Capability, CatalogArtistKind,
@@ -7,6 +8,7 @@ use hito_plugin_sdk::{
     CatalogDiscoveryOperation, CatalogOperation, Manifest, PROTOCOL_VERSION,
 };
 pub use hito_testkit::fake_plugin::Gate as SearchGate;
+pub use hito_testkit::fake_plugin::Gate as ProfileGate;
 use hito_testkit::fake_plugin::{self as fake, FakePlugin};
 use std::sync::{Arc, Mutex};
 
@@ -25,6 +27,7 @@ pub struct DiscoveryServer {
     pub url: String,
     plugin: FakePlugin,
     held: Mutex<Option<Arc<SearchGate>>>,
+    held_profile: Mutex<Option<Arc<ProfileGate>>>,
 }
 
 impl DiscoveryServer {
@@ -83,6 +86,7 @@ impl DiscoveryServer {
             url: plugin.url.clone(),
             plugin,
             held: Mutex::new(None),
+            held_profile: Mutex::new(None),
         }
     }
 
@@ -107,8 +111,36 @@ impl DiscoveryServer {
         }
     }
 
+    pub fn reject_profile(&self) {
+        self.plugin
+            .fault(PROFILE, fake::Fault::Status(StatusCode::UNAUTHORIZED));
+    }
+
+    pub fn mismatched_profile(&self) {
+        let mut profile = expected_profile();
+        profile.artist.id = FIRST_ARTIST.into();
+        self.plugin.reply(
+            PROFILE,
+            fake::Reply::Json(serde_json::to_value(profile).unwrap()),
+        );
+    }
+
+    pub fn hold_profile(&self) -> Arc<ProfileGate> {
+        let gate = self.plugin.stall_body(PROFILE, 1);
+        *self.held_profile.lock().unwrap() = Some(gate.clone());
+        gate
+    }
+
+    pub fn release_profile(&self) {
+        self.plugin.clear_fault(PROFILE);
+        if let Some(gate) = self.held_profile.lock().unwrap().take() {
+            gate.release();
+        }
+    }
+
     pub async fn finish(&mut self) -> bool {
         self.release_search();
+        self.release_profile();
         self.plugin.finish().await
     }
 }
