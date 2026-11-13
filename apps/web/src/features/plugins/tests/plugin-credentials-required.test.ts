@@ -112,6 +112,7 @@ test("a stamped error marks only the affected connection and leaves its peer con
       stamp: { installationId: "a", installationRevision: 3 },
     }),
   );
+  await screen.findByRole("button", { name: "Update credentials for Lyrics A" });
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
   expect(card("Lyrics A").textContent).toContain(
     "Lyrics A needs its credentials updated.",
@@ -135,8 +136,17 @@ test("a stale stamp for an older revision, another account or no connection mark
       stamp: { installationId: "gone", installationRevision: 1 },
     });
   });
-  expect(screen.queryByText(/Credentials need updating/)).toBeNull();
-  expect(document.body.textContent).not.toContain("needs its credentials");
+  act(() =>
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "b", installationRevision: 5 },
+    }),
+  );
+  await screen.findByRole("button", { name: "Update credentials for Lyrics B" });
+  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
+  expect(card("Lyrics A").textContent).not.toContain("needs its credentials");
+  expect(
+    screen.getAllByRole("button", { name: /^Update credentials for / }),
+  ).toHaveLength(1);
 });
 
 test("a late rejection from an older revision keeps the warning for the current revision", async () => {
@@ -208,7 +218,9 @@ test("a successful credential update clears the mark and announces plugin and ly
     }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: "Update credentials for Lyrics A" }),
+    await screen.findByRole("button", {
+      name: "Update credentials for Lyrics A",
+    }),
   );
   fireEvent.change(screen.getByLabelText("New bearer token"), {
     target: { value: "bearer-secret-value" },
