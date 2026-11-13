@@ -47,8 +47,8 @@ test("one StrictMode open starts one edition read and a replaced owner reads its
     account: artistReviewAccount,
     recording: artistReviewDetail.recording_id,
     association: artistAssociation,
-    profile: reviewedArtistProfile.profile,
-    group: editionGroup,
+    providerArtistId: reviewedArtistProfile.profile.artist.id,
+    releaseGroupId: editionGroup.id,
   };
   const view = render(
     createElement(StrictMode, null, catalogAlbumElement(initial)),
@@ -160,8 +160,8 @@ test("closed edition choices do not multiply owned request controllers as discog
         account: artistReviewAccount,
         recording: artistReviewDetail.recording_id,
         association: artistAssociation,
-        profile: reviewedArtistProfile.profile,
-        group: editionGroup,
+        providerArtistId: reviewedArtistProfile.profile.artist.id,
+        releaseGroupId: editionGroup.id,
       }),
     );
     await within(

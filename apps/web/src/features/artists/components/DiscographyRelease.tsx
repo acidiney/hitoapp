@@ -139,8 +139,8 @@ export default function DiscographyRelease({
         account={account}
         recording={recording}
         association={association}
-        profile={profile}
-        group={group}
+        providerArtistId={profile.artist.id}
+        releaseGroupId={group.id}
         release={release}
         onAlbumEdition={onAlbumEdition}
       />

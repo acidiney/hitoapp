@@ -128,8 +128,8 @@ async function openAlbum() {
       account: artistReviewAccount,
       recording: artistReviewDetail.recording_id,
       association: artistAssociation,
-      profile: reviewedArtistProfile.profile,
-      group: editionGroup,
+      providerArtistId: reviewedArtistProfile.profile.artist.id,
+      releaseGroupId: editionGroup.id,
     }),
   );
   const card = within(await screen.findByRole("region", { name: "Album" }));

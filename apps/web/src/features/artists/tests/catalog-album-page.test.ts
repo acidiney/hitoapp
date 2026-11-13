@@ -132,7 +132,12 @@ afterEach(() => {
 
 async function openPage() {
   serve();
-  render(createElement(CatalogAlbumPage, artistIdentityBrowsing().detail));
+  render(
+    createElement(CatalogAlbumPage, {
+      ...artistIdentityBrowsing().detail,
+      release_group_id: editionGroup.id,
+    }),
+  );
   const list = await screen.findByRole("list", { name: "Tracks" });
   await within(list).findByText(catalogAlbumTitles[0]);
   return list;
@@ -350,7 +355,12 @@ test("finding audio makes the next visit read the track list again so the new li
 test("a cold direct album link loads its editions and tracks even when the artist profile request fails", async () => {
   profileFails = true;
   const fetch = serve();
-  render(createElement(CatalogAlbumPage, artistIdentityBrowsing().detail));
+  render(
+    createElement(CatalogAlbumPage, {
+      ...artistIdentityBrowsing().detail,
+      release_group_id: editionGroup.id,
+    }),
+  );
   const list = await screen.findByRole("list", { name: "Tracks" });
   await within(list).findByText(catalogAlbumTitles[0]);
   const editions = fetch.mock.calls.filter(

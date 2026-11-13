@@ -6,6 +6,7 @@ import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { associationAuthorizes } from "../model/associationAuthority";
 
 const REQUEST_DEADLINE_MS = 20_000;
 const MAX_MEDIA = 256;
@@ -84,7 +85,7 @@ export function useEditionTrackRead<T extends Available>(
   target: unknown,
   read: (signal: AbortSignal) => Promise<EditionRead<T>>,
 ) {
-  const { account, recording, association, profile, group } = context;
+  const { association, releaseGroupId } = context;
   const scope = useRequestScope(JSON.stringify([context, chosen, target]));
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty<T>(owner));
@@ -96,9 +97,7 @@ export function useEditionTrackRead<T extends Available>(
       !chosen ||
       !request.active() ||
       owner.pending ||
-      association.account_id !== account ||
-      association.recording_id !== recording ||
-      association.provider_artist_id !== profile.artist.id
+      !associationAuthorizes(context)
     )
       return;
     owner.pending = true;
@@ -145,7 +144,7 @@ export function useEditionTrackRead<T extends Available>(
       }
       if (
         result.association_id !== association.id ||
-        result.edition.release_group_id !== group.id ||
+        result.edition.release_group_id !== releaseGroupId ||
         result.edition.id !== chosen.id
       )
         throw new Error(

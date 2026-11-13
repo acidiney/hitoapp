@@ -84,8 +84,16 @@ export const automationSettings = (enabled: boolean) => ({
   automatic_service_search: enabled,
 });
 
-export const catalogAlbumElement = (context: ArtistEditionContext) =>
-  createElement(CatalogAlbum, { context, heading: "h4", playOnReady: false });
+export const catalogAlbumElement = (
+  context: ArtistEditionContext,
+  group: Schema<"CatalogReleaseGroup"> | null = editionGroup,
+) =>
+  createElement(CatalogAlbum, {
+    context,
+    group,
+    heading: "h4",
+    playOnReady: false,
+  });
 
 export const tracksOfEdition = (edition: { id: string }, firstTitle?: string) =>
   ({

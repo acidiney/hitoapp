@@ -88,10 +88,11 @@ function ReleaseMatch({
           account,
           recording: anchor.recording_id,
           association: artist.association,
-          profile: artist.profile,
-          group,
+          providerArtistId: artist.profile.artist.id,
+          releaseGroupId: group.id,
           release,
         }}
+        group={group}
         album={album}
         suggested={picked === null}
         automatic={picked === null && suggestion.unique}

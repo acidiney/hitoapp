@@ -10,7 +10,7 @@ export function useArtistEditionTrackList(
   context: ArtistEditionContext,
   chosen: Schema<"CatalogEditionSummary"> | null,
 ) {
-  const { account, recording, association, group } = context;
+  const { account, recording, association, releaseGroupId } = context;
   const { result, ...state } = useEditionTrackRead(
     context,
     chosen,
@@ -20,7 +20,7 @@ export function useArtistEditionTrackList(
         account,
         recording,
         association.id,
-        { release_group_id: group.id, edition_id: chosen!.id },
+        { release_group_id: releaseGroupId, edition_id: chosen!.id },
         signal,
       ),
   );
