@@ -1,9 +1,51 @@
 import { isDeepStrictEqual } from "node:util";
-import { expect, type Page, type Route } from "@playwright/test";
+import {
+  expect,
+  type Page,
+  type Request,
+  type Response,
+  type Route,
+} from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import type { OutageProvider } from "./providerOutageProvider";
 import type { OutageLibrary } from "./providerOutageLibrary";
 import { outageMessage, type OutageEvidence } from "./providerOutageEvidence";
+
+export type OutageQueueRequest = {
+  role:
+    | "sources"
+    | "refresh"
+    | "resolve"
+    | "playback_sources"
+    | "source_other"
+    | "other";
+  method: "GET" | "POST" | "HEAD" | "OTHER";
+  status: number | "failed";
+  outcome?: Schema<"SourceResolutionOutcome">;
+};
+
+const queueOutcomes = new Set<string>([
+  "ready",
+  "provider_unavailable",
+  "no_suitable_source",
+  "protected_choice",
+  "cancelled",
+] satisfies Schema<"SourceResolutionOutcome">[]);
+
+function queueRole(suffix: string): OutageQueueRequest["role"] {
+  if (suffix === "sources") return "sources";
+  if (suffix === "sources/refresh") return "refresh";
+  if (suffix === "sources/resolve") return "resolve";
+  if (suffix === "playback-sources") return "playback_sources";
+  if (suffix.startsWith("sources/")) return "source_other";
+  return "other";
+}
+
+function queueMethod(method: string): OutageQueueRequest["method"] {
+  return method === "GET" || method === "POST" || method === "HEAD"
+    ? method
+    : "OTHER";
+}
 
 export type OutagePlaybackPhase =
   | "accepted_lost_ack"
@@ -107,6 +149,7 @@ export async function playThroughOutage(
   provider: OutageProvider,
   evidence: OutageEvidence,
   checkpoint: (phase: OutagePlaybackPhase) => void,
+  observeQueue: (request: OutageQueueRequest) => void = () => {},
 ) {
   checkpoint("accepted_lost_ack");
   provider.setAvailability("retry", "unavailable");
@@ -284,6 +327,48 @@ export async function playThroughOutage(
   checkpoint("pause_recovery");
   await pause(page);
   checkpoint("queue_start");
+  const queuePrefix = `/api/v1/recordings/${library.ids.queue}/`;
+  const queueSuffix = (url: string) => {
+    const { pathname } = new URL(url);
+    return pathname.startsWith(queuePrefix)
+      ? pathname.slice(queuePrefix.length)
+      : null;
+  };
+  const onQueueResponse = async (response: Response) => {
+    const suffix = queueSuffix(response.url());
+    if (suffix === null) return;
+    const role = queueRole(suffix);
+    const entry: OutageQueueRequest = {
+      role,
+      method: queueMethod(response.request().method()),
+      status: response.status(),
+    };
+    if (role === "resolve" && response.status() === 200) {
+      try {
+        const outcome = (
+          JSON.parse((await response.body()).toString()) as {
+            outcome?: unknown;
+          }
+        ).outcome;
+        if (typeof outcome === "string" && queueOutcomes.has(outcome))
+          entry.outcome = outcome as OutageQueueRequest["outcome"];
+      } catch {
+        entry.outcome = undefined;
+      }
+    }
+    observeQueue(entry);
+  };
+  const onQueueFailure = (request: Request) => {
+    const suffix = queueSuffix(request.url());
+    if (suffix === null) return;
+    observeQueue({
+      role: queueRole(suffix),
+      method: queueMethod(request.method()),
+      status: "failed",
+    });
+  };
+  page.on("response", onQueueResponse);
+  page.on("requestfailed", onQueueFailure);
   await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
   const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
   const queueResponse = page.waitForResponse(
@@ -297,6 +382,8 @@ export async function playThroughOutage(
     .click();
   await playing(page);
   checkpoint("queue_outage");
+  page.off("response", onQueueResponse);
+  page.off("requestfailed", onQueueFailure);
   const queueBytes = await (await queueResponse).body();
   if (queueBytes.length > 16_384)
     throw new Error("Owned queue receipt exceeded its bound");

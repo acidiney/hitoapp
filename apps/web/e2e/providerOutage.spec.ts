@@ -29,6 +29,7 @@ import {
 } from "./fixtures/providerOutageEvidence";
 import {
   playThroughOutage,
+  type OutageQueueRequest,
   outageMediaFacts,
   type OutageMediaFacts,
   type OutagePlaybackPhase,
@@ -104,6 +105,7 @@ test("a populated version54 library upgrades and plays through truthful provider
   const resolutions: Partial<
     Record<OutageResolutionDiagnostic["target"], OutageResolutionDiagnostic>
   > = {};
+  const queueRequests: OutageQueueRequest[] = [];
   const started = performance.now();
   try {
     if (
@@ -219,6 +221,9 @@ test("a populated version54 library upgrades and plays through truthful provider
       (playbackPhase) => {
         phase = playbackPhase;
       },
+      (request) => {
+        if (queueRequests.length < 16) queueRequests.push(request);
+      },
     );
     phase = "preservation";
     const after = await outageLibraryState(page, read, library);
@@ -305,6 +310,7 @@ test("a populated version54 library upgrades and plays through truthful provider
         migration_check: migrationCheck,
         media,
         resolutions,
+        queue_requests: queueRequests,
         provider: provider?.counts ?? null,
         elapsed_ms: Math.round(performance.now() - started),
       }),
