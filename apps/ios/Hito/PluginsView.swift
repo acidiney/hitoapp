@@ -13,7 +13,7 @@ struct PluginsView: View {
                 Text("Plugins").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let state, state.connections.isEmpty {
                     Text("Your library plays local files on its own. Connect a plugin to search, play and follow music you don't have files for.")
-                        .font(Theme.body).foregroundStyle(Theme.soft)
+                        .font(Theme.small).foregroundStyle(Theme.soft)
                 }
                 if let state {
                     powers(state)
@@ -108,7 +108,7 @@ struct PluginsView: View {
                                 .lineLimit(3)
                         }
                         Spacer(minLength: 0)
-                        Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                        Icon("chevron-right", size: 18).foregroundStyle(Theme.quiet)
                     }
                     .padding(.horizontal, 12)
                     .frame(minHeight: 60)
@@ -123,18 +123,17 @@ struct PluginsView: View {
                     Text(available(state)).font(Theme.small).foregroundStyle(Theme.quiet)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                 .accessibilityElement(children: .combine)
             } else {
-                Text("Available on this server").font(Theme.smallStrong).foregroundStyle(Theme.quiet).padding(.top, 8).accessibilityAddTraits(.isHeader)
+                Text("Available on this server").font(Theme.smallStrong).foregroundStyle(Theme.quiet).padding(.top, 10).accessibilityAddTraits(.isHeader)
                 ForEach(state.available) { offer in
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 12) {
                             PluginTile(name: offer.name)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(offer.name).font(Theme.bodyStrong).lineLimit(1)
+                                Text(offer.name).font(Theme.bodyBold).lineLimit(1)
                                 Text("Not connected").font(Theme.small).foregroundStyle(Theme.quiet)
                             }
                         }
@@ -148,6 +147,7 @@ struct PluginsView: View {
                     }
                     .padding(14)
                     .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                    .padding(.top, 6)
                 }
                 Text("Connections are yours only.").font(Theme.small).foregroundStyle(Theme.quiet)
             }

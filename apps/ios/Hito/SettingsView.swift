@@ -41,11 +41,12 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("Settings").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 HStack(spacing: 10) {
                     Icon("search").foregroundStyle(Theme.quiet)
-                    TextField("", text: $search, prompt: Text("Search settings").foregroundStyle(Theme.quiet))
+                    TextField("", text: $search, prompt: Text("Search settings").foregroundStyle(Theme.missing))
+                        .font(Theme.small)
                         .accessibilityLabel("Search settings")
                         .autocorrectionDisabled()
                 }
@@ -54,7 +55,7 @@ struct SettingsView: View {
                 .background(Capsule().fill(Theme.field))
                 if case let .signedIn(_, user) = model.step {
                     account(user)
-                    rows
+                    rows.padding(.top, -8)
                 }
             }
             .padding(.horizontal, 16)
@@ -65,12 +66,13 @@ struct SettingsView: View {
 
     private func account(_ user: User) -> some View {
         HStack(spacing: 14) {
-            AccountPicture(user: user, size: 48, fill: Theme.tile, font: Theme.playing)
+            AccountPicture(user: user, size: 48, fill: Theme.tile, font: Theme.avatarLetter, ink: Theme.soft)
             VStack(alignment: .leading, spacing: 0) {
                 Text(user.displayName ?? user.username).font(Theme.bodyStrong)
                 Text("\(user.username) · \(user.admin ? "Administrator" : "Member")").font(Theme.small).foregroundStyle(Theme.quiet)
             }
         }
+        .frame(minHeight: 72)
         .accessibilityElement(children: .combine)
     }
 
@@ -136,8 +138,8 @@ struct PrivacyView: View {
                                 }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Text(idleLabel(settings.idleMinutes)).font(Theme.bodyMedium)
-                                    Icon("chevron-down", size: 16)
+                                    Text(idleLabel(settings.idleMinutes)).font(Theme.smallMedium)
+                                    Icon("chevron-down", size: 14)
                                 }
                                 .foregroundStyle(Theme.text)
                                 .padding(.leading, 16)
@@ -331,7 +333,7 @@ struct Switch: View {
         } label: {
             ZStack(alignment: on ? .trailing : .leading) {
                 Capsule().fill(on ? Theme.accent : Theme.line)
-                Circle().fill(on ? Theme.onAccent : Theme.soft).padding(3)
+                Circle().fill(on ? Theme.onAccent : Theme.soft).frame(width: 18, height: 18).padding(4)
             }
             .frame(width: 44, height: 26)
             .frame(minHeight: 44)

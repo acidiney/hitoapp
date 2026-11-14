@@ -16,6 +16,7 @@ enum Theme {
     static let warning = Color(red: 0xe5 / 255, green: 0xb5 / 255, blue: 0x67 / 255)
     static let raised = Color(red: 0x26 / 255, green: 0x26 / 255, blue: 0x24 / 255)
     static let header = Color(red: 0x24 / 255, green: 0x24 / 255, blue: 0x22 / 255)
+    static let chosen = Color(red: 0x1f / 255, green: 0x1f / 255, blue: 0x1d / 255)
     static let menu = Color(red: 0x2e / 255, green: 0x2e / 255, blue: 0x2b / 255)
     static let bar = Color(red: 0x0c / 255, green: 0x0c / 255, blue: 0x0b / 255)
     static let barLine = Color(red: 0x2a / 255, green: 0x2a / 255, blue: 0x27 / 255)
@@ -40,6 +41,9 @@ enum Theme {
     static let titleTracking: CGFloat = -0.28
     static let title = Font.custom("Figtree-ExtraBold", size: 28, relativeTo: .largeTitle)
     static let display = Font.custom("Figtree-ExtraBold", size: 34, relativeTo: .largeTitle)
+    static let avatarLetter = Font.custom("Figtree-SemiBold", size: 19, relativeTo: .title3)
+    static let badgeLetter = Font.custom("Figtree-SemiBold", size: 22, relativeTo: .title2)
+    static let pin = Font.custom("Figtree-Regular", size: 22, relativeTo: .title2)
     static let pageTitle = Font.custom("Figtree-ExtraBold", size: 22, relativeTo: .title)
     static let section = Font.custom("Figtree-Bold", size: 20, relativeTo: .title2)
     static let playing = Font.custom("Figtree-Bold", size: 24, relativeTo: .title)
@@ -54,11 +58,12 @@ enum Theme {
 }
 
 struct Screen<Content: View>: View {
+    var gap: CGFloat = 40
     @ViewBuilder let content: Content
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 40) {
+            VStack(alignment: .leading, spacing: gap) {
                 Logo()
                 VStack(alignment: .leading, spacing: 18) { content }
             }

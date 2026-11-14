@@ -66,6 +66,7 @@ struct AccountPicture: View {
     var size: CGFloat = 44
     var fill = Theme.avatar
     var font = Theme.bodyBold
+    var ink = Theme.text
     @State private var image: UIImage?
 
     var body: some View {
@@ -74,7 +75,7 @@ struct AccountPicture: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Text(String(name.prefix(1)).uppercased()).font(font)
+                Text(String(name.prefix(1)).uppercased()).font(font).foregroundStyle(ink)
             }
         }
         .frame(width: size, height: size)
@@ -91,8 +92,8 @@ struct AccountPicture: View {
 }
 
 extension AccountPicture {
-    init(user: User, size: CGFloat = 44, fill: Color = Theme.avatar, font: Font = Theme.bodyBold) {
-        self.init(id: user.id, name: user.displayName ?? user.username, version: user.avatarVersion, size: size, fill: fill, font: font)
+    init(user: User, size: CGFloat = 44, fill: Color = Theme.avatar, font: Font = Theme.bodyBold, ink: Color = Theme.text) {
+        self.init(id: user.id, name: user.displayName ?? user.username, version: user.avatarVersion, size: size, fill: fill, font: font, ink: ink)
     }
 }
 
