@@ -117,6 +117,12 @@ import Testing
         #expect(state.available == [PluginOffer(id: "s3", name: "Lyrics", revision: 1)])
     }
 
+    @Test func everyCapabilityAPluginAsksForIsNamedBeforeYouAccept() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/preview": .json(200, #"{"digest":"d9","manifest":{"id":"lk","name":"Linker","protocol_version":1,"capabilities":["source_links","catalog","source_preparation","sources","future_power"]}}"#)])
+        let preview = try await plugins(fake).preview(PluginOffer(id: "s3", name: "Linker", revision: 4), token: "")
+        #expect(preview.turnsOn == ["Playback", "Links", "Browse", "Faster playback", "Future power"])
+    }
+
     @Test func connectingStartsWithAPreviewOfWhatItTurnsOn() async throws {
         let fake = FakeServer(routes: ["POST /api/v1/plugins/preview": .json(200, #"{"digest":"d9","manifest":{"id":"ly","name":"Lyrics","protocol_version":1,"capabilities":["lyrics","search"]}}"#)])
         let preview = try await plugins(fake).preview(PluginOffer(id: "s3", name: "Lyrics", revision: 4), token: "")

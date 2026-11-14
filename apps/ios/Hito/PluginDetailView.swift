@@ -27,6 +27,10 @@ struct PluginDetailView: View {
         "Playlists": "Follows or copies a playlist from a link.",
         "Covers": "Fetches album artwork.",
         "Lyrics": "Shows synced lyrics in now playing.",
+        "Links": "Looks up the song behind a link you paste on a track. You check the match before it becomes a source.",
+        "Browse": "Lists albums and artists from the service.",
+        "Faster playback": "Gets songs ready sooner.",
+        "Featured": "Suggests playlists on Discover.",
     ]
 
     var capabilities: [String] {

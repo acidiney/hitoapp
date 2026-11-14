@@ -15,7 +15,7 @@ public struct PluginConnection: Equatable, Hashable, Identifiable, Sendable {
     public var signsIn = false
 
     public var summary: String {
-        PluginState.rows.filter { capabilities.contains($0.capability) }.map(\.name).joined(separator: " · ")
+        PluginState.named(capabilities).joined(separator: " · ")
     }
 }
 
@@ -71,6 +71,30 @@ public struct PluginState: Equatable, Sendable {
         ("artwork", "Covers"),
         ("lyrics", "Lyrics"),
     ]
+
+    static let names: [(capability: String, name: String)] = [
+        ("search", "Search"),
+        ("sources", "Playback"),
+        ("source_links", "Links"),
+        ("playlists", "Playlists"),
+        ("catalog", "Browse"),
+        ("metadata", "Track details"),
+        ("lyrics", "Lyrics"),
+        ("artwork", "Covers"),
+        ("source_preparation", "Faster playback"),
+        ("backing_tracks", "Backing tracks"),
+        ("featured", "Featured"),
+        ("dashboard", "Dashboard"),
+    ]
+
+    static func named(_ capabilities: [String]) -> [String] {
+        let known = names.filter { capabilities.contains($0.capability) }.map(\.name)
+        let unknown = capabilities.filter { capability in !names.contains { $0.capability == capability } }.map { raw in
+            let words = raw.replacingOccurrences(of: "_", with: " ")
+            return words.prefix(1).uppercased() + words.dropFirst()
+        }
+        return known + unknown
+    }
 
     public let connections: [PluginConnection]
     public let available: [PluginOffer]
@@ -184,7 +208,7 @@ public struct Plugins: Sendable {
             guard let installation = result.installation else { throw HitoAPI.Problem.unexpected(200) }
             return .updated(installation.connection)
         }
-        let wants = PluginState.rows.filter { manifest.capabilities.contains($0.capability) && !had.contains($0.capability) }.map(\.name)
+        let wants = PluginState.named(manifest.capabilities.filter { !had.contains($0) })
             + (manifest.authorization != nil && !signsIn ? ["Account sign-in"] : [])
         return .review(digest: digest, wants: wants)
     }
@@ -277,7 +301,7 @@ public struct Plugins: Sendable {
         return PluginPreview(
             digest: previewed.digest,
             name: previewed.manifest.name,
-            turnsOn: PluginState.rows.filter { previewed.manifest.capabilities.contains($0.capability) }.map(\.name),
+            turnsOn: PluginState.named(previewed.manifest.capabilities),
             signsIn: previewed.manifest.authorization != nil
         )
     }
