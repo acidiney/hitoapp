@@ -7,6 +7,8 @@ mod authority;
 mod basic;
 #[path = "playback_leases/descriptor.rs"]
 mod descriptor;
+#[path = "playback_leases/direct.rs"]
+mod direct;
 #[path = "playback_leases/fixture.rs"]
 mod fixture;
 #[path = "playback_leases/lifecycle.rs"]
