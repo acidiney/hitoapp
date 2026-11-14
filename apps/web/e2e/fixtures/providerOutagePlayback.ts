@@ -24,8 +24,9 @@ export type OutageQueueRequest = {
 };
 
 export type OutageQueueScreen = {
-  url_is_queue: boolean;
+  queue_panel_open: boolean;
   queue_track_items: number;
+  panel_upcoming_items: number;
   now_playing_regions: number;
   queue_now_sections: number;
   queue_first_sections: number;
@@ -41,9 +42,19 @@ async function queueScreenFacts(page: Page): Promise<OutageQueueScreen> {
     }
   };
   return {
-    url_is_queue: new URL(page.url()).pathname === "/queue",
+    queue_panel_open:
+      (await count(() =>
+        page.locator("aside#queue-panel[data-open]").count(),
+      )) === 1,
     queue_track_items: await count(() =>
       page.locator("ol.queue-tracks > li").count(),
+    ),
+    panel_upcoming_items: await count(() =>
+      page
+        .getByRole("complementary", { name: "Queue", exact: true })
+        .getByRole("region", { name: "Up next", exact: true })
+        .locator("ol.queue-tracks > li")
+        .count(),
     ),
     now_playing_regions: await count(() =>
       page.getByRole("region", { name: "Now playing", exact: true }).count(),
@@ -420,19 +431,30 @@ export async function playThroughOutage(
   await expect(dock(page).getByRole("status")).toHaveCount(0);
   checkpoint("queue_ui");
   let upNext: string[];
-  const nowPlaying = page
+  const queuePanel = page.getByRole("complementary", {
+    name: "Queue",
+    exact: true,
+  });
+  const nowPlaying = queuePanel
     .getByRole("region", { name: "Now playing", exact: true })
     .locator("strong");
+  const upcoming = queuePanel
+    .getByRole("region", { name: "Up next", exact: true })
+    .locator("ol.queue-tracks > li");
   try {
-    await dock(page)
-      .getByRole("button", { name: "Open queue", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/queue$/);
-    await expect(page.locator("ol.queue-tracks > li")).toHaveCount(2);
+    const playlistUrl = page.url();
+    const openQueue = dock(page).getByRole("button", {
+      name: "Open queue",
+      exact: true,
+    });
+    await openQueue.click();
+    await expect(openQueue).toHaveAttribute("aria-controls", "queue-panel");
+    await expect(openQueue).toHaveAttribute("aria-expanded", "true");
+    await expect(queuePanel).toBeVisible();
+    expect(page.url()).toBe(playlistUrl);
+    await expect(upcoming).toHaveCount(2);
     await expect(nowPlaying).toHaveText(/\S/);
-    upNext = await page
-      .locator("ol.queue-tracks > li strong")
-      .allTextContents();
+    upNext = await upcoming.locator("strong").allTextContents();
     expect(upNext).toHaveLength(2);
   } catch (error) {
     observeQueueScreen(await queueScreenFacts(page));
@@ -463,7 +485,7 @@ export async function playThroughOutage(
     .toBe(1);
   checkpoint("queue_advance");
   await expect(nowPlaying).toHaveText(upNext[1]);
-  await expect(page.locator("ol.queue-tracks > li")).toHaveCount(0);
+  await expect(upcoming).toHaveCount(0);
   await playing(page);
   await expect(dock(page).getByRole("status")).toHaveText(outageMessage);
   expect(
