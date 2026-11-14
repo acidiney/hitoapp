@@ -172,7 +172,7 @@ function memberRow(page: Page, name: string) {
     .getByRole("listitem", { name, exact: true });
 }
 
-async function chosenGroupName(page: Page, memberPath: string) {
+async function chosenIdentity(page: Page, memberPath: string) {
   const member = await page.request.get(memberPath);
   expect(member.status(), memberPath).toBe(200);
   const choice =
@@ -183,8 +183,13 @@ async function chosenGroupName(page: Page, memberPath: string) {
   const groupPath = `/api/v1/artist-identity-groups/${choice.state.group_id}?limit=1`;
   const group = await page.request.get(groupPath);
   expect(group.status(), groupPath).toBe(200);
-  return ((await group.json()) as Schema<"ArtistIdentityGroupDetail">).group
-    .name.value;
+  return {
+    revision: choice.revision,
+    association: choice.state.association_id,
+    group: choice.state.group_id,
+    name: ((await group.json()) as Schema<"ArtistIdentityGroupDetail">).group
+      .name.value,
+  };
 }
 
 async function previewMemberArtist(
@@ -257,18 +262,18 @@ test("credited artists stay unread until opened, keep a per-member choice across
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
     await expect(dialog).toHaveCount(0);
-    const guestGroupName = await chosenGroupName(
-      page,
-      fixture.memberPath(members.guest),
-    );
-    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
+    const chosen = await chosenIdentity(page, fixture.memberPath(members.guest));
+    await expect(guest).toContainText(`Chosen: ${chosen.name}`);
     await expect(lead).toContainText("Not chosen yet");
     expect(await fixture.wholeCredit()).toEqual(wholeBefore);
 
     await page.reload();
     await page.getByRole("tab", { name: /^Metadata/ }).click();
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
-    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
+    await expect(guest).toContainText(`Chosen: ${chosen.name}`);
+    expect(
+      await chosenIdentity(page, fixture.memberPath(members.guest)),
+    ).toEqual(chosen);
     await expect(lead).toContainText("Not chosen yet");
     const saved = (await (
       await page.request.get(fixture.memberPath(members.guest))
@@ -407,8 +412,8 @@ test("a second account with access to a shared recording reads no member choice 
       candidate,
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
-    const guestGroupName = await chosenGroupName(page, sharedMemberPath);
-    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
+    const chosen = await chosenIdentity(page, sharedMemberPath);
+    await expect(guest).toContainText(`Chosen: ${chosen.name}`);
 
     const read = await peer.request.get(peerMemberPath);
     expect(read.status()).toBe(200);
@@ -437,7 +442,8 @@ test("a second account with access to a shared recording reads no member choice 
     await page.reload();
     await page.getByRole("tab", { name: /^Metadata/ }).click();
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
-    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
+    await expect(guest).toContainText(`Chosen: ${chosen.name}`);
+    expect(await chosenIdentity(page, sharedMemberPath)).toEqual(chosen);
 
     const personal = await peer.request.get(
       fixture.memberPath(fixture.members.guest),
@@ -513,11 +519,8 @@ test("a member choice whose response is lost offers Check again, replays the sam
     expect(writes).toHaveLength(1);
     await again.click();
     await expect(dialog).toHaveCount(0);
-    const leadGroupName = await chosenGroupName(
-      page,
-      fixture.memberPath(members.lead),
-    );
-    await expect(lead).toContainText(`Chosen: ${leadGroupName}`);
+    const chosen = await chosenIdentity(page, fixture.memberPath(members.lead));
+    await expect(lead).toContainText(`Chosen: ${chosen.name}`);
     await expect(lead.getByRole("button", { name: "Check again" })).toHaveCount(
       0,
     );
@@ -571,11 +574,11 @@ test("dark-mode evidence of the credited artists disclosure, list, choice dialog
 
       await dialog.getByRole("button", { name: "Use this artist" }).click();
       await expect(dialog).toHaveCount(0);
-      const guestGroupName = await chosenGroupName(
+      const chosen = await chosenIdentity(
         page,
         fixture.memberPath(fixture.members.guest),
       );
-      await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
+      await expect(guest).toContainText(`Chosen: ${chosen.name}`);
       await disclosure.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${SHOTS}/${size}-4-saved.png` });
 
