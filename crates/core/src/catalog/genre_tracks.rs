@@ -1,6 +1,6 @@
 use super::{
     Catalog, Recording,
-    genres::{Key, genre_identity, genre_recordings},
+    genres::{GenrePosition, GenreWindow, Key, genre_identity, genre_recordings},
     recordings_on,
 };
 use crate::{Actor, Error, Result};
@@ -99,9 +99,7 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id",
-            1,
-            false,
-            None,
+            GenreWindow::Preview { limit: 1 },
         );
         accessible.push(") LIMIT 1");
         let accessible: Option<String> = accessible
@@ -129,7 +127,10 @@ impl Catalog {
         } else {
             (None, None)
         };
-        let after_position = anchor_id.as_deref().zip(anchor_title.as_deref());
+        let after_position = anchor_title
+            .as_deref()
+            .zip(anchor_id.as_deref())
+            .map(|(title, id)| GenrePosition { title, id });
 
         let mut query = QueryBuilder::<Sqlite>::new("SELECT id, title FROM (");
         genre_recordings(
@@ -138,9 +139,10 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id, r.title AS title",
-            limit + 1,
-            true,
-            after_position,
+            GenreWindow::Page {
+                limit: limit + 1,
+                after: after_position,
+            },
         );
         query
             .push(") GROUP BY id ORDER BY title COLLATE NOCASE, id LIMIT ")

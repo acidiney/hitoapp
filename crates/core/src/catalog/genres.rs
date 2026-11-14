@@ -51,16 +51,35 @@ pub(super) enum Key<'a> {
     Column(&'static str),
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct GenrePosition<'a> {
+    pub(super) title: &'a str,
+    pub(super) id: &'a str,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum GenreWindow<'a> {
+    Preview {
+        limit: i64,
+    },
+    Page {
+        limit: i64,
+        after: Option<GenrePosition<'a>>,
+    },
+}
+
 pub(super) fn genre_recordings(
     query: &mut QueryBuilder<'_, sqlx::Sqlite>,
     host: &crate::HostDeviceId,
     actor: &Actor,
     key: &Key<'_>,
     columns: &str,
-    limit: i64,
-    paged: bool,
-    after: Option<(&str, &str)>,
+    window: GenreWindow<'_>,
 ) {
+    let (limit, paged, after) = match window {
+        GenreWindow::Preview { limit } => (limit, false, None),
+        GenreWindow::Page { limit, after } => (limit, true, after),
+    };
     for (index, source) in [
         GenreSource::File,
         GenreSource::Artist,
@@ -123,7 +142,7 @@ pub(super) fn genre_recordings(
             " AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id) AND ",
         );
         push_available(query, host, actor.id());
-        if let Some((title, id)) = after {
+        if let Some(GenrePosition { title, id }) = after {
             query
                 .push(" AND (r.title COLLATE NOCASE > ")
                 .push_bind(title.to_owned())
@@ -218,9 +237,7 @@ impl Catalog {
             actor,
             &Key::Column("keys.k"),
             "g.label AS label",
-            1,
-            false,
-            None,
+            GenreWindow::Preview { limit: 1 },
         );
         query.push(") LIMIT 1) AS label, (SELECT count(*) FROM (SELECT id FROM (");
         genre_recordings(
@@ -229,9 +246,7 @@ impl Catalog {
             actor,
             &Key::Column("keys.k"),
             "r.id AS id",
-            cap,
-            false,
-            None,
+            GenreWindow::Preview { limit: cap },
         );
         query
             .push(") GROUP BY id LIMIT ")
@@ -258,9 +273,7 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "g.label AS label",
-            1,
-            false,
-            None,
+            GenreWindow::Preview { limit: 1 },
         );
         label.push(") LIMIT 1");
         let label: Option<String> = label.build_query_scalar().fetch_optional(&mut *tx).await?;
@@ -274,9 +287,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id",
-            GENRE_COUNT_CAP,
-            false,
-            None,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         count
             .push(") GROUP BY id LIMIT ")
@@ -295,9 +308,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id, r.title AS title",
-            GENRE_COUNT_CAP,
-            false,
-            None,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         ids.push(") GROUP BY id LIMIT ")
             .push_bind(GENRE_COUNT_CAP)
@@ -319,9 +332,9 @@ impl Catalog {
             actor,
             &Key::Bound(&key),
             "r.id AS id, r.release_id AS release_id",
-            GENRE_COUNT_CAP,
-            false,
-            None,
+            GenreWindow::Preview {
+                limit: GENRE_COUNT_CAP,
+            },
         );
         albums
             .push(") GROUP BY id LIMIT ")
