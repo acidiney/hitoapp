@@ -590,9 +590,10 @@ struct AlbumView: View {
     }
 
     private var facts: String {
-        let count = "\(album.trackCount) \(album.trackCount == 1 ? "track" : "tracks")"
-        let length = album.durationMs.flatMap { $0 >= 60_000 ? Duration.milliseconds($0).long : nil }
-        return [album.artist ?? "Various artists", count, length].compactMap { $0 }.joined(separator: " · ")
+        let shown = detail?.album ?? album
+        let count = "\(shown.trackCount) \(shown.trackCount == 1 ? "track" : "tracks")"
+        let length = shown.durationMs.flatMap { $0 >= 60_000 ? Duration.milliseconds($0).long : nil }
+        return [shown.artist ?? "Various artists", count, length].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func load() async {

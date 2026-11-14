@@ -6,6 +6,8 @@ struct HomeView: View {
     let user: User
     let openSearch: () -> Void
     @State private var albums = Feed<Album>()
+    @State private var summary: HomeSummary?
+    @State private var playlists: [Playlist] = []
 
     var name: String { user.displayName ?? user.username }
 
@@ -45,8 +47,11 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")
-                if !albums.isEmpty {
-                    JumpBackIn(albums: Array(albums.items.prefix(5)))
+                if let summary {
+                    JumpBackIn(tiles: summary.tiles(playlists: playlists))
+                    ForEach(summary.unheard.prefix(1)) { UnheardCard(album: $0) }
+                } else if !albums.isEmpty {
+                    JumpBackIn(tiles: [.liked(0)] + albums.items.prefix(5).map(QuickTile.album))
                 }
                 RecentlyAdded(feed: albums)
             }
@@ -57,12 +62,20 @@ struct HomeView: View {
         .refreshable {
             reload()
             await albums.more(model)
+            await loadSummary()
         }
         .task {
             guard albums.total == nil else { return }
             reload()
             await albums.more(model)
+            await loadSummary()
         }
+    }
+
+    private func loadSummary() async {
+        guard let api = model.api else { return }
+        summary = try? await HomeFeed(api: api).load()
+        if summary != nil { playlists = (try? await Playlists(api: api).list()) ?? [] }
     }
 
     private func reload() {
@@ -74,27 +87,72 @@ struct HomeView: View {
 
 struct JumpBackIn: View {
     @Environment(\.dynamicTypeSize) private var typeSize
-    let albums: [Album]
+    let tiles: [QuickTile]
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 8) {
-            NavigationLink(value: TrackList.liked) {
-                Tile(title: "Liked tracks") {
-                    ZStack {
-                        Theme.accent
-                        Icon("heart-filled", size: 24.6).foregroundStyle(Theme.onAccent)
+            ForEach(tiles) { tile in
+                switch tile {
+                case .liked:
+                    NavigationLink(value: TrackList.liked) {
+                        Tile(title: tile.title) {
+                            ZStack {
+                                Theme.accent
+                                Icon("heart-filled", size: 24.6).foregroundStyle(Theme.onAccent)
+                            }
+                            .frame(width: 56, height: 56)
+                        }
                     }
-                    .frame(width: 56, height: 56)
-                }
-            }
-            ForEach(albums) { album in
-                NavigationLink(value: album) {
-                    Tile(title: album.title) { Cover(path: album.artworkPath, size: 56, radius: 0) }
+                case let .album(album):
+                    NavigationLink(value: album) {
+                        Tile(title: album.title) { Cover(path: album.artworkPath, size: 56, radius: 0) }
+                    }
+                case let .playlist(playlist):
+                    NavigationLink(value: playlist) {
+                        Tile(title: playlist.name) {
+                            ZStack { Theme.tile; Icon("playlist", size: 22).foregroundStyle(Theme.quiet) }
+                                .frame(width: 56, height: 56)
+                        }
+                    }
                 }
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Jump back in")
+    }
+}
+
+struct UnheardCard: View {
+    @Environment(AppModel.self) private var model
+    let album: UnheardAlbum
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                Cover(path: album.album.artworkPath, size: 72, radius: 8)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Unheard, near what you like").font(Theme.smallStrong).foregroundStyle(Theme.focus)
+                    Text(album.headline).font(Theme.bodyStrong).fixedSize(horizontal: false, vertical: true)
+                    Text(album.reason).font(Theme.small).foregroundStyle(Theme.soft).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            HStack(spacing: 8) {
+                PlayAllButton(label: "Listen") {
+                    let ready = album.tracks.filter(\.isPlayable)
+                    if !ready.isEmpty { model.player?.play(ready, at: 0, from: album.title) }
+                }
+                .accessibilityLabel("Listen to \(album.title)")
+                NavigationLink(value: album.album) {
+                    Text("Open album").font(Theme.bodyMedium).foregroundStyle(Theme.text)
+                        .padding(.horizontal, 18).frame(minHeight: 48)
+                        .overlay(Capsule().strokeBorder(Theme.line))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
     }
 }
 
