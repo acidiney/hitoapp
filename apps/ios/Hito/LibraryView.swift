@@ -481,6 +481,7 @@ struct AlbumView: View {
     @State private var choosing: EditionOption?
     @State private var unsaved: PendingChoice?
     @State private var editionNote: String?
+    @State private var choosingArtist = false
 
     struct PendingChoice {
         let option: EditionOption
@@ -539,6 +540,7 @@ struct AlbumView: View {
                     if tracks.contains(where: \.isPlayable) {
                         Menu {
                             Button("Play next") { tracks.filter(\.isPlayable).reversed().forEach { model.player?.playNext($0) } }
+                            Button("Choose the artist") { choosingArtist = true }
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
@@ -598,6 +600,19 @@ struct AlbumView: View {
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
+        .fullScreenCover(isPresented: $choosingArtist) {
+            if let first = tracks.first {
+                ArtistSheet(recording: first.id, credit: (detail?.album ?? album).credit) {
+                    Task {
+                        options = nil
+                        optionsNote = nil
+                        await load()
+                        editionNote = "Artist saved. Choose the album's edition."
+                    }
+                }
+                .presentationBackground(.clear)
+            }
+        }
     }
 
     private var editionPicker: some View {
