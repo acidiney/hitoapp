@@ -5,6 +5,7 @@ import { expect, test, type Request, type Route } from "@playwright/test";
 import type { Schema } from "../src/shared/schema";
 import { bookmarkDelivery } from "./fixtures/audiobook-bookmarks-delivery";
 import { bookmarkEvidence } from "./fixtures/audiobook-bookmarks-evidence";
+import { networkQuiet } from "./fixtures/settled";
 
 test.use({
   trace: "off",
@@ -277,7 +278,7 @@ test("retiring delivery during an owned response fetch cannot create a late conf
   let closing: Promise<void> | null = null;
   try {
     await page.goto(server.origin);
-    await page.waitForLoadState("networkidle");
+    await networkQuiet(page);
     delivery.arm(account, detail, detail.chapters[0], label);
     evidence.arm();
     const request = { account, text: JSON.stringify(batch) };

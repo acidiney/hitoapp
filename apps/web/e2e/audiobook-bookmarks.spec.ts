@@ -10,6 +10,7 @@ import {
   artistReviewReader,
 } from "./fixtures/artist-review-state";
 import { seedPreferencesLibrary } from "./fixtures/metadata-preferences-state";
+import { networkQuiet } from "./fixtures/settled";
 
 type Saved = Awaited<ReturnType<typeof seedPreferencesLibrary>>;
 test.use({
@@ -192,7 +193,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
         .getByRole("list", { name: "Chapters", exact: true })
         .getByRole("listitem"),
     ).toHaveCount(2);
-    await page.waitForLoadState("networkidle", { timeout: 10_000 });
+    await networkQuiet(page, 10_000);
     delivery.arm(user.id, beforeBook, beforeBook.chapters[1], label);
     evidence.arm();
 
@@ -285,7 +286,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
     expect(checks.replay_idempotent).toBe(true);
 
     stage = "saved bookmark survives a complete document reload";
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload().then(() => networkQuiet(page));
     await rememberCookies();
     await expect(markers.getByText(label, { exact: true })).toBeVisible();
     checks.reload_saved = isDeepStrictEqual(
@@ -321,7 +322,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
           ),
       );
     expect(checks.removed_once).toBe(true);
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload().then(() => networkQuiet(page));
     await rememberCookies();
     await expect(markers.getByRole("listitem")).toHaveCount(0);
     await expect(

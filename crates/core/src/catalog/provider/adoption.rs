@@ -1,5 +1,5 @@
 use super::{Catalog, bindings, metadata, persist, resolution::CatalogDecision};
-use crate::{Actor, Error, Recording, Result};
+use crate::{Actor, ChangeNotice, Error, Recording, Result, identity::recording_readers};
 use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -123,7 +123,14 @@ impl Catalog {
             crate::metadata::refresh_release(&mut tx, actor.id(), release).await?;
         }
         let result = persist::selected(&mut tx, actor, &self.host, &recording).await?;
+        let readers = recording_readers(&mut tx, &recording).await?;
         tx.commit().await?;
+        self.changes.publish_to(
+            &readers,
+            &[ChangeNotice::Sources {
+                recording_id: recording.clone(),
+            }],
+        );
         tracing::info!(
             sources = sources.as_ref().map(|page| page.items.len()),
             "Provider recording adopted"

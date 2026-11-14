@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { enterAdmin, sharedAdminSession } from "./fixtures/admin-session";
 import { openTrackMenu } from "./fixtures/track-row";
+import { networkQuiet } from "./fixtures/settled";
 
 const first = "Fixture 440 Hz";
 const second = "Fixture 660 Hz";
@@ -116,7 +117,7 @@ test("the player bar likes and manages the playing track, and a reload keeps the
   await expect(
     bar.getByRole("button", { name: `Like ${second}`, exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
-  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   expect(errors).toEqual([]);
 });
 

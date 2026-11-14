@@ -96,6 +96,8 @@ impl Collection {
         let receipt = persist::create(&mut tx, &operation, &request, snapshot, &digest).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        self.changes
+            .playlist_changed(actor.id(), receipt.playlist_id.to_string());
         tracing::info!(
             outcome = "followed",
             entries,

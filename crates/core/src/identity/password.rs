@@ -75,6 +75,7 @@ impl Identity {
             .await?
             .rows_affected();
         tx.commit().await?;
+        self.changes.sessions_changed(actor.id());
         self.password_attempts.clear(actor.id());
         tracing::info!(
             event = "password_changed",

@@ -116,6 +116,7 @@ impl Collection {
             Err(Error::Conflict(_) | Error::NotFound | Error::Unauthorized) => false,
             Err(error) => return Err(error),
         };
+        let mut published = false;
         let (status, error, delay, refund) = if !current {
             ("cancelled", Some("authority_changed"), 0, false)
         } else if stopped || matches!(&result, Ok(None)) {
@@ -143,7 +144,10 @@ impl Collection {
                 Ok(None) => unreachable!(),
             };
             match publication {
-                Ok(()) => ("complete", None, 0, false),
+                Ok(changed) => {
+                    published = changed;
+                    ("complete", None, 0, false)
+                }
                 Err(error) => {
                     tracing::debug!(job_id = %lease.id, error_code = error.code(), "Follow snapshot did not publish");
                     if lease.attempts < 3
@@ -167,6 +171,10 @@ impl Collection {
             .bind(error).bind(status).bind(&lease.playlist_id).bind(lease.generation).execute(&mut *tx).await?;
         history::prune(&mut tx, &lease.playlist_id).await?;
         tx.commit().await?;
+        if published {
+            self.changes
+                .playlist_changed(&lease.user_id, lease.playlist_id.as_str());
+        }
         Ok(status)
     }
 }

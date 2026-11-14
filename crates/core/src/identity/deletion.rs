@@ -59,6 +59,7 @@ impl Identity {
         let rows_removed =
             erasure::scoped(&mut tx, "account", account, &account_data::statements()).await?;
         tx.commit().await?;
+        self.changes.sessions_changed(account);
         self.catalog_replication.forget_account(account).await;
         if let Err(error) = self.replicas.retire_pending().await {
             tracing::warn!(

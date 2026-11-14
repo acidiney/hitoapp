@@ -807,6 +807,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/changes/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["change_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/community/credentials": {
         parameters: {
             query?: never;
@@ -3776,6 +3792,8 @@ export interface components {
         ArtworkAvailability: {
             can_fetch: boolean;
         };
+        /** @enum {string} */
+        ArtworkChangeEntity: "recording" | "release" | "playlist";
         ArtworkFetch: {
             /** Format: int32 */
             attempts: number;
@@ -4047,6 +4065,34 @@ export interface components {
             position: number;
             recording_id?: string | null;
             title: string;
+        };
+        ChangeNotice: {
+            /** @enum {string} */
+            kind: "resync";
+            reason: components["schemas"]["ResyncReason"];
+        } | {
+            /** @enum {string} */
+            kind: "sources";
+            recording_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "recording";
+            recording_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "recordings";
+        } | {
+            /** @enum {string} */
+            kind: "playlist";
+            playlist_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "playlists";
+        } | {
+            entity: components["schemas"]["ArtworkChangeEntity"];
+            id: string;
+            /** @enum {string} */
+            kind: "artwork";
         };
         ChangePassword: {
             current_password: string;
@@ -6002,6 +6048,8 @@ export interface components {
         RestoreArtistReviewCandidates: {
             provider_artist_id?: string | null;
         };
+        /** @enum {string} */
+        ResyncReason: "connected" | "lagged";
         RetainRecordingLyricIdentity: {
             candidate: components["schemas"]["ProviderCandidate"];
             review_stamp: string;
@@ -10264,6 +10312,58 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    change_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Each SSE data frame contains a ChangeNotice. The first frame is a resync notice with reason connected; a resync notice with reason lagged means notices were dropped. The stream ends when the session ends or is locked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ChangeNotice"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

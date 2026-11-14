@@ -5041,6 +5041,67 @@
         ]
       }
     },
+    "/api/v1/changes/events": {
+      "get": {
+        "operationId": "change_events",
+        "responses": {
+          "200": {
+            "description": "Each SSE data frame contains a ChangeNotice. The first frame is a resync notice with reason connected; a resync notice with reason lagged means notices were dropped. The stream ends when the session ends or is locked",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeNotice"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/community/credentials": {
       "delete": {
         "operationId": "reset_community_credentials",
@@ -24029,6 +24090,14 @@
           }
         }
       },
+      "ArtworkChangeEntity": {
+        "type": "string",
+        "enum": [
+          "recording",
+          "release",
+          "playlist"
+        ]
+      },
       "ArtworkFetch": {
         "type": "object",
         "required": [
@@ -25226,6 +25295,132 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChangeNotice": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "resync"
+                ]
+              },
+              "reason": {
+                "$ref": "#/components/schemas/ResyncReason"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "recording_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "sources"
+                ]
+              },
+              "recording_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "recording_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "recording"
+                ]
+              },
+              "recording_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "recordings"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "playlist_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlist"
+                ]
+              },
+              "playlist_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlists"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "entity",
+              "id",
+              "kind"
+            ],
+            "properties": {
+              "entity": {
+                "$ref": "#/components/schemas/ArtworkChangeEntity"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "artwork"
+                ]
+              }
+            }
+          }
+        ]
       },
       "ChangePassword": {
         "type": "object",
@@ -33309,6 +33504,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ResyncReason": {
+        "type": "string",
+        "enum": [
+          "connected",
+          "lagged"
+        ]
       },
       "RetainRecordingLyricIdentity": {
         "type": "object",
