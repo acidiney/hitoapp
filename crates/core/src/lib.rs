@@ -308,6 +308,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     )?;
     let playback = PlaybackAccess {
         leases: Default::default(),
+        warm: Default::default(),
         store: store.clone(),
         host: config.host_device.clone(),
         origins: playback_access::Origins::new(

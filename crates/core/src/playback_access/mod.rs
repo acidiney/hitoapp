@@ -8,6 +8,7 @@ pub(crate) mod origin;
 mod preferred;
 mod provider;
 pub(crate) mod relay;
+mod warm;
 
 pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
 pub use conversion::{
@@ -32,6 +33,7 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct PlaybackAccess {
     pub(crate) leases: std::sync::Arc<leases::registry::Registry>,
+    pub(crate) warm: std::sync::Arc<warm::Registry>,
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) origins: Origins,

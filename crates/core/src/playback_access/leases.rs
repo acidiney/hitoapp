@@ -40,6 +40,7 @@ struct Entry {
     cancel: watch::Sender<bool>,
     ready: AtomicBool,
     grant: OnceLock<PlaybackSource>,
+    warm: Arc<super::warm::Registry>,
     commands: mpsc::Sender<owner::Command>,
     wake: Arc<Notify>,
 }
@@ -129,6 +130,7 @@ impl PlaybackAccess {
             cancel: watch::channel(false).0,
             ready: AtomicBool::new(false),
             grant: OnceLock::new(),
+            warm: self.warm.clone(),
             commands,
             wake: Arc::new(Notify::new()),
         });
@@ -225,7 +227,19 @@ impl PlaybackAccess {
         let started = entry.started;
         let mut observer = Observer(Some(entry));
         let lease = created.await.map_err(|_| stopped())??;
-        observer.0.as_ref().ok_or_else(stopped)?.check().await?;
+        let entry = observer.0.as_ref().ok_or_else(stopped)?;
+        entry.check().await?;
+        if let Some(grant) = entry.grant.get().cloned() {
+            self.warm
+                .try_start(
+                    entry.metadata.id,
+                    &entry.actor,
+                    entry.cancel.subscribe(),
+                    grant,
+                    entry.deadline,
+                )
+                .await;
+        }
         observer.0 = None;
         tracing::debug!(
             event = "playback_lease_created",
@@ -290,6 +304,7 @@ impl PlaybackAccess {
         if let Some(completion) = completion {
             completion.await.map_err(|_| stopped())?;
         }
+        self.warm.retire_and_join(id).await?;
         Ok(())
     }
 
@@ -299,6 +314,7 @@ impl PlaybackAccess {
     pub async fn close(&self) -> Result<()> {
         let started = std::time::Instant::now();
         self.leases.closing()?.await.map_err(|_| stopped())?;
+        self.warm.close().await?;
         tracing::debug!(
             event = "playback_leases_closed",
             outcome = "closed",

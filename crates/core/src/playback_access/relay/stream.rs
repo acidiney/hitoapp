@@ -1,12 +1,17 @@
 use crate::{AudioFile, Error, PlaybackSource, Result};
 use bytes::Bytes;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 use tokio::io::AsyncReadExt;
 
 enum Body {
     Local(Box<LocalAudio>),
     Remote(Box<super::remote::RemoteAudio>),
     Lease(Box<crate::playback_access::leases::owner::LeaseBody>),
+    Prepared {
+        prefix: Option<Bytes>,
+        continuation: super::super::warm::WarmBody,
+        _reservation: Arc<super::super::warm::Reservation>,
+    },
 }
 
 struct LocalAudio {
@@ -65,6 +70,32 @@ impl AudioStream {
     ) -> Self {
         Self::new(Body::Lease(Box::new(body)), length)
     }
+    pub(crate) fn prepared(
+        prefix: Option<Bytes>,
+        continuation: super::super::warm::WarmBody,
+        reservation: Arc<super::super::warm::Reservation>,
+        expected: Option<u64>,
+    ) -> Self {
+        Self::new(
+            Body::Prepared {
+                prefix,
+                continuation,
+                _reservation: reservation,
+            },
+            expected,
+        )
+    }
+    pub(crate) async fn shutdown(&mut self) {
+        if let Some(body) = self.inner.take() {
+            match body {
+                Body::Remote(mut body) => body.shutdown().await,
+                Body::Prepared {
+                    mut continuation, ..
+                } => continuation.shutdown().await,
+                Body::Local(_) | Body::Lease(_) => {}
+            }
+        }
+    }
     fn new(inner: Body, expected: Option<u64>) -> Self {
         Self {
             inner: Some(inner),
@@ -84,6 +115,18 @@ impl AudioStream {
             Body::Local(body) => body.chunk().await,
             Body::Remote(body) => body.chunk().await,
             Body::Lease(body) => body.chunk().await,
+            Body::Prepared {
+                prefix,
+                continuation,
+                _reservation: _,
+            } => {
+                if let Some(prefix) = prefix.take() {
+                    continuation.check_prefix().await?;
+                    Ok(Some(prefix))
+                } else {
+                    continuation.chunk().await
+                }
+            }
         };
         match result {
             Ok(Some(bytes)) => {
@@ -92,6 +135,7 @@ impl AudioStream {
                     .expected
                     .is_some_and(|expected| self.transferred > expected)
                 {
+                    self.shutdown().await;
                     return Err(self.fail(Error::Upstream("Audio exceeded the declared length")));
                 }
                 Ok(Some(bytes))
@@ -108,7 +152,10 @@ impl AudioStream {
                 self.finish("complete");
                 Ok(None)
             }
-            Err(error) => Err(self.fail(error)),
+            Err(error) => {
+                self.shutdown().await;
+                Err(self.fail(error))
+            }
         }
     }
     fn fail(&mut self, error: Error) -> Error {

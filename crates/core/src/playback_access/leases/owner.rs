@@ -92,7 +92,15 @@ pub(super) async fn serve(
     let mut stop = entry.cancel.subscribe();
     let grant = entry.grant.get().expect("published lease has its grant");
     loop {
-        streams.retain(|_, stream| stream.control.check().is_ok());
+        let closed: Vec<_> = streams
+            .iter()
+            .filter_map(|(id, stream)| stream.control.check().is_err().then_some(*id))
+            .collect();
+        for id in closed {
+            if let Some(stream) = streams.remove(&id) {
+                retire_stream(stream).await;
+            }
+        }
         if entry.alive().is_err() {
             break;
         }
@@ -123,7 +131,22 @@ pub(super) async fn serve(
                         }
                         return file_content(file, request);
                     }
-                    grant.open(request).await
+                    if let Some(mut taken) = entry
+                        .warm
+                        .claim(&entry.actor, entry.metadata.id, grant, request)
+                        .await?
+                    {
+                        let expected = taken.content.length;
+                        taken.content.body = Some(AudioStream::prepared(
+                            taken.prefix,
+                            taken.body,
+                            taken.reservation,
+                            expected,
+                        ));
+                        Ok(OpenedAudio::Content(taken.content))
+                    } else {
+                        grant.open(request).await
+                    }
                 };
                 let result = tokio::select! {
                     biased;
@@ -219,6 +242,8 @@ pub(super) async fn serve(
                 }.await;
                 if matches!(&result, Ok(Some(_))) && !reply.is_closed() {
                     streams.insert(id, stream);
+                } else {
+                    retire_stream(stream).await;
                 }
                 let _ = reply.send(result);
                 #[cfg(test)]
@@ -226,7 +251,11 @@ pub(super) async fn serve(
             }
         }
     }
+    for (_, stream) in streams.drain() {
+        retire_stream(stream).await;
+    }
     entry.stop();
+    let _ = entry.warm.retire_and_join(entry.metadata.id).await;
     tracing::debug!(
         event = "playback_lease_retired",
         playback_lease = entry.correlation,
@@ -234,6 +263,12 @@ pub(super) async fn serve(
         bodies = streams.len(),
         "Playback lease retired"
     );
+}
+
+async fn retire_stream(mut stream: Stream) {
+    if let Input::Remote(body) = &mut stream.input {
+        body.shutdown().await;
+    }
 }
 
 fn file_content(file: &RetainedFile, request: AudioRequest) -> Result<OpenedAudio> {

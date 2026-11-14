@@ -29,6 +29,7 @@ impl Authority {
 pub(crate) struct Permits {
     pub _account: OwnedSemaphorePermit,
     pub _global: OwnedSemaphorePermit,
+    pub _warm: Option<Arc<crate::plugins::WarmTicket>>,
 }
 
 struct Connection {
@@ -41,7 +42,8 @@ pub(crate) struct RemoteAudio {
     connection: Arc<Mutex<Connection>>,
     authority: Authority,
     revoked: watch::Receiver<bool>,
-    monitor: tokio::task::JoinHandle<()>,
+    monitor_stop: watch::Sender<bool>,
+    monitor: Option<tokio::task::JoinHandle<()>>,
     meter: Meter,
 }
 impl RemoteAudio {
@@ -58,24 +60,31 @@ impl RemoteAudio {
         }));
         let weak = Arc::downgrade(&connection);
         let (cancel, revoked) = watch::channel(false);
+        let monitor_cancel = cancel.clone();
         let guard = authority.clone();
+        let mut stop = cancel.subscribe();
         let monitor = tokio::spawn(
             async move {
                 loop {
-                    tokio::time::sleep(Duration::from_millis(250)).await;
-                    if guard.check().await.is_err() {
-                        let _ = cancel.send(true);
-                        if let Some(connection) = weak.upgrade() {
-                            let mut connection = connection.lock().await;
-                            connection.response = None;
-                            connection.permits = None;
-                            connection.pending = Bytes::new();
+                    tokio::select! {
+                        biased;
+                        _ = stop.changed() => break,
+                        _ = tokio::time::sleep(Duration::from_millis(250)) => {
+                            if guard.check().await.is_err() {
+                                let _ = monitor_cancel.send(true);
+                                if let Some(connection) = weak.upgrade() {
+                                    let mut connection = connection.lock().await;
+                                    connection.response = None;
+                                    connection.permits = None;
+                                    connection.pending = Bytes::new();
+                                }
+                                tracing::debug!(
+                                    event = "remote_audio_authority_withdrawn",
+                                    "Remote audio authority withdrawn"
+                                );
+                                break;
+                            }
                         }
-                        tracing::debug!(
-                            event = "remote_audio_authority_withdrawn",
-                            "Remote audio authority withdrawn"
-                        );
-                        break;
                     }
                 }
             }
@@ -86,7 +95,8 @@ impl RemoteAudio {
             connection,
             authority,
             revoked,
-            monitor,
+            monitor_stop: cancel,
+            monitor: Some(monitor),
             meter: Meter::new(pace),
         }
     }
@@ -96,6 +106,11 @@ impl RemoteAudio {
         if *self.revoked.borrow() {
             return Err(Error::NotFound);
         }
+        let warm_read = connection
+            .permits
+            .as_ref()
+            .and_then(|permits| permits._warm.as_ref())
+            .is_some_and(|ticket| !ticket.is_claimed());
         let result = if connection.pending.is_empty() {
             let response = connection.response.as_mut().ok_or(Error::NotFound)?;
             let waiting = Instant::now();
@@ -110,6 +125,11 @@ impl RemoteAudio {
                 },
             };
             match read {
+                Ok(Some(bytes))
+                    if bytes.len() > 65536 && warm_read =>
+                {
+                    Err(Error::Upstream("The audio service returned an oversized chunk"))
+                }
                 Ok(Some(bytes)) => self
                     .meter
                     .record(waiting.elapsed(), bytes.len())
@@ -120,18 +140,39 @@ impl RemoteAudio {
             Ok(Some(std::mem::take(&mut connection.pending)))
         };
         self.authority.check().await?;
-        result.map(|chunk| {
+        let result = result.map(|chunk| {
             chunk.map(|mut bytes| {
                 if bytes.len() > 65536 {
                     connection.pending = bytes.split_off(65536);
                 }
                 bytes
             })
-        })
+        });
+        if matches!(&result, Ok(None)) {
+            drop(connection);
+            self.shutdown().await;
+        }
+        result
+    }
+
+    pub(crate) async fn shutdown(&mut self) {
+        self.monitor_stop.send_replace(true);
+        {
+            let mut connection = self.connection.lock().await;
+            connection.response = None;
+            connection.permits = None;
+            connection.pending = Bytes::new();
+        }
+        if let Some(monitor) = self.monitor.take() {
+            monitor.abort();
+            let _ = monitor.await;
+        }
     }
 }
 impl Drop for RemoteAudio {
     fn drop(&mut self) {
-        self.monitor.abort();
+        if let Some(monitor) = self.monitor.take() {
+            monitor.abort();
+        }
     }
 }

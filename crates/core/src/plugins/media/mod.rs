@@ -1,4 +1,6 @@
 mod authority;
+mod admission;
+pub(crate) use admission::WarmTicket;
 use crate::{
     AudioRequest, AudioStream, Error, OpenedAudio, PlaybackFailureReason, Result,
     admission::Accounts,
@@ -8,7 +10,7 @@ use crate::{
     },
 };
 pub(crate) use authority::Authority;
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::{Duration, Instant}};
 use tokio::sync::Semaphore;
 
 const ACCOUNT_ADMISSION_WAIT: Duration = Duration::from_millis(500);
@@ -19,6 +21,7 @@ pub(super) struct MediaClient {
     slots: Arc<Semaphore>,
     accounts: Accounts,
     pace: crate::StreamPace,
+    admission: Arc<admission::Admission>,
 }
 
 impl MediaClient {
@@ -39,6 +42,7 @@ impl MediaClient {
             slots: Arc::new(Semaphore::new(16)),
             accounts: Accounts::new(2),
             pace,
+            admission: Arc::new(admission::Admission::default()),
         })
     }
     #[tracing::instrument(level = "debug", skip_all)]
@@ -49,15 +53,82 @@ impl MediaClient {
         request: AudioRequest,
         authority: Authority,
     ) -> Result<OpenedAudio> {
+        let started = Instant::now();
+        let global_full = self.slots.available_permits() == 0;
+        let (active, mut waiting) = self.admission.active(&authority.account, global_full)?;
+        if !admission::await_preemptions(
+            &mut waiting,
+            ACCOUNT_ADMISSION_WAIT.saturating_sub(started.elapsed()),
+        )
+        .await
+        {
+            return Err(Error::Conflict("Audio streams are busy. Try again.".into()));
+        }
         let account = self
             .accounts
-            .enter_within(&authority.account, ACCOUNT_ADMISSION_WAIT)
+            .enter_within(
+                &authority.account,
+                ACCOUNT_ADMISSION_WAIT.saturating_sub(started.elapsed()),
+            )
             .await?;
         let global = self
             .slots
             .clone()
             .try_acquire_owned()
             .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?;
+        drop(active);
+        self.open_admitted(base_url, token, request, authority, account, global, None)
+            .await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub(super) async fn open_warm(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: AudioRequest,
+        authority: Authority,
+    ) -> Result<(OpenedAudio, Arc<WarmTicket>)> {
+        let ticket = self.admission.ticket(&authority.account)?;
+        let account = self
+            .accounts
+            .try_enter(&authority.account)?
+            .ok_or_else(|| Error::Conflict("Audio streams are busy. Try again.".into()))?;
+        let global = self
+            .slots
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?;
+        if ticket.is_cancelled() {
+            return Err(Error::Conflict("Audio streams are busy. Try again.".into()));
+        }
+        let mut canceled = ticket.cancelled();
+        let opened = tokio::select! {
+            biased;
+            _ = canceled.changed() => return Err(Error::Conflict("Audio streams are busy. Try again.".into())),
+            opened = self.open_admitted(
+                base_url,
+                token,
+                request,
+                authority,
+                account,
+                global,
+                Some(ticket.clone()),
+            ) => opened?,
+        };
+        Ok((opened, ticket))
+    }
+
+    async fn open_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: AudioRequest,
+        authority: Authority,
+        account: tokio::sync::OwnedSemaphorePermit,
+        global: tokio::sync::OwnedSemaphorePermit,
+        warm: Option<Arc<WarmTicket>>,
+    ) -> Result<OpenedAudio> {
         let mut endpoint = super::offers::endpoint(base_url)?
             .join(hito_plugin_sdk::AUDIO_PATH)
             .map_err(|_| Error::Invalid("Invalid plugin service address".into()))?;
@@ -140,6 +211,7 @@ impl MediaClient {
                     Some(Permits {
                         _account: account,
                         _global: global,
+                    _warm: warm,
                     }),
                     self.pace,
                 ),

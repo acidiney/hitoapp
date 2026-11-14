@@ -37,6 +37,15 @@ pub(crate) trait AudioOrigin: Send + Sync {
         located: &'a Located,
     ) -> BoxFuture<'a, Result<bool>>;
 
+    fn warm_still_valid<'a>(
+        &'a self,
+        actor: &'a Actor,
+        source: &'a str,
+        located: &'a Located,
+    ) -> BoxFuture<'a, Result<bool>> {
+        self.still_valid(actor, source, located)
+    }
+
     fn open_file<'a>(
         &'a self,
         _actor: &'a Actor,
@@ -54,6 +63,14 @@ pub(crate) trait AudioOrigin: Send + Sync {
             let audio = grant.open_file().await?;
             super::relay::open_file_audio(grant, audio, request).await
         })
+    }
+
+    fn open_warm<'a>(
+        &'a self,
+        _grant: &'a PlaybackSource,
+        _request: AudioRequest,
+    ) -> BoxFuture<'a, Result<Option<(OpenedAudio, Arc<crate::plugins::WarmTicket>)>>> {
+        Box::pin(async { Ok(None) })
     }
 }
 
