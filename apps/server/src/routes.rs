@@ -132,6 +132,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::release))
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
+        .routes(routes!(api::genres::list))
         .routes(routes!(catalog::sources))
         .routes(routes!(api::recording_groups::copies))
         .routes(routes!(api::recording_groups::split))
