@@ -155,6 +155,13 @@ struct PrivacyView: View {
                                 Text("Delete…").font(Theme.smallMedium).foregroundStyle(Color(hex: 0xf0a08c)).padding(.horizontal, 12).frame(minHeight: 44)
                             }
                             .buttonStyle(.plain)
+                            .confirmationDialog("Delete your listening history?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                                Button("Delete history", role: .destructive) {
+                                    Task { await save { try await $0.deleteHistory(); notice = "Listening history deleted." } }
+                                }
+                            } message: {
+                                Text("Every entry is removed. History and Recently played start again from nothing. This can't be undone.")
+                            }
                             .padding(.trailing, -12)
                         }
                     }
@@ -206,13 +213,6 @@ struct PrivacyView: View {
                     return "This didn't save. Try again."
                 }
             }
-        }
-        .confirmationDialog("Delete your listening history?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Delete history", role: .destructive) {
-                Task { await save { try await $0.deleteHistory(); notice = "Listening history deleted." } }
-            }
-        } message: {
-            Text("Every entry is removed. History and Recently played start again from nothing. This can't be undone.")
         }
     }
 

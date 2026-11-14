@@ -72,6 +72,11 @@ struct ProfileView: View {
                     Text("Sign out of this device").font(Theme.bodyMedium).foregroundStyle(Color(hex: 0xf0a08c)).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .confirmationDialog("Sign out of this device?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+                    Button("Sign out", role: .destructive) { model.signOut() }
+                } message: {
+                    Text("The music stops. Sign in again to keep listening here.")
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -80,11 +85,6 @@ struct ProfileView: View {
         .task {
             name = user?.displayName ?? ""
             await loadDevices()
-        }
-        .confirmationDialog("Sign out of this device?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
-            Button("Sign out", role: .destructive) { model.signOut() }
-        } message: {
-            Text("The music stops. Sign in again to keep listening here.")
         }
     }
 
@@ -239,6 +239,11 @@ struct AboutView: View {
                     SettingsGroup(title: "Server") {
                         SettingRow(title: "This app uses", detail: address.origin.absoluteString) {
                             OutlineButton(title: "Change") { confirmingChange = true }
+                                .confirmationDialog("Use a different place?", isPresented: $confirmingChange, titleVisibility: .visible) {
+                                    Button("Change") { model.changeServer() }
+                                } message: {
+                                    Text("The music stops and the first screen opens. You stay signed in to this server.")
+                                }
                         }
                     }
                 }
@@ -247,10 +252,5 @@ struct AboutView: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
-        .confirmationDialog("Use a different place?", isPresented: $confirmingChange, titleVisibility: .visible) {
-            Button("Change") { model.changeServer() }
-        } message: {
-            Text("The music stops and the first screen opens. You stay signed in to this server.")
-        }
     }
 }

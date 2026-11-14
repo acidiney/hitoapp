@@ -78,6 +78,11 @@ struct PluginDetailView: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(working)
+                            .confirmationDialog("Sign out of \(connection.name)?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+                                Button("Sign out", role: .destructive) { Task { await signOut() } }
+                            } message: {
+                                Text("Hito stops using your \(connection.name) account. The plugin stays connected.")
+                            }
                         } else if accountUnknown {
                             Button { Task { await loadAccount() } } label: {
                                 Text("Check again").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
@@ -103,6 +108,11 @@ struct PluginDetailView: View {
                             Text("Review").font(Theme.smallStrong).foregroundStyle(Theme.onAccent).padding(.horizontal, 18).frame(minHeight: 44).background(Capsule().fill(Theme.accent))
                         }
                         .buttonStyle(.plain)
+                        .confirmationDialog("Let \(connection.name) add \(review.wants.isEmpty ? "new permissions" : review.wants.joined(separator: ", ").lowercased())?", isPresented: $confirmingReview, titleVisibility: .visible) {
+                            Button("Accept") { Task { await check(accept: review.digest) } }
+                        } message: {
+                            Text("Hito starts using \(connection.name) for this as soon as you accept. You can disconnect the plugin at any time.")
+                        }
                     }
                     .frame(minHeight: 64)
                     .overlay(alignment: .top) { Theme.barLine.frame(height: 1) }
@@ -149,6 +159,11 @@ struct PluginDetailView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(working)
+                .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+                    Button("Disconnect", role: .destructive) { Task { await remove() } }
+                } message: {
+                    Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
+                }
                 Text("Disconnecting leaves your library and playlists as they are.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.quiet)
@@ -161,21 +176,6 @@ struct PluginDetailView: View {
             .background(Theme.ground)
         }
         .task(id: connection.signsIn) { await loadAccount() }
-        .confirmationDialog("Sign out of \(connection.name)?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
-            Button("Sign out", role: .destructive) { Task { await signOut() } }
-        } message: {
-            Text("Hito stops using your \(connection.name) account. The plugin stays connected.")
-        }
-        .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-            Button("Disconnect", role: .destructive) { Task { await remove() } }
-        } message: {
-            Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
-        }
-        .confirmationDialog("Let \(connection.name) add \(review?.wants.joined(separator: ", ").lowercased() ?? "new permissions")?", isPresented: $confirmingReview, titleVisibility: .visible) {
-            Button("Accept") { Task { await check(accept: review?.digest) } }
-        } message: {
-            Text("Hito starts using \(connection.name) for this as soon as you accept. You can disconnect the plugin at any time.")
-        }
     }
 
     private var status: String {
