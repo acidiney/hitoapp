@@ -35,7 +35,7 @@ struct SettingsView: View {
             (.music, "Music", admin ? "Folders and libraries" : "Libraries you can listen to"),
             (.playback, "Playback", "Source order"),
         ] + (admin ? [(.accounts, "Accounts", "People on this server")] : []) + [
-            (.about, "About", "Version and server"),
+            (.about, "About", "Version and updates"),
         ]
     }
 

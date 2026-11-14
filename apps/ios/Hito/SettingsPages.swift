@@ -320,7 +320,8 @@ struct AboutView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 SettingsGroup(title: "This app") {
-                    SettingRow(title: "Version", detail: version) { EmptyView() }
+                    SettingRow(title: "Version", detail: version, divided: true) { EmptyView() }
+                    SettingRow(title: "Updates", detail: "Hito doesn't check for updates yet. Install a newer build to update.", divided: false) { EmptyView() }
                 }
                 if case let .signedIn(address, _) = model.step {
                     SettingsGroup(title: "Server") {
