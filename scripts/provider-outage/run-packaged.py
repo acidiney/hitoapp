@@ -170,7 +170,14 @@ class OwnedCommandFailure(ValueError):
         self.exit_code = exit_code
 
 
+class OwnedCleanupFailure(ValueError):
+    def __init__(self, failure):
+        self.failure = failure
+
+
 def safe_failure(phase, error):
+    if isinstance(error, OwnedCleanupFailure):
+        return error.failure
     if isinstance(error, OwnedCommandFailure):
         result = {"phase": error.phase or phase, "kind": error.kind}
         if error.exit_code is not None:
@@ -223,7 +230,10 @@ def command(arguments, seconds=30, maximum=2 * 1024 * 1024, env=None, phase=None
                 output.extend(chunk)
                 if len(output) > maximum:
                     raise OwnedCommandFailure(phase, "output_limit")
-        status = process.wait(timeout=max(0.1, deadline - time.monotonic()))
+        try:
+            status = process.wait(timeout=max(0.1, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired as error:
+            raise OwnedCommandFailure(phase, "deadline") from error
         if status:
             raise OwnedCommandFailure(phase, "command_exit", status)
         return bytes(output)
@@ -633,6 +643,14 @@ class Gate:
     def cleanup(self):
         self.phase = "cleanup"
         failures = []
+        first_failure = None
+
+        def record_failure(name, error):
+            nonlocal first_failure
+            failures.append(name)
+            if first_failure is None:
+                first_failure = safe_failure(name, error)
+
         errors = (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError)
         try:
             if self.browser and self.browser.poll() is None:
@@ -642,46 +660,48 @@ class Gate:
                 except subprocess.TimeoutExpired:
                     os.killpg(self.browser.pid, signal.SIGKILL)
                     self.browser.wait(timeout=5)
-        except errors:
-            failures.append("browser_stop")
+        except errors as error:
+            record_failure("browser_stop", error)
         if self.modules_before is not None:
             try:
                 if self.module_pin("modules-after") != self.modules_before:
                     raise ValueError("Browser execution module content changed")
-            except errors:
-                failures.append("module_pin")
+            except errors as error:
+                record_failure("module_pin", error)
         if self.modules_volume_identity is not None:
             try:
                 self.inspect_modules_volume()
-            except errors:
-                failures.append("module_volume_identity")
+            except errors as error:
+                record_failure("module_volume_identity", error)
         identifiers = []
         try:
             identifiers = command([
                 "docker", "ps", "-aq", "--no-trunc", "--filter",
                 f"label=com.docker.compose.project={self.project}",
             ]).decode().split()
-        except errors:
-            failures.append("container_discovery")
+        except errors as error:
+            record_failure("container_discovery", error)
         owned = []
         for identifier in identifiers:
             try:
                 owned.append(self.identity(identifier))
-            except errors:
+            except errors as identity_error:
                 try:
                     if not self.container_absent(identifier):
-                        failures.append("container_identity")
-                except errors:
-                    failures.append("container_absence")
+                        record_failure("container_identity", identity_error)
+                except errors as absence_error:
+                    record_failure("container_identity", identity_error)
+                    record_failure("container_absence", absence_error)
         for identifier in sorted(owned, key=lambda item: self.container_services[item] == "outage-keeper"):
             try:
                 command(["docker", "rm", "-f", identifier])
-            except errors:
+            except errors as error:
                 try:
                     if not self.container_absent(identifier):
-                        failures.append("container_remove")
-                except errors:
-                    failures.append("container_absence")
+                        record_failure("container_remove", error)
+                except errors as absence_error:
+                    record_failure("container_remove", error)
+                    record_failure("container_absence", absence_error)
         for suffix in ("data", "control"):
             name = f"{self.project}-{suffix}"
             try:
@@ -712,8 +732,8 @@ class Gate:
                 except errors:
                     if not self.volume_absent(name):
                         raise
-            except errors:
-                failures.append("volume_cleanup")
+            except errors as error:
+                record_failure("volume_cleanup", error)
         remaining = None
         remaining_volumes = None
         try:
@@ -723,8 +743,8 @@ class Gate:
             ]).split())
             if remaining:
                 failures.append("remaining_containers")
-        except errors:
-            failures.append("container_verification")
+        except errors as error:
+            record_failure("container_verification", error)
         try:
             remaining_volumes = len(command([
                 "docker", "volume", "ls", "-q", "--filter",
@@ -732,18 +752,18 @@ class Gate:
             ]).split())
             if remaining_volumes:
                 failures.append("remaining_volumes")
-        except errors:
-            failures.append("volume_verification")
+        except errors as error:
+            record_failure("volume_verification", error)
         try:
             if hasattr(self, "before") and self.before != source_snapshot():
                 raise ValueError("Gate source changed during qualification")
-        except errors:
-            failures.append("source_pin")
+        except errors as error:
+            record_failure("source_pin", error)
         if self.modules_volume_identity is not None:
             try:
                 self.inspect_modules_volume()
-            except errors:
-                failures.append("module_volume_identity")
+            except errors as error:
+                record_failure("module_volume_identity", error)
         (self.evidence / "cleanup.json").write_text(json.dumps({
             "containers": remaining, "volumes": remaining_volumes,
             "failures": failures,
@@ -753,7 +773,9 @@ class Gate:
             "sha256": hashlib.sha256(self.browser_output).hexdigest(),
         }))
         if failures:
-            raise ValueError("Owned cleanup failed: " + ",".join(sorted(set(failures))))
+            raise OwnedCleanupFailure(
+                first_failure or {"phase": "cleanup", "kind": "validation"}
+            )
 
 
 def main():
@@ -763,6 +785,7 @@ def main():
     status = 0
     phase = "execute"
     failure = None
+    cleanup_failure = None
     try:
         gate.execute()
     except KeyboardInterrupt:
@@ -780,16 +803,21 @@ def main():
         try:
             gate.cleanup()
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError) as error:
-            if status == 0: status = 1
-            if failure is None:
-                failure = safe_failure("cleanup", error)
+            structured_failure = safe_failure("cleanup", error)
+            if status == 0:
+                status = 1
+                failure = structured_failure
                 phase = "cleanup"
+            else:
+                cleanup_failure = structured_failure
     result = {
         "event": "provider_outage_gate_finished", "status": status,
         "phase": phase, "evidence": str(gate.evidence),
     }
     if failure is not None:
         result["failure"] = failure
+    if cleanup_failure is not None:
+        result["cleanup_failure"] = cleanup_failure
     print(json.dumps(result))
     return status
 
