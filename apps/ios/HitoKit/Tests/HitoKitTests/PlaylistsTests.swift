@@ -83,4 +83,24 @@ import Testing
         #expect(PlaylistLink.problem(HitoAPI.Problem.unexpected(503), service: "Spotify", following: false) == "The Spotify plugin is busy. Nothing was saved. Try again in a moment.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.noAnswer, service: "Spotify", following: false) == "Hito didn't get an answer. Trying again won't import it twice.")
     }
+
+    @Test func addingTracksInsertsEachOneInOrder() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/sync": .acknowledging])
+        try await playlists(fake).insert(["r1", "r2"], into: "p1", device: "device-1", from: 1000)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["device_id"] as? String == "device-1")
+        let actions = try #require((body["operations"] as? [[String: Any]])?.compactMap { $0["action"] as? [String: Any] })
+        #expect(actions.map { $0["kind"] as? String } == ["entry_insert", "entry_insert"])
+        #expect(actions.map { $0["recording_id"] as? String } == ["r1", "r2"])
+        #expect(actions.map { $0["playlist_id"] as? String } == ["p1", "p1"])
+        #expect(actions.map { $0["position"] as? Int } == [1000, 1001])
+        #expect(Set(actions.compactMap { $0["entry_id"] as? String }).count == 2)
+    }
+
+    @Test func anInsertTheServerDidNotAcknowledgeFails() async {
+        let fake = FakeServer(routes: ["POST /api/v1/sync": .json(200, #"{"acknowledged":[]}"#)])
+        await #expect(throws: Likes.Problem.notAcknowledged) {
+            try await playlists(fake).insert(["r1"], into: "p1", device: "device-1", from: 0)
+        }
+    }
 }

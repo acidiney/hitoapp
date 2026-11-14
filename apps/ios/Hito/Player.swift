@@ -210,7 +210,7 @@ final class Player {
         }
     }
 
-    private static var device: String {
+    static var device: String {
         let key = "app.hito.device"
         if let saved = UserDefaults.standard.string(forKey: key) { return saved }
         let made = UUID().uuidString.lowercased()

@@ -19,6 +19,8 @@ struct LibraryView: View {
     @State private var sort = TrackSort.recent
     @State private var filtering = false
     @State private var importing = false
+    @State private var selected: Set<String>?
+    @State private var notice: String?
     @State private var opened: Playlist?
 
     var body: some View {
@@ -45,7 +47,7 @@ struct LibraryView: View {
                 SectionTabs(selection: $section)
                 switch section {
                 case .tracks:
-                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.")
+                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.", selection: $selected, selectable: true)
                         .padding(.leading, -6)
                         .padding(.trailing, -8)
                 case .albums:
@@ -77,6 +79,26 @@ struct LibraryView: View {
             FilterSheet(sort: $sort, total: tracks.total)
                 .presentationBackground(.clear)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let chosen = selected {
+                SelectionBar(
+                    count: chosen.count,
+                    loaded: tracks.items.count,
+                    playlists: (playlists ?? []).filter { $0.kind == .local },
+                    selectLoaded: { selected = Set(tracks.items.map(\.id)) },
+                    queue: { queueSelected(chosen) },
+                    add: { playlist in Task { await add(chosen, to: playlist) } },
+                    close: { selected = nil }
+                )
+            } else if let notice {
+                Text(notice).font(Theme.small).foregroundStyle(Theme.text)
+                    .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .background(Theme.raised)
+                    .task { try? await Task.sleep(for: .seconds(3)); self.notice = nil }
+            }
+        }
+        .onChange(of: selected == nil) { if selected != nil, playlists == nil { Task { await loadPlaylists() } } }
+        .onChange(of: section) { selected = nil }
         .fullScreenCover(isPresented: $importing) {
             ImportSheet { id in Task { await loadPlaylists(); opened = playlists?.first { $0.id == id } } }
                 .presentationBackground(.clear)
@@ -102,6 +124,26 @@ struct LibraryView: View {
         let library = Library(api: api)
         let sort = sort
         tracks.reset { try await library.tracks(offset: $0, sort: sort) }
+    }
+
+    private func queueSelected(_ chosen: Set<String>) {
+        let picked = tracks.items.filter { chosen.contains($0.id) && $0.isPlayable }
+        picked.forEach { model.player?.playNext($0) }
+        notice = picked.count == chosen.count ? "Added \(picked.count) to the queue" : "Added \(picked.count) to the queue. Tracks without a source were left out."
+        selected = nil
+    }
+
+    private func add(_ chosen: Set<String>, to playlist: Playlist) async {
+        guard let api = model.api else { return }
+        let ordered = tracks.items.map(\.id).filter { chosen.contains($0) }
+        do {
+            try await Playlists(api: api).insert(ordered, into: playlist.id, device: Player.device, from: Int(Date().timeIntervalSince1970 * 1000))
+            notice = "Added \(ordered.count) to \(playlist.name)"
+            selected = nil
+        } catch {
+            notice = "\(playlist.name) didn't change. Try again."
+            model.handle(error)
+        }
     }
 
     private func loadPlaylists() async {
@@ -233,23 +275,52 @@ struct TrackRows: View {
     let feed: Feed<Track>
     let context: String
     let empty: String
+    var selection: Binding<Set<String>?> = .constant(nil)
+    var selectable = false
 
     var body: some View {
         if feed.isEmpty {
             Text(empty).font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 12)
         }
         ForEach(Array(feed.items.enumerated()), id: \.element.id) { index, track in
-            Button {
-                model.player?.play(feed.items, at: index, from: context)
-            } label: {
-                LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
+            if let chosen = selection.wrappedValue {
+                let picked = chosen.contains(track.id)
+                Button {
+                    selection.wrappedValue = picked ? chosen.subtracting([track.id]) : chosen.union([track.id])
+                } label: {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 5).fill(picked ? Theme.accent : .clear)
+                            RoundedRectangle(cornerRadius: 5).strokeBorder(picked ? Theme.accent : Theme.quiet, lineWidth: 1.5)
+                            if picked { Icon("check", size: 14).foregroundStyle(Theme.onAccent) }
+                        }
+                        .frame(width: 22, height: 22)
+                        .padding(.leading, 10)
+                        LibraryRow(track: track, isCurrent: false)
+                    }
+                    .background(RoundedRectangle(cornerRadius: 12).fill(picked ? Theme.accent.opacity(0.16) : .clear))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(picked ? [.isButton, .isSelected] : .isButton)
+            } else {
+                Button {
+                    model.player?.play(feed.items, at: index, from: context)
+                } label: {
+                    LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                }
+                .buttonStyle(.plain)
+                .disabled(!track.isPlayable)
+                .contextMenu {
+                    TrackMenu(track: track)
+                    if selection.wrappedValue == nil, selectable {
+                        Button("Select") { selection.wrappedValue = [track.id] }
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(!track.isPlayable)
-            .contextMenu { TrackMenu(track: track) }
         }
         FeedFooter(feed: feed)
     }
+
 }
 
 struct TrackMenu: View {
@@ -507,5 +578,60 @@ struct FlowChips<Item: Hashable>: View {
             .buttonStyle(.plain)
             .accessibilityAddTraits(on ? [.isSelected] : [])
         }
+    }
+}
+
+struct SelectionBar: View {
+    let count: Int
+    let loaded: Int
+    let playlists: [Playlist]
+    let selectLoaded: () -> Void
+    let queue: () -> Void
+    let add: (Playlist) -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Text("\(count) selected").font(Theme.bodyStrong)
+                Spacer(minLength: 0)
+                if count < loaded {
+                    TextAction(title: "Select the \(loaded) loaded", action: selectLoaded)
+                }
+                IconButton(icon: "close", label: "Stop selecting", glyph: 18, action: close)
+            }
+            HStack(spacing: 10) {
+                Menu {
+                    if playlists.isEmpty {
+                        Text("No playlists of yours yet")
+                    }
+                    ForEach(playlists) { playlist in
+                        Button(playlist.name) { add(playlist) }
+                    }
+                } label: {
+                    Text("Add to playlist")
+                        .font(Theme.bodyStrong)
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Capsule().fill(Theme.accent))
+                }
+                .disabled(count == 0)
+                Button(action: queue) {
+                    Text("Add to queue")
+                        .font(Theme.bodyMedium)
+                        .foregroundStyle(Theme.text)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .overlay(Capsule().strokeBorder(Theme.line))
+                }
+                .buttonStyle(.plain)
+                .disabled(count == 0)
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(hex: 0x1f2340)))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Selection actions")
     }
 }

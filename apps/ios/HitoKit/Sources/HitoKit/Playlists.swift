@@ -190,3 +190,44 @@ extension Playlists {
         return receipt.playlistId
     }
 }
+
+extension Playlists {
+    struct Insert: Encodable {
+        let kind = "entry_insert"
+        let playlistId: String
+        let entryId: String
+        let recordingId: String
+        let position: Int
+
+        enum CodingKeys: String, CodingKey {
+            case kind, position
+            case playlistId = "playlist_id"
+            case entryId = "entry_id"
+            case recordingId = "recording_id"
+        }
+    }
+
+    struct Change: Encodable {
+        let id: String
+        let action: Insert
+    }
+
+    struct Changes: Encodable {
+        let deviceId: String
+        let operations: [Change]
+
+        enum CodingKeys: String, CodingKey {
+            case operations
+            case deviceId = "device_id"
+        }
+    }
+
+    public func insert(_ recordings: [String], into playlist: String, device: String, from start: Int) async throws {
+        let changes = recordings.enumerated().map { index, recording in
+            Change(id: UUID().uuidString.lowercased(), action: Insert(playlistId: playlist, entryId: UUID().uuidString.lowercased(), recordingId: recording, position: start + index))
+        }
+        let receipt = try await api.post(["api", "v1", "sync"], body: Changes(deviceId: device, operations: changes), as: Likes.Receipt.self)
+        let acknowledged = Set(receipt.acknowledged.map { $0.lowercased() })
+        guard changes.allSatisfy({ acknowledged.contains($0.id) }) else { throw Likes.Problem.notAcknowledged }
+    }
+}
