@@ -291,12 +291,7 @@ export function useCreditMemberChoice(
 
   async function read() {
     if (current.choice || owner.phase) return;
-    await run(
-      "read",
-      {},
-      readChoice,
-      ({ choice, name }) => ({ choice, name }),
-    );
+    await run("read", {}, readChoice, ({ choice, name }) => ({ choice, name }));
   }
 
   function hold(write: Write | null) {

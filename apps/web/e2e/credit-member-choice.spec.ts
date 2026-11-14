@@ -262,7 +262,10 @@ test("credited artists stay unread until opened, keep a per-member choice across
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
     await expect(dialog).toHaveCount(0);
-    const chosen = await chosenIdentity(page, fixture.memberPath(members.guest));
+    const chosen = await chosenIdentity(
+      page,
+      fixture.memberPath(members.guest),
+    );
     await expect(guest).toContainText(`Chosen: ${chosen.name}`);
     await expect(lead).toContainText("Not chosen yet");
     expect(await fixture.wholeCredit()).toEqual(wholeBefore);

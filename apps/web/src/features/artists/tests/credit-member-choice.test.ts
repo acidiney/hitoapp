@@ -402,9 +402,7 @@ test("choosing sends the exact member context to the member's own routes and sho
   fireEvent.click(
     await within(dialog).findByRole("button", { name: "Use this artist" }),
   );
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   const writes = fetch.mock.calls.filter(
     ([, init]) => init?.method === "POST" || init?.method === "PUT",
   );
@@ -732,9 +730,7 @@ test("cancelling after an accepted choice keeps it and re-reads the real choice"
   );
   await within(dialog).findByRole("alert");
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   expect(
     fetch.mock.calls.filter(([, init]) => init?.method === "PUT"),
   ).toHaveLength(1);
@@ -762,9 +758,7 @@ test("a choice whose response was lost is replayed with the same request", async
     isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
   ).toBe(true);
   fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
   expect(puts[1]).toEqual(puts[0]);
@@ -783,9 +777,7 @@ test("a lost choice response can be checked again from the row after cancelling"
   fireEvent.click(
     within(row(featured.name)).getByRole("button", { name: "Check again" }),
   );
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
   expect(puts[1].request_id).toBe(puts[0].request_id);
@@ -797,9 +789,7 @@ test("an accepted choice with a failed readback blocks new writes until checked"
     isDisabled(within(dialog).getByRole("button", { name: "Use this artist" })),
   ).toBe(true);
   fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
 });
 
@@ -824,9 +814,7 @@ test("a rejected choice is dropped, re-read, and a new attempt uses the new revi
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Use this artist" }),
   );
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
   expect(puts[0].expected_revision).toBe(0);
@@ -984,9 +972,7 @@ test("collapsing the section keeps an in-flight choice unresolved", async () => 
     isDisabled(within(dialog).getByRole("button", { name: "Saving artist…" })),
   ).toBe(true);
   holdPut.resolve();
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
 });
 
@@ -1029,9 +1015,7 @@ test("a remounted row adopts a choice the server may still commit", async () => 
   });
   await waitFor(() => expect(isDisabled(check)).toBe(false));
   fireEvent.click(check);
-  await within(row(featured.name)).findByText(
-    `Chosen: ${chosenGroupName}`,
-  );
+  await within(row(featured.name)).findByText(`Chosen: ${chosenGroupName}`);
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
   expect(puts[1]).toEqual(puts[0]);
