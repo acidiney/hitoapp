@@ -2,13 +2,14 @@ import HitoKit
 import SwiftUI
 
 enum Tab: CaseIterable, Hashable {
-    case home, search, library
+    case home, search, library, plugins
 
     var label: String {
         switch self {
         case .home: "Home"
         case .search: "Search"
         case .library: "Library"
+        case .plugins: "Plugins"
         }
     }
 
@@ -17,6 +18,7 @@ enum Tab: CaseIterable, Hashable {
         case .home: "home"
         case .search: "search"
         case .library: "library"
+        case .plugins: "plugins"
         }
     }
 }
@@ -43,6 +45,8 @@ struct MainView: View {
                 NavigationStack { SearchView().browsing() }
             case .library:
                 NavigationStack { LibraryView().browsing() }
+            case .plugins:
+                NavigationStack { PluginsView().browsing() }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
