@@ -27,6 +27,21 @@ import Testing
         #expect(result == .wrongPin)
     }
 
+    @Test func theServerRefusingAWrongPinIsAWrongPin() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/account/unlock": .json(422, #"{"error":"That PIN is not correct. 4 attempts left"}"#)])
+        let result = try await AccountSession(session: fake.session).unlock(at: address, token: "t1", pin: "0000")
+        #expect(result == .wrongPin)
+    }
+
+    @Test func activityIsReportedSoIdleTimeIsMeasuredFromIt() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/account/activity": .json(200, #"{"pin_enabled":true,"idle_minutes":5,"locked":false}"#)])
+        let status = try await AccountSession(session: fake.session).recordActivity(at: address, token: "t1")
+        #expect(!status.locked)
+        let request = try #require(fake.requests.first)
+        #expect(request.authorization == "Bearer t1")
+        #expect(request.header("x-hito-request") == "1")
+    }
+
     @Test func tooManyWrongPinsEndTheSession() async throws {
         let fake = FakeServer(routes: ["POST /api/v1/account/unlock": .json(401, #"{"error":"Sign in again"}"#)])
         let result = try await AccountSession(session: fake.session).unlock(at: address, token: "t1", pin: "0000")
