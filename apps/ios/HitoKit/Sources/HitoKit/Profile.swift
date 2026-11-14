@@ -1,0 +1,122 @@
+import Foundation
+
+public struct Device: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let name: String
+    public let current: Bool
+    public let lastSeen: Date
+}
+
+public struct Profile: Sendable {
+    struct Session: Decodable {
+        let id: String
+        let client: String?
+        let lastSeenAt: Int
+        let current: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case id, client, current
+            case lastSeenAt = "last_seen_at"
+        }
+    }
+
+    struct Rename: Encodable {
+        let displayName: String?
+
+        enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(displayName, forKey: .displayName)
+        }
+    }
+
+    let api: HitoAPI
+
+    public init(api: HitoAPI) {
+        self.api = api
+    }
+
+    public func devices() async throws -> [Device] {
+        try await api.get(["api", "v1", "account", "sessions"], as: [Session].self)
+            .sorted { ($0.current ? 1 : 0, $0.lastSeenAt) > ($1.current ? 1 : 0, $1.lastSeenAt) }
+            .map { Device(id: $0.id, name: $0.client ?? "Unknown device", current: $0.current, lastSeen: Date(timeIntervalSince1970: TimeInterval($0.lastSeenAt))) }
+    }
+
+    public func signOut(device id: String) async throws {
+        _ = try await api.delete(["api", "v1", "account", "sessions", id], as: Nothing.self)
+    }
+
+    public func rename(_ name: String) async throws -> User {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await api.put(["api", "v1", "account", "display-name"], body: Rename(displayName: trimmed.isEmpty ? nil : trimmed), as: User.self)
+    }
+}
+
+public struct SourceOrder: Sendable {
+    public enum Entry: Equatable, Hashable, Sendable {
+        case localFiles
+        case savedCopies
+        case provider(String)
+    }
+
+    public struct Order: Equatable, Sendable {
+        public let revision: Int
+        public var fallback: Bool
+        public var entries: [Entry]
+
+        public mutating func move(_ index: Int, by offset: Int) {
+            let target = index + offset
+            guard entries.indices.contains(index), entries.indices.contains(target) else { return }
+            entries.swapAt(index, target)
+        }
+    }
+
+    struct Wire: Codable {
+        struct Item: Codable {
+            let kind: String
+            let installationId: String?
+
+            enum CodingKeys: String, CodingKey {
+                case kind
+                case installationId = "installation_id"
+            }
+        }
+
+        let revision: Int
+        let fallback: Bool
+        let entries: [Item]
+    }
+
+    let api: HitoAPI
+
+    public init(api: HitoAPI) {
+        self.api = api
+    }
+
+    public func load() async throws -> Order {
+        Self.order(try await api.get(["api", "v1", "source-preferences"], as: Wire.self))
+    }
+
+    public func save(_ order: Order) async throws -> Order {
+        let items = order.entries.map { entry -> Wire.Item in
+            switch entry {
+            case .localFiles: Wire.Item(kind: "local_files", installationId: nil)
+            case .savedCopies: Wire.Item(kind: "saved_copies", installationId: nil)
+            case .provider(let id): Wire.Item(kind: "provider", installationId: id)
+            }
+        }
+        return Self.order(try await api.put(["api", "v1", "source-preferences"], body: Wire(revision: order.revision, fallback: order.fallback, entries: items), as: Wire.self))
+    }
+
+    static func order(_ wire: Wire) -> Order {
+        Order(revision: wire.revision, fallback: wire.fallback, entries: wire.entries.compactMap { item in
+            switch item.kind {
+            case "local_files": .localFiles
+            case "saved_copies": .savedCopies
+            case "provider": item.installationId.map(Entry.provider)
+            default: nil
+            }
+        })
+    }
+}

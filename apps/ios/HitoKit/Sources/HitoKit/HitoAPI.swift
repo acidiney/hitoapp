@@ -73,6 +73,7 @@ public struct HitoAPI: Sendable {
         }
         switch response.statusCode {
         case 200..<300:
+            if let nothing = Nothing() as? Value { return nothing }
             guard let value = try? JSONDecoder().decode(type, from: data) else {
                 throw Problem.unexpected(response.statusCode)
             }
@@ -84,6 +85,8 @@ public struct HitoAPI: Sendable {
         }
     }
 }
+
+struct Nothing: Decodable {}
 
 public struct Page<Item: Decodable & Equatable & Sendable>: Decodable, Equatable, Sendable {
     public let items: [Item]
