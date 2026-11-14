@@ -72,8 +72,19 @@ pub(crate) struct WarmBody {
 }
 
 impl WarmBody {
+    fn check_running(&self) -> Result<()> {
+        if *self.stop.borrow() {
+            Err(Error::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+
     async fn check_prefix(&mut self) -> Result<bool> {
-        self.grant.warm_check().await.map(|()| true)
+        self.check_running()?;
+        self.grant.warm_check().await?;
+        self.check_running()?;
+        Ok(true)
     }
 
     pub(crate) async fn prefix(&mut self, prefix: Bytes) -> Result<Option<Bytes>> {
@@ -83,12 +94,20 @@ impl WarmBody {
     }
 
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
+        self.check_running()?;
+        let mut stopped = self.stop.subscribe();
         let (reply, received) = tokio::sync::oneshot::channel();
         self.commands
             .send(Command::Read(reply))
             .await
             .map_err(|_| Error::NotFound)?;
-        match received.await.map_err(|_| Error::NotFound)? {
+        let received = tokio::select! {
+            biased;
+            _ = stopped.changed() => return Err(Error::NotFound),
+            result = received => result.map_err(|_| Error::NotFound)?,
+        };
+        self.check_running()?;
+        match received {
             Ok(Some(bytes)) => {
                 if !self.first_emitted {
                     self.check_prefix().await?;
