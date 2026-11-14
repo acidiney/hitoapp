@@ -452,7 +452,10 @@ async fn exercise(
         matches!(
             (scenario, report),
             (_, Some(Ok(_)))
-                | (Scenario::PauseOnly, None | Some(Err(WitnessError::Incomplete)))
+                | (
+                    Scenario::PauseOnly,
+                    None | Some(Err(WitnessError::Incomplete))
+                )
                 | (Scenario::PauseThenSeek, None)
         )
     });
