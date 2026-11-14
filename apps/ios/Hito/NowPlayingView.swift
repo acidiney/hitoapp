@@ -53,11 +53,11 @@ struct NowPlayingView: View {
                     if let context = player.queue.context {
                         Text("Playing from \(context)").font(Theme.label).foregroundStyle(Theme.soft).lineLimit(1)
                     }
-                    Text(track.title).font(Theme.playing).lineLimit(2)
+                    Text(track.title).font(Theme.playing).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                     Text(track.artist).foregroundStyle(Theme.soft).lineLimit(1)
                     HStack(spacing: 8) {
                         Circle().fill(player.notice == nil ? Theme.text : Theme.warning).frame(width: 9, height: 9)
-                        Text(status).foregroundStyle(player.notice == nil ? Theme.soft : Theme.warning).lineLimit(2)
+                        Text(status).foregroundStyle(player.notice == nil ? Theme.soft : Theme.warning).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                     }
                     .font(Theme.small)
                     .padding(.top, 4)
