@@ -46,18 +46,20 @@ pub(crate) fn genre_identity(name: &str) -> Option<(String, String)> {
     ))
 }
 
-enum Key<'a> {
+pub(super) enum Key<'a> {
     Bound(&'a str),
     Column(&'static str),
 }
 
-fn genre_recordings(
+pub(super) fn genre_recordings(
     query: &mut QueryBuilder<'_, sqlx::Sqlite>,
     host: &crate::HostDeviceId,
     actor: &Actor,
     key: &Key<'_>,
     columns: &str,
     limit: i64,
+    paged: bool,
+    after: Option<(&str, &str)>,
 ) {
     for (index, source) in [
         GenreSource::File,
@@ -121,7 +123,19 @@ fn genre_recordings(
             " AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id) AND ",
         );
         push_available(query, host, actor.id());
-        if matches!(source, GenreSource::File) && limit > 1 {
+        if let Some((title, id)) = after {
+            query
+                .push(" AND (r.title COLLATE NOCASE > ")
+                .push_bind(title.to_owned())
+                .push(" COLLATE NOCASE OR (r.title COLLATE NOCASE = ")
+                .push_bind(title.to_owned())
+                .push(" COLLATE NOCASE AND r.id > ")
+                .push_bind(id.to_owned())
+                .push("))");
+        }
+        if paged {
+            query.push(" GROUP BY r.id ORDER BY r.title COLLATE NOCASE, r.id");
+        } else if matches!(source, GenreSource::File) && limit > 1 {
             query.push(" GROUP BY r.id");
         }
         query.push(" LIMIT ").push_bind(limit).push(")");
@@ -205,6 +219,8 @@ impl Catalog {
             &Key::Column("keys.k"),
             "g.label AS label",
             1,
+            false,
+            None,
         );
         query.push(") LIMIT 1) AS label, (SELECT count(*) FROM (SELECT id FROM (");
         genre_recordings(
@@ -214,6 +230,8 @@ impl Catalog {
             &Key::Column("keys.k"),
             "r.id AS id",
             cap,
+            false,
+            None,
         );
         query
             .push(") GROUP BY id LIMIT ")
@@ -241,6 +259,8 @@ impl Catalog {
             &Key::Bound(&key),
             "g.label AS label",
             1,
+            false,
+            None,
         );
         label.push(") LIMIT 1");
         let label: Option<String> = label.build_query_scalar().fetch_optional(&mut *tx).await?;
@@ -255,6 +275,8 @@ impl Catalog {
             &Key::Bound(&key),
             "r.id AS id",
             GENRE_COUNT_CAP,
+            false,
+            None,
         );
         count
             .push(") GROUP BY id LIMIT ")
@@ -274,6 +296,8 @@ impl Catalog {
             &Key::Bound(&key),
             "r.id AS id, r.title AS title",
             GENRE_COUNT_CAP,
+            false,
+            None,
         );
         ids.push(") GROUP BY id LIMIT ")
             .push_bind(GENRE_COUNT_CAP)
@@ -296,6 +320,8 @@ impl Catalog {
             &Key::Bound(&key),
             "r.id AS id, r.release_id AS release_id",
             GENRE_COUNT_CAP,
+            false,
+            None,
         );
         albums
             .push(") GROUP BY id LIMIT ")

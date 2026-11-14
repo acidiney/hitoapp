@@ -4,6 +4,7 @@ mod availability;
 mod browse;
 pub(crate) mod credit_members;
 mod featured;
+mod genre_tracks;
 mod genres;
 mod groups;
 pub(crate) mod local_files;
@@ -72,6 +73,7 @@ pub(crate) use availability::{
 pub use browse::Browse;
 pub use credit_members::CreditMember;
 pub use featured::{FeaturedEntry, FeaturedShelf};
+pub use genre_tracks::GenreTracksPage;
 pub(crate) use genres::genre_identity;
 pub use genres::{Genre, GenreDetail};
 pub(crate) use groups::group_step;
