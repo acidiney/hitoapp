@@ -348,6 +348,11 @@ export async function playThroughOutage(
   let queueBytes: Buffer;
   try {
     await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
+    const queuePlay = page.getByRole("button", {
+      name: "Play 2 ready",
+      exact: true,
+    });
+    await expect(queuePlay).toBeVisible();
     const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
     const queueResponse = page.waitForResponse(
       (response) =>
@@ -355,9 +360,7 @@ export async function playThroughOutage(
         response.status() === 200,
       { timeout: 10_000 },
     );
-    await page
-      .getByRole("button", { name: "Play playlist", exact: true })
-      .click();
+    await queuePlay.click();
     await playing(page);
     checkpoint("queue_outage");
     queueBytes = await (await queueResponse).body();
