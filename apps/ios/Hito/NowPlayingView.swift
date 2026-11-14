@@ -563,6 +563,7 @@ struct SourcePanel: View {
 struct QueueSheet: View {
     @Environment(\.dismiss) private var dismiss
     let player: Player
+    @State private var showingPlayed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -589,6 +590,18 @@ struct QueueSheet: View {
                         }
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 10).fill(Theme.raised))
+                        .padding(.trailing, 8)
+                    }
+                    if !player.queue.played.isEmpty {
+                        DisclosureGroup(isExpanded: $showingPlayed) {
+                            VStack(spacing: 0) {
+                                ForEach(player.queue.played) { QueueRow(track: $0, player: player, strong: false, among: [], played: true) }
+                            }
+                        } label: {
+                            Text("Played (\(player.queue.played.count))").font(Theme.label).foregroundStyle(Theme.quiet)
+                        }
+                        .tint(Theme.quiet)
+                        .padding(.top, 4)
                         .padding(.trailing, 8)
                     }
                     if !player.queue.queued.isEmpty {
@@ -621,7 +634,7 @@ struct QueueSheet: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Theme.menu))
                 .padding(.trailing, 8)
             }
-            Text("Tracks without a source are skipped.").font(Theme.small).foregroundStyle(Theme.quiet)
+            Text("Tap a track to play it. Tracks without a source are looked up when they come up.").font(Theme.small).foregroundStyle(Theme.quiet)
         }
         .padding(EdgeInsets(top: 10, leading: 16, bottom: 24, trailing: 8))
         .background(Theme.field.ignoresSafeArea())
@@ -636,15 +649,29 @@ struct QueueRow: View {
     let player: Player
     let strong: Bool
     let among: [Track]
+    var played = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Cover(path: track.artworkPath, size: 44)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(track.title).font(strong ? Theme.bodyStrong : Theme.body).lineLimit(1)
-                Text(track.artist).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+            Button { player.jump(to: track) } label: {
+                HStack(spacing: 12) {
+                    Cover(path: track.artworkPath, size: 44)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(track.title).font(strong ? Theme.bodyStrong : Theme.body).foregroundStyle(played ? Theme.soft : Theme.text).lineLimit(1)
+                        Text(track.artist).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 0)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Play \(track.title), \(track.artist)")
+            if !played { actions }
+        }
+        .frame(minHeight: 60)
+    }
+
+    private var actions: some View {
             Menu {
                 Button("Move up") { player.move(upcoming: track.id, by: -1) }
                     .disabled(among.first?.id == track.id)
@@ -655,7 +682,5 @@ struct QueueRow: View {
                 Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
             }
             .accessibilityLabel("Actions for \(track.title): move up, move down, remove")
-        }
-        .frame(minHeight: 60)
     }
 }

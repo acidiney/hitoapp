@@ -176,6 +176,12 @@ final class Player {
         publish()
     }
 
+    func jump(to track: Track) {
+        resumeAt = nil
+        guard let chosen = queue.jump(to: track.id) else { return }
+        load(chosen)
+    }
+
     func playNext(_ track: Track) {
         queue.playNext(track)
     }
