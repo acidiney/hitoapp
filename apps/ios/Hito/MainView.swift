@@ -33,25 +33,17 @@ struct MainView: View {
     @State private var showingNowPlaying = false
     @State private var showingQueue = false
     @State private var typing = false
+    @State private var visited: Set<Tab> = [.home]
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Theme.ground.ignoresSafeArea()
-                switch tab {
-                case .home:
-                    NavigationStack {
-                        HomeView(user: user, openSearch: { tab = .search })
-                            .browsing()
-                    }
-                case .search:
-                    NavigationStack { SearchView().browsing() }
-                case .discover:
-                    NavigationStack { DiscoverView(openSearch: { tab = .search }).browsing() }
-                case .library:
-                    NavigationStack { LibraryView().browsing() }
-                case .plugins:
-                    NavigationStack { PluginsView().browsing() }
+                ForEach(Tab.allCases.filter(visited.contains), id: \.self) { item in
+                    screen(item)
+                        .opacity(item == tab ? 1 : 0)
+                        .allowsHitTesting(item == tab)
+                        .accessibilityHidden(item != tab)
                 }
             }
             .frame(maxHeight: .infinity)
@@ -67,11 +59,29 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in typing = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in typing = false }
         .foregroundStyle(Theme.text)
+        .onChange(of: tab) { visited.insert(tab) }
         .fullScreenCover(isPresented: $showingNowPlaying) {
             if let player = model.player {
                 NowPlayingView(player: player, openQueue: { showingQueue = true })
                     .sheet(isPresented: $showingQueue) { QueueSheet(player: player) }
             }
+        }
+    }
+}
+
+extension MainView {
+    @ViewBuilder func screen(_ item: Tab) -> some View {
+        switch item {
+        case .home:
+            NavigationStack { HomeView(user: user, openSearch: { tab = .search }).browsing() }
+        case .search:
+            NavigationStack { SearchView(active: tab == .search).browsing() }
+        case .discover:
+            NavigationStack { DiscoverView(openSearch: { tab = .search }).browsing() }
+        case .library:
+            NavigationStack { LibraryView().browsing() }
+        case .plugins:
+            NavigationStack { PluginsView().browsing() }
         }
     }
 }
