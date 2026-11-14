@@ -18,7 +18,7 @@ pub(super) const MAX_FACT_BYTES: usize = 64 * 1024;
 pub(super) const MAX_PAGE_BYTES: usize = 256 * 1024;
 pub(super) const MAX_EXPORT_BYTES: usize = 128 * 1024 * 1024;
 const MAX_PAGE_FACTS: usize = 200;
-const RECORDING_BATCH: usize = 256;
+const RECORDING_BATCH: usize = 64;
 const LOCAL_EVIDENCE: &str = "EXISTS (SELECT 1 FROM sources s INDEXED BY sources_recording CROSS JOIN source_metadata m INDEXED BY sqlite_autoindex_source_metadata_1 ON m.source_id=s.id WHERE s.recording_id=r.id AND s.provider='local')";
 const RECORDING_BYTES: &str = "length(CAST(r.id AS BLOB))+length(CAST(r.library_id AS BLOB))+length(CAST(r.title AS BLOB))+length(CAST(r.artist AS BLOB))";
 
@@ -120,6 +120,7 @@ async fn collect_inner(
         recordings: Vec::new(),
         next_ordinal: None,
     };
+    let mut current_raw = Vec::new();
     let mut bytes = 0;
     let mut current_bytes = 0;
     let mut cursor: Option<(String, String)> = None;
@@ -156,21 +157,20 @@ async fn collect_inner(
                     duration_ms: row.duration_ms,
                     sources,
                 };
-                let encoded = serde_json::to_vec(&fact).map_err(|_| limit())?;
-                if encoded.len() > MAX_FACT_BYTES {
-                    return Err(limit());
-                }
+                let encoded = encode_fact(&fact)?;
+                let encoded_len = encoded.get().len();
                 if !current.recordings.is_empty()
                     && (current.recordings.len() == MAX_PAGE_FACTS
-                        || current_bytes + encoded.len() + 512 > MAX_PAGE_BYTES)
+                        || current_bytes + encoded_len + 512 > MAX_PAGE_BYTES)
                 {
                     current.next_ordinal = Some(current.ordinal + 1);
                     #[cfg(test)]
                     let previous_bytes = bytes;
-                    finish(&current, &mut pages, &mut bytes)?;
+                    finish(&current, &current_raw, &mut pages, &mut bytes)?;
                     #[cfg(test)]
                     diagnostic.page_finished(bytes - previous_bytes);
                     current_bytes = 0;
+                    current_raw.clear();
                     current = CatalogSnapshotPage {
                         snapshot_id: id,
                         ordinal: current.ordinal + 1,
@@ -178,8 +178,9 @@ async fn collect_inner(
                         next_ordinal: None,
                     };
                 }
-                current_bytes += encoded.len() + 1;
+                current_bytes += encoded_len + 1;
                 current.recordings.push(fact);
+                current_raw.push(encoded);
                 #[cfg(test)]
                 diagnostic.recording_finished();
             }
@@ -193,7 +194,7 @@ async fn collect_inner(
     }
     #[cfg(test)]
     diagnostic.start(Phase::FinalPageEncoding);
-    let final_page = finish(&current, &mut pages, &mut bytes);
+    let final_page = finish(&current, &current_raw, &mut pages, &mut bytes);
     #[cfg(test)]
     diagnostic.end();
     final_page?;
@@ -221,14 +222,28 @@ async fn collect_inner(
     })
 }
 
-fn finish(page: &CatalogSnapshotPage, pages: &mut Vec<Vec<u8>>, total: &mut usize) -> Result<()> {
-    let encoded = serde_json::to_vec(page).map_err(|_| limit())?;
+fn finish(
+    page: &CatalogSnapshotPage,
+    raw_recordings: &[Box<serde_json::value::RawValue>],
+    pages: &mut Vec<Vec<u8>>,
+    total: &mut usize,
+) -> Result<()> {
+    assert_eq!(page.recordings.len(), raw_recordings.len());
+    let encoded = super::page_encoding::encode(page, raw_recordings).map_err(|_| limit())?;
     if encoded.len() > MAX_PAGE_BYTES || encoded.len() > MAX_EXPORT_BYTES - *total {
         return Err(limit());
     }
     *total += encoded.len();
     pages.push(encoded);
     Ok(())
+}
+
+fn encode_fact(fact: &LocalRecordingFact) -> Result<Box<serde_json::value::RawValue>> {
+    let encoded = serde_json::value::to_raw_value(fact).map_err(|_| limit())?;
+    if encoded.get().len() > MAX_FACT_BYTES {
+        return Err(limit());
+    }
+    Ok(encoded)
 }
 
 fn recordings_query(
@@ -395,5 +410,64 @@ pub(super) async fn explain_plans(
             .await
             .unwrap();
         eprintln!("actual_catalog_query={name} plan={rows:?}");
+    }
+}
+
+#[cfg(test)]
+mod encoding_limits_tests {
+    use super::*;
+
+    fn fact(title: String) -> LocalRecordingFact {
+        LocalRecordingFact {
+            id: "recording".into(),
+            library_id: "library".into(),
+            title,
+            artist: "artist".into(),
+            duration_ms: 0,
+            sources: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn cached_fact_encoding_rejects_the_fact_limit() {
+        let oversized = fact("x".repeat(MAX_FACT_BYTES));
+        assert!(matches!(encode_fact(&oversized), Err(crate::Error::Conflict(_))));
+    }
+
+    #[test]
+    fn cached_page_encoding_rejects_page_and_export_limits() {
+        let oversized_fact = fact("x".repeat(MAX_PAGE_BYTES));
+        let page = CatalogSnapshotPage {
+            snapshot_id: Uuid::nil(),
+            ordinal: 0,
+            recordings: vec![oversized_fact],
+            next_ordinal: None,
+        };
+        let raw = page
+            .recordings
+            .iter()
+            .map(serde_json::value::to_raw_value)
+            .collect::<serde_json::Result<Vec<_>>>()
+            .unwrap();
+        assert!(matches!(
+            finish(&page, &raw, &mut Vec::new(), &mut 0),
+            Err(crate::Error::Conflict(_))
+        ));
+
+        let empty = CatalogSnapshotPage {
+            snapshot_id: Uuid::nil(),
+            ordinal: 0,
+            recordings: Vec::new(),
+            next_ordinal: None,
+        };
+        assert!(matches!(
+            finish(
+                &empty,
+                &[],
+                &mut Vec::new(),
+                &mut (MAX_EXPORT_BYTES - 1)
+            ),
+            Err(crate::Error::Conflict(_))
+        ));
     }
 }

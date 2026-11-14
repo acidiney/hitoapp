@@ -1,5 +1,6 @@
 mod construction;
 mod materialization;
+mod page_encoding;
 mod retention;
 mod types;
 

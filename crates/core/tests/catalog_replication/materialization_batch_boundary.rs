@@ -2,7 +2,7 @@ use super::materialization_batch_boundary_fixture as fixture;
 use crate::{CatalogSnapshotMode, Error, test_support::hang_guard::hang_guard};
 
 #[tokio::test]
-async fn public_snapshot_preserves_associations_at_the_256_recording_batch_boundary() {
+async fn public_snapshot_preserves_associations_across_batch64_and_page_boundaries() {
     let fixture = hang_guard(
         "the batch-boundary fixture must be prepared",
         Box::pin(fixture::Fixture::seed()),
@@ -101,6 +101,10 @@ async fn public_snapshot_preserves_associations_at_the_256_recording_batch_bound
     }
     assert_eq!(actual[0].title, "Boundary 000");
     assert_eq!(actual[1].title, "Boundary 000");
+    assert_eq!(actual[63].title, "Boundary 031");
+    assert_eq!(actual[64].title, "Boundary 032");
+    assert_eq!(actual[127].title, "Boundary 063");
+    assert_eq!(actual[128].title, "Boundary 064");
     assert_eq!(actual[255].title, "Boundary 127");
     assert_eq!(actual[256].title, "Boundary 128");
     assert_eq!(actual[511].title, "Boundary 255");
