@@ -79,7 +79,7 @@ async fn opening_schema_96_keeps_credit_targets_and_accepts_private_member_choic
                 .unwrap();
             snapshot::assert_preserved(inspector, &seeded.rows).await;
             assert_eq!(association_keys(inspector).await, seeded.keys);
-            assert_history(inspector, 97).await;
+            assert_history(inspector, 98).await;
             assert_eq!(member_count(inspector).await, 0);
             assert_database(inspector).await;
             connection.take().unwrap().close().await.unwrap();
