@@ -66,7 +66,12 @@ async fn assert_public_begin_rejects(fixture: &Fixture) {
         Err(Error::Conflict(_))
     ));
     {
-        let registry = fixture.services.catalog_replication.registry.lock().unwrap();
+        let registry = fixture
+            .services
+            .catalog_replication
+            .registry
+            .lock()
+            .unwrap();
         assert!(registry.snapshots.is_empty());
         assert_eq!(registry.bytes, 0);
         assert!(registry.constructions.is_empty());
@@ -99,7 +104,10 @@ async fn assert_later_ordinal_stats(fixture: &Fixture, over_count: bool, over_by
     let threshold = (super::super::materialization::MAX_FACT_BYTES / 6) as i64;
     assert!(ordered[0].1 <= super::super::materialization::MAX_SOURCES);
     assert!(ordered[0].2 <= threshold);
-    assert_eq!(ordered[1].1 > super::super::materialization::MAX_SOURCES, over_count);
+    assert_eq!(
+        ordered[1].1 > super::super::materialization::MAX_SOURCES,
+        over_count
+    );
     assert_eq!(ordered[1].2 > threshold, over_bytes);
 }
 
