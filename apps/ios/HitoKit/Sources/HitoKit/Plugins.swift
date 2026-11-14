@@ -18,6 +18,25 @@ public struct PluginConnection: Equatable, Hashable, Identifiable, Sendable {
     }
 }
 
+public struct PluginResult: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let artist: String
+    public let durationMs: Int?
+
+    public init(id: String, title: String, artist: String, durationMs: Int?) {
+        self.id = id
+        self.title = title
+        self.artist = artist
+        self.durationMs = durationMs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, artist
+        case durationMs = "duration_ms"
+    }
+}
+
 public struct PluginPower: Equatable, Identifiable, Sendable {
     public let name: String
     public let providers: [String]
@@ -152,5 +171,36 @@ public struct Plugins: Sendable {
 
     public func remove(_ id: String) async throws {
         _ = try await api.delete(["api", "v1", "plugins", id], as: Nothing.self)
+    }
+
+    struct Search: Encodable {
+        let installationRevision: Int
+        let query: String
+        let limit: Int
+
+        enum CodingKeys: String, CodingKey {
+            case query, limit
+            case installationRevision = "installation_revision"
+        }
+    }
+
+    struct Found: Decodable { let items: [PluginResult] }
+
+    struct Adopt: Encodable {
+        let installationRevision: Int
+        let providerRecordingId: String
+
+        enum CodingKeys: String, CodingKey {
+            case installationRevision = "installation_revision"
+            case providerRecordingId = "provider_recording_id"
+        }
+    }
+
+    public func search(_ id: String, revision: Int, query: String) async throws -> [PluginResult] {
+        try await api.post(["api", "v1", "plugins", id, "search"], body: Search(installationRevision: revision, query: query, limit: 10), as: Found.self).items
+    }
+
+    public func adopt(_ id: String, revision: Int, result: String) async throws -> Track {
+        try await api.post(["api", "v1", "plugins", id, "recordings"], body: Adopt(installationRevision: revision, providerRecordingId: result), as: Track.self)
     }
 }

@@ -12,10 +12,13 @@ What it does today:
 - After **Sign out**, shows **Welcome back** with the remembered account. **Use another account** and **Forget me on this device** are on the same screen.
 - When the account has a PIN, shows **Locked** once the server's idle time has passed, and asks for the PIN.
 
-- Once signed in, shows **Home**, **Search** and **Library** (tracks and albums), an album page, a mini player, **Now playing** with lyrics and the source list, and the queue. Likes sync to the server.
+- Once signed in, shows **Home**, **Search**, **Library** and **Plugins**. Library has tracks (with a sort sheet), albums, artists and playlists. There are album and playlist pages, a mini player, **Now playing** with lyrics and the source list, and the queue. Likes sync to the server.
+- Search can also ask one connected plugin that offers search, and adds or plays its results.
+- **Plugins** shows what your plugins power and your connections. A plugin's page checks its connection, asks before accepting new permissions and disconnects it. Connecting a new plugin still happens on the web.
+- **Settings**, from the account button on Home, has Profile (name and devices), Privacy & lock, Playback (source order) and About.
 - Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Audio keeps playing with the screen locked. The app publishes the track to the system's now playing controls for the lock screen and headphones; those controls are not yet checked on a device.
 
-Discover, plugins, playlists and settings are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
+Discover, connecting a plugin, changing your password and the administrator settings are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
 
 ## Build and test
 

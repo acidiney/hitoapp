@@ -60,4 +60,22 @@ import Testing
         try await plugins(fake).remove("i1")
         #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i1"])
     }
+
+    @Test func aPluginIsSearchedWithItsRevision() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/search": .json(200, #"{"items":[{"id":"p1","title":"Remote Song","artist":"Remote Band","duration_ms":200000}],"next_cursor":null}"#)])
+        let found = try await plugins(fake).search("i1", revision: 2, query: "remote")
+        #expect(found == [PluginResult(id: "p1", title: "Remote Song", artist: "Remote Band", durationMs: 200000)])
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["installation_revision"] as? Int == 2)
+        #expect(body["query"] as? String == "remote")
+        #expect(body["limit"] as? Int == 10)
+    }
+
+    @Test func addingAResultAdoptsItIntoTheLibrary() async throws {
+        let recording = #"{"id":"r9","library_id":"l1","title":"Remote Song","inherited_title":"Remote Song","inherited_artist":"Remote Band","artist":"Remote Band","duration_ms":200000,"available":false,"plays_from_services":true,"liked":false,"album":null,"release_id":null}"#
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/recordings": .json(200, recording)])
+        let track = try await plugins(fake).adopt("i1", revision: 2, result: "p1")
+        #expect(track.id == "r9" && track.playsFromServices)
+        #expect(fake.requests.first?.object?["provider_recording_id"] as? String == "p1")
+    }
 }

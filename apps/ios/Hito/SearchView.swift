@@ -6,7 +6,16 @@ struct SearchView: View {
     @State private var text = ""
     @State private var tracks = Feed<Track>()
     @State private var artist: Artist?
+    @State private var searchable: [PluginConnection] = []
+    @State private var scope: PluginConnection?
+    @State private var remote: [PluginResult] = []
+    @State private var remoteState = RemoteState.idle
+    @State private var adopting: String?
     @FocusState private var focused: Bool
+
+    enum RemoteState: Equatable {
+        case idle, searching, failed
+    }
 
     var query: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -30,6 +39,35 @@ struct SearchView: View {
             .background(Capsule().fill(Theme.field))
             .overlay(Capsule().strokeBorder(focused ? Theme.accent : Theme.line, lineWidth: focused ? 2 : 1))
             .padding(.horizontal, 16)
+            if !searchable.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        Text("Your library")
+                            .font(Theme.bodyMedium)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .background(Capsule().fill(Theme.field))
+                        ForEach(searchable) { plugin in
+                            let on = scope?.id == plugin.id
+                            Button { scope = on ? nil : plugin } label: {
+                                HStack(spacing: 8) {
+                                    if on { Icon("check", size: 16).foregroundStyle(Theme.accent) }
+                                    Text(plugin.name).font(Theme.bodyMedium)
+                                }
+                                .foregroundStyle(Theme.text)
+                                .padding(.horizontal, 16)
+                                .frame(minHeight: 44)
+                                .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.line, lineWidth: on ? 1.5 : 1))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Also search \(plugin.name)")
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .scrollIndicators(.hidden)
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if query.isEmpty {
@@ -66,6 +104,9 @@ struct SearchView: View {
                         }
                         .padding(.trailing, -8)
                     }
+                    if let scope, !query.isEmpty {
+                        remoteSection(scope)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
@@ -88,7 +129,103 @@ struct SearchView: View {
             guard !Task.isCancelled else { return }
             artist = match
         }
+        .task(id: "\(query)|\(scope?.id ?? "")") { await searchRemote() }
+        .task { await loadSearchable() }
         .onAppear { focused = true }
+    }
+
+    private func remoteSection(_ plugin: PluginConnection) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("From \(plugin.name)").font(Theme.heading).padding(.top, 8).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            switch remoteState {
+            case .searching where remote.isEmpty:
+                Text("Searching \(plugin.name)…").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
+            case .failed:
+                Text("\(plugin.name) couldn't be searched. Your library results are unaffected.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
+            default:
+                if remote.isEmpty {
+                    Text("Nothing on \(plugin.name) matches “\(query)”.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
+                }
+            }
+            ForEach(remote) { result in
+                HStack(spacing: 12) {
+                    ZStack { Theme.tile }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(result.title).font(Theme.bodyStrong).lineLimit(1)
+                        Text("\(result.artist) · not in your library").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if plugin.capabilities.contains("sources") {
+                        RoundAction(icon: "play", label: "Play \(result.title)", busy: adopting == result.id) { Task { await adopt(result, from: plugin, play: true) } }
+                    }
+                    RoundAction(icon: "plus", label: "Add \(result.title) to your library", busy: adopting == result.id) { Task { await adopt(result, from: plugin, play: false) } }
+                }
+                .frame(minHeight: 60)
+                .accessibilityElement(children: .contain)
+            }
+        }
+    }
+
+    private func loadSearchable() async {
+        guard let api = model.api, let state = try? await Plugins(api: api).load() else { return }
+        searchable = state.connections.filter { $0.capabilities.contains("search") }
+        if let scope, !searchable.contains(where: { $0.id == scope.id }) { self.scope = nil }
+    }
+
+    private func searchRemote() async {
+        remote = []
+        guard let scope, !query.isEmpty, let api = model.api else {
+            remoteState = .idle
+            return
+        }
+        try? await Task.sleep(for: .milliseconds(350))
+        guard !Task.isCancelled else { return }
+        remoteState = .searching
+        do {
+            let found = try await Plugins(api: api).search(scope.id, revision: scope.revision, query: query)
+            guard !Task.isCancelled else { return }
+            remote = found
+            remoteState = .idle
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            remoteState = .failed
+            model.handle(error)
+        }
+    }
+
+    private func adopt(_ result: PluginResult, from plugin: PluginConnection, play: Bool) async {
+        guard let api = model.api else { return }
+        adopting = result.id
+        defer { adopting = nil }
+        do {
+            let track = try await Plugins(api: api).adopt(plugin.id, revision: plugin.revision, result: result.id)
+            remote.removeAll { $0.id == result.id }
+            if play { model.player?.play([track], at: 0, from: "Search") }
+        } catch {
+            model.handle(error)
+        }
+    }
+}
+
+struct RoundAction: View {
+    let icon: String
+    let label: String
+    var busy = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if busy { ProgressView().tint(Theme.soft) } else { Icon(icon, size: 16) }
+            }
+            .foregroundStyle(Theme.text)
+            .frame(width: 44, height: 44)
+            .overlay(Circle().strokeBorder(Theme.line))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityLabel(label)
     }
 }
 
