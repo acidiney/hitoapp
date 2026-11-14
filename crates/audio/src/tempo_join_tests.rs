@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Decoder, test_support::wave};
+use crate::{Converter, Decoder, test_support::wave};
 
 fn input(frames: u32) -> Converter {
     let file = wave(48_000, 1, frames, |frame, _| (frame % 2000) as i16 + 1);
@@ -69,4 +69,38 @@ fn a_prepared_input_can_be_replaced_or_withdrawn_before_it_joins() {
     }
     assert_eq!(tracks, [0].into());
     assert_eq!(tempo.track(), 0);
+}
+
+#[test]
+fn clock_free_high_rate_conversion_and_double_speed_keep_the_tone_and_duration() {
+    let rate = 705_600;
+    let channels = 2;
+    let seconds = 4;
+    let file = wave(rate, channels, rate * seconds, |frame, channel| {
+        if channel == 0 {
+            ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin() * 16_000.)
+                as i16
+        } else {
+            0
+        }
+    });
+    let converter = Converter::with_output(Decoder::open(file).unwrap(), 48_000, channels);
+    let mut tempo = Tempo::new(converter);
+    tempo.speed(2.);
+    let mut output = Vec::new();
+    while let Some(block) = tempo.read_until(|| false).unwrap() {
+        assert_eq!(block.speed, 2.);
+        output.extend_from_slice(block.samples);
+    }
+
+    let output_frames = output.len() / usize::from(channels);
+    let left: Vec<_> = output.chunks_exact(2).map(|frame| frame[0]).collect();
+    let active_frames = left.iter().filter(|sample| sample.abs() > 0.01).count();
+    assert!((86_400..=105_600).contains(&output_frames));
+    assert!((86_400..=105_600).contains(&active_frames));
+    assert_eq!(tempo.end(), Duration::from_secs(u64::from(seconds)));
+    assert!(
+        crate::test_support::capture::amplitude(&left, 440.)
+            > crate::test_support::capture::amplitude(&left, 880.) * 100.
+    );
 }

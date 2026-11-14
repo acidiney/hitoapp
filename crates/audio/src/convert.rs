@@ -4,6 +4,8 @@ use crate::{
     resample::{Decimator, Resampler},
 };
 use std::time::Duration;
+#[cfg(feature = "test-support")]
+use std::time::Instant;
 use symphonia::core::audio::{Channels, Position};
 
 const CENTER: f32 = std::f32::consts::FRAC_1_SQRT_2;
@@ -31,6 +33,16 @@ struct Stage {
     produced: u64,
     started: bool,
     finished: bool,
+    #[cfg(feature = "test-support")]
+    service: ConversionService,
+}
+
+#[cfg(feature = "test-support")]
+#[derive(Clone, Copy, Default)]
+pub(crate) struct ConversionService {
+    pub elapsed_ns: u64,
+    pub input_frames: u64,
+    pub output_frames: u64,
 }
 
 enum Rate {
@@ -177,6 +189,13 @@ impl Converter {
         self.output
     }
 
+    #[cfg(feature = "test-support")]
+    pub(crate) fn conversion_service(&self) -> ConversionService {
+        self.stage
+            .as_ref()
+            .map_or_else(ConversionService::default, |stage| stage.service)
+    }
+
     pub fn source(&self) -> AudioFormat {
         self.decoder.format()
     }
@@ -245,6 +264,8 @@ impl Stage {
             produced: 0,
             started: false,
             finished: false,
+            #[cfg(feature = "test-support")]
+            service: ConversionService::default(),
         }
     }
 
@@ -260,7 +281,23 @@ impl Stage {
             self.started = true;
         }
         self.consumed += (input.len() / self.source_channels) as u64;
+        #[cfg(feature = "test-support")]
+        let started = Instant::now();
+        #[cfg(feature = "test-support")]
+        let ready = self.samples.len();
         self.process(input);
+        #[cfg(feature = "test-support")]
+        {
+            self.service.elapsed_ns = self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+            self.service.input_frames = self
+                .service
+                .input_frames
+                .saturating_add((input.len() / self.source_channels) as u64);
+            self.service.output_frames = self
+                .service
+                .output_frames
+                .saturating_add(((self.samples.len() - ready) / self.output_channels) as u64);
+        }
     }
 
     fn emitted(&mut self) -> Duration {
@@ -296,11 +333,21 @@ impl Stage {
 
     fn finish(&mut self) {
         self.finished = true;
+        #[cfg(feature = "test-support")]
+        let started = Instant::now();
         let ready = self.samples.len();
         if let Some(rate) = &mut self.rate {
             rate.finish(&mut self.samples);
         }
         self.limit(ready);
+        #[cfg(feature = "test-support")]
+        {
+            self.service.elapsed_ns = self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+            self.service.output_frames = self
+                .service
+                .output_frames
+                .saturating_add(((self.samples.len() - ready) / self.output_channels) as u64);
+        }
     }
 
     fn limit(&mut self, from: usize) {
@@ -323,6 +370,11 @@ impl Stage {
         self.segment = Segment::default();
         self.samples.clear();
     }
+}
+
+#[cfg(feature = "test-support")]
+fn elapsed_ns(started: Instant) -> u64 {
+    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }
 
 struct Limiter {

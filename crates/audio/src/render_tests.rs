@@ -16,6 +16,14 @@ fn format() -> AudioFormat {
     }
 }
 
+fn stereo_format() -> AudioFormat {
+    AudioFormat {
+        channels: 2,
+        sample_rate: 48_000,
+        duration: None,
+    }
+}
+
 fn ready_state() -> Arc<State> {
     let state = Arc::new(State::new());
     state.ready_epoch.store(1, Ordering::Release);
@@ -232,6 +240,79 @@ fn buffering_preserves_queued_audio_without_publishing_an_underrun() {
     state.ready_epoch.store(1, Ordering::Release);
     render.fill(&mut output[..1], &info(100, 200));
     assert_eq!(output[0], 0.5);
+}
+
+#[test]
+fn a_ring_gap_outputs_silence_and_advances_only_presented_source_frames() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(8);
+    let state = ready_state();
+    state.playing.store(true, Ordering::Release);
+    let mut render = Render::new(consumer, state.clone(), stereo_format());
+    let mut output = [0_f32; 2];
+    producer
+        .push(Frame::Audio {
+            samples: [0.25, 0.125],
+            speed: 1.,
+            position: 20_833,
+            epoch: 1,
+            track: 0,
+        })
+        .unwrap();
+
+    render.fill(&mut output, &info(100_000, 100_000));
+    assert_eq!(output, [0.25, 0.125]);
+    assert_eq!(state.snapshot(stereo_format()).position, Duration::ZERO);
+    assert_eq!(state.snapshot(stereo_format()).underruns, 0);
+
+    render.fill(&mut output, &info(120_000, 120_000));
+    assert_eq!(output, [0., 0.]);
+    let after_first_gap = state.snapshot(stereo_format());
+    assert_eq!(after_first_gap.position, Duration::from_nanos(20_833));
+    assert_eq!(after_first_gap.underruns, 1);
+    assert!(!after_first_gap.ended);
+
+    render.fill(&mut output, &info(140_000, 140_000));
+    assert_eq!(output, [0., 0.]);
+    let after_second_gap = state.snapshot(stereo_format());
+    assert_eq!(after_second_gap.position, after_first_gap.position);
+    assert_eq!(after_second_gap.underruns, 2);
+    assert!(!after_second_gap.ended);
+
+    for (samples, position) in [([0.5, 0.25], 41_667), ([0.75, 0.375], 62_500)] {
+        producer
+            .push(Frame::Audio {
+                samples,
+                speed: 1.,
+                position,
+                epoch: 1,
+                track: 0,
+            })
+            .unwrap();
+    }
+    producer
+        .push(Frame::End {
+            position: 62_500,
+            epoch: 1,
+            track: 0,
+        })
+        .unwrap();
+
+    render.fill(&mut output, &info(160_000, 160_000));
+    assert_eq!(output, [0.5, 0.25]);
+    render.fill(&mut output, &info(180_000, 180_000));
+    assert_eq!(output, [0.75, 0.375]);
+    assert_eq!(producer.slots(), 7);
+    assert_eq!(state.snapshot(stereo_format()).underruns, 2);
+
+    render.fill(&mut output, &info(200_000, 200_000));
+    assert_eq!(output, [0., 0.]);
+    assert!(!state.snapshot(stereo_format()).ended);
+    render.fill(&mut output, &info(220_000, 220_000));
+    let ended = state.snapshot(stereo_format());
+    assert_eq!(output, [0., 0.]);
+    assert!(ended.ended);
+    assert_eq!(ended.position, Duration::from_nanos(62_500));
+    assert_eq!(ended.underruns, 2);
 }
 
 #[test]
