@@ -8,6 +8,8 @@ import OSLog
 final class AppModel {
     enum Step: Equatable {
         case opening
+        case choose
+        case thisPhone
         case address
         case unencrypted(FoundServer)
         case createAdministrator(ServerAddress)
@@ -27,7 +29,7 @@ final class AppModel {
     func open() async {
         recent = store.recent
         guard let server = store.current else {
-            step = .address
+            step = .choose
             return
         }
         await reopen(server.address)
@@ -51,6 +53,18 @@ final class AppModel {
 
     func changeAddress() {
         step = .address
+    }
+
+    func chooseServer() {
+        step = .address
+    }
+
+    func chooseThisPhone() {
+        step = .thisPhone
+    }
+
+    func backToChoice() {
+        step = .choose
     }
 
     func forget(_ server: RecentServer) {
@@ -84,7 +98,7 @@ final class AppModel {
     func changeServer() {
         reconnecting?.cancel()
         recent = store.recent
-        step = .address
+        step = .choose
     }
 
     func username(for address: ServerAddress) -> String? {

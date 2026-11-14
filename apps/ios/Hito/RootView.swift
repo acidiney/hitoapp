@@ -9,6 +9,10 @@ struct RootView: View {
             switch model.step {
             case .opening:
                 Screen { ProgressView().tint(Theme.text) }
+            case .choose:
+                ChooseLibraryView()
+            case .thisPhone:
+                ThisPhoneView()
             case .address:
                 ServerAddressView()
             case let .unencrypted(found):

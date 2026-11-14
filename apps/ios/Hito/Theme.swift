@@ -128,6 +128,7 @@ struct PrimaryButton: View {
 struct TextAction: View {
     let title: String
     var icon: String?
+    var color = Theme.focus
     let action: () -> Void
 
     var body: some View {
@@ -138,7 +139,7 @@ struct TextAction: View {
             }
             .font(.subheadline.weight(.medium))
             .frame(minHeight: 44)
-            .foregroundStyle(Theme.focus)
+            .foregroundStyle(color)
         }
         .buttonStyle(.plain)
     }

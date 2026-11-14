@@ -13,6 +13,10 @@ struct ServerAddressView: View {
 
     var body: some View {
         Screen {
+            TextAction(title: "Back", icon: "chevron.left", color: Theme.soft) {
+                search?.cancel()
+                model.backToChoice()
+            }
             Heading(title: "Connect to a server")
             FieldBox(
                 label: "Server address",
