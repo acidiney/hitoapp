@@ -8,7 +8,10 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { findCheckConnection } from "../fixtures/pluginInstallation";
+import {
+  findCheckConnection,
+  openManage,
+} from "../fixtures/pluginInstallation";
 import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
@@ -227,6 +230,46 @@ test("the card does not repeat the section intro and no sentence floats between 
   expect(
     await screen.findByText(/Your administrator has not offered any services/),
   ).toBeTruthy();
+});
+
+test("a replacement token typed before a capability review is the one saved when the review is accepted", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    installations: [plugin],
+  });
+  const manifest = { ...plugin.manifest, capabilities: ["metadata" as const] };
+  vi.mocked(pluginsApi.refresh)
+    .mockResolvedValueOnce({
+      kind: "review_required",
+      manifest,
+      digest: "reviewed-digest",
+    })
+    .mockResolvedValue({
+      kind: "updated",
+      installation: { ...plugin, revision: 2, manifest },
+    });
+  render(settingsPage("bob", false));
+  await openManage();
+  fireEvent.change(await screen.findByLabelText("New bearer token"), {
+    target: { value: "replacement-token" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save token" }));
+  await screen.findByRole("dialog");
+  const manage = screen.getByRole("button", { name: "Manage" });
+  expect(manage).toHaveProperty("disabled", true);
+  fireEvent.click(manage);
+  fireEvent.click(screen.getByRole("button", { name: /^Accept / }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(pluginsApi.refresh).toHaveBeenLastCalledWith(
+    "bob",
+    plugin,
+    {
+      revision: 1,
+      accept_manifest_digest: "reviewed-digest",
+      credential: { action: "replace", bearer_token: "replacement-token" },
+    },
+    expect.any(AbortSignal),
+  );
 });
 
 test("manifest changes are reviewed before accepting new capabilities", async () => {

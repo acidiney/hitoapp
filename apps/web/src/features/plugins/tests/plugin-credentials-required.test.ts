@@ -139,6 +139,23 @@ test("a stale stamp for an older revision, another account or no connection mark
   expect(document.body.textContent).not.toContain("needs its credentials");
 });
 
+test("a late rejection from an older revision keeps the warning for the current revision", async () => {
+  show(installation("a", "Lyrics A", 4));
+  await screen.findByRole("heading", { name: "Lyrics A" });
+  act(() => {
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "a", installationRevision: 4 },
+    });
+    reportCredentialRequirement("bob", {
+      stamp: { installationId: "a", installationRevision: 3 },
+    });
+  });
+  expect(card("Lyrics A").textContent).toContain("Credentials need updating");
+  expect(
+    screen.getByRole("button", { name: "Update credentials for Lyrics A" }),
+  ).toBeTruthy();
+});
+
 test("the credentials_required health value renders for that connection only, and a missing health value is not treated as proof of success", async () => {
   show(
     installation("a", "Lyrics A", 3, wireHealth("credentials_required")),

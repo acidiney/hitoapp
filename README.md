@@ -146,3 +146,6 @@ Read [development](docs/develop/development.md) and [testing](docs/develop/testi
 ## License
 
 Hito is [AGPL-3.0-only](LICENSE). The [plugin SDK](crates/plugin-sdk) is [Apache-2.0](crates/plugin-sdk/LICENSE), so plugins can use any license. No provider credentials ship with Hito. See [third-party notices](docs/third-party-notices.md).
+
+
+[Buy me a coffee](https://buymeacoffee.com/acidineydias)

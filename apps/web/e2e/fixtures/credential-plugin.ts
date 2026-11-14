@@ -371,30 +371,44 @@ export async function connectCredentialPlugin(
     close(): Promise<void>;
   },
 ) {
-  const service = await offerService(
-    administrator,
-    origin,
-    plugin.label,
-    plugin.address,
-  );
-  const installation = await installConnection(
-    request,
-    origin,
-    service,
-    plugin.initialToken,
-  );
-  return {
-    service,
-    installation,
-    dispose: async () => {
-      try {
-        await removeConnection(request, origin, installation);
-        await withdrawService(administrator, origin, service);
-      } finally {
-        await plugin.close();
-      }
-    },
-  };
+  let service: Awaited<ReturnType<typeof offerService>> | undefined;
+  try {
+    const offered = await offerService(
+      administrator,
+      origin,
+      plugin.label,
+      plugin.address,
+    );
+    service = offered;
+    const installation = await installConnection(
+      request,
+      origin,
+      offered,
+      plugin.initialToken,
+    );
+    return {
+      service: offered,
+      installation,
+      dispose: async () => {
+        try {
+          await removeConnection(request, origin, installation);
+          await withdrawService(administrator, origin, offered);
+        } finally {
+          await plugin.close();
+        }
+      },
+    };
+  } catch (error) {
+    const failures: unknown[] = [];
+    if (service)
+      await withdrawService(administrator, origin, service).catch((failure) =>
+        failures.push(failure),
+      );
+    await plugin.close().catch((failure) => failures.push(failure));
+    for (const failure of failures)
+      console.warn("Credential plugin cleanup failed", failure);
+    throw error;
+  }
 }
 
 export const savedLyricId = "credential-saved";

@@ -29,6 +29,8 @@ export function reportCredentialRequirement(
   const stamp = requirement.stamp;
   if (!stamp) return;
   const current = byAccount.get(account) ?? empty;
+  const stored = current.get(stamp.installationId);
+  if (stored && stored.revision > stamp.installationRevision) return;
   versions += 1;
   publish(
     account,
