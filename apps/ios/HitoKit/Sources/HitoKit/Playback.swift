@@ -27,10 +27,10 @@ public struct Playback: Sendable {
     struct Source: Decodable {
         let id: String
         let label: String
-        let provider: String
+        let provider: String?
         let providerLabel: String?
         let ready: Bool
-        let matchKind: String
+        let matchKind: String?
 
         enum CodingKeys: String, CodingKey {
             case id, label, ready, provider
@@ -61,12 +61,12 @@ public struct Playback: Sendable {
         var seen: [String: Int] = [:]
         return try await listed(recordingId).map { source in
             let name = source.providerLabel ?? source.label
-            let count = seen[source.provider, default: 0] + 1
-            seen[source.provider] = count
+            let count = seen[source.provider ?? source.label, default: 0] + 1
+            seen[source.provider ?? source.label] = count
             let ordinals = [2: "second", 3: "third", 4: "fourth", 5: "fifth"]
             let ordinal = ordinals[count].map { "\($0) match" } ?? "match \(count)"
             let label = count == 1 ? name : "\(name), \(ordinal)"
-            return PlaybackSource(id: source.id, label: label, provider: source.provider, ready: source.ready, bestGuess: source.matchKind == "best_guess")
+            return PlaybackSource(id: source.id, label: label, provider: source.provider ?? "", ready: source.ready, bestGuess: source.matchKind == "best_guess")
         }
     }
 

@@ -26,6 +26,16 @@ import Testing
         #expect(begin.json == ["recording_id": "r1", "source_id": "s1"])
     }
 
+    @Test func aServerThatDoesNotNameTheMatchKindStillPlays() async throws {
+        let older = #"[{"id":"s1","recording_id":"r1","label":"Local file","ready":true,"can_prepare":false}]"#
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, older),
+            "POST /api/v1/playback/leases": .json(200, lease),
+        ])
+        #expect(try await playback(fake).prepare("r1").sourceId == "s1")
+        #expect(try await playback(fake).sources("r1").map(\.label) == ["Local file"])
+    }
+
     @Test func aLeaseIsReleasedWhenTheTrackIsDone() async throws {
         let fake = FakeServer(routes: [
             "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
