@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var playlists: [Playlist] = []
     @State private var unready: Playlists.Unready?
     @State private var homeFailed = false
+    @State private var artists: [Artist] = []
 
     var name: String { user.displayName ?? user.username }
 
@@ -77,6 +78,9 @@ struct HomeView: View {
                     if let summary {
                         RecentlyPlayed(albums: summary.recentAlbums)
                     }
+                    if !artists.isEmpty {
+                        YourArtists(artists: artists)
+                    }
                     Button(action: openDiscover) {
                         (Text("Looking for something new? ").foregroundStyle(Theme.soft) + Text("Discover music from your services").foregroundStyle(Theme.focus))
                             .font(Theme.small)
@@ -128,6 +132,7 @@ struct HomeView: View {
             return
         }
         unready = await lists.leastReady(playlists, checking: 4)
+        artists = (try? await Library(api: api).artists(offset: 0).items.prefix(20).map { $0 }) ?? artists
     }
 
     private func reload() {
@@ -371,5 +376,40 @@ struct AlbumCard: View {
         }
         .frame(width: width)
         .accessibilityElement(children: .combine)
+    }
+}
+
+struct YourArtists: View {
+    let artists: [Artist]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your artists").font(Theme.section).accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(artists) { artist in
+                        NavigationLink(value: artist) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ZStack {
+                                    Theme.tile
+                                    Icon("person", size: 44).foregroundStyle(Theme.coverMark)
+                                }
+                                .frame(width: 136, height: 136)
+                                .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(artist.name).font(Theme.small).lineLimit(1)
+                                    Text("\(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks")").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                                }
+                            }
+                            .frame(width: 136)
+                            .accessibilityElement(children: .combine)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .padding(.trailing, -16)
+        }
     }
 }
