@@ -5,8 +5,6 @@ struct PluginDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.openURL) private var openURL
-    @Environment(\.scenePhase) private var scenePhase
     @State private var connection: PluginConnection
     @State private var review: (digest: String, wants: [String])?
     @State private var working = false
@@ -17,8 +15,6 @@ struct PluginDetailView: View {
     @State private var account: PluginAccount?
     @State private var accountUnknown = false
     @State private var confirmingSignOut = false
-    @State private var signingIn: SignInAttempt?
-    @State private var poke = 0
 
     init(connection: PluginConnection) {
         _connection = State(initialValue: connection)
@@ -92,19 +88,6 @@ struct PluginDetailView: View {
                             } message: {
                                 Text("Hito stops using your \(connection.name) account. The plugin stays connected.")
                             }
-                        } else if signingIn != nil {
-                            Button { signingIn = nil } label: {
-                                Text("Cancel").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Stops waiting for the sign-in")
-                        } else if account == .notConnected || account == .needsSignInAgain {
-                            Button { Task { await startSignIn() } } label: {
-                                Text("Sign in").font(Theme.smallStrong).foregroundStyle(Theme.onAccent).padding(.horizontal, 18).frame(minHeight: 44).background(Capsule().fill(Theme.accent))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(working)
-                            .accessibilityLabel("Sign in to \(connection.name)")
                         } else if accountUnknown {
                             Button { Task { await loadAccount() } } label: {
                                 Text("Check again").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
@@ -174,8 +157,6 @@ struct PluginDetailView: View {
             }
         }
         .task(id: connection.signsIn) { await loadAccount() }
-        .task(id: SignInWait(attempt: signingIn?.id, poke: poke)) { await waitForSignIn() }
-        .onChange(of: scenePhase) { if scenePhase == .active { poke += 1 } }
     }
 
     private var actions: some View {
@@ -220,66 +201,17 @@ struct PluginDetailView: View {
             return "Connected"
         case .degraded: return "Working, with problems"
         case .unreachable: return "Can't reach it right now"
-        case .credentialsRequired: return "Needs you to sign in again"
+        case .credentialsRequired: return "Needs you to sign in again on the web"
         }
     }
 
     private var accountLabel: String {
-        if signingIn != nil { return "Waiting for you to finish signing in…" }
         if accountUnknown { return "Sign-in status unavailable" }
         switch account {
         case .connected: return "Connected"
-        case .needsSignInAgain: return "Sign in again to keep using it"
-        case .notConnected: return "Not signed in"
+        case .needsSignInAgain: return "Sign in again on the web"
+        case .notConnected: return "Not connected · connect on the web"
         case nil: return "Checking sign-in…"
-        }
-    }
-
-    private struct SignInWait: Equatable {
-        let attempt: String?
-        let poke: Int
-    }
-
-    private func startSignIn() async {
-        guard let api = model.api else { return }
-        working = true
-        problem = nil
-        note = nil
-        defer { working = false }
-        do {
-            let attempt = try await Plugins(api: api).beginSignIn(connection.id, revision: connection.revision)
-            signingIn = attempt
-            openURL(attempt.url)
-        } catch let refused as Plugins.SignInRefused {
-            problem = refused.reason
-        } catch {
-            problem = "\(connection.name) didn't start the sign-in. Try again."
-            model.handle(error)
-        }
-    }
-
-    private func waitForSignIn() async {
-        guard let attempt = signingIn, let api = model.api else { return }
-        let plugins = Plugins(api: api)
-        while !Task.isCancelled, signingIn?.id == attempt.id {
-            if Date() >= attempt.expires {
-                signingIn = nil
-                problem = "Signing in to \(connection.name) timed out. Try again."
-                return
-            }
-            switch try? await plugins.signIn(connection.id, attempt: attempt.id) {
-            case .done?:
-                signingIn = nil
-                note = "Signed in to \(connection.name)."
-                await loadAccount()
-                return
-            case .failed?:
-                signingIn = nil
-                problem = "Signing in to \(connection.name) didn't finish. Try again."
-                return
-            default:
-                try? await Task.sleep(for: .seconds(2))
-            }
         }
     }
 
