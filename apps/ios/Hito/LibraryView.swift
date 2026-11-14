@@ -76,7 +76,7 @@ struct LibraryView: View {
         .scrollIndicators(.hidden)
         .refreshable { reload() }
         .fullScreenCover(isPresented: $filtering) {
-            FilterSheet(sort: $sort, total: tracks.total)
+            FilterSheet(sort: $sort, total: tracks.unsupported == nil ? tracks.total : nil)
                 .presentationBackground(.clear)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

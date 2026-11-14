@@ -24,8 +24,14 @@ import Testing
     @Test func tracksCanBeSortedTheWaysTheServerSorts() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
         for sort in TrackSort.allCases { _ = try await library(fake).tracks(offset: 0, sort: sort) }
-        #expect(fake.requests.map(\.query) == ["offset=0&limit=50&sort=recent", "offset=0&limit=50&sort=title", "offset=0&limit=50&sort=artist", "offset=0&limit=50&sort=year"])
-        #expect(TrackSort.allCases.map(\.label) == ["Recently added", "Title", "Artist", "Year"])
+        #expect(fake.requests.map(\.query) == ["offset=0&limit=50&sort=recent", "offset=0&limit=50&sort=title", "offset=0&limit=50&sort=artist", "offset=0&limit=50&sort=year", "offset=0&limit=50&sort=album", "offset=0&limit=50&sort=duration"])
+        #expect(TrackSort.allCases.map(\.label) == ["Recently added", "Title", "Artist", "Year", "Album", "Duration"])
+    }
+
+    @Test func aServerThatCantSortThatWaySaysSo() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(400, #"{"error":"Request query does not match the expected fields"}"#)])
+        await #expect(throws: TrackSort.Unsupported(sort: .album)) { try await library(fake).tracks(offset: 0, sort: .album) }
+        #expect(TrackSort.Unsupported(sort: .album).message == "This server can't sort by album yet. Update the server to use it.")
     }
 
     @Test func likedTracksAndSearchesNarrowTheList() async throws {

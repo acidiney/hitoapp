@@ -109,7 +109,12 @@ public struct Library: Sendable {
         if liked { query.append(URLQueryItem(name: "liked", value: "true")) }
         if let artist { query.append(URLQueryItem(name: "artist", value: artist)) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
-        return try await api.get(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
+        do {
+            return try await api.get(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
+        } catch HitoAPI.Problem.refused(400) {
+            guard let sort, [.album, .duration].contains(sort) else { throw HitoAPI.Problem.refused(400) }
+            throw TrackSort.Unsupported(sort: sort)
+        }
     }
 
     public func albums(offset: Int) async throws -> Page<Album> {
@@ -154,7 +159,13 @@ extension Library {
 }
 
 public enum TrackSort: String, CaseIterable, Sendable {
-    case recent, title, artist, year
+    case recent, title, artist, year, album, duration
+
+    public struct Unsupported: Error, Equatable {
+        public let sort: TrackSort
+
+        public var message: String { "This server can't sort by \(sort.label.lowercased()) yet. Update the server to use it." }
+    }
 
     public var label: String {
         switch self {
@@ -162,6 +173,8 @@ public enum TrackSort: String, CaseIterable, Sendable {
         case .title: "Title"
         case .artist: "Artist"
         case .year: "Year"
+        case .album: "Album"
+        case .duration: "Duration"
         }
     }
 }

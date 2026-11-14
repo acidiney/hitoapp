@@ -10,10 +10,11 @@ final class Feed<Item: Decodable & Equatable & Identifiable & Sendable> {
     private(set) var total: Int?
     private(set) var loading = false
     private(set) var failed = false
+    private(set) var unsupported: String?
     private var fetch: Fetch?
     private var generation = 0
 
-    var isEmpty: Bool { total == 0 }
+    var isEmpty: Bool { total == 0 && unsupported == nil }
     var hasMore: Bool { total.map { items.count < $0 } ?? true }
 
     func reset(_ fetch: @escaping Fetch) {
@@ -22,6 +23,7 @@ final class Feed<Item: Decodable & Equatable & Identifiable & Sendable> {
         items = []
         total = nil
         failed = false
+        unsupported = nil
         loading = false
     }
 
@@ -38,7 +40,10 @@ final class Feed<Item: Decodable & Equatable & Identifiable & Sendable> {
             total = page.total
         } catch {
             guard current == generation else { return }
-            if !(error is CancellationError) {
+            if let refused = error as? TrackSort.Unsupported {
+                unsupported = refused.message
+                total = items.count
+            } else if !(error is CancellationError) {
                 failed = true
                 model.handle(error)
             }
@@ -52,7 +57,9 @@ struct FeedFooter<Item: Decodable & Equatable & Identifiable & Sendable>: View {
     let feed: Feed<Item>
 
     var body: some View {
-        if feed.failed {
+        if let unsupported = feed.unsupported {
+            Text(unsupported).font(Theme.small).foregroundStyle(Theme.soft)
+        } else if feed.failed {
             HStack(spacing: 8) {
                 Text("This didn't load.").foregroundStyle(Theme.soft)
                 TextAction(title: "Try again") { Task { await feed.more(model) } }
