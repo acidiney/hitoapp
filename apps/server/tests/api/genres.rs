@@ -25,12 +25,12 @@ fn tagged(path: &Path, offset: i16, title: &str, genre: &str) {
     tag.save_to_path(path, WriteOptions::default()).unwrap();
 }
 
-async fn discover(app: &Router, token: &str) -> (StatusCode, Value) {
+async fn inertia_page(app: &Router, path: &str, token: &str) -> (StatusCode, Value) {
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/discover")
+                .uri(path)
                 .header("x-inertia", "true")
                 .header("authorization", format!("Bearer {token}"))
                 .body(Body::empty())
@@ -46,10 +46,9 @@ async fn discover(app: &Router, token: &str) -> (StatusCode, Value) {
     )
 }
 
-#[tokio::test]
-async fn genre_json_list_matches_authenticated_discover_tiles() {
-    let (_directory, app, token, expected) = hang_guard(
-        "owned tagged genre JSON setup",
+async fn genre_fixture() -> (tempfile::TempDir, Router, String) {
+    hang_guard(
+        "owned tagged genres JSON setup",
         Box::pin(async {
             let directory = tempfile::tempdir().unwrap();
             let music = directory.path().join("music");
@@ -76,25 +75,35 @@ async fn genre_json_list_matches_authenticated_discover_tiles() {
             assert_eq!(status, StatusCode::ACCEPTED);
             assert!(hito.storage.run_next_job().await.unwrap());
 
-            let (status, page) = discover(&app, &token).await;
-            assert_eq!(status, StatusCode::OK);
-            assert_eq!(page["component"], "DiscoverPage");
-            let genres = page["props"]["genres"].as_array().unwrap();
-            assert_eq!(
-                genres
-                    .iter()
-                    .map(|genre| (
-                        genre["key"].as_str().unwrap(),
-                        genre["track_count"].as_i64().unwrap()
-                    ))
-                    .collect::<Vec<_>>(),
-                [("fado", 2), ("jazz", 2)],
-                "the owned scan must produce nonempty genre tiles before the API request"
-            );
-            (directory, app, token, page["props"]["genres"].clone())
+            (directory, app, token)
         }),
     )
+    .await
+}
+
+#[tokio::test]
+async fn genre_json_list_matches_authenticated_discover_tiles() {
+    let (_directory, app, token) = genre_fixture().await;
+    let (discover_status, page) = hang_guard(
+        "owned Discover genre prerequisite",
+        Box::pin(inertia_page(&app, "/discover", &token)),
+    )
     .await;
+    assert_eq!(discover_status, StatusCode::OK);
+    assert_eq!(page["component"], "DiscoverPage");
+    let genres = page["props"]["genres"].as_array().unwrap();
+    assert_eq!(
+        genres
+            .iter()
+            .map(|genre| (
+                genre["key"].as_str().unwrap(),
+                genre["track_count"].as_i64().unwrap()
+            ))
+            .collect::<Vec<_>>(),
+        [("fado", 2), ("jazz", 2)],
+        "the owned scan must produce nonempty genre tiles before the API request"
+    );
+    let expected = page["props"]["genres"].clone();
 
     let (status, content_type, cache_control, bytes) =
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -118,6 +127,57 @@ async fn genre_json_list_matches_authenticated_discover_tiles() {
         })
         .await
         .expect("genre JSON request and body must finish within 5 seconds");
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        content_type,
+        Some(axum::http::HeaderValue::from_static("application/json"))
+    );
+    assert_eq!(
+        cache_control,
+        Some(axum::http::HeaderValue::from_static("private, no-store"))
+    );
+    let actual: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(actual, expected);
+}
+
+#[tokio::test]
+async fn genre_json_detail_matches_authenticated_inertia_preview() {
+    let (_directory, app, token) = genre_fixture().await;
+    let (status, page) = hang_guard(
+        "owned Inertia genre detail prerequisite",
+        Box::pin(inertia_page(&app, "/genres?genre=FADO", &token)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["component"], "GenrePage");
+    let expected = page["props"]["genre"].clone();
+    assert_eq!(expected["genre"]["label"], "Fado");
+    assert_eq!(expected["genre"]["track_count"], 2);
+    assert_eq!(expected["albums"].as_array().unwrap().len(), 2);
+    assert_eq!(expected["tracks"].as_array().unwrap().len(), 2);
+
+    let (status, content_type, cache_control, bytes) =
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/genres/detail?key=FADO")
+                        .header("authorization", format!("Bearer {token}"))
+                        .header("x-hito-request", "1")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = response.status();
+            let content_type = response.headers().get("content-type").cloned();
+            let cache_control = response.headers().get("cache-control").cloned();
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            (status, content_type, cache_control, bytes)
+        })
+        .await
+        .expect("genre detail JSON request and body must finish within 5 seconds");
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         content_type,
