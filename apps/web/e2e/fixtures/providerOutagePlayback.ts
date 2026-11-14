@@ -115,17 +115,28 @@ export async function playThroughOutage(
   let accepted: Schema<"SourceResolution"> | null = null;
   let delivered: Schema<"SourceResolution"> | null = null;
   let providerCallsAfterAcceptance = 0;
+  let providerCallsAtReplay = -1;
   const attempts: string[] = [];
   let invalid = false;
   const intercept = async (route: Route) => {
     if (route.request().method() !== "POST") return route.continue();
     const raw = route.request().postData();
-    if (!raw || Buffer.byteLength(raw) > 4096 || attempts.length >= 2) {
+    if (!raw || Buffer.byteLength(raw) > 4096 || attempts.length >= 4) {
       invalid = true;
       return route.abort("failed");
     }
     attempts.push(raw);
-    if (attempts.length === 2) return route.continue();
+    if (attempts.length > 2) return route.continue();
+    if (attempts.length === 2) {
+      try {
+        const replay = await route.fetch({ timeout: 10_000 });
+        providerCallsAtReplay = provider.counts.sources;
+        return route.fulfill({ response: replay });
+      } catch {
+        invalid = true;
+        return route.abort("failed");
+      }
+    }
     try {
       const response = await route.fetch({ timeout: 10_000 });
       try {
@@ -158,21 +169,29 @@ export async function playThroughOutage(
     delivered = JSON.parse(bytes.toString()) as Schema<"SourceResolution">;
     await expect(dock(page).getByRole("status")).toHaveText(outageMessage);
     const receipt = accepted as Schema<"SourceResolution"> | null;
+    const passes = attempts.map(
+      (raw) => (JSON.parse(raw) as Schema<"ResolveSource">).request_id,
+    );
     expect(
       !invalid &&
-        attempts.length === 2 &&
+        attempts.length === 4 &&
         attempts[0] === attempts[1] &&
+        new Set(passes).size === 3 &&
         receipt?.outcome === "provider_unavailable" &&
         receipt.sources.length === 0 &&
         isDeepStrictEqual(receipt, delivered) &&
-        provider.counts.sources === providerCallsAfterAcceptance,
+        providerCallsAtReplay === providerCallsAfterAcceptance,
     ).toBe(true);
     expect(await activeAudio(page).getAttribute("src")).toBeNull();
   } finally {
     await page.unroute(`**${path}`, intercept);
   }
   checkpoint("fresh_play");
-  const failedRequest = JSON.parse(attempts[0]) as Schema<"ResolveSource">;
+  const failedRequests = new Set(
+    attempts.map(
+      (raw) => (JSON.parse(raw) as Schema<"ResolveSource">).request_id,
+    ),
+  );
   provider.setAvailability("retry", "ready");
   const response = page.waitForResponse(
     (response) =>
@@ -194,7 +213,7 @@ export async function playThroughOutage(
     ready.outcome === "ready" &&
       ready.sources.length === 1 &&
       ready.request_id === fresh.request_id &&
-      fresh.request_id !== failedRequest.request_id &&
+      !failedRequests.has(fresh.request_id) &&
       ready.resolution_id !== delivered?.resolution_id,
   ).toBe(true);
   checkpoint("recovered_playing");
@@ -341,18 +360,18 @@ export async function playThroughOutage(
     evidence.requests.filter(
       (request) => request.recording === library.ids.queue,
     ).length,
-  ).toBe(1);
+  ).toBe(3);
   expect(
     evidence.requests.filter(
       (request) => request.recording === library.ids.retry,
     ).length,
-  ).toBe(3);
+  ).toBe(5);
   checkpoint("pause_queue");
   await pause(page);
   return {
     lost_acknowledgements: 1,
     retry_wire_attempts: attempts.length,
-    accepted_unavailable_commands: 2,
+    accepted_unavailable_commands: 6,
     exact_retry_bytes: true,
     fresh_explicit_request: true,
     pcm_decoded: true,
