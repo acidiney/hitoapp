@@ -5,7 +5,11 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     let user: User
     let openSearch: () -> Void
+    var openDiscover: () -> Void = {}
+    var openPlugins: () -> Void = {}
     @State private var albums = Feed<Album>()
+    @State private var importing = false
+    @State private var opened: Playlist?
     @State private var summary: HomeSummary?
     @State private var playlists: [Playlist] = []
     @State private var unready: Playlists.Unready?
@@ -48,21 +52,45 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")
-                if let summary {
-                    JumpBackIn(tiles: summary.tiles(playlists: playlists))
-                    ForEach(summary.unheard.prefix(1)) { UnheardCard(album: $0) }
-                } else if !albums.isEmpty {
-                    JumpBackIn(tiles: QuickTile.mixed(albums: albums.items, playlists: playlists))
+                if let summary, summary.isEmpty(playlists: playlists) {
+                    HomeEmpty(admin: user.admin, importPlaylist: { importing = true }, connectService: openPlugins)
+                } else {
+                    if let summary {
+                        JumpBackIn(tiles: summary.tiles(playlists: playlists))
+                        ForEach(summary.unheard.prefix(1)) { UnheardCard(album: $0) }
+                    } else if !albums.isEmpty {
+                        JumpBackIn(tiles: QuickTile.mixed(albums: albums.items, playlists: playlists))
+                    }
+                    if let unready {
+                        UnreadyBanner(unready: unready)
+                    }
+                    RecentlyAdded(feed: albums)
+                    if let summary {
+                        RecentlyPlayed(albums: summary.recentAlbums)
+                    }
+                    Button(action: openDiscover) {
+                        (Text("Looking for something new? ").foregroundStyle(Theme.soft) + Text("Discover music from your services").foregroundStyle(Theme.focus))
+                            .font(Theme.small)
+                            .multilineTextAlignment(.leading)
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
                 }
-                if let unready {
-                    UnreadyBanner(unready: unready)
-                }
-                RecentlyAdded(feed: albums)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
+        .fullScreenCover(isPresented: $importing) {
+            ImportSheet { id in
+                Task {
+                    guard let api = model.api else { return }
+                    opened = (try? await Playlists(api: api).list())?.first { $0.id == id }
+                }
+            }
+            .presentationBackground(.clear)
+        }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
         .refreshable {
             reload()
             await albums.more(model)
@@ -201,6 +229,72 @@ struct Tile<Art: View>: View {
         .frame(height: 56)
         .background(Theme.field)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct HomeEmpty: View {
+    let admin: Bool
+    let importPlaylist: () -> Void
+    let connectService: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Your library is still empty").font(Theme.pageTitle).accessibilityAddTraits(.isHeader)
+            Text(admin ? "Start with one of these. You can do all three." : "Ask your administrator to give you access to a music library, or start with a playlist or a service.")
+                .font(Theme.small)
+                .foregroundStyle(Theme.soft)
+            if admin {
+                NavigationLink(value: SettingsPage.music) {
+                    Text("Choose a music folder")
+                        .font(Theme.bodyStrong)
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Capsule().fill(Theme.accent))
+                }
+                .buttonStyle(.plain)
+            }
+            Button(action: importPlaylist) {
+                Text("Import a playlist")
+                    .font(Theme.bodyMedium)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .overlay(Capsule().strokeBorder(Theme.accent))
+            }
+            .buttonStyle(.plain)
+            Button(action: connectService) {
+                Text("Connect a service")
+                    .font(Theme.bodyMedium)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .overlay(Capsule().strokeBorder(Theme.line))
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(Theme.text)
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Theme.field))
+    }
+}
+
+struct RecentlyPlayed: View {
+    let albums: [Album]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recently played").font(Theme.section).accessibilityAddTraits(.isHeader)
+            if albums.isEmpty {
+                Text("Play something and it will show up here.").font(Theme.small).foregroundStyle(Theme.soft)
+            } else {
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: 12) {
+                        ForEach(albums) { album in
+                            NavigationLink(value: album) { AlbumCard(album: album, width: 136) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .padding(.trailing, -16)
+            }
+        }
     }
 }
 
