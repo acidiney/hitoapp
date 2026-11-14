@@ -48,7 +48,7 @@ struct PrepareAudio: View {
             problem = nil
             watch()
         } catch {
-            problem = "The music service didn't take the request. Try again."
+            problem = PluginTrouble.message(error, otherwise: "The music service didn't take the request. Try again.")
         }
     }
 

@@ -50,4 +50,9 @@ import Testing
         let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/review": .json(409, #"{"error":"Conflict"}"#)])
         await #expect(throws: SourceAttachment.Problem.taken) { try await attachment(fake).review("r1", candidate) }
     }
+
+    @Test func aServiceThatNeedsItsCredentialsIsNotReportedAsTaken() async {
+        let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/review": .json(409, #"{"error":"Credentials required","code":"plugin_credentials_required","plugin_connection":{"installation_id":"i1","installation_revision":2}}"#)])
+        await #expect(throws: HitoAPI.Problem.credentialsRequired) { try await attachment(fake).review("r1", candidate) }
+    }
 }

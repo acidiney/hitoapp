@@ -136,7 +136,7 @@ struct LyricsSheet: View {
             problem = nil
         } catch {
             matches = []
-            problem = "\(service.label) didn't answer. Try again."
+            problem = PluginTrouble.message(error, otherwise: "\(service.label) didn't answer. Try again.")
         }
     }
 
@@ -148,7 +148,7 @@ struct LyricsSheet: View {
             reviewing = try await LyricChoices(api: api).review(track.id, service, match)
             problem = nil
         } catch {
-            problem = "This match couldn't be checked. Try another one."
+            problem = PluginTrouble.message(error, otherwise: "This match couldn't be checked. Try another one.")
         }
     }
 
@@ -166,7 +166,7 @@ struct LyricsSheet: View {
             changed()
         } catch {
             reviewing = nil
-            problem = "These lyrics weren't saved. Try again."
+            problem = PluginTrouble.message(error, otherwise: "These lyrics weren't saved. Try again.")
         }
     }
 

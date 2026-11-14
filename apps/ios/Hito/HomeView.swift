@@ -309,7 +309,7 @@ struct RecentlyAdded: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recently added").font(Theme.section).accessibilityAddTraits(.isHeader)
             if feed.isEmpty {
-                Text("Albums you add show up here. An administrator adds music folders on the web.")
+                Text("Albums you add show up here. An administrator adds music folders in Settings.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.soft)
             } else if feed.failed && feed.items.isEmpty {

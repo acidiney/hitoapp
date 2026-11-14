@@ -278,6 +278,7 @@ struct LyricsPanel: View {
     let track: Track
     @State private var result: LyricsResult?
     @State private var failed = false
+    @State private var failure = "Lyrics didn't load."
     @State private var following = true
     @State private var changing = false
 
@@ -354,7 +355,7 @@ struct LyricsPanel: View {
                 Spacer()
                 if failed {
                     HStack(spacing: 8) {
-                        Text("Lyrics didn't load.").foregroundStyle(Theme.soft)
+                        Text(failure).foregroundStyle(Theme.soft)
                         TextAction(title: "Try again") { Task { await load() } }
                     }
                     .font(Theme.small)
@@ -380,6 +381,7 @@ struct LyricsPanel: View {
                 result = try await Lyrics(api: api).load(track.id)
             }
         } catch {
+            failure = PluginTrouble.message(error, otherwise: "Lyrics didn't load.")
             failed = true
             model.handle(error)
         }

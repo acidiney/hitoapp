@@ -72,7 +72,7 @@ struct LibraryView: View {
                             }
                         }
                     }
-                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.", selection: $selected, selectable: true)
+                    TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders in Settings.", selection: $selected, selectable: true)
                         .padding(.leading, -6)
                         .padding(.trailing, -8)
                 case .albums:

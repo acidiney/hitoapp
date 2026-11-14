@@ -113,7 +113,7 @@ struct FindAudioCard: View {
             query = "\(track.title) \(track.artist)"
             problem = nil
         } catch {
-            problem = "Your services couldn't load. Try again."
+            problem = PluginTrouble.message(error, otherwise: "Your services couldn't load. Try again.")
         }
     }
 
@@ -127,7 +127,7 @@ struct FindAudioCard: View {
             problem = nil
         } catch {
             results = []
-            problem = "\(service.name) didn't answer. Try again."
+            problem = PluginTrouble.message(error, otherwise: "\(service.name) didn't answer. Try again.")
         }
     }
 
@@ -142,7 +142,7 @@ struct FindAudioCard: View {
         } catch let refused as SourceAttachment.Problem {
             problem = refused.message
         } catch {
-            problem = "This match couldn't be reviewed. Try another one."
+            problem = PluginTrouble.message(error, otherwise: "This match couldn't be reviewed. Try another one.")
         }
     }
 
@@ -162,7 +162,7 @@ struct FindAudioCard: View {
             problem = refused.message
         } catch {
             reviewing = nil
-            problem = "This source could not be added to the saved track."
+            problem = PluginTrouble.message(error, otherwise: "This source could not be added to the saved track.")
         }
     }
 }

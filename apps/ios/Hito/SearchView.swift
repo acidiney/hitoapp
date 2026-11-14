@@ -20,7 +20,7 @@ struct SearchView: View {
     @FocusState private var focused: Bool
 
     enum RemoteState: Equatable {
-        case idle, searching, failed
+        case idle, searching, failed, credentials
     }
 
     var query: String {
@@ -279,6 +279,8 @@ struct SearchView: View {
                 Text("Searching \(plugin.name)…").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
             case .failed:
                 Text("\(plugin.name) couldn't be searched. Your library results are unaffected.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
+            case .credentials:
+                Text(HitoAPI.Problem.credentialsMessage + " Open Plugins to sign in again.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
             default:
                 if remote.isEmpty {
                     Text("Nothing on \(plugin.name) matches “\(query)”.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
@@ -331,7 +333,7 @@ struct SearchView: View {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
-            remoteState = .failed
+            remoteState = error as? HitoAPI.Problem == .credentialsRequired ? .credentials : .failed
             model.handle(error)
         }
     }
@@ -350,6 +352,7 @@ struct SearchView: View {
                 adoptNote = play ? "No source is ready to play \(track.title) yet. It was added to your library." : "Added \(track.title) to your library."
             }
         } catch {
+            adoptNote = PluginTrouble.message(error, otherwise: "\(plugin.name) couldn't add \(result.title). Try again.")
             model.handle(error)
         }
     }

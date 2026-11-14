@@ -104,7 +104,7 @@ struct PluginsView: View {
                             Text(connection.name).font(Theme.bodyStrong).lineLimit(1)
                             Text(status(connection))
                                 .font(Theme.small)
-                                .foregroundStyle(connection.health == .ok ? Theme.quiet : Theme.warning)
+                                .foregroundStyle(connection.health == .ok && !connection.needsSignIn ? Theme.quiet : Theme.warning)
                                 .lineLimit(3)
                         }
                         Spacer(minLength: 0)
@@ -159,17 +159,13 @@ struct PluginsView: View {
     }
 
     private func status(_ connection: PluginConnection) -> String {
-        switch connection.health {
-        case .ok: connection.summary
-        case .degraded: "Working, with problems"
-        case .unreachable: "Can't reach it right now"
-        case .credentialsRequired: "Needs you to sign in again"
-        }
+        if let notice = connection.notice { return notice.title }
+        return connection.needsSignIn ? "Needs sign-in · \(connection.summary)" : connection.summary
     }
 
     private func available(_ state: PluginState) -> String {
         if !state.available.isEmpty {
-            return "\(state.available.map(\.name).joined(separator: ", ")). Connect on the web for now."
+            return "\(state.available.map(\.name).joined(separator: ", ")) can be connected."
         }
         if state.connections.isEmpty { return "Your administrator hasn't offered any plugins yet." }
         return "\(state.connections.count == 2 ? "Both" : "All") connected. New plugins show up here to connect."
