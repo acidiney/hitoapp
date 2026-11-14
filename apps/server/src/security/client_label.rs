@@ -105,6 +105,25 @@ mod tests {
     }
 
     #[test]
+    fn ios_sessions_have_a_fixed_label_before_browser_detection() {
+        for agent in [
+            "HitoiOS/0.1.0",
+            "HitoiOS/0.1.0 Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) Safari/604.1 private-sentinel",
+        ] {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::USER_AGENT,
+                header::HeaderValue::from_str(agent).unwrap(),
+            );
+
+            let label = label(&headers);
+
+            assert_eq!(label, "Hito for iOS");
+            assert!(!label.contains("0.1.0") && !label.contains("private-sentinel"));
+        }
+    }
+
+    #[test]
     fn unknown_clients_keep_whatever_part_is_known() {
         assert_eq!(describe("curl/8.4.0"), "Unknown browser");
         assert_eq!(
@@ -125,6 +144,13 @@ mod tests {
         assert_eq!(label(&HeaderMap::new()), "Unknown browser");
         let oversized = format!("{FIREFOX_MAC} {}", "x".repeat(100_000));
         assert_eq!(describe(&oversized), "Unknown browser");
+        let oversized_native = format!("HitoiOS/0.1.0 {}", "x".repeat(1024));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::USER_AGENT,
+            header::HeaderValue::from_str(&oversized_native).unwrap(),
+        );
+        assert_eq!(label(&headers), "Unknown browser");
         let mut headers = HeaderMap::new();
         headers.insert(
             header::USER_AGENT,
