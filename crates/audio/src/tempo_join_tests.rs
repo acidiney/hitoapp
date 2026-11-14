@@ -94,7 +94,12 @@ fn clock_free_high_rate_conversion_and_double_speed_keep_the_tone_and_duration()
     }
 
     let output_frames = output.len() / usize::from(channels);
-    let left: Vec<_> = output.chunks_exact(2).map(|frame| frame[0]).collect();
+    let left: Vec<_> = output
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|frame| frame[0])
+        .collect();
     let active_frames = left.iter().filter(|sample| sample.abs() > 0.01).count();
     assert!((86_400..=105_600).contains(&output_frames));
     assert!((86_400..=105_600).contains(&active_frames));
