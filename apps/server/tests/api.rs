@@ -205,6 +205,9 @@ mod inertia;
 #[path = "api/home_search_pages.rs"]
 mod home_search_pages;
 
+#[path = "api/home.rs"]
+mod home;
+
 #[path = "api/security.rs"]
 mod security;
 
