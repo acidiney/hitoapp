@@ -283,6 +283,11 @@
     color: var(--ink);
     line-height: 1.45;
   }
+  .player > .playback-status {
+    position: static;
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
   .player .now-playing {
     flex: none;
     gap: 12px;
