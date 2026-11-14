@@ -67,21 +67,25 @@ struct PluginsView: View {
                 Text("You haven't connected a plugin yet.").font(Theme.small).foregroundStyle(Theme.soft)
             }
             ForEach(state.connections) { connection in
-                HStack(spacing: 12) {
-                    PluginTile(name: connection.name)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(connection.name).font(Theme.bodyStrong).lineLimit(1)
-                        Text(status(connection))
-                            .font(Theme.small)
-                            .foregroundStyle(connection.health == .ok ? Theme.quiet : Theme.warning)
-                            .lineLimit(1)
+                NavigationLink(value: connection) {
+                    HStack(spacing: 12) {
+                        PluginTile(name: connection.name)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(connection.name).font(Theme.bodyStrong).lineLimit(1)
+                            Text(status(connection))
+                                .font(Theme.small)
+                                .foregroundStyle(connection.health == .ok ? Theme.quiet : Theme.warning)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
                     }
-                    Spacer(minLength: 0)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 60)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                    .contentShape(Rectangle())
                 }
-                .padding(.horizontal, 12)
-                .frame(minHeight: 60)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
-                .accessibilityElement(children: .combine)
+                .buttonStyle(.plain)
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("Available on this server").font(Theme.bodyStrong)
@@ -126,14 +130,15 @@ struct PluginsView: View {
 
 struct PluginTile: View {
     let name: String
+    var size: CGFloat = 40
 
     var body: some View {
         let tone = PluginTone(name)
         Text(String(name.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased())
-            .font(Theme.heading)
+            .font(.custom("Figtree-Bold", size: size == 40 ? 18 : 26))
             .foregroundStyle(tone.ink)
-            .frame(width: 40, height: 40)
-            .background(RoundedRectangle(cornerRadius: 10).fill(tone.fill))
+            .frame(width: size, height: size)
+            .background(RoundedRectangle(cornerRadius: size == 40 ? 10 : 16).fill(tone.fill))
             .accessibilityHidden(true)
     }
 }

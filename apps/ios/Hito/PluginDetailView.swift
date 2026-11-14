@@ -1,0 +1,181 @@
+import HitoKit
+import SwiftUI
+
+struct PluginDetailView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let connection: PluginConnection
+    @State private var revision: Int?
+    @State private var checkedAt: Date?
+    @State private var review: (digest: String, wants: [String])?
+    @State private var working = false
+    @State private var note: String?
+    @State private var problem: String?
+    @State private var confirmingRemove = false
+    @State private var confirmingReview = false
+
+    private static let what: [String: String] = [
+        "Search": "Finds music beyond your library, only when you ask.",
+        "Playback": "Plays tracks you have no file for, after local files and saved copies.",
+        "Track details": "Fills in missing titles, artists and albums. Your own edits always win.",
+        "Playlists": "Follows or copies a playlist from a link.",
+        "Covers": "Fetches album artwork.",
+        "Lyrics": "Shows synced lyrics in now playing.",
+    ]
+
+    var capabilities: [String] {
+        connection.summary.isEmpty ? [] : connection.summary.components(separatedBy: " · ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                PluginTile(name: connection.name, size: 56)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(connection.name).font(Theme.title).lineLimit(2).accessibilityAddTraits(.isHeader)
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(connection.health == .ok ? Theme.soft : .clear)
+                            .strokeBorder(connection.health == .ok ? Theme.soft : Theme.warning, lineWidth: 1.5)
+                            .frame(width: 9, height: 9)
+                        Text(status).font(Theme.small).foregroundStyle(connection.health == .ok ? Theme.soft : Theme.warning)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            VStack(spacing: 0) {
+                ForEach(Array(capabilities.enumerated()), id: \.element) { index, name in
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(name).font(Theme.bodyStrong)
+                        Text(Self.what[name] ?? "").font(Theme.small).foregroundStyle(Theme.quiet)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                    .overlay(alignment: .top) { if index > 0 { Theme.barLine.frame(height: 1) } }
+                    .accessibilityElement(children: .combine)
+                }
+                if let review {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(review.wants.isEmpty ? "New permissions" : review.wants.joined(separator: ", ")).font(Theme.bodyStrong)
+                            HStack(spacing: 6) {
+                                Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 9, height: 9)
+                                Text("Wants to add · stays off until you accept").font(Theme.smallStrong).foregroundStyle(Theme.warning)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        Button { confirmingReview = true } label: {
+                            Text("Review").font(Theme.smallStrong).foregroundStyle(Theme.onAccent).padding(.horizontal, 18).frame(minHeight: 44).background(Capsule().fill(Theme.accent))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(minHeight: 64)
+                    .overlay(alignment: .top) { Theme.barLine.frame(height: 1) }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+            if let problem {
+                HStack(spacing: 10) {
+                    Circle().strokeBorder(Color(hex: 0xf0a08c), style: StrokeStyle(lineWidth: 1.5, dash: [1.5, 1.5])).frame(width: 10, height: 10)
+                    Text(problem).font(Theme.small).foregroundStyle(Color(hex: 0xf6d3ca))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color(hex: 0x2a1b17)))
+            }
+            if let note {
+                Text(note).font(Theme.small).foregroundStyle(Theme.soft)
+            }
+            Spacer(minLength: 0)
+            VStack(spacing: 8) {
+                Button { Task { await check() } } label: {
+                    Text(working ? "Checking…" : "Check connection")
+                        .font(Theme.bodyMedium)
+                        .foregroundStyle(Theme.text)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .overlay(Capsule().strokeBorder(Theme.line))
+                }
+                .buttonStyle(.plain)
+                .disabled(working)
+                Button { confirmingRemove = true } label: {
+                    Text("Disconnect")
+                        .font(Theme.bodyMedium)
+                        .foregroundStyle(Theme.danger)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .overlay(Capsule().strokeBorder(Color(hex: 0x5a3a32)))
+                }
+                .buttonStyle(.plain)
+                .disabled(working)
+                Text("Disconnecting leaves your library and playlists as they are.")
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.quiet)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 28)
+        .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button("Disconnect", role: .destructive) { Task { await remove() } }
+        } message: {
+            Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
+        }
+        .confirmationDialog("Let \(connection.name) add \(review?.wants.joined(separator: ", ") ?? "new permissions")?", isPresented: $confirmingReview, titleVisibility: .visible) {
+            Button("Accept") { Task { await check(accept: review?.digest) } }
+        } message: {
+            Text("It stays off until you accept. You can disconnect the plugin at any time.")
+        }
+    }
+
+    private var status: String {
+        switch connection.health {
+        case .ok:
+            if let checked = checkedAt ?? connection.checkedAt {
+                return "Connected · checked \(checked.formatted(.relative(presentation: .named)))"
+            }
+            return "Connected"
+        case .degraded: return "Working, with problems"
+        case .unreachable: return "Can't reach it right now"
+        case .credentialsRequired: return "Needs you to sign in again on the web"
+        }
+    }
+
+    private func check(accept digest: String? = nil) async {
+        guard let api = model.api else { return }
+        working = true
+        problem = nil
+        note = nil
+        defer { working = false }
+        do {
+            switch try await Plugins(api: api).check(connection.id, revision: revision ?? connection.revision, had: connection.capabilities, accept: digest) {
+            case let .updated(saved):
+                review = nil
+                checkedAt = .now
+                note = digest == nil ? "Connection checked." : "Accepted. \(connection.name) can use it now."
+                revision = saved
+            case let .review(digest, wants):
+                review = (digest, wants)
+            }
+        } catch HitoAPI.Problem.refused {
+            problem = "\(connection.name) didn't answer. Check that its service is running, then try again."
+        } catch {
+            problem = "The check didn't finish. Try again."
+            model.handle(error)
+        }
+    }
+
+    private func remove() async {
+        guard let api = model.api else { return }
+        working = true
+        defer { working = false }
+        do {
+            try await Plugins(api: api).remove(connection.id)
+            dismiss()
+        } catch {
+            problem = "\(connection.name) is still connected. Try again."
+            model.handle(error)
+        }
+    }
+}

@@ -85,7 +85,7 @@ public struct Plugins: Sendable {
     }
 
     public enum CheckResult: Equatable, Sendable {
-        case updated
+        case updated(revision: Int)
         case review(digest: String, wants: [String])
     }
 
@@ -113,6 +113,7 @@ public struct Plugins: Sendable {
         let kind: String
         let digest: String?
         let manifest: Manifest?
+        let installation: Installation?
     }
 
     struct Service: Decodable {
@@ -142,7 +143,9 @@ public struct Plugins: Sendable {
 
     public func check(_ id: String, revision: Int, had: [String] = [], accept digest: String? = nil) async throws -> CheckResult {
         let result = try await api.post(["api", "v1", "plugins", id, "refresh"], body: Refresh(revision: revision, acceptManifestDigest: digest), as: Refreshed.self)
-        guard result.kind == "review_required", let digest = result.digest, let manifest = result.manifest else { return .updated }
+        guard result.kind == "review_required", let digest = result.digest, let manifest = result.manifest else {
+            return .updated(revision: result.installation?.revision ?? revision)
+        }
         let wants = PluginState.rows.filter { manifest.capabilities.contains($0.capability) && !had.contains($0.capability) }.map(\.name)
         return .review(digest: digest, wants: wants)
     }

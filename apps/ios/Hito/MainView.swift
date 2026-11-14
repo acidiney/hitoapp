@@ -71,6 +71,7 @@ extension View {
         navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
             .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed() }
+            .navigationDestination(for: PluginConnection.self) { PluginDetailView(connection: $0).pushed(back: "Plugins") }
             .navigationDestination(for: SettingsPage.self) { page in
                 switch page {
                 case .root: SettingsView().pushed()
@@ -89,20 +90,36 @@ extension View {
             .foregroundStyle(Theme.text)
     }
 
-    func pushed(_ title: String? = nil) -> some View {
-        modifier(Pushed(title: title))
+    func pushed(_ title: String? = nil, back: String? = nil) -> some View {
+        modifier(Pushed(title: title, back: back))
     }
 }
 
 struct Pushed: ViewModifier {
     @Environment(\.dismiss) private var dismiss
     let title: String?
+    let back: String?
 
     func body(content: Content) -> some View {
         content
             .safeAreaInset(edge: .top, spacing: 0) {
                 HStack(spacing: 4) {
-                    IconButton(icon: "chevron-left", label: "Back", glyph: 22) { dismiss() }
+                    if let back {
+                        Button { dismiss() } label: {
+                            HStack(spacing: 8) {
+                                Icon("chevron-left", size: 18)
+                                Text(back).font(Theme.bodyStrong)
+                            }
+                            .foregroundStyle(Theme.focus)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Back to \(back)")
+                    } else {
+                        IconButton(icon: "chevron-left", label: "Back", glyph: 22) { dismiss() }
+                    }
                     if let title {
                         Text(title).font(Theme.pageTitle).lineLimit(1).accessibilityAddTraits(.isHeader)
                     }
