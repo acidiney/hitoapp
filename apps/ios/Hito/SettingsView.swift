@@ -126,7 +126,7 @@ struct PrivacyView: View {
                                 lockChange = LockChange(pin: true, idleMinutes: settings.idleMinutes == 0 ? 15 : settings.idleMinutes)
                             }
                         }
-                        SettingRow(title: "Lock when idle", detail: settings.pinEnabled ? nil : "Set a PIN first.") {
+                        SettingRow(title: "Lock when idle", detail: settings.pinEnabled ? nil : "Set a PIN first.", divided: settings.pinEnabled) {
                             Menu {
                                 ForEach(Privacy.idleChoices, id: \.self) { minutes in
                                     Button(idleLabel(minutes)) {
@@ -147,6 +147,11 @@ struct PrivacyView: View {
                             }
                             .disabled(!settings.pinEnabled)
                             .accessibilityLabel("Lock when idle: \(idleLabel(settings.idleMinutes))")
+                        }
+                        if settings.pinEnabled {
+                            SettingRow(title: "Lock now", detail: "Stops the music and asks for your PIN.") {
+                                OutlineButton(title: "Lock now") { Task { await lockNow() } }
+                            }
                         }
                     }
                     group("Listening history") {
@@ -218,6 +223,18 @@ struct PrivacyView: View {
                     return "This didn't save. Try again."
                 }
             }
+        }
+    }
+
+    private func lockNow() async {
+        guard let api = model.api else { return }
+        do {
+            guard try await Privacy(api: api).lockNow() else { return }
+            model.player?.stop()
+            await model.checkLock()
+        } catch {
+            problem = "Hito didn't lock. Try again."
+            model.handle(error)
         }
     }
 

@@ -20,6 +20,12 @@ import Testing
         #expect(settings == PrivacySettings(pinEnabled: true, idleMinutes: 15, history: false, artistLookup: true, artwork: false))
     }
 
+    @Test func lockingNowAsksTheServerToLock() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/account/lock": .json(200, #"{"pin_enabled":true,"idle_minutes":15,"locked":true}"#)])
+        #expect(try await privacy(fake).lockNow())
+        #expect(fake.requests.first?.header("x-hito-request") == "1")
+    }
+
     @Test func historyCanBeTurnedOffAndDeleted() async throws {
         let fake = FakeServer(routes: [
             "PUT /api/v1/history/preferences": .json(200, #"{"enabled":false}"#),
