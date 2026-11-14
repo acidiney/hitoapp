@@ -95,6 +95,16 @@ Nothing changes until you confirm.
 
 On an artist credit page, **Choose the artist** can apply one artist to every track with that credit. Hito shows what will change before it writes anything. Tracks that already have a different artist keep it.
 
+### Choose the artist for one credited artist
+
+When a track credits more than one artist, such as a featured guest, you can pick the artist for each of them separately.
+
+1. In the track's **Metadata** tab, open **Credited artists**.
+2. Next to the credit, select **Choose artist**. Select **Search artists**, then **Preview artist** on the right result and **Use this artist**.
+3. To undo it, select **Clear choice**. The credit goes back to **Not chosen yet**.
+
+This choice is yours alone. It does not change the track's other credits or its **Linked artist**.
+
 ### Undo an artist link
 
 - To unlink one track, open its **Metadata** tab and select **Unlink** under **Saved artist reviews**. **Undo last artist review change** brings it back.
