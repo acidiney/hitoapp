@@ -27,6 +27,7 @@ use uuid::Uuid;
 enum Scenario {
     PauseOnly,
     PauseThenResume,
+    PauseThenSeek,
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -41,10 +42,16 @@ async fn a_paused_native_acquisition_resumes_from_its_seek_baseline() {
     run(Scenario::PauseThenResume).await;
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn an_explicit_seek_reacquires_after_native_acquisition_was_paused() {
+    run(Scenario::PauseThenSeek).await;
+}
+
 async fn run(scenario: Scenario) {
     let f = match scenario {
         Scenario::PauseOnly => fixture::start().await,
-        Scenario::PauseThenResume => fixture::start_for_resume().await,
+        Scenario::PauseThenResume | Scenario::PauseThenSeek => fixture::start_for_resume().await,
     };
     let logs = LogCapture::default();
     let cancelled = CancelledDiscovery::default();
@@ -117,9 +124,12 @@ async fn exercise(
     let mut native = None;
     let mut first_gate = None;
     let mut second_gate = None;
+    let mut third_gate = None;
     let mut retained = None;
     let behavior = AssertUnwindSafe(async {
-        witness = Some(OutputWitness::begin(48_000 * 20, 4096).unwrap());
+        if scenario != Scenario::PauseThenSeek {
+            witness = Some(OutputWitness::begin(48_000 * 20, 4096).unwrap());
+        }
         monitor = Some(capture::Capture::open());
         native = Some(Player::native(f.services.clone()));
         let (player, _) = native.as_ref().unwrap();
@@ -334,6 +344,57 @@ async fn exercise(
                 return Err("Resume did not create one new discovery request identity");
             }
         }
+        if scenario == Scenario::PauseThenSeek {
+            let gate = third_gate.insert(f.second.hold_next("v1/search"));
+            let speed = player.submit(&f.actor, PlayerCommand {
+                id: Uuid::new_v4(), lease: attached.lease, sequence: 4,
+                revision: pause_receipt.revision,
+                action: PlayerAction::Speed { rate: 2000 },
+            }).await.map_err(|_| "paused Speed command was not admitted")?;
+            let seek_id = Uuid::new_v4();
+            let seek = player.submit(&f.actor, PlayerCommand {
+                id: seek_id, lease: attached.lease, sequence: 5,
+                revision: speed.revision,
+                action: PlayerAction::Seek { position_ms: 1000 },
+            }).await.map_err(|_| "paused Seek command was not admitted")?;
+            if seek.id != seek_id {
+                return Err("paused Seek receipt did not retain its command identity");
+            }
+            tokio::time::timeout(Duration::from_secs(3), gate.entered()).await
+                .map_err(|_| "paused Seek did not start a fresh source discovery")?;
+            gate.release();
+            let mut position = player.subscribe_position(&f.actor, attached.lease).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(3), position.wait_for(|observed| {
+                observed.selection == target_selection
+                    && observed.entry == Some(target_entry)
+                    && observed.seek_id == Some(seek_id)
+                    && observed.position_ms == 1000
+            })).await.map_err(|_| "paused Seek did not acknowledge its requested position")?
+                .map_err(|_| "authorized position observer closed after paused Seek")?;
+            let ready_paused = tokio::time::timeout(Duration::from_secs(3), state.wait_for(|snapshot| {
+                snapshot.selection == target_selection
+                    && snapshot.current.as_ref().is_some_and(|entry| entry.id == target_entry)
+                    && snapshot.phase == PlayerPhase::Ready
+                    && snapshot.error.is_none()
+                    && !snapshot.desired_playing
+                    && !snapshot.playing
+                    && !snapshot.seeking
+                    && snapshot.speed == 2000
+                    && snapshot.last_failure.is_none()
+            })).await.map_err(|_| "paused Seek did not become Ready while remaining paused")?
+                .map_err(|_| "authorized state observer closed after paused Seek")?.clone();
+            if ready_paused.speed != 2000 || ready_paused.desired_playing || ready_paused.playing {
+                return Err("paused Seek did not retain speed and paused playback state");
+            }
+            monitor.as_ref().unwrap().after(monitor.as_ref().unwrap().mark(), 0.2);
+            if capture::energy(&monitor.as_ref().unwrap().recent(0.1)) >= 0.000001 {
+                return Err("paused Seek produced audible output");
+            }
+            let stable_position = *position.borrow();
+            if stable_position.seek_id != Some(seek_id) || stable_position.position_ms != 1000 {
+                return Err("paused Seek position moved before the silent observation completed");
+            }
+        }
         retained = Some((target_entry, target_selection, active_silent, pause_receipt.revision));
         Ok::<(), &'static str>(())
     }).catch_unwind().await;
@@ -346,6 +407,12 @@ async fn exercise(
     .is_ok();
     let open_second = std::panic::catch_unwind(AssertUnwindSafe(|| {
         if let Some(gate) = second_gate.as_ref() {
+            gate.open();
+        }
+    }))
+    .is_ok();
+    let open_third = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        if let Some(gate) = third_gate.as_ref() {
             gate.open();
         }
     }))
@@ -385,10 +452,8 @@ async fn exercise(
         matches!(
             (scenario, report),
             (_, Some(Ok(_)))
-                | (
-                    Scenario::PauseOnly,
-                    None | Some(Err(WitnessError::Incomplete))
-                )
+                | (Scenario::PauseOnly, None | Some(Err(WitnessError::Incomplete)))
+                | (Scenario::PauseThenSeek, None)
         )
     });
     let witness_dropped =
@@ -406,6 +471,8 @@ async fn exercise(
         std::panic::catch_unwind(AssertUnwindSafe(|| drop(first_gate.take()))).is_ok();
     let second_gate_dropped =
         std::panic::catch_unwind(AssertUnwindSafe(|| drop(second_gate.take()))).is_ok();
+    let third_gate_dropped =
+        std::panic::catch_unwind(AssertUnwindSafe(|| drop(third_gate.take()))).is_ok();
     let preserved = AssertUnwindSafe(async {
         tokio::time::timeout(Duration::from_secs(3), f.preserved()).await
     })
@@ -430,7 +497,12 @@ async fn exercise(
         fixture::TOKEN,
     ]);
     assert!(
-        open_first && open_second && first_gate_dropped && second_gate_dropped,
+        open_first
+            && open_second
+            && open_third
+            && first_gate_dropped
+            && second_gate_dropped
+            && third_gate_dropped,
         "owned gates must be opened and dropped"
     );
     assert!(
@@ -439,7 +511,7 @@ async fn exercise(
     );
     assert!(
         witness_finished && witness_dropped && monitor_dropped && post_silence,
-        "output callback witness and monitor cleanup must complete"
+        "output witness when required and monitor cleanup must complete"
     );
     assert!(
         preserved && fixture_closed,
