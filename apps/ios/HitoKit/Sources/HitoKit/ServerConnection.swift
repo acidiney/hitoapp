@@ -71,7 +71,11 @@ public struct ServerConnection: Sendable {
         return value
     }
 
+    static let agent = "HitoiOS/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0")"
+
     static func load(_ request: URLRequest, with session: URLSession, staying address: ServerAddress) async throws -> (Data, HTTPURLResponse) {
+        var request = request
+        request.setValue(agent, forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await session.data(for: request, delegate: SameServer(address: address))
             guard let http = response as? HTTPURLResponse else { throw Problem.notHito }

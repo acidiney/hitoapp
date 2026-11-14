@@ -5,17 +5,20 @@ public struct User: Codable, Equatable, Sendable {
     public let username: String
     public let admin: Bool
     public let displayName: String?
+    public let avatarVersion: String?
 
-    public init(id: String, username: String, admin: Bool, displayName: String?) {
+    public init(id: String, username: String, admin: Bool, displayName: String?, avatarVersion: String? = nil) {
         self.id = id
         self.username = username
         self.admin = admin
         self.displayName = displayName
+        self.avatarVersion = avatarVersion
     }
 
     enum CodingKeys: String, CodingKey {
         case id, username, admin
         case displayName = "display_name"
+        case avatarVersion = "avatar_version"
     }
 }
 

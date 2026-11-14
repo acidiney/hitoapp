@@ -28,7 +28,7 @@ struct PasswordField: View {
             Button {
                 shown.toggle()
             } label: {
-                Image(systemName: shown ? "eye.slash" : "eye")
+                Icon("eye")
                     .frame(width: 44, height: 44)
                     .foregroundStyle(shown ? Theme.text : Theme.quiet)
             }
