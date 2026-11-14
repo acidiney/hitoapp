@@ -18,6 +18,9 @@ struct TrackView: View {
                 FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
                     Task { await load() }
                 }
+                if choice?.entries.contains(where: { !$0.local }) == true {
+                    SavedCopyCard(track: track)
+                }
                 TrackDetailsCard(track: track, details: $details)
                 CopiesCard(track: track)
             }
