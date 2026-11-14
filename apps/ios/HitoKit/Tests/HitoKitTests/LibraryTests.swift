@@ -25,7 +25,8 @@ import Testing
         let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
         _ = try await library(fake).tracks(offset: 50, liked: true)
         _ = try await library(fake).tracks(offset: 0, search: "fixture band")
-        #expect(fake.requests.map(\.query) == ["offset=50&limit=50&liked=true", "offset=0&limit=50&q=fixture%20band"])
+        _ = try await library(fake).tracks(offset: 0, artist: "ar1")
+        #expect(fake.requests.map(\.query) == ["offset=50&limit=50&liked=true", "offset=0&limit=50&q=fixture%20band", "offset=0&limit=50&artist=ar1"])
     }
 
     @Test func artistsAreFoundByName() async throws {
