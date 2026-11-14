@@ -18,6 +18,23 @@ struct PluginsView: View {
                 if let state {
                     powers(state)
                     connections(state)
+                    if !state.connections.isEmpty {
+                        NavigationLink(value: SettingsPage.playback) {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Playback order").font(Theme.bodyStrong)
+                                    Text("Which source plays first when a track has several. A source you choose for one track always wins.")
+                                        .font(Theme.small).foregroundStyle(Theme.soft)
+                                }
+                                Spacer(minLength: 8)
+                                Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                            }
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 } else if failed {
                     HStack(spacing: 8) {
                         Text("Plugins didn't load.").foregroundStyle(Theme.soft)
