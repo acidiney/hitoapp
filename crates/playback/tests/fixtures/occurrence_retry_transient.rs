@@ -114,7 +114,7 @@ async fn start_with_ready_searches(ready_searches: usize) -> Fixture {
     let mut provider = None;
     let mut replaced = None;
     let setup = AssertUnwindSafe(hang_guard("owned transient occurrence setup", async {
-        owned = Some(Fixture::start().await);
+        owned = Some(Fixture::start_with_ready_on_attempt(Some(3)).await);
         let f = owned.as_mut().unwrap();
         let audio = std::fs::read(f.directory.path().join("owned-provider.wav")).unwrap();
         let detail = json!({"id":CANDIDATE,"title":TITLE,"artist":ARTIST,"duration_ms":8000,"revision":"owned-transient-r1"});

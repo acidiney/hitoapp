@@ -18,7 +18,7 @@ use uuid::Uuid;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn three_fresh_discovery_attempts_present_the_first_occurrence_without_skipping() {
-    let f = fixture::Fixture::start().await;
+    let f = fixture::Fixture::start_with_ready_on_attempt(Some(3)).await;
     let logs = LogCapture::default();
     let dispatch = logs.dispatch("off,hito_core=debug,hito_playback=debug");
     exercise(f, &logs).with_subscriber(dispatch).await;
@@ -27,7 +27,7 @@ async fn three_fresh_discovery_attempts_present_the_first_occurrence_without_ski
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn three_no_suitable_passes_advance_once_to_the_audible_sentinel() {
-    let f = fixture::Fixture::start_no_suitable().await;
+    let f = fixture::Fixture::start_with_ready_on_attempt(None).await;
     let logs = LogCapture::default();
     let dispatch = logs.dispatch("off,hito_core=debug,hito_playback=debug");
     three_no_suitable(f, &logs).with_subscriber(dispatch).await;
@@ -36,7 +36,7 @@ async fn three_no_suitable_passes_advance_once_to_the_audible_sentinel() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn retry_two_candidate_pause_clears_status_and_cancels_held_audio() {
-    let f = fixture::Fixture::start_ready_on_second_attempt().await;
+    let f = fixture::Fixture::start_with_ready_on_attempt(Some(2)).await;
     let gate = f.second.hold_next("v1/audio");
     let witness = OutputWitness::begin(48_000 * 20, 4096).unwrap();
     let capture = capture::Capture::open();
@@ -215,7 +215,7 @@ enum RetryCancellation {
 }
 
 async fn exercise_selection_cancellation(command: RetryCancellation) {
-    let f = fixture::Fixture::start_ready_on_second_attempt().await;
+    let f = fixture::Fixture::start_with_ready_on_attempt(Some(2)).await;
     let gate = f.second.hold_next("v1/audio");
     let witness = OutputWitness::begin(48_000 * 20, 4096).unwrap();
     let capture = capture::Capture::open();
