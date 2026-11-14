@@ -15,6 +15,7 @@ import {
   prepareOutageLibrary,
   type OutageSetupPhase,
   type OutageResolutionDiagnostic,
+  type OutageState,
 } from "./fixtures/providerOutageLibrary";
 import {
   hash,
@@ -40,6 +41,31 @@ type OutagePhase =
   | "evidence"
   | "browser_cleanup"
   | "provider_cleanup";
+type MigrationCheck =
+  | "migrated_version"
+  | "library_heading"
+  | "state_read"
+  | "state_equality"
+  | "receipt_identities"
+  | "replay_receipt"
+  | "replay_provider_silence";
+type MigrationReplayIndex = 0 | 1 | 2;
+type MigrationCheckMarker = {
+  check: MigrationCheck;
+  index?: MigrationReplayIndex;
+  differing?: (keyof OutageState)[];
+};
+const OUTAGE_STATE_FIELDS = [
+  "local",
+  "originals",
+  "copies",
+  "metadata",
+  "choices",
+  "progress",
+  "absent",
+  "settings",
+] as const satisfies readonly (keyof OutageState)[];
+const REPLAY_INDEXES: readonly MigrationReplayIndex[] = [0, 1, 2];
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.skip(
   process.env.HITO_PROVIDER_OUTAGE_E2E !== "1",
@@ -56,6 +82,7 @@ test("a populated version54 library upgrades and plays through truthful provider
   let failure: OutagePhase | null = null;
   let provider: OutageProvider | null = null;
   let media: OutageMediaFacts | null = null;
+  let migrationCheck: MigrationCheckMarker | null = null;
   const resolutions: Partial<
     Record<OutageResolutionDiagnostic["target"], OutageResolutionDiagnostic>
   > = {};
@@ -101,18 +128,28 @@ test("a populated version54 library upgrades and plays through truthful provider
       assets: evidence.assets,
     });
     const migrated = await waitOutageControl("migrated", "migrated", 90_000);
+    migrationCheck = { check: "migrated_version" };
     expect(
       migrated.previous_version === 54 &&
         migrated.current_version === 98 &&
         migrated.applied_count === 44,
     ).toBe(true);
+    migrationCheck = { check: "library_heading" };
     await page.goto("/library");
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
+    migrationCheck = { check: "state_read" };
     const afterMigration = await outageLibraryState(page, read, library);
+    migrationCheck = {
+      check: "state_equality",
+      differing: OUTAGE_STATE_FIELDS.filter(
+        (field) => !isDeepStrictEqual(before[field], afterMigration[field]),
+      ),
+    };
     expect(isDeepStrictEqual(before, afterMigration)).toBe(true);
     const callsBeforeReplay = { ...provider.counts };
+    migrationCheck = { check: "receipt_identities" };
     expect(
       library.legacyResolutions.length === 3 &&
         new Set(
@@ -124,7 +161,9 @@ test("a populated version54 library upgrades and plays through truthful provider
             item.receipt.recording_id === item.recording,
         ),
     ).toBe(true);
-    for (const resolution of library.legacyResolutions) {
+    for (const [position, resolution] of library.legacyResolutions.entries()) {
+      const index = REPLAY_INDEXES[position];
+      migrationCheck = { check: "replay_receipt", index };
       const replay = await outageWrite<Schema<"SourceResolution">>(
         page,
         library.user.id,
@@ -133,8 +172,10 @@ test("a populated version54 library upgrades and plays through truthful provider
         resolution.request,
       );
       expect(isDeepStrictEqual(replay, resolution.receipt)).toBe(true);
+      migrationCheck = { check: "replay_provider_silence", index };
       expect(isDeepStrictEqual(callsBeforeReplay, provider.counts)).toBe(true);
     }
+    migrationCheck = null;
     phase = "playback";
     evidence.arm(library.user.id, [library.ids.retry, library.ids.healthy]);
     const playback = await playThroughOutage(
@@ -225,6 +266,7 @@ test("a populated version54 library upgrades and plays through truthful provider
       JSON.stringify({
         event: "provider_outage_failed",
         phase: failure,
+        migration_check: migrationCheck,
         media,
         resolutions,
         provider: provider?.counts ?? null,
