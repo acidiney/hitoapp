@@ -255,7 +255,7 @@ struct PluginDetailView: View {
         working = true
         defer { working = false }
         do {
-            try await Plugins(api: api).remove(connection.id)
+            try await Plugins(api: api).remove(connection.id, revision: connection.revision)
             dismiss()
         } catch {
             problem = "\(connection.name) is still connected. Try again."

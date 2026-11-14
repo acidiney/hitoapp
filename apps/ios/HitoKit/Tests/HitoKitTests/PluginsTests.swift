@@ -63,8 +63,10 @@ import Testing
 
     @Test func removingAPluginDeletesItsInstallation() async throws {
         let fake = FakeServer(routes: ["DELETE /api/v1/plugins/i1": .text(204, "")])
-        try await plugins(fake).remove("i1")
+        try await plugins(fake).remove("i1", revision: 3)
         #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i1"])
+        #expect(fake.requests.first?.header("content-type") == "application/json")
+        #expect(fake.requests.first?.object?["revision"] as? Int == 3)
     }
 
     @Test func aPluginIsSearchedWithItsRevision() async throws {
@@ -107,5 +109,31 @@ import Testing
         let fake = FakeServer(routes: ["DELETE /api/v1/plugins/i3/connection": .text(204, "")])
         try await plugins(fake).signOut("i3")
         #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i3/connection"])
+    }
+
+    @Test func anOfferKeepsItsServiceRevision() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/plugins": .json(200, settings)])
+        let state = try await plugins(fake).load()
+        #expect(state.available == [PluginOffer(id: "s3", name: "Lyrics", revision: 1)])
+    }
+
+    @Test func connectingStartsWithAPreviewOfWhatItTurnsOn() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/preview": .json(200, #"{"digest":"d9","manifest":{"id":"ly","name":"Lyrics","protocol_version":1,"capabilities":["lyrics","search"]}}"#)])
+        let preview = try await plugins(fake).preview(PluginOffer(id: "s3", name: "Lyrics", revision: 4), token: "")
+        #expect(preview == PluginPreview(digest: "d9", name: "Lyrics", turnsOn: ["Search", "Lyrics"], signsIn: false))
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["service_id"] as? String == "s3")
+        #expect(body["service_revision"] as? Int == 4)
+        #expect(body["bearer_token"] is NSNull)
+    }
+
+    @Test func acceptingAPreviewConnectsWithItsDigestAndToken() async throws {
+        let installation = #"{"id":"i9","service_id":"s3","revision":1,"checked_at":5,"credential_set":true,"health":{"state":"ok"},"manifest":{"id":"ly","name":"Lyrics","protocol_version":1,"capabilities":["lyrics"]}}"#
+        let fake = FakeServer(routes: ["POST /api/v1/plugins": .json(201, installation)])
+        let connection = try await plugins(fake).connect(PluginOffer(id: "s3", name: "Lyrics", revision: 4), token: " key-1 ", digest: "d9")
+        #expect(connection.id == "i9")
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["accept_manifest_digest"] as? String == "d9")
+        #expect(body["bearer_token"] as? String == "key-1")
     }
 }

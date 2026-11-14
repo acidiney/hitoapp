@@ -5,11 +5,16 @@ struct PluginsView: View {
     @Environment(AppModel.self) private var model
     @State private var state: PluginState?
     @State private var failed = false
+    @State private var connecting: PluginOffer?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Plugins").font(Theme.title).accessibilityAddTraits(.isHeader)
+                if let state, state.connections.isEmpty {
+                    Text("Your library plays local files on its own. Connect a plugin to search, play and follow music you don't have files for.")
+                        .font(Theme.body).foregroundStyle(Theme.soft)
+                }
                 if let state {
                     powers(state)
                     connections(state)
@@ -28,7 +33,7 @@ struct PluginsView: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { await load() }
-        .task { if state == nil { await load() } }
+        .task { await load() }
     }
 
     private func powers(_ state: PluginState) -> some View {
@@ -87,15 +92,44 @@ struct PluginsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Available on this server").font(Theme.bodyStrong)
-                Text(available(state)).font(Theme.small).foregroundStyle(Theme.quiet)
+            if state.available.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Available on this server").font(Theme.bodyStrong)
+                    Text(available(state)).font(Theme.small).foregroundStyle(Theme.quiet)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+                .accessibilityElement(children: .combine)
+            } else {
+                Text("Available on this server").font(Theme.smallStrong).foregroundStyle(Theme.quiet).padding(.top, 8).accessibilityAddTraits(.isHeader)
+                ForEach(state.available) { offer in
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            PluginTile(name: offer.name)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(offer.name).font(Theme.bodyStrong).lineLimit(1)
+                                Text("Not connected").font(Theme.small).foregroundStyle(Theme.quiet)
+                            }
+                        }
+                        Button { connecting = offer } label: {
+                            Text("Connect").font(Theme.bodyStrong).foregroundStyle(Theme.onAccent)
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                                .background(Capsule().fill(Theme.accent))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Connect \(offer.name)")
+                    }
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                }
+                Text("Connections are yours only.").font(Theme.small).foregroundStyle(Theme.quiet)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .accessibilityElement(children: .combine)
+        }
+        .fullScreenCover(item: $connecting) { offer in
+            ConnectSheet(offer: offer) { Task { await load() } }
+                .presentationBackground(.clear)
         }
     }
 

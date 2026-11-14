@@ -49,9 +49,17 @@ public struct PluginPower: Equatable, Identifiable, Sendable {
     public var id: String { name }
 }
 
-public struct PluginOffer: Equatable, Identifiable, Sendable {
+public struct PluginOffer: Equatable, Hashable, Identifiable, Sendable {
     public let id: String
     public let name: String
+    public let revision: Int
+}
+
+public struct PluginPreview: Equatable, Sendable {
+    public let digest: String
+    public let name: String
+    public let turnsOn: [String]
+    public let signsIn: Bool
 }
 
 public struct PluginState: Equatable, Sendable {
@@ -147,6 +155,7 @@ public struct Plugins: Sendable {
     struct Service: Decodable {
         let id: String
         let name: String
+        let revision: Int
     }
 
     struct Settings: Decodable {
@@ -165,7 +174,7 @@ public struct Plugins: Sendable {
         let connected = Set(settings.installations.map(\.serviceId))
         return PluginState(
             connections: settings.installations.map(\.connection),
-            available: settings.services.filter { !connected.contains($0.id) }.map { PluginOffer(id: $0.id, name: $0.name) }
+            available: settings.services.filter { !connected.contains($0.id) }.map { PluginOffer(id: $0.id, name: $0.name, revision: $0.revision) }
         )
     }
 
@@ -180,8 +189,10 @@ public struct Plugins: Sendable {
         return .review(digest: digest, wants: wants)
     }
 
-    public func remove(_ id: String) async throws {
-        _ = try await api.delete(["api", "v1", "plugins", id], as: Nothing.self)
+    struct Revision: Encodable { let revision: Int }
+
+    public func remove(_ id: String, revision: Int) async throws {
+        _ = try await api.delete(["api", "v1", "plugins", id], body: Revision(revision: revision), as: Nothing.self)
     }
 
     struct Search: Encodable {
@@ -227,5 +238,51 @@ public struct Plugins: Sendable {
 
     public func signOut(_ id: String) async throws {
         _ = try await api.delete(["api", "v1", "plugins", id, "connection"], as: Nothing.self)
+    }
+
+    struct Install: Encodable {
+        let serviceId: String
+        let serviceRevision: Int
+        let bearerToken: String?
+        let acceptManifestDigest: String?
+
+        enum CodingKeys: String, CodingKey {
+            case serviceId = "service_id"
+            case serviceRevision = "service_revision"
+            case bearerToken = "bearer_token"
+            case acceptManifestDigest = "accept_manifest_digest"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(serviceId, forKey: .serviceId)
+            try container.encode(serviceRevision, forKey: .serviceRevision)
+            try container.encode(bearerToken, forKey: .bearerToken)
+            if let acceptManifestDigest { try container.encode(acceptManifestDigest, forKey: .acceptManifestDigest) }
+        }
+    }
+
+    struct Previewed: Decodable {
+        let digest: String
+        let manifest: Manifest
+    }
+
+    static func key(_ token: String) -> String? {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    public func preview(_ offer: PluginOffer, token: String) async throws -> PluginPreview {
+        let previewed = try await api.post(["api", "v1", "plugins", "preview"], body: Install(serviceId: offer.id, serviceRevision: offer.revision, bearerToken: Self.key(token), acceptManifestDigest: nil), as: Previewed.self)
+        return PluginPreview(
+            digest: previewed.digest,
+            name: previewed.manifest.name,
+            turnsOn: PluginState.rows.filter { previewed.manifest.capabilities.contains($0.capability) }.map(\.name),
+            signsIn: previewed.manifest.authorization != nil
+        )
+    }
+
+    public func connect(_ offer: PluginOffer, token: String, digest: String) async throws -> PluginConnection {
+        try await api.post(["api", "v1", "plugins"], body: Install(serviceId: offer.id, serviceRevision: offer.revision, bearerToken: Self.key(token), acceptManifestDigest: digest), as: Installation.self).connection
     }
 }

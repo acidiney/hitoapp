@@ -52,6 +52,10 @@ public struct HitoAPI: Sendable {
         return try await send(request, as: type)
     }
 
+    func delete<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
+        try await change("DELETE", path, body: body, as: type)
+    }
+
     private func change<Body: Encodable, Value: Decodable>(_ method: String, _ path: [String], body: Body, as type: Value.Type) async throws -> Value {
         var request = request(path)
         request.httpMethod = method
