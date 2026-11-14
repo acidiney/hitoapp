@@ -50,19 +50,7 @@ pub struct Fixture {
 }
 
 impl Fixture {
-    pub async fn start() -> Self {
-        Self::start_with_ready_on_attempt(Some(3)).await
-    }
-
-    pub async fn start_no_suitable() -> Self {
-        Self::start_with_ready_on_attempt(None).await
-    }
-
-    pub async fn start_ready_on_second_attempt() -> Self {
-        Self::start_with_ready_on_attempt(Some(2)).await
-    }
-
-    async fn start_with_ready_on_attempt(ready_on_attempt: Option<usize>) -> Self {
+    pub async fn start_with_ready_on_attempt(ready_on_attempt: Option<usize>) -> Self {
         hang_guard(
             "owned occurrence retry setup",
             Box::pin(async {
