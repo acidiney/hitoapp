@@ -38,6 +38,19 @@ struct NowPlayingView: View {
                 IconButton(icon: "chevron-down", label: "Close now playing", glyph: 22) { dismiss() }
                 Spacer()
                 Menu {
+                    Picker("Playback speed", selection: Binding(get: { player.speed }, set: player.setSpeed)) {
+                        ForEach(PlaybackSpeed.choices, id: \.self) { Text(PlaybackSpeed.label($0)).tag($0) }
+                    }
+                } label: {
+                    Text(PlaybackSpeed.label(player.speed))
+                        .font(Theme.smallStrong)
+                        .foregroundStyle(player.speed == 1 ? Theme.soft : Theme.focus)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(PlaybackSpeed.label(player.speed))
+                Menu {
                     Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
                     Button("Up next", action: openQueue)
                 } label: {

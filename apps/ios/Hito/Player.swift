@@ -26,6 +26,7 @@ final class Player {
     private(set) var liked: Set<String> = []
     private(set) var unliked: Set<String> = []
     private(set) var retrying: RetryPasses.Pass?
+    private(set) var speed: Double = 1
     private var passes = RetryPasses()
     private let memory: QueueMemory
     private let listening: ListeningProgress
@@ -105,9 +106,9 @@ final class Player {
     }
 
     private func report(_ id: String, _ position: Double) {
-        Task { [listening, log] in
+        Task { [listening, log, speed] in
             do {
-                try await listening.save(id, position: position, speed: 1)
+                try await listening.save(id, position: position, speed: speed)
             } catch {
                 log.info("player.progress_failed")
             }
@@ -205,6 +206,14 @@ final class Player {
     func toggleShuffle() {
         var generator = SystemRandomNumberGenerator()
         queue.setShuffle(!queue.shuffled, using: &generator)
+    }
+
+    func setSpeed(_ chosen: Double) {
+        speed = chosen
+        engine.defaultRate = Float(chosen)
+        if state == .playing { engine.rate = Float(chosen) }
+        log.info("player.speed_changed")
+        publish()
     }
 
     func cycleRepeat() {
@@ -522,7 +531,8 @@ final class Player {
             MPMediaItemPropertyArtist: track.artist,
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
-            MPNowPlayingInfoPropertyPlaybackRate: state == .playing ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: state == .playing ? speed : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: speed,
         ]
         if let album = track.album { info[MPMediaItemPropertyAlbumTitle] = album }
         if let artwork { info[MPMediaItemPropertyArtwork] = artwork }
