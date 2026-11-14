@@ -67,6 +67,10 @@ struct TrackView: View {
                     ForEach(choice.entries) { entry in
                         SourceRow(entry: entry, chosen: chosen(in: choice) == entry.id) { staged = entry.id }
                             .disabled(saving || !entry.selectable)
+                        if entry.canPrepare {
+                            PrepareAudio(recording: track.id, source: entry.id) { Task { await load() } }
+                                .padding(.leading, 34)
+                        }
                     }
                 }
                 if choice.mode != .automatic || choice.entries.count > 1 || staged != nil {

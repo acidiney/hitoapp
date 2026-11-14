@@ -28,6 +28,7 @@ public struct TrackSources: Sendable {
         public let pinned: Bool
         public let bestGuess: Bool
         public let local: Bool
+        public let canPrepare: Bool
     }
 
     public struct Choice: Equatable, Sendable {
@@ -51,12 +52,14 @@ public struct TrackSources: Sendable {
             let label: String
             let providerLabel: String?
             let ready: Bool
+            let canPrepare: Bool?
             let matchKind: String?
             let deviceId: String?
 
             enum CodingKeys: String, CodingKey {
                 case id, provider, label, ready
                 case providerLabel = "provider_label"
+                case canPrepare = "can_prepare"
                 case matchKind = "match_kind"
                 case deviceId = "device_id"
             }
@@ -109,7 +112,7 @@ public struct TrackSources: Sendable {
             let primary = local ? source.label : (service?.isEmpty == false ? service! : source.label)
             let secondary = local ? "Music folder" : (service?.isEmpty == false ? source.label.replacingOccurrences(of: " / ", with: " · ") : "Music service")
             let state = source.deviceId != nil ? "On this device" : source.ready ? "Ready" : "Not prepared"
-            return Entry(id: source.id, primary: primary, secondary: secondary, ready: source.ready, state: state, selectable: item.selectable, selected: item.selected, pinned: wire.mode == .manual && item.selected, bestGuess: source.matchKind == "best_guess", local: local)
+            return Entry(id: source.id, primary: primary, secondary: secondary, ready: source.ready, state: state, selectable: item.selectable, selected: item.selected, pinned: wire.mode == .manual && item.selected, bestGuess: source.matchKind == "best_guess", local: local, canPrepare: source.canPrepare == true && !source.ready)
         })
     }
 
