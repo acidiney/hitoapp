@@ -5,7 +5,6 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     let user: User
     let openSearch: () -> Void
-    let openAccount: () -> Void
     @State private var albums = Feed<Album>()
 
     var name: String { user.displayName ?? user.username }
@@ -26,14 +25,14 @@ struct HomeView: View {
                         .font(Theme.title)
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 0)
-                    Button(action: openAccount) {
+                    NavigationLink(value: SettingsPage.root) {
                         Text(String(name.prefix(1)).uppercased())
                             .font(Theme.bodyBold)
                             .frame(width: 44, height: 44)
                             .background(Circle().fill(Theme.avatar))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Account: \(name)")
+                    .accessibilityLabel("Settings for \(name)")
                 }
                 Button(action: openSearch) {
                     HStack(spacing: 10) {

@@ -30,7 +30,6 @@ struct MainView: View {
     @State private var tab = Tab.home
     @State private var showingNowPlaying = false
     @State private var showingQueue = false
-    @State private var showingAccount = false
 
     var body: some View {
         ZStack {
@@ -38,7 +37,7 @@ struct MainView: View {
             switch tab {
             case .home:
                 NavigationStack {
-                    HomeView(user: user, openSearch: { tab = .search }, openAccount: { showingAccount = true })
+                    HomeView(user: user, openSearch: { tab = .search })
                         .browsing()
                 }
             case .search:
@@ -64,9 +63,6 @@ struct MainView: View {
                     .sheet(isPresented: $showingQueue) { QueueSheet(player: player) }
             }
         }
-        .sheet(isPresented: $showingAccount) {
-            AccountSheet(address: address, user: user)
-        }
     }
 }
 
@@ -75,6 +71,12 @@ extension View {
         navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
             .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed() }
+            .navigationDestination(for: SettingsPage.self) { page in
+                switch page {
+                case .root: SettingsView().pushed()
+                case .privacy: PrivacyView().pushed("Privacy & lock")
+                }
+            }
             .page()
     }
 
@@ -84,22 +86,27 @@ extension View {
             .foregroundStyle(Theme.text)
     }
 
-    func pushed() -> some View {
-        modifier(Pushed())
+    func pushed(_ title: String? = nil) -> some View {
+        modifier(Pushed(title: title))
     }
 }
 
 struct Pushed: ViewModifier {
     @Environment(\.dismiss) private var dismiss
+    let title: String?
 
     func body(content: Content) -> some View {
         content
             .safeAreaInset(edge: .top, spacing: 0) {
-                HStack {
+                HStack(spacing: 4) {
                     IconButton(icon: "chevron-left", label: "Back", glyph: 22) { dismiss() }
+                    if let title {
+                        Text(title).font(Theme.pageTitle).lineLimit(1).accessibilityAddTraits(.isHeader)
+                    }
                     Spacer()
                 }
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 4)
+                .padding(.bottom, title == nil ? 0 : 12)
                 .background(Theme.ground)
             }
             .page()
@@ -230,39 +237,3 @@ extension Player {
     }
 }
 
-struct AccountSheet: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    let address: ServerAddress
-    let user: User
-    @State private var confirmingChange = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            AccountBadge(name: user.displayName ?? user.username, admin: user.admin, detail: user.username)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("This app uses \(address.origin.absoluteString)").foregroundStyle(Theme.soft)
-                TextAction(title: "Change…") { confirmingChange = true }
-            }
-            TextAction(title: "Sign out") {
-                dismiss()
-                model.signOut()
-            }
-            Spacer()
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.field.ignoresSafeArea())
-        .foregroundStyle(Theme.text)
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-        .confirmationDialog("Use a different place?", isPresented: $confirmingChange, titleVisibility: .visible) {
-            Button("Change") {
-                dismiss()
-                model.changeServer()
-            }
-        } message: {
-            Text("The music stops and the first screen opens. You stay signed in to \(address.host).")
-        }
-    }
-}
