@@ -142,6 +142,11 @@ final class AppModel {
         }
     }
 
+    func renamed(_ user: User) {
+        guard case let .signedIn(address, _) = step else { return }
+        step = .signedIn(address, user)
+    }
+
     private func follow(_ step: Step) {
         switch step {
         case let .signedIn(address, _), let .locked(address, _):

@@ -74,7 +74,10 @@ extension View {
             .navigationDestination(for: SettingsPage.self) { page in
                 switch page {
                 case .root: SettingsView().pushed()
-                case .privacy: PrivacyView().pushed("Privacy & lock")
+                case .profile: ProfileView().pushed(page.title)
+                case .privacy: PrivacyView().pushed(page.title)
+                case .playback: PlaybackSettingsView().pushed(page.title)
+                case .about: AboutView().pushed(page.title)
                 }
             }
             .page()

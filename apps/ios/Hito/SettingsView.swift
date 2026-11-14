@@ -3,16 +3,31 @@ import SwiftUI
 
 enum SettingsPage: Hashable {
     case root
+    case profile
     case privacy
+    case playback
+    case about
+
+    var title: String {
+        switch self {
+        case .root: "Settings"
+        case .profile: "Profile"
+        case .privacy: "Privacy & lock"
+        case .playback: "Playback"
+        case .about: "About"
+        }
+    }
 }
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var search = ""
-    @State private var confirmingChange = false
 
     private let sections: [(page: SettingsPage, title: String, detail: String)] = [
+        (.profile, "Profile", "Name, password, devices"),
         (.privacy, "Privacy & lock", "PIN, history, what Hito sends out"),
+        (.playback, "Playback", "Source order"),
+        (.about, "About", "Version and server"),
     ]
 
     var body: some View {
@@ -28,21 +43,15 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .frame(minHeight: 44)
                 .background(Capsule().fill(Theme.field))
-                if case let .signedIn(address, user) = model.step {
+                if case let .signedIn(_, user) = model.step {
                     account(user)
                     rows
-                    server(address)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
-        .confirmationDialog("Use a different place?", isPresented: $confirmingChange, titleVisibility: .visible) {
-            Button("Change") { model.changeServer() }
-        } message: {
-            Text("The music stops and the first screen opens. You stay signed in to this server.")
-        }
     }
 
     private func account(_ user: User) -> some View {
@@ -85,16 +94,6 @@ struct SettingsView: View {
         }
     }
 
-    private func server(_ address: ServerAddress) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("This app uses \(address.origin.absoluteString)").font(Theme.small).foregroundStyle(Theme.soft)
-            HStack(spacing: 16) {
-                TextAction(title: "Change…") { confirmingChange = true }
-                TextAction(title: "Sign out") { model.signOut() }
-            }
-        }
-        .padding(.top, 8)
-    }
 }
 
 struct PrivacyView: View {

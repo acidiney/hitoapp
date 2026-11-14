@@ -17,6 +17,12 @@ import Testing
         #expect(devices.first?.current == true)
     }
 
+    @Test func everyRequestNamesTheIOSApp() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/account/sessions": .json(200, "[]")])
+        _ = try await Profile(api: api(fake)).devices()
+        #expect(fake.requests.first?.header("user-agent")?.hasPrefix("HitoiOS/") == true)
+    }
+
     @Test func aDeviceIsSignedOutByItsId() async throws {
         let fake = FakeServer(routes: ["DELETE /api/v1/account/sessions/s2": .text(204, "")])
         try await Profile(api: api(fake)).signOut(device: "s2")
