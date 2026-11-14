@@ -8,6 +8,7 @@ struct TrackView: View {
     @State private var staged: String?
     @State private var saving = false
     @State private var problem: String?
+    @State private var details: TrackMetadata.Details?
 
     var body: some View {
         ScrollView {
@@ -17,6 +18,7 @@ struct TrackView: View {
                 FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
                     Task { await load() }
                 }
+                TrackDetailsCard(track: track, details: $details)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -30,8 +32,8 @@ struct TrackView: View {
         HStack(alignment: .top, spacing: 14) {
             Cover(path: track.artworkPath, size: 96, radius: 10)
             VStack(alignment: .leading, spacing: 4) {
-                Text(track.title).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
-                Text(track.artist).foregroundStyle(Theme.soft).lineLimit(2)
+                Text(details?.title.value ?? track.title).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                Text(details?.artist.value ?? track.artist).foregroundStyle(Theme.soft).lineLimit(2)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
                     Text(track.stateLabel).font(Theme.small).foregroundStyle(Theme.soft)
