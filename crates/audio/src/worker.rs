@@ -8,6 +8,8 @@ use crate::{
     tempo::{Handoff, Tempo},
 };
 use rtrb::Producer;
+#[cfg(feature = "test-support")]
+use std::time::Instant;
 use std::{
     sync::{
         Arc,
@@ -16,6 +18,14 @@ use std::{
     },
     time::Duration,
 };
+
+#[cfg(feature = "test-support")]
+#[derive(Default)]
+struct ProducerReadService {
+    elapsed_ns: u64,
+    calls: u64,
+    output_frames: u64,
+}
 
 pub(crate) enum Control {
     Seek {
@@ -47,6 +57,8 @@ pub(crate) fn run(
     ready: SyncSender<Result<AudioFormat>>,
     rates: Option<Vec<u32>>,
 ) -> Result<()> {
+    #[cfg(feature = "test-support")]
+    let source_format = decoder.format();
     let target = Output::negotiate(decoder.format().output_format(), rates.as_deref())?;
     let mut decoder = Tempo::new(Converter::with_output(
         decoder,
@@ -74,11 +86,21 @@ pub(crate) fn run(
     };
     let mut resets = 0;
     let mut last_reset = Duration::ZERO;
+    #[cfg(feature = "test-support")]
+    let mut producer_read_service = ProducerReadService::default();
     'decode: loop {
         if let Some(speed) = deferred.speed.take() {
             decoder.speed(speed);
         }
         if state.stopped.load(Ordering::Acquire) {
+            #[cfg(feature = "test-support")]
+            report_producer_service(
+                audio_id,
+                source_format,
+                format,
+                &decoder,
+                &producer_read_service,
+            );
             return Ok(());
         }
         if let Some(error) = state.error() {
@@ -95,7 +117,17 @@ pub(crate) fn run(
         }
         if let Some(control) = pending.take().or_else(|| commands.try_recv().ok()) {
             match control {
-                Control::Stop => return Ok(()),
+                Control::Stop => {
+                    #[cfg(feature = "test-support")]
+                    report_producer_service(
+                        audio_id,
+                        source_format,
+                        format,
+                        &decoder,
+                        &producer_read_service,
+                    );
+                    return Ok(());
+                }
                 Control::Recover | Control::Wake => (),
                 Control::Seek {
                     position: wanted,
@@ -183,12 +215,22 @@ pub(crate) fn run(
             }
             continue;
         }
-        let block = match decoder.read_until(|| {
+        #[cfg(feature = "test-support")]
+        let read_started = Instant::now();
+        let read = decoder.read_until(|| {
             state.stopped.load(Ordering::Acquire)
                 || state.seek_requested.load(Ordering::Acquire)
                 || state.xruns.load(Ordering::Acquire) != xruns
                 || state.error().is_some()
-        }) {
+        });
+        #[cfg(feature = "test-support")]
+        {
+            producer_read_service.elapsed_ns = producer_read_service
+                .elapsed_ns
+                .saturating_add(elapsed_ns(read_started));
+            producer_read_service.calls = producer_read_service.calls.saturating_add(1);
+        }
+        let block = match read {
             Ok(block) => block,
             Err(Error::Interrupted) => {
                 pending = commands.recv_timeout(Duration::from_millis(2)).ok();
@@ -197,6 +239,12 @@ pub(crate) fn run(
             Err(error) => return Err(error),
         };
         if let Some(block) = block {
+            #[cfg(feature = "test-support")]
+            {
+                producer_read_service.output_frames = producer_read_service
+                    .output_frames
+                    .saturating_add((block.samples.len() / channels) as u64);
+            }
             for (index, samples) in block.samples.chunks_exact(channels).enumerate() {
                 let position = nanos(
                     (block.position + Duration::from_secs_f64((index + 1) as f64 * block.step))
@@ -244,6 +292,42 @@ pub(crate) fn run(
             finished = true;
         }
     }
+}
+
+#[cfg(feature = "test-support")]
+fn report_producer_service(
+    audio_id: u64,
+    source: AudioFormat,
+    output: AudioFormat,
+    tempo: &Tempo,
+    read: &ProducerReadService,
+) {
+    let conversion = tempo.conversion_service();
+    let tempo = tempo.service();
+    tracing::info!(
+        target: "hito_audio::producer_diagnostic",
+        event = "audio_producer_service_summary",
+        audio_id,
+        source_rate = source.sample_rate,
+        source_channels = source.channels,
+        output_rate = output.sample_rate,
+        output_channels = output.channels,
+        producer_read_ns = read.elapsed_ns,
+        producer_read_calls = read.calls,
+        producer_output_frames = read.output_frames,
+        conversion_service_ns = conversion.elapsed_ns,
+        conversion_input_frames = conversion.input_frames,
+        conversion_output_frames = conversion.output_frames,
+        tempo_processor_service_ns = tempo.elapsed_ns,
+        tempo_input_frames = tempo.input_frames,
+        tempo_output_frames = tempo.output_frames,
+        "Audio producer service summary"
+    );
+}
+
+#[cfg(feature = "test-support")]
+fn elapsed_ns(started: Instant) -> u64 {
+    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }
 
 fn join(next: Decoder, target: Target, current: AudioFormat, handoff: &Handoff) -> Result<bool> {

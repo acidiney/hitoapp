@@ -5,6 +5,7 @@ use hito_audio::test_support as support;
 use hito_audio::test_support::capture::{Capture, amplitude, wait};
 use hito_audio::test_support::output_witness::OutputWitness;
 use std::collections::BTreeSet;
+use tracing_subscriber::{filter::filter_fn, prelude::*};
 
 const RATES: [u32; 2] = [705_600, 768_000];
 
@@ -261,6 +262,14 @@ fn print_high_rate_pitch_callback_summary(callbacks: &[support::output_witness::
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
 fn a_device_offering_only_48_khz_plays_quadruple_rate_sources_at_unit_half_and_double_speed() {
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::fmt::layer()
+            .with_target(false)
+            .with_filter(filter_fn(|metadata| {
+                metadata.target() == "hito_audio::producer_diagnostic"
+            })),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
     for rate in RATES {
         for (speed, seconds) in [(1., 2), (0.5, 1), (2., 4)] {
             let witness = OutputWitness::begin(30 * 48_000, 8192).unwrap();
