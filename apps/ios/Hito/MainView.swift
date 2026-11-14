@@ -32,30 +32,30 @@ struct MainView: View {
     @State private var showingQueue = false
 
     var body: some View {
-        ZStack {
-            Theme.ground.ignoresSafeArea()
-            switch tab {
-            case .home:
-                NavigationStack {
-                    HomeView(user: user, openSearch: { tab = .search })
-                        .browsing()
+        VStack(spacing: 0) {
+            ZStack {
+                Theme.ground.ignoresSafeArea()
+                switch tab {
+                case .home:
+                    NavigationStack {
+                        HomeView(user: user, openSearch: { tab = .search })
+                            .browsing()
+                    }
+                case .search:
+                    NavigationStack { SearchView().browsing() }
+                case .library:
+                    NavigationStack { LibraryView().browsing() }
+                case .plugins:
+                    NavigationStack { PluginsView().browsing() }
                 }
-            case .search:
-                NavigationStack { SearchView().browsing() }
-            case .library:
-                NavigationStack { LibraryView().browsing() }
-            case .plugins:
-                NavigationStack { PluginsView().browsing() }
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if let player = model.player, player.current != nil {
-                    MiniPlayer(player: player) { showingNowPlaying = true }
-                }
-                TabBar(tab: $tab)
+            .frame(maxHeight: .infinity)
+            if let player = model.player, player.current != nil {
+                MiniPlayer(player: player) { showingNowPlaying = true }
             }
+            TabBar(tab: $tab)
         }
+        .background(Theme.ground.ignoresSafeArea())
         .foregroundStyle(Theme.text)
         .fullScreenCover(isPresented: $showingNowPlaying) {
             if let player = model.player {
