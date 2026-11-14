@@ -5,10 +5,10 @@ use futures_util::{FutureExt, future::{BoxFuture, Shared}};
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, Mutex, Weak, atomic::{AtomicU64, Ordering}},
+    sync::{Arc, Mutex as StdMutex, Weak, atomic::{AtomicU64, Ordering}},
     time::{Duration, Instant},
 };
-use tokio::sync::{Mutex, OwnedSemaphorePermit, watch};
+use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
 
 type MonitorCompletion = Shared<BoxFuture<'static, std::result::Result<(), Arc<Error>>>>;
@@ -27,7 +27,7 @@ struct MonitorWork {
 
 #[derive(Default)]
 pub(crate) struct MonitorRegistry {
-    state: Mutex<MonitorState>,
+    state: StdMutex<MonitorState>,
     next: AtomicU64,
 }
 
@@ -125,7 +125,7 @@ struct Connection {
     pending: Bytes,
 }
 
-async fn release_connection(connection: &Weak<Mutex<Connection>>) {
+async fn release_connection(connection: &Weak<AsyncMutex<Connection>>) {
     if let Some(connection) = connection.upgrade() {
         let mut connection = connection.lock().await;
         connection.response = None;
@@ -135,12 +135,12 @@ async fn release_connection(connection: &Weak<Mutex<Connection>>) {
 }
 
 pub(crate) struct RemoteAudio {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<AsyncMutex<Connection>>,
     authority: Authority,
     revoked: watch::Receiver<bool>,
     monitor_stop: watch::Sender<bool>,
-    monitors: Arc<MonitorRegistry>,
-    monitor_id: u64,
+    warm_monitor: Option<(Arc<MonitorRegistry>, u64)>,
+    monitor_task: Option<tokio::task::JoinHandle<()>>,
     meter: Meter,
 }
 impl RemoteAudio {
@@ -149,9 +149,9 @@ impl RemoteAudio {
         authority: Authority,
         permits: Option<Permits>,
         pace: StreamPace,
-        monitors: Arc<MonitorRegistry>,
+        warm_monitors: Option<Arc<MonitorRegistry>>,
     ) -> Result<Self> {
-        let connection = Arc::new(Mutex::new(Connection {
+        let connection = Arc::new(AsyncMutex::new(Connection {
             response: Some(response),
             permits,
             pending: Bytes::new(),
@@ -195,14 +195,18 @@ impl RemoteAudio {
             }
             .instrument(tracing::Span::current())
             .with_current_subscriber();
-        let monitor_id = monitors.spawn(cancel.clone(), monitor)?;
+        let (warm_monitor, monitor_task) = if let Some(monitors) = warm_monitors {
+            (Some((monitors.clone(), monitors.spawn(cancel.clone(), monitor)?)), None)
+        } else {
+            (None, Some(tokio::spawn(monitor)))
+        };
         Ok(Self {
             connection,
             authority,
             revoked,
             monitor_stop: cancel,
-            monitors,
-            monitor_id,
+            warm_monitor,
+            monitor_task,
             meter: Meter::new(pace),
         })
     }
@@ -269,12 +273,23 @@ impl RemoteAudio {
             connection.permits = None;
             connection.pending = Bytes::new();
         }
-        let _ = self.monitors.stop_and_join(self.monitor_id).await;
+        if let Some((monitors, monitor_id)) = &self.warm_monitor {
+            let _ = monitors.stop_and_join(*monitor_id).await;
+        }
+        if let Some(task) = self.monitor_task.take() {
+            task.abort();
+            let _ = task.await;
+        }
     }
 }
 impl Drop for RemoteAudio {
     fn drop(&mut self) {
         self.monitor_stop.send_replace(true);
-        self.monitors.stop(self.monitor_id);
+        if let Some((monitors, monitor_id)) = &self.warm_monitor {
+            monitors.stop(*monitor_id);
+        }
+        if let Some(task) = self.monitor_task.take() {
+            task.abort();
+        }
     }
 }

@@ -1,6 +1,7 @@
 use super::origin::{AudioOrigin, Located};
 use crate::{Actor, AudioRequest, Error, OpenedAudio, PlaybackSource, Result, Store};
 use futures_util::future::BoxFuture;
+use std::sync::Arc;
 
 pub(crate) struct ProviderOrigin {
     pub store: Store,
@@ -159,6 +160,7 @@ impl AudioOrigin for ProviderOrigin {
         &'a self,
         grant: &'a PlaybackSource,
         request: AudioRequest,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> BoxFuture<'a, Result<Option<(OpenedAudio, std::sync::Arc<crate::plugins::WarmTicket>)>>> {
         Box::pin(async move {
             grant.warm_check().await?;
@@ -186,6 +188,7 @@ impl AudioOrigin for ProviderOrigin {
                     provider.binding_revision,
                     provider.source_generation,
                     request,
+                    monitors,
                 )
                 .await?;
             let mut canceled = ticket.cancelled();

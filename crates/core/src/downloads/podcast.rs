@@ -42,7 +42,7 @@ impl Downloads {
                             Authority::new(lease.authority(&self.store)),
                             None,
                             crate::StreamPace::DEFAULT,
-                            self.plugins.monitor_registry(),
+                            None,
                         )?,
                         audio.length,
                     ));

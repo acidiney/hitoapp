@@ -69,6 +69,7 @@ pub(crate) trait AudioOrigin: Send + Sync {
         &'a self,
         _grant: &'a PlaybackSource,
         _request: AudioRequest,
+        _monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> BoxFuture<'a, Result<Option<(OpenedAudio, Arc<crate::plugins::WarmTicket>)>>> {
         Box::pin(async { Ok(None) })
     }

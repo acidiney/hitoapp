@@ -114,6 +114,7 @@ struct Entry {
     reservation: Arc<Reservation>,
     ticket: Mutex<Option<Arc<crate::plugins::WarmTicket>>>,
     completion: Mutex<Option<Completion>>,
+    monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     commands: tokio::sync::mpsc::Sender<Command>,
 }
 
@@ -189,6 +190,7 @@ impl Registry {
             }),
             ticket: Mutex::new(None),
             completion: Mutex::new(None),
+            monitors: Arc::new(crate::playback_access::relay::MonitorRegistry::default()),
             commands: commands.clone(),
         });
         let worker_entry = entry.clone();
@@ -208,7 +210,9 @@ impl Registry {
                     _ = tokio::time::sleep_until(start_deadline) => None,
                     result = tokio::time::timeout_at(start_deadline, async {
                         grant.warm_check().await?;
-                        grant.warm_open(AudioRequest::default()).await
+                        grant
+                            .warm_open(AudioRequest::default(), worker_entry.monitors.clone())
+                            .await
                     }) => result.ok().and_then(Result::ok),
                 }
             };
@@ -412,6 +416,7 @@ impl Registry {
             {
                 state.entries.remove(&worker_entry.lease);
             }
+            let _ = worker_entry.monitors.close().await;
             worker_entry.stop();
             if let Ok(mut ticket) = worker_entry.ticket.lock() {
                 ticket.take();

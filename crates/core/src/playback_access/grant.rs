@@ -109,10 +109,11 @@ impl PlaybackSource {
     pub(crate) async fn warm_open(
         &self,
         request: AudioRequest,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<(OpenedAudio, Arc<crate::plugins::WarmTicket>)> {
         self.warm_check().await?;
         self.origin
-            .open_warm(self, request)
+            .open_warm(self, request, monitors)
             .await?
             .ok_or(Error::NotFound)
     }

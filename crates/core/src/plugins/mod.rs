@@ -49,7 +49,6 @@ pub struct Plugins {
     token: authorization::TokenClient,
     connection_locks: std::sync::Arc<authorization::ConnectionLocks>,
     health: health::Cache,
-    monitors: std::sync::Arc<crate::playback_access::relay::MonitorRegistry>,
 }
 
 impl Plugins {
@@ -57,23 +56,15 @@ impl Plugins {
         store: Store,
         vault: vault::Vault,
         pace: crate::StreamPace,
-        monitors: std::sync::Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<Self> {
         Ok(Self {
             store,
             vault,
             remote: transport::ControlClient::new()?,
-            media: media::MediaClient::new(pace, monitors.clone())?,
+            media: media::MediaClient::new(pace)?,
             token: authorization::TokenClient::new()?,
             connection_locks: std::sync::Arc::default(),
             health: health::Cache::default(),
-            monitors,
         })
-    }
-
-    pub(crate) fn monitor_registry(
-        &self,
-    ) -> std::sync::Arc<crate::playback_access::relay::MonitorRegistry> {
-        self.monitors.clone()
     }
 }

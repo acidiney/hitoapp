@@ -22,14 +22,10 @@ pub(super) struct MediaClient {
     accounts: Accounts,
     pace: crate::StreamPace,
     admission: Arc<admission::Admission>,
-    monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
 }
 
 impl MediaClient {
-    pub(super) fn new(
-        pace: crate::StreamPace,
-        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
-    ) -> Result<Self> {
+    pub(super) fn new(pace: crate::StreamPace) -> Result<Self> {
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -47,7 +43,6 @@ impl MediaClient {
             accounts: Accounts::new(2),
             pace,
             admission: Arc::new(admission::Admission::default()),
-            monitors,
         })
     }
     #[tracing::instrument(level = "debug", skip_all)]
@@ -95,7 +90,7 @@ impl MediaClient {
             }
         };
         drop(active);
-        self.open_admitted(base_url, token, request, authority, account, global, None)
+        self.open_admitted(base_url, token, request, authority, account, global, None, None)
             .await
     }
 
@@ -106,6 +101,7 @@ impl MediaClient {
         token: Option<&str>,
         request: AudioRequest,
         authority: Authority,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<(OpenedAudio, Arc<WarmTicket>)> {
         let (ticket, account, global) = self.admission.warm_resources(
             &authority.account,
@@ -127,6 +123,7 @@ impl MediaClient {
                 account,
                 global,
                 Some(ticket.clone()),
+                Some(monitors),
             ) => opened?,
         };
         Ok((opened, ticket))
@@ -141,6 +138,7 @@ impl MediaClient {
         account: tokio::sync::OwnedSemaphorePermit,
         global: tokio::sync::OwnedSemaphorePermit,
         warm: Option<Arc<WarmTicket>>,
+        warm_monitors: Option<Arc<crate::playback_access::relay::MonitorRegistry>>,
     ) -> Result<OpenedAudio> {
         let mut endpoint = super::offers::endpoint(base_url)?
             .join(hito_plugin_sdk::AUDIO_PATH)
@@ -227,7 +225,7 @@ impl MediaClient {
                     _warm: warm,
                     }),
                     self.pace,
-                    self.monitors.clone(),
+                    warm_monitors,
                 )?,
                 audio.length,
             ));

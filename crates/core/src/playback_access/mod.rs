@@ -34,7 +34,6 @@ use std::time::Duration;
 pub struct PlaybackAccess {
     pub(crate) leases: std::sync::Arc<leases::registry::Registry>,
     pub(crate) warm: std::sync::Arc<warm::Registry>,
-    pub(crate) monitors: std::sync::Arc<relay::MonitorRegistry>,
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) origins: Origins,

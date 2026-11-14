@@ -282,6 +282,7 @@ impl Operation {
         binding_revision: i64,
         source_generation: i64,
         request: crate::AudioRequest,
+        monitors: std::sync::Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<(crate::OpenedAudio, std::sync::Arc<super::WarmTicket>)> {
         let authority = self.audio_authority(
             source,
@@ -298,6 +299,7 @@ impl Operation {
                 self.token.as_deref().map(String::as_str),
                 request,
                 authority,
+                monitors,
             )
             .await?;
         let mut canceled = ticket.cancelled();

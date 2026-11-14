@@ -209,8 +209,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let stream_pace = config.stream_pace;
     #[cfg(not(any(test, feature = "test-support")))]
     let stream_pace = StreamPace::DEFAULT;
-    let monitors = std::sync::Arc::new(playback_access::relay::MonitorRegistry::default());
-    let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace, monitors.clone()).await?;
+    let plugins = Plugins::new(store.clone(), vault.clone(), stream_pace).await?;
     let catalog_replication =
         CatalogReplication::new(store.clone(), config.host_device.clone()).await?;
     let replicas = Replicas::new(store.clone(), vault.clone(), &config.database);
@@ -310,7 +309,6 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let playback = PlaybackAccess {
         leases: Default::default(),
         warm: Default::default(),
-        monitors: monitors.clone(),
         store: store.clone(),
         host: config.host_device.clone(),
         origins: playback_access::Origins::new(
@@ -321,7 +319,6 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             std::sync::Arc::new(podcasts::EnclosureOrigin::new(
                 store.clone(),
                 podcast_remote.clone(),
-                monitors.clone(),
             )),
             std::sync::Arc::new(downloads::ManagedOrigin::new(
                 store.clone(),
