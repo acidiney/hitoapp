@@ -26,7 +26,6 @@ type Preview = Extract<
   Schema<"CreditMemberCandidatePreviewAvailability">,
   { status: "available" }
 >;
-type Selection = Schema<"ArtistIdentitySelection">;
 type Receipt = Schema<"CreditMemberIdentityChoiceReceipt">;
 type Phase =
   | "read"
@@ -40,7 +39,6 @@ type Write =
   | {
       kind: "choose";
       body: Schema<"ChooseCreditMemberIdentity">;
-      name: string;
       receipt: Receipt | null;
     }
   | {
@@ -101,13 +99,6 @@ function writing(phase: Phase | null) {
 function rejected(error: unknown) {
   return (
     error instanceof HttpError && error.status >= 400 && error.status < 500
-  );
-}
-
-function sameSelection(left: Selection, right: Selection) {
-  return (
-    left.group_id === right.group_id &&
-    left.association_id === right.association_id
   );
 }
 
@@ -278,21 +269,12 @@ export function useCreditMemberChoice(
     }
   }
 
-  async function readChoice(
-    signal: AbortSignal,
-    known: { name: string; selection: Selection } | null,
-  ) {
+  async function readChoice(signal: AbortSignal) {
     const choice = requireChoice(
       await creditMemberApi.choice(account, recording, artist, signal),
     );
     let name: string | null = null;
-    if (
-      choice.state.status !== "unselected" &&
-      known &&
-      sameSelection(choice.state, known.selection)
-    )
-      name = known.name;
-    else if (choice.state.status !== "unselected") {
+    if (choice.state.status !== "unselected") {
       try {
         const group = await artistIdentityApi.group(
           account,
@@ -312,7 +294,7 @@ export function useCreditMemberChoice(
     await run(
       "read",
       {},
-      (signal) => readChoice(signal, null),
+      readChoice,
       ({ choice, name }) => ({ choice, name }),
     );
   }
@@ -325,7 +307,7 @@ export function useCreditMemberChoice(
 
   async function discard(signal: AbortSignal) {
     hold({ kind: "read", receipt: null });
-    const fresh = await readChoice(signal, null).catch(() => null);
+    const fresh = await readChoice(signal).catch(() => null);
     if (!fresh) return;
     hold(null);
     setSnapshot((value) =>
@@ -367,11 +349,7 @@ export function useCreditMemberChoice(
       }
     }
     const receipt = write.receipt;
-    const known =
-      write.kind === "choose" && receipt?.selection
-        ? { name: write.name, selection: receipt.selection }
-        : null;
-    const readback = await readChoice(signal, known);
+    const readback = await readChoice(signal);
     if (receipt && readback.choice.revision < receipt.revision)
       throw new Error("Invalid credited artist response");
     hold(null);
@@ -597,7 +575,6 @@ export function useCreditMemberChoice(
           );
         hold({
           kind: "choose",
-          name: preview.profile.artist.name,
           receipt: null,
           body: {
             request_id: createUuid(),
