@@ -37,8 +37,24 @@ public struct HitoAPI: Sendable {
     }
 
     func post<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
+        try await change("POST", path, body: body, as: type)
+    }
+
+    func put<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
+        try await change("PUT", path, body: body, as: type)
+    }
+
+    func delete<Value: Decodable>(_ path: [String], as type: Value.Type) async throws -> Value {
         var request = request(path)
-        request.httpMethod = "POST"
+        request.httpMethod = "DELETE"
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try await send(request, as: type)
+    }
+
+    private func change<Body: Encodable, Value: Decodable>(_ method: String, _ path: [String], body: Body, as type: Value.Type) async throws -> Value {
+        var request = request(path)
+        request.httpMethod = method
         request.setValue("1", forHTTPHeaderField: "x-hito-request")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
