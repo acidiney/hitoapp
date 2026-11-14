@@ -25,33 +25,33 @@ use uuid::Uuid;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Scenario {
-    PauseOnly,
-    PauseThenResume,
-    PauseThenSeek,
+    PassivePause,
+    ResumeAfterPause,
+    SeekWhilePaused,
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn pause_retires_held_native_acquisition_without_advancing_or_playing() {
-    run(Scenario::PauseOnly).await;
+    run(Scenario::PassivePause).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn a_paused_native_acquisition_resumes_from_its_seek_baseline() {
-    run(Scenario::PauseThenResume).await;
+    run(Scenario::ResumeAfterPause).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn an_explicit_seek_reacquires_after_native_acquisition_was_paused() {
-    run(Scenario::PauseThenSeek).await;
+    run(Scenario::SeekWhilePaused).await;
 }
 
 async fn run(scenario: Scenario) {
     let f = match scenario {
-        Scenario::PauseOnly => fixture::start().await,
-        Scenario::PauseThenResume | Scenario::PauseThenSeek => fixture::start_for_resume().await,
+        Scenario::PassivePause => fixture::start().await,
+        Scenario::ResumeAfterPause | Scenario::SeekWhilePaused => fixture::start_for_resume().await,
     };
     let logs = LogCapture::default();
     let cancelled = CancelledDiscovery::default();
@@ -127,7 +127,7 @@ async fn exercise(
     let mut third_gate = None;
     let mut retained = None;
     let behavior = AssertUnwindSafe(async {
-        if scenario != Scenario::PauseThenSeek {
+        if scenario != Scenario::SeekWhilePaused {
             witness = Some(OutputWitness::begin(48_000 * 20, 4096).unwrap());
         }
         monitor = Some(capture::Capture::open());
@@ -178,7 +178,7 @@ async fn exercise(
         if request_id.is_nil() || request_id == first_request {
             return Err("held retry did not own a distinct non-nil request identity");
         }
-        let seek_id = if scenario == Scenario::PauseThenResume {
+        let seek_id = if scenario == Scenario::ResumeAfterPause {
             let id = Uuid::new_v4();
             let seek = player.submit(&f.actor, PlayerCommand {
                 id, lease: attached.lease, sequence: 3, revision: resumed.revision,
@@ -256,7 +256,7 @@ async fn exercise(
         if !f.protocol_clean() {
             return Err("the paused provider exchanges violated their protocol contract");
         }
-        if scenario == Scenario::PauseThenResume {
+        if scenario == Scenario::ResumeAfterPause {
             let (seek_id, _) = seek_id.ok_or("the resume control did not retain its seek identity")?;
             let mut position = player.subscribe_position(&f.actor, attached.lease).await.unwrap();
             player.submit(&f.actor, PlayerCommand {
@@ -344,7 +344,7 @@ async fn exercise(
                 return Err("Resume did not create one new discovery request identity");
             }
         }
-        if scenario == Scenario::PauseThenSeek {
+        if scenario == Scenario::SeekWhilePaused {
             let gate = third_gate.insert(f.second.hold_next("v1/search"));
             let speed = player.submit(&f.actor, PlayerCommand {
                 id: Uuid::new_v4(), lease: attached.lease, sequence: 4,
@@ -453,10 +453,10 @@ async fn exercise(
             (scenario, report),
             (_, Some(Ok(_)))
                 | (
-                    Scenario::PauseOnly,
+                    Scenario::PassivePause,
                     None | Some(Err(WitnessError::Incomplete))
                 )
-                | (Scenario::PauseThenSeek, None)
+                | (Scenario::SeekWhilePaused, None)
         )
     });
     let witness_dropped =
