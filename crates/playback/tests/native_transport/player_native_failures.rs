@@ -117,36 +117,28 @@ async fn exhausted_sources_report_failure_after_three_bounded_attempts_and_conti
     assert_eq!(state.revision, 2);
     assert_eq!(f.server.requests("v1/sources").await.len(), 2);
     let final_logs = logs.events();
-    let attempts = final_logs
+    let acquisition_demands = final_logs
         .iter()
-        .filter(|event| event["fields"]["event"] == "player_source_discovery_attempt_started")
-        .map(|event| {
-            (
-                event["fields"]["operation_id"].as_str().unwrap(),
-                event["fields"]["attempt"].as_u64().unwrap(),
-            )
-        })
+        .filter(|event| event["fields"]["event"] == "player_acquisition_started")
+        .map(|event| event["fields"]["request_id"].as_str().unwrap())
         .collect::<Vec<_>>();
-    assert_eq!(
-        attempts
-            .iter()
-            .map(|(_, attempt)| *attempt)
-            .collect::<Vec<_>>(),
-        [1, 2, 3],
-        "the failed occurrence must settle three logical attempts"
-    );
-    let demand = attempts[0].0;
-    assert!(attempts.iter().all(|(operation, _)| *operation == demand));
-    let acquisitions = final_logs
+    let demand = *acquisition_demands
+        .first()
+        .expect("the failed occurrence must start an acquisition");
+    let acquisitions = acquisition_demands
         .iter()
-        .filter(|event| {
-            event["fields"]["event"] == "player_acquisition_started"
-                && event["fields"]["request_id"] == demand
-        })
+        .filter(|request_id| **request_id == demand)
         .count();
     assert_eq!(
         acquisitions, 1,
         "the occurrence must keep one acquisition demand"
+    );
+    assert!(
+        acquisition_demands
+            .iter()
+            .skip(1)
+            .all(|request_id| *request_id != demand),
+        "a later queue occurrence must have its own acquisition demand"
     );
     let audio_requests = f.server.requests("v1/audio").await;
     assert_eq!(audio_requests.len(), 4);

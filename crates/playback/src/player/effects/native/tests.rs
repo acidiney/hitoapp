@@ -1,25 +1,113 @@
+use super::super::sources::Sources;
 use super::*;
 use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::{
-    Credentials, Search,
+    AudioRequest, Credentials, PlaybackFailureReason, Search,
     test_support::{provider_audio::AudioLibrary, support},
 };
 use tokio::sync::oneshot;
 
-#[test]
-fn acquisition_keeps_one_fifteen_second_deadline_across_its_retry_budget() {
+#[tokio::test]
+async fn persistent_provider_failures_open_two_sources_then_one_per_retry_without_refreshing() {
+    let library = hang_guard(
+        "owned persistent provider failure fixture",
+        AudioLibrary::start(),
+    )
+    .await;
+    assert_eq!(library.server.requests("v1/sources").await.len(), 1);
+    library
+        .server
+        .audio(
+            axum::http::StatusCode::BAD_GATEWAY,
+            Default::default(),
+            Vec::new(),
+        )
+        .await;
     let key = Key {
         scope: uuid::Uuid::new_v4(),
         selection: 1,
         entry: uuid::Uuid::new_v4(),
         start: None,
     };
-    let run = super::acquisition::Acquisition::start(key, uuid::Uuid::new_v4(), 1, None, None);
-    assert_eq!(run.attempts, 1);
-    assert_eq!(
-        run.deadline_at.duration_since(run.started),
-        Duration::from_secs(15)
+    let mut sources = Sources::new(library.hito.catalog.clone(), library.hito.playback.clone());
+    sources.reset(Some(key));
+    assert!(sources.request(&library.actor, &library.source.recording_id));
+    let demand = sources
+        .prepare_request(&library.actor, &library.source.recording_id)
+        .unwrap();
+    let started = tokio::time::Instant::now();
+
+    for (attempt, expected_audio_total, expected_opens) in [(1, 2, 2), (2, 3, 1), (3, 4, 1)] {
+        if attempt > 1 {
+            assert!(sources.restart_attempt());
+            assert!(
+                sources.prepare_request(&library.actor, &library.source.recording_id)
+                    == Some(demand),
+                "retries must retain the original acquisition demand"
+            );
+        }
+        let mut opened = 0;
+        let failure = loop {
+            match sources.next_with_attempt(Some((attempt, started))).await {
+                Ok(Some(grant)) => {
+                    assert!(
+                        grant.source_id() == library.source.id,
+                        "each pass must select the owned source"
+                    );
+                    let error = match grant.open(AudioRequest::default()).await {
+                        Ok(_) => panic!("the owned provider must keep returning 502"),
+                        Err(error) => error,
+                    };
+                    let retryable = matches!(
+                        &error,
+                        hito_core::Error::PlaybackProvider {
+                            reason: PlaybackFailureReason::ProviderUnavailable,
+                            ..
+                        }
+                    );
+                    assert!(retryable, "the real provider failure must be retryable");
+                    sources.failed(PlayerError::from(error), retryable);
+                    opened += 1;
+                    let requests = library.server.requests("v1/audio").await;
+                    let total = match attempt {
+                        1 => opened,
+                        2 => 2 + opened,
+                        _ => 3 + opened,
+                    };
+                    assert_eq!(requests.len(), total);
+                    assert!(
+                        requests.iter().all(|(_, query)| {
+                            query["_method"] == "GET"
+                                && query["source_id"].as_str()
+                                    == Some("audio:/1?private=value&other=bad")
+                        }),
+                        "each open must remain a GET for the owned source"
+                    );
+                    let expected_sources = if attempt == 1 && opened == 1 { 1 } else { 2 };
+                    assert_eq!(
+                        library.server.requests("v1/sources").await.len(),
+                        expected_sources
+                    );
+                }
+                Ok(None) => panic!("an available owned source must be selected"),
+                Err(failure) => break failure,
+            }
+        };
+        assert_eq!(opened, expected_opens);
+        assert_eq!(failure.error, PlayerError::Playback);
+        assert!(failure.retryable);
+        assert!(!failure.cancelled);
+        assert_eq!(
+            library.server.requests("v1/audio").await.len(),
+            expected_audio_total
+        );
+        assert_eq!(library.server.requests("v1/sources").await.len(), 2);
+    }
+    assert!(
+        !sources.has_demand(),
+        "the third pass must leave no demand for a fourth pass"
     );
+    sources.close().await;
 }
 
 #[test]

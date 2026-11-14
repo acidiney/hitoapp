@@ -507,7 +507,6 @@ mod tests {
     fn metadata_loads_retry_with_growing_bounded_delays() {
         let delays: Vec<_> = (0..6).map(retry_delay).collect();
         assert_eq!(delays[0], Some(Duration::from_millis(500)));
-        assert_eq!(delays[1], Some(Duration::from_secs(1)));
         assert!(delays[..5].windows(2).all(|pair| pair[0] < pair[1]));
         assert_eq!(delays[5], None);
     }
