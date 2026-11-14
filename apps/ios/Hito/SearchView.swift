@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SearchView: View {
     @Environment(AppModel.self) private var model
+    var active = true
     @State private var text = ""
     @State private var tracks = Feed<Track>()
     @State private var artist: Artist?
@@ -169,7 +170,8 @@ struct SearchView: View {
             .presentationBackground(.clear)
         }
         .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
-        .onAppear { focused = true }
+        .onAppear { focused = active }
+        .onChange(of: active) { focused = active }
     }
 
     private func remoteSection(_ plugin: PluginConnection) -> some View {
