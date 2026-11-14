@@ -56,4 +56,24 @@ import Testing
         }
         #expect(fake.requests.filter { $0.line == "POST /api/v1/playback/leases" }.compactMap { $0.json?["source_id"] } == ["s1", "s2"])
     }
+
+    @Test func theSourcesForATrackAreListedInTheListenersOrder() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/playback-sources": .json(200, sources)])
+        let listed = try await playback(fake).sources("r1")
+        #expect(listed == [
+            PlaybackSource(id: "s0", label: "YouTube", ready: false),
+            PlaybackSource(id: "s1", label: "Local file", ready: true),
+            PlaybackSource(id: "s2", label: "YouTube", ready: true),
+        ])
+    }
+
+    @Test func aChosenSourceIsLeasedEvenWhenAnotherComesFirst() async throws {
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
+            "POST /api/v1/playback/leases": .json(200, lease),
+        ])
+        let audio = try await playback(fake).prepare("r1", source: "s2")
+        #expect(audio.sourceId == "s2")
+        #expect(fake.requests.last?.json == ["recording_id": "r1", "source_id": "s2"])
+    }
 }

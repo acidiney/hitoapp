@@ -8,6 +8,12 @@ public struct AudioRequest: Equatable, Sendable {
     public let headers: [String: String]
 }
 
+public struct PlaybackSource: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let label: String
+    public let ready: Bool
+}
+
 public struct Playback: Sendable {
     public enum Problem: Error, Equatable {
         case noReadySource
@@ -43,8 +49,21 @@ public struct Playback: Sendable {
         self.api = api
     }
 
+    public func sources(_ recordingId: String) async throws -> [PlaybackSource] {
+        try await listed(recordingId).map { PlaybackSource(id: $0.id, label: $0.providerLabel ?? $0.label, ready: $0.ready) }
+    }
+
+    public func prepare(_ recordingId: String, source chosen: String) async throws -> AudioRequest {
+        let others = try await listed(recordingId).map(\.id).filter { $0 != chosen }
+        return try await prepare(recordingId, skipping: Set(others))
+    }
+
+    private func listed(_ recordingId: String) async throws -> [Source] {
+        try await api.get(["api", "v1", "recordings", recordingId, "playback-sources"], as: [Source].self)
+    }
+
     public func prepare(_ recordingId: String, skipping tried: Set<String> = []) async throws -> AudioRequest {
-        let sources = try await api.get(["api", "v1", "recordings", recordingId, "playback-sources"], as: [Source].self)
+        let sources = try await listed(recordingId)
         for source in sources where source.ready && !tried.contains(source.id) {
             try Task.checkCancellation()
             let lease: Lease
