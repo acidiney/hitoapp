@@ -5224,6 +5224,12 @@ export interface components {
         };
         /** @enum {string} */
         PlayerRepeat: "off" | "all" | "one";
+        PlayerRetry: {
+            /** Format: int32 */
+            attempt: number;
+            /** Format: int32 */
+            of: number;
+        };
         PlayerSnapshot: {
             can_previous: boolean;
             current?: components["schemas"]["PlayerEntryRef"] | null;
@@ -5238,6 +5244,7 @@ export interface components {
             playing: boolean;
             queue_len: number;
             repeat: components["schemas"]["PlayerRepeat"];
+            retrying: components["schemas"]["PlayerRetry"] | null;
             /** Format: int64 */
             revision: number;
             seeking: boolean;

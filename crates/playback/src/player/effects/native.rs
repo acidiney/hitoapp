@@ -189,7 +189,6 @@ impl Native {
             "Native playback acquisition deadline reached"
         );
         self.deadline_pending = Some(id);
-        self.update = None;
         if let Some(session) = &self.session {
             session.stop();
         }
@@ -212,6 +211,7 @@ impl Native {
         let mut fresh_sources = Sources::new(catalog.clone(), playback);
         fresh_sources.reset(Some(run.key));
         let mut sources = std::mem::replace(&mut self.sources, fresh_sources);
+        self.update = Some(self.status(PlayerPhase::Resolving, None));
         let target = self.target.as_ref();
         let actor = target.map(|target| target.actor.clone());
         let recording = target.map(|target| target.recording);
@@ -626,6 +626,9 @@ impl Native {
                     }
                 }, if self.acquisition.is_some() => {
                     self.begin_deadline_finalization();
+                    if let Some(update) = self.update.take() {
+                        return update;
+                    }
                 },
                 result = self.finalizing.join_next(), if !self.finalizing.is_empty() => {
                     match result {
@@ -683,6 +686,10 @@ impl Native {
                         Err(failure) if failure.retryable
                             && self.acquisition.as_ref().is_some_and(|run| run.attempts < 3) => {
                                 let run = self.acquisition.as_mut().unwrap();
+                                run.retrying = Some(crate::PlayerRetry {
+                                    attempt: run.attempts + 1,
+                                    of: 3,
+                                });
                                 let delay = match run.attempts {
                                     1 => Duration::from_millis(500),
                                     _ => Duration::from_millis(1000),
@@ -775,23 +782,30 @@ impl Native {
         self.snapshot()
     }
     fn snapshot(&self) -> Update {
-        self.controls.snapshot(
+        let mut update = self.controls.snapshot(
             self.target.as_ref().unwrap(),
             self.sources
                 .current()
                 .map(|grant| grant.source_id().to_owned()),
             self.session.as_ref().unwrap().snapshot(),
-        )
+        );
+        update.retrying = self.retrying();
+        update
     }
     fn status(&self, phase: PlayerPhase, error: Option<PlayerError>) -> Update {
-        self.controls.status(
+        let mut update = self.controls.status(
             self.target.as_ref().unwrap(),
             self.sources
                 .current()
                 .map(|grant| grant.source_id().to_owned()),
             phase,
             error,
-        )
+        );
+        update.retrying = self.retrying();
+        update
+    }
+    fn retrying(&self) -> Option<crate::PlayerRetry> {
+        self.acquisition.as_ref().and_then(|run| run.retrying)
     }
     fn retire(&mut self) {
         let snapshot = self.session.as_ref().map(|session| session.snapshot());

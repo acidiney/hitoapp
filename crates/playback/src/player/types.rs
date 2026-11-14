@@ -65,6 +65,8 @@ pub struct PlayerSnapshot {
     pub speed: u16,
     pub effective_speed: u16,
     pub speed_support: Option<PlayerSpeedSupport>,
+    #[cfg_attr(feature = "schema", schema(required = true))]
+    pub retrying: Option<PlayerRetry>,
     pub phase: PlayerPhase,
     pub error: Option<PlayerError>,
     pub last_failure: Option<PlayerFailure>,
@@ -89,12 +91,19 @@ impl Default for PlayerSnapshot {
             speed: 1000,
             effective_speed: 1000,
             speed_support: None,
+            retrying: None,
             phase: PlayerPhase::Idle,
             error: None,
             last_failure: None,
             persistence_error: None,
         }
     }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct PlayerRetry {
+    pub attempt: u8,
+    pub of: u8,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]

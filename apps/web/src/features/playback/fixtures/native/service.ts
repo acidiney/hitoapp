@@ -23,6 +23,7 @@ export function nativeService() {
     error: null,
     last_failure: null,
     persistence_error: null,
+    retrying: null,
   };
   const streams = new Map<
     string,

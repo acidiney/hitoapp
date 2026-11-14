@@ -1,5 +1,5 @@
 use super::super::{Key, Target};
-use crate::{PlayerError, Status};
+use crate::{PlayerError, PlayerRetry, Status};
 use std::time::Duration;
 use std::{collections::HashMap, future::Future};
 use tokio::time::Instant;
@@ -11,6 +11,7 @@ pub(super) struct Acquisition {
     pub started: Instant,
     pub deadline_at: Instant,
     pub attempts: u8,
+    pub retrying: Option<PlayerRetry>,
     pub backoff_at: Option<Instant>,
     pub play_revision: u64,
     pub seek_id: Option<Uuid>,
@@ -111,6 +112,7 @@ impl Acquisition {
             started,
             deadline_at,
             attempts: 1,
+            retrying: None,
             backoff_at: None,
             play_revision,
             seek_id,

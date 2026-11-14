@@ -190,6 +190,7 @@ test("native views page a large queue and isolate position frames from queue and
     error: null,
     last_failure: null,
     persistence_error: null,
+    retrying: null,
   };
   vi.stubGlobal(
     "fetch",

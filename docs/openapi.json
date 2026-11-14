@@ -30102,6 +30102,25 @@
           "one"
         ]
       },
+      "PlayerRetry": {
+        "type": "object",
+        "required": [
+          "attempt",
+          "of"
+        ],
+        "properties": {
+          "attempt": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "of": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "PlayerSnapshot": {
         "type": "object",
         "required": [
@@ -30117,6 +30136,7 @@
           "volume",
           "speed",
           "effective_speed",
+          "retrying",
           "phase"
         ],
         "properties": {
@@ -30190,6 +30210,16 @@
           },
           "repeat": {
             "$ref": "#/components/schemas/PlayerRepeat"
+          },
+          "retrying": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerRetry"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revision": {
             "type": "integer",
