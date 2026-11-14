@@ -116,6 +116,7 @@ struct PrivacyView: View {
         let id = UUID()
         let pin: Bool
         let idleMinutes: Int
+        var remove = false
     }
 
     var body: some View {
@@ -124,8 +125,15 @@ struct PrivacyView: View {
                 if let settings {
                     group("Screen lock") {
                         SettingRow(title: "PIN", detail: settings.pinEnabled ? "On" : "Off", divided: true) {
-                            OutlineButton(title: settings.pinEnabled ? "Change" : "Set a PIN") {
-                                lockChange = LockChange(pin: true, idleMinutes: settings.idleMinutes == 0 ? 15 : settings.idleMinutes)
+                            HStack(spacing: 8) {
+                                if settings.pinEnabled {
+                                    TextAction(title: "Remove", color: Theme.danger, inset: 8) {
+                                        lockChange = LockChange(pin: false, idleMinutes: settings.idleMinutes, remove: true)
+                                    }
+                                }
+                                OutlineButton(title: settings.pinEnabled ? "Change" : "Set a PIN") {
+                                    lockChange = LockChange(pin: true, idleMinutes: settings.idleMinutes == 0 ? 15 : settings.idleMinutes)
+                                }
                             }
                         }
                         SettingRow(title: "Lock when idle", detail: settings.pinEnabled ? nil : "Set a PIN first.", divided: settings.pinEnabled) {
@@ -214,7 +222,8 @@ struct PrivacyView: View {
             LockChangeSheet(change: change) { pin, password in
                 guard let api = model.api else { return nil }
                 do {
-                    let lock = try await Privacy(api: api).saveLock(pin: pin, idleMinutes: change.idleMinutes, password: password)
+                    let privacy = Privacy(api: api)
+                    let lock = change.remove ? try await privacy.removePin(password: password) : try await privacy.saveLock(pin: pin, idleMinutes: change.idleMinutes, password: password)
                     settings?.pinEnabled = lock.pinEnabled
                     settings?.idleMinutes = lock.idleMinutes
                     return nil
@@ -359,8 +368,8 @@ struct LockChangeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(change.pin ? "Choose a PIN" : "Confirm it's you").font(Theme.playing).accessibilityAddTraits(.isHeader)
-            Text(change.pin ? "Use 4 to 8 digits. The screen locks after a while without use, and the PIN opens it." : "Enter your password to change when the screen locks.")
+            Text(change.remove ? "Remove the PIN?" : change.pin ? "Choose a PIN" : "Confirm it's you").font(Theme.playing).accessibilityAddTraits(.isHeader)
+            Text(change.remove ? "Enter your password. The screen won't lock until you set a PIN again." : change.pin ? "Use 4 to 8 digits. The screen locks after a while without use, and the PIN opens it." : "Enter your password to change when the screen locks.")
                 .font(Theme.small)
                 .foregroundStyle(Theme.soft)
             if change.pin {
@@ -389,11 +398,12 @@ struct LockChangeSheet: View {
                     if problem == nil { dismiss() }
                 }
             } label: {
-                Text(saving ? "Saving…" : "Save")
+                Text(change.remove ? (saving ? "Removing…" : "Remove PIN") : (saving ? "Saving…" : "Save"))
                     .font(Theme.bodyStrong)
-                    .foregroundStyle(Theme.onAccent)
+                    .foregroundStyle(change.remove ? Theme.danger : Theme.onAccent)
                     .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(Capsule().fill(Theme.accent))
+                    .background(Capsule().fill(change.remove ? Color.clear : Theme.accent))
+                    .overlay(Capsule().strokeBorder(change.remove ? Theme.danger.opacity(0.5) : .clear))
             }
             .buttonStyle(.plain)
             .disabled(saving || password.isEmpty || (change.pin && pin.isEmpty))

@@ -58,6 +58,9 @@ struct PlaylistView: View {
                     } else if tracks.isEmpty {
                         Text("No tracks in this playlist yet.").font(Theme.small).foregroundStyle(Theme.soft)
                     } else {
+                        if let editProblem {
+                            Text(editProblem).font(Theme.small).foregroundStyle(Theme.warning)
+                        }
                         chips.padding(.bottom, -8)
                         VStack(spacing: 0) {
                             ForEach(shown) { track in
@@ -68,7 +71,12 @@ struct PlaylistView: View {
                                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false, gap: 12, dimsUnavailable: true)
                                     }
                                     .buttonStyle(.plain)
-                                    Menu { TrackMenu(track: track) } label: {
+                                    Menu {
+                                        TrackMenu(track: track)
+                                        if playlist.kind == .local, let entry = entry(for: track) {
+                                            Button("Remove from playlist", role: .destructive) { Task { await remove(entry) } }
+                                        }
+                                    } label: {
                                         Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
                                     }
                                     .accessibilityLabel("More actions for \(track.title)")
@@ -238,6 +246,22 @@ struct PlaylistView: View {
             await load()
         } catch {
             editProblem = "The changes weren't saved. Try again."
+        }
+    }
+
+    private func entry(for track: Track) -> String? {
+        guard let entries = detail?.entries, let index = tracks.firstIndex(where: { $0.id == track.id }), entries.indices.contains(index) else { return nil }
+        return entries[index].id
+    }
+
+    private func remove(_ entry: String) async {
+        guard let api = model.api else { return }
+        do {
+            try await Playlists(api: api).apply([.remove(entry)], to: playlist.id, device: Player.device)
+            await load()
+        } catch {
+            editProblem = "The track wasn't removed. Try again."
+            model.handle(error)
         }
     }
 
