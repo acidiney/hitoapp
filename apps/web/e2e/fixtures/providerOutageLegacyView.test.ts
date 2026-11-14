@@ -2,12 +2,16 @@ import { isDeepStrictEqual } from "node:util";
 import { expect, it } from "vitest";
 import type { Schema } from "../../src/shared/schema";
 import {
+  legacyActivity,
+  legacyArtistPage,
   legacyMetadataSettings,
   legacyPlaylistDetail,
   legacyRecordingMetadata,
   legacyRecordingPage,
+  legacyReleasePage,
   legacySourceChoice,
   legacySourceResolution,
+  legacySyncPage,
 } from "./providerOutageLegacyView";
 
 const legacyEntry = {
@@ -251,6 +255,165 @@ it("ignores audited setting and recording additions only", () => {
     isDeepStrictEqual(
       legacyRecordingPage(page([recording])),
       legacyRecordingPage(page([{ ...current, liked: true }])),
+    ),
+  ).toBe(false);
+});
+
+const same = (left: unknown, right: unknown) => isDeepStrictEqual(left, right);
+
+it("ignores audited artist, release and history additions only", () => {
+  const artists = (items: object[]) =>
+    ({
+      items,
+      total: items.length,
+      offset: 0,
+      limit: 50,
+    }) as unknown as Schema<"ArtistPage">;
+  const artist = {
+    id: "a1",
+    library_id: "l1",
+    name: "Owned artist",
+    release_count: 1,
+    recording_count: 2,
+  };
+  const artistNow = {
+    ...artist,
+    featured_recording_count: 0,
+    member_only: false,
+    provider_photo: null,
+  };
+  expect(
+    same(
+      legacyArtistPage(artists([artist])),
+      legacyArtistPage(artists([artistNow])),
+    ),
+  ).toBe(true);
+  expect(
+    same(
+      legacyArtistPage(artists([artist])),
+      legacyArtistPage(artists([{ ...artistNow, recording_count: 3 }])),
+    ),
+  ).toBe(false);
+  const releases = (items: object[]) =>
+    ({
+      items,
+      total: items.length,
+      offset: 0,
+      limit: 50,
+    }) as unknown as Schema<"ReleasePage">;
+  const release = {
+    id: "r1",
+    library_id: "l1",
+    title: "Owned release",
+    artist: "Owned artist",
+    track_count: 2,
+  };
+  const releaseNow = { ...release, inferred_artist: null, year: null };
+  expect(
+    same(
+      legacyReleasePage(releases([release])),
+      legacyReleasePage(releases([releaseNow])),
+    ),
+  ).toBe(true);
+  expect(
+    same(
+      legacyReleasePage(releases([release])),
+      legacyReleasePage(releases([{ ...releaseNow, title: "Changed" }])),
+    ),
+  ).toBe(false);
+  const activity = (history: object[]) =>
+    ({ history }) as unknown as Schema<"Activity">;
+  const entry = {
+    id: "t1",
+    title: "Owned title",
+    position_ms: 1000,
+    liked: false,
+  };
+  const entryNow = {
+    ...entry,
+    album: null,
+    artist_id: null,
+    credited_artists: null,
+    plays_from_services: false,
+    release_id: null,
+  };
+  expect(
+    same(
+      legacyActivity(activity([entry])),
+      legacyActivity(activity([entryNow])),
+    ),
+  ).toBe(true);
+  expect(
+    same(
+      legacyActivity(activity([entry])),
+      legacyActivity(activity([{ ...entryNow, position_ms: 2000 }])),
+    ),
+  ).toBe(false);
+});
+
+it("ignores provider recording additions only inside imported playlist events", () => {
+  const metadata = { id: "p1", title: "Owned title", artist: "Owned artist" };
+  const metadataNow = { ...metadata, artist_urls: [], artists: [], isrc: null };
+  const page = (recording: object, operation: object) =>
+    ({
+      cursor: 2,
+      has_more: false,
+      operations: [
+        operation,
+        {
+          sequence: 2,
+          publication: {
+            kind: "playlist_imported",
+            publication_id: "u1",
+            snapshot: {
+              playlist_id: "p1",
+              name: "Owned copy",
+              entries: [],
+              recordings: [
+                {
+                  recording_id: "r1",
+                  library_id: "l1",
+                  observation_id: "o1",
+                  metadata: recording,
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }) as unknown as Schema<"SyncPage">;
+  const operation = {
+    sequence: 1,
+    device_id: "d1",
+    operation: {
+      id: "x1",
+      action: { kind: "like_set", recording_id: "r1", liked: true },
+    },
+  };
+  expect(
+    same(
+      legacySyncPage(page(metadata, operation)),
+      legacySyncPage(page(metadataNow, operation)),
+    ),
+  ).toBe(true);
+  expect(
+    same(
+      legacySyncPage(page(metadata, operation)),
+      legacySyncPage(page({ ...metadataNow, title: "Changed" }, operation)),
+    ),
+  ).toBe(false);
+  expect(
+    same(
+      legacySyncPage(page(metadata, operation)),
+      legacySyncPage(
+        page(metadataNow, {
+          ...operation,
+          operation: {
+            ...operation.operation,
+            action: { ...operation.operation.action, extra: 1 },
+          },
+        }),
+      ),
     ),
   ).toBe(false);
 });

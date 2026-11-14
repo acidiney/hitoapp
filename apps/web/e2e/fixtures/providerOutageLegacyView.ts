@@ -42,6 +42,28 @@ const INSPECTED_TAGS_ADDED = [
   "track_total",
 ] as const satisfies readonly (keyof Schema<"InspectedTags">)[];
 
+const ARTIST_ADDED = [
+  "featured_recording_count",
+  "member_only",
+  "provider_photo",
+] as const satisfies readonly (keyof Schema<"Artist">)[];
+const RELEASE_ADDED = [
+  "inferred_artist",
+  "year",
+] as const satisfies readonly (keyof Schema<"Release">)[];
+const HISTORY_ENTRY_ADDED = [
+  "album",
+  "artist_id",
+  "credited_artists",
+  "plays_from_services",
+  "release_id",
+] as const satisfies readonly (keyof Schema<"HistoryEntry">)[];
+const PROVIDER_RECORDING_ADDED = [
+  "artist_urls",
+  "artists",
+  "isrc",
+] as const satisfies readonly (keyof Schema<"ProviderRecording">)[];
+
 function without<T extends object>(
   value: T,
   added: readonly string[],
@@ -113,8 +135,72 @@ export function legacySourceResolution(resolution: Schema<"SourceResolution">) {
   return { ...resolution, sources: resolution.sources.map(legacySource) };
 }
 
+export function legacyArtistPage(page: Schema<"ArtistPage">) {
+  return {
+    ...page,
+    items: page.items.map((artist) => without(artist, ARTIST_ADDED)),
+  };
+}
+
+export function legacyReleasePage(page: Schema<"ReleasePage">) {
+  return {
+    ...page,
+    items: page.items.map((release) => without(release, RELEASE_ADDED)),
+  };
+}
+
+export function legacyActivity(activity: Schema<"Activity">) {
+  return {
+    ...activity,
+    history: activity.history.map((entry) =>
+      without(entry, HISTORY_ENTRY_ADDED),
+    ),
+  };
+}
+
+function legacyImportedRecording(
+  recording: Schema<"ImportedPlaylistRecording">,
+) {
+  return {
+    ...recording,
+    metadata: without(recording.metadata, PROVIDER_RECORDING_ADDED),
+  };
+}
+
+function legacyPublication(publication: Schema<"CollectionPublication">) {
+  if ("snapshot" in publication)
+    return {
+      ...publication,
+      snapshot: {
+        ...publication.snapshot,
+        recordings: publication.snapshot.recordings.map(
+          legacyImportedRecording,
+        ),
+      },
+    };
+  return {
+    ...publication,
+    recordings: publication.recordings.map(legacyImportedRecording),
+  };
+}
+
+export function legacySyncPage(page: Schema<"SyncPage">) {
+  return {
+    ...page,
+    operations: page.operations.map((event) =>
+      "publication" in event
+        ? { ...event, publication: legacyPublication(event.publication) }
+        : event,
+    ),
+  };
+}
+
 type LegacyLocal = {
   catalog: Schema<"RecordingPage">;
+  artists: Schema<"ArtistPage">;
+  releases: Schema<"ReleasePage">;
+  activity: Schema<"Activity">;
+  events: Schema<"SyncPage">;
   playlist: Schema<"PlaylistDetail">;
   metadata: Schema<"RecordingMetadata">[];
   sources: Schema<"Source">[][];
@@ -124,6 +210,10 @@ export function legacyLocalState<T extends LegacyLocal>(local: T) {
   return {
     ...local,
     catalog: legacyRecordingPage(local.catalog),
+    artists: legacyArtistPage(local.artists),
+    releases: legacyReleasePage(local.releases),
+    activity: legacyActivity(local.activity),
+    events: legacySyncPage(local.events),
     playlist: legacyPlaylistDetail(local.playlist),
     metadata: local.metadata.map(legacyRecordingMetadata),
     sources: local.sources.map((list) => list.map(legacySource)),
