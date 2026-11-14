@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { addMusicFolders } from "./music-folders";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
@@ -154,26 +155,7 @@ export async function seedPreferencesLibrary(
   read: Reader,
   user: Schema<"User">,
 ) {
-  await page.goto("/settings");
-  for (const folder of ["Music", "Archive"]) {
-    await page
-      .getByRole("button", { name: "Add music folder", exact: true })
-      .click();
-    const picker = page.getByRole("dialog", {
-      name: "Add a music folder",
-      exact: true,
-    });
-    await picker
-      .getByRole("button", { name: `Open ${folder}`, exact: true })
-      .click();
-    await picker
-      .getByRole("button", { name: "Use this folder", exact: true })
-      .click();
-    await expect(picker).toBeHidden();
-  }
-  await expect(
-    page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
-  ).toHaveCount(2, { timeout: 20_000 });
+  await addMusicFolders(page, ["Music", "Archive"]);
   const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
   expect(catalog.total === 2 && catalog.items.length === 2).toBe(true);
   const ids = catalog.items.map((recording) => recording.id);

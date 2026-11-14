@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { addMusicFolders } from "./music-folders";
 import { expect, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import { providerFixture } from "./provider";
@@ -26,24 +27,7 @@ export async function prepareDownloadLibrary(
   provider: DownloadProvider,
 ) {
   await setUpDisposableDownloadAccount(page);
-  await page
-    .getByRole("link", { name: "Account and settings", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Add music folder", exact: true })
-    .click();
-  const picker = page.getByRole("dialog", {
-    name: "Add a music folder",
-    exact: true,
-  });
-  await picker.getByRole("button", { name: "Open Music", exact: true }).click();
-  await picker
-    .getByRole("button", { name: "Use this folder", exact: true })
-    .click();
-  await expect(picker).not.toBeVisible();
-  await expect(
-    page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
-  ).toHaveCount(1, { timeout: 20_000 });
+  await addMusicFolders(page, ["Music"]);
   const originals = await read<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings",
