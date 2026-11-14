@@ -59,6 +59,7 @@ export type PlaybackView = {
   connection: "connecting" | "ready" | "disconnected";
   controlsAvailable?: boolean;
   resumeFailed?: boolean;
+  retrying?: { attempt: number; of: number } | null;
 };
 export type PlaybackPosition = { position: number; duration: number };
 export type QueueView = {

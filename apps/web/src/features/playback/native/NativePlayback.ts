@@ -26,6 +26,7 @@ function emptyView(): PlaybackView {
     volume: 1,
     connection: "connecting",
     resumeFailed: false,
+    retrying: null,
   };
 }
 
@@ -229,9 +230,19 @@ export class NativePlayback implements Player {
         value.seeking,
       volume: value.volume / 1000,
       error: playbackError(value),
+      retrying: this.retrying(value),
     });
     if (changed) this.loadCurrent();
     if (this.latestPosition) this.observePosition(this.latestPosition);
+  }
+
+  private retrying(value: Snapshot) {
+    const next = value.retrying ?? null;
+    const previous = this.view.retrying ?? null;
+    if (!next) return null;
+    return previous?.attempt === next.attempt && previous.of === next.of
+      ? previous
+      : { attempt: next.attempt, of: next.of };
   }
 
   private speedRange(value: Snapshot) {
