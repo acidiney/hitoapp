@@ -78,12 +78,14 @@ struct ServerStore {
         return String(data: data, encoding: .utf8)
     }
 
-    func save(token: String, for address: ServerAddress) {
+    struct SessionNotKept: Error {}
+
+    func save(token: String, for address: ServerAddress) throws {
         forgetToken(for: address)
         var query = base(address)
         query[kSecValueData as String] = Data(token.utf8)
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(query as CFDictionary, nil)
+        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw SessionNotKept() }
     }
 
     func forgetToken(for address: ServerAddress) {

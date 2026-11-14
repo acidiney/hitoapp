@@ -8,6 +8,7 @@ import OSLog
 final class AppModel {
     enum Step: Equatable {
         case opening
+        case connecting(ServerAddress)
         case choose
         case thisPhone
         case address
@@ -34,6 +35,7 @@ final class AppModel {
             step = .choose
             return
         }
+        step = .connecting(server.address)
         await reopen(server.address, generation: begin())
     }
 
@@ -87,16 +89,22 @@ final class AppModel {
     }
 
     func forget(_ server: RecentServer) {
+        begin()
         store.forget(server.address)
         recent = store.recent
     }
 
     func createAdministrator(at address: ServerAddress, username: String, password: String) async throws {
-        finish(try await account.createAdministrator(at: address, username: username, password: password), at: address)
+        let created = try await account.createAdministrator(at: address, username: username, password: password)
+        do {
+            try finish(created, at: address)
+        } catch {
+            step = .signIn(address, reason: "Your account is ready, but this phone couldn't keep you signed in. Sign in to continue.")
+        }
     }
 
     func signIn(at address: ServerAddress, username: String, password: String) async throws {
-        finish(try await account.signIn(at: address, username: username, password: password), at: address)
+        try finish(try await account.signIn(at: address, username: username, password: password), at: address)
     }
 
     func signOut() {
@@ -104,7 +112,10 @@ final class AppModel {
         let token = store.token(for: address)
         store.forgetToken(for: address)
         step = .signIn(address, reason: "You signed out.")
-        guard let token else { return }
+        if let token { endSession(token, at: address) }
+    }
+
+    private func endSession(_ token: String, at address: ServerAddress) {
         Task { [account, log] in
             do {
                 try await account.signOut(at: address, token: token)
@@ -189,8 +200,14 @@ final class AppModel {
         step = found.next == .createAdministrator ? .createAdministrator(found.address) : .signIn(found.address, reason: nil)
     }
 
-    private func finish(_ signedIn: SignedIn, at address: ServerAddress) {
-        store.save(token: signedIn.token, for: address)
+    private func finish(_ signedIn: SignedIn, at address: ServerAddress) throws {
+        do {
+            try store.save(token: signedIn.token, for: address)
+        } catch {
+            log.error("connection.session_not_kept")
+            endSession(signedIn.token, at: address)
+            throw error
+        }
         store.use(address, user: signedIn.user)
         recent = store.recent
         log.info("connection.signed_in")

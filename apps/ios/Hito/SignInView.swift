@@ -80,6 +80,8 @@ struct SignInView: View {
                 problem = message
             } catch let AccountSession.Problem.refused(message) {
                 problem = message
+            } catch is ServerStore.SessionNotKept {
+                problem = "This phone couldn't keep you signed in. Try again."
             } catch AccountSession.Problem.certificate {
                 problem = "The certificate for \(address.host) can't be checked, so Hito won't send your password there."
             } catch {
