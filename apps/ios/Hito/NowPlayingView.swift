@@ -279,18 +279,21 @@ struct LyricsPanel: View {
     @State private var result: LyricsResult?
     @State private var failed = false
     @State private var following = true
+    @State private var changing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             switch result {
             case let .some(.lines(lines, provider)):
-                let current = lines.lastIndex { $0.start <= player.position } ?? 0
+                let synced = lines.contains { $0.start >= 0 }
+                let current = synced ? lines.lastIndex { $0.start <= player.position } ?? 0 : -1
                 ScrollViewReader { reader in
                     ZStack(alignment: .bottom) {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                                     Button {
+                                        guard synced else { return }
                                         player.seek(to: line.start)
                                         following = true
                                     } label: {
@@ -308,7 +311,7 @@ struct LyricsPanel: View {
                         }
                         .scrollIndicators(.hidden)
                         .simultaneousGesture(DragGesture().onChanged { _ in following = false })
-                        if !following {
+                        if synced, !following {
                             Button {
                                 following = true
                                 withAnimation { reader.scrollTo(current, anchor: .center) }
@@ -328,11 +331,15 @@ struct LyricsPanel: View {
                         }
                     }
                     .onChange(of: current) { _, line in
-                        guard following else { return }
+                        guard following, synced else { return }
                         withAnimation { reader.scrollTo(line, anchor: .center) }
                     }
                 }
-                Text("from \(provider)").font(Theme.caption).foregroundStyle(Theme.soft)
+                HStack(spacing: 8) {
+                    Text("from \(provider)").font(Theme.caption).foregroundStyle(Theme.soft)
+                    Spacer()
+                    TextAction(title: "Change lyrics") { changing = true }
+                }
             case .some(.none):
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
@@ -340,6 +347,7 @@ struct LyricsPanel: View {
                     Text("Lyrics come from a plugin that offers them. None of your plugins has these.")
                         .font(Theme.small)
                         .foregroundStyle(Theme.soft)
+                    TextAction(title: "Find lyrics") { changing = true }
                 }
                 Spacer()
             case .none:
@@ -358,6 +366,7 @@ struct LyricsPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .task(id: track.id) { await load() }
+        .sheet(isPresented: $changing) { LyricsSheet(track: track) { Task { await load() } } }
     }
 
     private func load() async {
@@ -365,7 +374,11 @@ struct LyricsPanel: View {
         result = nil
         failed = false
         do {
-            result = try await Lyrics(api: api).load(track.id)
+            do {
+                result = try await LyricChoices(api: api).best(track.id, automatic: LyricChoices.automaticEnabled(account: player.account))
+            } catch HitoAPI.Problem.refused(404) {
+                result = try await Lyrics(api: api).load(track.id)
+            }
         } catch {
             failed = true
             model.handle(error)
