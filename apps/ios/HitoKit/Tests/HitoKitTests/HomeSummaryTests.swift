@@ -33,6 +33,13 @@ import Testing
         #expect(card.tracks.map(\.id) == ["r9"])
     }
 
+    @Test func withoutTheSummaryTilesStillMixAlbumsLikedAndPlaylists() {
+        let albums = ["a1", "a2", "a3", "a4"].map { Album(id: $0, title: "Album \($0)", artist: nil, trackCount: 1, year: nil, durationMs: nil) }
+        let playlists = [Playlist(id: "p1", name: "Mix", kind: .local), Playlist(id: "p2", name: "Leftovers", kind: .local)]
+        #expect(QuickTile.mixed(albums: albums, playlists: playlists).map(\.title) == ["Album a1", "Album a2", "Album a3", "Liked tracks", "Mix", "Leftovers"])
+        #expect(QuickTile.mixed(albums: Array(albums.prefix(1)), playlists: []).map(\.title) == ["Album a1", "Liked tracks"])
+    }
+
     @Test func anOlderServerWithoutHomeFallsBack() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/home": .json(404, #"{"error":"Resource not found"}"#)])
         #expect(try await home(fake).load() == nil)

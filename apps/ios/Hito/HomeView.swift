@@ -52,7 +52,7 @@ struct HomeView: View {
                     JumpBackIn(tiles: summary.tiles(playlists: playlists))
                     ForEach(summary.unheard.prefix(1)) { UnheardCard(album: $0) }
                 } else if !albums.isEmpty {
-                    JumpBackIn(tiles: [.liked(0)] + albums.items.prefix(5).map(QuickTile.album))
+                    JumpBackIn(tiles: QuickTile.mixed(albums: albums.items, playlists: playlists))
                 }
                 if let unready {
                     UnreadyBanner(unready: unready)

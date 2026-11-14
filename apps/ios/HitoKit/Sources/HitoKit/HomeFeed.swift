@@ -30,6 +30,14 @@ public enum QuickTile: Equatable, Identifiable, Sendable {
         }
     }
 
+    public static func mixed(albums: [Album], playlists: [Playlist], liked: Int? = 0) -> [QuickTile] {
+        var tiles = albums.prefix(3).map(QuickTile.album)
+        if let liked { tiles.append(.liked(liked)) }
+        tiles += playlists.map(QuickTile.playlist)
+        tiles += albums.dropFirst(3).map(QuickTile.album)
+        return Array(tiles.prefix(6))
+    }
+
     public var title: String {
         switch self {
         case let .album(album): album.title
@@ -45,11 +53,7 @@ public struct HomeSummary: Equatable, Sendable {
     public let unheard: [UnheardAlbum]
 
     public func tiles(playlists: [Playlist]) -> [QuickTile] {
-        var tiles = recentAlbums.prefix(3).map(QuickTile.album)
-        if likedCount > 0 { tiles.append(.liked(likedCount)) }
-        tiles += playlists.map(QuickTile.playlist)
-        tiles += recentAlbums.dropFirst(3).map(QuickTile.album)
-        return Array(tiles.prefix(6))
+        QuickTile.mixed(albums: recentAlbums, playlists: playlists, liked: likedCount > 0 ? likedCount : nil)
     }
 }
 
