@@ -21,7 +21,7 @@ function availability(track: Track, resolved: Schema<"Source"> | null): string {
     return resolved.provider === "local"
       ? "Ready · Local"
       : `Ready · from ${sourceLabels(resolved).primary}`;
-  if (track.available) return "Ready · Local";
+  if (track.available) return "Ready";
   if (track.plays_from_services) return "Ready · from your services";
   return "No source";
 }

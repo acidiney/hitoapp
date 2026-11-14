@@ -31,7 +31,7 @@ export function ownedRowState(recording: Schema<"Recording">): {
   state: EditionRowState;
   detail?: string;
 } {
-  if (recording.available) return { state: "ready", detail: "Local" };
+  if (recording.available) return { state: "ready" };
   if (recording.plays_from_services)
     return { state: "ready", detail: "from your services" };
   return { state: "library" };

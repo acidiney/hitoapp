@@ -76,9 +76,10 @@ function open() {
   );
 }
 
-test("tracks show where they play from and offer Find when no source exists", () => {
+test("playable tracks show Ready without guessing where they play from, and offer Find when no source exists", () => {
   open();
-  expect(screen.getAllByText("Ready · Local")).toHaveLength(2);
+  expect(screen.getAllByText("Ready", { exact: true })).toHaveLength(2);
+  expect(screen.queryByText(/Local/)).toBeNull();
   expect(screen.getByText("No source")).toBeTruthy();
   expect(screen.getByRole("link", { name: "Find" })).toBeTruthy();
 });

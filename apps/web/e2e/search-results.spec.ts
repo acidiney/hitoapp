@@ -53,7 +53,10 @@ test("Search leads with a top result, lists tracks with their availability and h
   await expect(
     tracks.getByRole("link", { name: "Fixture 440 Hz", exact: true }),
   ).toHaveCount(1);
-  await expect(tracks.getByText("Ready · Local").first()).toBeVisible();
+  await expect(
+    tracks.getByText("Ready", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(tracks.getByText(/Ready · Local/)).toHaveCount(0);
   await page.screenshot({
     path: "/workspace/test-results/search-results-desktop.png",
   });

@@ -88,3 +88,51 @@ test("a playlist row flips from No source to Ready when its source is resolved, 
   expect(screen.getAllByRole("link", { name: "Find" })).toHaveLength(1);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+test("a playable row names its source when that ready source is already known", async () => {
+  const mutate = vi.fn(async () => ({ ok: true as const }));
+  const known = (id: string, provider: string, providerLabel: string) => ({
+    id: `source-${id}`,
+    recording_id: id,
+    provider,
+    provider_label: providerLabel,
+    label: "Opus",
+    match_kind: "verified",
+    ready: true,
+    can_prepare: true,
+  });
+  sources = [known("r1", "youtube", "YouTube Music")];
+  sourceStatusStore.refresh("alice", "r1");
+  await waitFor(() =>
+    expect(sourceStatusStore.peekSettled("alice", "r1")).not.toBeNull(),
+  );
+  sources = [known("r2", "local", "Local")];
+  sourceStatusStore.refresh("alice", "r2");
+  await waitFor(() =>
+    expect(sourceStatusStore.peekSettled("alice", "r2")).not.toBeNull(),
+  );
+  const playable = (id: string): TrackTableRow => {
+    const base = row(id);
+    return { ...base, track: { ...base.track, available: true } } as never;
+  };
+  render(
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(
+        TrackActionsProvider,
+        { account: "alice", playlists: [], children: null },
+        createElement(TrackTable, {
+          rows: [playable("r1"), playable("r2"), playable("r3")],
+          playlists: [],
+          mutate,
+          layout: "playlist",
+        }),
+      ),
+    ),
+  );
+  expect(screen.getByText("Ready · from YouTube Music")).toBeTruthy();
+  expect(screen.getByText("Ready · Local")).toBeTruthy();
+  expect(screen.getAllByText("Ready", { exact: true })).toHaveLength(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
