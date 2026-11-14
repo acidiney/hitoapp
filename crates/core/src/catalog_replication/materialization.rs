@@ -147,7 +147,7 @@ async fn collect_inner(
         .await?;
         #[cfg(test)]
         diagnostic.start(Phase::RecordingFactAssembly);
-        let batch_result = (|| {
+        let batch_result: Result<()> = (|| {
             for (row, sources) in rows.into_iter().zip(source_facts) {
                 let fact = LocalRecordingFact {
                     id: row.id,
