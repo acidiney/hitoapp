@@ -9,6 +9,7 @@ final class FakeServer: @unchecked Sendable {
 
     struct Request {
         let line: String
+        let query: String?
         let headers: [String: String]
         let body: Data?
 
@@ -16,6 +17,10 @@ final class FakeServer: @unchecked Sendable {
 
         func header(_ name: String) -> String? {
             headers.first { $0.key.lowercased() == name.lowercased() }?.value
+        }
+
+        var object: [String: Any]? {
+            body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         }
 
         var json: [String: String]? {
@@ -56,7 +61,7 @@ final class FakeServer: @unchecked Sendable {
             let full = "\(method) \(origin)\(url.path())"
             let short = "\(method) \(url.path())"
             let usesFullLines = server.routes.keys.contains { $0.contains("://") } || !server.failures.isEmpty
-            server.recorded.append(Request(line: usesFullLines ? full : short, headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
+            server.recorded.append(Request(line: usesFullLines ? full : short, query: url.query(), headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
             if let failure = server.failures["\(origin)\(url.path())"] ?? server.failures[origin] { return (nil, failure) }
             return (server.routes[full] ?? server.routes[short] ?? .text(404, "not found"), nil)
         }
