@@ -33,7 +33,10 @@ final class Player {
     private let log = Logger(subsystem: "app.hito", category: "player")
     private var loading: Task<Void, Never>?
     private var tried: Set<String> = []
-    private var leaseId: String?
+    private static let leaseKey = "app.hito.lease"
+    private var leaseId: String? {
+        didSet { UserDefaults.standard.set(leaseId, forKey: Self.leaseKey) }
+    }
     private var listed: Double = 0
     private var ticker: Any?
     private var observers: [NSObjectProtocol] = []
@@ -44,6 +47,11 @@ final class Player {
         self.api = api
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
+        if let left = UserDefaults.standard.string(forKey: Self.leaseKey) {
+            UserDefaults.standard.removeObject(forKey: Self.leaseKey)
+            log.info("player.leftover_lease_released")
+            Task { [playback] in await playback.release(left) }
+        }
         engine.automaticallyWaitsToMinimizeStalling = true
         ticker = engine.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] time in
             MainActor.assumeIsolated { self?.tick(time.seconds) }
