@@ -56,11 +56,22 @@ async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
             {
                 Ok(Ok(OpenedAudio::Content(mut audio))) => {
                     if let Some(mut body) = audio.body.take() {
-                        if let Ok(Ok(Some(prefix))) =
-                            tokio::time::timeout(Duration::from_secs(5), body.chunk()).await
+                        if let Ok(Ok(prefix)) =
+                            tokio::time::timeout(Duration::from_secs(5), async {
+                                let mut prefix = Vec::new();
+                                while prefix.len() < prefix_size {
+                                    let Some(chunk) = body.chunk().await? else {
+                                        return Err(Error::NotFound);
+                                    };
+                                    prefix.extend_from_slice(&chunk);
+                                }
+                                Ok::<_, Error>(prefix)
+                            })
+                            .await
                         {
-                            prefix_was_available_while_tail_held = prefix.as_ref()
-                                == &f.original[..prefix_size]
+                            prefix_was_available_while_tail_held = prefix
+                                .get(..prefix_size)
+                                .is_some_and(|prefix| prefix == &f.original[..prefix_size])
                                 && !held_tail.released();
                             playback_bytes.extend_from_slice(&prefix);
                             held_tail.release();
@@ -139,7 +150,7 @@ async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
     assert_eq!(source_bytes.unwrap(), f.original);
     assert!(
         upstream_started_before_playback,
-        "an authorized lease must read an upstream prefix before playback opens"
+        "an authorized lease must start an upstream response before playback opens"
     );
 }
 
