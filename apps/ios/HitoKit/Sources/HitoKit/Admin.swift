@@ -226,4 +226,76 @@ public struct Admin: Sendable {
     public func addFolder(_ place: DirectoryPlace, to library: String) async throws {
         _ = try await api.post(["api", "v1", "libraries", library, "folders"], body: Connect(directory: Ref(directoryId: place.directoryId, components: place.components)), as: Nothing.self)
     }
+
+    struct CorrectionPage: Decodable {
+        let items: [SharedCorrection]
+        let total: Int
+        let offset: Int
+        let limit: Int
+    }
+
+    struct Undo: Encodable {
+        let requestId: UUID
+        let expectedRevision: Int
+
+        enum CodingKeys: String, CodingKey {
+            case requestId = "request_id"
+            case expectedRevision = "expected_revision"
+        }
+    }
+
+    struct UndoReceipt: Decodable {
+        let applied: Bool
+    }
+
+    public func sharedCorrections(offset: Int) async throws -> SharedCorrectionPage {
+        let page = try await api.get(["api", "v1", "artist-corrections"], query: [URLQueryItem(name: "offset", value: String(offset)), URLQueryItem(name: "limit", value: "25")], as: CorrectionPage.self)
+        return SharedCorrectionPage(items: page.items, total: page.total, offset: page.offset, limit: page.limit)
+    }
+
+    public func toggle(_ correction: SharedCorrection, request: UUID) async throws -> String {
+        let receipt = try await api.post(["api", "v1", "artist-corrections", correction.id, "undo"], body: Undo(requestId: request, expectedRevision: correction.revision), as: UndoReceipt.self)
+        return receipt.applied ? "The shared correction was restored." : "The shared correction was withdrawn."
+    }
 }
+
+public struct SharedCorrectionPage: Equatable, Sendable {
+    public let items: [SharedCorrection]
+    public let total: Int
+    public let offset: Int
+    public let limit: Int
+}
+
+public struct SharedCorrection: Decodable, Equatable, Identifiable, Sendable {
+    public enum Kind: String, Decodable, Sendable {
+        case unlink
+        case split
+    }
+
+    public let id: String
+    public let kind: Kind
+    public let recordings: Int
+    public let retired: Int
+    public let applied: Bool
+    public let revision: Int
+
+    public init(id: String, kind: Kind, recordings: Int, retired: Int, applied: Bool, revision: Int) {
+        self.id = id
+        self.kind = kind
+        self.recordings = recordings
+        self.retired = retired
+        self.applied = applied
+        self.revision = revision
+    }
+
+    public var title: String {
+        "\(kind == .unlink ? "Unlink" : "Split") · \(recordings) \(recordings == 1 ? "recording" : "recordings")"
+    }
+
+    public var detail: String? {
+        retired > 0 ? "\(retired) no longer \(retired == 1 ? "matches" : "match") the file tags" : nil
+    }
+
+    public var status: String { applied ? "Applied" : "Withdrawn" }
+}
+

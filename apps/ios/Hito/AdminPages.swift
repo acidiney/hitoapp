@@ -357,6 +357,7 @@ struct AccountsSettingsView: View {
                 } else {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
+                SharedCorrectionsSection().padding(.top, 28)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -525,3 +526,81 @@ struct DeleteAccountSheet: View {
         .presentationBackground(Theme.field)
     }
 }
+
+struct SharedCorrectionsSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var page: SharedCorrectionPage?
+    @State private var offset = 0
+    @State private var failed = false
+    @State private var working: String?
+    @State private var note: String?
+    @State private var problem: String?
+    @State private var requests: [String: UUID] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Shared artist corrections").font(Theme.section).frame(minHeight: 44).accessibilityAddTraits(.isHeader)
+            Text("Corrections an administrator applied for every account. Withdrawing one restores the reviews it hid.")
+                .font(Theme.small).foregroundStyle(Theme.quiet).fixedSize(horizontal: false, vertical: true)
+            if let note { Text(note).font(Theme.small).foregroundStyle(Theme.soft).padding(.top, 8) }
+            if let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.alert).padding(.top, 8) }
+            if failed {
+                Text("Hito couldn't read the shared corrections. Pull to try again.").font(Theme.small).foregroundStyle(Theme.alert).padding(.top, 8)
+            } else if let page {
+                if page.items.isEmpty {
+                    Text("None yet.").font(Theme.small).foregroundStyle(Theme.soft).padding(.top, 8)
+                }
+                ForEach(Array(page.items.enumerated()), id: \.element.id) { index, correction in
+                    SettingRow(title: correction.title, detail: [correction.status, correction.detail].compactMap { $0 }.joined(separator: " · "), divided: index < page.items.count - 1) {
+                        OutlineButton(title: working == correction.id ? "…" : correction.applied ? "Withdraw" : "Restore") { Task { await toggle(correction) } }
+                            .disabled(working != nil)
+                            .accessibilityLabel("\(correction.applied ? "Withdraw" : "Restore") shared correction \(page.offset + index + 1)")
+                    }
+                }
+                if page.total > page.limit {
+                    HStack(spacing: 12) {
+                        OutlineButton(title: "Previous") { offset = max(0, offset - page.limit) }.disabled(page.offset == 0)
+                        OutlineButton(title: "Next") { offset += page.limit }.disabled(page.offset + page.limit >= page.total)
+                    }
+                    .padding(.top, 8)
+                }
+            } else {
+                ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+            }
+        }
+        .task(id: offset) { await load() }
+    }
+
+    private func load() async {
+        guard let api = model.api else { return }
+        do {
+            page = try await Admin(api: api).sharedCorrections(offset: offset)
+            failed = false
+        } catch {
+            failed = true
+            model.handle(error)
+        }
+    }
+
+    private func toggle(_ correction: SharedCorrection) async {
+        guard let api = model.api else { return }
+        let request = requests[correction.id] ?? UUID()
+        requests[correction.id] = request
+        working = correction.id
+        problem = nil
+        defer { working = nil }
+        do {
+            note = try await Admin(api: api).toggle(correction, request: request)
+            requests[correction.id] = nil
+            await load()
+        } catch HitoAPI.Problem.refused(409) {
+            requests[correction.id] = nil
+            problem = "This correction changed since it loaded. Hito reloaded it; try again."
+            await load()
+        } catch {
+            problem = "The correction didn't change. Try again."
+            model.handle(error)
+        }
+    }
+}
+

@@ -87,4 +87,26 @@ import Testing
         #expect(directory["directory_id"] as? String == "d1")
         #expect(directory["components"] as? [String] == ["Jazz"])
     }
+
+    @Test func sharedCorrectionsSayWhatTheyChangedAndWhetherTheyApply() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/artist-corrections": .json(200, #"{"revision":3,"total":2,"offset":0,"limit":25,"items":[{"id":"c1","kind":"split","recordings":1,"retired":0,"applied":true,"revision":2,"promoted_by_me":true},{"id":"c2","kind":"unlink","recordings":4,"retired":2,"applied":false,"revision":5,"promoted_by_me":false}]}"#)])
+        let page = try await admin(fake).sharedCorrections(offset: 0)
+        #expect(fake.requests.first?.query == "offset=0&limit=25")
+        #expect(page.total == 2)
+        #expect(page.items.map(\.title) == ["Split · 1 recording", "Unlink · 4 recordings"])
+        #expect(page.items.map(\.detail) == [nil, "2 no longer match the file tags"])
+        #expect(page.items.map(\.status) == ["Applied", "Withdrawn"])
+    }
+
+    @Test func withdrawingASharedCorrectionSendsItsRevisionOnce() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/artist-corrections/c1/undo": .json(200, #"{"request_id":"7B0A62C1-58E4-4D2B-9C59-7C1D1B0D3A11","correction_id":"c1","revision":3,"applied":false,"recordings":1}"#)])
+        let request = UUID(uuidString: "7B0A62C1-58E4-4D2B-9C59-7C1D1B0D3A11")!
+        let correction = SharedCorrection(id: "c1", kind: .split, recordings: 1, retired: 0, applied: true, revision: 2)
+        let note = try await admin(fake).toggle(correction, request: request)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["expected_revision"] as? Int == 2)
+        #expect((body["request_id"] as? String)?.uppercased() == request.uuidString)
+        #expect(note == "The shared correction was withdrawn.")
+    }
 }
+
