@@ -54,6 +54,8 @@ pub(super) async fn collect(
     library: &str,
     id: Uuid,
 ) -> Result<Materialized> {
+    #[cfg(test)]
+    tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "materialization_preflight");
     let (now, watermark): (i64, i64) = sqlx::query_as(
         "SELECT unixepoch(), COALESCE((SELECT max(sequence) FROM sync_events WHERE user_id=?),0)",
     )
@@ -74,6 +76,11 @@ pub(super) async fn collect(
     if count > MAX_RECORDINGS as i64 || size > (MAX_FACT_BYTES / 6) as i64 {
         return Err(limit());
     }
+    #[cfg(test)]
+    tracing::trace!(
+        target: "hito_core::catalog_snapshot_stage_test",
+        stage = "materialization_batches", catalog_recordings = count
+    );
     let mut pages = Vec::new();
     let mut current = CatalogSnapshotPage {
         snapshot_id: id,
@@ -124,6 +131,12 @@ pub(super) async fn collect(
         }
     }
     finish(&current, &mut pages, &mut bytes)?;
+    #[cfg(test)]
+    tracing::trace!(
+        target: "hito_core::catalog_snapshot_stage_test",
+        stage = "materialization_encoded", catalog_recordings = count,
+        encoded_pages = pages.len(), encoded_bytes = bytes
+    );
     Ok(Materialized {
         metadata: CatalogSnapshot {
             id,

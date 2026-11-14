@@ -1,9 +1,13 @@
 #[path = "work_fixture.rs"]
 mod fixture;
 
+#[path = "construction_stage_diagnostic.rs"]
+mod diagnostic;
+
 use crate::test_support::support;
 use fixture::{install_meter, populate};
 use std::sync::atomic::Ordering;
+use tracing::instrument::WithSubscriber;
 
 #[tokio::test]
 async fn public_snapshot_sql_work_grows_with_catalog_size() {
@@ -74,13 +78,30 @@ async fn one_hundred_thousand_local_history_facts_fit_the_snapshot_budget() {
         }
         let steps = install_meter(&services).await;
         let started = std::time::Instant::now();
-        let snapshot = services
+        let diagnostics = diagnostic::ConstructionStages::new(started);
+        let outcome = services
             .catalog_replication
             .begin(&actor, &library)
-            .await
-            .unwrap();
+            .with_subscriber(diagnostics.dispatch())
+            .await;
         let elapsed = started.elapsed();
         let work = steps.load(Ordering::Relaxed);
+        let error_class = match &outcome {
+            Ok(_) => "success",
+            Err(crate::Error::Upstream("Catalog snapshot construction timed out")) => {
+                "construction_timeout"
+            }
+            Err(_) => "other_error",
+        };
+        eprintln!(
+            "catalog_snapshot_stage_diagnostic statistics={statistics} error_class={error_class} stages={}",
+            diagnostics.report()
+        );
+        let snapshot = outcome.unwrap_or_else(|error| {
+            panic!(
+                "100k snapshot construction failed: statistics={statistics} error={error:?} elapsed={elapsed:?} sqlite_vm_steps~{work}"
+            )
+        });
         assert_eq!(snapshot.recording_count, 100_000);
         assert!(
             work > 0 && work < 60_000_000,
