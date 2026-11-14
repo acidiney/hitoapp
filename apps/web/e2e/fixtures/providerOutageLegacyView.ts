@@ -29,6 +29,9 @@ const SOURCE_ADDED = [
   "match_kind",
   "provider_label",
 ] as const satisfies readonly (keyof Schema<"Source">)[];
+const SOURCE_RESOLUTION_ADDED = [
+  "failure",
+] as const satisfies readonly (keyof Schema<"SourceResolution">)[];
 const INSPECTED_TAGS_ADDED = [
   "audio",
   "date",
@@ -132,7 +135,10 @@ export function legacyMetadataSettings(settings: Schema<"MetadataSettings">) {
 }
 
 export function legacySourceResolution(resolution: Schema<"SourceResolution">) {
-  return { ...resolution, sources: resolution.sources.map(legacySource) };
+  return {
+    ...without(resolution, SOURCE_RESOLUTION_ADDED),
+    sources: resolution.sources.map(legacySource),
+  };
 }
 
 export function legacyArtistPage(page: Schema<"ArtistPage">) {

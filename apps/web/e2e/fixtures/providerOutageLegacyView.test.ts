@@ -204,6 +204,36 @@ it("ignores audited source additions in choices and replayed receipts", () => {
       legacySourceResolution(resolution([])),
     ),
   ).toBe(false);
+  const withFailure = (extra: object) =>
+    ({
+      ...resolution([currentSource]),
+      failure: null,
+      ...extra,
+    }) as unknown as Schema<"SourceResolution">;
+  expect(
+    isDeepStrictEqual(
+      legacySourceResolution(resolution([legacySource])),
+      legacySourceResolution(withFailure({})),
+    ),
+  ).toBe(true);
+  expect(
+    isDeepStrictEqual(
+      legacySourceResolution(resolution([legacySource])),
+      legacySourceResolution(withFailure({ outcome: "unavailable" })),
+    ),
+  ).toBe(false);
+  expect(
+    isDeepStrictEqual(
+      legacySourceResolution(resolution([legacySource])),
+      legacySourceResolution(withFailure({ resolution_id: "z2" })),
+    ),
+  ).toBe(false);
+  expect(
+    isDeepStrictEqual(
+      legacySourceResolution(resolution([legacySource])),
+      legacySourceResolution(withFailure({ unknown_field: 1 })),
+    ),
+  ).toBe(false);
 });
 
 it("ignores audited setting and recording additions only", () => {
