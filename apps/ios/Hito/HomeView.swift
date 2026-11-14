@@ -73,10 +73,11 @@ struct HomeView: View {
 }
 
 struct JumpBackIn: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let albums: [Album]
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 8) {
             NavigationLink(value: TrackList.liked) {
                 Tile(title: "Liked tracks") {
                     ZStack {
@@ -160,8 +161,8 @@ struct AlbumCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Cover(path: album.artworkPath, size: width, radius: 10)
             VStack(alignment: .leading, spacing: 0) {
-                Text(album.title).font(Theme.small).lineLimit(1)
-                Text(album.artist ?? "Various artists").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                Text(album.title).font(Theme.small).lineLimit(2)
+                Text(album.artist ?? "Various artists").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(2)
             }
         }
         .frame(width: width)

@@ -45,18 +45,26 @@ struct PluginsView: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(state.powers) { power in
                 let on = !power.providers.isEmpty
-                HStack(spacing: 12) {
-                    Text(power.name).font(Theme.bodyStrong).frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(on ? Theme.soft : .clear)
-                            .strokeBorder(on ? Theme.soft : Theme.quiet, lineWidth: 1.5)
-                            .frame(width: 9, height: 9)
-                        Text(on ? power.providers.joined(separator: ", ") : "Not offered here yet")
-                            .font(Theme.small)
-                            .foregroundStyle(on ? Theme.text : Theme.quiet)
-                            .lineLimit(1)
+                let status = HStack(spacing: 8) {
+                    Circle()
+                        .fill(on ? Theme.soft : .clear)
+                        .strokeBorder(on ? Theme.soft : Theme.quiet, lineWidth: 1.5)
+                        .frame(width: 9, height: 9)
+                    Text(on ? power.providers.joined(separator: ", ") : "Not offered here yet")
+                        .font(Theme.small)
+                        .foregroundStyle(on ? Theme.text : Theme.quiet)
+                }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        Text(power.name).font(Theme.bodyStrong).frame(maxWidth: .infinity, alignment: .leading)
+                        status.fixedSize()
                     }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(power.name).font(Theme.bodyStrong)
+                        status
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
                 }
                 .frame(minHeight: 40)
                 .overlay(alignment: .bottom) { Theme.barLine.frame(height: 1) }
@@ -80,7 +88,7 @@ struct PluginsView: View {
                             Text(status(connection))
                                 .font(Theme.small)
                                 .foregroundStyle(connection.health == .ok ? Theme.quiet : Theme.warning)
-                                .lineLimit(1)
+                                .lineLimit(3)
                         }
                         Spacer(minLength: 0)
                         Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)

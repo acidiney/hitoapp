@@ -4,6 +4,7 @@ import SwiftUI
 struct PluginDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var connection: PluginConnection
     @State private var review: (digest: String, wants: [String])?
     @State private var working = false
@@ -134,48 +135,57 @@ struct PluginDetailView: View {
             if let note {
                 Text(note).font(Theme.small).foregroundStyle(Theme.soft)
             }
+            if typeSize.isAccessibilitySize {
+                actions.padding(.top, 8)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 8) {
-                Button { Task { await check() } } label: {
-                    Text(working ? "Checking…" : "Check connection")
-                        .font(Theme.bodyMedium)
-                        .foregroundStyle(Theme.text)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .overlay(Capsule().strokeBorder(Theme.line))
-                }
-                .buttonStyle(.plain)
-                .disabled(working)
-                Button { confirmingRemove = true } label: {
-                    Text("Disconnect")
-                        .font(Theme.bodyMedium)
-                        .foregroundStyle(Theme.danger)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .overlay(Capsule().strokeBorder(Color(hex: 0x5a3a32)))
-                }
-                .buttonStyle(.plain)
-                .disabled(working)
-                .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-                    Button("Disconnect", role: .destructive) { Task { await remove() } }
-                } message: {
-                    Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
-                }
-                Text("Disconnecting leaves your library and playlists as they are.")
-                    .font(Theme.small)
-                    .foregroundStyle(Theme.quiet)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+            if !typeSize.isAccessibilitySize {
+                actions
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                    .background(Theme.ground)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
-            .background(Theme.ground)
         }
         .task(id: connection.signsIn) { await loadAccount() }
+    }
+
+    private var actions: some View {
+        VStack(spacing: 8) {
+            Button { Task { await check() } } label: {
+                Text(working ? "Checking…" : "Check connection")
+                    .font(Theme.bodyMedium)
+                    .foregroundStyle(Theme.text)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .overlay(Capsule().strokeBorder(Theme.line))
+            }
+            .buttonStyle(.plain)
+            .disabled(working)
+            Button { confirmingRemove = true } label: {
+                Text("Disconnect")
+                    .font(Theme.bodyMedium)
+                    .foregroundStyle(Theme.danger)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .overlay(Capsule().strokeBorder(Color(hex: 0x5a3a32)))
+            }
+            .buttonStyle(.plain)
+            .disabled(working)
+            .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+                Button("Disconnect", role: .destructive) { Task { await remove() } }
+            } message: {
+                Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
+            }
+            Text("Disconnecting leaves your library and playlists as they are.")
+                .font(Theme.small)
+                .foregroundStyle(Theme.quiet)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     private var status: String {

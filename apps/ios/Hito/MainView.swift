@@ -177,8 +177,13 @@ struct TabBar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(current ? .isSelected : [])
+                .accessibilityShowsLargeContentViewer {
+                    Icon(item.icon, size: 22)
+                    Text(item.label)
+                }
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.large)
         .padding(.horizontal, 4)
         .padding(.top, 4)
         .background(Theme.bar.ignoresSafeArea(edges: .bottom))
