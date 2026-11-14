@@ -1,6 +1,10 @@
 import type { Schema } from "../../../shared/schema";
 import { expect, test } from "vitest";
-import { capabilityRows, connectionBenefits } from "../model/capabilityRows";
+import {
+  capabilityRows,
+  connectionBenefits,
+  declaredCapabilities,
+} from "../model/capabilityRows";
 import { pluginInitial, pluginTone } from "../model/pluginIdentity";
 import {
   acceptanceEffects,
@@ -72,4 +76,22 @@ test("a review says what the plugin wants in plain verbs and what accepting chan
   expect(newCapabilityChips(["search"], ["search", "artwork"])).toEqual([
     "Album covers",
   ]);
+});
+
+test("the review before connecting names source links right after playback", () => {
+  expect(declaredCapabilities(["sources", "source_links"])).toEqual([
+    {
+      key: "sources",
+      name: "Playback",
+      what: "Play tracks you have no file for.",
+    },
+    {
+      key: "source_links",
+      name: "Links",
+      what: "Look up the song behind a link you paste on a track. You check the match before it becomes a source.",
+    },
+  ]);
+  expect(
+    connectionBenefits(["source_links", "sources"]).map((item) => item.name),
+  ).toEqual(["Playback", "Links"]);
 });

@@ -7,6 +7,7 @@ const NEW_LABELS: Record<Capability, string> = {
   catalog: "album and artist browsing",
   metadata: "track details",
   sources: "playback",
+  source_links: "song lookup from pasted links",
   source_preparation: "faster playback",
   playlists: "playlist import",
   artwork: "album covers",
@@ -20,6 +21,7 @@ const CHIP_LABELS: Record<Capability, string> = {
   catalog: "Browse",
   metadata: "Track details",
   sources: "Playback",
+  source_links: "Links",
   source_preparation: "Faster playback",
   playlists: "Playlists",
   artwork: "Covers",
@@ -31,6 +33,7 @@ const CHIP_LABELS: Record<Capability, string> = {
 const NEW_ORDER: Capability[] = [
   "search",
   "sources",
+  "source_links",
   "playlists",
   "catalog",
   "metadata",
@@ -48,6 +51,7 @@ function phrases(name: string, has: (value: Capability) => boolean) {
     found.push(`finds songs and plays them from ${name}`);
   else if (has("sources")) found.push(`plays songs from ${name}`);
   else if (has("search")) found.push(`finds songs on ${name}`);
+  if (has("source_links")) found.push(`recognizes pasted ${name} links`);
   if (has("catalog") && !has("search"))
     found.push(`lists albums and artists from ${name}`);
   if (has("playlists"))
@@ -116,6 +120,7 @@ const WANTS: Record<Capability, string> = {
   catalog: "browse albums and artists",
   metadata: "fill in track details",
   sources: "play songs",
+  source_links: "look up songs from pasted links",
   source_preparation: "get songs ready sooner",
   playlists: "import playlists",
   artwork: "fetch album covers",
@@ -130,6 +135,8 @@ const EFFECT: Partial<Record<Capability, (name: string) => string>> = {
   search: (name) => `Search can include ${name} results when you ask.`,
   sources: (name) =>
     `Tracks with no file can play from ${name}, after local files and saved copies.`,
+  source_links: (name) =>
+    `When you paste a ${name} link on a track, Hito can ask ${name} which song it is. You check the match before it becomes a source.`,
   playlists: (name) =>
     `You can follow or copy playlists from ${name} by pasting a link.`,
   metadata: (name) =>

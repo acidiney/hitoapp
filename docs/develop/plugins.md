@@ -49,7 +49,7 @@ A short example:
 }
 ```
 
-Known capabilities are `search`, `catalog`, `metadata`, `sources`, `source_preparation`, `playlists`, `artwork`, `dashboard`, `lyrics`, `backing_tracks` and `featured`. Hito rejects unknown capabilities, unknown fields and other protocol versions. `source_preparation` requires `sources`. `featured` requires `playlists`.
+Known capabilities are `search`, `catalog`, `metadata`, `sources`, `source_links`, `source_preparation`, `playlists`, `artwork`, `dashboard`, `lyrics`, `backing_tracks` and `featured`. Hito rejects unknown capabilities, unknown fields and other protocol versions. `source_links` and `source_preparation` require `sources`. `featured` requires `playlists`. Hito versions that know `source_links` can connect older manifests that omit it; older strict Hito versions reject manifests that advertise a capability they do not know.
 
 `playback_only` tells Hito not to start new offline downloads from your sources. It is a declaration, not proof of a license.
 
@@ -85,6 +85,7 @@ Each capability maps to a few routes. Requests use `POST` with a JSON body unles
 | --- | --- |
 | `search` | `/v1/search`, `/v1/recordings/detail` |
 | `sources` | `/v1/sources`, `GET` and `HEAD /v1/audio` |
+| `source_links` | `/v1/recordings/lookup` |
 | `source_preparation` | `/v1/sources/prepare`, `/v1/sources/preparation/status` |
 | `metadata` | `/v1/recordings/metadata` |
 | `artwork` | `/v1/artwork` |
@@ -111,6 +112,10 @@ Hito then streams audio from `GET /v1/audio?source_id=<id>` and relays it to the
 - not redirect. Hito drops cookies, filenames and custom headers.
 
 Hito waits two seconds to connect, ten seconds for headers and fifteen seconds for each read. A stream that averages less than 4 KiB/s over 30 seconds of waiting is cut off. A healthy stream has no total time limit.
+
+### Source links
+
+`source_links` lets a listener look up a recording from a link owned by your plugin. Hito sends `POST /v1/recordings/lookup` with a bounded opaque `reference`. Return the ordinary recording metadata and source IDs, or answer not found when the link does not identify a recording. References belong to your plugin; Hito does not attach the result automatically, fetch audio or download a file. The listener reviews any candidate before attaching it.
 
 `source_preparation` is for services that must fetch a file before it can play, like the debrid plugins. Hito submits a preparation with an `operation_id` and then polls its status. Your answers include `poll_after_seconds`, or `retry_after_seconds` when you cannot accept the work yet.
 
