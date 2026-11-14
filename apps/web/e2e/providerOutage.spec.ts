@@ -103,8 +103,8 @@ test("a populated version54 library upgrades and plays through truthful provider
     const migrated = await waitOutageControl("migrated", "migrated", 90_000);
     expect(
       migrated.previous_version === 54 &&
-        migrated.current_version === 55 &&
-        migrated.applied_count === 1,
+        migrated.current_version === 98 &&
+        migrated.applied_count === 44,
     ).toBe(true);
     await page.goto("/library");
     await expect(
@@ -168,14 +168,14 @@ test("a populated version54 library upgrades and plays through truthful provider
     }
     await evidence.drain();
     expect(
-      evidence.requests.length === 4 &&
-        evidence.receipts.length === 3 &&
+      evidence.requests.length === 8 &&
+        evidence.receipts.length === 7 &&
         evidence.receipts.filter(
           (receipt) => receipt.outcome === "provider_unavailable",
-        ).length === 2 &&
+        ).length === 6 &&
         evidence.receipts.filter((receipt) => receipt.outcome === "ready")
           .length === 1 &&
-        evidence.completions.length === 3,
+        evidence.completions.length === 7,
     ).toBe(true);
     expect(
       provider.counts.unavailable > 0 &&

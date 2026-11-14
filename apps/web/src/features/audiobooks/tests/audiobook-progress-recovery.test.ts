@@ -218,6 +218,8 @@ test.each(["request", "acknowledgement body"] as const)(
       expect(document.querySelector('[role="status"]')).toBeNull();
       expect(player.snapshot().playing).toBe(true);
       expect(player.snapshot().error).toBe("");
+      act(() => media.advance(first, 1));
+      expect(player.snapshot().desiredPlaying).toBeUndefined();
       expect(vi.getTimerCount()).toBe(0);
       await act(async () => vi.advanceTimersByTimeAsync(30_000));
       expect(submitted).toHaveLength(4);

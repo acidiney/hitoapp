@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import TrackToolbar from "../components/TrackToolbar";
@@ -10,6 +10,7 @@ import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import PlaybackStatus from "../components/PlaybackStatus";
 
 test("the outage notice clears once the same track plays after going back to it", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const logged: unknown[][] = [];
   vi.spyOn(console, "info").mockImplementation((...values) =>
     logged.push(values),
@@ -118,18 +119,29 @@ test("the outage notice clears once the same track plays after going back to it"
     ),
   );
   expect(requests).toHaveLength(0);
+  const pass = [
+    { path: cachedPath, method: "GET", account },
+    { path: `${sourcePath}/refresh`, method: "POST", account },
+    { path: `${sourcePath}/resolve`, method: "POST", account },
+  ];
   fireEvent.click(screen.getByRole("button", { name: "Play playlist" }));
+  await vi.waitFor(() =>
+    expect(player.snapshot().retrying).toEqual({ attempt: 2, of: 3 }),
+  );
+  expect(requests).toEqual(pass);
+  await act(() => vi.advanceTimersByTimeAsync(500));
+  await vi.waitFor(() =>
+    expect(player.snapshot().retrying).toEqual({ attempt: 3, of: 3 }),
+  );
+  expect(requests).toEqual([...pass, ...pass]);
+  await act(() => vi.advanceTimersByTimeAsync(1000));
   await vi.waitFor(() => {
     expect(player.snapshot().loading).toBe(false);
     expect(player.snapshot().error).not.toBe("");
   });
-  expect(attempts).toHaveLength(1);
+  expect(attempts).toHaveLength(3);
   expect(unexpected).toEqual([]);
-  expect(requests).toEqual([
-    { path: cachedPath, method: "GET", account },
-    { path: `${sourcePath}/refresh`, method: "POST", account },
-    { path: `${sourcePath}/resolve`, method: "POST", account },
-  ]);
+  expect(requests).toEqual([...pass, ...pass, ...pass]);
   expect(screen.getByRole("status").textContent).toBe(
     "An audio service is unavailable. Select the track again to retry.",
   );
@@ -146,4 +158,5 @@ test("the outage notice clears once the same track plays after going back to it"
   expect(screen.queryByRole("status")?.textContent ?? "").toBe("");
   expect(unexpected).toEqual([]);
   unmount();
+  vi.useRealTimers();
 });
