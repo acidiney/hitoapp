@@ -12,7 +12,7 @@ export type AlbumProgress = { owned: number; total: number; elsewhere: number };
 
 export type EditionPlayState = {
   tracks: number;
-  durationMs: number;
+  durationMs: number | null;
   consentOff: boolean;
   halted: string;
 };

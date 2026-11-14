@@ -155,11 +155,8 @@ export default function AlbumEditionTrackList({
     comparison === null
       ? null
       : {
-          tracks: audio.length,
-          durationMs: audio.reduce(
-            (sum, track) => sum + (track.duration_ms ?? 0),
-            0,
-          ),
+          tracks: comparison.stats.audio_tracks,
+          durationMs: comparison.stats.total_duration_ms,
           consentOff: playback.consentOff,
           halted: playback.halted,
         },

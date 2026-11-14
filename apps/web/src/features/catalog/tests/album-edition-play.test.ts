@@ -73,12 +73,13 @@ let searchOn = true;
 let audioBodies: Record<string, string>[] = [];
 let adoptBodies: Record<string, unknown>[] = [];
 let savedReads = 0;
+let savedList: unknown = editionList;
 
 function serve() {
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
     if (path === savedRead) {
       savedReads++;
-      return Response.json(editionList);
+      return Response.json(savedList);
     }
     if (path === adoptPath) {
       adoptBodies.push(JSON.parse(init!.body as string));
@@ -144,6 +145,7 @@ beforeEach(() => {
   audioBodies = [];
   adoptBodies = [];
   savedReads = 0;
+  savedList = editionList;
   vi.clearAllMocks();
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -331,4 +333,57 @@ test("playing an identified catalog-only row adds it from the catalog and then p
   expect(selection.queue).toEqual([savedRecording]);
   expect(await drain(selection)).toEqual([savedRecording.id, otherRelease.id]);
   expect(player.playQueue).not.toHaveBeenCalled();
+});
+
+function headerStats() {
+  const stats = document.querySelector(".album-header .album-stats");
+  return (stats?.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+async function editionStats() {
+  render(page());
+  await waitFor(() => expect(savedReads).toBe(1));
+  await screen.findByText("Catalog only song");
+}
+
+test("the album header counts the audio tracks the server reports for the edition", async () => {
+  savedList = {
+    ...editionList,
+    stats: { audio_tracks: 3, total_duration_ms: null },
+  };
+  serve();
+  await editionStats();
+  await waitFor(() => expect(headerStats()).toBe("Performer · 3 tracks"));
+});
+
+test("the album header shows the edition length the server reports", async () => {
+  savedList = {
+    ...editionList,
+    stats: { audio_tracks: 4, total_duration_ms: 3_660_000 },
+  };
+  serve();
+  await editionStats();
+  await waitFor(() =>
+    expect(headerStats()).toBe("Performer · 4 tracks · 1 hr 1 min"),
+  );
+});
+
+test("the album header leaves out the edition length when the server does not know it", async () => {
+  savedList = {
+    ...editionList,
+    edition: {
+      ...editionList.edition,
+      media: editionList.edition.media.map((medium) => ({
+        ...medium,
+        tracks: medium.tracks.map((track) => ({
+          ...track,
+          duration_ms: 90_000,
+        })),
+      })),
+    },
+    stats: { audio_tracks: 4, total_duration_ms: null },
+  };
+  serve();
+  await editionStats();
+  await waitFor(() => expect(headerStats()).toBe("Performer · 4 tracks"));
 });
