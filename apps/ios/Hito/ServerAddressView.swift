@@ -105,7 +105,7 @@ struct RecentServers: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Recent").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.soft)
+            Text("Recent").font(Theme.smallStrong).foregroundStyle(Theme.soft)
             ForEach(model.recent) { server in
                 HStack(spacing: 8) {
                     Button {
@@ -113,7 +113,7 @@ struct RecentServers: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(server.address.origin.absoluteString).foregroundStyle(Theme.text)
-                            Text(detail(server)).font(.subheadline).foregroundStyle(Theme.quiet)
+                            Text(detail(server)).font(Theme.small).foregroundStyle(Theme.quiet)
                         }
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())

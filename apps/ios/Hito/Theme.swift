@@ -11,6 +11,15 @@ enum Theme {
     static let focus = Color(red: 0x8f / 255, green: 0xa2 / 255, blue: 0xff / 255)
     static let onAccent = Color(red: 0x0c / 255, green: 0x0c / 255, blue: 0x0b / 255)
     static let alert = Color(red: 0xff / 255, green: 0x9f / 255, blue: 0x8a / 255)
+    static let tile = Color(red: 0x2a / 255, green: 0x2a / 255, blue: 0x28 / 255)
+
+    static let body = Font.custom("Figtree-Regular", size: 16, relativeTo: .body)
+    static let bodyStrong = Font.custom("Figtree-SemiBold", size: 16, relativeTo: .body)
+    static let bodyBold = Font.custom("Figtree-Bold", size: 16, relativeTo: .body)
+    static let small = Font.custom("Figtree-Regular", size: 14, relativeTo: .subheadline)
+    static let smallMedium = Font.custom("Figtree-Medium", size: 14, relativeTo: .subheadline)
+    static let smallStrong = Font.custom("Figtree-SemiBold", size: 14, relativeTo: .subheadline)
+    static let title = Font.custom("Figtree-ExtraBold", size: 28, relativeTo: .largeTitle)
 }
 
 struct Screen<Content: View>: View {
@@ -36,20 +45,11 @@ struct Screen<Content: View>: View {
 
 struct Logo: View {
     var body: some View {
-        HStack(spacing: 6) {
-            Circle().fill(Theme.text).frame(width: 10, height: 10)
-            Circle().stroke(Theme.accent, lineWidth: 2).frame(width: 8, height: 8)
-            ZStack {
-                ForEach(0..<8) { index in
-                    Circle().fill(Theme.quiet).frame(width: 2, height: 2)
-                        .offset(y: -4)
-                        .rotationEffect(.degrees(Double(index) * 45 + 22.5))
-                }
-            }
-            .frame(width: 10, height: 10)
-            Text("hito").font(.system(size: 19, weight: .bold)).padding(.leading, 4)
-        }
-        .frame(height: 44)
+        Image("Logo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 87, height: 19)
+            .frame(height: 44)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Hito")
     }
@@ -62,7 +62,7 @@ struct Heading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 28, weight: .heavy))
+                .font(Theme.title)
                 .accessibilityAddTraits(.isHeader)
             if let address { AddressLine(text: address) }
         }
@@ -75,7 +75,7 @@ struct AddressLine: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle().fill(Theme.soft).frame(width: 9, height: 9).accessibilityHidden(true)
-            Text(text).font(.subheadline).foregroundStyle(Theme.quiet)
+            Text(text).font(Theme.small).foregroundStyle(Theme.quiet)
         }
     }
 }
@@ -89,7 +89,7 @@ struct FieldBox<Field: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.subheadline.weight(.medium)).foregroundStyle(Theme.soft)
+            Text(label).font(Theme.smallMedium).foregroundStyle(Theme.soft)
             HStack(spacing: 0) { field }
                 .padding(.leading, 14)
                 .frame(minHeight: 48)
@@ -99,7 +99,7 @@ struct FieldBox<Field: View>: View {
                         .strokeBorder(focused ? Theme.focus : Theme.line, lineWidth: focused ? 2 : 1)
                 )
             if let hint {
-                Text(hint).font(.subheadline).foregroundStyle(Theme.quiet)
+                Text(hint).font(Theme.small).foregroundStyle(Theme.quiet)
             }
         }
     }
@@ -115,7 +115,7 @@ struct PrimaryButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 if busy { ProgressView().tint(Theme.onAccent) }
-                Text(busy ? (busyTitle ?? title) : title).fontWeight(.semibold)
+                Text(busy ? (busyTitle ?? title) : title).font(Theme.bodyStrong)
             }
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(Theme.accent, in: Capsule())
@@ -134,10 +134,10 @@ struct TextAction: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                if let icon { Image(systemName: icon).font(.subheadline.weight(.semibold)) }
+                if let icon { Image(systemName: icon).font(Theme.smallStrong) }
                 Text(title)
             }
-            .font(.subheadline.weight(.medium))
+            .font(Theme.smallMedium)
             .frame(minHeight: 44)
             .foregroundStyle(color)
         }

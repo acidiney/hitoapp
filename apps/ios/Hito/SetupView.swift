@@ -12,6 +12,7 @@ struct SetupView: View {
 
     var body: some View {
         Screen {
+            SetupSteps()
             VStack(alignment: .leading, spacing: 6) {
                 Heading(title: "Set up Hito")
                 Text("This server has no accounts yet. The first one becomes the administrator and can add other people.")
@@ -58,5 +59,26 @@ struct SetupView: View {
                 problem = "Can't reach \(address.origin.absoluteString). Check that Hito is running and that this device is on the same network."
             }
         }
+    }
+}
+
+private struct SetupSteps: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Circle().fill(Theme.text).frame(width: 9, height: 9)
+                Text("1. Your account").font(Theme.smallStrong).foregroundStyle(Theme.text)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityValue("Current step")
+            Rectangle().fill(Theme.line).frame(width: 24, height: 1).accessibilityHidden(true)
+            HStack(spacing: 8) {
+                Circle().strokeBorder(Color(red: 0x6b / 255, green: 0x6a / 255, blue: 0x65 / 255), lineWidth: 1.5).frame(width: 9, height: 9)
+                Text("2. Music folders").font(Theme.small).foregroundStyle(Theme.quiet)
+            }
+            .accessibilityElement(children: .combine)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Setup steps")
     }
 }

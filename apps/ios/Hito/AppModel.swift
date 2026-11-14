@@ -15,6 +15,7 @@ final class AppModel {
         case createAdministrator(ServerAddress)
         case signIn(ServerAddress, reason: String?)
         case unreachable(ServerAddress)
+        case locked(ServerAddress, User)
         case signedIn(ServerAddress, User)
     }
 
@@ -101,8 +102,41 @@ final class AppModel {
         step = .choose
     }
 
-    func username(for address: ServerAddress) -> String? {
-        store.recent.first { $0.address == address }?.username
+    func remembered(on address: ServerAddress) -> RecentServer? {
+        store.recent.first { $0.address == address && $0.username != nil }
+    }
+
+    func forgetMe(on address: ServerAddress) {
+        store.forgetAccount(on: address)
+        recent = store.recent
+    }
+
+    func checkLock() async {
+        guard case let .signedIn(address, user) = step, let token = store.token(for: address) else { return }
+        if let status = try? await account.lockStatus(at: address, token: token), status.locked {
+            step = .locked(address, user)
+        }
+    }
+
+    func unlock(pin: String) async throws -> Bool {
+        guard case let .locked(address, user) = step, let token = store.token(for: address) else { return false }
+        switch try await account.unlock(at: address, token: token, pin: pin) {
+        case .unlocked:
+            step = .signedIn(address, user)
+            return true
+        case .wrongPin:
+            return false
+        case .signedOut:
+            store.forgetToken(for: address)
+            step = .signIn(address, reason: "Too many wrong PINs. Sign in again.")
+            return true
+        }
+    }
+
+    func signOutWhileLocked() {
+        guard case let .locked(address, user) = step else { return }
+        step = .signedIn(address, user)
+        signOut()
     }
 
     private func proceed(_ found: FoundServer) {
@@ -117,7 +151,7 @@ final class AppModel {
 
     private func finish(_ signedIn: SignedIn, at address: ServerAddress) {
         store.save(token: signedIn.token, for: address)
-        store.use(address, username: signedIn.user.username)
+        store.use(address, user: signedIn.user)
         recent = store.recent
         log.info("connection.signed_in")
         step = .signedIn(address, signedIn.user)
@@ -129,7 +163,15 @@ final class AppModel {
             return
         }
         do {
-            step = .signedIn(address, try await account.currentUser(at: address, token: token))
+            let user = try await account.currentUser(at: address, token: token)
+            step = .signedIn(address, user)
+            await checkLock()
+        } catch AccountSession.Problem.locked {
+            if let server = store.recent.first(where: { $0.address == address }), let username = server.username {
+                step = .locked(address, User(id: "", username: username, admin: server.admin ?? false, displayName: server.displayName))
+            } else {
+                step = .signIn(address, reason: nil)
+            }
         } catch AccountSession.Problem.signedOut {
             store.forgetToken(for: address)
             step = .signIn(address, reason: "This device was signed out. Sign in again.")

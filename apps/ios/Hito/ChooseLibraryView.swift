@@ -26,7 +26,7 @@ struct ChooseLibraryView: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Where Hito keeps its library")
             Text("You can change this later in Settings.")
-                .font(.subheadline)
+                .font(Theme.small)
                 .foregroundStyle(Theme.quiet)
         }
     }
@@ -49,12 +49,12 @@ private struct Choice: View {
                     .background(Color(red: 0x2a / 255, green: 0x2a / 255, blue: 0x28 / 255), in: RoundedRectangle(cornerRadius: 10))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).fontWeight(.semibold).foregroundStyle(Theme.text)
-                    Text(detail).font(.subheadline).foregroundStyle(Theme.quiet)
+                    Text(title).font(Theme.bodyStrong).foregroundStyle(Theme.text)
+                    Text(detail).font(Theme.small).foregroundStyle(Theme.quiet)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.semibold))
+                    .font(Theme.smallStrong)
                     .foregroundStyle(Theme.quiet)
                     .accessibilityHidden(true)
             }

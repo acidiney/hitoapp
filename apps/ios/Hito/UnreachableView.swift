@@ -12,7 +12,7 @@ struct UnreachableView: View {
                 .foregroundStyle(Theme.soft)
             HStack(spacing: 10) {
                 ProgressView().tint(Theme.quiet)
-                Text("Trying again every ten seconds.").font(.subheadline).foregroundStyle(Theme.quiet)
+                Text("Trying again every ten seconds.").font(Theme.small).foregroundStyle(Theme.quiet)
             }
             TextAction(title: "Change server") { model.changeServer() }
         }

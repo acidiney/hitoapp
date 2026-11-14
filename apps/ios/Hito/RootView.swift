@@ -23,6 +23,8 @@ struct RootView: View {
                 SignInView(address: address, reason: reason)
             case let .unreachable(address):
                 UnreachableView(address: address)
+            case let .locked(address, user):
+                LockView(address: address, user: user)
             case let .signedIn(address, user):
                 SignedInView(address: address, user: user)
             }

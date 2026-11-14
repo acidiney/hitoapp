@@ -5,6 +5,8 @@ import Security
 struct RecentServer: Codable, Equatable, Identifiable {
     let address: ServerAddress
     var username: String?
+    var displayName: String?
+    var admin: Bool?
     var used: Date
 
     var id: URL { address.origin }
@@ -22,12 +24,29 @@ struct ServerStore {
 
     var current: RecentServer? { recent.first }
 
-    func use(_ address: ServerAddress, username: String? = nil) {
+    func use(_ address: ServerAddress, user: User? = nil) {
         var list = recent
         let previous = list.first { $0.address == address }
         list.removeAll { $0.address == address }
-        list.insert(RecentServer(address: address, username: username ?? previous?.username, used: .now), at: 0)
+        list.insert(
+            RecentServer(
+                address: address,
+                username: user?.username ?? previous?.username,
+                displayName: user.map { $0.displayName } ?? previous?.displayName,
+                admin: user?.admin ?? previous?.admin,
+                used: .now
+            ),
+            at: 0
+        )
         save(Array(list.prefix(5)))
+    }
+
+    func forgetAccount(on address: ServerAddress) {
+        save(recent.map { server in
+            guard server.address == address else { return server }
+            return RecentServer(address: server.address, username: nil, displayName: nil, admin: nil, used: server.used)
+        })
+        forgetToken(for: address)
     }
 
     func forget(_ address: ServerAddress) {
