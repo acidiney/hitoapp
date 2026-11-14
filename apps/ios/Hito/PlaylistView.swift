@@ -65,7 +65,7 @@ struct PlaylistView: View {
                                     Button {
                                         model.player?.play(shown, at: shown.firstIndex(of: track) ?? 0, from: playlist.name)
                                     } label: {
-                                        LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false, gap: 12, dimsUnplayable: true)
+                                        LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false, gap: 12, dimsUnavailable: true)
                                     }
                                     .buttonStyle(.plain)
                                     Menu { TrackMenu(track: track) } label: {

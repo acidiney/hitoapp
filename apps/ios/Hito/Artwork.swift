@@ -133,14 +133,14 @@ struct LibraryRow: View {
     var isCurrent = false
     var showsTime = true
     var gap: CGFloat = 8
-    var dimsUnplayable = false
+    var dimsUnavailable = false
 
     var body: some View {
         HStack(spacing: gap) {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : dimsUnplayable && !track.isPlayable ? Theme.soft : Theme.text)
+                    .foregroundStyle(isCurrent ? Theme.focus : dimsUnavailable && !track.available ? Theme.soft : Theme.text)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 Group {
                     if typeSize.isAccessibilitySize {
@@ -185,7 +185,7 @@ struct SearchRow: View {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
+                    .foregroundStyle(isCurrent ? Theme.focus : track.available ? Theme.text : Theme.soft)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
@@ -210,7 +210,7 @@ struct AlbumTrackRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(track.title)
-                .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
+                .foregroundStyle(isCurrent ? Theme.focus : track.available ? Theme.text : Theme.soft)
                 .lineLimit(1)
             HStack(spacing: 6) {
                 StatusDot(track: track, size: 9)
