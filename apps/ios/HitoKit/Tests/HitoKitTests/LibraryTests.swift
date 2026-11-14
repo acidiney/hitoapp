@@ -28,6 +28,13 @@ import Testing
         #expect(fake.requests.map(\.query) == ["offset=50&limit=50&liked=true", "offset=0&limit=50&q=fixture%20band"])
     }
 
+    @Test func artistsAreFoundByName() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/artists": .json(200, #"{"items":[{"id":"ar1","library_id":"l1","name":"Fixture Band","release_count":2,"recording_count":9}],"total":1,"offset":0,"limit":50}"#)])
+        let page = try await library(fake).artists(offset: 0, search: "fixture")
+        #expect(page.items == [Artist(id: "ar1", name: "Fixture Band", trackCount: 9, albumCount: 2)])
+        #expect(fake.requests.first?.query == "offset=0&limit=50&q=fixture")
+    }
+
     @Test func albumsAreListedNewestFirst() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[{"id":"a1","library_id":"l1","title":"Fixture Album","artist":"Fixture Band","artist_id":null,"track_count":12,"duration_ms":2400000,"inferred_artist":null,"year":2019}],"total":1,"offset":0,"limit":50}"#)])
         let page = try await library(fake).albums(offset: 0)

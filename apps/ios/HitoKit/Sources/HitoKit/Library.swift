@@ -106,3 +106,31 @@ public struct Library: Sendable {
         [URLQueryItem(name: "offset", value: String(offset)), URLQueryItem(name: "limit", value: String(Self.pageSize))]
     }
 }
+
+public struct Artist: Decodable, Equatable, Hashable, Identifiable, Sendable {
+    public let id: String
+    public let name: String
+    public let trackCount: Int
+    public let albumCount: Int
+
+    public init(id: String, name: String, trackCount: Int, albumCount: Int) {
+        self.id = id
+        self.name = name
+        self.trackCount = trackCount
+        self.albumCount = albumCount
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case trackCount = "recording_count"
+        case albumCount = "release_count"
+    }
+}
+
+extension Library {
+    public func artists(offset: Int, search: String? = nil) async throws -> Page<Artist> {
+        var query = [URLQueryItem(name: "offset", value: String(offset)), URLQueryItem(name: "limit", value: String(Self.pageSize))]
+        if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
+        return try await api.get(["api", "v1", "artists"], query: query, as: Page<Artist>.self)
+    }
+}
