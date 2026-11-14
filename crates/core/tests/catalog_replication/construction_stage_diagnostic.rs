@@ -1,6 +1,9 @@
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::{sync::{Arc, Mutex}, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 use tracing::{Metadata, Subscriber};
 use tracing_subscriber::{Layer, layer::Context, prelude::*};
 
@@ -76,7 +79,9 @@ impl<S: Subscriber> Layer<S> for ConstructionStages {
 impl ConstructionStages {
     pub(super) fn new(started: Instant) -> Self {
         Self(Arc::new(Mutex::new(State {
-            started, events: Vec::new(), overflowed: false,
+            started,
+            events: Vec::new(),
+            overflowed: false,
         })))
     }
 
