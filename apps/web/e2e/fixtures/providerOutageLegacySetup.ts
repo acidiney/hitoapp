@@ -12,8 +12,6 @@ const importPhases = {
   preserved: "import_preserved",
 } as const satisfies Record<string, OutageSetupPhase>;
 
-type LegacyDirectory = { name: string; directory: Schema<"DirectoryRef"> };
-
 async function legacyWrite<T>(
   page: Page,
   account: string | null,
@@ -50,30 +48,31 @@ async function connectLegacyFolders(
   const shared = libraries.filter((library) => !library.personal);
   if (shared.length !== 1) throw new Error("Owned shared library missing");
   const library = shared[0];
-  const roots = await read<{ id: string; available: boolean }[]>(
+  const roots = await read<{ id: string; name: string; available: boolean }[]>(
     "/api/v1/storage/directories",
   );
-  const children: LegacyDirectory[] = [];
-  for (const root of roots.filter((root) => root.available)) {
-    const listing = await legacyWrite<{ directories: LegacyDirectory[] }>(
+  for (const name of ["Music", "Archive"]) {
+    const matches = roots.filter(
+      (root) => root.available && root.name === name,
+    );
+    if (matches.length !== 1) throw new Error("Owned fixture folder missing");
+    const directory = { directory_id: matches[0].id };
+    const listing = await legacyWrite<{ directory: Schema<"DirectoryRef"> }>(
       page,
       user.id,
       "post",
       "/api/v1/storage/browse",
-      { directory: { directory_id: root.id }, offset: null },
+      { directory, offset: null },
       200,
     );
-    children.push(...listing.directories);
-  }
-  for (const name of ["Music", "Archive"]) {
-    const matches = children.filter((child) => child.name === name);
-    if (matches.length !== 1) throw new Error("Owned fixture folder missing");
+    if (listing.directory.directory_id !== directory.directory_id)
+      throw new Error("Owned fixture folder reference changed");
     const folder = await legacyWrite<Schema<"MusicFolder">>(
       page,
       user.id,
       "post",
       `/api/v1/libraries/${library.id}/folders`,
-      { directory: matches[0].directory },
+      { directory },
       201,
     );
     if (folder.library_id !== library.id || !folder.latest_job)
