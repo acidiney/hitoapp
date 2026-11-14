@@ -113,7 +113,8 @@ test("a playable row names its source when that ready source is already known", 
   );
   const playable = (id: string): TrackTableRow => {
     const base = row(id);
-    return { ...base, track: { ...base.track, available: true } } as never;
+    if (base.kind !== "recording") throw new Error("expected a recording row");
+    return { ...base, track: { ...base.track, available: true } };
   };
   render(
     createElement(
