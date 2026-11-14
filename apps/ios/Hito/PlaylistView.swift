@@ -7,6 +7,7 @@ struct PlaylistView: View {
     }
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var typeSize
     let playlist: Playlist
     @State private var detail: PlaylistDetail?
     @State private var failed = false
@@ -103,7 +104,8 @@ struct PlaylistView: View {
                 .accessibilityHidden(true)
             }
             if !tracks.isEmpty {
-                HStack(spacing: 8) {
+                let actions = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+                actions {
                     if !ready.isEmpty {
                         PlayAllButton(label: "Play \(ready.count) ready", stretch: true) {
                             model.player?.play(ready, at: 0, from: playlist.name)
@@ -138,7 +140,7 @@ struct PlaylistView: View {
     }
 
     private var chips: some View {
-        HStack(spacing: 8) {
+        Wrap(spacing: 8) {
             FilterChip(title: "All \(tracks.count)", on: filter == .all) { filter = .all }
             FilterChip(title: "Ready \(ready.count)", on: filter == .ready) { filter = .ready }
             FilterChip(title: "Not ready \(tracks.count - ready.count)", on: filter == .notReady) { filter = .notReady }
@@ -217,6 +219,8 @@ struct FilterChip: View {
         Button(action: action) {
             Text(title)
                 .font(Theme.bodyMedium)
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(on ? Theme.ground : Theme.text)
                 .padding(.horizontal, 16)
                 .frame(minHeight: 44)
