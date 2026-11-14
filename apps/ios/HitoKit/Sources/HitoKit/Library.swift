@@ -142,7 +142,7 @@ public struct Library: Sendable {
     public func filtersByAvailability() async throws -> Bool {
         let query = [URLQueryItem(name: "offset", value: "0"), URLQueryItem(name: "limit", value: "1")]
         let (_, response) = try await api.getWithResponse(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
-        return response.value(forHTTPHeaderField: Availability.header) != nil
+        return response.value(forHTTPHeaderField: Availability.header) == "all"
     }
 
     public func tracks(offset: Int, search: String? = nil, liked: Bool = false, artist: String? = nil, sort: TrackSort? = nil, availability: Availability? = nil) async throws -> Page<Track> {
@@ -190,7 +190,7 @@ public enum Availability: String, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .playable: "Ready"
+        case .playable: "Has a source"
         case .noSource: "No source"
         }
     }

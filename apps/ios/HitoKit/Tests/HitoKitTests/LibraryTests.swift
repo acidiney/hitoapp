@@ -41,6 +41,10 @@ import Testing
         #expect(new.requests.first?.query == "offset=0&limit=1")
         let old = FakeServer(routes: ["GET /api/v1/recordings": .json(200, page)])
         #expect(try await library(old).filtersByAvailability() == false)
+        let odd = FakeServer(routes: ["GET /api/v1/recordings": .headed(200, page, ["Hito-Recordings-Availability": "no_source"])])
+        #expect(try await library(odd).filtersByAvailability() == false)
+        #expect(Availability.playable.label == "Has a source")
+        #expect(Availability.noSource.label == "No source")
     }
 
     @Test func aFilteredListNeedsTheServerToConfirmTheFilter() async throws {
