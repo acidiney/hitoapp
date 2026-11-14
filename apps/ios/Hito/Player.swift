@@ -139,8 +139,8 @@ final class Player {
 
     var current: Track? { queue.current }
 
-    func play(_ tracks: [Track], at index: Int, from context: String) {
-        resumeAt = nil
+    func play(_ tracks: [Track], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        resumeAt = seconds > 0 ? seconds : nil
         queue.start(tracks, at: index, from: context)
         load(queue.current)
     }

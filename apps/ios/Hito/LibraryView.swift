@@ -7,6 +7,7 @@ struct LibraryView: View {
         case albums = "Albums"
         case artists = "Artists"
         case playlists = "Playlists"
+        case history = "History"
     }
 
     @Environment(AppModel.self) private var model
@@ -101,6 +102,8 @@ struct LibraryView: View {
                     }
                     .buttonStyle(.plain)
                     PlaylistRows(playlists: playlists, failed: playlistsFailed) { Task { await loadPlaylists() } }
+                case .history:
+                    HistorySection()
                 }
             }
             .padding(.horizontal, 16)
@@ -321,6 +324,81 @@ struct PlaylistRows: View {
             .font(Theme.small)
         } else {
             ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+        }
+    }
+}
+
+struct HistorySection: View {
+    @Environment(AppModel.self) private var model
+    @State private var found: ListeningHistory.Found?
+    @State private var failed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let found {
+                Text(found.summary).font(Theme.small).foregroundStyle(Theme.soft)
+                if let first = found.entries.first {
+                    PlayAllButton(label: "Play") { play(found.entries, at: 0, from: first) }
+                }
+                if !found.enabled {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(found.entries.isEmpty ? "Listening history is paused" : "Listening history is paused, so new plays are not added.")
+                            .font(found.entries.isEmpty ? Theme.bodyStrong : Theme.small)
+                            .foregroundStyle(found.entries.isEmpty ? Theme.text : Theme.soft)
+                        if found.entries.isEmpty {
+                            Text("New plays are not being saved. Turn history back on in Settings to see what you play here.").font(Theme.small).foregroundStyle(Theme.soft)
+                        }
+                        NavigationLink(value: SettingsPage.privacy) {
+                            Text("Open listening history settings").font(Theme.smallStrong).foregroundStyle(Theme.focus).frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } else if found.entries.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Start listening").font(Theme.bodyStrong)
+                        Text("Choose music from your library to get started.").font(Theme.small).foregroundStyle(Theme.soft)
+                    }
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(found.entries.enumerated()), id: \.element.id) { index, entry in
+                        HStack(spacing: 0) {
+                            Button { play(found.entries, at: index, from: entry) } label: {
+                                LibraryRow(track: entry.track, isCurrent: model.player?.current?.id == entry.track.id)
+                            }
+                            .buttonStyle(.plain)
+                            Menu { TrackMenu(track: entry.track) } label: {
+                                Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+                            }
+                            .accessibilityLabel("More actions for \(entry.track.title)")
+                        }
+                    }
+                }
+                .padding(.leading, -6)
+                .padding(.trailing, -8)
+            } else if failed {
+                HStack(spacing: 8) {
+                    Text("History didn't load.").foregroundStyle(Theme.soft)
+                    TextAction(title: "Try again") { Task { await load() } }
+                }
+                .font(Theme.small)
+            } else {
+                ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+            }
+        }
+        .task { await load() }
+    }
+
+    private func play(_ entries: [ListeningHistory.Entry], at index: Int, from entry: ListeningHistory.Entry) {
+        model.player?.play(entries.map(\.track), at: index, from: "Listening history", startingAt: Double(entry.positionMs) / 1000)
+    }
+
+    private func load() async {
+        guard let api = model.api else { return }
+        do {
+            found = try await ListeningHistory(api: api).load()
+            failed = false
+        } catch {
+            failed = found == nil
         }
     }
 }
