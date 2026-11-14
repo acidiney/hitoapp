@@ -43,7 +43,7 @@ import Testing
         #expect(fake.requests.first?.body == bytes)
         #expect(fake.requests.first?.header("content-type") == "application/octet-stream")
         #expect(fake.requests.first?.header("x-hito-request") == "1")
-        #expect(Profile.photoPath(of: user) == ["api", "v1", "accounts", "u1", "avatar"])
+        #expect(Profile.photoPath(account: user.id) == ["api", "v1", "accounts", "u1", "avatar"])
     }
 
     @Test func aPhotoThatIsTooBigOrNotAPictureSaysSo() async throws {

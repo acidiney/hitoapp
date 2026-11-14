@@ -60,7 +60,9 @@ struct Cover: View {
 
 struct AccountPicture: View {
     @Environment(AppModel.self) private var model
-    let user: User
+    let id: String
+    let name: String
+    let version: String?
     var size: CGFloat = 44
     var fill = Theme.avatar
     var font = Theme.bodyBold
@@ -72,19 +74,25 @@ struct AccountPicture: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Text(String((user.displayName ?? user.username).prefix(1)).uppercased()).font(font)
+                Text(String(name.prefix(1)).uppercased()).font(font)
             }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
         .accessibilityHidden(true)
-        .task(id: user.avatarVersion) {
-            guard let version = user.avatarVersion, let api = model.api else {
+        .task(id: version) {
+            guard let version, let api = model.api else {
                 image = nil
                 return
             }
-            image = await ArtworkCache.shared.image(api.request(Profile.photoPath(of: user), query: [URLQueryItem(name: "v", value: version)]))
+            image = await ArtworkCache.shared.image(api.request(Profile.photoPath(account: id), query: [URLQueryItem(name: "v", value: version)]))
         }
+    }
+}
+
+extension AccountPicture {
+    init(user: User, size: CGFloat = 44, fill: Color = Theme.avatar, font: Font = Theme.bodyBold) {
+        self.init(id: user.id, name: user.displayName ?? user.username, version: user.avatarVersion, size: size, fill: fill, font: font)
     }
 }
 

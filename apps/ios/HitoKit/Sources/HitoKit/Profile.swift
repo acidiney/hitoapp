@@ -59,8 +59,8 @@ public struct Profile: Sendable {
         }
     }
 
-    public static func photoPath(of user: User) -> [String] {
-        ["api", "v1", "accounts", user.id, "avatar"]
+    public static func photoPath(account id: String) -> [String] {
+        ["api", "v1", "accounts", id, "avatar"]
     }
 
     public func setPhoto(_ bytes: Data) async throws -> User {

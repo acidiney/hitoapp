@@ -11,9 +11,10 @@ import Testing
 
     @Test func accountsSayWhoTheyAreAndWhenTheyWereActive() async throws {
         let now = Date(timeIntervalSince1970: 10_000)
-        let fake = FakeServer(routes: ["GET /api/v1/users": .json(200, #"[{"id":"u1","username":"admin","display_name":"Ada","admin":true,"last_active_at":9820},{"id":"u2","username":"guest","display_name":null,"admin":false,"last_active_at":null}]"#)])
+        let fake = FakeServer(routes: ["GET /api/v1/users": .json(200, #"[{"id":"u1","username":"admin","display_name":"Ada","admin":true,"last_active_at":9820,"avatar_version":"p3"},{"id":"u2","username":"guest","display_name":null,"admin":false,"last_active_at":null}]"#)])
         let accounts = try await admin(fake).accounts()
         #expect(accounts.map(\.name) == ["Ada", "guest"])
+        #expect(accounts.map(\.avatarVersion) == ["p3", nil])
         #expect(accounts.map { $0.hint(now: now) } == ["admin · Administrator · active 3 minutes ago", "Member · no open sessions"])
     }
 

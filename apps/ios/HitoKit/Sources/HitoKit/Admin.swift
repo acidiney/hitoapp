@@ -6,6 +6,7 @@ public struct ServerAccount: Equatable, Identifiable, Sendable {
     public let displayName: String?
     public let admin: Bool
     public let lastActive: Date?
+    public var avatarVersion: String? = nil
 
     public var name: String { displayName ?? username }
 
@@ -66,11 +67,13 @@ public struct Admin: Sendable {
         let displayName: String?
         let admin: Bool
         let lastActiveAt: Int?
+        let avatarVersion: String?
 
         enum CodingKeys: String, CodingKey {
             case id, username, admin
             case displayName = "display_name"
             case lastActiveAt = "last_active_at"
+            case avatarVersion = "avatar_version"
         }
     }
 
@@ -155,7 +158,7 @@ public struct Admin: Sendable {
 
     public func accounts() async throws -> [ServerAccount] {
         try await api.get(["api", "v1", "users"], as: [Account].self).map {
-            ServerAccount(id: $0.id, username: $0.username, displayName: $0.displayName, admin: $0.admin, lastActive: $0.lastActiveAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
+            ServerAccount(id: $0.id, username: $0.username, displayName: $0.displayName, admin: $0.admin, lastActive: $0.lastActiveAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }, avatarVersion: $0.avatarVersion)
         }
     }
 

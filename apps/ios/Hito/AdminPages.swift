@@ -326,11 +326,7 @@ struct AccountsSettingsView: View {
                 if let accounts {
                     ForEach(accounts) { account in
                         HStack(spacing: 14) {
-                            Text(String(account.name.prefix(1)).uppercased())
-                                .font(Theme.bodyStrong)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(Theme.tile))
-                                .accessibilityHidden(true)
+                            AccountPicture(id: account.id, name: account.name, version: account.avatarVersion, fill: Theme.tile, font: Theme.bodyStrong)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(account.name).font(Theme.bodyMedium)
                                 Text(account.hint()).font(Theme.small).foregroundStyle(Theme.quiet).fixedSize(horizontal: false, vertical: true)
