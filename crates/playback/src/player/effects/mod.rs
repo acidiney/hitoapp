@@ -47,6 +47,7 @@ pub(super) struct Update {
     pub playing: bool,
     pub speed: u16,
     pub speed_support: Option<super::PlayerSpeedSupport>,
+    pub retrying: Option<super::PlayerRetry>,
     pub source_id: Option<String>,
     pub position: Duration,
     pub duration_ms: Option<u64>,

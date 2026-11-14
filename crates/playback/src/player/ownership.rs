@@ -256,6 +256,20 @@ impl State {
                 if matches!(command.action, PlayerAction::Pause {}) {
                     owned.desired_playing = false;
                 }
+                if matches!(
+                    command.action,
+                    PlayerAction::Pause {}
+                        | PlayerAction::Next {}
+                        | PlayerAction::Previous {}
+                        | PlayerAction::Select { .. }
+                        | PlayerAction::Replace { .. }
+                        | PlayerAction::ReplaceEntries { .. }
+                        | PlayerAction::Clear {}
+                        | PlayerAction::Resume {}
+                        | PlayerAction::ResumeSaved {}
+                ) {
+                    owned.retrying = None;
+                }
                 if let PlayerAction::Volume { level } = command.action {
                     owned.volume = level;
                 }
@@ -418,6 +432,7 @@ impl State {
             }
         }
         owned.phase = update.phase;
+        owned.retrying = update.retrying;
         owned.playing = update.playing;
         owned.source_id = update.source_id;
         owned.error = update.error;
@@ -550,6 +565,7 @@ mod tests {
                 playing: true,
                 speed: applied,
                 speed_support: Some(support),
+                retrying: None,
                 source_id: Some("source".into()),
                 position: Duration::ZERO,
                 duration_ms: Some(10_000),

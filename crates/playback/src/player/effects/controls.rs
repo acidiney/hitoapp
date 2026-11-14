@@ -185,6 +185,7 @@ impl Controls {
             speed_support: snapshot
                 .format
                 .map(|format| support(format.speed_capability())),
+            retrying: None,
             source_id,
             position: snapshot.position,
             duration_ms: snapshot
@@ -215,6 +216,7 @@ impl Controls {
             playing: false,
             speed: self.applied_speed.unwrap_or(1000),
             speed_support: self.support,
+            retrying: None,
             source_id,
             position: self.resume_at,
             duration_ms: self

@@ -28,6 +28,7 @@ pub(super) struct Owned {
     pub(super) speed: u16,
     pub(super) effective_speed: u16,
     pub(super) speed_support: Option<super::PlayerSpeedSupport>,
+    pub(super) retrying: Option<super::PlayerRetry>,
     pub(super) source_id: Option<String>,
     pub(super) phase: PlayerPhase,
     pub(super) error: Option<PlayerError>,
@@ -58,6 +59,7 @@ impl Owned {
             speed: 1000,
             effective_speed: 1000,
             speed_support: None,
+            retrying: None,
             source_id: None,
             phase: PlayerPhase::Idle,
             error: None,
@@ -76,6 +78,7 @@ impl Owned {
             speed: self.speed,
             effective_speed: self.effective_speed,
             speed_support: self.speed_support,
+            retrying: self.retrying,
             source_id: self.source_id.clone(),
             phase: self.phase,
             error: self.error,
@@ -100,6 +103,7 @@ impl Owned {
             return;
         }
         self.authority_available = available;
+        self.retrying = None;
         self.playing = false;
         self.source_id = None;
         self.phase = if !available {
@@ -151,6 +155,7 @@ impl Owned {
         self.speed_support = None;
         self.effective_speed = self.speed;
         self.error = None;
+        self.retrying = None;
         self.saved = None;
         self.seek = None;
         self.applied_seek = None;

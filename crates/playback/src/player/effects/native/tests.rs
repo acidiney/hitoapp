@@ -349,6 +349,7 @@ async fn unavailable_finalization_suspends_authority_without_exhausting_or_advan
     let library = hang_guard("owned unavailable finalizer fixture", AudioLibrary::start()).await;
     let recording = uuid::Uuid::parse_str(&library.source.recording_id).unwrap();
     let mut owned = crate::player::attachment::Owned::new(library.actor.clone());
+    owned.retrying = Some(crate::PlayerRetry { attempt: 2, of: 3 });
     owned
         .queue
         .apply(crate::PlayerAction::Replace {
@@ -398,6 +399,7 @@ async fn unavailable_finalization_suspends_authority_without_exhausting_or_advan
     let published = publication.borrow_and_update().clone();
     assert_eq!(published.phase, PlayerPhase::Suspended);
     assert_eq!(published.error, Some(PlayerError::Unavailable));
+    assert!(published.retrying.is_none());
     assert!(!published.playing);
     assert!(published.last_failure.is_none());
     assert_eq!(published.selection, key.selection);
