@@ -1,22 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { openPlaylistImport } from "./playlist-dialogs";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
-import { reviewPluginInstallation } from "./plugin-installation-review";
-import {
-  openPreferences,
-  preferencesAction,
-  seedPreferencesLibrary,
-  preferencesLibraryState,
-  savePreferences,
-} from "./metadata-preferences-state";
+import { preferencesLibraryState } from "./metadata-preferences-state";
+import { prepareLegacyOutageSetup } from "./providerOutageLegacySetup";
 import {
   artistReviewOriginals,
   artistReviewDownloadAbsence,
 } from "./artist-review-state";
 import type { OutageProvider, OutageTrack } from "./providerOutageProvider";
-import { openLibrarySection } from "./library-sections";
 
 export type OutageSetupPhase =
   | "administrator"
@@ -50,11 +42,6 @@ const resolutionOutcomes = new Set<Schema<"SourceResolutionOutcome">>([
   "protected_choice",
   "cancelled",
 ]);
-const importPhases = {
-  retry: "import_retry",
-  queue: "import_queue",
-  preserved: "import_preserved",
-} as const satisfies Record<string, OutageSetupPhase>;
 
 export function outageReader(page: Page) {
   let count = 0;
@@ -123,122 +110,13 @@ export async function prepareOutageLibrary(
       ready_sources_count: result.sources.filter((source) => source.ready)
         .length,
     });
-  checkpoint("administrator");
-  await page.goto("/");
-  await page.getByLabel("Username", { exact: true }).fill("admin");
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Your library", exact: true }),
-  ).toBeVisible();
-  const user = await read<Schema<"User">>("/api/v1/me");
-  checkpoint("preferences");
-  const settings = await read<Schema<"MetadataSettings">>(
-    "/api/v1/metadata/settings",
-  );
-  const preferences = await openPreferences(page);
-  await preferences
-    .getByRole("switch", { name: "Use metadata providers", exact: true })
-    .uncheck();
-  await savePreferences(page, { ...settings, enabled: false });
-  checkpoint("local_library");
-  const local = await seedPreferencesLibrary(page, read, user);
-  checkpoint("plugin_offer");
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Plugins", exact: true })
-    .click();
-  await page.getByRole("button", { name: /^This server/ }).click();
-  await page
-    .getByLabel("Service address", { exact: true })
-    .fill(provider.address);
-  const offered = await preferencesAction<Schema<"PluginService">>(
+  const { user, local, connection, copies } = await prepareLegacyOutageSetup(
     page,
-    page.getByRole("button", { name: "Offer service", exact: true }),
-    "POST",
-    "/api/v1/plugins/services",
-    201,
+    read,
+    provider,
+    password,
+    checkpoint,
   );
-  if (
-    !offered.body ||
-    !isDeepStrictEqual(offered.sent, { base_url: provider.address }) ||
-    offered.body.name !== provider.manifest.name
-  )
-    throw new Error("Owned provider declaration mismatch");
-  checkpoint("plugin_review");
-  await page.getByRole("button", { name: "Your plugins", exact: true }).click();
-  await page
-    .getByRole("button", { name: `Connect ${offered.body.name}`, exact: true })
-    .click();
-  await page
-    .getByLabel("Bearer token (optional)", { exact: true })
-    .fill(provider.token);
-  const preview = await reviewPluginInstallation(
-    page,
-    offered.body,
-    provider.manifest.name,
-  );
-  checkpoint("plugin_connect");
-  const accepted = await preferencesAction<Schema<"PluginInstallation">>(
-    page,
-    page.getByRole("button", { name: "Accept and connect", exact: true }),
-    "POST",
-    "/api/v1/plugins",
-    201,
-  );
-  if (
-    !accepted.body ||
-    !accepted.body.credential_set ||
-    !isDeepStrictEqual(accepted.body.manifest, provider.manifest) ||
-    !isDeepStrictEqual(accepted.sent, {
-      ...preview.sent,
-      accept_manifest_digest: preview.body.digest,
-    })
-  )
-    throw new Error("Owned provider approval mismatch");
-  const connection = accepted.body;
-  const copies: Record<string, Schema<"PlaylistDetail">> = {};
-  for (const key of ["retry", "queue", "preserved"] as const) {
-    checkpoint(importPhases[key]);
-    await openLibrarySection(page, "Playlists");
-    await openPlaylistImport(page);
-    const form = page.getByRole("region", {
-      name: "Import a playlist",
-      exact: true,
-    });
-    await form
-      .getByRole("combobox", { name: "Playlist service", exact: true })
-      .selectOption(connection.id);
-    await form
-      .getByRole("textbox", {
-        name: "Playlist link or identifier",
-        exact: true,
-      })
-      .fill(key);
-    const imported = await preferencesAction<Schema<"PlaylistImportReceipt">>(
-      page,
-      form.getByRole("button", { name: "Import a copy", exact: true }),
-      "POST",
-      `/api/v1/plugins/${connection.id}/playlists/import`,
-      200,
-    );
-    if (!imported.body) throw new Error("Owned playlist import missing");
-    const sent = imported.sent as Schema<"ImportProviderPlaylist">;
-    expect(
-      sent.playlist_reference === key &&
-        sent.installation_revision === connection.revision &&
-        sent.request_id === imported.body.request_id,
-    ).toBe(true);
-    await page.waitForURL(
-      new RegExp(`/playlists/${imported.body.playlist_id}$`),
-    );
-    copies[key] = await read<Schema<"PlaylistDetail">>(
-      `/api/v1/playlists/${imported.body.playlist_id}`,
-    );
-    expect(copies[key].entries.every((entry) => !entry.available)).toBe(true);
-  }
   checkpoint("imported_identities");
   const ids = Object.fromEntries(
     (Object.keys(provider.recordings) as OutageTrack[]).map((key) => {
