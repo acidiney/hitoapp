@@ -115,6 +115,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(podcasts::refresh))
         .routes(routes!(podcasts::unsubscribe))
         .routes(routes!(catalog::libraries))
+        .routes(routes!(api::home::home))
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
