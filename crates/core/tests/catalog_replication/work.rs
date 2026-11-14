@@ -244,7 +244,13 @@ async fn stale_statistics_do_not_multiply_work_by_release_and_file_counts() {
             .catalog_replication
             .begin(&actor, &library)
             .await
-            .unwrap();
+            .unwrap_or_else(|error| {
+                panic!(
+                    "100k snapshot construction failed with {statistics} statistics after {:?} and {} VM steps: {error:?}",
+                    started.elapsed(),
+                    steps.load(Ordering::Relaxed)
+                )
+            });
         let work = steps.load(Ordering::Relaxed);
         assert_eq!(snapshot.recording_count, rows);
         eprintln!("stale_distinct_releases_and_files={rows} sqlite_vm_steps~{work}");
