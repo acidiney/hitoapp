@@ -67,6 +67,21 @@ import Testing
         queue.start([track("a"), silent, track("c")], at: 0, from: "Fixture Album")
         #expect(queue.upNext.map(\.id) == ["b", "c"])
     }
+
+    @Test func theFollowingTrackIsWhatPlaysNextWithoutMovingTheQueue() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.following?.id == "d")
+        queue.playNext(track("x"))
+        #expect(queue.following?.id == "x")
+        #expect(queue.current?.id == "c")
+        queue.clearUpcoming()
+        #expect(queue.following == nil)
+        queue.repeatMode = .list
+        #expect(queue.following?.id == "a")
+        queue.repeatMode = .track
+        #expect(queue.following?.id == "c")
+    }
 }
 
 @Suite struct PlayQueueOrderTests {

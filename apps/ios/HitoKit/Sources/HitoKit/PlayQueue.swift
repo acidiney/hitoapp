@@ -25,6 +25,13 @@ public struct PlayQueue: Equatable, Sendable {
         return Array(list[(position + 1)...])
     }
 
+    public var following: Track? {
+        if repeatMode == .track { return current }
+        if let first = queued.first { return first }
+        if position + 1 < list.count { return list[position + 1] }
+        return repeatMode == .list ? list.first : nil
+    }
+
     public var hasNext: Bool { !queued.isEmpty || !upNext.isEmpty || (repeatMode == .list && !list.isEmpty) }
 
     public mutating func start(_ tracks: [Track], at index: Int, from context: String) {

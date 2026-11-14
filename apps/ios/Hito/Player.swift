@@ -42,6 +42,9 @@ final class Player {
     private var observers: [NSObjectProtocol] = []
     private var itemStatus: NSKeyValueObservation?
     private var artworkTask: Task<Void, Never>?
+    private var warm: (trackId: String, audio: AudioRequest)?
+    private var warming: Task<Void, Never>?
+    private static let warmLead: Double = 30
 
     init(api: HitoAPI) {
         self.api = api
@@ -220,6 +223,7 @@ final class Player {
 
     func stop() {
         loading?.cancel()
+        dropWarm()
         engine.replaceCurrentItem(with: nil)
         releaseLease()
         state = .idle
@@ -242,6 +246,13 @@ final class Player {
     }
 
     private func start(_ track: Track) {
+        if let warm, warm.trackId == track.id, tried.isEmpty {
+            self.warm = nil
+            log.info("player.prewarm_used")
+            startWarm(track, audio: warm.audio)
+            return
+        }
+        dropWarm()
         releaseLease()
         state = .loading
         position = 0
@@ -267,6 +278,40 @@ final class Player {
                 self.log.info("player.no_source")
                 self.skip(track, because: self.tried.isEmpty ? "\(track.title) has no source that plays right now." : "\(track.title) didn't play from any source.")
             }
+        }
+    }
+
+    private func startWarm(_ track: Track, audio: AudioRequest) {
+        position = 0
+        duration = Double(track.durationMs) / 1000
+        listed = duration
+        loadArtwork(for: track)
+        attach(audio)
+    }
+
+    private func dropWarm() {
+        warming?.cancel()
+        warming = nil
+        guard let warm else { return }
+        self.warm = nil
+        Task { [playback] in await playback.release(warm.audio.leaseId) }
+    }
+
+    private func prewarm(remaining: Double) {
+        if let warm, warm.trackId != queue.following?.id { dropWarm() }
+        guard state == .playing, remaining <= Self.warmLead, warming == nil, warm == nil,
+              let next = queue.following, next.id != queue.current?.id else { return }
+        warming = Task { [weak self, playback] in
+            let audio = try? await playback.acquire(next.id)
+            guard let self else { return }
+            self.warming = nil
+            guard let audio else { return }
+            guard !Task.isCancelled, self.queue.following?.id == next.id else {
+                await playback.release(audio.leaseId)
+                return
+            }
+            self.warm = (next.id, audio)
+            self.log.info("player.prewarmed")
         }
     }
 
@@ -342,6 +387,7 @@ final class Player {
         position = seconds
         guard let stream = engine.currentItem?.duration.seconds, stream.isFinite, stream > 0 else { return }
         duration = PlaybackClock.length(stream: stream, listed: listed)
+        prewarm(remaining: duration - seconds)
         if state == .playing, PlaybackClock.pastTheEnd(at: seconds, length: duration, stream: stream) {
             log.info("player.ended_at_real_length")
             ended(currentIdentity)
