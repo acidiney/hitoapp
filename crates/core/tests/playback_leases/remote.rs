@@ -2,85 +2,145 @@ use super::fixture::content;
 use axum::http::StatusCode;
 use hito_core::{
     AudioRequest, BeginPlaybackLease, ByteRange, Error, OpenedAudio,
-    test_support::{hang_guard::hang_guard, provider_audio::{AudioLibrary, headers}},
+    test_support::{
+        hang_guard::hang_guard,
+        provider_audio::{AudioLibrary, headers},
+    },
 };
 use std::time::Duration;
 
 #[tokio::test]
-async fn provider_lease_reads_a_prefix_before_playback_and_reuses_its_response() {
+async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
     let prefix_size = 128;
-    let (f, held_tail, requests_before_lease) = hang_guard(
-        "owned provider audio setup",
-        async {
-            let f = AudioLibrary::start().await;
-            f.ready().await;
-            let held_tail = f.server.hold_audio_tail(prefix_size);
-            let requests_before_lease = f.server.requests("v1/audio").await.len();
-            (f, held_tail, requests_before_lease)
-        },
-    )
+    let (f, held_tail, requests_before_lease) = hang_guard("owned provider audio setup", async {
+        let f = AudioLibrary::start().await;
+        f.ready().await;
+        let held_tail = f.server.hold_audio_tail(prefix_size);
+        let requests_before_lease = f.server.requests("v1/audio").await.len();
+        (f, held_tail, requests_before_lease)
+    })
     .await;
-    let lease = f
-        .hito
-        .playback
-        .begin_lease(
+
+    let mut lease_created = false;
+    let mut upstream_started_before_playback = false;
+    let mut prefix_was_available_while_tail_held = false;
+    let mut playback_completed = false;
+    let mut playback_bytes = Vec::new();
+
+    match tokio::time::timeout(
+        Duration::from_secs(5),
+        f.hito.playback.begin_lease(
             &f.actor,
             BeginPlaybackLease {
                 recording_id: f.source.recording_id.clone(),
                 source_id: f.source.id.clone(),
             },
-        )
-        .await;
+        ),
+    )
+    .await
+    {
+        Ok(Ok(lease)) => {
+            lease_created = true;
+            upstream_started_before_playback =
+                tokio::time::timeout(Duration::from_secs(2), held_tail.entered())
+                    .await
+                    .is_ok();
 
-    let warm_started = if let Ok(lease) = &lease {
-        tokio::time::timeout(Duration::from_secs(2), held_tail.entered())
+            match tokio::time::timeout(
+                Duration::from_secs(5),
+                f.hito
+                    .playback
+                    .open_lease_audio(&f.actor, lease.id, AudioRequest::default()),
+            )
             .await
-            .is_ok()
-    } else {
-        false
-    };
-    held_tail.release();
-
-    let playback = if let Ok(lease) = &lease {
-        f.hito
-            .playback
-            .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
-            .await
-    } else {
-        Err(Error::NotFound)
-    };
-    let audio_bytes: Result<Vec<u8>, Error> = async {
-        let OpenedAudio::Content(mut audio) = playback? else {
-            return Err(Error::NotFound);
-        };
-        let mut body = audio.body.take().ok_or(Error::NotFound)?;
-        let mut bytes = Vec::new();
-        while let Some(chunk) = body.chunk().await? {
-            bytes.extend_from_slice(&chunk);
+            {
+                Ok(Ok(OpenedAudio::Content(mut audio))) => {
+                    if let Some(mut body) = audio.body.take() {
+                        if let Ok(Ok(Some(prefix))) =
+                            tokio::time::timeout(Duration::from_secs(5), body.chunk()).await
+                        {
+                            prefix_was_available_while_tail_held = prefix.as_ref()
+                                == &f.original[..prefix_size]
+                                && !held_tail.released();
+                            playback_bytes.extend_from_slice(&prefix);
+                            held_tail.release();
+                            match tokio::time::timeout(Duration::from_secs(5), async {
+                                let mut remaining = Vec::new();
+                                while let Some(chunk) = body.chunk().await? {
+                                    remaining.extend_from_slice(&chunk);
+                                }
+                                Ok::<_, Error>(remaining)
+                            })
+                            .await
+                            {
+                                Ok(Ok(remaining)) => {
+                                    playback_bytes.extend_from_slice(&remaining);
+                                    playback_completed = true;
+                                }
+                                Ok(Err(_)) | Err(_) => {}
+                            }
+                        }
+                    }
+                }
+                Ok(Ok(OpenedAudio::Unsatisfiable { .. })) | Ok(Err(_)) | Err(_) => {}
+            }
         }
-        Ok(bytes)
+        Ok(Err(_)) | Err(_) => {}
     }
-    .await;
-    let request_count = f.server.requests("v1/audio").await.len();
-    let download_status = f
-        .hito
-        .downloads
-        .status(&f.actor, &f.source.recording_id)
-        .await;
+
+    held_tail.release();
+    let request_count = tokio::time::timeout(Duration::from_secs(2), f.server.requests("v1/audio"))
+        .await
+        .ok()
+        .map(|requests| requests.len());
+    let download_status = tokio::time::timeout(
+        Duration::from_secs(2),
+        f.hito.downloads.status(&f.actor, &f.source.recording_id),
+    )
+    .await
+    .ok();
     let source_bytes = std::fs::read(&f.music.join("original.wav"));
-    f.hito.playback.close().await.unwrap();
-    f.hito.replicas.close().await.unwrap();
-    f.hito.catalog_replication.close().await.unwrap();
-    f.server.shutdown().await;
+
+    let playback_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.playback.close()).await,
+        Ok(Ok(()))
+    );
+    let replicas_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.replicas.close()).await,
+        Ok(Ok(()))
+    );
+    let replication_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.catalog_replication.close()).await,
+        Ok(Ok(()))
+    );
+    let server_closed = tokio::time::timeout(Duration::from_secs(5), f.server.shutdown())
+        .await
+        .is_ok();
 
     assert!(
-        warm_started,
-        "beginning an authorized provider lease must read its bounded audio prefix"
+        playback_closed && replicas_closed && replication_closed && server_closed,
+        "owned provider audio services must close within their teardown deadlines"
     );
-    assert_eq!(audio_bytes.unwrap(), f.original);
-    assert_eq!(request_count, requests_before_lease + 1);
-    assert!(matches!(download_status, Err(Error::NotFound)));
+    assert!(
+        lease_created,
+        "the authorized provider lease must be created"
+    );
+    assert!(
+        prefix_was_available_while_tail_held,
+        "the lease must deliver its retained prefix before the upstream tail is released"
+    );
+    assert!(
+        playback_completed,
+        "the retained response tail must drain after release"
+    );
+    assert_eq!(playback_bytes, f.original);
+    assert_eq!(request_count, Some(requests_before_lease + 1));
+    assert!(matches!(download_status, Some(Err(Error::NotFound))));
     assert_eq!(source_bytes.unwrap(), f.original);
+    assert!(
+        upstream_started_before_playback,
+        "an authorized lease must read an upstream prefix before playback opens"
+    );
 }
 
 #[tokio::test]
