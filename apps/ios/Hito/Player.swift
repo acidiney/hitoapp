@@ -28,6 +28,9 @@ final class Player {
     private(set) var retrying: RetryPasses.Pass?
     private var passes = RetryPasses()
     private let memory: QueueMemory
+    private let listening: ListeningProgress
+    private var heardId: String?
+    private var checkpoint = ProgressCheckpoint()
     private var resumeAt: Double?
     private var remembered: Double = 0
 
@@ -56,6 +59,7 @@ final class Player {
         memory = QueueMemory(account: account)
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
+        listening = ListeningProgress(api: api, device: Self.device)
         if let left = UserDefaults.standard.string(forKey: Self.leaseKey) {
             UserDefaults.standard.removeObject(forKey: Self.leaseKey)
             log.info("player.leftover_lease_released")
@@ -95,6 +99,21 @@ final class Player {
         log.info("player.queue_restored")
     }
 
+    private func settle() {
+        guard let id = heardId, let at = checkpoint.settle(position) else { return }
+        report(id, at)
+    }
+
+    private func report(_ id: String, _ position: Double) {
+        Task { [listening, log] in
+            do {
+                try await listening.save(id, position: position, speed: 1)
+            } catch {
+                log.info("player.progress_failed")
+            }
+        }
+    }
+
     private func remember() {
         guard let current = queue.current else { return memory.forget() }
         var ids = queue.list.prefix(queue.position + 1).map(\.id)
@@ -118,6 +137,7 @@ final class Player {
         case .playing:
             engine.pause()
             state = .paused
+            settle()
         case .paused:
             activate()
             engine.play()
@@ -259,6 +279,7 @@ final class Player {
     }
 
     func stop() {
+        settle()
         loading?.cancel()
         dropWarm()
         engine.replaceCurrentItem(with: nil)
@@ -269,6 +290,7 @@ final class Player {
     }
 
     private func load(_ track: Track?) {
+        settle()
         defer { remember() }
         loading?.cancel()
         tried = []
@@ -361,6 +383,10 @@ final class Player {
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
         releaseLease()
         retrying = nil
+        if heardId != audio.recordingId {
+            heardId = audio.recordingId
+            checkpoint = ProgressCheckpoint()
+        }
         leaseId = audio.leaseId
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
@@ -441,6 +467,7 @@ final class Player {
     private func interrupted(ended: Bool, resume: Bool) {
         if !ended, state == .playing {
             state = .paused
+            settle()
         } else if ended, resume, state == .paused {
             engine.play()
             state = .playing
@@ -455,6 +482,7 @@ final class Player {
         duration = PlaybackClock.length(stream: stream, listed: listed)
         prewarm(remaining: duration - seconds)
         if abs(seconds - remembered) >= 5 { remember() }
+        if state == .playing, let id = heardId, let at = checkpoint.observe(seconds) { report(id, at) }
         if state == .playing, PlaybackClock.pastTheEnd(at: seconds, length: duration, stream: stream) {
             log.info("player.ended_at_real_length")
             ended(currentIdentity)
