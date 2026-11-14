@@ -4,6 +4,8 @@ use super::{
 };
 use crate::{Actor, HostDeviceId, Result, catalog::push_source_choice};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
+#[cfg(test)]
+use std::time::Instant;
 use uuid::Uuid;
 
 pub(super) const MAX_RECORDINGS: usize = 100_000;
@@ -47,6 +49,153 @@ pub(super) struct Materialized {
     pub bytes: usize,
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy)]
+pub(super) enum Phase {
+    CatalogPreflight,
+    RecordingPreflight,
+    RecordingBatchQuery,
+    SourcePreflightQuery,
+    SourceFactsQuery,
+    SourceFactAssembly,
+    RecordingFactAssembly,
+    FinalPageEncoding,
+}
+
+#[cfg(test)]
+impl Phase {
+    fn code(self) -> usize {
+        match self {
+            Self::CatalogPreflight => 0,
+            Self::RecordingPreflight => 1,
+            Self::RecordingBatchQuery => 2,
+            Self::SourcePreflightQuery => 3,
+            Self::SourceFactsQuery => 4,
+            Self::SourceFactAssembly => 5,
+            Self::RecordingFactAssembly => 6,
+            Self::FinalPageEncoding => 7,
+        }
+    }
+}
+
+#[cfg(test)]
+pub(super) struct MaterializationDiagnostic {
+    phase_us: [u64; 8],
+    phase_calls: [u64; 8],
+    active: Option<(Phase, Instant)>,
+    outcome: u64,
+    recordings: u64,
+    batches: u64,
+    source_rows: u64,
+    source_facts: u64,
+    pages: u64,
+    bytes: u64,
+}
+
+#[cfg(test)]
+impl MaterializationDiagnostic {
+    pub(super) fn new() -> Self {
+        Self {
+            phase_us: [0; 8],
+            phase_calls: [0; 8],
+            active: None,
+            outcome: 0,
+            recordings: 0,
+            batches: 0,
+            source_rows: 0,
+            source_facts: 0,
+            pages: 0,
+            bytes: 0,
+        }
+    }
+
+    pub(super) fn start(&mut self, phase: Phase) {
+        self.active = Some((phase, Instant::now()));
+    }
+
+    pub(super) fn end(&mut self) {
+        if let Some((phase, started)) = self.active.take() {
+            let index = phase.code();
+            self.phase_us[index] = self.phase_us[index].saturating_add(elapsed_us(started));
+            self.phase_calls[index] = self.phase_calls[index].saturating_add(1);
+        }
+    }
+
+    pub(super) fn finish<T>(&mut self, result: &Result<T>) {
+        self.outcome = if result.is_ok() { 1 } else { 2 };
+    }
+
+    pub(super) fn recording_batch_finished(&mut self) {
+        self.batches = self.batches.saturating_add(1);
+    }
+
+    pub(super) fn recording_finished(&mut self) {
+        self.recordings = self.recordings.saturating_add(1);
+    }
+
+    pub(super) fn source_rows(&mut self, count: usize) {
+        self.source_rows = self.source_rows.saturating_add(count as u64);
+    }
+
+    pub(super) fn source_facts(&mut self, count: usize) {
+        self.source_facts = self.source_facts.saturating_add(count as u64);
+    }
+
+    pub(super) fn page_finished(&mut self, bytes: usize) {
+        self.pages = self.pages.saturating_add(1);
+        self.bytes = self.bytes.saturating_add(bytes as u64);
+    }
+
+    pub(super) fn encoded_bytes(&self) -> u64 {
+        self.bytes
+    }
+}
+
+#[cfg(test)]
+impl Drop for MaterializationDiagnostic {
+    fn drop(&mut self) {
+        let (active_phase, active_us) = self.active.map_or((0, 0), |(phase, started)| {
+            (phase.code() as u64 + 1, elapsed_us(started))
+        });
+        tracing::trace!(
+            target: "hito_core::catalog_snapshot_stage_test",
+            stage = "materialization_summary",
+            outcome_code = self.outcome,
+            completed = self.outcome == 1,
+            active_phase,
+            active_partial_us = active_us,
+            completed_batches = self.batches,
+            completed_recordings = self.recordings,
+            fetched_source_rows = self.source_rows,
+            assembled_source_facts = self.source_facts,
+            completed_pages = self.pages,
+            encoded_bytes = self.bytes,
+            catalog_preflight_us = self.phase_us[0],
+            catalog_preflight_calls = self.phase_calls[0],
+            recording_preflight_us = self.phase_us[1],
+            recording_preflight_calls = self.phase_calls[1],
+            recording_batch_query_us = self.phase_us[2],
+            recording_batch_query_calls = self.phase_calls[2],
+            source_preflight_query_us = self.phase_us[3],
+            source_preflight_query_calls = self.phase_calls[3],
+            source_facts_query_us = self.phase_us[4],
+            source_facts_query_calls = self.phase_calls[4],
+            source_fact_assembly_us = self.phase_us[5],
+            source_fact_assembly_calls = self.phase_calls[5],
+            recording_fact_assembly_us = self.phase_us[6],
+            recording_fact_assembly_calls = self.phase_calls[6],
+            final_page_encoding_us = self.phase_us[7],
+            final_page_encoding_calls = self.phase_calls[7],
+            "Catalog materialization diagnostic"
+        );
+    }
+}
+
+#[cfg(test)]
+fn elapsed_us(started: Instant) -> u64 {
+    started.elapsed().as_micros().min(u128::from(u64::MAX)) as u64
+}
+
 pub(super) async fn collect(
     connection: &mut SqliteConnection,
     actor: &Actor,
@@ -55,13 +204,39 @@ pub(super) async fn collect(
     id: Uuid,
 ) -> Result<Materialized> {
     #[cfg(test)]
+    {
+        let mut diagnostic = MaterializationDiagnostic::new();
+        let result = collect_inner(connection, actor, host, library, id, &mut diagnostic).await;
+        diagnostic.finish(&result);
+        result
+    }
+    #[cfg(not(test))]
+    collect_inner(connection, actor, host, library, id).await
+}
+
+async fn collect_inner(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    host: &HostDeviceId,
+    library: &str,
+    id: Uuid,
+    #[cfg(test)] diagnostic: &mut MaterializationDiagnostic,
+) -> Result<Materialized> {
+    #[cfg(test)]
     tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "materialization_preflight");
-    let (now, watermark): (i64, i64) = sqlx::query_as(
+    #[cfg(test)]
+    diagnostic.start(Phase::CatalogPreflight);
+    let preflight_result = sqlx::query_as(
         "SELECT unixepoch(), COALESCE((SELECT max(sequence) FROM sync_events WHERE user_id=?),0)",
     )
     .bind(actor.id())
     .fetch_one(&mut *connection)
-    .await?;
+    .await;
+    #[cfg(test)]
+    diagnostic.end();
+    let (now, watermark): (i64, i64) = preflight_result?;
+    #[cfg(test)]
+    diagnostic.start(Phase::RecordingPreflight);
     let mut preflight = QueryBuilder::<Sqlite>::new("SELECT count(*),COALESCE(max(");
     preflight
         .push(RECORDING_BYTES)
@@ -69,10 +244,10 @@ pub(super) async fn collect(
         .push_bind(library.to_owned())
         .push(" AND ")
         .push(LOCAL_EVIDENCE);
-    let (count, size): (i64, i64) = preflight
-        .build_query_as()
-        .fetch_one(&mut *connection)
-        .await?;
+    let recording_preflight = preflight.build_query_as().fetch_one(&mut *connection).await;
+    #[cfg(test)]
+    diagnostic.end();
+    let (count, size): (i64, i64) = recording_preflight?;
     if count > MAX_RECORDINGS as i64 || size > (MAX_FACT_BYTES / 6) as i64 {
         return Err(limit());
     }
@@ -92,45 +267,80 @@ pub(super) async fn collect(
     let mut current_bytes = 0;
     let mut cursor: Option<(String, String)> = None;
     loop {
+        #[cfg(test)]
+        diagnostic.start(Phase::RecordingBatchQuery);
         let mut query = recordings_query(library, cursor.as_ref());
-        let rows: Vec<RecordingRow> = query.build_query_as().fetch_all(&mut *connection).await?;
+        let recording_batch = query.build_query_as().fetch_all(&mut *connection).await;
+        #[cfg(test)]
+        diagnostic.end();
+        let rows: Vec<RecordingRow> = recording_batch?;
         let Some(last) = rows.last() else {
             break;
         };
         cursor = Some((last.title.clone(), last.id.clone()));
-        let source_facts = sources(connection, actor, host, &rows).await?;
-        for (row, sources) in rows.into_iter().zip(source_facts) {
-            let fact = LocalRecordingFact {
-                id: row.id,
-                library_id: row.library_id,
-                title: row.title,
-                artist: row.artist,
-                duration_ms: row.duration_ms,
-                sources,
-            };
-            let encoded = serde_json::to_vec(&fact).map_err(|_| limit())?;
-            if encoded.len() > MAX_FACT_BYTES {
-                return Err(limit());
-            }
-            if !current.recordings.is_empty()
-                && (current.recordings.len() == MAX_PAGE_FACTS
-                    || current_bytes + encoded.len() + 512 > MAX_PAGE_BYTES)
-            {
-                current.next_ordinal = Some(current.ordinal + 1);
-                finish(&current, &mut pages, &mut bytes)?;
-                current_bytes = 0;
-                current = CatalogSnapshotPage {
-                    snapshot_id: id,
-                    ordinal: current.ordinal + 1,
-                    recordings: Vec::new(),
-                    next_ordinal: None,
+        let source_facts = sources(
+            connection,
+            actor,
+            host,
+            &rows,
+            #[cfg(test)]
+            diagnostic,
+        )
+        .await?;
+        #[cfg(test)]
+        diagnostic.start(Phase::RecordingFactAssembly);
+        let batch_result = (|| {
+            for (row, sources) in rows.into_iter().zip(source_facts) {
+                let fact = LocalRecordingFact {
+                    id: row.id,
+                    library_id: row.library_id,
+                    title: row.title,
+                    artist: row.artist,
+                    duration_ms: row.duration_ms,
+                    sources,
                 };
+                let encoded = serde_json::to_vec(&fact).map_err(|_| limit())?;
+                if encoded.len() > MAX_FACT_BYTES {
+                    return Err(limit());
+                }
+                if !current.recordings.is_empty()
+                    && (current.recordings.len() == MAX_PAGE_FACTS
+                        || current_bytes + encoded.len() + 512 > MAX_PAGE_BYTES)
+                {
+                    current.next_ordinal = Some(current.ordinal + 1);
+                    let previous_bytes = bytes;
+                    finish(&current, &mut pages, &mut bytes)?;
+                    #[cfg(test)]
+                    diagnostic.page_finished(bytes - previous_bytes);
+                    current_bytes = 0;
+                    current = CatalogSnapshotPage {
+                        snapshot_id: id,
+                        ordinal: current.ordinal + 1,
+                        recordings: Vec::new(),
+                        next_ordinal: None,
+                    };
+                }
+                current_bytes += encoded.len() + 1;
+                current.recordings.push(fact);
+                #[cfg(test)]
+                diagnostic.recording_finished();
             }
-            current_bytes += encoded.len() + 1;
-            current.recordings.push(fact);
-        }
+            Ok(())
+        })();
+        #[cfg(test)]
+        diagnostic.end();
+        batch_result?;
+        #[cfg(test)]
+        diagnostic.recording_batch_finished();
     }
-    finish(&current, &mut pages, &mut bytes)?;
+    #[cfg(test)]
+    diagnostic.start(Phase::FinalPageEncoding);
+    let final_page = finish(&current, &mut pages, &mut bytes);
+    #[cfg(test)]
+    diagnostic.end();
+    final_page?;
+    #[cfg(test)]
+    diagnostic.page_finished((bytes as u64).saturating_sub(diagnostic.encoded_bytes()) as usize);
     #[cfg(test)]
     tracing::trace!(
         target: "hito_core::catalog_snapshot_stage_test",
@@ -208,12 +418,15 @@ async fn sources(
     actor: &Actor,
     host: &HostDeviceId,
     rows: &[RecordingRow],
+    #[cfg(test)] diagnostic: &mut MaterializationDiagnostic,
 ) -> Result<Vec<Vec<LocalSourceFact>>> {
+    #[cfg(test)]
+    diagnostic.start(Phase::SourcePreflightQuery);
     let mut preflight = source_preflight(rows);
-    let groups: Vec<(i64, i64, i64)> = preflight
-        .build_query_as()
-        .fetch_all(&mut *connection)
-        .await?;
+    let preflight_result = preflight.build_query_as().fetch_all(&mut *connection).await;
+    #[cfg(test)]
+    diagnostic.end();
+    let groups: Vec<(i64, i64, i64)> = preflight_result?;
     if groups.len() != rows.len()
         || groups
             .iter()
@@ -221,35 +434,52 @@ async fn sources(
     {
         return Err(limit());
     }
+    #[cfg(test)]
+    diagnostic.start(Phase::SourceFactsQuery);
     let mut query = source_query(rows, actor, host);
-    let sources: Vec<SourceRow> = query.build_query_as().fetch_all(connection).await?;
+    let source_result = query.build_query_as().fetch_all(connection).await;
+    #[cfg(test)]
+    diagnostic.end();
+    let sources: Vec<SourceRow> = source_result?;
+    #[cfg(test)]
+    diagnostic.source_rows(sources.len());
     let mut facts: Vec<Vec<LocalSourceFact>> = (0..rows.len()).map(|_| Vec::new()).collect();
-    for row in sources {
-        let ordinal = usize::try_from(row.ordinal).map_err(|_| limit())?;
-        facts
-            .get_mut(ordinal)
-            .ok_or_else(limit)?
-            .push(LocalSourceFact {
-                release: row.release_id.map(|id| LocalReleaseAppearance {
-                    id,
-                    entry_id: row.id.clone(),
-                    title: row.release_title.unwrap_or_default(),
-                    artist: row.release_artist,
-                    disc_number: row.disc_number,
-                    track_number: row.track_number,
-                }),
-                id: row.id,
-                observation_id: row.observation_id,
-                title: row.title,
-                artist: row.artist,
-                duration_ms: row.duration_ms,
-                server_relay: if row.ready {
-                    ServerRelayObservation::Ready
-                } else {
-                    ServerRelayObservation::Unavailable
-                },
-            });
-    }
+    #[cfg(test)]
+    diagnostic.start(Phase::SourceFactAssembly);
+    let assembly = (|| {
+        for row in sources {
+            let ordinal = usize::try_from(row.ordinal).map_err(|_| limit())?;
+            facts
+                .get_mut(ordinal)
+                .ok_or_else(limit)?
+                .push(LocalSourceFact {
+                    release: row.release_id.map(|id| LocalReleaseAppearance {
+                        id,
+                        entry_id: row.id.clone(),
+                        title: row.release_title.unwrap_or_default(),
+                        artist: row.release_artist,
+                        disc_number: row.disc_number,
+                        track_number: row.track_number,
+                    }),
+                    id: row.id,
+                    observation_id: row.observation_id,
+                    title: row.title,
+                    artist: row.artist,
+                    duration_ms: row.duration_ms,
+                    server_relay: if row.ready {
+                        ServerRelayObservation::Ready
+                    } else {
+                        ServerRelayObservation::Unavailable
+                    },
+                });
+            #[cfg(test)]
+            diagnostic.source_facts(1);
+        }
+        Ok(())
+    })();
+    #[cfg(test)]
+    diagnostic.end();
+    assembly?;
     Ok(facts)
 }
 

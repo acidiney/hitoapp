@@ -17,6 +17,56 @@ struct Observation {
     catalog_recordings: Option<u64>,
     encoded_pages: Option<u64>,
     encoded_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outcome_code: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_phase: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_partial_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completed_batches: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completed_recordings: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fetched_source_rows: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    assembled_source_facts: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completed_pages: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    catalog_preflight_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    catalog_preflight_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_preflight_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_preflight_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_batch_query_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_batch_query_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_preflight_query_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_preflight_query_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_facts_query_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_facts_query_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_fact_assembly_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_fact_assembly_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_fact_assembly_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recording_fact_assembly_calls: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    final_page_encoding_us: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    final_page_encoding_calls: Option<u64>,
 }
 
 impl tracing::field::Visit for Observation {
@@ -33,7 +83,37 @@ impl tracing::field::Visit for Observation {
             "catalog_recordings" => self.catalog_recordings = Some(value),
             "encoded_pages" => self.encoded_pages = Some(value),
             "encoded_bytes" => self.encoded_bytes = Some(value),
+            "outcome_code" => self.outcome_code = Some(value),
+            "active_phase" => self.active_phase = Some(value),
+            "active_partial_us" => self.active_partial_us = Some(value),
+            "completed_batches" => self.completed_batches = Some(value),
+            "completed_recordings" => self.completed_recordings = Some(value),
+            "fetched_source_rows" => self.fetched_source_rows = Some(value),
+            "assembled_source_facts" => self.assembled_source_facts = Some(value),
+            "completed_pages" => self.completed_pages = Some(value),
+            "catalog_preflight_us" => self.catalog_preflight_us = Some(value),
+            "catalog_preflight_calls" => self.catalog_preflight_calls = Some(value),
+            "recording_preflight_us" => self.recording_preflight_us = Some(value),
+            "recording_preflight_calls" => self.recording_preflight_calls = Some(value),
+            "recording_batch_query_us" => self.recording_batch_query_us = Some(value),
+            "recording_batch_query_calls" => self.recording_batch_query_calls = Some(value),
+            "source_preflight_query_us" => self.source_preflight_query_us = Some(value),
+            "source_preflight_query_calls" => self.source_preflight_query_calls = Some(value),
+            "source_facts_query_us" => self.source_facts_query_us = Some(value),
+            "source_facts_query_calls" => self.source_facts_query_calls = Some(value),
+            "source_fact_assembly_us" => self.source_fact_assembly_us = Some(value),
+            "source_fact_assembly_calls" => self.source_fact_assembly_calls = Some(value),
+            "recording_fact_assembly_us" => self.recording_fact_assembly_us = Some(value),
+            "recording_fact_assembly_calls" => self.recording_fact_assembly_calls = Some(value),
+            "final_page_encoding_us" => self.final_page_encoding_us = Some(value),
+            "final_page_encoding_calls" => self.final_page_encoding_calls = Some(value),
             _ => {}
+        }
+    }
+
+    fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
+        if field.name() == "completed" {
+            self.completed = Some(value);
         }
     }
 

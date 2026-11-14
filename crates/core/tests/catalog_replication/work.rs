@@ -6,8 +6,81 @@ mod diagnostic;
 
 use crate::test_support::support;
 use fixture::{install_meter, populate};
+use serde_json::Value;
 use std::sync::atomic::Ordering;
 use tracing::instrument::WithSubscriber;
+
+fn summary(report: &Value) -> &Value {
+    let events = report["events"].as_array().unwrap();
+    let summaries: Vec<_> = events
+        .iter()
+        .filter(|event| event["stage"] == "materialization_summary")
+        .collect();
+    assert_eq!(summaries.len(), 1);
+    summaries[0]
+}
+
+#[test]
+fn materialization_diagnostic_reports_success_and_error_once() {
+    for success in [true, false] {
+        let diagnostics = diagnostic::ConstructionStages::new(std::time::Instant::now());
+        let dispatch = diagnostics.dispatch();
+        tracing::dispatcher::with_default(&dispatch, || {
+            let mut materialization = super::materialization::MaterializationDiagnostic::new();
+            materialization.start(super::materialization::Phase::RecordingBatchQuery);
+            materialization.end();
+            materialization.recording_batch_finished();
+            materialization.recording_finished();
+            let outcome = if success {
+                Ok(())
+            } else {
+                Err(crate::Error::Internal("diagnostic control".into()))
+            };
+            materialization.finish(&outcome);
+            drop(materialization);
+        });
+        let report = diagnostics.report();
+        let event = summary(&report);
+        assert_eq!(event["completed"], success);
+        assert_eq!(event["outcome_code"], if success { 1 } else { 2 });
+        assert_eq!(event["completed_batches"], 1);
+        assert_eq!(event["completed_recordings"], 1);
+        assert_eq!(event["recording_batch_query_calls"], 1);
+        assert_eq!(event["active_phase"], 0);
+        assert!(!report["overflowed"].as_bool().unwrap());
+    }
+}
+
+#[test]
+fn materialization_diagnostic_reports_a_cancelled_pending_phase_once() {
+    use std::{
+        future::Future,
+        task::{Context, Poll, Waker},
+    };
+
+    let diagnostics = diagnostic::ConstructionStages::new(std::time::Instant::now());
+    let dispatch = diagnostics.dispatch();
+    tracing::dispatcher::with_default(&dispatch, || {
+        let mut pending = Box::pin(async {
+            let mut materialization = super::materialization::MaterializationDiagnostic::new();
+            materialization.recording_finished();
+            materialization.start(super::materialization::Phase::SourceFactsQuery);
+            std::future::pending::<()>().await;
+            materialization.finish(&Ok(()));
+        });
+        let mut context = Context::from_waker(Waker::noop());
+        assert!(matches!(pending.as_mut().poll(&mut context), Poll::Pending));
+        drop(pending);
+    });
+    let report = diagnostics.report();
+    let event = summary(&report);
+    assert_eq!(event["completed"], false);
+    assert_eq!(event["outcome_code"], 0);
+    assert_eq!(event["active_phase"], 5);
+    assert_eq!(event["completed_recordings"], 1);
+    assert!(event["active_partial_us"].as_u64().is_some());
+    assert!(!report["overflowed"].as_bool().unwrap());
+}
 
 #[tokio::test]
 async fn public_snapshot_sql_work_grows_with_catalog_size() {
