@@ -221,7 +221,7 @@ struct ArtistRows: View {
             Text("No artists yet.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 12)
         }
         ForEach(feed.items) { artist in
-            NavigationLink(value: TrackList.artist(artist)) {
+            NavigationLink(value: artist) {
                 HStack(spacing: 12) {
                     ZStack {
                         Theme.tile
