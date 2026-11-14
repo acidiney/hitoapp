@@ -255,7 +255,7 @@ pub(super) async fn serve(
         retire_stream(stream).await;
     }
     entry.stop();
-    let _ = entry.warm.retire_and_join(entry.metadata.id).await;
+    let _ = entry.warm.retire_lease(entry.metadata.id).await;
     tracing::debug!(
         event = "playback_lease_retired",
         playback_lease = entry.correlation,

@@ -304,7 +304,7 @@ impl PlaybackAccess {
         if let Some(completion) = completion {
             completion.await.map_err(|_| stopped())?;
         }
-        self.warm.retire_and_join(id).await?;
+        self.warm.retire_lease(id).await?;
         Ok(())
     }
 

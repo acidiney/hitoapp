@@ -1,10 +1,16 @@
 use super::{AudioRequest, OpenedAudio, PlaybackSource};
 use crate::{Actor, AudioStream, Error, Result};
 use bytes::Bytes;
-use futures_util::{FutureExt, future::{BoxFuture, Shared}};
+use futures_util::{
+    FutureExt,
+    future::{BoxFuture, Shared},
+};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, Weak, atomic::{AtomicBool, Ordering}},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 use tokio::sync::{Mutex as AsyncMutex, Notify, watch};
@@ -19,6 +25,12 @@ const HOLD: Duration = Duration::from_secs(60);
 
 type Completion = Shared<BoxFuture<'static, std::result::Result<(), Arc<Error>>>>;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ClaimOwner {
+    Lease,
+    Direct,
+}
+
 struct Ready {
     content: Box<crate::AudioContent>,
     prefix: Option<Bytes>,
@@ -32,17 +44,15 @@ type FirstRead = BoxFuture<'static, (AudioStream, Option<Result<Option<Bytes>>>)
 
 async fn read_first(
     mut body: AudioStream,
-    mut lease_cancel: watch::Receiver<bool>,
     mut cancel: watch::Receiver<bool>,
     mut ticket_cancel: watch::Receiver<bool>,
 ) -> (AudioStream, Option<Result<Option<Bytes>>>) {
-    if *lease_cancel.borrow() || *cancel.borrow() || *ticket_cancel.borrow() {
+    if *cancel.borrow() || *ticket_cancel.borrow() {
         body.shutdown().await;
         return (body, None);
     }
     let result = tokio::select! {
         biased;
-        _ = lease_cancel.changed() => None,
         _ = cancel.changed() => None,
         _ = ticket_cancel.changed() => None,
         result = body.chunk() => Some(result),
@@ -74,7 +84,10 @@ impl WarmBody {
 
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
         let (reply, received) = tokio::sync::oneshot::channel();
-        self.commands.send(Command::Read(reply)).await.map_err(|_| Error::NotFound)?;
+        self.commands
+            .send(Command::Read(reply))
+            .await
+            .map_err(|_| Error::NotFound)?;
         match received.await.map_err(|_| Error::NotFound)? {
             Ok(Some(bytes)) => {
                 if !self.first_emitted {
@@ -123,6 +136,15 @@ impl Entry {
         self.canceled.send_replace(true);
         self.changed.notify_one();
     }
+
+    fn lease_cancelled(&self) -> bool {
+        if let Some(registry) = self.registry.upgrade() {
+            registry.lease_cancelled(self)
+        } else {
+            self.stop();
+            true
+        }
+    }
 }
 
 #[derive(Default)]
@@ -137,6 +159,7 @@ struct Work {
     finished: tokio::task::AbortHandle,
     completion: Completion,
     stop: watch::Sender<bool>,
+    owner: ClaimOwner,
 }
 
 #[derive(Default)]
@@ -152,6 +175,27 @@ pub(crate) struct Taken {
 }
 
 impl Registry {
+    fn lease_cancelled(&self, entry: &Entry) -> bool {
+        let Ok(mut state) = self.state.lock() else {
+            entry.stop();
+            return true;
+        };
+        if state
+            .completions
+            .get(&entry.lease)
+            .is_some_and(|work| work.owner == ClaimOwner::Direct)
+        {
+            return false;
+        }
+        state.entries.remove(&entry.lease);
+        if let Some(work) = state.completions.get(&entry.lease) {
+            work.stop.send_replace(true);
+        } else {
+            entry.stop();
+        }
+        true
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(account_id = actor.id()))]
     pub(crate) async fn try_start(
         self: &Arc<Self>,
@@ -197,15 +241,19 @@ impl Registry {
         let worker = async move {
             let mut lease_cancel = lease_cancel;
             let mut cancel_rx = cancel_rx;
-            if *lease_cancel.borrow() || *cancel_rx.borrow() {
+            let lease_stopped = *lease_cancel.borrow() && worker_entry.lease_cancelled();
+            if lease_stopped || *cancel_rx.borrow() {
                 worker_entry.stop();
             }
-            let opened = if *lease_cancel.borrow() || *cancel_rx.borrow() {
+            let opened = if lease_stopped || *cancel_rx.borrow() {
                 None
             } else {
                 tokio::select! {
                     biased;
-                    _ = lease_cancel.changed() => None,
+                    _ = lease_cancel.changed() => {
+                        let _ = worker_entry.lease_cancelled();
+                        None
+                    },
                     _ = cancel_rx.changed() => None,
                     _ = tokio::time::sleep_until(start_deadline) => None,
                     result = tokio::time::timeout_at(start_deadline, async {
@@ -227,15 +275,8 @@ impl Registry {
                         prefix: None,
                     });
                     worker_entry.changed.notify_one();
-                    let mut first_read: Option<FirstRead> = Some(
-                        read_first(
-                            body,
-                            lease_cancel.clone(),
-                            cancel_rx.clone(),
-                            ticket_cancel.clone(),
-                        )
-                        .boxed(),
-                    );
+                    let mut first_read: Option<FirstRead> =
+                        Some(read_first(body, cancel_rx.clone(), ticket_cancel.clone()).boxed());
                     let mut body = None;
                     let mut first_result = None;
                     let mut waiting_reader = None;
@@ -243,13 +284,18 @@ impl Registry {
                     let mut first_ended = false;
                     let mut terminal = false;
                     while first_read.is_some() {
-                        if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                        if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                            || *cancel_rx.borrow()
+                            || *ticket_cancel.borrow()
+                        {
                             terminal = true;
                             break;
                         }
                         tokio::select! {
                             biased;
-                            _ = lease_cancel.changed() => { terminal = true; break; },
+                            _ = lease_cancel.changed() => {
+                                if worker_entry.lease_cancelled() { terminal = true; break; }
+                            },
                             _ = cancel_rx.changed() => { terminal = true; break; },
                             _ = ticket_cancel.changed() => { terminal = true; break; },
                             _ = tokio::time::sleep_until(deadline), if !claimed => { worker_entry.stop(); terminal = true; break; },
@@ -272,16 +318,28 @@ impl Registry {
                                 };
                                 claimed |= ticket.is_claimed() || *claim_rx.borrow();
                                 let result = if matches!(&result, Ok(Some(_))) {
-                                    tokio::select! {
-                                        biased;
-                                        _ = lease_cancel.changed() => { terminal = true; Err(Error::NotFound) },
-                                        _ = cancel_rx.changed() => { terminal = true; Err(Error::NotFound) },
-                                        _ = ticket_cancel.changed() => { terminal = true; Err(Error::NotFound) },
-                                        checked = grant.warm_check() => match checked {
+                                    let checked = loop {
+                                        if *lease_cancel.borrow() && worker_entry.lease_cancelled() {
+                                            terminal = true;
+                                            break Err(Error::NotFound);
+                                        }
+                                        tokio::select! {
+                                            biased;
+                                            _ = lease_cancel.changed() => {
+                                                if worker_entry.lease_cancelled() {
+                                                    terminal = true;
+                                                    break Err(Error::NotFound);
+                                                }
+                                            },
+                                            _ = cancel_rx.changed() => { terminal = true; break Err(Error::NotFound); },
+                                            _ = ticket_cancel.changed() => { terminal = true; break Err(Error::NotFound); },
+                                            checked = grant.warm_check() => break checked,
+                                        }
+                                    };
+                                    match checked {
                                         Ok(()) => result,
                                         Err(_) if !claimed => { terminal = true; Err(Error::NotFound) },
                                         Err(_) => Err(Error::NotFound),
-                                        },
                                     }
                                 } else {
                                     result
@@ -341,13 +399,18 @@ impl Registry {
                             .await
                             .as_ref()
                             .is_some_and(|ready| ready.prefix.is_some());
-                        if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                        if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                            || *cancel_rx.borrow()
+                            || *ticket_cancel.borrow()
+                        {
                             terminal = true;
                         }
                         if !terminal && (first_result.is_some() || retained_prefix) {
                             tokio::select! {
                                 biased;
-                                _ = lease_cancel.changed() => terminal = true,
+                                _ = lease_cancel.changed() => {
+                                    if worker_entry.lease_cancelled() { terminal = true; }
+                                },
                                 _ = cancel_rx.changed() => terminal = true,
                                 _ = ticket_cancel.changed() => terminal = true,
                                 _ = tokio::time::sleep_until(deadline) => { worker_entry.stop(); terminal = true; },
@@ -355,18 +418,27 @@ impl Registry {
                             }
                         }
                     }
-                    if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                    if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                        || *cancel_rx.borrow()
+                        || *ticket_cancel.borrow()
+                    {
                         terminal = true;
                     }
                     claimed |= ticket.is_claimed() || *claim_rx.borrow();
                     if !terminal && claimed && !first_ended {
                         loop {
-                            if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                            if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                                || *cancel_rx.borrow()
+                                || *ticket_cancel.borrow()
+                            {
                                 break;
                             }
                             let command = tokio::select! {
                                 biased;
-                                _ = lease_cancel.changed() => break,
+                                _ = lease_cancel.changed() => {
+                                    if worker_entry.lease_cancelled() { break; }
+                                    continue;
+                                },
                                 _ = cancel_rx.changed() => break,
                                 _ = ticket_cancel.changed() => break,
                                 command = command_rx.recv() => command,
@@ -376,19 +448,33 @@ impl Registry {
                                     let result = if let Some(result) = first_result.take() {
                                         result
                                     } else {
-                                        tokio::select! {
-                                            biased;
-                                            _ = lease_cancel.changed() => Err(Error::NotFound),
-                                            _ = cancel_rx.changed() => Err(Error::NotFound),
-                                            _ = ticket_cancel.changed() => Err(Error::NotFound),
-                                            command = command_rx.recv() => match command {
-                                                Some(Command::Read(extra)) => {
-                                                    let _ = extra.send(Err(Error::Conflict("Audio body is busy. Try again.".into())));
-                                                    Err(Error::NotFound)
-                                                }
-                                                None => Err(Error::NotFound),
-                                            },
-                                            result = body.as_mut().expect("claimed warm body").chunk() => result,
+                                        let mut reading = Box::pin(
+                                            body.as_mut().expect("claimed warm body").chunk(),
+                                        );
+                                        loop {
+                                            if *lease_cancel.borrow()
+                                                && worker_entry.lease_cancelled()
+                                            {
+                                                break Err(Error::NotFound);
+                                            }
+                                            tokio::select! {
+                                                biased;
+                                                _ = lease_cancel.changed() => {
+                                                    if worker_entry.lease_cancelled() {
+                                                        break Err(Error::NotFound);
+                                                    }
+                                                },
+                                                _ = cancel_rx.changed() => break Err(Error::NotFound),
+                                                _ = ticket_cancel.changed() => break Err(Error::NotFound),
+                                                command = command_rx.recv() => match command {
+                                                    Some(Command::Read(extra)) => {
+                                                        let _ = extra.send(Err(Error::Conflict("Audio body is busy. Try again.".into())));
+                                                        break Err(Error::NotFound);
+                                                    }
+                                                    None => break Err(Error::NotFound),
+                                                },
+                                                result = &mut reading => break result,
+                                            }
                                         }
                                     };
                                     let ended = !matches!(&result, Ok(Some(_)));
@@ -459,13 +545,16 @@ impl Registry {
         if let Ok(mut current) = entry.completion.lock() {
             *current = Some(completion.clone());
         }
-        state.completions.retain(|_, work| !work.finished.is_finished());
+        state
+            .completions
+            .retain(|_, work| !work.finished.is_finished());
         state.completions.insert(
             lease,
             Work {
                 finished,
                 completion,
                 stop: entry.canceled.clone(),
+                owner: ClaimOwner::Lease,
             },
         );
         drop(state);
@@ -483,6 +572,41 @@ impl Registry {
         lease: Uuid,
         grant: &PlaybackSource,
         request: AudioRequest,
+    ) -> Result<Option<Taken>> {
+        self.claim_with_owner(actor, lease, grant, request, ClaimOwner::Lease)
+            .await
+    }
+
+    pub(crate) async fn claim_source(
+        &self,
+        actor: &Actor,
+        grant: &PlaybackSource,
+        request: AudioRequest,
+    ) -> Result<Option<Taken>> {
+        let lease = {
+            let state = self.state.lock().map_err(|_| Error::NotFound)?;
+            state
+                .entries
+                .iter()
+                .find(|(_, entry)| {
+                    actor.same_session(&entry.actor) && entry.grant.source_id() == grant.source_id()
+                })
+                .map(|(lease, _)| *lease)
+        };
+        let Some(lease) = lease else {
+            return Ok(None);
+        };
+        self.claim_with_owner(actor, lease, grant, request, ClaimOwner::Direct)
+            .await
+    }
+
+    async fn claim_with_owner(
+        &self,
+        actor: &Actor,
+        lease: Uuid,
+        grant: &PlaybackSource,
+        request: AudioRequest,
+        owner: ClaimOwner,
     ) -> Result<Option<Taken>> {
         if request.head || request.range.is_some() {
             self.retire_unclaimed(lease).await?;
@@ -579,7 +703,14 @@ impl Registry {
                 .entries
                 .get(&lease)
                 .is_some_and(|current| Arc::ptr_eq(current, &entry));
-            if current && ticket.claim() {
+            let unclaimed_work = state
+                .completions
+                .get(&lease)
+                .is_some_and(|work| work.owner == ClaimOwner::Lease);
+            if current && unclaimed_work && ticket.claim() {
+                if let Some(work) = state.completions.get_mut(&lease) {
+                    work.owner = owner;
+                }
                 state.entries.remove(&lease);
                 true
             } else {
@@ -611,9 +742,16 @@ impl Registry {
         }))
     }
 
-    pub(crate) async fn retire_and_join(&self, lease: Uuid) -> Result<()> {
+    pub(crate) async fn retire_lease(&self, lease: Uuid) -> Result<()> {
         let (entry, completion) = {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
+            if state
+                .completions
+                .get(&lease)
+                .is_some_and(|work| work.owner == ClaimOwner::Direct)
+            {
+                return Ok(());
+            }
             let entry = state.entries.remove(&lease);
             let completion = state.completions.get(&lease).map(|work| {
                 work.stop.send_replace(true);
@@ -634,6 +772,13 @@ impl Registry {
     async fn retire_unclaimed(&self, lease: Uuid) -> Result<()> {
         let (entry, completion) = {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
+            if state
+                .completions
+                .get(&lease)
+                .is_some_and(|work| work.owner == ClaimOwner::Direct)
+            {
+                return Ok(());
+            }
             let entry = state.entries.remove(&lease);
             let completion = if let Some(entry) = &entry {
                 entry.stop();
@@ -660,11 +805,19 @@ impl Registry {
         let (entries, completions) = {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
             state.closed = true;
-            let entries = state.entries.drain().map(|(_, entry)| entry).collect::<Vec<_>>();
-            let completions = state.completions.values().map(|work| {
-                work.stop.send_replace(true);
-                work.completion.clone()
-            }).collect::<Vec<_>>();
+            let entries = state
+                .entries
+                .drain()
+                .map(|(_, entry)| entry)
+                .collect::<Vec<_>>();
+            let completions = state
+                .completions
+                .values()
+                .map(|work| {
+                    work.stop.send_replace(true);
+                    work.completion.clone()
+                })
+                .collect::<Vec<_>>();
             for entry in &entries {
                 entry.stop();
             }
@@ -675,7 +828,9 @@ impl Registry {
             completion.await.map_err(|_| Error::NotFound)?;
         }
         if let Ok(mut state) = self.state.lock() {
-            state.completions.retain(|_, work| !work.finished.is_finished());
+            state
+                .completions
+                .retain(|_, work| !work.finished.is_finished());
         }
         Ok(())
     }

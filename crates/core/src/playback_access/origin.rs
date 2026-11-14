@@ -78,7 +78,6 @@ pub(crate) trait AudioOrigin: Send + Sync {
 #[derive(Clone)]
 pub(crate) struct Origins {
     ordered: Arc<[Arc<dyn AudioOrigin>]>,
-    pub provider: Arc<super::provider::ProviderOrigin>,
 }
 
 impl Origins {
@@ -91,7 +90,6 @@ impl Origins {
         let provider = Arc::new(provider);
         Self {
             ordered: Arc::new([provider.clone(), podcast, managed, local]),
-            provider,
         }
     }
 
