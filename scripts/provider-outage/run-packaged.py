@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run one owned upgrade/playback gate without builds or persistent user data."""
 
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -19,6 +20,138 @@ SERVICES = {
     "outage-keeper", "outage-legacy", "outage-current",
     "outage-migrate", "outage-browser", "outage-prepare",
 }
+CURRENT_SOURCE_PIN_SHA256 = "ed566004349b6a336a0cef2bc3c88d3615084af61b1198a1841b5b94568b1a45"
+LEGACY_SOURCE = "e0b8c72e804879141fc938e4eeec14204386e179"
+LEGACY_INPUTS = "0ea456d33fbc6d793c52bb63673104ce67f63fbb64266c21e6a90d06d589bfe3"
+LEGACY_SOURCE_PIN_SHA256 = "7708087196070dab0d807e862a8a949b747d981eb783477d5cf00236f8bc758f"
+LEGACY_ROOT_DOCKERFILE_SHA256 = "ce9d2272bf24eef66684785caae44aac88e1c17f55729c445bad96eb6d32f13f"
+CURRENT_DOCKERFILE = "docker/server.Dockerfile"
+LEGACY_DOCKERFILE = "Dockerfile"
+EXPECTED_CURRENT_MIGRATION_VERSIONS = tuple(range(1, 99))
+LEGACY_DATABASE_VERSION = 54
+SOURCE_RECEIPT_MAX_BYTES = 1024 * 1024
+
+
+@dataclass(frozen=True)
+class SourcePinContract:
+    schema: str
+    helper: Path
+    helper_sha256: str
+    dockerfile: str
+    dockerfile_sha256: str
+
+
+@dataclass(frozen=True)
+class MigrationInventory:
+    entries: tuple[tuple[int, str, str], ...]
+
+    @property
+    def versions(self):
+        return tuple(version for version, _, _ in self.entries)
+
+    @property
+    def latest(self):
+        return max(self.versions, default=0)
+
+    def after(self, version):
+        return sum(item > version for item in self.versions)
+
+
+def file_sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_pin_contract(prefix, tree):
+    tree = Path(tree).resolve()
+    if prefix == "HITO_PACKAGED":
+        schema = "current-server-dockerfile-v1"
+        helper = tree / "scripts/artwork/source-pin.py"
+        helper_sha = CURRENT_SOURCE_PIN_SHA256
+        dockerfile = CURRENT_DOCKERFILE
+    elif prefix == "HITO_OUTAGE_LEGACY":
+        schema = "legacy-root-dockerfile-v1"
+        helper = tree / "scripts/artwork/source-pin.py"
+        helper_sha = LEGACY_SOURCE_PIN_SHA256
+        dockerfile = LEGACY_DOCKERFILE
+    else:
+        raise ValueError("Unknown packaged source-pin contract")
+    dockerfile_path = tree / dockerfile
+    if not helper.is_file() or helper.is_symlink() or file_sha256(helper) != helper_sha:
+        raise ValueError("The pinned source-pin helper changed")
+    if not dockerfile_path.is_file() or dockerfile_path.is_symlink():
+        raise ValueError("The source tree does not contain its pinned Dockerfile input")
+    dockerfile_sha = file_sha256(dockerfile_path)
+    if prefix == "HITO_OUTAGE_LEGACY" and dockerfile_sha != LEGACY_ROOT_DOCKERFILE_SHA256:
+        raise ValueError("The legacy root Dockerfile changed")
+    return SourcePinContract(schema, helper, helper_sha, dockerfile, dockerfile_sha)
+
+
+def migration_inventory(directory):
+    directory = Path(directory)
+    if not directory.is_dir() or directory.is_symlink():
+        raise ValueError("The embedded migration directory is unavailable")
+    entries = []
+    for path in sorted(directory.iterdir()):
+        if path.suffix != ".sql":
+            continue
+        match = re.fullmatch(r"([0-9]{4})_[a-z0-9_]+\.sql", path.name)
+        if not match or not path.is_file() or path.is_symlink():
+            raise ValueError("The embedded migration inventory contains an invalid file")
+        entries.append((int(match.group(1)), path.name, file_sha256(path)))
+    versions = tuple(version for version, _, _ in entries)
+    if not entries or len(set(versions)) != len(versions):
+        raise ValueError("The embedded migration inventory is empty or duplicated")
+    return MigrationInventory(tuple(entries))
+
+
+def current_migration_inventory(inventory):
+    return inventory.versions == EXPECTED_CURRENT_MIGRATION_VERSIONS
+
+
+def migration_inventory_from_receipt(value):
+    entries = value.get("entries") if isinstance(value, dict) else None
+    if not isinstance(entries, list) or len(entries) != 98:
+        raise ValueError("The captured candidate migration inventory is incomplete")
+    parsed = []
+    for entry in entries:
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != {"version", "name", "sha256"}
+            or type(entry.get("version")) is not int
+            or not isinstance(entry.get("name"), str)
+            or not re.fullmatch(r"[0-9]{4}_[a-z0-9_]+\.sql", entry["name"])
+            or not re.fullmatch(r"[0-9a-f]{64}", entry.get("sha256", ""))
+        ):
+            raise ValueError("The captured candidate migration inventory is invalid")
+        match = re.match(r"([0-9]{4})_", entry["name"])
+        if int(match.group(1)) != entry["version"]:
+            raise ValueError("The captured candidate migration version does not match its name")
+        parsed.append((entry["version"], entry["name"], entry["sha256"]))
+    inventory = MigrationInventory(tuple(parsed))
+    if (
+        tuple(sorted(parsed)) != inventory.entries
+        or not current_migration_inventory(inventory)
+        or value.get("current_version") != inventory.latest
+        or value.get("total_migrations") != len(inventory.entries)
+        or value.get("migrations_after_legacy") != inventory.after(LEGACY_DATABASE_VERSION)
+    ):
+        raise ValueError("The captured candidate migration inventory does not match its summary")
+    return inventory
+
+
+def migration_receipt_matches(receipt, inventory):
+    if not current_migration_inventory(inventory) or not isinstance(receipt, dict):
+        return False
+    previous = receipt.get("previous_version")
+    current = receipt.get("current_version")
+    applied = receipt.get("applied_count")
+    return (
+        receipt.get("event") == "database_migration_finished"
+        and receipt.get("outcome") == "complete"
+        and type(previous) is int and previous == LEGACY_DATABASE_VERSION
+        and type(current) is int and current == inventory.latest
+        and type(applied) is int and applied == inventory.after(previous)
+    )
 
 
 class Interrupted(Exception):
@@ -172,11 +305,51 @@ class Gate:
             ):
                 raise ValueError("Immutable runtime pins are required")
             name = "current" if prefix == "HITO_PACKAGED" else "legacy"
+            if prefix == "HITO_OUTAGE_LEGACY" and (source != LEGACY_SOURCE or inputs != LEGACY_INPUTS):
+                raise ValueError("The legacy runtime requires its pinned root-Dockerfile fingerprint")
+            contract = source_pin_contract(prefix, tree)
+            source_receipt = self.evidence / f"{name}-source.json"
             command([
-                "python3", "scripts/artwork/source-pin.py", "--root", tree,
+                "python3", str(contract.helper), "--root", tree,
                 "--expect-head", source, "--expect-digest", inputs,
-                "--output", str(self.evidence / f"{name}-source.json"),
+                "--output", str(source_receipt),
             ])
+            pinned = bounded_json(source_receipt, SOURCE_RECEIPT_MAX_BYTES)
+            if (
+                pinned.get("schema_version") != 1
+                or not isinstance(pinned.get("files"), list)
+                or not pinned["files"]
+                or pinned.get("source_head") != source
+                or pinned.get("product_inputs_sha256") != inputs
+            ):
+                raise ValueError("The selected product-input helper returned a mismatched pin")
+            pin_contract = {
+                "source_role": name,
+                "fingerprint_schema": contract.schema,
+                "helper_sha256": contract.helper_sha256,
+                "dockerfile_input": contract.dockerfile,
+                "dockerfile_sha256": contract.dockerfile_sha256,
+                "source_head": source,
+                "product_inputs_sha256": inputs,
+                "pinned_file_count": len(pinned.get("files", [])),
+            }
+            (self.evidence / f"{name}-fingerprint-contract.json").write_text(json.dumps(pin_contract, sort_keys=True))
+            if prefix == "HITO_PACKAGED":
+                inventory = migration_inventory(Path(tree) / "crates/core/migrations")
+                if not current_migration_inventory(inventory) or inventory.after(LEGACY_DATABASE_VERSION) != 44:
+                    raise ValueError("The candidate embedded migration inventory is not exactly versions 1 through 98")
+                inventory_receipt = {
+                    "source_head": source,
+                    "fingerprint_schema": contract.schema,
+                    "current_version": inventory.latest,
+                    "total_migrations": len(inventory.entries),
+                    "migrations_after_legacy": inventory.after(LEGACY_DATABASE_VERSION),
+                    "entries": [
+                        {"version": version, "name": migration, "sha256": digest}
+                        for version, migration, digest in inventory.entries
+                    ],
+                }
+                (self.evidence / "current-migration-inventory.json").write_text(json.dumps(inventory_receipt, sort_keys=True))
             inspection = command(["docker", "image", "inspect", image])
             [runtime] = json.loads(inspection)
             if runtime.get("Os") != "linux" or runtime.get("Architecture") != "arm64":
@@ -317,17 +490,30 @@ class Gate:
         if len(migration_rows) != 1:
             raise ValueError("Exactly one real migration receipt is required")
         migration = migration_rows[0]
+        inventory_path = self.evidence / "current-migration-inventory.json"
+        if not inventory_path.is_file():
+            raise ValueError("The exact candidate migration inventory was not captured")
+        inventory_receipt = bounded_json(inventory_path, 65536)
+        inventory = migration_inventory_from_receipt(inventory_receipt)
+        current_tree = Path(os.environ["HITO_PACKAGED_WORKTREE"])
         if (
-            migration.get("event") != "database_migration_finished"
-            or migration.get("outcome") != "complete"
-            or [migration.get(key) for key in
-                ("previous_version", "current_version", "applied_count")]
-            != [54, 55, 1]
+            inventory_receipt.get("source_head") != os.environ["HITO_PACKAGED_SOURCE"]
+            or inventory_receipt.get("fingerprint_schema") != "current-server-dockerfile-v1"
         ):
+            raise ValueError("The migration inventory is not bound to the current source pin")
+        live_inventory = migration_inventory(current_tree / "crates/core/migrations")
+        if live_inventory != inventory:
+            raise ValueError("The candidate migration inventory changed after preflight")
+        if not migration_receipt_matches(migration, inventory):
             raise ValueError("The actual populated version54 migration was not proven")
         self.compose_run("up", "-d", "--no-build", "--pull", "never", "--wait", "outage-current", seconds=45)
         self.service("outage-current")
-        self.publish("migrated", "migrated", previous_version=54, current_version=55, applied_count=1)
+        self.publish(
+            "migrated", "migrated",
+            previous_version=migration["previous_version"],
+            current_version=migration["current_version"],
+            applied_count=migration["applied_count"],
+        )
         current = self.wait_marker("log-check-ready", "log_check_ready", 60)
         self.assert_assets("outage-current", current)
         self.check_logs()
