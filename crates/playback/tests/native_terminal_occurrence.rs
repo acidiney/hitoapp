@@ -162,6 +162,7 @@ async fn exercise(f: fixture::Fixture, searches: Arc<AtomicUsize>, logs: &LogCap
             .current
             .as_ref()
             .is_none_or(|entry| entry.recording_id != f.sentinel)
+            || selected.retrying.is_some()
             || selected.last_failure.as_ref().is_none_or(|failure| {
                 failure.entry.id != target_entry || failure.error != PlayerError::Playback
             })
@@ -205,6 +206,7 @@ async fn exercise(f: fixture::Fixture, searches: Arc<AtomicUsize>, logs: &LogCap
                 .is_none_or(|entry| entry.id != sentinel_entry || entry.recording_id != f.sentinel)
             || after_progress.phase != PlayerPhase::Ready
             || !after_progress.playing
+            || after_progress.retrying.is_some()
             || after_progress.last_failure.as_ref().is_none_or(|failure| {
                 failure.entry.id != target_entry || failure.error != PlayerError::Playback
             })

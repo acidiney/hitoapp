@@ -51,14 +51,18 @@ pub struct Fixture {
 
 impl Fixture {
     pub async fn start() -> Self {
-        Self::start_with_no_suitable(false).await
+        Self::start_with_ready_on_attempt(Some(3)).await
     }
 
     pub async fn start_no_suitable() -> Self {
-        Self::start_with_no_suitable(true).await
+        Self::start_with_ready_on_attempt(None).await
     }
 
-    async fn start_with_no_suitable(no_suitable: bool) -> Self {
+    pub async fn start_ready_on_second_attempt() -> Self {
+        Self::start_with_ready_on_attempt(Some(2)).await
+    }
+
+    async fn start_with_ready_on_attempt(ready_on_attempt: Option<usize>) -> Self {
         hang_guard(
             "owned occurrence retry setup",
             Box::pin(async {
@@ -169,8 +173,8 @@ impl Fixture {
                     "the valid owned recording must begin without audio"
                 );
                 let order = Arc::new(Mutex::new(Vec::new()));
-                let first = discovery('A', false, &order, &invalid, &original).await;
-                let second = discovery('B', !no_suitable, &order, &invalid, &original).await;
+                let first = discovery('A', None, &order, &invalid, &original).await;
+                let second = discovery('B', ready_on_attempt, &order, &invalid, &original).await;
                 let first_installation = connect(&services, &actor, &first).await;
                 let second_installation = connect(&services, &actor, &second).await;
                 let metadata_before = preserved_metadata(&services, &actor, recording).await;
@@ -317,7 +321,7 @@ impl Fixture {
 
 async fn discovery(
     label: char,
-    ready_on_third: bool,
+    ready_on_attempt: Option<usize>,
     order: &Arc<Mutex<Vec<char>>>,
     invalid: &Arc<AtomicBool>,
     original: &[u8],
@@ -370,28 +374,30 @@ async fn discovery(
             }
             ordering.lock().unwrap().push(label);
             let attempt = searches.fetch_add(1, Ordering::SeqCst) + 1;
-            Reply::Json(if ready_on_third && attempt == 3 {
+            Reply::Json(if ready_on_attempt == Some(attempt) {
                 ready.clone()
             } else {
                 empty.clone()
             })
         })
         .post("v1/recordings/detail", move |request| {
-            if !ready_on_third || !recording_request(request, CANDIDATE_ID) {
+            if ready_on_attempt.is_none() || !recording_request(request, CANDIDATE_ID) {
                 rejected_detail.store(true, Ordering::SeqCst);
                 return Reply::Status(StatusCode::BAD_REQUEST);
             }
             Reply::Json(detail.clone())
         })
         .post("v1/sources", move |request| {
-            if !ready_on_third || !recording_request(request, CANDIDATE_ID) {
+            if ready_on_attempt.is_none() || !recording_request(request, CANDIDATE_ID) {
                 rejected_sources.store(true, Ordering::SeqCst);
                 return Reply::Status(StatusCode::BAD_REQUEST);
             }
             Reply::Json(sources.clone())
         })
         .get("v1/audio", move |request| {
-            if !ready_on_third || request.query.as_deref() != Some("source_id=owned-ready-audio") {
+            if ready_on_attempt.is_none()
+                || request.query.as_deref() != Some("source_id=owned-ready-audio")
+            {
                 rejected_audio.store(true, Ordering::SeqCst);
                 return Reply::Status(StatusCode::BAD_REQUEST);
             }

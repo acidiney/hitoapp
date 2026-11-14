@@ -33,6 +33,423 @@ async fn three_no_suitable_passes_advance_once_to_the_audible_sentinel() {
     three_no_suitable(f, &logs).with_subscriber(dispatch).await;
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn retry_two_candidate_pause_clears_status_and_cancels_held_audio() {
+    let f = fixture::Fixture::start_ready_on_second_attempt().await;
+    let gate = f.second.hold_next("v1/audio");
+    let witness = OutputWitness::begin(48_000 * 20, 4096).unwrap();
+    let capture = capture::Capture::open();
+    let (player, owner) = Player::native(f.services.clone());
+    let behavior = AssertUnwindSafe(async {
+        let attached = hang_guard("owned retry pause claim", async {
+            player
+                .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+                .await
+                .unwrap()
+        })
+        .await;
+        let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
+        let mut position = player
+            .subscribe_position(&f.actor, attached.lease)
+            .await
+            .unwrap();
+        let queued = player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 1,
+                    revision: 0,
+                    action: PlayerAction::Replace {
+                        recordings: vec![f.recording, f.sentinel],
+                        start: 0,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        let resumed = player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 2,
+                    revision: queued.revision,
+                    action: PlayerAction::Resume {},
+                },
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(5), gate.entered())
+            .await
+            .map_err(|_| "attempt two did not reach the held candidate audio request")?;
+        let retry = tokio::time::timeout(
+            Duration::from_secs(3),
+            state.wait_for(|state| {
+                state.retrying == Some(hito_playback::PlayerRetry { attempt: 2, of: 3 })
+            }),
+        )
+        .await
+        .map_err(|_| "candidate grant lost retry 2 of 3 before audio headers")?
+        .map_err(|_| "the public state observer closed while retry audio was held")?
+        .clone();
+        let target_entry = retry.current.as_ref().map(|entry| entry.id);
+        if retry.selection != 1
+            || retry.revision != resumed.revision
+            || retry.current.as_ref().map(|entry| entry.recording_id) != Some(f.recording)
+            || retry.last_failure.is_some()
+            || retry.playing
+            || retry.source_id.is_none()
+        {
+            return Err("held candidate retry changed or played the target occurrence");
+        }
+        let before_position = *position.borrow_and_update();
+        let pause = tokio::time::timeout(
+            Duration::from_secs(3),
+            player.submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 3,
+                    revision: resumed.revision,
+                    action: PlayerAction::Pause {},
+                },
+            ),
+        )
+        .await
+        .map_err(|_| "Pause admission waited for the held retry audio")?
+        .map_err(|_| "Pause was rejected while retry audio was held")?;
+        let paused = player.inspect(&f.actor).await.unwrap().state.unwrap();
+        if paused.retrying.is_some()
+            || paused.desired_playing
+            || paused.error.is_some()
+            || paused.selection != retry.selection
+            || paused.revision != pause.revision
+            || paused.current.as_ref().map(|entry| entry.id) != target_entry
+            || paused.last_failure.is_some()
+        {
+            return Err("Pause did not immediately clear retry status on the same target");
+        }
+        gate.release();
+        if !gate.retired_within(Duration::from_secs(3)).await {
+            return Err("the held target audio request was not retired after Pause");
+        }
+        let settled = player.inspect(&f.actor).await.unwrap().state.unwrap();
+        let after_position = *position.borrow_and_update();
+        if settled.retrying.is_some()
+            || settled.desired_playing
+            || settled.playing
+            || settled.source_id.is_some()
+            || settled.error.is_some()
+            || settled.last_failure.is_some()
+            || settled.current.as_ref().map(|entry| entry.id) != target_entry
+            || after_position != before_position
+        {
+            return Err("retired retry work changed playback after the Pause receipt");
+        }
+        capture.after(capture.mark(), 0.1);
+        if capture::amplitude(&capture.recent(0.1), 440.0) >= 0.02 {
+            return Err("held target audio reached output after Pause");
+        }
+        Ok::<_, &'static str>(())
+    })
+    .catch_unwind()
+    .await;
+    gate.release();
+    let owner_joined = owner.close().await.is_ok();
+    drop(player);
+    let output = witness.finish();
+    let silent = {
+        capture.after(capture.mark(), 0.3);
+        capture::energy(&capture.recent(0.1)) < 0.000001
+    };
+    let target_audio = capture::amplitude(&capture.recent(0.1), 440.0);
+    drop(capture);
+    let preserved = f.preserved().await;
+    let joined = f.close().await;
+    assert!(
+        owner_joined && joined,
+        "owned playback and providers must join"
+    );
+    assert!(
+        silent,
+        "joined playback output must leave the monitor silent"
+    );
+    assert!(
+        target_audio < 0.02,
+        "cancelled target audio reached the output"
+    );
+    assert!(
+        matches!(&output, Ok(_) | Err(WitnessError::Incomplete)),
+        "silence-only Pause produced an invalid output witness: {output:?}"
+    );
+    assert!(preserved, "private account state or owned files changed");
+    match behavior {
+        Ok(Ok(())) => (),
+        Ok(Err(reason)) => panic!("{reason}"),
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn retry_two_candidate_selection_commands_cancel_held_audio() {
+    for command in [
+        RetryCancellation::Next,
+        RetryCancellation::Previous,
+        RetryCancellation::Select,
+    ] {
+        exercise_selection_cancellation(command).await;
+    }
+}
+
+#[derive(Clone, Copy)]
+enum RetryCancellation {
+    Next,
+    Previous,
+    Select,
+}
+
+async fn exercise_selection_cancellation(command: RetryCancellation) {
+    let f = fixture::Fixture::start_ready_on_second_attempt().await;
+    let gate = f.second.hold_next("v1/audio");
+    let witness = OutputWitness::begin(48_000 * 20, 4096).unwrap();
+    let capture = capture::Capture::open();
+    let (player, owner) = Player::native(f.services.clone());
+    let behavior = AssertUnwindSafe(async {
+        let attached = hang_guard("owned retry selection claim", async {
+            player
+                .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+                .await
+                .unwrap()
+        })
+        .await;
+        let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
+        let mut position = player
+            .subscribe_position(&f.actor, attached.lease)
+            .await
+            .unwrap();
+        let previous = matches!(command, RetryCancellation::Previous);
+        let recordings = if previous {
+            vec![f.sentinel]
+        } else {
+            vec![f.recording, f.sentinel]
+        };
+        let queued = player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 1,
+                    revision: 0,
+                    action: PlayerAction::Replace {
+                        recordings,
+                        start: 0,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        let page = player
+            .queue(&f.actor, attached.lease, queued.revision, 0, 10)
+            .await
+            .unwrap();
+        let sentinel_entry = page.entries[if previous { 0 } else { 1 }].id;
+        let mut target_entry = (!previous).then_some(page.entries[0].id);
+        let resumed = player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 2,
+                    revision: queued.revision,
+                    action: PlayerAction::Resume {},
+                },
+            )
+            .await
+            .unwrap();
+        let (target_selection, target_revision, cancel_sequence) = if previous {
+            let prior_progress = *tokio::time::timeout(
+                Duration::from_secs(3),
+                position.wait_for(|position| position.selection == 1 && position.position_ms > 100),
+            )
+            .await
+            .map_err(|_| "Previous fixture entry did not make real playback progress")?
+            .map_err(|_| "the authorized position observer closed before Previous")?;
+            if prior_progress.entry != Some(sentinel_entry) {
+                return Err("the Previous fixture did not actually play its prior occurrence");
+            }
+            let appended = player
+                .submit(
+                    &f.actor,
+                    PlayerCommand {
+                        id: Uuid::new_v4(),
+                        lease: attached.lease,
+                        sequence: 3,
+                        revision: resumed.revision,
+                        action: PlayerAction::Append {
+                            recordings: vec![f.recording],
+                        },
+                    },
+                )
+                .await
+                .unwrap();
+            let appended_page = player
+                .queue(&f.actor, attached.lease, appended.revision, 0, 10)
+                .await
+                .unwrap();
+            target_entry = appended_page
+                .entries
+                .iter()
+                .find(|entry| entry.recording.id == f.recording.to_string())
+                .map(|entry| entry.id);
+            let next = player
+                .submit(
+                    &f.actor,
+                    PlayerCommand {
+                        id: Uuid::new_v4(),
+                        lease: attached.lease,
+                        sequence: 4,
+                        revision: appended.revision,
+                        action: PlayerAction::Next {},
+                    },
+                )
+                .await
+                .unwrap();
+            (2, next.revision, 5)
+        } else {
+            (1, resumed.revision, 3)
+        };
+        let Some(target_entry) = target_entry else {
+            return Err("the selected target occurrence was missing from the queue");
+        };
+        tokio::time::timeout(Duration::from_secs(5), gate.entered())
+            .await
+            .map_err(|_| "attempt two did not reach the held candidate audio request")
+            .unwrap();
+        let retry = tokio::time::timeout(
+            Duration::from_secs(3),
+            state.wait_for(|state| {
+                state.retrying == Some(hito_playback::PlayerRetry { attempt: 2, of: 3 })
+            }),
+        )
+        .await
+        .map_err(|_| "candidate grant lost retry 2 of 3 before audio headers")?
+        .map_err(|_| "the authorized state observer closed before retry audio")?
+        .clone();
+        if retry.retrying != Some(hito_playback::PlayerRetry { attempt: 2, of: 3 })
+            || retry.selection != target_selection
+            || retry.revision != target_revision
+            || retry.current.as_ref().map(|entry| entry.id) != Some(target_entry)
+            || retry.current.as_ref().map(|entry| entry.recording_id) != Some(f.recording)
+            || retry.last_failure.is_some()
+            || retry.playing
+            || retry.source_id.is_none()
+        {
+            return Err("held candidate changed or played the target occurrence");
+        }
+        let selected_action = match command {
+            RetryCancellation::Next => PlayerAction::Next {},
+            RetryCancellation::Previous => PlayerAction::Previous {},
+            RetryCancellation::Select => PlayerAction::Select {
+                entry: sentinel_entry,
+            },
+        };
+        let receipt = tokio::time::timeout(
+            Duration::from_secs(3),
+            player.submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: cancel_sequence,
+                    revision: target_revision,
+                    action: selected_action,
+                },
+            ),
+        )
+        .await
+        .map_err(|_| "selection command admission waited for held retry audio")?
+        .map_err(|_| "selection command was rejected while retry audio was held")?;
+        let selected = player.inspect(&f.actor).await.unwrap().state.unwrap();
+        if selected.retrying.is_some()
+            || selected.selection != target_selection + 1
+            || selected.revision != receipt.revision
+            || selected.current.as_ref().map(|entry| entry.id) != Some(sentinel_entry)
+            || selected.current.as_ref().map(|entry| entry.recording_id) != Some(f.sentinel)
+            || selected.last_failure.is_some()
+            || selected.error.is_some()
+        {
+            return Err("selection command did not clear retry status on the new occurrence");
+        }
+        gate.release();
+        if !gate.retired_within(Duration::from_secs(3)).await {
+            return Err("the held target audio request was not retired after selection");
+        }
+        let progressed = *tokio::time::timeout(
+            Duration::from_secs(3),
+            position.wait_for(|position| {
+                position.selection == target_selection + 1 && position.position_ms > 100
+            }),
+        )
+        .await
+        .map_err(|_| "the selected sentinel did not make heard progress")?
+        .map_err(|_| "the authorized position observer closed after selection")?;
+        let final_state = player.inspect(&f.actor).await.unwrap().state.unwrap();
+        if final_state.retrying.is_some()
+            || final_state.error.is_some()
+            || final_state.last_failure.is_some()
+            || final_state.current.as_ref().map(|entry| entry.id) != Some(sentinel_entry)
+            || progressed.entry != Some(sentinel_entry)
+        {
+            return Err("retired retry work changed the selected occurrence after release");
+        }
+        capture.after(capture.mark(), 0.1);
+        let samples = capture.recent(0.1);
+        if capture::amplitude(&samples, 880.) <= 0.2 || capture::amplitude(&samples, 440.) >= 0.02 {
+            return Err("only the selected sentinel audio should reach output");
+        }
+        Ok::<_, &'static str>(())
+    })
+    .catch_unwind()
+    .await;
+    gate.release();
+    let owner_joined = owner.close().await.is_ok();
+    drop(player);
+    let output = witness.finish();
+    let silent = {
+        capture.after(capture.mark(), 0.3);
+        capture::energy(&capture.recent(0.1)) < 0.000001
+    };
+    drop(capture);
+    let preserved = f.preserved_target_and_files().await;
+    let joined = f.close().await;
+    assert!(
+        owner_joined && joined,
+        "owned playback and providers must join"
+    );
+    assert!(
+        silent,
+        "joined playback output must leave the monitor silent"
+    );
+    assert!(
+        matches!(&output, Ok(report) if !report.callbacks.is_empty()),
+        "selected sentinel audio requires a complete output witness: {output:?}"
+    );
+    assert!(preserved, "private account state or owned files changed");
+    match behavior {
+        Ok(Ok(())) => (),
+        Ok(Err(reason)) => panic!("{reason}"),
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+}
+
 async fn three_no_suitable(f: fixture::Fixture, logs: &LogCapture) {
     let witness = OutputWitness::begin(48_000 * 20, 4096).unwrap();
     let capture = capture::Capture::open();
@@ -240,6 +657,7 @@ async fn three_no_suitable(f: fixture::Fixture, logs: &LogCapture) {
     assert_eq!(presented.selection, 2);
     assert_eq!(final_state.selection, 2);
     assert_eq!(final_state.current_index, Some(1));
+    assert!(final_state.retrying.is_none());
     assert_eq!(
         final_state.current.as_ref().map(|entry| entry.recording_id),
         Some(sentinel_id)
@@ -332,8 +750,15 @@ async fn exercise(f: fixture::Fixture, logs: &LogCapture) {
             action: PlayerAction::Replace { recordings: vec![f.recording, f.sentinel], start: 0 },
         }).await.unwrap();
         let initial = player.inspect(&f.actor).await.unwrap().state.unwrap();
+        if serde_json::to_value(&initial)
+            .unwrap()
+            .get("retrying")
+            != Some(&serde_json::Value::Null)
+        {
+            return Err("the additive retry field must serialize as explicit null when absent");
+        }
         let first_entry = initial.current.unwrap().id;
-        player.submit(&f.actor, PlayerCommand {
+        let resumed = player.submit(&f.actor, PlayerCommand {
             id: Uuid::new_v4(), lease: attached.lease, sequence: 2, revision: queued.revision,
             action: PlayerAction::Resume {},
         }).await.unwrap();
@@ -349,6 +774,39 @@ async fn exercise(f: fixture::Fixture, logs: &LogCapture) {
         }
         f.rank(true).await;
         first_search.release();
+        let second_attempt = tokio::time::timeout(
+            Duration::from_secs(3),
+            state.wait_for(|state| state.retrying.is_some_and(|retry| retry.attempt == 2)),
+        )
+        .await
+        .map_err(|_| "native retry 2 of 3 was not published")?
+        .map_err(|_| "the authorized state observer closed before retry 2")?
+        .clone();
+        if second_attempt.retrying
+            != Some(hito_playback::PlayerRetry { attempt: 2, of: 3 })
+            || second_attempt.selection != 1
+            || second_attempt.revision != resumed.revision
+            || second_attempt.current.as_ref().map(|entry| entry.id) != Some(first_entry)
+            || second_attempt.last_failure.is_some()
+        {
+            return Err("retry 2 changed queue state or did not describe the current occurrence");
+        }
+        let third_attempt = tokio::time::timeout(
+            Duration::from_secs(3),
+            state.wait_for(|state| state.retrying.is_some_and(|retry| retry.attempt == 3)),
+        )
+        .await
+        .map_err(|_| "native retry 3 of 3 was not published")?
+        .map_err(|_| "the authorized state observer closed before retry 3")?
+        .clone();
+        if third_attempt.retrying != Some(hito_playback::PlayerRetry { attempt: 3, of: 3 })
+            || third_attempt.selection != 1
+            || third_attempt.revision != resumed.revision
+            || third_attempt.current.as_ref().map(|entry| entry.id) != Some(first_entry)
+            || third_attempt.last_failure.is_some()
+        {
+            return Err("retry 3 changed queue state or did not describe the current occurrence");
+        }
         let progressed = *(tokio::time::timeout(Duration::from_secs(3),
             position.wait_for(|position| position.selection != 1 || position.position_ms >= 100))
             .await.map_err(|_| "the first occurrence never presented progressing audio")?
@@ -361,6 +819,7 @@ async fn exercise(f: fixture::Fixture, logs: &LogCapture) {
             || observed.current.as_ref().is_none_or(|entry|
                 entry.id != first_entry || entry.recording_id != f.recording)
             || observed.phase != PlayerPhase::Ready || !observed.playing
+            || observed.retrying.is_some()
             || observed.last_failure.is_some()
         {
             return Err("progress did not belong to the unchanged first queue occurrence");
