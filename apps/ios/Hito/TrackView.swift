@@ -14,6 +14,9 @@ struct TrackView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 sources
+                FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
+                    Task { await load() }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
