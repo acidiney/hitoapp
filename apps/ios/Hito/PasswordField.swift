@@ -18,6 +18,7 @@ struct PasswordField: View {
                 }
             }
             .textContentType(newPassword ? .newPassword : .password)
+            .accessibilityLabel("Password")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .focused(focus, equals: .password)
@@ -50,6 +51,7 @@ struct UsernameField: View {
     var body: some View {
         FieldBox(label: "Username", focused: focus.wrappedValue == .username) {
             TextField("", text: $username)
+                .accessibilityLabel("Username")
                 .textContentType(.username)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

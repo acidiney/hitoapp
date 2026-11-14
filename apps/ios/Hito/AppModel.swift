@@ -26,6 +26,7 @@ final class AppModel {
     private let store = ServerStore()
     private let log = Logger(subsystem: "app.hito", category: "connection")
     private var reconnecting: Task<Void, Never>?
+    private var generation = 0
 
     func open() async {
         recent = store.recent
@@ -33,18 +34,32 @@ final class AppModel {
             step = .choose
             return
         }
-        await reopen(server.address)
+        await reopen(server.address, generation: begin())
     }
 
     func find(_ input: ServerAddressInput) async throws {
+        let current = begin()
         let found = try await connection.find(input)
+        guard current == generation else { throw CancellationError() }
         log.info("connection.found")
         proceed(found)
     }
 
     func choose(_ server: RecentServer) async throws {
+        let current = begin()
         let next = try await connection.check(server.address)
+        guard current == generation else { throw CancellationError() }
+        if store.token(for: server.address) != nil, !store.needsUnencryptedNotice(server.address) {
+            store.use(server.address)
+            recent = store.recent
+            await reopen(server.address, generation: current)
+            return
+        }
         proceed(FoundServer(address: server.address, next: next))
+    }
+
+    func alreadySetUp(_ address: ServerAddress) {
+        step = .signIn(address, reason: "This server is already set up. Sign in instead.")
     }
 
     func connectAnyway(_ found: FoundServer) {
@@ -53,10 +68,12 @@ final class AppModel {
     }
 
     func changeAddress() {
+        begin()
         step = .address
     }
 
     func chooseServer() {
+        begin()
         step = .address
     }
 
@@ -65,6 +82,7 @@ final class AppModel {
     }
 
     func backToChoice() {
+        begin()
         step = .choose
     }
 
@@ -97,9 +115,17 @@ final class AppModel {
     }
 
     func changeServer() {
-        reconnecting?.cancel()
+        begin()
         recent = store.recent
         step = .choose
+    }
+
+    @discardableResult
+    private func begin() -> Int {
+        reconnecting?.cancel()
+        reconnecting = nil
+        generation += 1
+        return generation
     }
 
     func remembered(on address: ServerAddress) -> RecentServer? {
@@ -113,7 +139,9 @@ final class AppModel {
 
     func checkLock() async {
         guard case let .signedIn(address, user) = step, let token = store.token(for: address) else { return }
-        if let status = try? await account.lockStatus(at: address, token: token), status.locked {
+        let current = generation
+        if let status = try? await account.lockStatus(at: address, token: token), status.locked,
+           current == generation, case .signedIn(address, _) = step {
             step = .locked(address, user)
         }
     }
@@ -146,6 +174,11 @@ final class AppModel {
         }
         store.use(found.address)
         recent = store.recent
+        if found.next == .signIn, store.token(for: found.address) != nil {
+            let current = begin()
+            Task { await reopen(found.address, generation: current) }
+            return
+        }
         step = found.next == .createAdministrator ? .createAdministrator(found.address) : .signIn(found.address, reason: nil)
     }
 
@@ -157,48 +190,53 @@ final class AppModel {
         step = .signedIn(address, signedIn.user)
     }
 
-    private func reopen(_ address: ServerAddress) async {
+    private func reopen(_ address: ServerAddress, generation current: Int) async {
         guard let token = store.token(for: address) else {
-            await checkThenSignIn(address)
+            await checkThenSignIn(address, generation: current)
             return
         }
         do {
             let user = try await account.currentUser(at: address, token: token)
+            guard current == generation else { return }
             step = .signedIn(address, user)
             await checkLock()
         } catch AccountSession.Problem.locked {
+            guard current == generation else { return }
             if let server = store.recent.first(where: { $0.address == address }), let username = server.username {
                 step = .locked(address, User(id: "", username: username, admin: server.admin ?? false, displayName: server.displayName))
             } else {
                 step = .signIn(address, reason: nil)
             }
         } catch AccountSession.Problem.signedOut {
+            guard current == generation else { return }
             store.forgetToken(for: address)
             step = .signIn(address, reason: "This device was signed out. Sign in again.")
         } catch {
-            waitForServer(address)
+            waitForServer(address, generation: current)
         }
     }
 
-    private func checkThenSignIn(_ address: ServerAddress) async {
+    private func checkThenSignIn(_ address: ServerAddress, generation current: Int) async {
         do {
             let next = try await connection.check(address)
+            guard current == generation else { return }
             step = next == .createAdministrator ? .createAdministrator(address) : .signIn(address, reason: nil)
         } catch {
-            waitForServer(address)
+            waitForServer(address, generation: current)
         }
     }
 
-    private func waitForServer(_ address: ServerAddress) {
+    private func waitForServer(_ address: ServerAddress, generation current: Int) {
+        guard current == generation else { return }
         log.info("connection.unreachable_at_open")
         step = .unreachable(address)
         reconnecting?.cancel()
         reconnecting = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(10))
-                guard let self, !Task.isCancelled, case .unreachable(address) = self.step else { return }
+                guard let self, !Task.isCancelled, current == self.generation, case .unreachable(address) = self.step else { return }
                 if (try? await self.connection.check(address)) != nil {
-                    await self.reopen(address)
+                    await self.reopen(address, generation: current)
                     return
                 }
             }

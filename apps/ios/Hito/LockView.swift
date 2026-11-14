@@ -44,6 +44,7 @@ struct LockView: View {
                 hint: "4 to 8 digits. After 5 wrong tries you sign in with your password."
             ) {
                 SecureField("", text: $pin)
+                    .accessibilityLabel("PIN")
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
                     .focused($focused)

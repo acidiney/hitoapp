@@ -37,8 +37,8 @@ struct SetupView: View {
             focus = .username
             return
         }
-        guard PasswordRule.isLongEnough(password) else {
-            problem = "Use a password of at least \(PasswordRule.minimum) characters."
+        if let rule = PasswordRule.problem(password) {
+            problem = rule
             focus = .password
             return
         }
@@ -48,7 +48,7 @@ struct SetupView: View {
             do {
                 try await model.createAdministrator(at: address, username: username, password: password)
             } catch AccountSession.Problem.alreadySetUp {
-                problem = "This server is already set up. Sign in instead."
+                model.alreadySetUp(address)
             } catch let AccountSession.Problem.refused(message) {
                 problem = message
             } catch let AccountSession.Problem.tooManyAttempts(message) {

@@ -17,7 +17,7 @@ The library and the player are not built yet. See [the tracking issue](https://g
 iOS can't build in Docker, so this part runs on a Mac with Xcode.
 
 ```sh
-cd apps/ios/HitoKit && swift test
+(cd apps/ios/HitoKit && swift test)
 xcodebuild -project apps/ios/Hito.xcodeproj -scheme Hito -destination 'platform=iOS Simulator,name=iPhone 18 Pro' build
 ```
 

@@ -24,6 +24,7 @@ struct ServerAddressView: View {
                 hint: fieldProblem ?? "The address you open in a browser. You can leave out http:// or https://."
             ) {
                 TextField("", text: $input, prompt: Text("hito.home:8080").foregroundStyle(Theme.quiet))
+                    .accessibilityLabel("Server address")
                     .keyboardType(.URL)
                     .textContentType(.URL)
                     .textInputAutocapitalization(.never)
@@ -73,35 +74,43 @@ struct ServerAddressView: View {
             } catch is CancellationError {
                 focused = true
             } catch {
-                show(error, display: typed.display, host: typed.candidates[0].host)
+                problem = ConnectionMessage.lines(for: error, display: typed.display, host: typed.candidates[0].host)
+                canRetry = ConnectionMessage.canRetry(error)
+                focused = true
             }
         }
     }
+}
 
-    private func show(_ error: Error, display: String, host: String) {
+enum ConnectionMessage {
+    static func lines(for error: Error, display: String, host: String) -> [String] {
         switch error as? ServerConnection.Problem {
         case .notHito:
-            problem = ["\(display) answered, but it is not a Hito server."]
+            ["\(display) answered, but it is not a Hito server."]
         case .certificate:
-            problem = [
+            [
                 "The certificate for \(host) can't be checked, so Hito won't send your password there.",
                 "Give the server a certificate this device trusts, or use http:// inside your VPN.",
             ]
         case .notReady:
-            problem = ["\(display) is still starting. Try again in a moment."]
-            canRetry = true
+            ["\(display) is still starting. Try again in a moment."]
         default:
-            problem = ["No answer from \(display). Check the address, and that this device is on the same network or VPN."]
-            canRetry = true
+            ["No answer from \(display). Check the address, and that this device is on the same network or VPN."]
         }
-        focused = true
+    }
+
+    static func canRetry(_ error: Error) -> Bool {
+        switch error as? ServerConnection.Problem {
+        case .notHito, .certificate: false
+        default: true
+        }
     }
 }
 
 struct RecentServers: View {
     @Environment(AppModel.self) private var model
     @State private var checking: URL?
-    @State private var problem: String?
+    @State private var problem: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -127,7 +136,7 @@ struct RecentServers: View {
                         .accessibilityLabel("Forget \(server.address.origin.absoluteString)")
                 }
             }
-            if let problem { Alert(lines: [problem]) }
+            if !problem.isEmpty { Alert(lines: problem) }
         }
     }
 
@@ -137,14 +146,15 @@ struct RecentServers: View {
     }
 
     private func choose(_ server: RecentServer) {
-        problem = nil
+        problem = []
         checking = server.id
         Task {
             defer { checking = nil }
             do {
                 try await model.choose(server)
+            } catch is CancellationError {
             } catch {
-                problem = "No answer from \(server.address.origin.absoluteString). Check that this device is on the same network or VPN."
+                problem = ConnectionMessage.lines(for: error, display: server.address.origin.absoluteString, host: server.address.host)
             }
         }
     }
