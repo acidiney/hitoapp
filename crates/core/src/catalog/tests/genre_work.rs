@@ -18,8 +18,9 @@ async fn genre_track_continuation_reaches_past_the_bounded_count() {
     const PAGE_SIZE: i64 = 200;
     const HOST: &str = "genre-page-over-1000";
 
-    let (_directory, hito, actor, library, music) = support::library(HOST).await;
-    let folder_id = hang_guard("genre continuation fixture", async {
+    let (_directory, hito, actor, library, music) =
+        hang_guard("genre continuation library", support::library(HOST)).await;
+    hang_guard("genre continuation fixture", async {
         let seed = music.join("folder-seed.wav");
         support::write_wav(&seed, 17);
         let mut tag = Tag::new(TagType::Id3v2);
@@ -94,23 +95,19 @@ async fn genre_track_continuation_reaches_past_the_bounded_count() {
         .await
         .unwrap();
         tx.commit().await.unwrap();
-        folder_id
     })
     .await;
 
-    let fado_count = tokio::time::timeout(
-        Duration::from_secs(5),
-        hito.catalog.genres_within(&actor, 18),
-    )
-    .await
-    .ok()
-    .and_then(Result::ok)
-    .and_then(|genres| {
-        genres
-            .into_iter()
-            .find(|genre| genre.key == "fado")
-            .map(|genre| genre.track_count)
-    });
+    let fado_count = tokio::time::timeout(Duration::from_secs(5), hito.catalog.genres(&actor))
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .and_then(|genres| {
+            genres
+                .into_iter()
+                .find(|genre| genre.key == "fado")
+                .map(|genre| genre.track_count)
+        });
 
     let mut expected: Vec<(String, String)> = (1..=TRACKS)
         .map(|index| {
@@ -143,10 +140,10 @@ async fn genre_track_continuation_reaches_past_the_bounded_count() {
             page_failure = Some(page_number);
             break;
         };
-        match page.next_after {
+        match page.next_after.as_ref() {
             Some(cursor) => {
                 repeated_cursor |= !cursors.insert(cursor.clone());
-                after = Some(cursor);
+                after = Some(cursor.clone());
             }
             None => {
                 after = None;
@@ -158,11 +155,30 @@ async fn genre_track_continuation_reaches_past_the_bounded_count() {
         }
     }
 
-    let replication_closed = hito.catalog_replication.close().await;
-    hito.catalog.store.pool.close().await;
+    let playback_closed = tokio::time::timeout(Duration::from_secs(5), hito.playback.close())
+        .await
+        .map(|result| result.is_ok())
+        .unwrap_or(false);
+    let replicas_closed = tokio::time::timeout(Duration::from_secs(5), hito.replicas.close())
+        .await
+        .map(|result| result.is_ok())
+        .unwrap_or(false);
+    let replication_closed =
+        tokio::time::timeout(Duration::from_secs(5), hito.catalog_replication.close())
+            .await
+            .map(|result| result.is_ok())
+            .unwrap_or(false);
+    let pool_closed = tokio::time::timeout(Duration::from_secs(5), async {
+        hito.catalog.store.pool.close().await;
+    })
+    .await
+    .is_ok();
     drop(hito);
 
-    assert!(replication_closed.is_ok());
+    assert!(playback_closed);
+    assert!(replicas_closed);
+    assert!(replication_closed);
+    assert!(pool_closed);
     assert_eq!(fado_count, Some(1_000), "the tile count is capped");
     assert_eq!(page_failure, None, "every page request succeeds");
     assert!(!repeated_cursor, "continuation cursors do not repeat");
