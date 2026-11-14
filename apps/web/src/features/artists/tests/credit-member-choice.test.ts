@@ -140,6 +140,8 @@ type ServeOptions = {
 };
 
 const groupsPath = "/api/v1/artist-identity-groups/";
+const chosenGroupName = "Identity group of the chosen artist";
+const chosenGroupNames = { [memberGroup]: chosenGroupName };
 
 function serve(options: ServeOptions = {}) {
   const signals = { search: [] as AbortSignal[], preview: [] as AbortSignal[] };
@@ -386,7 +388,7 @@ test("members without an artist id are not listed", async () => {
 });
 
 test("choosing sends the exact member context to the member's own routes and shows the chosen artist", async () => {
-  const fetch = serve();
+  const fetch = serve({ groupNames: chosenGroupNames });
   render(
     createElement(TrackMetadata, {
       account: artistReviewAccount,
@@ -401,7 +403,7 @@ test("choosing sends the exact member context to the member's own routes and sho
     await within(dialog).findByRole("button", { name: "Use this artist" }),
   );
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   const writes = fetch.mock.calls.filter(
     ([, init]) => init?.method === "POST" || init?.method === "PUT",
@@ -721,7 +723,7 @@ test("cancelling the dialog stops a held preview and reopening starts fresh", as
 });
 
 test("cancelling after an accepted choice keeps it and re-reads the real choice", async () => {
-  const fetch = serve({ readbackFailures: 1 });
+  const fetch = serve({ readbackFailures: 1, groupNames: chosenGroupNames });
   renderTrack();
   await within(row(featured.name)).findByText("Not chosen yet");
   const dialog = await reachPreview();
@@ -731,7 +733,7 @@ test("cancelling after an accepted choice keeps it and re-reads the real choice"
   await within(dialog).findByRole("alert");
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   expect(
     fetch.mock.calls.filter(([, init]) => init?.method === "PUT"),
@@ -742,7 +744,7 @@ const memberIdentity = `${memberBase}/artist-identity`;
 const unresolvedNote = "Hito could not confirm the last change to this credit.";
 
 async function chooseAndLose(options: ServeOptions) {
-  const fetch = serve(options);
+  const fetch = serve({ groupNames: chosenGroupNames, ...options });
   renderTrack();
   await within(row(featured.name)).findByText("Not chosen yet");
   const dialog = await reachPreview();
@@ -761,7 +763,7 @@ test("a choice whose response was lost is replayed with the same request", async
   ).toBe(true);
   fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
@@ -782,7 +784,7 @@ test("a lost choice response can be checked again from the row after cancelling"
     within(row(featured.name)).getByRole("button", { name: "Check again" }),
   );
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
@@ -796,13 +798,13 @@ test("an accepted choice with a failed readback blocks new writes until checked"
   ).toBe(true);
   fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
 });
 
 test("a rejected choice is dropped, re-read, and a new attempt uses the new revision", async () => {
-  const fetch = serve({ conflictOnce: true });
+  const fetch = serve({ conflictOnce: true, groupNames: chosenGroupNames });
   renderTrack();
   await within(row(featured.name)).findByText("Not chosen yet");
   const dialog = await reachPreview();
@@ -823,7 +825,7 @@ test("a rejected choice is dropped, re-read, and a new attempt uses the new revi
     within(dialog).getByRole("button", { name: "Use this artist" }),
   );
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
@@ -934,7 +936,7 @@ async function holdClear(holdReset: Deferred) {
 }
 
 async function holdChoose(holdPut: Deferred) {
-  const fetch = serve({ holdPut });
+  const fetch = serve({ holdPut, groupNames: chosenGroupNames });
   renderTrack();
   await within(row(featured.name)).findByText("Not chosen yet");
   const dialog = await reachPreview();
@@ -983,7 +985,7 @@ test("collapsing the section keeps an in-flight choice unresolved", async () => 
   ).toBe(true);
   holdPut.resolve();
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   expect(writeBodies(fetch, "PUT", memberIdentity)).toHaveLength(1);
 });
@@ -1028,7 +1030,7 @@ test("a remounted row adopts a choice the server may still commit", async () => 
   await waitFor(() => expect(isDisabled(check)).toBe(false));
   fireEvent.click(check);
   await within(row(featured.name)).findByText(
-    `Chosen: ${artistPreview.profile.artist.name}`,
+    `Chosen: ${chosenGroupName}`,
   );
   const puts = writeBodies(fetch, "PUT", memberIdentity);
   expect(puts).toHaveLength(2);
