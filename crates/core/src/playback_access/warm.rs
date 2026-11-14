@@ -147,6 +147,15 @@ impl Entry {
     }
 }
 
+fn lease_cancellation(entry: &Entry, active: &mut bool) -> bool {
+    if !*active {
+        return false;
+    }
+    let stopped = entry.lease_cancelled();
+    *active = stopped;
+    stopped
+}
+
 #[derive(Default)]
 struct State {
     closed: bool,
@@ -283,8 +292,10 @@ impl Registry {
                     let mut claimed = ticket.is_claimed() || *claim_rx.borrow();
                     let mut first_ended = false;
                     let mut terminal = false;
+                    let mut lease_active = true;
                     while first_read.is_some() {
-                        if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                        if (*lease_cancel.borrow()
+                            && lease_cancellation(&worker_entry, &mut lease_active))
                             || *cancel_rx.borrow()
                             || *ticket_cancel.borrow()
                         {
@@ -293,8 +304,8 @@ impl Registry {
                         }
                         tokio::select! {
                             biased;
-                            _ = lease_cancel.changed() => {
-                                if worker_entry.lease_cancelled() { terminal = true; break; }
+                            _ = lease_cancel.changed(), if lease_active => {
+                                if lease_cancellation(&worker_entry, &mut lease_active) { terminal = true; break; }
                             },
                             _ = cancel_rx.changed() => { terminal = true; break; },
                             _ = ticket_cancel.changed() => { terminal = true; break; },
@@ -319,14 +330,16 @@ impl Registry {
                                 claimed |= ticket.is_claimed() || *claim_rx.borrow();
                                 let result = if matches!(&result, Ok(Some(_))) {
                                     let checked = loop {
-                                        if *lease_cancel.borrow() && worker_entry.lease_cancelled() {
+                                        if *lease_cancel.borrow()
+                                            && lease_cancellation(&worker_entry, &mut lease_active)
+                                        {
                                             terminal = true;
                                             break Err(Error::NotFound);
                                         }
                                         tokio::select! {
                                             biased;
-                                            _ = lease_cancel.changed() => {
-                                                if worker_entry.lease_cancelled() {
+                                            _ = lease_cancel.changed(), if lease_active => {
+                                                if lease_cancellation(&worker_entry, &mut lease_active) {
                                                     terminal = true;
                                                     break Err(Error::NotFound);
                                                 }
@@ -399,7 +412,8 @@ impl Registry {
                             .await
                             .as_ref()
                             .is_some_and(|ready| ready.prefix.is_some());
-                        if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                        if (*lease_cancel.borrow()
+                            && lease_cancellation(&worker_entry, &mut lease_active))
                             || *cancel_rx.borrow()
                             || *ticket_cancel.borrow()
                         {
@@ -408,8 +422,8 @@ impl Registry {
                         if !terminal && (first_result.is_some() || retained_prefix) {
                             tokio::select! {
                                 biased;
-                                _ = lease_cancel.changed() => {
-                                    if worker_entry.lease_cancelled() { terminal = true; }
+                                _ = lease_cancel.changed(), if lease_active => {
+                                    if lease_cancellation(&worker_entry, &mut lease_active) { terminal = true; }
                                 },
                                 _ = cancel_rx.changed() => terminal = true,
                                 _ = ticket_cancel.changed() => terminal = true,
@@ -418,7 +432,8 @@ impl Registry {
                             }
                         }
                     }
-                    if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                    if (*lease_cancel.borrow()
+                        && lease_cancellation(&worker_entry, &mut lease_active))
                         || *cancel_rx.borrow()
                         || *ticket_cancel.borrow()
                     {
@@ -427,7 +442,8 @@ impl Registry {
                     claimed |= ticket.is_claimed() || *claim_rx.borrow();
                     if !terminal && claimed && !first_ended {
                         loop {
-                            if (*lease_cancel.borrow() && worker_entry.lease_cancelled())
+                            if (*lease_cancel.borrow()
+                                && lease_cancellation(&worker_entry, &mut lease_active))
                                 || *cancel_rx.borrow()
                                 || *ticket_cancel.borrow()
                             {
@@ -435,8 +451,8 @@ impl Registry {
                             }
                             let command = tokio::select! {
                                 biased;
-                                _ = lease_cancel.changed() => {
-                                    if worker_entry.lease_cancelled() { break; }
+                                _ = lease_cancel.changed(), if lease_active => {
+                                    if lease_cancellation(&worker_entry, &mut lease_active) { break; }
                                     continue;
                                 },
                                 _ = cancel_rx.changed() => break,
@@ -453,14 +469,14 @@ impl Registry {
                                         );
                                         loop {
                                             if *lease_cancel.borrow()
-                                                && worker_entry.lease_cancelled()
+                                                && lease_cancellation(&worker_entry, &mut lease_active)
                                             {
                                                 break Err(Error::NotFound);
                                             }
                                             tokio::select! {
                                                 biased;
-                                                _ = lease_cancel.changed() => {
-                                                    if worker_entry.lease_cancelled() {
+                                                _ = lease_cancel.changed(), if lease_active => {
+                                                    if lease_cancellation(&worker_entry, &mut lease_active) {
                                                         break Err(Error::NotFound);
                                                     }
                                                 },
