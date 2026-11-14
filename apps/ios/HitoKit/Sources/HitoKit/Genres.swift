@@ -51,9 +51,9 @@ public struct GenreDetail: Decodable, Equatable, Sendable {
     public let albums: [Album]
     public let tracks: [Track]
 
-    public var showing: String? {
-        genre.trackCount > tracks.count ? "Showing \(tracks.count) of \(genre.shortCount) tracks." : nil
-    }
+    public static let previewLimit = 100
+
+    public var mayHaveMore: Bool { tracks.count >= Self.previewLimit }
 }
 
 public struct Genres: Sendable {

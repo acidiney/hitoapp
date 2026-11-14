@@ -99,8 +99,8 @@ struct GenreView: View {
                         .padding(.trailing, -16)
                     }
                     Text("Tracks").font(Theme.section).padding(.top, 8).accessibilityAddTraits(.isHeader)
-                    if genre.trackCount > tracks.count {
-                        Text("Showing \(tracks.count) of \(genre.shortCount) tracks.").font(Theme.small).foregroundStyle(Theme.soft)
+                    if paged == nil && detail.mayHaveMore {
+                        Text("Showing the first \(tracks.count) tracks.").font(Theme.small).foregroundStyle(Theme.soft)
                     }
                     VStack(spacing: 0) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
@@ -119,7 +119,7 @@ struct GenreView: View {
                         }
                     }
                     .padding(.trailing, -8)
-                    if genre.trackCount > tracks.count && (paged == nil || cursor != nil) {
+                    if paged == nil ? detail.mayHaveMore : cursor != nil {
                         if moreFailed {
                             Text("More tracks didn't load.").font(Theme.small).foregroundStyle(Theme.soft)
                         }
@@ -149,6 +149,10 @@ struct GenreView: View {
             paged = (paged ?? []) + page.items.filter { !known.contains($0.id) }
             cursor = page.next
         } catch is CancellationError {
+        } catch HitoAPI.Problem.refused(422) {
+            paged = nil
+            cursor = nil
+            moreFailed = true
         } catch {
             moreFailed = true
             model.handle(error)
