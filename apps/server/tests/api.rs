@@ -319,6 +319,8 @@ mod credit_member_review_search_credentials;
 mod credit_member_review_search_stale;
 #[path = "api/discover_pages.rs"]
 mod discover_pages;
+#[path = "api/genres.rs"]
+mod genres;
 #[path = "api/metadata.rs"]
 mod metadata;
 #[path = "api/metadata_preferences.rs"]
