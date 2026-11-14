@@ -30,7 +30,7 @@ pub struct GenreKeyQuery {
 }
 
 #[utoipa::path(get, path = "/api/v1/genres/detail", operation_id = "genre_detail",
-    description = "Returns the existing genre detail and bounded previews of at most 24 albums and 100 tracks. The track preview is not the first page of /api/v1/genres/tracks, and track_count may be nonexact. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization.",
+    description = "Returns the existing genre detail and bounded previews of at most 24 albums and 100 tracks. The track preview is not a continuation page and is not guaranteed to match the first page of /api/v1/genres/tracks. track_count may be nonexact. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization.",
     params(GenreKeyQuery), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = GenreDetail, headers(("Cache-Control" = String, description = "private, no-store"))),
     (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
@@ -55,7 +55,7 @@ pub struct GenreTracksQuery {
 }
 
 #[utoipa::path(get, path = "/api/v1/genres/tracks", operation_id = "genre_tracks",
-    description = "Returns a continuation page in inherited title and recording-ID order. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization. limit defaults to 100 and is clamped to 1 through 200. after is an opaque continuation for the same account and normalized key, not an authorization token. Malformed, stale, or out-of-scope continuations return 422 and require restarting pagination. Pages continue through a fixed catalog; catalog changes can alter later pages.",
+    description = "Returns a continuation page in inherited title and recording-ID order. Pass the canonical key from Genre.key; the server applies the existing genre-key normalization. limit defaults to 100 and is clamped to 1 through 200. after is an opaque continuation for the same account and normalized key, not an authorization token. Malformed or out-of-scope continuations, or a missing or inaccessible anchor, return 422 and require restarting pagination. Pages continue through a fixed catalog; catalog changes can alter later pages.",
     params(GenreTracksQuery), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = GenreTracksPage, headers(("Cache-Control" = String, description = "private, no-store"))),
     (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
