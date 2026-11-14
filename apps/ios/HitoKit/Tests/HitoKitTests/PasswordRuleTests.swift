@@ -13,6 +13,14 @@ import Testing
         #expect(PasswordRule.isLongEnough("correct hors"))
     }
 
+    @Test func aPasswordOverTheLimitSaysSo() {
+        let long = String(repeating: "a", count: 1025)
+        #expect(PasswordRule.progress(long) == "Too long. Use at most 1024 characters.")
+        #expect(PasswordRule.problem(long) == "Too long. Use at most 1024 characters.")
+        #expect(PasswordRule.problem("short") == "Use a password of at least 12 characters.")
+        #expect(PasswordRule.problem("correct horse") == nil)
+    }
+
     @Test func countsBytesLikeTheServer() {
         #expect(PasswordRule.isLongEnough("ééééééé"))
         #expect(!PasswordRule.isLongEnough(String(repeating: "a", count: 1025)))
