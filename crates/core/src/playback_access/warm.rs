@@ -670,6 +670,13 @@ impl Registry {
             .lock()
             .ok()
             .and_then(|ticket| ticket.as_ref().cloned());
+        tracing::debug!(
+            event = "playback_lease_warm_claim_decision",
+            stage = "ticket_snapshot",
+            ticket_present = ticket.is_some(),
+            elapsed_ms = entry.started.elapsed().as_millis() as u64,
+            "Playback lease warm claim decision"
+        );
         let Some(ticket) = ticket else {
             self.retire_unclaimed(lease).await?;
             return Ok(None);

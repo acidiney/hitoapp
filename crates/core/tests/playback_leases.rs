@@ -15,5 +15,7 @@ mod fixture;
 mod lifecycle;
 #[path = "playback_leases/logs.rs"]
 mod logs;
+#[path = "playback_leases/pending.rs"]
+mod pending;
 #[path = "playback_leases/remote.rs"]
 mod remote;
