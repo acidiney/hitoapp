@@ -15,6 +15,8 @@ pub enum Error {
     Access,
     #[error("The audio input could not be opened")]
     Input,
+    #[error("The audio provider failed: {0:?}")]
+    Provider(hito_core::PlaybackFailureReason),
     #[error("{0}")]
     Native(hito_audio::Error),
     #[error("Playback has stopped")]

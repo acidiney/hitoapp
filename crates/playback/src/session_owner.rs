@@ -22,9 +22,9 @@ pub(crate) async fn own(
         _ = grant.revoked() => { finish(&state, Status::Revoked, Some(Error::Access)); return; },
         result = Source::open_with_stop(grant.clone(), cancel.input()) => match result {
             Ok(input) => input,
-            Err(_) => {
+            Err(error) => {
                 if grant.check().await.is_err() { finish(&state, Status::Revoked, Some(Error::Access)); }
-                else { finish(&state, Status::Failed, Some(Error::Input)); }
+                else { finish(&state, Status::Failed, Some(open_error(error))); }
                 return;
             },
         },
@@ -93,6 +93,13 @@ pub(crate) async fn own(
         let _ = worker.await;
     }
     finish(&state, status, error);
+}
+
+fn open_error(error: hito_core::Error) -> Error {
+    match error {
+        hito_core::Error::PlaybackProvider { reason, .. } => Error::Provider(reason),
+        _ => Error::Input,
+    }
 }
 
 fn finish(state: &watch::Sender<Snapshot>, status: Status, error: Option<Error>) {
