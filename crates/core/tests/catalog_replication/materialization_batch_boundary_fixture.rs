@@ -1,6 +1,4 @@
-use crate::{
-    CatalogSnapshotMode, Credentials, Error, ServerRelayObservation, test_support::support,
-};
+use crate::{Credentials, ServerRelayObservation, test_support::support};
 
 pub(crate) struct SourceExpectation {
     pub(crate) id: String,
@@ -331,7 +329,10 @@ impl Fixture {
                     artist: format!("Source Artist {:02}", number % 7),
                     duration_ms: 40000 + number as i64 * 13,
                     relay: ServerRelayObservation::Unavailable,
-                    release: release(number % 3),
+                    release: ReleaseExpectation {
+                        track_number: Some((number % 17) as i64 + 7),
+                        ..release(number % 3)
+                    },
                 }];
                 if [255, 256].contains(&number) {
                     let release_number = (number + 1) % 3;
