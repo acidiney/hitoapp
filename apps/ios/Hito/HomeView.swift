@@ -30,14 +30,14 @@ struct HomeView: View {
                         Text(String(name.prefix(1)).uppercased())
                             .font(Theme.bodyBold)
                             .frame(width: 44, height: 44)
-                            .background(Circle().fill(Color(red: 0x1f / 255, green: 0x4a / 255, blue: 0x43 / 255)))
+                            .background(Circle().fill(Theme.avatar))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Account: \(name)")
                 }
                 Button(action: openSearch) {
                     HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .semibold))
+                        Icon("search")
                         Text("Search your library")
                         Spacer()
                     }
@@ -55,7 +55,6 @@ struct HomeView: View {
                 RecentlyAdded(feed: albums)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
             .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
@@ -86,7 +85,7 @@ struct JumpBackIn: View {
                 Tile(title: "Liked tracks") {
                     ZStack {
                         Theme.accent
-                        Image(systemName: "heart.fill").foregroundStyle(Theme.onAccent)
+                        Icon("heart-filled", size: 24.6).foregroundStyle(Theme.onAccent)
                     }
                     .frame(width: 56, height: 56)
                 }

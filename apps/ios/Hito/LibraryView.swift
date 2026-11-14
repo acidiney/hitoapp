@@ -14,18 +14,19 @@ struct LibraryView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12, pinnedViews: []) {
+            LazyVStack(alignment: .leading, spacing: 12) {
                 Text("Your library").font(Theme.title).accessibilityAddTraits(.isHeader)
                 SectionTabs(selection: $section)
                 switch section {
                 case .tracks:
                     TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.")
+                        .padding(.leading, -6)
+                        .padding(.trailing, -8)
                 case .albums:
                     AlbumGrid(feed: albums)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
             .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
@@ -52,22 +53,23 @@ struct SectionTabs: View {
                 let current = item == selection
                 Button { selection = item } label: {
                     Text(item.rawValue)
-                        .font(current ? Theme.bodyBold : Theme.body)
+                        .font(current ? Theme.bodyBold : Theme.bodyMedium)
                         .foregroundStyle(current ? Theme.text : Theme.quiet)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 44)
                         .overlay(alignment: .bottom) {
                             (current ? Theme.accent : .clear).frame(height: 2)
                         }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(current ? .isSelected : [])
             }
             Spacer()
         }
+        .padding(.leading, 16)
         .overlay(alignment: .bottom) { Theme.barLine.frame(height: 1) }
         .padding(.horizontal, -16)
-        .padding(.leading, 16)
     }
 }
 
@@ -85,17 +87,27 @@ struct TrackRows: View {
             Button {
                 model.player?.play(feed.items, at: index, from: context)
             } label: {
-                TrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
             }
             .buttonStyle(.plain)
             .disabled(!track.isPlayable)
-            .contextMenu {
-                if track.isPlayable {
-                    Button("Play next") { model.player?.playNext(track) }
-                }
-            }
+            .contextMenu { TrackMenu(track: track) }
         }
         FeedFooter(feed: feed)
+    }
+}
+
+struct TrackMenu: View {
+    @Environment(AppModel.self) private var model
+    let track: Track
+
+    var body: some View {
+        if track.isPlayable {
+            Button("Play next") { model.player?.playNext(track) }
+        }
+        if let player = model.player {
+            Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
+        }
     }
 }
 
@@ -123,14 +135,18 @@ struct TrackListView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 Text(list.title).font(Theme.title).accessibilityAddTraits(.isHeader)
                 if let total = feed.total, total > 0 {
                     PlayAllButton(label: "Play") {
                         model.player?.play(feed.items, at: feed.items.firstIndex { $0.isPlayable } ?? 0, from: list.title)
                     }
                 }
-                TrackRows(feed: feed, context: list.title, empty: "Tracks you like show up here.")
+                VStack(spacing: 0) {
+                    TrackRows(feed: feed, context: list.title, empty: "Tracks you like show up here.")
+                }
+                .padding(.leading, -6)
+                .padding(.trailing, -8)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -151,7 +167,7 @@ struct PlayAllButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "play.fill").font(.system(size: 14))
+                Icon("play", size: 16)
                 Text(label).font(Theme.bodyStrong)
             }
             .foregroundStyle(Theme.onAccent)
@@ -185,9 +201,17 @@ struct AlbumView: View {
                         Text(facts).font(Theme.small).foregroundStyle(Theme.quiet)
                     }
                 }
-                if tracks.contains(where: \.isPlayable) {
-                    PlayAllButton(label: "Play") {
-                        model.player?.play(tracks, at: tracks.firstIndex { $0.isPlayable } ?? 0, from: album.title)
+                HStack(spacing: 8) {
+                    if tracks.contains(where: \.isPlayable) {
+                        PlayAllButton(label: "Play") {
+                            model.player?.play(tracks, at: tracks.firstIndex { $0.isPlayable } ?? 0, from: album.title)
+                        }
+                        Menu {
+                            Button("Play next") { tracks.filter(\.isPlayable).reversed().forEach { model.player?.playNext($0) } }
+                        } label: {
+                            Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
+                        }
+                        .accessibilityLabel("More actions")
                     }
                 }
                 if failed {
@@ -199,29 +223,28 @@ struct AlbumView: View {
                 } else if detail == nil {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
-                ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                    Button {
-                        model.player?.play(tracks, at: index, from: album.title)
-                    } label: {
-                        HStack(spacing: 12) {
-                            if let number = track.trackNumber {
-                                Text(String(number))
-                                    .font(Theme.small)
-                                    .monospacedDigit()
-                                    .foregroundStyle(Theme.quiet)
-                                    .frame(width: 24, alignment: .trailing)
+                VStack(spacing: 0) {
+                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                        HStack(spacing: 4) {
+                            Button {
+                                model.player?.play(tracks, at: index, from: album.title)
+                            } label: {
+                                AlbumTrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
                             }
-                            TrackRow(track: track, showsCover: false, isCurrent: model.player?.current?.id == track.id)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!track.isPlayable)
-                    .contextMenu {
-                        if track.isPlayable {
-                            Button("Play next") { model.player?.playNext(track) }
+                            .buttonStyle(.plain)
+                            .disabled(!track.isPlayable)
+                            Icon("check", size: 16)
+                                .foregroundStyle(Theme.focus)
+                                .frame(width: 44, height: 44)
+                                .accessibilityLabel("In your library")
+                            Menu { TrackMenu(track: track) } label: {
+                                Icon("more").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+                            }
+                            .accessibilityLabel("More actions for \(track.title)")
                         }
                     }
                 }
+                .padding(.trailing, -8)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -232,7 +255,7 @@ struct AlbumView: View {
 
     private var facts: String {
         let count = "\(album.trackCount) \(album.trackCount == 1 ? "track" : "tracks")"
-        return [album.artist ?? "Various artists", album.year.map(String.init), count].compactMap { $0 }.joined(separator: " · ")
+        return [album.artist ?? "Various artists", count].joined(separator: " · ")
     }
 
     private func load() async {

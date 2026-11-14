@@ -13,13 +13,13 @@ struct ChooseLibraryView: View {
                 Choice(
                     title: "On this phone",
                     detail: "A private library here, for your own folders. Other devices can't reach it.",
-                    icon: "iphone",
+                    icon: "phone",
                     emphasized: true
                 ) { model.chooseThisPhone() }
                 Choice(
                     title: "On a Hito server",
                     detail: "A server you or someone else runs, at home or over a VPN.",
-                    icon: "server.rack",
+                    icon: "server",
                     emphasized: false
                 ) { model.chooseServer() }
             }
@@ -42,8 +42,7 @@ private struct Choice: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
+                Icon(icon, size: 22)
                     .foregroundStyle(Theme.soft)
                     .frame(width: 48, height: 48)
                     .background(Color(red: 0x2a / 255, green: 0x2a / 255, blue: 0x28 / 255), in: RoundedRectangle(cornerRadius: 10))
@@ -53,8 +52,7 @@ private struct Choice: View {
                     Text(detail).font(Theme.small).foregroundStyle(Theme.quiet)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(Theme.smallStrong)
+                Icon("chevron-right")
                     .foregroundStyle(Theme.quiet)
                     .accessibilityHidden(true)
             }
@@ -76,7 +74,7 @@ struct ThisPhoneView: View {
 
     var body: some View {
         Screen {
-            TextAction(title: "Back", icon: "chevron.left", color: Theme.soft) { model.backToChoice() }
+            TextAction(title: "Back", icon: "chevron-left", color: Theme.soft) { model.backToChoice() }
             Heading(title: "Hito can't keep a library on this phone yet")
             Text("For now, Hito on a phone plays from a Hito server.")
                 .foregroundStyle(Theme.soft)

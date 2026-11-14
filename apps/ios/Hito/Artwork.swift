@@ -32,6 +32,8 @@ struct Cover: View {
     let path: [String]
     var size: CGFloat?
     var radius: CGFloat = 6
+    var mark = "note"
+    var round = false
     @State private var image: UIImage?
 
     var body: some View {
@@ -40,14 +42,14 @@ struct Cover: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Image(systemName: "music.note")
-                    .font(.system(size: (size ?? 120) * 0.3))
+                Icon(mark, size: min((size ?? 100) * 0.44, 44))
                     .foregroundStyle(Theme.coverMark)
             }
         }
         .frame(width: size, height: size)
+        .frame(maxWidth: size == nil ? .infinity : nil)
         .aspectRatio(1, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: radius))
+        .clipShape(round ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: radius)))
         .accessibilityHidden(true)
         .task(id: path) {
             guard let api = model.api else { return }
@@ -56,52 +58,114 @@ struct Cover: View {
     }
 }
 
-struct TrackRow: View {
+struct StatusDot: View {
     let track: Track
-    var showsCover = true
+    var size: CGFloat = 8
+
+    var body: some View {
+        Group {
+            if track.available {
+                Circle().fill(Theme.soft)
+            } else if track.playsFromServices {
+                Circle().strokeBorder(Theme.focus, lineWidth: 1.5)
+            } else {
+                Circle().strokeBorder(Theme.warning, lineWidth: 1.5)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+extension Track {
+    var stateLabel: String {
+        available ? "Ready" : playsFromServices ? "From a service" : "No source"
+    }
+
+    var stateColor: Color {
+        available ? Theme.quiet : playsFromServices ? Theme.focus : Theme.warning
+    }
+
+    var clock: String { Duration.milliseconds(durationMs).clock }
+}
+
+struct LibraryRow: View {
+    let track: Track
+    var isCurrent = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Cover(path: track.artworkPath, size: 44)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(track.title)
+                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    StatusDot(track: track)
+                    Text(track.stateLabel).foregroundStyle(track.stateColor).layoutPriority(1)
+                    Text("· \(track.artist)").lineLimit(1)
+                }
+                .font(Theme.small)
+                .foregroundStyle(Theme.quiet)
+            }
+            Spacer(minLength: 8)
+            Text(track.clock)
+                .font(Theme.small)
+                .monospacedDigit()
+                .foregroundStyle(Theme.quiet)
+                .padding(.trailing, 12)
+        }
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SearchRow: View {
+    let track: Track
     var isCurrent = false
 
     var body: some View {
         HStack(spacing: 12) {
-            if showsCover { Cover(path: track.artworkPath, size: 44) }
-            VStack(alignment: .leading, spacing: 2) {
+            Cover(path: track.artworkPath, size: 44)
+            VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
+                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
                     .lineLimit(1)
-                SourceLine(track: track)
+                HStack(spacing: 6) {
+                    StatusDot(track: track)
+                    Text(track.stateLabel).foregroundStyle(track.available ? Theme.quiet : track.stateColor).layoutPriority(1)
+                    Text("· \(track.clock)").lineLimit(1)
+                }
+                .font(Theme.small)
+                .foregroundStyle(Theme.quiet)
             }
             Spacer(minLength: 8)
-            Text(Duration.milliseconds(track.durationMs).clock)
-                .font(Theme.small)
-                .monospacedDigit()
-                .foregroundStyle(Theme.quiet)
         }
         .frame(minHeight: 60)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
-struct SourceLine: View {
+struct AlbumTrackRow: View {
     let track: Track
+    var isCurrent = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            if track.available {
-                Circle().fill(Theme.soft).frame(width: 8, height: 8)
-                Text("Ready · \(track.artist)")
-            } else if track.playsFromServices {
-                Circle().strokeBorder(Theme.focus, lineWidth: 1.5).frame(width: 8, height: 8)
-                Text("From a service").foregroundStyle(Theme.focus)
-                Text("· \(track.artist)")
-            } else {
-                Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 8, height: 8)
-                Text("No source").foregroundStyle(Theme.warning)
-                Text("· \(track.artist)")
+        VStack(alignment: .leading, spacing: 0) {
+            Text(track.title)
+                .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
+                .lineLimit(1)
+            HStack(spacing: 6) {
+                StatusDot(track: track, size: 9)
+                (Text("\(track.stateLabel) · ").foregroundStyle(track.available ? Theme.quiet : track.stateColor)
+                    + Text(track.artist).foregroundStyle(Theme.quiet))
+                    .lineLimit(1)
             }
+            .font(Theme.small)
         }
-        .font(Theme.small)
-        .foregroundStyle(Theme.quiet)
-        .lineLimit(1)
+        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }

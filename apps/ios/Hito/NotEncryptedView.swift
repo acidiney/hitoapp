@@ -7,7 +7,7 @@ struct NotEncryptedView: View {
 
     var body: some View {
         Screen {
-            TextAction(title: "Change address", icon: "chevron.left", color: Theme.soft) { model.changeAddress() }
+            TextAction(title: "Change address", icon: "chevron-left", color: Theme.soft) { model.changeAddress() }
             Heading(title: "This connection is not encrypted", address: found.address.origin.absoluteString)
             Text("Anyone on the same network could read what you send, including your password.")
                 .foregroundStyle(Theme.soft)

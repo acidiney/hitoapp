@@ -20,8 +20,14 @@ final class Player {
     private(set) var duration: Double = 0
     private(set) var sourceLabel: String?
     private(set) var notice: String?
+    private(set) var sourceId: String?
+    private(set) var pickedSource = false
+    private(set) var removed: (track: Track, undo: PlayQueue.Removed)?
+    private(set) var liked: Set<String> = []
+    private(set) var unliked: Set<String> = []
 
     private let playback: Playback
+    private let likes: Likes
     private let api: HitoAPI
     private let engine = AVPlayer()
     private let log = Logger(subsystem: "app.hito", category: "player")
@@ -35,6 +41,7 @@ final class Player {
     init(api: HitoAPI) {
         self.api = api
         playback = Playback(api: api)
+        likes = Likes(api: api, device: Self.device)
         engine.automaticallyWaitsToMinimizeStalling = true
         ticker = engine.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] time in
             MainActor.assumeIsolated { self?.tick(time.seconds) }
@@ -104,10 +111,101 @@ final class Player {
 
     func clearUpcoming() {
         queue.clearUpcoming()
+        removed = nil
     }
 
-    func remove(upcoming id: String) {
-        queue.remove(upcoming: id)
+    func remove(upcoming track: Track) {
+        guard let undo = queue.remove(upcoming: track.id) else { return }
+        removed = (track, undo)
+    }
+
+    func undoRemove() {
+        guard let removed else { return }
+        queue.restore(removed.undo)
+        self.removed = nil
+    }
+
+    func move(upcoming id: String, by offset: Int) {
+        queue.move(upcoming: id, by: offset)
+    }
+
+    var shuffled: Bool { queue.shuffled }
+    var repeatMode: PlayQueue.RepeatMode { queue.repeatMode }
+
+    func toggleShuffle() {
+        var generator = SystemRandomNumberGenerator()
+        queue.setShuffle(!queue.shuffled, using: &generator)
+    }
+
+    func cycleRepeat() {
+        queue.repeatMode = switch queue.repeatMode {
+        case .off: .list
+        case .list: .track
+        case .track: .off
+        }
+    }
+
+    func isLiked(_ track: Track) -> Bool {
+        liked.contains(track.id) || (track.liked && !unliked.contains(track.id))
+    }
+
+    func toggleLike(_ track: Track) {
+        let next = !isLiked(track)
+        set(track.id, liked: next)
+        Task { [likes, log] in
+            do {
+                try await likes.setLiked(track.id, next)
+            } catch {
+                log.info("player.like_failed")
+                set(track.id, liked: !next)
+                notice = next ? "Couldn't like \(track.title). Try again." : "Couldn't remove \(track.title) from Liked tracks. Try again."
+            }
+        }
+    }
+
+    private func set(_ id: String, liked value: Bool) {
+        if value {
+            liked.insert(id)
+            unliked.remove(id)
+        } else {
+            liked.remove(id)
+            unliked.insert(id)
+        }
+    }
+
+    func sources() async throws -> [PlaybackSource] {
+        guard let track = queue.current else { return [] }
+        return try await playback.sources(track.id)
+    }
+
+    func play(source id: String) {
+        guard let track = queue.current else { return }
+        loading?.cancel()
+        notice = nil
+        state = .loading
+        let resume = position
+        loading = Task { [weak self, playback] in
+            do {
+                let audio = try await playback.prepare(track.id, source: id)
+                guard let self, !Task.isCancelled else { return }
+                self.tried = []
+                self.attach(audio, picked: true)
+                self.seek(to: resume)
+            } catch is CancellationError {
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.notice = "That source didn't play. Still playing from \(self.sourceLabel ?? "the last source")."
+                self.state = self.engine.currentItem == nil ? .idle : .playing
+            }
+        }
+    }
+
+    private static var device: String {
+        let key = "app.hito.device"
+        if let saved = UserDefaults.standard.string(forKey: key) { return saved }
+        let made = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(made, forKey: key)
+        return made
     }
 
     func stop() {
@@ -131,6 +229,7 @@ final class Player {
         position = 0
         duration = Double(track.durationMs) / 1000
         sourceLabel = nil
+        sourceId = nil
         engine.pause()
         publish()
         loadArtwork(for: track)
@@ -148,9 +247,11 @@ final class Player {
         }
     }
 
-    private func attach(_ audio: AudioRequest) {
+    private func attach(_ audio: AudioRequest, picked: Bool = false) {
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
+        sourceId = audio.sourceId
+        pickedSource = picked
         let asset = AVURLAsset(url: audio.url, options: ["AVURLAssetHTTPHeaderFieldsKey": audio.headers])
         let item = AVPlayerItem(asset: asset)
         let identity = ObjectIdentifier(item)

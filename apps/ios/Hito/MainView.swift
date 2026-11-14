@@ -14,9 +14,9 @@ enum Tab: CaseIterable, Hashable {
 
     var icon: String {
         switch self {
-        case .home: "house"
-        case .search: "magnifyingglass"
-        case .library: "books.vertical"
+        case .home: "home"
+        case .search: "search"
+        case .library: "library"
         }
     }
 }
@@ -68,15 +68,47 @@ struct MainView: View {
 
 extension View {
     func browsing() -> some View {
-        navigationDestination(for: Album.self) { AlbumView(album: $0).page() }
-            .navigationDestination(for: TrackList.self) { TrackListView(list: $0).page() }
+        navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
+            .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
             .page()
     }
 
     func page() -> some View {
-        toolbarBackground(.hidden, for: .navigationBar)
+        toolbar(.hidden, for: .navigationBar)
             .background(Theme.ground.ignoresSafeArea())
             .foregroundStyle(Theme.text)
+    }
+
+    func pushed() -> some View {
+        modifier(Pushed())
+    }
+}
+
+struct Pushed: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack {
+                    IconButton(icon: "chevron-left", label: "Back", glyph: 22) { dismiss() }
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .background(Theme.ground)
+            }
+            .page()
+    }
+}
+
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+
+    public func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+        viewControllers.count > 1
     }
 }
 
@@ -91,10 +123,9 @@ struct TabBar: View {
                     tab = item
                 } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: item.icon)
-                            .font(.system(size: 20, weight: .medium))
+                        Icon(item.icon, size: 22)
                             .foregroundStyle(current ? Theme.accent : Theme.quiet)
-                        Text(item.label).font(current ? Theme.tabCurrent : Theme.tab)
+                        Text(item.label).font(current ? Theme.tabCurrent : Theme.tab).lineLimit(1)
                     }
                     .foregroundStyle(current ? Theme.text : Theme.quiet)
                     .frame(maxWidth: .infinity, minHeight: 52)
@@ -144,13 +175,8 @@ struct MiniPlayer: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(track.title), \(track.artist). Open now playing")
                     PlayButton(player: player, size: 44)
-                    Button(action: player.next) {
-                        Image(systemName: "forward.end.fill").font(.system(size: 18))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Next track")
-                    .disabled(!player.queue.hasNext)
+                    IconButton(icon: "next", label: "Next track", glyph: 20, action: player.next)
+                        .disabled(!player.queue.hasNext)
                 }
                 .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 8))
             }
@@ -166,6 +192,7 @@ struct PlayButton: View {
     let player: Player
     let size: CGFloat
     var light = false
+    var glyph: CGFloat?
 
     var body: some View {
         Button(action: player.toggle) {
@@ -174,8 +201,7 @@ struct PlayButton: View {
                 if player.state == .loading {
                     ProgressView().tint(light ? Theme.stage : Theme.onAccent)
                 } else {
-                    Image(systemName: player.state == .playing ? "pause.fill" : "play.fill")
-                        .font(.system(size: size * 0.4))
+                    Icon(player.state == .playing ? "pause" : "play", size: glyph ?? 18)
                         .foregroundStyle(light ? Theme.stage : Theme.onAccent)
                 }
             }
