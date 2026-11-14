@@ -43,6 +43,9 @@ fn describe(agent: &str) -> String {
     if agent.contains("HitoDesktop/") {
         return "Hito desktop".to_owned();
     }
+    if agent.contains("HitoiOS/") {
+        return "Hito for iOS".to_owned();
+    }
     match (family(agent, BROWSERS), family(agent, SYSTEMS)) {
         (Some(browser), Some(system)) => format!("{browser} on {system}"),
         (Some(browser), None) => browser.to_owned(),
