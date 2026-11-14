@@ -469,7 +469,10 @@ impl Registry {
                                         );
                                         loop {
                                             if *lease_cancel.borrow()
-                                                && lease_cancellation(&worker_entry, &mut lease_active)
+                                                && lease_cancellation(
+                                                    &worker_entry,
+                                                    &mut lease_active,
+                                                )
                                             {
                                                 break Err(Error::NotFound);
                                             }
@@ -858,6 +861,9 @@ pub(crate) struct Reservation {
     bytes: usize,
     accounted: AtomicBool,
 }
+
+#[cfg(test)]
+mod tests;
 
 impl Drop for Reservation {
     fn drop(&mut self) {
