@@ -12,6 +12,7 @@ public struct PluginConnection: Equatable, Hashable, Identifiable, Sendable {
     public let health: Health
     public let revision: Int
     public let checkedAt: Date?
+    public var signsIn = false
 
     public var summary: String {
         PluginState.rows.filter { capabilities.contains($0.capability) }.map(\.name).joined(separator: " · ")
@@ -35,6 +36,10 @@ public struct PluginResult: Decodable, Equatable, Identifiable, Sendable {
         case id, title, artist
         case durationMs = "duration_ms"
     }
+}
+
+public enum PluginAccount: Equatable, Sendable {
+    case notConnected, connected, needsSignInAgain
 }
 
 public struct PluginPower: Equatable, Identifiable, Sendable {
@@ -70,9 +75,12 @@ public struct PluginState: Equatable, Sendable {
 }
 
 public struct Plugins: Sendable {
+    struct Authorization: Decodable { let kind: String }
+
     struct Manifest: Decodable {
         let name: String
         let capabilities: [String]
+        let authorization: Authorization?
     }
 
     struct Health: Decodable { let state: PluginConnection.Health }
@@ -98,7 +106,8 @@ public struct Plugins: Sendable {
                 capabilities: manifest.capabilities,
                 health: health?.state ?? .ok,
                 revision: revision,
-                checkedAt: checkedAt.flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0)) : nil }
+                checkedAt: checkedAt.flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0)) : nil },
+                signsIn: manifest.authorization != nil
             )
         }
     }
@@ -160,13 +169,14 @@ public struct Plugins: Sendable {
         )
     }
 
-    public func check(_ id: String, revision: Int, had: [String] = [], accept digest: String? = nil) async throws -> CheckResult {
+    public func check(_ id: String, revision: Int, had: [String] = [], signsIn: Bool = false, accept digest: String? = nil) async throws -> CheckResult {
         let result = try await api.post(["api", "v1", "plugins", id, "refresh"], body: Refresh(revision: revision, acceptManifestDigest: digest), as: Refreshed.self)
         guard result.kind == "review_required", let digest = result.digest, let manifest = result.manifest else {
             guard let installation = result.installation else { throw HitoAPI.Problem.unexpected(200) }
             return .updated(installation.connection)
         }
         let wants = PluginState.rows.filter { manifest.capabilities.contains($0.capability) && !had.contains($0.capability) }.map(\.name)
+            + (manifest.authorization != nil && !signsIn ? ["Account sign-in"] : [])
         return .review(digest: digest, wants: wants)
     }
 
@@ -203,5 +213,19 @@ public struct Plugins: Sendable {
 
     public func adopt(_ id: String, revision: Int, result: String) async throws -> Track {
         try await api.post(["api", "v1", "plugins", id, "recordings"], body: Adopt(installationRevision: revision, providerRecordingId: result), as: Track.self)
+    }
+
+    struct AccountStatus: Decodable { let status: String }
+
+    public func account(_ id: String) async throws -> PluginAccount {
+        switch try await api.get(["api", "v1", "plugins", id, "connection"], as: AccountStatus.self).status {
+        case "connected": .connected
+        case "needs_reauthorization": .needsSignInAgain
+        default: .notConnected
+        }
+    }
+
+    public func signOut(_ id: String) async throws {
+        _ = try await api.delete(["api", "v1", "plugins", id, "connection"], as: Nothing.self)
     }
 }

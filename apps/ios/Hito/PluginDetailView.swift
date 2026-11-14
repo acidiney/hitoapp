@@ -11,6 +11,9 @@ struct PluginDetailView: View {
     @State private var problem: String?
     @State private var confirmingRemove = false
     @State private var confirmingReview = false
+    @State private var account: PluginAccount?
+    @State private var accountUnknown = false
+    @State private var confirmingSignOut = false
 
     init(connection: PluginConnection) {
         _connection = State(initialValue: connection)
@@ -55,6 +58,36 @@ struct PluginDetailView: View {
                     .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                     .overlay(alignment: .top) { if index > 0 { Theme.barLine.frame(height: 1) } }
                     .accessibilityElement(children: .combine)
+                }
+                if connection.signsIn {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Account sign-in").font(Theme.bodyStrong)
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(account == .connected ? Theme.soft : .clear)
+                                    .strokeBorder(account == .connected ? Theme.soft : Theme.warning, lineWidth: 1.5)
+                                    .frame(width: 9, height: 9)
+                                Text(accountLabel).font(Theme.small).foregroundStyle(account == .connected ? Theme.quiet : Theme.warning)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        if account == .connected {
+                            Button { confirmingSignOut = true } label: {
+                                Text("Sign out").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(working)
+                        } else if accountUnknown {
+                            Button { Task { await loadAccount() } } label: {
+                                Text("Check again").font(Theme.smallStrong).foregroundStyle(Theme.text).padding(.horizontal, 16).frame(minHeight: 40).overlay(Capsule().strokeBorder(Theme.line))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .frame(minHeight: 64)
+                    .overlay(alignment: .top) { if !capabilities.isEmpty { Theme.barLine.frame(height: 1) } }
+                    .accessibilityElement(children: .contain)
                 }
                 if let review {
                     HStack(spacing: 12) {
@@ -127,12 +160,18 @@ struct PluginDetailView: View {
             .padding(.bottom, 16)
             .background(Theme.ground)
         }
+        .task(id: connection.signsIn) { await loadAccount() }
+        .confirmationDialog("Sign out of \(connection.name)?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { Task { await signOut() } }
+        } message: {
+            Text("Hito stops using your \(connection.name) account. The plugin stays connected.")
+        }
         .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button("Disconnect", role: .destructive) { Task { await remove() } }
         } message: {
             Text("Its saved token is cleared. Your library, playlists and saved copies stay. Tracks that only play from \(connection.name) will show No source.")
         }
-        .confirmationDialog("Let \(connection.name) add \(review?.wants.joined(separator: ", ") ?? "new permissions")?", isPresented: $confirmingReview, titleVisibility: .visible) {
+        .confirmationDialog("Let \(connection.name) add \(review?.wants.joined(separator: ", ").lowercased() ?? "new permissions")?", isPresented: $confirmingReview, titleVisibility: .visible) {
             Button("Accept") { Task { await check(accept: review?.digest) } }
         } message: {
             Text("Hito starts using \(connection.name) for this as soon as you accept. You can disconnect the plugin at any time.")
@@ -152,6 +191,42 @@ struct PluginDetailView: View {
         }
     }
 
+    private var accountLabel: String {
+        if accountUnknown { return "Sign-in status unavailable" }
+        switch account {
+        case .connected: return "Connected"
+        case .needsSignInAgain: return "Sign in again on the web"
+        case .notConnected: return "Not connected · connect on the web"
+        case nil: return "Checking sign-in…"
+        }
+    }
+
+    private func loadAccount() async {
+        guard connection.signsIn, let api = model.api else { return }
+        accountUnknown = false
+        do {
+            account = try await Plugins(api: api).account(connection.id)
+        } catch is CancellationError {
+        } catch {
+            accountUnknown = true
+            model.handle(error)
+        }
+    }
+
+    private func signOut() async {
+        guard let api = model.api else { return }
+        working = true
+        defer { working = false }
+        do {
+            try await Plugins(api: api).signOut(connection.id)
+            note = "Signed out of \(connection.name)."
+            await loadAccount()
+        } catch {
+            problem = "You're still signed in to \(connection.name). Try again."
+            model.handle(error)
+        }
+    }
+
     private func check(accept digest: String? = nil) async {
         guard let api = model.api else { return }
         working = true
@@ -159,7 +234,7 @@ struct PluginDetailView: View {
         note = nil
         defer { working = false }
         do {
-            switch try await Plugins(api: api).check(connection.id, revision: connection.revision, had: connection.capabilities, accept: digest) {
+            switch try await Plugins(api: api).check(connection.id, revision: connection.revision, had: connection.capabilities, signsIn: connection.signsIn, accept: digest) {
             case let .updated(saved):
                 review = nil
                 connection = saved

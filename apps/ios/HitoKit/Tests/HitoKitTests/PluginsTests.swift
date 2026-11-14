@@ -48,6 +48,12 @@ import Testing
         #expect(result == .review(digest: "d1", wants: ["Covers"]))
     }
 
+    @Test func aPluginAskingToSignInNamesIt() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"review_required","digest":"d2","manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search"],"authorization":{"kind":"oauth2_pkce","client_id":"c","authorization_endpoint":"https://a","token_endpoint":"https://t","scopes":["read"]}}}"#)])
+        #expect(try await plugins(fake).check("i1", revision: 1, had: ["search"]) == .review(digest: "d2", wants: ["Account sign-in"]))
+        #expect(try await plugins(fake).check("i1", revision: 1, had: ["search"], signsIn: true) == .review(digest: "d2", wants: []))
+    }
+
     @Test func acceptingAReviewSendsItsDigest() async throws {
         let installation = #"{"id":"i1","service_id":"s1","revision":3,"checked_at":5,"credential_set":false,"health":null,"manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search","artwork"]}}"#
         let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"updated","installation":\#(installation)}"#)])
@@ -77,5 +83,29 @@ import Testing
         let track = try await plugins(fake).adopt("i1", revision: 2, result: "p1")
         #expect(track.id == "r9" && track.playsFromServices)
         #expect(fake.requests.first?.object?["provider_recording_id"] as? String == "p1")
+    }
+
+    @Test func aPluginThatSignsInToAnAccountSaysSo() async throws {
+        let signing = #"{"credential_storage_ready":true,"installations":[{"id":"i3","service_id":"s3","revision":1,"checked_at":1,"credential_set":false,"health":{"state":"ok"},"manifest":{"id":"sp","name":"Spotify","protocol_version":1,"capabilities":["playlists"],"authorization":{"kind":"oauth2_pkce","client_id":"c","authorization_endpoint":"https://a","token_endpoint":"https://t","scopes":["read"]}}}],"services":[]}"#
+        let fake = FakeServer(routes: ["GET /api/v1/plugins": .json(200, signing)])
+        let state = try await plugins(fake).load()
+        #expect(state.connections.map(\.signsIn) == [true])
+        let plain = try await plugins(FakeServer(routes: ["GET /api/v1/plugins": .json(200, settings)])).load()
+        #expect(plain.connections.map(\.signsIn) == [false, false])
+    }
+
+    @Test func accountSignInReadsTheConnectionState() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/plugins/i3/connection": .json(200, #"{"status":"needs_reauthorization","scopes":["read"],"expires_at":null}"#)])
+        #expect(try await plugins(fake).account("i3") == .needsSignInAgain)
+        let connected = FakeServer(routes: ["GET /api/v1/plugins/i3/connection": .json(200, #"{"status":"connected","scopes":["read"],"expires_at":9}"#)])
+        #expect(try await plugins(connected).account("i3") == .connected)
+        let none = FakeServer(routes: ["GET /api/v1/plugins/i3/connection": .json(200, #"{"status":"not_connected","scopes":[]}"#)])
+        #expect(try await plugins(none).account("i3") == .notConnected)
+    }
+
+    @Test func signingOutOfTheAccountKeepsThePlugin() async throws {
+        let fake = FakeServer(routes: ["DELETE /api/v1/plugins/i3/connection": .text(204, "")])
+        try await plugins(fake).signOut("i3")
+        #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i3/connection"])
     }
 }
