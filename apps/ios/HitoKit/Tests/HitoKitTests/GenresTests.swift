@@ -25,7 +25,7 @@ struct GenresTests {
         #expect(detail.genre.title == "R&B Soul")
         #expect(detail.albums.map(\.id) == ["a1"])
         #expect(detail.tracks.map(\.id) == ["r1"])
-        #expect(detail.showing == "Showing 1 of 5 tracks.")
+        #expect(!detail.mayHaveMore)
     }
 
     @Test func genreTracksPageWithTheServersCursor() async throws {
