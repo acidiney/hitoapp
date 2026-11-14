@@ -7,6 +7,7 @@ struct LibraryView: View {
         case albums = "Albums"
         case artists = "Artists"
         case playlists = "Playlists"
+        case podcasts = "Podcasts"
         case history = "History"
     }
 
@@ -102,6 +103,8 @@ struct LibraryView: View {
                     }
                     .buttonStyle(.plain)
                     PlaylistRows(playlists: playlists, failed: playlistsFailed) { Task { await loadPlaylists() } }
+                case .podcasts:
+                    PodcastsSection()
                 case .history:
                     HistorySection()
                 }
