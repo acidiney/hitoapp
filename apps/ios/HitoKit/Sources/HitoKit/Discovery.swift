@@ -49,7 +49,10 @@ public struct Discovery: Sendable {
         }
     }
 
-    struct Groups: Decodable { let items: [Group] }
+    struct Groups: Decodable {
+        let items: [Group]
+        let total: Int
+    }
 
     struct Radio: Decodable {
         let artist: String
@@ -113,11 +116,12 @@ public struct Discovery: Sendable {
         self.api = api
     }
 
-    public func artists() async throws -> [RadioArtist] {
+    public func artists() async throws -> RadioArtists {
         let page = try await api.get(["api", "v1", "artist-identity-groups"], query: [URLQueryItem(name: "limit", value: "24")], as: Groups.self)
-        return page.items
+        let items = page.items
             .map { RadioArtist(id: $0.id, name: $0.name.value, tracks: $0.recordingCount) }
             .sorted { $0.tracks > $1.tracks }
+        return RadioArtists(items: items, complete: page.total <= page.items.count)
     }
 
     public func radio(_ id: String) async throws -> ArtistRadio {
@@ -147,5 +151,14 @@ public struct Discovery: Sendable {
         let opened = try await api.post(["api", "v1", "plugins", item.installation, "playlists", "open"], body: Open(requestId: id, installationRevision: item.revision, playlistReference: item.reference), as: Opened.self)
         guard opened.requestId.lowercased() == id else { throw PlaylistLink.Problem() }
         return opened.playlistId
+    }
+}
+
+public struct RadioArtists: Equatable, Sendable {
+    public let items: [RadioArtist]
+    public let complete: Bool
+
+    public var heroLabel: String {
+        complete ? "Radio · because you own the most of this artist" : "Radio · from an artist in your library"
     }
 }

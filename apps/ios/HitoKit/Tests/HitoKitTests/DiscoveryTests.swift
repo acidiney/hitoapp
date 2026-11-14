@@ -14,8 +14,15 @@ import Testing
     @Test func radioArtistsAreListedWithTheArtistYouOwnMostFirst() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/artist-identity-groups": .json(200, groups)])
         let artists = try await discovery(fake).artists()
-        #expect(artists.map(\.name) == ["Other Band", "Fixture Band"])
-        #expect(artists.map(\.tracks) == [9, 3])
+        #expect(artists.items.map(\.name) == ["Other Band", "Fixture Band"])
+        #expect(artists.items.map(\.tracks) == [9, 3])
+        #expect(artists.heroLabel == "Radio · because you own the most of this artist")
+    }
+
+    @Test func aPartialListDoesNotClaimTheArtistYouOwnMost() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/artist-identity-groups": .json(200, groups.replacingOccurrences(of: #""total":2"#, with: #""total":40"#))])
+        let artists = try await discovery(fake).artists()
+        #expect(artists.heroLabel == "Radio · from an artist in your library")
     }
 
     @Test func aRadioStartsFromAnArtistAndNamesHowFarItReaches() async throws {

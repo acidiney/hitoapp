@@ -5,6 +5,7 @@ struct DiscoverView: View {
     @Environment(AppModel.self) private var model
     let openSearch: () -> Void
     @State private var artists: [RadioArtist]?
+    @State private var heroLabel = ""
     @State private var hero: ArtistRadio?
     @State private var shelf: FeaturedShelf?
     @State private var starting: String?
@@ -23,7 +24,7 @@ struct DiscoverView: View {
                         heroCard(first)
                         artistSection(artists)
                     } else {
-                        Text("Radios start from the artists in your library. Once your library has music, they show up here.")
+                        Text("No artist radios yet. Radios start from artists Hito has matched on MusicBrainz, and none in your library are matched yet.")
                             .font(Theme.small).foregroundStyle(Theme.soft)
                     }
                 } else {
@@ -49,7 +50,7 @@ struct DiscoverView: View {
                     .frame(width: 72, height: 72)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Radio · the artist you own the most of").font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                    Text(heroLabel).font(Theme.smallStrong).foregroundStyle(Theme.soft)
                     Text("\(artist.name) radio").font(Theme.pageTitle).lineLimit(2)
                 }
             }
@@ -159,8 +160,9 @@ struct DiscoverView: View {
         problem = nil
         do {
             let found = try await discovery.artists()
-            artists = found
-            if let first = found.first {
+            artists = found.items
+            heroLabel = found.heroLabel
+            if let first = found.items.first {
                 hero = try? await discovery.radio(first.id)
             }
         } catch {
