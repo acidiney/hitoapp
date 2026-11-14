@@ -22,10 +22,14 @@ pub(super) struct MediaClient {
     accounts: Accounts,
     pace: crate::StreamPace,
     admission: Arc<admission::Admission>,
+    monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
 }
 
 impl MediaClient {
-    pub(super) fn new(pace: crate::StreamPace) -> Result<Self> {
+    pub(super) fn new(
+        pace: crate::StreamPace,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
+    ) -> Result<Self> {
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -43,6 +47,7 @@ impl MediaClient {
             accounts: Accounts::new(2),
             pace,
             admission: Arc::new(admission::Admission::default()),
+            monitors,
         })
     }
     #[tracing::instrument(level = "debug", skip_all)]
@@ -70,11 +75,25 @@ impl MediaClient {
                 ACCOUNT_ADMISSION_WAIT.saturating_sub(started.elapsed()),
             )
             .await?;
-        let global = self
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?;
+        let global = match self.slots.clone().try_acquire_owned() {
+            Ok(global) => global,
+            Err(_) => {
+                let mut waiting = self.admission.preempt_global()?;
+                if waiting.is_empty()
+                    || !admission::await_preemptions(
+                        &mut waiting,
+                        ACCOUNT_ADMISSION_WAIT.saturating_sub(started.elapsed()),
+                    )
+                    .await
+                {
+                    return Err(Error::Conflict("Audio streams are busy. Try again.".into()));
+                }
+                self.slots
+                    .clone()
+                    .try_acquire_owned()
+                    .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?
+            }
+        };
         drop(active);
         self.open_admitted(base_url, token, request, authority, account, global, None)
             .await
@@ -208,7 +227,8 @@ impl MediaClient {
                     _warm: warm,
                     }),
                     self.pace,
-                ),
+                    self.monitors.clone(),
+                )?,
                 audio.length,
             ));
         }

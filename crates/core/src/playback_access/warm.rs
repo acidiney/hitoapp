@@ -58,90 +58,38 @@ pub(crate) struct WarmBody {
     grant: PlaybackSource,
     stop: watch::Sender<bool>,
     completion: Completion,
-    fallback: Option<crate::AudioStream>,
-    fallback_expected: Option<Option<u64>>,
     first_emitted: bool,
 }
 
 impl WarmBody {
     async fn check_prefix(&mut self) -> Result<bool> {
-        match self.grant.warm_check().await {
-            Ok(()) => Ok(true),
-            Err(error) => {
-                if self.grant.check().await.is_ok() {
-                    Ok(false)
-                } else {
-                    Err(error)
-                }
-            }
-        }
+        self.grant.warm_check().await.map(|()| true)
     }
 
     pub(crate) async fn prefix(&mut self, prefix: Bytes) -> Result<Option<Bytes>> {
-        if self.check_prefix().await? {
-            self.first_emitted = true;
-            Ok(Some(prefix))
-        } else {
-            self.open_fallback().await
-        }
+        self.check_prefix().await?;
+        self.first_emitted = true;
+        Ok(Some(prefix))
     }
 
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
-        if let Some(fallback) = &mut self.fallback {
-            return fallback.chunk().await;
-        }
         let (reply, received) = tokio::sync::oneshot::channel();
         self.commands.send(Command::Read(reply)).await.map_err(|_| Error::NotFound)?;
         match received.await.map_err(|_| Error::NotFound)? {
             Ok(Some(bytes)) => {
-                if !self.first_emitted && !self.check_prefix().await? {
-                    return self.open_fallback().await;
+                if !self.first_emitted {
+                    self.check_prefix().await?;
                 }
                 self.first_emitted = true;
                 Ok(Some(bytes))
             }
-            Ok(None) => Ok(None),
-            Err(error) => {
-                if !self.first_emitted && self.grant.check().await.is_ok() {
-                    self.open_fallback().await
-                } else {
-                    Err(error)
-                }
-            }
+            result => result,
         }
-    }
-
-    pub(crate) async fn open_fallback(&mut self) -> Result<Option<Bytes>> {
-        if self.first_emitted {
-            return Err(Error::NotFound);
-        }
-        if self.fallback.is_none() {
-            self.stop.send_replace(true);
-            let _ = self.completion.clone().await;
-            let OpenedAudio::Content(mut content) = self.grant.open(AudioRequest::default()).await?
-            else {
-                return Err(Error::NotFound);
-            };
-            self.fallback_expected = Some(content.length);
-            self.fallback = content.body.take();
-        }
-        match &mut self.fallback {
-            Some(fallback) => fallback.chunk().await,
-            None => Err(Error::NotFound),
-        }
-    }
-
-    pub(crate) fn take_fallback_expected(&mut self) -> Option<Option<u64>> {
-        self.fallback_expected.take()
     }
 
     pub(crate) async fn shutdown(&mut self) {
         self.stop.send_replace(true);
         let _ = self.completion.clone().await;
-        if let Some(fallback) = &mut self.fallback {
-            fallback.shutdown().await;
-        }
-        self.fallback = None;
     }
 }
 
@@ -243,34 +191,8 @@ impl Registry {
             completion: Mutex::new(None),
             commands: commands.clone(),
         });
-        {
-            let Ok(mut state) = self.state.lock() else {
-                return;
-            };
-            let count = state
-                .entries
-                .values()
-                .filter(|existing| existing.actor.id() == actor.id())
-                .count();
-            if state.closed
-                || count >= ENTRIES_PER_ACCOUNT
-                || state.entries.len() >= ENTRIES_GLOBAL
-                || state.reserved_bytes + RESERVATION > ENTRIES_GLOBAL * RESERVATION
-            {
-                return;
-            }
-            state.reserved_bytes += RESERVATION;
-            entry.reservation.accounted.store(true, Ordering::Release);
-            state.entries.insert(lease, entry.clone());
-        }
-        tracing::debug!(
-            event = "provider_audio_warm_started",
-            outcome = "reserved",
-            reserved_bytes = RESERVATION,
-            "Provider audio warm work reserved"
-        );
         let worker_entry = entry.clone();
-        let task = tokio::spawn(async move {
+        let worker = async move {
             let mut lease_cancel = lease_cancel;
             let mut cancel_rx = cancel_rx;
             if *lease_cancel.borrow() || *cancel_rx.borrow() {
@@ -415,20 +337,29 @@ impl Registry {
                             .await
                             .as_ref()
                             .is_some_and(|ready| ready.prefix.is_some());
-                        if first_result.is_some() || retained_prefix {
+                        if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                            terminal = true;
+                        }
+                        if !terminal && (first_result.is_some() || retained_prefix) {
                             tokio::select! {
                                 biased;
-                                _ = lease_cancel.changed() => {}
-                                _ = cancel_rx.changed() => {}
-                                _ = ticket_cancel.changed() => {}
-                                _ = tokio::time::sleep_until(deadline) => {}
+                                _ = lease_cancel.changed() => terminal = true,
+                                _ = cancel_rx.changed() => terminal = true,
+                                _ = ticket_cancel.changed() => terminal = true,
+                                _ = tokio::time::sleep_until(deadline) => { worker_entry.stop(); terminal = true; },
                                 _ = claim_rx.changed() => claimed = true,
                             }
                         }
                     }
+                    if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                        terminal = true;
+                    }
                     claimed |= ticket.is_claimed() || *claim_rx.borrow();
                     if !terminal && claimed && !first_ended {
                         loop {
+                            if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                                break;
+                            }
                             let command = tokio::select! {
                                 biased;
                                 _ = lease_cancel.changed() => break,
@@ -493,7 +424,26 @@ impl Registry {
                 elapsed_ms = worker_entry.started.elapsed().as_millis() as u64,
                 "Provider audio warm work retired"
             );
-        });
+        };
+        let Ok(mut state) = self.state.lock() else {
+            return;
+        };
+        let count = state
+            .entries
+            .values()
+            .filter(|existing| existing.actor.id() == actor.id())
+            .count();
+        if state.closed
+            || count >= ENTRIES_PER_ACCOUNT
+            || state.entries.len() >= ENTRIES_GLOBAL
+            || state.reserved_bytes + RESERVATION > ENTRIES_GLOBAL * RESERVATION
+        {
+            return;
+        }
+        state.reserved_bytes += RESERVATION;
+        entry.reservation.accounted.store(true, Ordering::Release);
+        state.entries.insert(lease, entry.clone());
+        let task = tokio::spawn(worker);
         let finished = task.abort_handle();
         let completion: Completion = async move {
             task.await.map_err(|_| Arc::new(Error::NotFound))?;
@@ -504,28 +454,22 @@ impl Registry {
         if let Ok(mut current) = entry.completion.lock() {
             *current = Some(completion.clone());
         }
-        let must_join = if let Ok(mut state) = self.state.lock() {
-            state.completions.retain(|_, work| !work.finished.is_finished());
-            let closed = state.closed;
-            if closed {
-                entry.stop();
-            }
-            state.completions.insert(
-                lease,
-                Work {
-                    finished,
-                    completion: completion.clone(),
-                    stop: entry.canceled.clone(),
-                },
-            );
-            closed
-        } else {
-            entry.stop();
-            true
-        };
-        if must_join {
-            let _ = completion.await;
-        }
+        state.completions.retain(|_, work| !work.finished.is_finished());
+        state.completions.insert(
+            lease,
+            Work {
+                finished,
+                completion,
+                stop: entry.canceled.clone(),
+            },
+        );
+        drop(state);
+        tracing::debug!(
+            event = "provider_audio_warm_started",
+            outcome = "reserved",
+            reserved_bytes = RESERVATION,
+            "Provider audio warm work reserved"
+        );
     }
 
     pub(crate) async fn claim(
@@ -656,8 +600,6 @@ impl Registry {
                     .map_err(|_| Error::NotFound)?
                     .clone()
                     .ok_or(Error::NotFound)?,
-                fallback: None,
-                fallback_expected: None,
                 first_emitted: false,
             },
             reservation: entry.reservation.clone(),

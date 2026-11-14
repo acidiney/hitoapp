@@ -1,13 +1,100 @@
 use super::pace::{Meter, StreamPace};
 use crate::{Error, Result};
 use bytes::Bytes;
-use futures_util::future::BoxFuture;
+use futures_util::{FutureExt, future::{BoxFuture, Shared}};
 use std::{
-    sync::Arc,
+    collections::HashMap,
+    future::Future,
+    sync::{Arc, Mutex, Weak, atomic::{AtomicU64, Ordering}},
     time::{Duration, Instant},
 };
 use tokio::sync::{Mutex, OwnedSemaphorePermit, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
+
+type MonitorCompletion = Shared<BoxFuture<'static, std::result::Result<(), Arc<Error>>>>;
+
+#[derive(Default)]
+struct MonitorState {
+    closed: bool,
+    work: HashMap<u64, MonitorWork>,
+}
+
+struct MonitorWork {
+    stop: watch::Sender<bool>,
+    finished: tokio::task::AbortHandle,
+    completion: MonitorCompletion,
+}
+
+#[derive(Default)]
+pub(crate) struct MonitorRegistry {
+    state: Mutex<MonitorState>,
+    next: AtomicU64,
+}
+
+impl MonitorRegistry {
+    fn spawn(
+        &self,
+        stop: watch::Sender<bool>,
+        monitor: impl Future<Output = ()> + Send + 'static,
+    ) -> Result<u64> {
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.closed {
+            return Err(Error::NotFound);
+        }
+        let id = self.next.fetch_add(1, Ordering::Relaxed);
+        let task = tokio::spawn(monitor);
+        let finished = task.abort_handle();
+        let completion = async move {
+            task.await.map_err(|_| Arc::new(Error::NotFound))?;
+            Ok(())
+        }
+        .boxed()
+        .shared();
+        state.work.retain(|_, work| !work.finished.is_finished());
+        state.work.insert(id, MonitorWork { stop, finished, completion });
+        Ok(id)
+    }
+
+    fn stop(&self, id: u64) {
+        let state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(work) = state.work.get(&id) {
+            work.stop.send_replace(true);
+        }
+    }
+
+    async fn stop_and_join(&self, id: u64) -> Result<()> {
+        let completion = {
+            let state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.work.get(&id).map(|work| {
+                work.stop.send_replace(true);
+                work.completion.clone()
+            })
+        };
+        if let Some(completion) = completion {
+            completion.await.map_err(|_| Error::NotFound)?;
+            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.work.remove(&id);
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn close(&self) -> Result<()> {
+        let completions = {
+            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.closed = true;
+            state.work.values().map(|work| {
+                work.stop.send_replace(true);
+                work.completion.clone()
+            }).collect::<Vec<_>>()
+        };
+        for completion in completions {
+            completion.await.map_err(|_| Error::NotFound)?;
+        }
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.work.retain(|_, work| !work.finished.is_finished());
+        Ok(())
+    }
+}
 
 pub(crate) trait AuthorityCheck: Send + Sync {
     fn check(&self) -> BoxFuture<'_, Result<()>>;
@@ -38,12 +125,22 @@ struct Connection {
     pending: Bytes,
 }
 
+async fn release_connection(connection: &Weak<Mutex<Connection>>) {
+    if let Some(connection) = connection.upgrade() {
+        let mut connection = connection.lock().await;
+        connection.response = None;
+        connection.permits = None;
+        connection.pending = Bytes::new();
+    }
+}
+
 pub(crate) struct RemoteAudio {
     connection: Arc<Mutex<Connection>>,
     authority: Authority,
     revoked: watch::Receiver<bool>,
     monitor_stop: watch::Sender<bool>,
-    monitor_done: watch::Receiver<bool>,
+    monitors: Arc<MonitorRegistry>,
+    monitor_id: u64,
     meter: Meter,
 }
 impl RemoteAudio {
@@ -52,7 +149,8 @@ impl RemoteAudio {
         authority: Authority,
         permits: Option<Permits>,
         pace: StreamPace,
-    ) -> Self {
+        monitors: Arc<MonitorRegistry>,
+    ) -> Result<Self> {
         let connection = Arc::new(Mutex::new(Connection {
             response: Some(response),
             permits,
@@ -63,52 +161,50 @@ impl RemoteAudio {
         let monitor_cancel = cancel.clone();
         let guard = authority.clone();
         let mut stop = cancel.subscribe();
-        let monitor = tokio::spawn(
-            async move {
+        let monitor = async move {
                 loop {
-                    tokio::select! {
+                    let stopping = tokio::select! {
                         biased;
-                        _ = stop.changed() => break,
+                        _ = stop.changed() => true,
                         _ = tokio::time::sleep(Duration::from_millis(250)) => {
                             let checked = tokio::select! {
                                 biased;
-                                _ = stop.changed() => break,
-                                checked = guard.check() => checked,
+                                _ = stop.changed() => None,
+                                checked = guard.check() => Some(checked),
                             };
-                            if checked.is_err() {
-                                let _ = monitor_cancel.send(true);
-                                if let Some(connection) = weak.upgrade() {
-                                    let mut connection = connection.lock().await;
-                                    connection.response = None;
-                                    connection.permits = None;
-                                    connection.pending = Bytes::new();
+                            match checked {
+                                Some(Ok(())) => false,
+                                Some(Err(_)) => {
+                                    let _ = monitor_cancel.send(true);
+                                    release_connection(&weak).await;
+                                    tracing::debug!(
+                                        event = "remote_audio_authority_withdrawn",
+                                        "Remote audio authority withdrawn"
+                                    );
+                                    true
                                 }
-                                tracing::debug!(
-                                    event = "remote_audio_authority_withdrawn",
-                                    "Remote audio authority withdrawn"
-                                );
-                                break;
+                                None => true,
                             }
                         }
+                    };
+                    if stopping {
+                        release_connection(&weak).await;
+                        break;
                     }
                 }
             }
             .instrument(tracing::Span::current())
-            .with_current_subscriber(),
-        );
-        let (monitor_done_tx, monitor_done) = watch::channel(false);
-        tokio::spawn(async move {
-            let _ = monitor.await;
-            monitor_done_tx.send_replace(true);
-        });
-        Self {
+            .with_current_subscriber();
+        let monitor_id = monitors.spawn(cancel.clone(), monitor)?;
+        Ok(Self {
             connection,
             authority,
             revoked,
             monitor_stop: cancel,
-            monitor_done,
+            monitors,
+            monitor_id,
             meter: Meter::new(pace),
-        }
+        })
     }
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
         self.authority.check().await?;
@@ -173,16 +269,12 @@ impl RemoteAudio {
             connection.permits = None;
             connection.pending = Bytes::new();
         }
-        let mut monitor_done = self.monitor_done.clone();
-        while !*monitor_done.borrow() {
-            if monitor_done.changed().await.is_err() {
-                break;
-            }
-        }
+        let _ = self.monitors.stop_and_join(self.monitor_id).await;
     }
 }
 impl Drop for RemoteAudio {
     fn drop(&mut self) {
         self.monitor_stop.send_replace(true);
+        self.monitors.stop(self.monitor_id);
     }
 }

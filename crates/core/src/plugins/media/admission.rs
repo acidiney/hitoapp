@@ -104,6 +104,23 @@ impl Admission {
         Ok((Active { admission: self, account: account.into() }, waiting))
     }
 
+    pub(super) fn preempt_global(&self) -> Result<Vec<watch::Receiver<bool>>, Error> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| Error::Internal("Audio admission is unavailable".into()))?;
+        state.tickets.retain(|_, ticket| ticket.strong_count() > 0);
+        let mut waiting = Vec::new();
+        for ticket in state.tickets.values().filter_map(Weak::upgrade) {
+            if ticket.claimed.load(Ordering::Acquire) {
+                continue;
+            }
+            waiting.push(ticket.done.subscribe());
+            ticket.cancel.send_replace(true);
+        }
+        Ok(waiting)
+    }
+
     pub(super) fn claim(&self, ticket: &WarmTicket) -> bool {
         let Ok(state) = self.state.lock() else {
             return false;

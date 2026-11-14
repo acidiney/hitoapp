@@ -314,7 +314,10 @@ impl PlaybackAccess {
     pub async fn close(&self) -> Result<()> {
         let started = std::time::Instant::now();
         self.leases.closing()?.await.map_err(|_| stopped())?;
-        self.warm.close().await?;
+        let warm_closed = self.warm.close().await;
+        let monitors_closed = self.monitors.close().await;
+        warm_closed?;
+        monitors_closed?;
         tracing::debug!(
             event = "playback_leases_closed",
             outcome = "closed",

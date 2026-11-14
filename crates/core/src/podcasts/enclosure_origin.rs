@@ -21,6 +21,7 @@ pub(crate) struct EnclosureOrigin {
     remote: RemoteHttp,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
 }
 
 #[derive(Clone, PartialEq, Eq, sqlx::FromRow)]
@@ -38,12 +39,17 @@ struct PodcastEnclosure {
 }
 
 impl EnclosureOrigin {
-    pub(crate) fn new(store: Store, remote: RemoteHttp) -> Self {
+    pub(crate) fn new(
+        store: Store,
+        remote: RemoteHttp,
+        monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
+    ) -> Self {
         Self {
             store,
             remote,
             slots: Arc::new(Semaphore::new(16)),
             accounts: Accounts::new(2),
+            monitors,
         }
     }
 
@@ -108,7 +114,8 @@ impl EnclosureOrigin {
                         _warm: None,
                     }),
                     crate::StreamPace::DEFAULT,
-                ),
+                    self.monitors.clone(),
+                )?,
                 audio.length,
             ));
         }

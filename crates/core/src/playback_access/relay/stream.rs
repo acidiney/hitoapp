@@ -127,11 +127,6 @@ impl AudioStream {
                 }
             }
         };
-        if let Some(Body::Prepared { continuation, .. }) = &mut self.inner
-            && let Some(expected) = continuation.take_fallback_expected()
-        {
-            self.expected = expected;
-        }
         match result {
             Ok(Some(bytes)) => {
                 self.transferred = self.transferred.saturating_add(bytes.len() as u64);
