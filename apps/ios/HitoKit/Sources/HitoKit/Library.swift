@@ -87,8 +87,9 @@ public struct Library: Sendable {
         self.api = api
     }
 
-    public func tracks(offset: Int, search: String? = nil) async throws -> Page<Track> {
+    public func tracks(offset: Int, search: String? = nil, liked: Bool = false) async throws -> Page<Track> {
         var query = paging(offset)
+        if liked { query.append(URLQueryItem(name: "liked", value: "true")) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
         return try await api.get(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
     }

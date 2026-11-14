@@ -21,6 +21,13 @@ import Testing
         #expect(request.query == "offset=0&limit=50")
     }
 
+    @Test func likedTracksAndSearchesNarrowTheList() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
+        _ = try await library(fake).tracks(offset: 50, liked: true)
+        _ = try await library(fake).tracks(offset: 0, search: "fixture band")
+        #expect(fake.requests.map(\.query) == ["offset=50&limit=50&liked=true", "offset=0&limit=50&q=fixture%20band"])
+    }
+
     @Test func albumsAreListedNewestFirst() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[{"id":"a1","library_id":"l1","title":"Fixture Album","artist":"Fixture Band","artist_id":null,"track_count":12,"duration_ms":2400000,"inferred_artist":null,"year":2019}],"total":1,"offset":0,"limit":50}"#)])
         let page = try await library(fake).albums(offset: 0)
