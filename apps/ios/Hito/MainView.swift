@@ -94,6 +94,7 @@ extension View {
             .navigationDestination(for: Artist.self) { ArtistView(artist: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
             .navigationDestination(for: Podcasts.Subscription.self) { PodcastView(subscription: $0).pushed() }
+            .navigationDestination(for: AudiobookRoute.self) { AudiobookView(route: $0).pushed() }
             .navigationDestination(for: PluginConnection.self) { PluginDetailView(connection: $0).pushed(back: "Plugins") }
             .navigationDestination(for: SettingsPage.self) { page in
                 switch page {

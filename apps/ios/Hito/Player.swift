@@ -34,6 +34,7 @@ final class Player {
     private var checkpoint = ProgressCheckpoint()
     private var fallbackEnabled = true
     private var resumeAt: Double?
+    private var chapters: [String: AudiobookAnchor] = [:]
     private var remembered: Double = 0
 
     private let playback: Playback
@@ -118,9 +119,10 @@ final class Player {
     }
 
     private func report(_ id: String, _ position: Double) {
+        let chapter = chapters[id]
         Task { [listening, log, speed] in
             do {
-                try await listening.save(id, position: position, speed: speed)
+                try await listening.save(id, position: position, speed: speed, chapter: chapter)
             } catch {
                 log.info("player.progress_failed")
             }
@@ -139,7 +141,13 @@ final class Player {
 
     var current: Track? { queue.current }
 
+    func playAudiobook(_ tracks: [Track], anchors: [AudiobookAnchor], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        play(tracks, at: index, from: context, startingAt: seconds)
+        chapters = Dictionary(anchors.map { ($0.recordingId, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     func play(_ tracks: [Track], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        chapters = [:]
         resumeAt = seconds > 0 ? seconds : nil
         queue.start(tracks, at: index, from: context)
         load(queue.current)
