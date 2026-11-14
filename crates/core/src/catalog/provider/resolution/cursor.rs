@@ -84,8 +84,7 @@ impl Candidates {
                 }
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
-                    self.provider_unavailable |=
-                        matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                    self.provider_unavailable |= super::is_provider_unavailable(&error);
                     tracing::debug!(
                         event = "source_resolution_provider_failed",
                         error_kind = error.code(),
@@ -119,8 +118,7 @@ impl Candidates {
                     }
                     Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                     Err(error) => {
-                        self.provider_unavailable |=
-                            matches!(&error, Error::Upstream(_) | Error::ProviderBusy(_));
+                        self.provider_unavailable |= super::is_provider_unavailable(&error);
                         tracing::debug!(
                             event = "source_resolution_provider_failed",
                             error_kind = error.code(),

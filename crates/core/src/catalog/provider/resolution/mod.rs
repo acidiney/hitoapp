@@ -371,7 +371,12 @@ async fn bounded<T>(
 fn is_provider_unavailable(error: &Error) -> bool {
     matches!(
         error,
-        Error::Upstream(_) | Error::ProviderBusy(_) | Error::PluginCredentialsRequired(_)
+        Error::Upstream(_)
+            | Error::UpstreamNotice(_)
+            | Error::ProviderBusy(_)
+            | Error::PluginCredentialsRequired(_)
+            | Error::AuthorizationRequired(_)
+            | Error::OperationRejected(_)
     )
 }
 
