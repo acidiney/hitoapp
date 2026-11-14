@@ -96,7 +96,12 @@ public struct TrackSources: Sendable {
     }
 
     public func load(_ recording: String) async throws -> Choice {
-        let wire = try await api.get(["api", "v1", "recordings", recording, "source-choice"], as: Wire.self)
+        let wire: Wire
+        do {
+            wire = try await api.get(["api", "v1", "recordings", recording, "source-choice"], as: Wire.self)
+        } catch HitoAPI.Problem.refused(404) {
+            return Choice(mode: .automatic, revision: 0, entries: [])
+        }
         return Choice(mode: wire.mode, revision: wire.revision, entries: wire.sources.map { item in
             let source = item.source
             let local = source.provider == "local"

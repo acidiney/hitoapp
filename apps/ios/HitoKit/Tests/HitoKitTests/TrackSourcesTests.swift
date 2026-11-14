@@ -42,4 +42,10 @@ import Testing
         let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/source-choice/reset": .json(409, #"{"error":"Conflict"}"#)])
         await #expect(throws: TrackSources.Problem.changed) { try await sources(fake).reset("r1", revision: 4) }
     }
+    @Test func aTrackWithNoSourcesHasNothingToChoose() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/source-choice": .json(404, #"{"error":"Resource not found"}"#)])
+        let loaded = try await sources(fake).load("r1")
+        #expect(loaded.entries.isEmpty)
+        #expect(loaded.mode == .automatic)
+    }
 }
