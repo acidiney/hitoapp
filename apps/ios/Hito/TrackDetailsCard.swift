@@ -15,6 +15,12 @@ struct TrackDetailsCard: View {
             if let details {
                 MetadataFieldEditor(field: .title, label: "Track title", value: details.title) { await save(.title, $0) }
                 MetadataFieldEditor(field: .artist, label: "Track artist", value: details.artist) { await save(.artist, $0) }
+                if let credits = details.credits {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Credits").font(Theme.label).foregroundStyle(Theme.quiet)
+                        Text(credits).font(Theme.small)
+                    }
+                }
                 if !details.facts.isEmpty {
                     Text(details.facts.joined(separator: " · ")).font(Theme.small).foregroundStyle(Theme.quiet)
                 }

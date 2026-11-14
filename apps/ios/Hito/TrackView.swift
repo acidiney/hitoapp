@@ -19,6 +19,7 @@ struct TrackView: View {
                     Task { await load() }
                 }
                 TrackDetailsCard(track: track, details: $details)
+                CopiesCard(track: track)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)

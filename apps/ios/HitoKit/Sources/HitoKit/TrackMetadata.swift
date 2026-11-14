@@ -21,11 +21,29 @@ public struct TrackMetadata: Sendable {
         }
     }
 
+    public struct Credit: Equatable, Sendable {
+        public let name: String
+        public let join: String?
+
+        public init(name: String, join: String?) {
+            self.name = name
+            self.join = join
+        }
+    }
+
     public struct Details: Equatable, Sendable {
         public let title: Value
         public let artist: Value
         public let facts: [String]
         public let musicBrainz: String?
+        public let credits: String?
+    }
+
+    public static func creditLine(_ credits: [Credit]) -> String? {
+        guard !credits.isEmpty else { return nil }
+        return credits.enumerated().map { index, credit in
+            credit.name + (index + 1 < credits.count ? (credit.join ?? ", ") : "")
+        }.joined()
     }
 
     struct Wire: Decodable {
@@ -54,15 +72,22 @@ public struct TrackMetadata: Sendable {
 
         struct Observation: Decodable { let album: String? }
 
+        struct Credited: Decodable {
+            let name: String
+            let join: String?
+        }
+
         let title: Text
         let artist: Text
         let musicbrainzRecordingId: String?
         let releaseFacts: Facts?
         let audioFormat: Format?
         let selectedObservation: Observation?
+        let creditedArtists: [Credited]?
 
         enum CodingKeys: String, CodingKey {
             case title, artist
+            case creditedArtists = "credited_artists"
             case musicbrainzRecordingId = "musicbrainz_recording_id"
             case releaseFacts = "release_facts"
             case audioFormat = "audio_format"
@@ -117,7 +142,8 @@ public struct TrackMetadata: Sendable {
             title: Value(value: wire.title.value, source: wire.title.inherited, personal: wire.title.personal),
             artist: Value(value: wire.artist.value, source: wire.artist.inherited, personal: wire.artist.personal),
             facts: facts,
-            musicBrainz: wire.musicbrainzRecordingId
+            musicBrainz: wire.musicbrainzRecordingId,
+            credits: Self.creditLine((wire.creditedArtists ?? []).map { Credit(name: $0.name, join: $0.join) })
         )
     }
 
