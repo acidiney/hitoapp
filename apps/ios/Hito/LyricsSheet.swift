@@ -110,7 +110,7 @@ struct LyricsSheet: View {
             if searched && matches.isEmpty && !busy {
                 Text("No lyric matches. Try another track or artist.").font(Theme.small).foregroundStyle(Theme.soft)
             }
-        } else {
+        } else if problem == nil {
             ProgressView().tint(Theme.soft)
         }
     }
@@ -118,11 +118,17 @@ struct LyricsSheet: View {
     private func load() async {
         guard let api = model.api else { return }
         let lyrics = LyricChoices(api: api)
-        choices = try? await lyrics.identities(track.id)
-        if services == nil {
-            services = (try? await lyrics.services(track.id)) ?? []
-            service = services?.first
-            query = "\(track.title) \(track.artist)"
+        do {
+            choices = try await lyrics.identities(track.id)
+            if services == nil {
+                services = try await lyrics.services(track.id)
+                service = services?.first
+                query = "\(track.title) \(track.artist)"
+            }
+        } catch is CancellationError {
+        } catch {
+            problem = PluginTrouble.message(error, otherwise: "Lyric services didn't load. Close this and try again.")
+            model.handle(error)
         }
     }
 
@@ -147,6 +153,7 @@ struct LyricsSheet: View {
         do {
             reviewing = try await LyricChoices(api: api).review(track.id, service, match)
             problem = nil
+        } catch is CancellationError {
         } catch {
             problem = PluginTrouble.message(error, otherwise: "This match couldn't be checked. Try another one.")
         }

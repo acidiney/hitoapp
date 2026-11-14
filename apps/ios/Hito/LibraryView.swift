@@ -590,6 +590,9 @@ struct AlbumView: View {
     @State private var onlyMine = false
     @State private var adding: Set<String> = []
     @State private var notes: [String: String] = [:]
+    @State private var adder: Task<Void, Never>?
+    @State private var addProblem: String?
+    @State private var editionFailed = false
 
     var tracks: [Track] { detail?.tracks ?? [] }
 
@@ -642,7 +645,7 @@ struct AlbumView: View {
                         if let complete {
                             let missing = complete.addable.filter { notes[$0.id] == nil }
                             if !missing.isEmpty {
-                                Button { Task { await addAll(missing, in: complete) } } label: {
+                                Button { adder = Task { await addAll(missing, in: complete) } } label: {
                                     HStack(spacing: 8) {
                                         Icon("plus", size: 16)
                                         Text(adding.isEmpty ? "Add the other \(missing.count)" : "Adding…").font(Theme.bodyMedium).lineLimit(1)
@@ -673,6 +676,16 @@ struct AlbumView: View {
                 } else if detail == nil {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
+                if editionFailed {
+                    HStack(spacing: 8) {
+                        Text("The album's full track list didn't load.").foregroundStyle(Theme.soft)
+                        TextAction(title: "Try again") { Task { await load() } }
+                    }
+                    .font(Theme.small)
+                }
+                if let addProblem {
+                    Text(addProblem).font(Theme.small).foregroundStyle(Theme.warning)
+                }
                 if let complete {
                     editionHeader(complete)
                     VStack(spacing: 0) {
@@ -702,6 +715,7 @@ struct AlbumView: View {
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
+        .onDisappear { adder?.cancel() }
     }
 
     private func editionHeader(_ complete: CompleteAlbum) -> some View {
@@ -772,10 +786,12 @@ struct AlbumView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func add(_ track: EditionTrack, in complete: CompleteAlbum) async {
-        guard let api = model.api, let saved = detail?.savedEdition else { return }
+    @discardableResult
+    private func add(_ track: EditionTrack, in complete: CompleteAlbum) async -> Bool {
+        guard let api = model.api, let saved = detail?.savedEdition else { return false }
         adding.insert(track.id)
         defer { adding.remove(track.id) }
+        addProblem = nil
         do {
             switch try await AlbumEditions(api: api).add(track, of: complete, release: album.id, saved: saved) {
             case let .saved(recording):
@@ -783,16 +799,23 @@ struct AlbumView: View {
             case let .missing(reason):
                 notes[track.id] = reason
             }
+        } catch is CancellationError {
+            return false
+        } catch HitoAPI.Problem.noAnswer {
+            addProblem = "Hito can't reach your server. Tracks not added yet are unchanged."
+            model.handle(HitoAPI.Problem.noAnswer)
+            return false
         } catch {
-            notes[track.id] = "Couldn't find audio"
+            notes[track.id] = PluginTrouble.message(error, otherwise: "Couldn't find audio")
             model.handle(error)
         }
+        return true
     }
 
     private func addAll(_ missing: [EditionTrack], in complete: CompleteAlbum) async {
         for track in missing {
-            guard case let .available(current) = edition else { return }
-            await add(track, in: current)
+            guard !Task.isCancelled, case let .available(current) = edition else { return }
+            guard await add(track, in: current) else { return }
         }
     }
 
@@ -814,7 +837,13 @@ struct AlbumView: View {
             return
         }
         guard detail?.savedEdition != nil else { return }
-        edition = try? await AlbumEditions(api: api).read(album.id)
+        editionFailed = false
+        do {
+            edition = try await AlbumEditions(api: api).read(album.id)
+        } catch {
+            editionFailed = true
+            model.handle(error)
+        }
     }
 }
 

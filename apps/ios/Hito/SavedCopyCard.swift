@@ -73,8 +73,22 @@ struct SavedCopyCard: View {
     private func followCopy() async {
         guard let api = model.api else { return }
         let copies = SavedCopies(api: api)
+        var misses = 0
         while !Task.isCancelled {
-            copy = try? await copies.status(track.id)
+            do {
+                copy = try await copies.status(track.id)
+                misses = 0
+                copyProblem = nil
+            } catch is CancellationError {
+                return
+            } catch {
+                misses += 1
+                model.handle(error)
+                if misses >= 3 || copy?.transferring != true {
+                    copyProblem = "Hito can't check this copy right now. Pull to refresh or open the track again."
+                    return
+                }
+            }
             guard copy?.transferring == true else { return }
             try? await Task.sleep(for: .seconds(2))
         }
