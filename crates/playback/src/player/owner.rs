@@ -148,3 +148,6 @@ pub(super) async fn run(
     tracing::info!(event = "player_owner_closed", "Playback admission joined");
     saved
 }
+
+#[cfg(all(test, feature = "device"))]
+mod finalization_tests;

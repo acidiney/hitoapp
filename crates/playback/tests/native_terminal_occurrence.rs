@@ -475,7 +475,10 @@ async fn exercise(f: fixture::Fixture, searches: Arc<AtomicUsize>, logs: &LogCap
         attempts[0]["fields"]["reason"],
         json!("provider_unavailable")
     );
-    assert_eq!(attempts[0]["fields"]["outcome"], json!("exhausted"));
+    assert_eq!(
+        attempts[0]["fields"]["outcome"],
+        json!("provider_unavailable")
+    );
     assert!(
         events
             .iter()

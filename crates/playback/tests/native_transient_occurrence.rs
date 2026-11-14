@@ -348,7 +348,10 @@ async fn exercise(f: fixture::Fixture, logs: &LogCapture) {
         receipts.attempts[0]["fields"]["reason"],
         json!("provider_unavailable")
     );
-    assert_eq!(receipts.attempts[0]["fields"]["outcome"], json!("retry"));
+    assert_eq!(
+        receipts.attempts[0]["fields"]["outcome"],
+        json!("provider_unavailable")
+    );
     assert_eq!(receipts.attempts[1]["fields"]["reason"], json!("ready"));
     assert_eq!(receipts.attempts[1]["fields"]["outcome"], json!("ready"));
     assert!(

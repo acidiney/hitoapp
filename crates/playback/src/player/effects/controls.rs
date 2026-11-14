@@ -29,6 +29,12 @@ impl Controls {
     pub fn configured(&self) -> bool {
         self.configured
     }
+    pub fn applied_seek(&self) -> Option<Uuid> {
+        self.applied_seek
+    }
+    pub fn restored(&self) -> Option<Restored> {
+        self.restored
+    }
     pub fn adopt(&mut self) {
         self.restoration = None;
         self.restored = None;
