@@ -12,7 +12,10 @@ What it does today:
 - After **Sign out**, shows **Welcome back** with the remembered account. **Use another account** and **Forget me on this device** are on the same screen.
 - When the account has a PIN, shows **Locked** once the server's idle time has passed, and asks for the PIN.
 
-The library and the player are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
+- Once signed in, shows **Home**, **Search** and **Library** (tracks and albums), an album page, a mini player, **Now playing** and the queue.
+- Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Audio keeps playing with the screen locked, and the lock screen and headphone controls work through the system's now playing controls.
+
+Discover, plugins, playlists, lyrics and settings are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
 
 ## Build and test
 
