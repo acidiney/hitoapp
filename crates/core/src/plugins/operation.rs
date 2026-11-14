@@ -300,8 +300,25 @@ impl Operation {
                 authority,
             )
             .await?;
-        let mut connection = self.store.pool.acquire().await?;
-        if let Err(error) = self.recheck(&mut connection).await {
+        let mut canceled = ticket.cancelled();
+        if *canceled.borrow() {
+            shutdown_audio(&mut audio).await;
+            return Err(crate::Error::Conflict("Audio streams are busy. Try again.".into()));
+        }
+        let mut connection = tokio::select! {
+            biased;
+            _ = canceled.changed() => {
+                shutdown_audio(&mut audio).await;
+                return Err(crate::Error::Conflict("Audio streams are busy. Try again.".into()));
+            }
+            connection = self.store.pool.acquire() => connection?,
+        };
+        let checked = tokio::select! {
+            biased;
+            _ = canceled.changed() => Err(crate::Error::Conflict("Audio streams are busy. Try again.".into())),
+            result = self.recheck(&mut connection) => result,
+        };
+        if let Err(error) = checked {
             shutdown_audio(&mut audio).await;
             return Err(error);
         }

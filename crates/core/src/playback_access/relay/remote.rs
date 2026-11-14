@@ -43,7 +43,7 @@ pub(crate) struct RemoteAudio {
     authority: Authority,
     revoked: watch::Receiver<bool>,
     monitor_stop: watch::Sender<bool>,
-    monitor: Option<tokio::task::JoinHandle<()>>,
+    monitor_done: watch::Receiver<bool>,
     meter: Meter,
 }
 impl RemoteAudio {
@@ -70,7 +70,12 @@ impl RemoteAudio {
                         biased;
                         _ = stop.changed() => break,
                         _ = tokio::time::sleep(Duration::from_millis(250)) => {
-                            if guard.check().await.is_err() {
+                            let checked = tokio::select! {
+                                biased;
+                                _ = stop.changed() => break,
+                                checked = guard.check() => checked,
+                            };
+                            if checked.is_err() {
                                 let _ = monitor_cancel.send(true);
                                 if let Some(connection) = weak.upgrade() {
                                     let mut connection = connection.lock().await;
@@ -91,12 +96,17 @@ impl RemoteAudio {
             .instrument(tracing::Span::current())
             .with_current_subscriber(),
         );
+        let (monitor_done_tx, monitor_done) = watch::channel(false);
+        tokio::spawn(async move {
+            let _ = monitor.await;
+            monitor_done_tx.send_replace(true);
+        });
         Self {
             connection,
             authority,
             revoked,
             monitor_stop: cancel,
-            monitor: Some(monitor),
+            monitor_done,
             meter: Meter::new(pace),
         }
     }
@@ -110,7 +120,7 @@ impl RemoteAudio {
             .permits
             .as_ref()
             .and_then(|permits| permits._warm.as_ref())
-            .is_some_and(|ticket| !ticket.is_claimed());
+            .is_some_and(|ticket| ticket.is_preparing());
         let result = if connection.pending.is_empty() {
             let response = connection.response.as_mut().ok_or(Error::NotFound)?;
             let waiting = Instant::now();
@@ -163,16 +173,16 @@ impl RemoteAudio {
             connection.permits = None;
             connection.pending = Bytes::new();
         }
-        if let Some(monitor) = self.monitor.take() {
-            monitor.abort();
-            let _ = monitor.await;
+        let mut monitor_done = self.monitor_done.clone();
+        while !*monitor_done.borrow() {
+            if monitor_done.changed().await.is_err() {
+                break;
+            }
         }
     }
 }
 impl Drop for RemoteAudio {
     fn drop(&mut self) {
-        if let Some(monitor) = self.monitor.take() {
-            monitor.abort();
-        }
+        self.monitor_stop.send_replace(true);
     }
 }

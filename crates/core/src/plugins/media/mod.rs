@@ -54,8 +54,7 @@ impl MediaClient {
         authority: Authority,
     ) -> Result<OpenedAudio> {
         let started = Instant::now();
-        let global_full = self.slots.available_permits() == 0;
-        let (active, mut waiting) = self.admission.active(&authority.account, global_full)?;
+        let (active, mut waiting) = self.admission.active(&authority.account, &self.slots)?;
         if !admission::await_preemptions(
             &mut waiting,
             ACCOUNT_ADMISSION_WAIT.saturating_sub(started.elapsed()),
@@ -89,20 +88,15 @@ impl MediaClient {
         request: AudioRequest,
         authority: Authority,
     ) -> Result<(OpenedAudio, Arc<WarmTicket>)> {
-        let ticket = self.admission.ticket(&authority.account)?;
-        let account = self
-            .accounts
-            .try_enter(&authority.account)?
-            .ok_or_else(|| Error::Conflict("Audio streams are busy. Try again.".into()))?;
-        let global = self
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?;
-        if ticket.is_cancelled() {
+        let (ticket, account, global) = self.admission.warm_resources(
+            &authority.account,
+            &self.accounts,
+            &self.slots,
+        )?;
+        let mut canceled = ticket.cancelled();
+        if *canceled.borrow() {
             return Err(Error::Conflict("Audio streams are busy. Try again.".into()));
         }
-        let mut canceled = ticket.cancelled();
         let opened = tokio::select! {
             biased;
             _ = canceled.changed() => return Err(Error::Conflict("Audio streams are busy. Try again.".into())),

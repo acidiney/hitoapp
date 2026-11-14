@@ -177,7 +177,7 @@ impl AudioOrigin for ProviderOrigin {
             if !current.same_identity(pinned) {
                 return Ok(None);
             }
-            let mut opened = provider
+            let (mut audio, ticket) = provider
                 .operation
                 .audio_warm(
                     grant.source_id(),
@@ -188,11 +188,21 @@ impl AudioOrigin for ProviderOrigin {
                     request,
                 )
                 .await?;
-            if let Err(error) = grant.warm_check().await {
-                shutdown_audio(&mut opened.0).await;
-                return Err(error);
+            let mut canceled = ticket.cancelled();
+            let eligible = if *canceled.borrow() {
+                false
+            } else {
+                tokio::select! {
+                    biased;
+                    _ = canceled.changed() => false,
+                    result = grant.warm_check() => result.is_ok(),
+                }
+            };
+            if !eligible {
+                shutdown_audio(&mut audio).await;
+                return Ok(None);
             }
-            Ok(Some(opened))
+            Ok(Some((audio, ticket)))
         })
     }
 }

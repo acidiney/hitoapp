@@ -1,5 +1,5 @@
 use super::{AudioRequest, OpenedAudio, PlaybackSource};
-use crate::{Actor, Error, Result};
+use crate::{Actor, AudioStream, Error, Result};
 use bytes::Bytes;
 use futures_util::{FutureExt, future::{BoxFuture, Shared}};
 use std::{
@@ -26,36 +26,128 @@ struct Ready {
 
 enum Command {
     Read(tokio::sync::oneshot::Sender<Result<Option<Bytes>>>),
-    Close(tokio::sync::oneshot::Sender<()>),
+}
+
+type FirstRead = BoxFuture<'static, (AudioStream, Option<Result<Option<Bytes>>>)>;
+
+async fn read_first(
+    mut body: AudioStream,
+    mut lease_cancel: watch::Receiver<bool>,
+    mut cancel: watch::Receiver<bool>,
+    mut ticket_cancel: watch::Receiver<bool>,
+) -> (AudioStream, Option<Result<Option<Bytes>>>) {
+    if *lease_cancel.borrow() || *cancel.borrow() || *ticket_cancel.borrow() {
+        body.shutdown().await;
+        return (body, None);
+    }
+    let result = tokio::select! {
+        biased;
+        _ = lease_cancel.changed() => None,
+        _ = cancel.changed() => None,
+        _ = ticket_cancel.changed() => None,
+        result = body.chunk() => Some(result),
+    };
+    if result.is_none() {
+        body.shutdown().await;
+    }
+    (body, result)
 }
 
 pub(crate) struct WarmBody {
     commands: tokio::sync::mpsc::Sender<Command>,
     grant: PlaybackSource,
+    stop: watch::Sender<bool>,
+    completion: Completion,
+    fallback: Option<crate::AudioStream>,
+    fallback_expected: Option<Option<u64>>,
+    first_emitted: bool,
 }
 
 impl WarmBody {
-    pub(crate) async fn check_prefix(&self) -> Result<()> {
-        self.grant.warm_check().await
+    async fn check_prefix(&mut self) -> Result<bool> {
+        match self.grant.warm_check().await {
+            Ok(()) => Ok(true),
+            Err(error) => {
+                if self.grant.check().await.is_ok() {
+                    Ok(false)
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+
+    pub(crate) async fn prefix(&mut self, prefix: Bytes) -> Result<Option<Bytes>> {
+        if self.check_prefix().await? {
+            self.first_emitted = true;
+            Ok(Some(prefix))
+        } else {
+            self.open_fallback().await
+        }
     }
 
     pub(crate) async fn chunk(&mut self) -> Result<Option<Bytes>> {
+        if let Some(fallback) = &mut self.fallback {
+            return fallback.chunk().await;
+        }
         let (reply, received) = tokio::sync::oneshot::channel();
         self.commands.send(Command::Read(reply)).await.map_err(|_| Error::NotFound)?;
-        received.await.map_err(|_| Error::NotFound)?
+        match received.await.map_err(|_| Error::NotFound)? {
+            Ok(Some(bytes)) => {
+                if !self.first_emitted && !self.check_prefix().await? {
+                    return self.open_fallback().await;
+                }
+                self.first_emitted = true;
+                Ok(Some(bytes))
+            }
+            Ok(None) => Ok(None),
+            Err(error) => {
+                if !self.first_emitted && self.grant.check().await.is_ok() {
+                    self.open_fallback().await
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+
+    pub(crate) async fn open_fallback(&mut self) -> Result<Option<Bytes>> {
+        if self.first_emitted {
+            return Err(Error::NotFound);
+        }
+        if self.fallback.is_none() {
+            self.stop.send_replace(true);
+            let _ = self.completion.clone().await;
+            let OpenedAudio::Content(mut content) = self.grant.open(AudioRequest::default()).await?
+            else {
+                return Err(Error::NotFound);
+            };
+            self.fallback_expected = Some(content.length);
+            self.fallback = content.body.take();
+        }
+        match &mut self.fallback {
+            Some(fallback) => fallback.chunk().await,
+            None => Err(Error::NotFound),
+        }
+    }
+
+    pub(crate) fn take_fallback_expected(&mut self) -> Option<Option<u64>> {
+        self.fallback_expected.take()
     }
 
     pub(crate) async fn shutdown(&mut self) {
-        let (reply, received) = tokio::sync::oneshot::channel();
-        if self.commands.send(Command::Close(reply)).await.is_ok() {
-            let _ = received.await;
+        self.stop.send_replace(true);
+        let _ = self.completion.clone().await;
+        if let Some(fallback) = &mut self.fallback {
+            fallback.shutdown().await;
         }
+        self.fallback = None;
     }
 }
 
 impl Drop for WarmBody {
     fn drop(&mut self) {
-        let _ = self.commands.try_send(Command::Close(tokio::sync::oneshot::channel().0));
+        self.stop.send_replace(true);
     }
 }
 
@@ -73,6 +165,7 @@ struct Entry {
     registry: Weak<Registry>,
     reservation: Arc<Reservation>,
     ticket: Mutex<Option<Arc<crate::plugins::WarmTicket>>>,
+    completion: Mutex<Option<Completion>>,
     commands: tokio::sync::mpsc::Sender<Command>,
 }
 
@@ -94,6 +187,7 @@ struct State {
 struct Work {
     finished: tokio::task::AbortHandle,
     completion: Completion,
+    stop: watch::Sender<bool>,
 }
 
 #[derive(Default)]
@@ -146,6 +240,7 @@ impl Registry {
                 accounted: AtomicBool::new(false),
             }),
             ticket: Mutex::new(None),
+            completion: Mutex::new(None),
             commands: commands.clone(),
         });
         {
@@ -178,61 +273,89 @@ impl Registry {
         let task = tokio::spawn(async move {
             let mut lease_cancel = lease_cancel;
             let mut cancel_rx = cancel_rx;
-            let opened = tokio::select! {
-                biased;
-                _ = lease_cancel.changed() => None,
-                _ = cancel_rx.changed() => None,
-                _ = tokio::time::sleep_until(start_deadline) => None,
-                result = tokio::time::timeout_at(start_deadline, async {
-                    grant.warm_check().await?;
-                    grant.warm_open(AudioRequest::default()).await
-                }) => result.ok().and_then(Result::ok),
+            if *lease_cancel.borrow() || *cancel_rx.borrow() {
+                worker_entry.stop();
+            }
+            let opened = if *lease_cancel.borrow() || *cancel_rx.borrow() {
+                None
+            } else {
+                tokio::select! {
+                    biased;
+                    _ = lease_cancel.changed() => None,
+                    _ = cancel_rx.changed() => None,
+                    _ = tokio::time::sleep_until(start_deadline) => None,
+                    result = tokio::time::timeout_at(start_deadline, async {
+                        grant.warm_check().await?;
+                        grant.warm_open(AudioRequest::default()).await
+                    }) => result.ok().and_then(Result::ok),
+                }
             };
             if let Some((OpenedAudio::Content(mut content), ticket)) = opened {
                 if let Ok(mut current) = worker_entry.ticket.lock() {
                     *current = Some(ticket.clone());
                 }
                 let mut ticket_cancel = ticket.cancelled();
-                if let Some(mut body) = content.body.take() {
+                if let Some(body) = content.body.take() {
                     *worker_entry.ready.lock().await = Some(Ready {
                         content,
                         prefix: None,
                     });
                     worker_entry.changed.notify_one();
-                    let mut first_read = Some(Box::pin(body.chunk()));
+                    let mut first_read: Option<FirstRead> = Some(
+                        read_first(
+                            body,
+                            lease_cancel.clone(),
+                            cancel_rx.clone(),
+                            ticket_cancel.clone(),
+                        )
+                        .boxed(),
+                    );
+                    let mut body = None;
                     let mut first_result = None;
                     let mut waiting_reader = None;
                     let mut claimed = ticket.is_claimed() || *claim_rx.borrow();
                     let mut first_ended = false;
+                    let mut terminal = false;
                     while first_read.is_some() {
+                        if *lease_cancel.borrow() || *cancel_rx.borrow() || *ticket_cancel.borrow() {
+                            terminal = true;
+                            break;
+                        }
                         tokio::select! {
                             biased;
-                            _ = lease_cancel.changed() => break,
-                            _ = cancel_rx.changed() => break,
-                            _ = ticket_cancel.changed() => break,
-                            _ = tokio::time::sleep_until(deadline), if !claimed => break,
-                            _ = tokio::time::sleep_until(start_deadline), if !claimed => break,
+                            _ = lease_cancel.changed() => { terminal = true; break; },
+                            _ = cancel_rx.changed() => { terminal = true; break; },
+                            _ = ticket_cancel.changed() => { terminal = true; break; },
+                            _ = tokio::time::sleep_until(deadline), if !claimed => { worker_entry.stop(); terminal = true; break; },
+                            _ = tokio::time::sleep_until(start_deadline), if !claimed => { worker_entry.stop(); terminal = true; break; },
                             _ = claim_rx.changed(), if !claimed => claimed = true,
                             command = command_rx.recv() => match command {
                                 Some(Command::Read(reply)) if waiting_reader.is_none() => waiting_reader = Some(reply),
                                 Some(Command::Read(reply)) => {
                                     let _ = reply.send(Err(Error::Conflict("Audio body is busy. Try again.".into())));
                                 }
-                                Some(Command::Close(reply)) => {
-                                    let _ = reply.send(());
-                                    break;
-                                }
-                                None => break,
+                                None => { terminal = true; break; },
                             },
-                            result = async {
-                                first_read.as_mut().expect("pending warm read").as_mut().await
-                            } => {
+                            (stream, result) = first_read.as_mut().expect("pending warm read") => {
                                 first_read.take();
+                                body = Some(stream);
+                                ticket.finish_preparation();
+                                let Some(result) = result else {
+                                    terminal = true;
+                                    break;
+                                };
                                 claimed |= ticket.is_claimed() || *claim_rx.borrow();
-                                let result = if !claimed && matches!(&result, Ok(Some(_))) {
-                                    match grant.warm_check().await {
+                                let result = if matches!(&result, Ok(Some(_))) {
+                                    tokio::select! {
+                                        biased;
+                                        _ = lease_cancel.changed() => { terminal = true; Err(Error::NotFound) },
+                                        _ = cancel_rx.changed() => { terminal = true; Err(Error::NotFound) },
+                                        _ = ticket_cancel.changed() => { terminal = true; Err(Error::NotFound) },
+                                        checked = grant.warm_check() => match checked {
                                         Ok(()) => result,
-                                        Err(error) => Err(error),
+                                        Err(_) if !claimed => { terminal = true; Err(Error::NotFound) },
+                                        Err(_) => Err(Error::NotFound),
+                                        },
                                     }
                                 } else {
                                     result
@@ -274,7 +397,18 @@ impl Registry {
                             }
                         }
                     }
-                    if !claimed && !ticket.is_claimed() && !*claim_rx.borrow() {
+                    if terminal {
+                        if let Some(first_read) = first_read.take() {
+                            let (mut stream, _) = first_read.await;
+                            stream.shutdown().await;
+                        } else if let Some(body) = &mut body {
+                            body.shutdown().await;
+                        }
+                        if let Some(reply) = waiting_reader.take() {
+                            let _ = reply.send(Err(Error::NotFound));
+                        }
+                    }
+                    if !terminal && !claimed && !ticket.is_claimed() && !*claim_rx.borrow() {
                         let retained_prefix = worker_entry
                             .ready
                             .lock()
@@ -293,7 +427,7 @@ impl Registry {
                         }
                     }
                     claimed |= ticket.is_claimed() || *claim_rx.borrow();
-                    if claimed && !first_ended {
+                    if !terminal && claimed && !first_ended {
                         loop {
                             let command = tokio::select! {
                                 biased;
@@ -313,17 +447,13 @@ impl Registry {
                                             _ = cancel_rx.changed() => Err(Error::NotFound),
                                             _ = ticket_cancel.changed() => Err(Error::NotFound),
                                             command = command_rx.recv() => match command {
-                                                Some(Command::Close(close)) => {
-                                                    let _ = close.send(());
-                                                    Err(Error::NotFound)
-                                                }
                                                 Some(Command::Read(extra)) => {
                                                     let _ = extra.send(Err(Error::Conflict("Audio body is busy. Try again.".into())));
                                                     Err(Error::NotFound)
                                                 }
                                                 None => Err(Error::NotFound),
                                             },
-                                            result = body.chunk() => result,
+                                            result = body.as_mut().expect("claimed warm body").chunk() => result,
                                         }
                                     };
                                     let ended = !matches!(&result, Ok(Some(_)));
@@ -332,16 +462,14 @@ impl Registry {
                                         break;
                                     }
                                 }
-                                Some(Command::Close(reply)) => {
-                                    let _ = reply.send(());
-                                    break;
-                                }
                                 None => break,
                             }
                         }
                     }
                     drop(first_read);
-                    body.shutdown().await;
+                    if let Some(body) = &mut body {
+                        body.shutdown().await;
+                    }
                 }
             }
             if let Some(registry) = worker_entry.registry.upgrade()
@@ -367,18 +495,36 @@ impl Registry {
             );
         });
         let finished = task.abort_handle();
-        let completion: Completion = async move { task.await.map_err(|_| Arc::new(Error::NotFound))? }
-            .boxed()
-            .shared();
-        if let Ok(mut state) = self.state.lock() {
+        let completion: Completion = async move {
+            task.await.map_err(|_| Arc::new(Error::NotFound))?;
+            Ok(())
+        }
+        .boxed()
+        .shared();
+        if let Ok(mut current) = entry.completion.lock() {
+            *current = Some(completion.clone());
+        }
+        let must_join = if let Ok(mut state) = self.state.lock() {
             state.completions.retain(|_, work| !work.finished.is_finished());
+            let closed = state.closed;
+            if closed {
+                entry.stop();
+            }
             state.completions.insert(
                 lease,
                 Work {
                     finished,
-                    completion,
+                    completion: completion.clone(),
+                    stop: entry.canceled.clone(),
                 },
             );
+            closed
+        } else {
+            entry.stop();
+            true
+        };
+        if must_join {
+            let _ = completion.await;
         }
     }
 
@@ -390,7 +536,7 @@ impl Registry {
         request: AudioRequest,
     ) -> Result<Option<Taken>> {
         if request.head || request.range.is_some() {
-            self.retire_and_join(lease).await?;
+            self.retire_unclaimed(lease).await?;
             return Ok(None);
         }
         let entry = {
@@ -405,16 +551,54 @@ impl Registry {
             return Ok(None);
         };
         if !grant.warm_equivalent(&entry.grant) {
-            self.retire_and_join(lease).await?;
+            self.retire_unclaimed(lease).await?;
             return Ok(None);
         }
+        let ticket = entry
+            .ticket
+            .lock()
+            .ok()
+            .and_then(|ticket| ticket.as_ref().cloned());
+        let Some(ticket) = ticket else {
+            self.retire_unclaimed(lease).await?;
+            return Ok(None);
+        };
+        let mut ticket_cancel = ticket.cancelled();
+        let mut entry_cancel = entry.canceled.subscribe();
         let wait = async {
             loop {
                 let changed = entry.changed.notified();
                 tokio::pin!(changed);
-                grant.warm_check().await?;
+                if *ticket_cancel.borrow() || *entry_cancel.borrow() {
+                    return Ok::<_, Error>(None);
+                }
+                let authorized = tokio::select! {
+                    biased;
+                    _ = ticket_cancel.changed() => return Ok(None),
+                    _ = entry_cancel.changed() => return Ok(None),
+                    result = grant.check() => result,
+                };
+                authorized?;
+                let eligible = tokio::select! {
+                    biased;
+                    _ = ticket_cancel.changed() => return Ok(None),
+                    _ = entry_cancel.changed() => return Ok(None),
+                    result = grant.warm_check() => result.is_ok(),
+                };
+                if !eligible {
+                    return Ok(None);
+                }
                 if let Some(ready) = entry.ready.lock().await.take() {
-                    grant.warm_check().await?;
+                    let eligible = tokio::select! {
+                        biased;
+                        _ = ticket_cancel.changed() => return Ok(None),
+                        _ = entry_cancel.changed() => return Ok(None),
+                        result = grant.warm_check() => result.is_ok(),
+                    };
+                    if !eligible {
+                        drop(ready);
+                        return Ok(None);
+                    }
                     return Ok::<_, Error>(Some(ready));
                 }
                 if *entry.canceled.borrow() || tokio::time::Instant::now() >= entry.deadline {
@@ -431,27 +615,22 @@ impl Registry {
         let ready = match tokio::time::timeout_at(wait_deadline, wait).await {
             Ok(Ok(ready)) => ready,
             Ok(Err(error)) => {
-                self.retire_and_join(lease).await?;
+                self.retire_unclaimed(lease).await?;
                 return Err(error);
             }
             Err(_) => None,
         };
         let Some(ready) = ready else {
-            self.retire_and_join(lease).await?;
+            self.retire_unclaimed(lease).await?;
             return Ok(None);
         };
-        let ticket = entry
-            .ticket
-            .lock()
-            .ok()
-            .and_then(|ticket| ticket.as_ref().cloned());
         let claimed = {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
             let current = state
                 .entries
                 .get(&lease)
                 .is_some_and(|current| Arc::ptr_eq(current, &entry));
-            if current && ticket.as_ref().is_some_and(|ticket| ticket.claim()) {
+            if current && ticket.claim() {
                 state.entries.remove(&lease);
                 true
             } else {
@@ -460,7 +639,7 @@ impl Registry {
         };
         if !claimed {
             drop(ready);
-            self.retire_and_join(lease).await?;
+            self.retire_unclaimed(lease).await?;
             return Ok(None);
         }
         entry.claimed.send_replace(true);
@@ -470,6 +649,16 @@ impl Registry {
             body: WarmBody {
                 commands: entry.commands.clone(),
                 grant: entry.grant.clone(),
+                stop: entry.canceled.clone(),
+                completion: entry
+                    .completion
+                    .lock()
+                    .map_err(|_| Error::NotFound)?
+                    .clone()
+                    .ok_or(Error::NotFound)?,
+                fallback: None,
+                fallback_expected: None,
+                first_emitted: false,
             },
             reservation: entry.reservation.clone(),
         }))
@@ -478,17 +667,39 @@ impl Registry {
     pub(crate) async fn retire_and_join(&self, lease: Uuid) -> Result<()> {
         let (entry, completion) = {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
-            (
-                state.entries.remove(&lease),
+            let entry = state.entries.remove(&lease);
+            let completion = state.completions.get(&lease).map(|work| {
+                work.stop.send_replace(true);
+                work.completion.clone()
+            });
+            (entry, completion)
+        };
+        drop(entry);
+        if let Some(completion) = completion {
+            completion.await.map_err(|_| Error::NotFound)?;
+            if let Ok(mut state) = self.state.lock() {
+                state.completions.remove(&lease);
+            }
+        }
+        Ok(())
+    }
+
+    async fn retire_unclaimed(&self, lease: Uuid) -> Result<()> {
+        let (entry, completion) = {
+            let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
+            let entry = state.entries.remove(&lease);
+            let completion = if let Some(entry) = &entry {
+                entry.stop();
                 state
                     .completions
                     .get(&lease)
-                    .map(|work| work.completion.clone()),
-            )
+                    .map(|work| work.completion.clone())
+            } else {
+                None
+            };
+            (entry, completion)
         };
-        if let Some(entry) = entry {
-            entry.stop();
-        }
+        drop(entry);
         if let Some(completion) = completion {
             completion.await.map_err(|_| Error::NotFound)?;
             if let Ok(mut state) = self.state.lock() {
@@ -503,11 +714,10 @@ impl Registry {
             let mut state = self.state.lock().map_err(|_| Error::NotFound)?;
             state.closed = true;
             let entries = state.entries.drain().map(|(_, entry)| entry).collect::<Vec<_>>();
-            let completions = state
-                .completions
-                .drain()
-                .map(|(_, work)| work.completion)
-                .collect::<Vec<_>>();
+            let completions = state.completions.values().map(|work| {
+                work.stop.send_replace(true);
+                work.completion.clone()
+            }).collect::<Vec<_>>();
             for entry in &entries {
                 entry.stop();
             }
@@ -516,6 +726,9 @@ impl Registry {
         drop(entries);
         for completion in completions {
             completion.await.map_err(|_| Error::NotFound)?;
+        }
+        if let Ok(mut state) = self.state.lock() {
+            state.completions.retain(|_, work| !work.finished.is_finished());
         }
         Ok(())
     }

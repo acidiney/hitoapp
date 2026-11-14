@@ -121,13 +121,17 @@ impl AudioStream {
                 _reservation: _,
             } => {
                 if let Some(prefix) = prefix.take() {
-                    continuation.check_prefix().await?;
-                    Ok(Some(prefix))
+                    continuation.prefix(prefix).await
                 } else {
                     continuation.chunk().await
                 }
             }
         };
+        if let Some(Body::Prepared { continuation, .. }) = &mut self.inner
+            && let Some(expected) = continuation.take_fallback_expected()
+        {
+            self.expected = expected;
+        }
         match result {
             Ok(Some(bytes)) => {
                 self.transferred = self.transferred.saturating_add(bytes.len() as u64);
