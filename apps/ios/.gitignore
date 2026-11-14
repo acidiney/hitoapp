@@ -1,0 +1,4 @@
+HitoKit/.build/
+HitoKit/.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
