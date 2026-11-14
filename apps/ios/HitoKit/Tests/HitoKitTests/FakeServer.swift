@@ -3,12 +3,15 @@ import Foundation
 final class FakeServer: @unchecked Sendable {
     enum Answer {
         case json(Int, String)
+        case headed(Int, String, [String: String])
         case text(Int, String)
         case redirect(String)
+        case acknowledging
     }
 
     struct Request {
         let line: String
+        let query: String?
         let headers: [String: String]
         let body: Data?
 
@@ -16,6 +19,10 @@ final class FakeServer: @unchecked Sendable {
 
         func header(_ name: String) -> String? {
             headers.first { $0.key.lowercased() == name.lowercased() }?.value
+        }
+
+        var object: [String: Any]? {
+            body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         }
 
         var json: [String: String]? {
@@ -56,14 +63,14 @@ final class FakeServer: @unchecked Sendable {
             let full = "\(method) \(origin)\(url.path())"
             let short = "\(method) \(url.path())"
             let usesFullLines = server.routes.keys.contains { $0.contains("://") } || !server.failures.isEmpty
-            server.recorded.append(Request(line: usesFullLines ? full : short, headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
+            server.recorded.append(Request(line: usesFullLines ? full : short, query: url.query(), headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
             if let failure = server.failures["\(origin)\(url.path())"] ?? server.failures[origin] { return (nil, failure) }
             return (server.routes[full] ?? server.routes[short] ?? .text(404, "not found"), nil)
         }
     }
 }
 
-private extension URLRequest {
+extension URLRequest {
     var bodyData: Data? {
         if let httpBody { return httpBody }
         guard let stream = httpBodyStream else { return nil }
@@ -101,12 +108,21 @@ final class FakeProtocol: URLProtocol {
             client?.urlProtocolDidFinishLoading(self)
             return
         }
-        let (status, body, type): (Int, String, String) = switch answer {
-        case let .json(status, body): (status, body, "application/json")
-        case let .text(status, body): (status, body, "text/plain")
-        case .redirect: (0, "", "")
+        let echoed: FakeServer.Answer
+        if case .acknowledging = answer {
+            let operations = (request.bodyData.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["operations"] as? [[String: Any]]) ?? []
+            let ids = operations.compactMap { $0["id"] as? String }.map { "\"\($0)\"" }.joined(separator: ",")
+            echoed = .json(200, "{\"acknowledged\":[\(ids)]}")
+        } else {
+            echoed = answer
         }
-        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": type])!
+        let (status, body, fields): (Int, String, [String: String]) = switch echoed {
+        case let .json(status, body): (status, body, ["Content-Type": "application/json"])
+        case let .headed(status, body, extra): (status, body, extra.merging(["Content-Type": "application/json"]) { first, _ in first })
+        case let .text(status, body): (status, body, ["Content-Type": "text/plain"])
+        case .redirect, .acknowledging: (0, "", [:])
+        }
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)

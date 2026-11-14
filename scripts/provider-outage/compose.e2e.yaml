@@ -144,4 +144,4 @@ volumes:
       org.hito.fixture-run: ${HITO_OUTAGE_RUN_ID}
   outage-modules:
     external: true
-    name: hito_node-modules
+    name: ${HITO_OUTAGE_MODULES_VOLUME:?Set the exact qualified existing Node modules volume}
