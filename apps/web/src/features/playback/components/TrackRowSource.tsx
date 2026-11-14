@@ -18,7 +18,6 @@ export default function TrackRowSource({
     track === null || track.available || !!track.plays_from_services,
   );
   if (track === null) return <StatusDot status="none" />;
-  if (track.available) return <StatusDot status="ready" />;
   if (resolved?.ready)
     return (
       <StatusDot
@@ -30,6 +29,7 @@ export default function TrackRowSource({
         }
       />
     );
+  if (track.available) return <StatusDot status="ready" />;
   if (track.plays_from_services)
     return <StatusDot status="ready" detail="from your services" />;
   return (
