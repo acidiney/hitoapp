@@ -21,16 +21,7 @@ export type OutageQueueRequest = {
     | "other";
   method: "GET" | "POST" | "HEAD" | "OTHER";
   status: number | "failed";
-  outcome?: Schema<"SourceResolutionOutcome">;
 };
-
-const queueOutcomes = new Set<string>([
-  "ready",
-  "provider_unavailable",
-  "no_suitable_source",
-  "protected_choice",
-  "cancelled",
-] satisfies Schema<"SourceResolutionOutcome">[]);
 
 function queueRole(suffix: string): OutageQueueRequest["role"] {
   if (suffix === "sources") return "sources";
@@ -334,29 +325,14 @@ export async function playThroughOutage(
       ? pathname.slice(queuePrefix.length)
       : null;
   };
-  const onQueueResponse = async (response: Response) => {
+  const onQueueResponse = (response: Response) => {
     const suffix = queueSuffix(response.url());
     if (suffix === null) return;
-    const role = queueRole(suffix);
-    const entry: OutageQueueRequest = {
-      role,
+    observeQueue({
+      role: queueRole(suffix),
       method: queueMethod(response.request().method()),
       status: response.status(),
-    };
-    if (role === "resolve" && response.status() === 200) {
-      try {
-        const outcome = (
-          JSON.parse((await response.body()).toString()) as {
-            outcome?: unknown;
-          }
-        ).outcome;
-        if (typeof outcome === "string" && queueOutcomes.has(outcome))
-          entry.outcome = outcome as OutageQueueRequest["outcome"];
-      } catch {
-        entry.outcome = undefined;
-      }
-    }
-    observeQueue(entry);
+    });
   };
   const onQueueFailure = (request: Request) => {
     const suffix = queueSuffix(request.url());
@@ -369,22 +345,26 @@ export async function playThroughOutage(
   };
   page.on("response", onQueueResponse);
   page.on("requestfailed", onQueueFailure);
-  await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
-  const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
-  const queueResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === queuePath &&
-      response.status() === 200,
-    { timeout: 10_000 },
-  );
-  await page
-    .getByRole("button", { name: "Play playlist", exact: true })
-    .click();
-  await playing(page);
-  checkpoint("queue_outage");
-  page.off("response", onQueueResponse);
-  page.off("requestfailed", onQueueFailure);
-  const queueBytes = await (await queueResponse).body();
+  let queueBytes: Buffer;
+  try {
+    await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
+    const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
+    const queueResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === queuePath &&
+        response.status() === 200,
+      { timeout: 10_000 },
+    );
+    await page
+      .getByRole("button", { name: "Play playlist", exact: true })
+      .click();
+    await playing(page);
+    checkpoint("queue_outage");
+    queueBytes = await (await queueResponse).body();
+  } finally {
+    page.off("response", onQueueResponse);
+    page.off("requestfailed", onQueueFailure);
+  }
   if (queueBytes.length > 16_384)
     throw new Error("Owned queue receipt exceeded its bound");
   const queueReceipt = JSON.parse(
