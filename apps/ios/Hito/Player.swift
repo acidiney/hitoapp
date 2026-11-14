@@ -326,7 +326,7 @@ final class Player {
     }
 
     private func tick(_ seconds: Double) {
-        guard seconds.isFinite else { return }
+        guard seconds.isFinite, state != .loading else { return }
         position = seconds
         guard let stream = engine.currentItem?.duration.seconds, stream.isFinite, stream > 0 else { return }
         duration = PlaybackClock.length(stream: stream, listed: listed)
