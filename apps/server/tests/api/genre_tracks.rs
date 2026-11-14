@@ -189,6 +189,11 @@ async fn genre_tracks_page_beyond_the_detail_preview_without_losing_title_ties()
         let page: Value = serde_json::from_slice(&bytes).unwrap();
         let object = page.as_object().unwrap();
         assert_eq!(object.len(), 2);
+        assert!(
+            object.keys().map(String::as_str).collect::<HashSet<_>>()
+                == HashSet::from(["items", "next_after"]),
+            "genre tracks response must contain exactly items and next_after"
+        );
         let items = page["items"].as_array().unwrap();
         assert_eq!(items.len(), expected_count);
         for item in items {
