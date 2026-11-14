@@ -95,7 +95,7 @@ struct NowPlayingView: View {
             PanelPicker(selection: .artwork) { pick($0) }
         }
         .padding(.horizontal, 24)
-        .padding(.bottom, 28)
+        .padding(.bottom, 4)
     }
 
     private func panels(_ track: Track) -> some View {
@@ -580,13 +580,13 @@ struct QueueSheet: View {
                     if !player.queue.queued.isEmpty {
                         Text("Queued by you · plays first").font(Theme.label).foregroundStyle(Theme.quiet).padding(.top, 4)
                         VStack(spacing: 0) {
-                            ForEach(player.queue.queued) { QueueRow(track: $0, player: player, strong: true) }
+                            ForEach(player.queue.queued) { QueueRow(track: $0, player: player, strong: true, among: player.queue.queued) }
                         }
                     }
                     if !player.queue.upNext.isEmpty {
                         Text("Next from \(player.queue.context ?? "this list")").font(Theme.label).foregroundStyle(Theme.quiet).padding(.top, 4)
                         VStack(spacing: 0) {
-                            ForEach(player.queue.upNext) { QueueRow(track: $0, player: player, strong: $0.id == player.queue.upNext.first?.id) }
+                            ForEach(player.queue.upNext) { QueueRow(track: $0, player: player, strong: $0.id == player.queue.upNext.first?.id, among: player.queue.upNext) }
                         }
                     }
                     if !player.queue.hasNext {
@@ -597,13 +597,13 @@ struct QueueSheet: View {
             .scrollIndicators(.hidden)
             if let removed = player.removed {
                 HStack {
-                    Text("Removed \(removed.track.title) from the queue").lineLimit(1)
+                    Text("Removed \(removed.track.title) from the queue").lineLimit(2)
                     Spacer(minLength: 8)
                     TextAction(title: "Undo") { player.undoRemove() }
                 }
                 .padding(.leading, 14)
-                .padding(.trailing, 6)
-                .padding(.vertical, 6)
+                .padding(.trailing, 10)
+                .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Theme.menu))
                 .padding(.trailing, 8)
             }
@@ -621,6 +621,7 @@ struct QueueRow: View {
     let track: Track
     let player: Player
     let strong: Bool
+    let among: [Track]
 
     var body: some View {
         HStack(spacing: 12) {
@@ -632,7 +633,9 @@ struct QueueRow: View {
             Spacer(minLength: 0)
             Menu {
                 Button("Move up") { player.move(upcoming: track.id, by: -1) }
+                    .disabled(among.first?.id == track.id)
                 Button("Move down") { player.move(upcoming: track.id, by: 1) }
+                    .disabled(among.last?.id == track.id)
                 Button("Remove from queue", role: .destructive) { player.remove(upcoming: track) }
             } label: {
                 Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
