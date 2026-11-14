@@ -20,7 +20,11 @@ final class AppModel {
         case signedIn(ServerAddress, User)
     }
 
-    private(set) var step: Step = .opening
+    private(set) var step: Step = .opening {
+        didSet { follow(step) }
+    }
+    private(set) var api: HitoAPI?
+    private(set) var player: Player?
     private(set) var recent: [RecentServer] = []
     private let connection = ServerConnection()
     private let account = AccountSession()
@@ -122,6 +126,34 @@ final class AppModel {
             } catch {
                 log.info("connection.sign_out_unconfirmed")
             }
+        }
+    }
+
+    func handle(_ error: Error) {
+        switch error as? HitoAPI.Problem {
+        case .signedOut:
+            guard case let .signedIn(address, _) = step else { return }
+            store.forgetToken(for: address)
+            step = .signIn(address, reason: "Your session ended. Sign in again.")
+        case .locked:
+            Task { await checkLock() }
+        default:
+            break
+        }
+    }
+
+    private func follow(_ step: Step) {
+        switch step {
+        case let .signedIn(address, _), let .locked(address, _):
+            guard api?.address != address, let token = store.token(for: address) else { return }
+            player?.stop()
+            let api = HitoAPI(address: address, token: token)
+            self.api = api
+            player = Player(api: api)
+        default:
+            player?.stop()
+            player = nil
+            api = nil
         }
     }
 

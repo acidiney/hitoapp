@@ -28,7 +28,7 @@ struct RootView: View {
             case let .locked(address, user):
                 LockView(address: address, user: user)
             case let .signedIn(address, user):
-                SignedInView(address: address, user: user)
+                MainView(address: address, user: user)
             }
         }
         .tint(Theme.focus)

@@ -16,6 +16,10 @@
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Hito connects to your music server on your home network.</string>
 </dict>
