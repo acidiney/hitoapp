@@ -632,3 +632,12 @@ a.album-artist:focus-visible {
 .edition-row-sub > span {
   pointer-events: none;
 }
+.match-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.dialog-wide.match-dialog:has(.release-grid) {
+  width: min(960px, calc(100vw - 32px));
+}

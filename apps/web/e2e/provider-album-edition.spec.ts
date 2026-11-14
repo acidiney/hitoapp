@@ -107,17 +107,21 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     expect(fixture.calls.filter((call) => call.includes("editions"))).toEqual(
       [],
     );
+    const question = page.getByRole("dialog", {
+      name: `Is this ${albumEdition.releaseTitle}?`,
+    });
     await page.getByRole("button", { name: "Choose an edition" }).click();
-    await expect(
-      page.getByRole("heading", {
-        name: `Is this ${albumEdition.releaseTitle}?`,
-      }),
-    ).toBeVisible();
+    await expect(question).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(question).toHaveCount(0);
+    await page.getByRole("button", { name: "Choose an edition" }).click();
+    await expect(question).toBeVisible();
     await expect(
       page.getByRole("list", { name: "Discography releases" }),
     ).toHaveCount(0);
-    await page.getByRole("radio", { name: /Deluxe/ }).check();
-    await page.getByRole("button", { name: "Use this" }).click();
+    await question.getByRole("radio", { name: /Deluxe/ }).check();
+    await question.getByRole("button", { name: "Use this" }).click();
+    await expect(question).toHaveCount(0);
 
     const region = page.getByRole("region", {
       name: "Album edition track list",
@@ -160,8 +164,14 @@ test("an album compares a chosen edition with its library and saves a catalog tr
 
     fixture.state.outage = true;
     await openEditionMenu(page, "Change edition");
-    await page.getByRole("radio", { name: /Standard/ }).check();
-    await page.getByRole("button", { name: "Use this" }).click();
+    const change = page.getByRole("dialog", {
+      name: albumEdition.releaseTitle,
+      exact: true,
+    });
+    await expect(change).toBeVisible();
+    await change.getByRole("radio", { name: /Standard/ }).check();
+    await change.getByRole("button", { name: "Use this" }).click();
+    await expect(change).toHaveCount(0);
     await expect(page.getByText(/track list is unavailable/)).toBeVisible();
     await expect(
       page.getByRole("table", { name: "Tracks" }).getByRole("row"),
