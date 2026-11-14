@@ -56,6 +56,8 @@ export default function AlbumEditionStep({
   chooseLatest.current = workflow.choose;
   const [selected, setSelected] = useState("");
   const [changing, setChanging] = useState(false);
+  const trackList = useRef<HTMLDivElement>(null);
+  const returnToMenu = useRef(false);
   const read = comparison.comparison;
   const year = releaseYear(group);
   const settled =
@@ -85,6 +87,22 @@ export default function AlbumEditionStep({
       chooseLatest.current(workflow.editions[0].id);
   }, [automatic, settled, workflow.chosen, workflow.editions]);
 
+  const editionMenu = Boolean(workflow.chosen && comparison.comparison);
+  useEffect(() => {
+    if (changing || !editionMenu || !returnToMenu.current) return;
+    const menu = trackList.current?.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="menu"]',
+    );
+    if (!menu) return;
+    returnToMenu.current = false;
+    menu.focus();
+  }, [changing, editionMenu]);
+
+  const stopChanging = () => {
+    returnToMenu.current = true;
+    setChanging(false);
+  };
+
   const retry = () =>
     workflow.restartRequired || (workflow.error && workflow.pages > 0)
       ? workflow.restart()
@@ -92,7 +110,7 @@ export default function AlbumEditionStep({
 
   if (workflow.chosen && !changing)
     return (
-      <div className="match-lined-up">
+      <div className="match-lined-up" ref={trackList}>
         {remembered && (
           <p role="status" className="sr-only">
             This edition is remembered.
@@ -185,11 +203,11 @@ export default function AlbumEditionStep({
       select={setSelected}
       use={() => {
         workflow.choose(current);
-        setChanging(false);
+        if (changing) stopChanging();
       }}
       different={different}
       dismiss={dismiss}
-      close={changing ? () => setChanging(false) : dismiss}
+      close={changing ? stopChanging : dismiss}
       more={
         workflow.continuation && !workflow.pending
           ? () => void workflow.more()
