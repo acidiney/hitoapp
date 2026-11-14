@@ -11,6 +11,10 @@ public struct ServerAddress: Hashable, Sendable, Codable {
         origin.appending(path: path)
     }
 
+    public func url(_ segments: [String]) -> URL {
+        segments.reduce(origin) { $0.appending(component: $1) }
+    }
+
     func isSameServer(as url: URL?) -> Bool {
         guard let url else { return false }
         return url.scheme == origin.scheme && url.host() == origin.host() && url.port == origin.port

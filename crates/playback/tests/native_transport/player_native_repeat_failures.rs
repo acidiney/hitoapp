@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
-async fn repeat_modes_cannot_loop_an_unavailable_queue_and_repeat_all_checks_the_wrapped_entries() {
+async fn repeat_modes_cannot_loop_an_unavailable_queue_after_three_bounded_attempts() {
     for (cycles, shuffled) in [(1, false), (2, false), (1, true), (2, true)] {
         let f = audio_fixture::AudioLibrary::start().await;
         f.server
@@ -60,6 +60,14 @@ async fn repeat_modes_cannot_loop_an_unavailable_queue_and_repeat_all_checks_the
         );
         assert!(!state.borrow().desired_playing);
         assert_eq!(f.server.requests("v1/sources").await.len(), 3);
-        assert_eq!(f.server.requests("v1/audio").await.len(), 4);
+        let audio_requests = f.server.requests("v1/audio").await;
+        assert_eq!(audio_requests.len(), 8);
+        assert!(
+            audio_requests.iter().all(|(_, query)| {
+                query["_method"] == "GET"
+                    && query["source_id"].as_str() == Some("audio:/1?private=value&other=bad")
+            }),
+            "each bounded attempt must open only the owned failing source"
+        );
     }
 }

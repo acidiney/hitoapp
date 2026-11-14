@@ -13,7 +13,7 @@ struct ServerAddressView: View {
 
     var body: some View {
         Screen {
-            TextAction(title: "Back", icon: "chevron.left", color: Theme.soft) {
+            TextAction(title: "Back", icon: "chevron-left", color: Theme.soft) {
                 search?.cancel()
                 model.backToChoice()
             }
