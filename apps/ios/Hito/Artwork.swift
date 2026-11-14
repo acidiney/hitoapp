@@ -127,6 +127,7 @@ extension Track {
 }
 
 struct LibraryRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let track: Track
     var isCurrent = false
     var showsTime = true
@@ -137,11 +138,21 @@ struct LibraryRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
                     .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    StatusDot(track: track)
-                    Text(track.stateLabel).foregroundStyle(track.stateColor).layoutPriority(1)
-                    Text("· \(track.artist)").lineLimit(1)
+                    .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+                Group {
+                    if typeSize.isAccessibilitySize {
+                        HStack(spacing: 6) {
+                            StatusDot(track: track)
+                            Text(track.stateLabel).foregroundStyle(track.stateColor)
+                        }
+                        Text(track.artist).lineLimit(2)
+                    } else {
+                        HStack(spacing: 6) {
+                            StatusDot(track: track)
+                            Text(track.stateLabel).foregroundStyle(track.stateColor).layoutPriority(1)
+                            Text("· \(track.artist)").lineLimit(1)
+                        }
+                    }
                 }
                 .font(Theme.small)
                 .foregroundStyle(Theme.quiet)
