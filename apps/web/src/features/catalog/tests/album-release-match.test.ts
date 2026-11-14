@@ -323,3 +323,35 @@ test("picking a different release keeps the question in a dialog", async () => {
     within(picker).getByRole("list", { name: "Releases to choose from" }),
   ).toBeTruthy();
 });
+
+test("closing Change edition with Escape returns focus to the edition menu", async () => {
+  serve({
+    [editions]: () =>
+      Response.json({
+        ...firstEditionPage,
+        continuation: null,
+        page: {
+          ...firstEditionPage.page,
+          items: [...firstEditionPage.page.items, bonusEdition],
+        },
+      }),
+  });
+  render(page(matched));
+  await open();
+  const question = await screen.findByRole("dialog", {
+    name: `Is this ${editionGroup.title} from 2024?`,
+  });
+  await within(question).findAllByRole("radio");
+  fireEvent.click(within(question).getByRole("button", { name: "Use this" }));
+  await screen.findByRole("region", { name: "Album edition track list" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Edition / }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Change edition" }));
+  const change = await screen.findByRole("dialog");
+  fireEvent(change, new Event("cancel", { cancelable: true }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() =>
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /^Edition / }),
+    ),
+  );
+});
