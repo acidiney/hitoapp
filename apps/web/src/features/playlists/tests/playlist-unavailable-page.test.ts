@@ -166,25 +166,47 @@ test("retained playlists remain editable and known recordings resolve audio only
       fetch.mock.calls.filter(([, options]) => options?.method !== "GET"),
     ).toHaveLength(0);
     expect(play).not.toHaveBeenCalled();
-    fireEvent.click(toolbar);
     if (recordings.length === 0) {
+      fireEvent.click(toolbar);
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(player.queueSnapshot().total).toBe(0);
       expect((await player.queuePage(0, 10)).entries).toEqual([]);
     } else {
-      await waitFor(() => {
-        expect(player.snapshot().loading).toBe(false);
-        expect(player.snapshot().error).toContain("Audio is unavailable");
-        expect(fetch).toHaveBeenCalledTimes(1 + recordings.length * 3);
-      });
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        fireEvent.click(toolbar);
+        for (const recording of recordings) {
+          await vi.waitFor(() => {
+            expect(player.snapshot().current?.id).toBe(recording);
+            expect(player.snapshot().retrying).toEqual({ attempt: 2, of: 3 });
+          });
+          await act(() => vi.advanceTimersByTimeAsync(500));
+          await vi.waitFor(() =>
+            expect(player.snapshot().retrying).toEqual({ attempt: 3, of: 3 }),
+          );
+          await act(() => vi.advanceTimersByTimeAsync(1000));
+        }
+        await vi.waitFor(() => {
+          expect(player.snapshot().loading).toBe(false);
+          expect(player.snapshot().error).toContain("Audio is unavailable");
+          expect(fetch).toHaveBeenCalledTimes(1 + recordings.length * 9);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
       const sourceCalls = fetch.mock.calls.slice(1);
+      const pass = (recording: string) => [
+        [`/api/v1/recordings/${recording}/playback-sources`, "GET"],
+        [`/api/v1/recordings/${recording}/sources/refresh`, "POST"],
+        [`/api/v1/recordings/${recording}/sources/resolve`, "POST"],
+      ];
       expect(
         sourceCalls.map(([path, options]) => [path, options.method]),
       ).toEqual(
         recordings.flatMap((recording) => [
-          [`/api/v1/recordings/${recording}/playback-sources`, "GET"],
-          [`/api/v1/recordings/${recording}/sources/refresh`, "POST"],
-          [`/api/v1/recordings/${recording}/sources/resolve`, "POST"],
+          ...pass(recording),
+          ...pass(recording),
+          ...pass(recording),
         ]),
       );
       for (const [, options] of sourceCalls)
@@ -200,7 +222,7 @@ test("retained playlists remain editable and known recordings resolve audio only
       const requestIds = sourceCalls
         .filter(([path]) => path.endsWith("/resolve"))
         .map(([, options]) => JSON.parse(String(options.body)).request_id);
-      expect(new Set(requestIds).size).toBe(recordings.length);
+      expect(new Set(requestIds).size).toBe(recordings.length * 3);
       const queue = await player.queuePage(0, 10);
       expect(queue.entries.map((entry) => entry.recording.id)).toEqual(
         recordings,

@@ -3,6 +3,8 @@ import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import { streamingQuality, type StreamingQuality } from "./StreamingQuality";
 
+const QUALITY_NEGOTIATION_MS = 15_000;
+
 export function sourceAudioUrl(source: string) {
   return `/api/v1/sources/${encodeURIComponent(source)}/audio`;
 }
@@ -40,6 +42,7 @@ export class BrowserStream extends EventTarget implements MediaPort {
   private opening: Promise<void> | null = null;
   private revision = 0;
   private forwarding: [string, EventListener][] = [];
+  private negotiationBudget: (() => number) | null = null;
 
   constructor(readonly original: MediaPort) {
     super();
@@ -92,11 +95,17 @@ export class BrowserStream extends EventTarget implements MediaPort {
       this.dispatchEvent(new Event("seeked"));
   }
 
-  openSource(source: string, start: number, duration: number) {
+  openSource(
+    source: string,
+    start: number,
+    duration: number,
+    negotiationBudget?: () => number,
+  ) {
     this.activate();
     this.source = source;
     this.fullDuration = duration;
     this.triedOriginal = false;
+    this.negotiationBudget = negotiationBudget ?? null;
     this.open(start, streamingQuality());
   }
 
@@ -109,7 +118,18 @@ export class BrowserStream extends EventTarget implements MediaPort {
     this.converted = false;
     this.originalStart = null;
     const path = sourceAudioUrl(this.source);
-    if (quality === "original") {
+    const budget = Math.min(
+      QUALITY_NEGOTIATION_MS,
+      this.negotiationBudget?.() ?? QUALITY_NEGOTIATION_MS,
+    );
+    if (quality === "original" || budget <= 0) {
+      if (quality !== "original")
+        log.debug("playback.stream_fallback", {
+          operation_id: this.operation,
+          generation: revision,
+          quality,
+          reason: "negotiation_skipped",
+        });
       this.replace(path, start, false);
       return;
     }
@@ -120,7 +140,7 @@ export class BrowserStream extends EventTarget implements MediaPort {
     this.offset = startMs / 1000;
     const started = performance.now();
     this.operation = createUuid();
-    const loading = this.negotiate(url, quality, controller);
+    const loading = this.negotiate(url, quality, controller, budget);
     this.opening = loading
       .then((converted) => {
         if (revision !== this.revision) return;
@@ -164,15 +184,26 @@ export class BrowserStream extends EventTarget implements MediaPort {
     url: string,
     quality: StreamingQuality,
     controller: AbortController,
+    budget: number,
   ) {
-    const timer = setTimeout(() => controller.abort(), 15_000);
+    const timer = setTimeout(() => controller.abort(), budget);
+    const abandoned = new Promise<never>((_resolve, reject) =>
+      controller.signal.addEventListener(
+        "abort",
+        () => reject(new Error("Audio quality check stopped.")),
+        { once: true },
+      ),
+    );
     try {
-      const response = await fetch(url, {
-        method: "HEAD",
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      const response = await Promise.race([
+        fetch(url, {
+          method: "HEAD",
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: controller.signal,
+        }),
+        abandoned,
+      ]);
       if (!response.ok) throw new Error("Audio quality could not be checked.");
       const converted =
         response.headers.get("X-Hito-Stream-Quality") === quality;

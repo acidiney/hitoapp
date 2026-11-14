@@ -28,8 +28,9 @@ const unavailableMessage =
   "An audio service is unavailable. Select the track again to retry.";
 
 test.each([false, true])(
-  "a prepared service outage preserves current audio and rechecks ready alternatives at the boundary, ready=%s",
+  "a prepared service outage preserves current audio and rechecks ready alternatives at the boundary, then retries twice before advancing, ready=%s",
   async (newReady) => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const media = browserPreparationMedia();
     const entered = deferred<OwnedPlaybackRequest>();
     const acknowledgement = deferred<Response>();
@@ -55,6 +56,7 @@ test.each([false, true])(
         expect(Object.keys(request.body as Schema<"ResolveSource">)).toEqual([
           "request_id",
         ]);
+        if (boundary) return unavailableResponse(request, next);
         entered.resolve(request);
         return acknowledgement.promise;
       }
@@ -102,6 +104,22 @@ test.each([false, true])(
       act(() => {
         media.end(current);
       });
+      if (!newReady) {
+        await vi.waitFor(() =>
+          expect(player.snapshot().retrying).toEqual({ attempt: 2, of: 3 }),
+        );
+        expect(player.snapshot().current?.id).toBe(next.id);
+        expect(
+          requests.filter(
+            (request) => request.path === `${sourcesPath(next)}/resolve`,
+          ),
+        ).toEqual([pending]);
+        await act(() => vi.advanceTimersByTimeAsync(500));
+        await vi.waitFor(() =>
+          expect(player.snapshot().retrying).toEqual({ attempt: 3, of: 3 }),
+        );
+        await act(() => vi.advanceTimersByTimeAsync(1000));
+      }
       await vi.waitFor(() => {
         expect(player.snapshot().current?.id).toBe(
           newReady ? next.id : after.id,
@@ -120,14 +138,33 @@ test.each([false, true])(
       expect(player.queueSnapshot().currentEntry).toBe(
         entries[newReady ? 1 : 2].id,
       );
+      const resolves = requests.filter(
+        (request) => request.path === `${sourcesPath(next)}/resolve`,
+      );
+      expect(resolves[0]).toBe(pending);
       expect(
-        requests.filter(
-          (request) => request.path === `${sourcesPath(next)}/resolve`,
-        ),
-      ).toEqual([pending]);
+        new Set(
+          resolves.map(
+            (request) => (request.body as Schema<"ResolveSource">).request_id,
+          ),
+        ).size,
+      ).toBe(newReady ? 1 : 3);
+      const cached = cachedSourcesPath(next);
+      const refresh = `${sourcesPath(next)}/refresh`;
+      const resolve = `${sourcesPath(next)}/resolve`;
       expect(
-        requests.filter((request) => request.path === cachedSourcesPath(next)),
-      ).toHaveLength(2);
+        requests
+          .map((request) => request.path)
+          .filter((path) => [cached, refresh, resolve].includes(path)),
+      ).toEqual([
+        cached,
+        refresh,
+        resolve,
+        cached,
+        ...(newReady
+          ? []
+          : [cached, refresh, resolve, cached, refresh, resolve]),
+      ]);
       expect(
         requests
           .filter((request) => request.path === "/api/v1/sync")
@@ -152,6 +189,7 @@ test.each([false, true])(
       acknowledgement.resolve(Response.json(null));
       unmount();
       media.close();
+      vi.useRealTimers();
     }
     expect(document.querySelectorAll("audio")).toHaveLength(0);
   },

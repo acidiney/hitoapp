@@ -100,13 +100,16 @@ test("a throttled page is retried after the server's Retry-After and then append
 test("pages are retried a bounded number of times, then the list stops with the visible message and a safe log", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout"] });
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-  const player = new Playback(new QueueMedia(), async (id) => [
-    { id, ready: true },
-  ]);
+  const media = new QueueMedia();
+  const player = new Playback(media, async (id) => [{ id, ready: true }]);
   const { supply, calls } = failing(
     Array(10).fill(new HttpError(503, "private body")),
   );
   await player.playQueue(first(2), 0, undefined, supply);
+  expect(media.paused).toBe(false);
+  media.currentTime = 1;
+  media.dispatchEvent(new Event("timeupdate"));
+  expect(player.snapshot().desiredPlaying).toBeUndefined();
   await vi.advanceTimersByTimeAsync(60_000);
   await vi.waitFor(() =>
     expect(player.snapshot().error).toBe(

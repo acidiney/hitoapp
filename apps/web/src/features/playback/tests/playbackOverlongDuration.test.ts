@@ -166,6 +166,9 @@ test("a playback stall within the final seconds of the server duration ends the 
   expect(player.snapshot().current?.id).toBe("first");
   await vi.advanceTimersByTimeAsync(1_000);
   await vi.waitFor(() => expect(player.snapshot().current?.id).toBe("next"));
+  expect(media.paused).toBe(false);
+  media.tick(1);
+  expect(player.snapshot().desiredPlaying).toBeUndefined();
   await vi.advanceTimersByTimeAsync(20_000);
   expect(opened(resolve, "next")).toBe(1);
   expect(opened(resolve, "last")).toBe(0);
