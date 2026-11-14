@@ -9,6 +9,7 @@ mod album_tagged_edition;
 mod album_track_audio;
 mod artist_catalog_credit_member_shareability;
 mod artist_catalog_credit_members;
+mod artist_catalog_credit_members_repair;
 mod artist_catalog_credit_review;
 mod artist_catalog_credit_target_migration_work;
 mod artist_catalog_credit_target_upgrade;
