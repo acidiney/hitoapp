@@ -18,6 +18,7 @@ mod playlists;
 mod preparation;
 #[cfg(feature = "server")]
 pub mod server;
+mod source_links;
 pub use artist_page::{ArtistPageProvider, artist_page_provider};
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use attribution::RecordingAttribution;
@@ -89,6 +90,9 @@ pub use preparation::{
     PreparationRequest, PreparationStatus, PreparationStatusRequest, PreparationStatusResponse,
     PreparationSubmission, PreparationSubmitResponse,
 };
+pub use source_links::{
+    MAX_SOURCE_LINK_REFERENCE_BYTES, RECORDING_LOOKUP_PATH, RecordingLookupRequest,
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -140,6 +144,7 @@ pub enum Capability {
     Lyrics,
     BackingTracks,
     Featured,
+    SourceLinks,
 }
 
 impl Manifest {
@@ -176,6 +181,11 @@ impl Manifest {
             && !self.capabilities.contains(&Capability::Playlists)
         {
             return Err("Featured items need the playlists capability to open".into());
+        }
+        if self.capabilities.contains(&Capability::SourceLinks)
+            && !self.capabilities.contains(&Capability::Sources)
+        {
+            return Err("Source links require the sources capability".into());
         }
         if let Some(authorization) = &self.authorization {
             authorization.validate().map_err(str::to_owned)?;

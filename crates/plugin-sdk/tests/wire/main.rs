@@ -16,3 +16,4 @@ mod recording_attribution;
 mod recording_credited_artists;
 mod recording_isrc;
 mod release_credits;
+mod source_links;

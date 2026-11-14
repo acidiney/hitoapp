@@ -144,6 +144,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(downloads::remove))
         .routes(routes!(source_bindings::review))
         .routes(routes!(source_bindings::attach))
+        .routes(routes!(source_bindings::lookup))
         .routes(routes!(
             source_choice::source_choice,
             source_choice::choose_source
