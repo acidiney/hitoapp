@@ -91,6 +91,7 @@ extension Track {
 struct LibraryRow: View {
     let track: Track
     var isCurrent = false
+    var showsTime = true
 
     var body: some View {
         HStack(spacing: 8) {
@@ -108,11 +109,13 @@ struct LibraryRow: View {
                 .foregroundStyle(Theme.quiet)
             }
             Spacer(minLength: 8)
-            Text(track.clock)
-                .font(Theme.small)
-                .monospacedDigit()
-                .foregroundStyle(Theme.quiet)
-                .padding(.trailing, 12)
+            if showsTime {
+                Text(track.clock)
+                    .font(Theme.small)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.quiet)
+                    .padding(.trailing, 12)
+            }
         }
         .frame(minHeight: 60)
         .contentShape(Rectangle())
@@ -171,6 +174,11 @@ struct AlbumTrackRow: View {
 }
 
 extension Duration {
+    var long: String {
+        let minutes = Int(components.seconds) / 60
+        return minutes >= 60 ? "\(minutes / 60) hr \(minutes % 60) min" : "\(minutes) min"
+    }
+
     var clock: String {
         let seconds = Int(components.seconds)
         let hours = seconds / 3600

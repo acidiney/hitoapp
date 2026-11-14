@@ -39,7 +39,7 @@ import Testing
     @Test func albumsAreListedNewestFirst() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[{"id":"a1","library_id":"l1","title":"Fixture Album","artist":"Fixture Band","artist_id":null,"track_count":12,"duration_ms":2400000,"inferred_artist":null,"year":2019}],"total":1,"offset":0,"limit":50}"#)])
         let page = try await library(fake).albums(offset: 0)
-        #expect(page.items == [Album(id: "a1", title: "Fixture Album", artist: "Fixture Band", trackCount: 12, year: 2019)])
+        #expect(page.items == [Album(id: "a1", title: "Fixture Album", artist: "Fixture Band", trackCount: 12, year: 2019, durationMs: 2400000)])
         #expect(fake.requests.first?.query == "offset=0&limit=50&sort=recent")
     }
 
@@ -49,7 +49,7 @@ import Testing
         let first = track.dropLast() + #","entry_id":"e1","track_number":1,"disc_number":1}"#
         let fake = FakeServer(routes: ["GET /api/v1/releases/a1": .json(200, #"{"release":\#(release),"tracks":{"items":[\#(first),\#(second)],"total":2,"offset":0,"limit":200},"catalog_anchor":null,"saved_edition":null}"#)])
         let album = try await library(fake).album("a1")
-        #expect(album.album == Album(id: "a1", title: "Fixture Album", artist: nil, trackCount: 2, year: nil))
+        #expect(album.album == Album(id: "a1", title: "Fixture Album", artist: nil, trackCount: 2, year: nil, durationMs: 500000))
         #expect(album.tracks.map(\.id) == ["r1", "r2"])
         #expect(album.tracks.map(\.trackNumber) == [1, 2])
         #expect(fake.requests.first?.query == "offset=0&limit=200")
@@ -70,7 +70,7 @@ import Testing
     }
 
     @Test func anAlbumCoverIsAskedForWithTheSessionToken() throws {
-        let request = HitoAPI(address: address, token: "session-token-1").request(Album(id: "a 1", title: "", artist: nil, trackCount: 0, year: nil).artworkPath)
+        let request = HitoAPI(address: address, token: "session-token-1").request(Album(id: "a 1", title: "", artist: nil, trackCount: 0, year: nil, durationMs: nil).artworkPath)
         #expect(request.url?.absoluteString == "http://192.168.1.20:8080/api/v1/releases/a%201/artwork")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token-1")
     }

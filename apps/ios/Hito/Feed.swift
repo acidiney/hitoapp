@@ -69,6 +69,26 @@ struct FeedFooter<Item: Decodable & Equatable & Identifiable & Sendable>: View {
 
 enum TrackList: Hashable {
     case liked
+    case artist(Artist)
 
-    var title: String { "Liked tracks" }
+    var title: String {
+        switch self {
+        case .liked: "Liked tracks"
+        case .artist(let artist): artist.name
+        }
+    }
+
+    var empty: String {
+        switch self {
+        case .liked: "Tracks you like show up here."
+        case .artist: "No tracks by this artist in your library."
+        }
+    }
+
+    func page(_ library: Library, _ offset: Int) async throws -> Page<Track> {
+        switch self {
+        case .liked: try await library.tracks(offset: offset, liked: true)
+        case .artist(let artist): try await library.tracks(offset: offset, artist: artist.id)
+        }
+    }
 }

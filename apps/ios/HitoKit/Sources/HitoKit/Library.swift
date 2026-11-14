@@ -44,13 +44,15 @@ public struct Album: Decodable, Equatable, Hashable, Identifiable, Sendable {
     public let artist: String?
     public let trackCount: Int
     public let year: Int?
+    public let durationMs: Int?
 
-    public init(id: String, title: String, artist: String?, trackCount: Int, year: Int?) {
+    public init(id: String, title: String, artist: String?, trackCount: Int, year: Int?, durationMs: Int?) {
         self.id = id
         self.title = title
         self.artist = artist
         self.trackCount = trackCount
         self.year = year
+        self.durationMs = durationMs
     }
 
     public var artworkPath: [String] { ["api", "v1", "releases", id, "artwork"] }
@@ -58,6 +60,7 @@ public struct Album: Decodable, Equatable, Hashable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, title, artist, year
         case trackCount = "track_count"
+        case durationMs = "duration_ms"
     }
 }
 

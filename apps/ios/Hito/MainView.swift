@@ -70,6 +70,7 @@ extension View {
     func browsing() -> some View {
         navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
             .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
+            .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed() }
             .page()
     }
 

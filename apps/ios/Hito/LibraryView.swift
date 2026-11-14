@@ -5,12 +5,17 @@ struct LibraryView: View {
     enum Section: String, CaseIterable {
         case tracks = "Tracks"
         case albums = "Albums"
+        case artists = "Artists"
+        case playlists = "Playlists"
     }
 
     @Environment(AppModel.self) private var model
     @State private var section = Section.tracks
     @State private var tracks = Feed<Track>()
     @State private var albums = Feed<Album>()
+    @State private var artists = Feed<Artist>()
+    @State private var playlists: [Playlist]?
+    @State private var playlistsFailed = false
 
     var body: some View {
         ScrollView {
@@ -24,6 +29,10 @@ struct LibraryView: View {
                         .padding(.trailing, -8)
                 case .albums:
                     AlbumGrid(feed: albums)
+                case .artists:
+                    ArtistRows(feed: artists)
+                case .playlists:
+                    PlaylistRows(playlists: playlists, failed: playlistsFailed) { Task { await loadPlaylists() } }
                 }
             }
             .padding(.horizontal, 16)
@@ -41,6 +50,100 @@ struct LibraryView: View {
         let library = Library(api: api)
         tracks.reset { try await library.tracks(offset: $0) }
         albums.reset { try await library.albums(offset: $0) }
+        artists.reset { try await library.artists(offset: $0) }
+        Task { await loadPlaylists() }
+    }
+
+    private func loadPlaylists() async {
+        guard let api = model.api else { return }
+        playlistsFailed = false
+        do {
+            playlists = try await Playlists(api: api).list()
+        } catch {
+            playlistsFailed = true
+            model.handle(error)
+        }
+    }
+}
+
+struct ArtistRows: View {
+    let feed: Feed<Artist>
+
+    var body: some View {
+        if feed.isEmpty {
+            Text("No artists yet.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 12)
+        }
+        ForEach(feed.items) { artist in
+            NavigationLink(value: TrackList.artist(artist)) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Theme.tile
+                        Icon("person", size: 20).foregroundStyle(Theme.coverMark)
+                    }
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(artist.name).lineLimit(1)
+                        Text(counts(artist)).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                }
+                .frame(minHeight: 60)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        FeedFooter(feed: feed)
+    }
+
+    private func counts(_ artist: Artist) -> String {
+        let tracks = "\(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks")"
+        let albums = "\(artist.albumCount) \(artist.albumCount == 1 ? "album" : "albums")"
+        return "\(tracks) · \(albums)"
+    }
+}
+
+struct PlaylistRows: View {
+    let playlists: [Playlist]?
+    let failed: Bool
+    let retry: () -> Void
+
+    var body: some View {
+        if let playlists {
+            if playlists.isEmpty {
+                Text("No playlists yet. Make one on the web, or follow one from a link.")
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.soft)
+                    .padding(.vertical, 12)
+            }
+            ForEach(playlists) { playlist in
+                NavigationLink(value: playlist) {
+                    HStack(spacing: 12) {
+                        Cover(path: playlist.artworkPath, size: 44, mark: "playlist")
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(playlist.name).lineLimit(1)
+                            Text(playlist.kind == .followed ? "Followed playlist" : "Playlist")
+                                .font(Theme.small)
+                                .foregroundStyle(Theme.quiet)
+                        }
+                        Spacer(minLength: 8)
+                        Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                    }
+                    .frame(minHeight: 60)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        } else if failed {
+            HStack(spacing: 8) {
+                Text("Playlists didn't load.").foregroundStyle(Theme.soft)
+                TextAction(title: "Try again", action: retry)
+            }
+            .font(Theme.small)
+        } else {
+            ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+        }
     }
 }
 
@@ -48,6 +151,7 @@ struct SectionTabs: View {
     @Binding var selection: LibraryView.Section
 
     var body: some View {
+        ScrollView(.horizontal) {
         HStack(spacing: 4) {
             ForEach(LibraryView.Section.allCases, id: \.self) { item in
                 let current = item == selection
@@ -65,9 +169,10 @@ struct SectionTabs: View {
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(current ? .isSelected : [])
             }
-            Spacer()
         }
-        .padding(.leading, 16)
+        .padding(.horizontal, 16)
+        }
+        .scrollIndicators(.hidden)
         .overlay(alignment: .bottom) { Theme.barLine.frame(height: 1) }
         .padding(.horizontal, -16)
     }
@@ -143,7 +248,7 @@ struct TrackListView: View {
                     }
                 }
                 VStack(spacing: 0) {
-                    TrackRows(feed: feed, context: list.title, empty: "Tracks you like show up here.")
+                    TrackRows(feed: feed, context: list.title, empty: list.empty)
                 }
                 .padding(.leading, -6)
                 .padding(.trailing, -8)
@@ -155,7 +260,8 @@ struct TrackListView: View {
         .task {
             guard feed.total == nil, let api = model.api else { return }
             let library = Library(api: api)
-            feed.reset { try await library.tracks(offset: $0, liked: true) }
+            let list = list
+            feed.reset { try await list.page(library, $0) }
         }
     }
 }
@@ -193,7 +299,9 @@ struct AlbumView: View {
                 HStack(alignment: .top, spacing: 14) {
                     Cover(path: album.artworkPath, size: 96, radius: 10)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Album").font(Theme.small).foregroundStyle(Theme.soft)
+                        Text(["Album", album.year.map(String.init)].compactMap { $0 }.joined(separator: " · "))
+                            .font(Theme.small)
+                            .foregroundStyle(Theme.soft)
                         Text(album.title)
                             .font(Theme.pageTitle)
                             .lineLimit(3)
@@ -255,7 +363,8 @@ struct AlbumView: View {
 
     private var facts: String {
         let count = "\(album.trackCount) \(album.trackCount == 1 ? "track" : "tracks")"
-        return [album.artist ?? "Various artists", count].joined(separator: " · ")
+        let length = album.durationMs.flatMap { $0 >= 60_000 ? Duration.milliseconds($0).long : nil }
+        return [album.artist ?? "Various artists", count, length].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func load() async {
