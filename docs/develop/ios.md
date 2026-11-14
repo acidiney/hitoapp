@@ -13,7 +13,7 @@ What it does today:
 - When the account has a PIN, shows **Locked** once the server's idle time has passed, and asks for the PIN.
 
 - Once signed in, shows **Home**, **Search** and **Library** (tracks and albums), an album page, a mini player, **Now playing** and the queue.
-- Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Audio keeps playing with the screen locked, and the lock screen and headphone controls work through the system's now playing controls.
+- Plays through the server's playback lease: it asks for the recording's sources in the listener's order, leases the first ready one and moves on to the next when one fails. Audio keeps playing with the screen locked. The app publishes the track to the system's now playing controls for the lock screen and headphones; those controls are not yet checked on a device.
 
 Discover, plugins, playlists, lyrics and settings are not built yet. See [the tracking issue](https://github.com/acidiney/hitoapp/issues/187).
 
