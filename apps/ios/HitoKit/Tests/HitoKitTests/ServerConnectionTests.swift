@@ -54,6 +54,35 @@ import Testing
         #expect(found.next == .createAdministrator)
     }
 
+    @Test func onceHttpsAnswersASetupTimeoutIsNotRetriedOverHttp() async {
+        let fake = FakeServer(
+            routes: [
+                "GET https://hito.home/health": .json(200, #"{"ready":true}"#),
+                "GET http://hito.home/health": .json(200, #"{"ready":true}"#),
+                "GET http://hito.home/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
+            ],
+            failures: ["https://hito.home/api/v1/setup": URLError(.timedOut)]
+        )
+        await #expect(throws: ServerConnection.Problem.noAnswer) {
+            try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "hito.home"))
+        }
+        #expect(!fake.requests.contains { $0.line.hasPrefix("GET http://") })
+    }
+
+    @Test func aRedirectLoopOnHttpsIsAnAnswerNotASilence() async {
+        let fake = FakeServer(
+            routes: [
+                "GET http://hito.home/health": .json(200, #"{"ready":true}"#),
+                "GET http://hito.home/api/v1/setup": .json(200, #"{"needs_setup":false}"#),
+            ],
+            failures: ["https://hito.home": URLError(.httpTooManyRedirects)]
+        )
+        await #expect(throws: ServerConnection.Problem.notHito) {
+            try await ServerConnection(session: fake.session).find(try ServerAddressInput(parsing: "hito.home"))
+        }
+        #expect(!fake.requests.contains { $0.line.hasPrefix("GET http://") })
+    }
+
     @Test func aCertificateProblemOnHttpsIsNeverReplacedByHttp() async {
         let fake = FakeServer(routes: healthy, failures: ["https://hito.home": URLError(.serverCertificateUntrusted)])
         await #expect(throws: ServerConnection.Problem.certificate) {

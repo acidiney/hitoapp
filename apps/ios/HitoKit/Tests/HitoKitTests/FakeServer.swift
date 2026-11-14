@@ -57,7 +57,7 @@ final class FakeServer: @unchecked Sendable {
             let short = "\(method) \(url.path())"
             let usesFullLines = server.routes.keys.contains { $0.contains("://") } || !server.failures.isEmpty
             server.recorded.append(Request(line: usesFullLines ? full : short, headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
-            if let failure = server.failures[origin] { return (nil, failure) }
+            if let failure = server.failures["\(origin)\(url.path())"] ?? server.failures[origin] { return (nil, failure) }
             return (server.routes[full] ?? server.routes[short] ?? .text(404, "not found"), nil)
         }
     }

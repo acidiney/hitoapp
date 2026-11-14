@@ -39,17 +39,23 @@ public struct ServerConnection: Sendable {
         var last = Problem.noAnswer
         for address in input.candidates {
             try Task.checkCancellation()
+            let health: Health
             do {
-                return FoundServer(address: address, next: try await check(address))
+                health = try await read(address.url("health"), from: address)
             } catch Problem.noAnswer {
                 last = .noAnswer
+                continue
             }
+            return FoundServer(address: address, next: try await nextStep(at: address, after: health))
         }
         throw last
     }
 
     public func check(_ address: ServerAddress) async throws -> NextStep {
-        let health: Health = try await read(address.url("health"), from: address)
+        try await nextStep(at: address, after: try await read(address.url("health"), from: address))
+    }
+
+    private func nextStep(at address: ServerAddress, after health: Health) async throws -> NextStep {
         guard health.ready else { throw Problem.notReady }
         let setup: SetupStatus = try await read(address.url("api/v1/setup"), from: address)
         return setup.needsSetup ? .createAdministrator : .signIn
@@ -81,8 +87,12 @@ public struct ServerConnection: Sendable {
         case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateNotYetValid,
              .serverCertificateHasUnknownRoot, .clientCertificateRejected, .clientCertificateRequired:
             return .certificate
-        default:
+        case .timedOut, .cannotFindHost, .cannotConnectToHost, .networkConnectionLost, .dnsLookupFailed,
+             .notConnectedToInternet, .secureConnectionFailed, .cannotLoadFromNetwork, .internationalRoamingOff,
+             .dataNotAllowed, .callIsActive, .appTransportSecurityRequiresSecureConnection:
             return .noAnswer
+        default:
+            return .notHito
         }
     }
 }
