@@ -173,6 +173,7 @@ struct LibraryRow: View {
 }
 
 struct SearchRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let track: Track
     var isCurrent = false
 
@@ -182,7 +183,7 @@ struct SearchRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
                     .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
-                    .lineLimit(1)
+                    .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
                     Text(track.stateLabel).foregroundStyle(track.available ? Theme.quiet : track.stateColor).layoutPriority(1)

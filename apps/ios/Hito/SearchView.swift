@@ -278,6 +278,7 @@ struct RoundAction: View {
 
 struct TopResult: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var typeSize
     let artist: Artist
 
     var body: some View {
@@ -291,11 +292,11 @@ struct TopResult: View {
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Top result").font(Theme.label).foregroundStyle(Theme.focus)
-                Text(artist.name).font(Theme.result).lineLimit(1)
+                Text(artist.name).font(Theme.result).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 Text("Artist · \(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks") in your library")
                     .font(Theme.small)
                     .foregroundStyle(Theme.quiet)
-                    .lineLimit(1)
+                    .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
             }
             Spacer(minLength: 0)
             Button(action: play) {
