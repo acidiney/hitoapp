@@ -32,6 +32,7 @@ struct MainView: View {
     @State private var tab = Tab.home
     @State private var showingNowPlaying = false
     @State private var showingQueue = false
+    @State private var typing = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,12 +55,17 @@ struct MainView: View {
                 }
             }
             .frame(maxHeight: .infinity)
-            if let player = model.player, player.current != nil {
-                MiniPlayer(player: player) { showingNowPlaying = true }
+            .scrollDismissesKeyboard(.immediately)
+            if !typing {
+                if let player = model.player, player.current != nil {
+                    MiniPlayer(player: player) { showingNowPlaying = true }
+                }
+                TabBar(tab: $tab)
             }
-            TabBar(tab: $tab)
         }
         .background(Theme.ground.ignoresSafeArea())
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in typing = true }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in typing = false }
         .foregroundStyle(Theme.text)
         .fullScreenCover(isPresented: $showingNowPlaying) {
             if let player = model.player {

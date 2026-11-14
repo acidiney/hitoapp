@@ -33,6 +33,7 @@ struct SearchView: View {
                     .accessibilityLabel("Search")
                     .focused($focused)
                     .submitLabel(.search)
+                    .onSubmit { focused = false }
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                 if !text.isEmpty {
