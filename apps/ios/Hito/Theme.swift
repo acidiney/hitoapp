@@ -140,6 +140,7 @@ struct TextAction: View {
             .font(Theme.smallMedium)
             .frame(minHeight: 44)
             .foregroundStyle(color)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
