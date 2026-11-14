@@ -11,8 +11,8 @@ use lofty::{
     prelude::{Accessor, TagExt},
     tag::{Tag, TagType},
 };
-use serde_json::{Value, json};
-use std::path::Path;
+use serde_json::Value;
+use std::{path::Path, time::Duration};
 use tower::ServiceExt;
 
 fn tagged(path: &Path, offset: i16, title: &str, genre: &str) {
@@ -96,22 +96,31 @@ async fn genre_json_list_matches_authenticated_discover_tiles() {
     )
     .await;
 
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/v1/genres")
-                .header("authorization", format!("Bearer {token}"))
-                .header("x-hito-request", "1")
-                .body(Body::empty())
-                .unwrap(),
-        )
+    let (status, content_type, cache_control, bytes) =
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/genres")
+                        .header("authorization", format!("Bearer {token}"))
+                        .header("x-hito-request", "1")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = response.status();
+            let content_type = response.headers()["content-type"].clone();
+            let cache_control = response.headers()["cache-control"].clone();
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            (status, content_type, cache_control, bytes)
+        })
         .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response.headers()["content-type"], "application/json");
-    assert_eq!(response.headers()["cache-control"], "private, no-store");
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        .expect("genre JSON request and body must finish within 5 seconds");
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "application/json");
+    assert_eq!(cache_control, "private, no-store");
     let actual: Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(actual, expected);
 }
