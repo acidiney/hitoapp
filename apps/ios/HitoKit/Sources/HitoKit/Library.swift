@@ -168,8 +168,9 @@ public struct Library: Sendable {
         }
     }
 
-    public func albums(offset: Int) async throws -> Page<Album> {
-        try await api.get(["api", "v1", "releases"], query: paging(offset) + [URLQueryItem(name: "sort", value: "recent")], as: Page<Album>.self)
+    public func albums(offset: Int, search: String? = nil) async throws -> Page<Album> {
+        let filter = search.map { [URLQueryItem(name: "q", value: $0)] } ?? [URLQueryItem(name: "sort", value: "recent")]
+        return try await api.get(["api", "v1", "releases"], query: paging(offset) + filter, as: Page<Album>.self)
     }
 
     public func album(_ id: String) async throws -> AlbumDetail {
