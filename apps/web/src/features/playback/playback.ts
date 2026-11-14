@@ -19,6 +19,7 @@ export type { MediaPort, Track } from "./model";
 import { log } from "../../shared/log";
 import {
   PlaybackSources,
+  refusal,
   type Source,
   type SourcePreparer,
   type SourceResolver,
@@ -58,6 +59,7 @@ import { PlaybackStore } from "./browser/PlaybackStore";
 import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
 import { BrowserStream } from "./browser/BrowserStream";
+import { BrowserAcquisition } from "./browser/BrowserAcquisition";
 import {
   streamingQuality,
   subscribeStreamingQuality,
@@ -82,6 +84,9 @@ export class Playback implements Player {
   private community: BrowserCommunityObservation | null;
   private openingEntry: PlaybackOccurrence | null = null;
   private sources: PlaybackSources | null = null;
+  private acquisition: BrowserAcquisition | null = null;
+  private heardAfter = 0;
+  private blockedUnheard = false;
   private generation = 0;
   private selection = 0;
   private sourceAttempt = 0;
@@ -143,7 +148,7 @@ export class Playback implements Player {
         isPaused: () => this.media.paused,
         pause: () => this.media.pause(),
       },
-      (message) => this.update({ error: message }),
+      (message) => this.progressBlocked(message),
     );
     this.lookahead = mediaOwner
       ? new BrowserLookahead(
@@ -220,6 +225,14 @@ export class Playback implements Player {
       durationChange: () => this.durationChanged?.(),
       timeUpdate: () => {
         this.community?.observe();
+        if (
+          this.state.desiredPlaying === true &&
+          this.activeSource &&
+          !media.paused &&
+          !media.seeking &&
+          media.currentTime > this.heardAfter
+        )
+          this.heard();
         if (this.activeSource && !media.paused && media.currentTime > 0) {
           this.traversal.resetFailures();
           this.prepareNext();
@@ -235,6 +248,13 @@ export class Playback implements Player {
         if (this.activeSource) this.endGuard.observe(media, this.serverBound);
       },
       play: () => {
+        if (!this.activeSource || this.blockedUnheard) {
+          log.debug("playback.released_play_ignored", {
+            recording_id: this.state.current?.id,
+          });
+          media.pause();
+          return;
+        }
         log.info("playback.started", { recording_id: this.state.current?.id });
         const recovered =
           this.unavailableRecording !== null &&
@@ -327,6 +347,11 @@ export class Playback implements Player {
       this.hiddenRetries >= 1
     )
       return false;
+    const acquisition = this.acquisition;
+    if (acquisition?.overdue) {
+      acquisition.expireNow();
+      return true;
+    }
     this.hiddenRetries++;
     const position =
       this.media.currentTime > 0 ? this.media.currentTime : this.state.position;
@@ -613,6 +638,9 @@ export class Playback implements Player {
       natural && !continuation ? (prepared?.readyNow() ?? null) : null;
     const generation = ++this.generation;
     this.hiddenRetries = 0;
+    this.acquisition?.stop();
+    this.acquisition = occurrence ? this.acquire(occurrence) : null;
+    this.blockedUnheard = false;
     log.info("playback.resolving", { recording_id: current?.id, index });
     this.sources?.close();
     this.sources =
@@ -647,6 +675,8 @@ export class Playback implements Player {
       position,
       loading: !!current,
       playing: false,
+      desiredPlaying: current ? true : undefined,
+      retrying: null,
       duration: (current?.duration_ms ?? 0) / 1000,
     });
     if (!current || !occurrence) {
@@ -663,7 +693,20 @@ export class Playback implements Player {
           prepared.close();
           return;
         }
+        const acquisition = this.acquisition;
+        if (acquisition?.overdue) {
+          this.lookahead?.closeOpening();
+          acquisition.expireNow();
+          return;
+        }
         this.lookahead?.settleOpening();
+        if (buffered?.ended) {
+          log.info("playback.acquisition_final", {
+            recording_id: current.id,
+            reason: buffered.ended,
+          });
+          this.acquisition?.finalPass();
+        }
         if (buffered && prepared.transfer()) {
           if (buffered.source) {
             this.startPrepared(occurrence, buffered.source, prepared.id);
@@ -679,10 +722,174 @@ export class Playback implements Player {
           );
       }
       await this.useNextSource(position);
-    } catch {
+    } catch (error) {
       log.warn("playback.resolution_failed", { recording_id: current.id });
-      if (generation === this.generation) await this.skipFailed();
+      if (generation === this.generation)
+        await this.exhausted(this.sources, error);
     }
+  }
+
+  private acquire(occurrence: PlaybackOccurrence) {
+    const acquisition: BrowserAcquisition = new BrowserAcquisition(
+      occurrence.id,
+      () => this.expire(acquisition),
+    );
+    return acquisition;
+  }
+
+  private heard() {
+    const acquisition = this.acquisition;
+    if (acquisition?.overdue) {
+      acquisition.expireNow();
+      return;
+    }
+    this.acquisition = null;
+    acquisition?.stop();
+    if (acquisition)
+      log.info("playback.acquisition_heard", {
+        recording_id: this.state.current?.id,
+        index: acquisition.attempt,
+        duration_ms: acquisition.elapsedMs,
+      });
+    this.update({ retrying: null, desiredPlaying: undefined });
+  }
+
+  private expire(acquisition: BrowserAcquisition) {
+    if (acquisition !== this.acquisition) return;
+    this.acquisition = null;
+    log.warn("playback.acquisition_expired", {
+      recording_id: this.state.current?.id,
+      index: acquisition.attempt,
+      duration_ms: acquisition.elapsedMs,
+    });
+    this.generation++;
+    this.sourceAttempt++;
+    this.sources?.close();
+    this.releaseMedia();
+    void this.skipFailed(false);
+  }
+
+  private releaseMedia() {
+    this.media.pause();
+    this.activeSource = null;
+    this.media.removeAttribute("src");
+    this.media.load();
+  }
+
+  private async exhausted(sources: PlaybackSources | null, error?: unknown) {
+    const generation = this.generation;
+    const acquisition = this.acquisition;
+    const current = this.state.current;
+    const formatRejected = await this.formatProbe;
+    if (
+      generation !== this.generation ||
+      acquisition !== this.acquisition ||
+      sources !== this.sources ||
+      current?.id !== this.state.current?.id
+    )
+      return;
+    if (acquisition?.overdue) {
+      acquisition.expireNow();
+      return;
+    }
+    const pass =
+      acquisition &&
+      current &&
+      sources &&
+      !refusal(error) &&
+      sources.retryable &&
+      !formatRejected
+        ? acquisition.nextPass()
+        : null;
+    if (!pass || !acquisition || !current || !sources) {
+      await this.skipFailed(formatRejected);
+      return;
+    }
+    log.info("playback.acquisition_retry", {
+      recording_id: current.id,
+      index: pass.attempt,
+      count: pass.of,
+      reason: sources.outcome ?? "empty",
+      duration_ms: acquisition.elapsedMs,
+    });
+    this.update({ retrying: pass, error: "", loading: true });
+    const continued = await acquisition.waitForPass();
+    if (
+      !continued ||
+      generation !== this.generation ||
+      acquisition !== this.acquisition
+    )
+      return;
+    if (acquisition.overdue) {
+      acquisition.expireNow();
+      return;
+    }
+    sources.close();
+    this.sources = new PlaybackSources(
+      current.id,
+      this.resolve,
+      undefined,
+      this.fallbackAllowed,
+    );
+    const replacement = this.sources;
+    try {
+      await this.useNextSource(this.pendingSeek ?? this.state.position);
+    } catch (failure) {
+      if (generation === this.generation)
+        await this.exhausted(replacement, failure);
+    }
+  }
+
+  private progressBlocked(message: string) {
+    const acquisition = this.acquisition;
+    if (!acquisition) {
+      this.update({ error: message });
+      return;
+    }
+    this.acquisition = null;
+    acquisition.stop();
+    this.sourceAttempt++;
+    this.blockedUnheard = true;
+    log.info("playback.acquisition_paused", {
+      recording_id: this.state.current?.id,
+      index: acquisition.attempt,
+      duration_ms: acquisition.elapsedMs,
+      reason: "progress_blocked",
+    });
+    this.update({
+      error: message,
+      retrying: null,
+      desiredPlaying: undefined,
+      playing: false,
+      loading: false,
+    });
+  }
+
+  private stopIntendedPlayback() {
+    const acquisition = this.acquisition;
+    this.acquisition = null;
+    acquisition?.stop();
+    log.info("playback.acquisition_paused", {
+      recording_id: this.state.current?.id,
+      index: acquisition?.attempt,
+      duration_ms: acquisition?.elapsedMs,
+      reason: this.activeSource ? "granted" : "searching",
+    });
+    const position = this.pendingSeek ?? this.state.position;
+    this.generation++;
+    this.sourceAttempt++;
+    this.sources?.close();
+    this.sources = null;
+    this.releaseMedia();
+    this.pendingSeek = null;
+    this.restored = true;
+    this.update({
+      position,
+      playing: false,
+      loading: false,
+      desiredPlaying: false,
+      retrying: null,
+    });
   }
 
   private startPrepared(
@@ -707,6 +914,11 @@ export class Playback implements Player {
     const sources = this.sources;
     const entry = this.openingEntry;
     if (!entry) return;
+    const pending = this.acquisition;
+    if (pending?.overdue) {
+      pending.expireNow();
+      return;
+    }
     const source = await sources?.next();
     if (
       generation !== this.generation ||
@@ -715,7 +927,12 @@ export class Playback implements Player {
     )
       return;
     if (!source) {
-      await this.skipFailed();
+      await this.exhausted(sources ?? null);
+      return;
+    }
+    const acquisition = this.acquisition;
+    if (acquisition?.overdue) {
+      acquisition.expireNow();
       return;
     }
     this.pendingSeek ??= position > 0 ? position : null;
@@ -733,7 +950,13 @@ export class Playback implements Player {
   private openSourceAudio(source: Source, position: number) {
     const start = this.pendingSeek ?? position;
     this.pendingSeek = null;
-    this.media.openSource(source.id, start, this.state.duration);
+    this.heardAfter = start;
+    const generation = this.generation;
+    this.media.openSource(source.id, start, this.state.duration, () =>
+      generation === this.generation && this.acquisition
+        ? this.acquisition.negotiationBudgetMs()
+        : Number.POSITIVE_INFINITY,
+    );
   }
 
   private observeSource(entry: PlaybackOccurrence, source: Source) {
@@ -773,9 +996,10 @@ export class Playback implements Player {
     } catch (error) {
       if (generation !== this.generation || attempt !== this.sourceAttempt)
         return;
-      if (error instanceof Error && error.name === "NotAllowedError")
+      if (error instanceof Error && error.name === "NotAllowedError") {
+        if (this.state.desiredPlaying === true) this.stopIntendedPlayback();
         this.update({ loading: false, error: "Press play to start audio." });
-      else {
+      } else {
         if (
           error instanceof Error &&
           error.name === "NotSupportedError" &&
@@ -799,16 +1023,21 @@ export class Playback implements Player {
         : this.state.position);
     this.pendingSeek =
       this.pendingSeek === 0 ? 0 : position > 0 ? position : null;
+    const intended = this.state.desiredPlaying ?? this.state.playing;
     this.media.pause();
-    this.update({ playing: false, loading: true });
+    this.update({
+      playing: false,
+      loading: true,
+      ...(intended ? { desiredPlaying: true } : {}),
+    });
     log.warn("playback.recovering", {
       recording_id: this.state.current?.id,
     });
     try {
       await this.useNextSource(position);
-    } catch {
+    } catch (error) {
       if (generation === this.generation && sources === this.sources)
-        await this.skipFailed();
+        await this.exhausted(sources, error);
     }
   }
 
@@ -819,9 +1048,11 @@ export class Playback implements Player {
     );
   }
 
-  private async skipFailed() {
+  private async skipFailed(known?: boolean) {
+    this.acquisition?.stop();
+    this.acquisition = null;
     const generation = this.generation;
-    const formatRejected = await this.formatProbe;
+    const formatRejected = known ?? (await this.formatProbe);
     if (generation !== this.generation) return;
     const providerUnavailable =
       this.sources?.outcome === "provider_unavailable";
@@ -842,6 +1073,8 @@ export class Playback implements Player {
           ? UNSUPPORTED_FORMAT_MESSAGE
           : `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
       loading: false,
+      retrying: null,
+      desiredPlaying: undefined,
     });
     const next = this.traversal.next(
       this.queue.serials(),
@@ -859,10 +1092,14 @@ export class Playback implements Player {
   async toggle() {
     this.cancelAudiobook();
     this.selection++;
-    await this.setPlaying(this.media.paused);
+    await this.setPlaying(!(this.state.desiredPlaying ?? !this.media.paused));
   }
   async setPlaying(playing: boolean) {
     this.cancelAudiobook();
+    if (this.state.desiredPlaying === true) {
+      if (!playing) this.stopIntendedPlayback();
+      return;
+    }
     if (this.state.loading) return;
     if (this.restored) {
       if (playing) await this.open(this.state.index, this.state.position);
@@ -875,6 +1112,12 @@ export class Playback implements Player {
     if (playing === !this.media.paused) return;
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
+    if (playing && this.blockedUnheard && this.openingEntry) {
+      this.blockedUnheard = false;
+      this.heardAfter = this.media.currentTime;
+      this.acquisition = this.acquire(this.openingEntry);
+      this.update({ desiredPlaying: true });
+    }
     if (playing) {
       try {
         await this.media.play();
@@ -920,6 +1163,7 @@ export class Playback implements Player {
         void this.recover();
       }
     }
+    if (this.acquisition) this.heardAfter = position;
     this.update({ position });
     log.debug("playback.seek", {
       recording_id: this.state.current?.id,
@@ -1031,6 +1275,9 @@ export class Playback implements Player {
     this.selection++;
     log.info("queue.clear", { count });
     this.generation++;
+    this.acquisition?.stop();
+    this.acquisition = null;
+    this.blockedUnheard = false;
     this.sources?.close();
     this.sources = null;
     this.media.pause();
@@ -1043,6 +1290,8 @@ export class Playback implements Player {
       index: -1,
       playing: false,
       loading: false,
+      desiredPlaying: undefined,
+      retrying: null,
       position: 0,
       duration: 0,
     });

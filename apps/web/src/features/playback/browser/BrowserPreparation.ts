@@ -37,6 +37,7 @@ export type PreparationTarget = {
 export type Prepared = {
   sources: PlaybackSources;
   source?: Source;
+  ended?: "abandoned" | "preparation_failed";
 };
 
 type Buffering = "buffered" | "failed" | "timeout";
@@ -58,6 +59,8 @@ export class BrowserPreparation {
   private abort = new AbortController();
   private finding = true;
   private deadlineAt = 0;
+  private deferredStarted = false;
+  private deferredExpired = false;
 
   constructor(
     readonly target: PreparationTarget,
@@ -95,7 +98,9 @@ export class BrowserPreparation {
         this.finding = false;
         clearTimeout(this.timer);
         this.finished("unavailable");
-        return { sources: this.sources };
+        return this.deferredStarted
+          ? { sources: this.sources, ended: "preparation_failed" }
+          : { sources: this.sources };
       }
       this.finding = false;
       clearTimeout(this.timer);
@@ -147,6 +152,7 @@ export class BrowserPreparation {
   private async prepareDeferred(): Promise<Source | undefined> {
     const waiting = this.sources.deferred;
     if (!this.preparer || !waiting || this.abort.signal.aborted) return;
+    this.deferredStarted = true;
     clearTimeout(this.timer);
     this.deadlineAt = this.started + PROVIDER_PREPARATION_MS;
     this.timer = setTimeout(
@@ -169,6 +175,8 @@ export class BrowserPreparation {
 
   async read(): Promise<Prepared | null> {
     const prepared = await this.settled();
+    if (this.deferredExpired)
+      return { sources: this.sources, ended: "preparation_failed" };
     if (this.closed || !prepared) return null;
     const started = performance.now();
     try {
@@ -185,7 +193,9 @@ export class BrowserPreparation {
       });
       if (!retained) {
         this.releaseMedia();
-        return { sources: this.sources };
+        return prepared.ended
+          ? { sources: this.sources, ended: prepared.ended }
+          : { sources: this.sources };
       }
     } catch (error) {
       this.close();
@@ -212,7 +222,7 @@ export class BrowserPreparation {
       });
       this.sources.close();
       this.abort.abort();
-      return { sources: this.sources };
+      return { sources: this.sources, ended: "abandoned" };
     }
     return this.ready;
   }
@@ -247,6 +257,7 @@ export class BrowserPreparation {
   close(reason: "superseded" | "deadline" = "superseded") {
     if (this.closed || this.transferred) return;
     this.closed = true;
+    this.deferredExpired = reason === "deadline" && this.deferredStarted;
     clearTimeout(this.timer);
     this.sources.close();
     this.abort.abort();
