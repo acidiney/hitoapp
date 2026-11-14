@@ -277,10 +277,15 @@ extension Player {
         duration > 0 ? CGFloat(min(max(position / duration, 0), 1)) : 0
     }
 
+    var searching: String {
+        retrying.map { "Trying again (\($0.attempt) of \($0.of))…" } ?? "Finding a source…"
+    }
+
     var subtitle: String {
+        if retrying != nil { return searching }
         if let notice { return notice }
         guard let track = current else { return "" }
-        if state == .loading { return "Finding a source…" }
+        if state == .loading { return searching }
         return sourceLabel.map { "\(track.artist) · from \($0)" } ?? track.artist
     }
 }
