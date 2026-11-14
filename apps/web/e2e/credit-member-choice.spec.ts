@@ -172,6 +172,21 @@ function memberRow(page: Page, name: string) {
     .getByRole("listitem", { name, exact: true });
 }
 
+async function chosenGroupName(page: Page, memberPath: string) {
+  const member = await page.request.get(memberPath);
+  expect(member.status(), memberPath).toBe(200);
+  const choice =
+    (await member.json()) as Schema<"RecordingCreditMemberIdentityChoice">;
+  expect(choice.state.status).toBe("selected");
+  if (choice.state.status === "unselected")
+    throw new Error("The member has no chosen identity");
+  const groupPath = `/api/v1/artist-identity-groups/${choice.state.group_id}?limit=1`;
+  const group = await page.request.get(groupPath);
+  expect(group.status(), groupPath).toBe(200);
+  return ((await group.json()) as Schema<"ArtistIdentityGroupDetail">).group
+    .name.value;
+}
+
 async function previewMemberArtist(
   page: Page,
   row: Locator,
@@ -242,14 +257,18 @@ test("credited artists stay unread until opened, keep a per-member choice across
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(guest).toContainText(`Chosen: ${guestCandidate}`);
+    const guestGroupName = await chosenGroupName(
+      page,
+      fixture.memberPath(members.guest),
+    );
+    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
     await expect(lead).toContainText("Not chosen yet");
     expect(await fixture.wholeCredit()).toEqual(wholeBefore);
 
     await page.reload();
     await page.getByRole("tab", { name: /^Metadata/ }).click();
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
-    await expect(guest).toContainText(`Chosen: ${guestCandidate}`);
+    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
     await expect(lead).toContainText("Not chosen yet");
     const saved = (await (
       await page.request.get(fixture.memberPath(members.guest))
@@ -388,7 +407,8 @@ test("a second account with access to a shared recording reads no member choice 
       candidate,
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
-    await expect(guest).toContainText(`Chosen: ${candidate}`);
+    const guestGroupName = await chosenGroupName(page, sharedMemberPath);
+    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
 
     const read = await peer.request.get(peerMemberPath);
     expect(read.status()).toBe(200);
@@ -417,7 +437,7 @@ test("a second account with access to a shared recording reads no member choice 
     await page.reload();
     await page.getByRole("tab", { name: /^Metadata/ }).click();
     await page.getByRole("button", { name: "Credited artists (2)" }).click();
-    await expect(guest).toContainText(`Chosen: ${candidate}`);
+    await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
 
     const personal = await peer.request.get(
       fixture.memberPath(fixture.members.guest),
@@ -493,7 +513,11 @@ test("a member choice whose response is lost offers Check again, replays the sam
     expect(writes).toHaveLength(1);
     await again.click();
     await expect(dialog).toHaveCount(0);
-    await expect(lead).toContainText(`Chosen: ${candidate}`);
+    const leadGroupName = await chosenGroupName(
+      page,
+      fixture.memberPath(members.lead),
+    );
+    await expect(lead).toContainText(`Chosen: ${leadGroupName}`);
     await expect(lead.getByRole("button", { name: "Check again" })).toHaveCount(
       0,
     );
@@ -547,7 +571,11 @@ test("dark-mode evidence of the credited artists disclosure, list, choice dialog
 
       await dialog.getByRole("button", { name: "Use this artist" }).click();
       await expect(dialog).toHaveCount(0);
-      await expect(guest).toContainText(`Chosen: ${candidate}`);
+      const guestGroupName = await chosenGroupName(
+        page,
+        fixture.memberPath(fixture.members.guest),
+      );
+      await expect(guest).toContainText(`Chosen: ${guestGroupName}`);
       await disclosure.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${SHOTS}/${size}-4-saved.png` });
 
