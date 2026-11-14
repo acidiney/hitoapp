@@ -13,6 +13,7 @@ async fn closing_playback_rejects_a_retained_direct_prefix() {
     let mut entry = None;
     let mut retained_prefix = false;
     let mut body = None;
+    let mut post_close_read_completed = false;
     let mut emitted_after_close = false;
 
     if let Ok(Ok(lease)) = tokio::time::timeout(
@@ -69,15 +70,20 @@ async fn closing_playback_rejects_a_retained_direct_prefix() {
         }
     }
 
+    let body_opened_before_close = body.is_some();
     let playback_closed = matches!(
         tokio::time::timeout(Duration::from_secs(5), f.hito.playback.close()).await,
         Ok(Ok(()))
     );
     if playback_closed && let Some(body) = &mut body {
-        emitted_after_close = matches!(
-            tokio::time::timeout(Duration::from_secs(2), body.chunk()).await,
-            Ok(Ok(Some(_)))
-        );
+        match tokio::time::timeout(Duration::from_secs(2), body.chunk()).await {
+            Ok(Ok(Some(_))) => {
+                post_close_read_completed = true;
+                emitted_after_close = true;
+            }
+            Ok(Ok(None)) | Ok(Err(_)) => post_close_read_completed = true,
+            Err(_) => {}
+        }
     }
 
     held_tail.release();
@@ -110,6 +116,14 @@ async fn closing_playback_rejects_a_retained_direct_prefix() {
         "the owned warm entry must retain its prefix"
     );
     assert!(entry.is_some());
+    assert!(
+        body_opened_before_close,
+        "public open_audio must return a body before playback closes"
+    );
+    assert!(
+        post_close_read_completed,
+        "the bounded body read after close must finish with an error or EOF"
+    );
     assert!(
         !emitted_after_close,
         "closed playback must not emit a retained prefix"
