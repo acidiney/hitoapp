@@ -388,6 +388,7 @@ struct TrackMenu: View {
 
     var body: some View {
         Button("Play next") { model.player?.playNext(track) }
+        NavigationLink("Track details", value: track)
         if let player = model.player {
             Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
         }

@@ -10,6 +10,7 @@ struct NowPlayingView: View {
     let player: Player
     let openQueue: () -> Void
     @State private var panel = Panel.artwork
+    @State private var details: Track?
 
     var body: some View {
         Group {
@@ -30,6 +31,9 @@ struct NowPlayingView: View {
         }
         .background(Theme.stage.ignoresSafeArea())
         .foregroundStyle(Theme.text)
+        .sheet(item: $details) { track in
+            NavigationStack { TrackView(track: track).pushed().browsing() }
+        }
     }
 
     private func artwork(_ track: Track) -> some View {
@@ -53,6 +57,7 @@ struct NowPlayingView: View {
                 Menu {
                     Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
                     Button("Up next", action: openQueue)
+                    Button("Track details") { details = track }
                 } label: {
                     Icon("more").foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
                 }

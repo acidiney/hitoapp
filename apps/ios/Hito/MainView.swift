@@ -90,6 +90,7 @@ extension View {
     func browsing() -> some View {
         navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
             .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
+            .navigationDestination(for: Track.self) { TrackView(track: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
             .navigationDestination(for: PluginConnection.self) { PluginDetailView(connection: $0).pushed(back: "Plugins") }
             .navigationDestination(for: SettingsPage.self) { page in
