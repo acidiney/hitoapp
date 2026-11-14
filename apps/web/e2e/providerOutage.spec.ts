@@ -18,6 +18,10 @@ import {
   type OutageState,
 } from "./fixtures/providerOutageLibrary";
 import {
+  legacyOutageState,
+  legacySourceResolution,
+} from "./fixtures/providerOutageLegacyView";
+import {
   hash,
   outageControl,
   providerOutageEvidence,
@@ -54,6 +58,7 @@ type MigrationCheckMarker = {
   check: MigrationCheck;
   index?: MigrationReplayIndex;
   differing?: (keyof OutageState)[];
+  local_differing?: (keyof OutageState["local"])[];
 };
 const OUTAGE_STATE_FIELDS = [
   "local",
@@ -65,6 +70,19 @@ const OUTAGE_STATE_FIELDS = [
   "absent",
   "settings",
 ] as const satisfies readonly (keyof OutageState)[];
+const LOCAL_STATE_FIELDS = [
+  "libraries",
+  "catalog",
+  "artists",
+  "releases",
+  "playlist",
+  "activity",
+  "events",
+  "progress",
+  "metadata",
+  "sources",
+  "choices",
+] as const satisfies readonly (keyof OutageState["local"])[];
 const REPLAY_INDEXES: readonly MigrationReplayIndex[] = [0, 1, 2];
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.skip(
@@ -141,13 +159,23 @@ test("a populated version54 library upgrades and plays through truthful provider
     ).toBeVisible();
     migrationCheck = { check: "state_read" };
     const afterMigration = await outageLibraryState(page, read, library);
+    const legacyBefore = legacyOutageState(before);
+    const legacyAfterMigration = legacyOutageState(afterMigration);
     migrationCheck = {
       check: "state_equality",
       differing: OUTAGE_STATE_FIELDS.filter(
-        (field) => !isDeepStrictEqual(before[field], afterMigration[field]),
+        (field) =>
+          !isDeepStrictEqual(legacyBefore[field], legacyAfterMigration[field]),
+      ),
+      local_differing: LOCAL_STATE_FIELDS.filter(
+        (field) =>
+          !isDeepStrictEqual(
+            legacyBefore.local[field],
+            legacyAfterMigration.local[field],
+          ),
       ),
     };
-    expect(isDeepStrictEqual(before, afterMigration)).toBe(true);
+    expect(isDeepStrictEqual(legacyBefore, legacyAfterMigration)).toBe(true);
     const callsBeforeReplay = { ...provider.counts };
     migrationCheck = { check: "receipt_identities" };
     expect(
@@ -171,7 +199,12 @@ test("a populated version54 library upgrades and plays through truthful provider
         `/api/v1/recordings/${resolution.recording}/sources/resolve`,
         resolution.request,
       );
-      expect(isDeepStrictEqual(replay, resolution.receipt)).toBe(true);
+      expect(
+        isDeepStrictEqual(
+          legacySourceResolution(replay),
+          legacySourceResolution(resolution.receipt),
+        ),
+      ).toBe(true);
       migrationCheck = { check: "replay_provider_silence", index };
       expect(isDeepStrictEqual(callsBeforeReplay, provider.counts)).toBe(true);
     }
@@ -232,7 +265,10 @@ test("a populated version54 library upgrades and plays through truthful provider
         event: "provider_outage_packaged_verified",
         migration: migrated,
         playback,
-        preserved_migration_state: hash(before) === hash(afterMigration),
+        preserved_migration_state: isDeepStrictEqual(
+          legacyBefore,
+          legacyAfterMigration,
+        ),
         original_hashes: after.originals,
         legacy_receipts_replayed: library.legacyResolutions.length,
         provider: provider.counts,

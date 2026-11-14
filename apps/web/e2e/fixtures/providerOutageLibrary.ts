@@ -9,6 +9,7 @@ import {
   artistReviewDownloadAbsence,
 } from "./artist-review-state";
 import type { OutageProvider, OutageTrack } from "./providerOutageProvider";
+import { legacyOutageState } from "./providerOutageLegacyView";
 
 export type OutageSetupPhase =
   | "administrator"
@@ -328,10 +329,12 @@ export async function outageLibraryState(
 export type OutageState = Awaited<ReturnType<typeof outageLibraryState>>;
 
 export function assertOutagePreserved(
-  before: OutageState,
-  after: OutageState,
+  rawBefore: OutageState,
+  rawAfter: OutageState,
   library: OutageLibrary,
 ) {
+  const before = legacyOutageState(rawBefore);
+  const after = legacyOutageState(rawAfter);
   const same = (left: unknown, right: unknown) =>
     expect(isDeepStrictEqual(left, right)).toBe(true);
   same(before.originals, after.originals);
