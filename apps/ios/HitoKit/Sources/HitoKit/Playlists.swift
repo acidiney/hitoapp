@@ -23,8 +23,26 @@ public struct PlaylistDetail: Equatable, Sendable {
     public let origin: String
     public let tracks: [Track]
     public var entries: [PlaylistDraft.Slot] = []
+    public var copied = false
+
+    public enum Cover: Equatable, Sendable {
+        case playlist
+        case track(String)
+        case mosaic([String])
+    }
 
     public var ready: Int { tracks.filter(\.isPlayable).count }
+
+    public var cover: Cover {
+        if copied { return .playlist }
+        var seen: Set<String> = []
+        var picked: [String] = []
+        for track in tracks where seen.insert(track.releaseId ?? track.id).inserted {
+            picked.append(track.id)
+            if picked.count == 4 { return .mosaic(picked) }
+        }
+        return picked.first.map(Cover.track) ?? .playlist
+    }
 }
 
 public struct Playlists: Sendable {
@@ -92,7 +110,7 @@ public struct Playlists: Sendable {
         case (.local, .some(let source)): "A copy of \(source), yours to edit"
         case (.local, .none): "Your playlist"
         }
-        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track), entries: detail.entries.map { PlaylistDraft.Slot(id: $0.entryId, position: $0.position) })
+        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track), entries: detail.entries.map { PlaylistDraft.Slot(id: $0.entryId, position: $0.position) }, copied: detail.playlist.kind == .local && source != nil)
     }
 
     public struct Unready: Equatable, Sendable {

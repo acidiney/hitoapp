@@ -96,7 +96,7 @@ struct PlaylistView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 14) {
-                Cover(path: playlist.artworkPath, size: 96, radius: 10, mark: "playlist")
+                PlaylistCover(playlist: playlist, cover: detail?.cover ?? .playlist, size: 96)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(detail?.origin ?? (playlist.kind == .followed ? "Followed playlist" : "Your playlist"))
                         .font(Theme.smallStrong)
@@ -347,5 +347,38 @@ struct FilterChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+struct PlaylistCover: View {
+    let playlist: Playlist
+    let cover: PlaylistDetail.Cover
+    let size: CGFloat
+
+    var body: some View {
+        switch cover {
+        case .playlist:
+            Cover(path: playlist.artworkPath, size: size, radius: 10, mark: "playlist")
+        case let .track(id):
+            Cover(path: ["api", "v1", "recordings", id, "artwork"], size: size, radius: 10, mark: "playlist")
+        case let .mosaic(ids):
+            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    tile(ids[0])
+                    tile(ids[1])
+                }
+                GridRow {
+                    tile(ids[2])
+                    tile(ids[3])
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func tile(_ id: String) -> some View {
+        Cover(path: ["api", "v1", "recordings", id, "artwork"], size: size / 2, radius: 0)
     }
 }

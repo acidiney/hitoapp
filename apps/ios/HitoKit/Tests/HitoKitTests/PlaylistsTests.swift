@@ -58,7 +58,26 @@ import Testing
     @Test func aCopiedPlaylistSaysWhereItCameFrom() async throws {
         let body = #"{"playlist":{"id":"p1","name":"Copy","kind":"local"},"entries":[],"origin":{"installation_id":"i1","installation_revision":1,"service_id":"s1","service_revision":1,"provider":"spotify","provider_playlist_id":"x","snapshot":"y","attribution":{"label":"Spotify"},"imported_at":1}}"#
         let fake = FakeServer(routes: ["GET /api/v1/playlists/p1": .json(200, body)])
-        #expect(try await playlists(fake).detail("p1").origin == "A copy of Spotify, yours to edit")
+        let detail = try await playlists(fake).detail("p1")
+        #expect(detail.origin == "A copy of Spotify, yours to edit")
+        #expect(detail.cover == .playlist)
+    }
+
+    func track(_ id: String, release: String?) -> Track {
+        Track(id: id, title: id, artist: "Band", album: nil, releaseId: release, durationMs: 1000, available: true, playsFromServices: false, liked: false)
+    }
+
+    @Test func fourDifferentAlbumsMakeAMosaic() {
+        let tracks = [track("t1", release: "a"), track("t2", release: "a"), track("t3", release: "b"), track("t4", release: nil), track("t5", release: "c"), track("t6", release: "d")]
+        let detail = PlaylistDetail(playlist: Playlist(id: "p1", name: "Mix", kind: .local), origin: "Your playlist", tracks: tracks)
+        #expect(detail.cover == .mosaic(["t1", "t3", "t4", "t5"]))
+    }
+
+    @Test func fewerAlbumsUseTheFirstTrackCover() {
+        let detail = PlaylistDetail(playlist: Playlist(id: "p1", name: "Mix", kind: .followed), origin: "Followed", tracks: [track("t1", release: "a"), track("t2", release: "a")])
+        #expect(detail.cover == .track("t1"))
+        let empty = PlaylistDetail(playlist: Playlist(id: "p1", name: "Mix", kind: .local), origin: "Your playlist", tracks: [])
+        #expect(empty.cover == .playlist)
     }
 
     @Test func aPlaylistYouMadeSaysSo() async throws {
