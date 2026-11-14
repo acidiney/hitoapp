@@ -415,6 +415,7 @@ test("a second account with access to a shared recording reads no member choice 
       candidate,
     );
     await dialog.getByRole("button", { name: "Use this artist" }).click();
+    await expect(dialog).toHaveCount(0);
     const chosen = await chosenIdentity(page, sharedMemberPath);
     await expect(guest).toContainText(`Chosen: ${chosen.name}`);
 
