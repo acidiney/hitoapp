@@ -29,6 +29,11 @@ import Testing
         #expect(fake.requests.count == 1)
     }
 
+    @Test func aTrackWithNoLyricsProvidersHasNoLyrics() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/lyrics/providers": .json(404, #"{"error":"Resource not found"}"#)])
+        #expect(try await lyrics(fake).load("r1") == .none)
+    }
+
     @Test func aProviderWithoutTheseLyricsSaysSo() async throws {
         let fake = FakeServer(routes: [
             "GET /api/v1/recordings/r1/lyrics/providers": .json(200, providers),

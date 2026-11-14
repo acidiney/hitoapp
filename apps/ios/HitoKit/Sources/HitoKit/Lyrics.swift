@@ -63,7 +63,12 @@ public struct Lyrics: Sendable {
     }
 
     public func load(_ recordingId: String) async throws -> LyricsResult {
-        let providers = try await api.get(["api", "v1", "recordings", recordingId, "lyrics", "providers"], as: Providers.self)
+        let providers: Providers
+        do {
+            providers = try await api.get(["api", "v1", "recordings", recordingId, "lyrics", "providers"], as: Providers.self)
+        } catch HitoAPI.Problem.refused(404) {
+            return .none
+        }
         guard let provider = providers.items.first else { return .none }
         let lookup = try await api.post(
             ["api", "v1", "recordings", recordingId, "lyrics"],
