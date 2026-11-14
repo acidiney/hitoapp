@@ -47,7 +47,7 @@ struct PluginDetailView: View {
             HStack(spacing: 14) {
                 PluginTile(name: connection.name, size: 56)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(connection.name).font(Theme.title).lineLimit(2).accessibilityAddTraits(.isHeader)
+                    Text(connection.name).font(Theme.title).tracking(Theme.titleTracking).lineLimit(2).accessibilityAddTraits(.isHeader)
                     HStack(spacing: 8) {
                         Circle()
                             .fill(connection.health == .ok ? Theme.soft : .clear)

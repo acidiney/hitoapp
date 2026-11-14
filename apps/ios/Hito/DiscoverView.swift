@@ -16,7 +16,7 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text("Discover").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Discover").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let problem {
                     Text(problem).font(Theme.small).foregroundStyle(Theme.warning)
                 }

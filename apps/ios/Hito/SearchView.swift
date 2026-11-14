@@ -73,10 +73,10 @@ struct SearchView: View {
                         let on = scope == option
                         Button { scope = option } label: {
                             Text(option.label)
-                                .font(Theme.bodyMedium)
+                                .font(Theme.smallMedium)
                                 .foregroundStyle(on ? Theme.ground : Theme.text)
-                                .padding(.horizontal, 16)
-                                .frame(minHeight: 40)
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 44)
                                 .background(Capsule().fill(on ? Theme.text : Color.clear))
                                 .overlay(Capsule().strokeBorder(on ? Color.clear : Theme.line))
                         }
@@ -92,8 +92,8 @@ struct SearchView: View {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         Text("Your library")
-                            .font(Theme.bodyMedium)
-                            .padding(.horizontal, 16)
+                            .font(Theme.smallMedium)
+                            .padding(.horizontal, 14)
                             .frame(minHeight: 44)
                             .background(Capsule().fill(Theme.field))
                         ForEach(searchable) { plugin in
@@ -103,13 +103,14 @@ struct SearchView: View {
                                 if !on, scope == .albums || scope == .artists { scope = .all }
                             } label: {
                                 HStack(spacing: 8) {
-                                    if on { Icon("check", size: 16).foregroundStyle(Theme.accent) }
-                                    Text(plugin.name).font(Theme.bodyMedium)
+                                    if on { Icon("check", size: 14).foregroundStyle(Theme.focus) }
+                                    Text(plugin.name).font(Theme.smallMedium)
                                 }
                                 .foregroundStyle(Theme.text)
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, 14)
                                 .frame(minHeight: 44)
-                                .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.line, lineWidth: on ? 1.5 : 1))
+                                .background(Capsule().fill(on ? Theme.field : Color.clear))
+                                .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.line))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Also search \(plugin.name)")
@@ -240,7 +241,7 @@ struct SearchView: View {
         let limited = scope == .all
         let shown = limited ? Array(tracks.items.prefix(SearchScope.trackPreview)) : tracks.items
         return VStack(alignment: .leading, spacing: 0) {
-            Text("Tracks").font(Theme.heading).padding(.top, 4).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            Text("Tracks").font(Theme.heading).padding(.top, 4).padding(.bottom, 14).accessibilityAddTraits(.isHeader)
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, track in
                 HStack(spacing: 0) {
                     Button {
@@ -272,7 +273,7 @@ struct SearchView: View {
 
     private func remoteSection(_ plugin: PluginConnection) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("From \(plugin.name)").font(Theme.heading).padding(.top, 8).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            Text("From \(plugin.name)").font(Theme.heading).padding(.top, 4).padding(.bottom, 14).accessibilityAddTraits(.isHeader)
             switch remoteState {
             case .searching where remote.isEmpty:
                 Text("Searching \(plugin.name)…").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
@@ -288,7 +289,7 @@ struct SearchView: View {
             }
             ForEach(remote) { result in
                 HStack(spacing: 12) {
-                    ZStack { Theme.tile }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
+                    ZStack { Theme.raised }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(result.title).font(Theme.bodyStrong).lineLimit(1)
                         Text(([result.artist] + (result.durationMs.map { [Duration.milliseconds($0).clock] } ?? [])).joined(separator: " · ")).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
@@ -303,6 +304,7 @@ struct SearchView: View {
                 .accessibilityElement(children: .contain)
             }
         }
+        .padding(.trailing, -8)
     }
 
     private func loadSearchable() async {
@@ -362,7 +364,7 @@ struct RoundAction: View {
     var body: some View {
         Button(action: action) {
             Group {
-                if busy { ProgressView().tint(Theme.soft) } else { Icon(icon, size: 16) }
+                if busy { ProgressView().tint(Theme.soft) } else { Icon(icon, size: icon == "play" ? 14 : 16) }
             }
             .foregroundStyle(Theme.text)
             .frame(width: 44, height: 44)

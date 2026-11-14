@@ -38,7 +38,7 @@ struct ImportSheet: View {
     private var sheet: some View {
         VStack(alignment: .leading, spacing: 16) {
             Capsule().fill(Theme.line).frame(width: 40, height: 4).frame(maxWidth: .infinity)
-            Text("Import a playlist").font(Theme.title).accessibilityAddTraits(.isHeader)
+            Text("Import a playlist").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Playlist link").font(Theme.small).foregroundStyle(Theme.quiet)
                 HStack(spacing: 12) {

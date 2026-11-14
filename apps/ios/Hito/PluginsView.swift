@@ -10,7 +10,7 @@ struct PluginsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Plugins").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Plugins").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let state, state.connections.isEmpty {
                     Text("Your library plays local files on its own. Connect a plugin to search, play and follow music you don't have files for.")
                         .font(Theme.body).foregroundStyle(Theme.soft)

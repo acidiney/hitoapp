@@ -37,7 +37,7 @@ struct LibraryView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Your library").font(Theme.title).accessibilityAddTraits(.isHeader)
+                    Text("Your library").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 8)
                     if section == .tracks {
                         Button { filtering = true } label: {
@@ -535,7 +535,7 @@ struct TrackListView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-                Text(list.title).font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text(list.title).font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let total = feed.total, total > 0 {
                     PlayAllButton(label: "Play") {
                         model.player?.play(feed.items, at: 0, from: list.title)

@@ -182,7 +182,7 @@ struct SearchRow: View {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
+                    .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 HStack(spacing: 6) {
                     StatusDot(track: track)

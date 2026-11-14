@@ -42,7 +42,7 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Settings").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Settings").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 HStack(spacing: 10) {
                     Icon("search").foregroundStyle(Theme.quiet)
                     TextField("", text: $search, prompt: Text("Search settings").foregroundStyle(Theme.quiet))

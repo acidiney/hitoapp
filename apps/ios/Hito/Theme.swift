@@ -33,6 +33,8 @@ enum Theme {
     static let small = Font.custom("Figtree-Regular", size: 14, relativeTo: .subheadline)
     static let smallMedium = Font.custom("Figtree-Medium", size: 14, relativeTo: .subheadline)
     static let smallStrong = Font.custom("Figtree-SemiBold", size: 14, relativeTo: .subheadline)
+    static let smallBold = Font.custom("Figtree-Bold", size: 14, relativeTo: .subheadline)
+    static let titleTracking: CGFloat = -0.28
     static let title = Font.custom("Figtree-ExtraBold", size: 28, relativeTo: .largeTitle)
     static let pageTitle = Font.custom("Figtree-ExtraBold", size: 22, relativeTo: .title)
     static let section = Font.custom("Figtree-Bold", size: 20, relativeTo: .title2)
@@ -86,7 +88,7 @@ struct Heading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(Theme.title)
+                .font(Theme.title).tracking(Theme.titleTracking)
                 .accessibilityAddTraits(.isHeader)
             if let address { AddressLine(text: address) }
         }
@@ -153,6 +155,7 @@ struct TextAction: View {
     let title: String
     var icon: String?
     var color = Theme.focus
+    var inset: CGFloat = 0
     let action: () -> Void
 
     var body: some View {
@@ -162,6 +165,7 @@ struct TextAction: View {
                 Text(title)
             }
             .font(Theme.smallMedium)
+            .padding(.horizontal, inset)
             .frame(minHeight: 44)
             .foregroundStyle(color)
             .contentShape(Rectangle())

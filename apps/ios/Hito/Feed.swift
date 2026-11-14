@@ -129,7 +129,7 @@ struct FindButton: View {
                 Text(note).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(2).multilineTextAlignment(.trailing).frame(width: 110, alignment: .trailing).padding(.trailing, 8)
             } else {
                 Button { Task { await find() } } label: {
-                    Text("Find").font(Theme.smallMedium).foregroundStyle(Theme.focus).padding(.horizontal, 8).frame(minHeight: 44)
+                    Text("Find").font(Theme.smallMedium).foregroundStyle(Theme.focus).padding(.horizontal, 14).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Find a source for \(track.title)")

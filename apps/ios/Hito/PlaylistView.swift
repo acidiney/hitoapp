@@ -103,7 +103,7 @@ struct PlaylistView: View {
                         .foregroundStyle(Theme.soft)
                         .lineLimit(2)
                     Text(detail?.playlist.name ?? playlist.name)
-                        .font(Theme.title)
+                        .font(Theme.title).tracking(Theme.titleTracking)
                         .lineLimit(3)
                         .accessibilityAddTraits(.isHeader)
                     if detail != nil {
