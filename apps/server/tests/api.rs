@@ -321,6 +321,8 @@ mod credit_member_review_search_stale;
 mod discover_pages;
 #[path = "api/genre_tracks.rs"]
 mod genre_tracks;
+#[path = "api/genre_tracks_access.rs"]
+mod genre_tracks_access;
 #[path = "api/genres.rs"]
 mod genres;
 #[path = "api/metadata.rs"]
