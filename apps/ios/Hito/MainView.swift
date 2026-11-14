@@ -80,7 +80,7 @@ extension View {
     func browsing() -> some View {
         navigationDestination(for: Album.self) { AlbumView(album: $0).pushed() }
             .navigationDestination(for: TrackList.self) { TrackListView(list: $0).pushed() }
-            .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed() }
+            .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
             .navigationDestination(for: PluginConnection.self) { PluginDetailView(connection: $0).pushed(back: "Plugins") }
             .navigationDestination(for: SettingsPage.self) { page in
                 switch page {
@@ -102,8 +102,8 @@ extension View {
             .foregroundStyle(Theme.text)
     }
 
-    func pushed(_ title: String? = nil, back: String? = nil) -> some View {
-        modifier(Pushed(title: title, back: back))
+    func pushed(_ title: String? = nil, back: String? = nil, tint: Color = Theme.ground) -> some View {
+        modifier(Pushed(title: title, back: back, tint: tint))
     }
 }
 
@@ -111,6 +111,7 @@ struct Pushed: ViewModifier {
     @Environment(\.dismiss) private var dismiss
     let title: String?
     let back: String?
+    let tint: Color
 
     func body(content: Content) -> some View {
         content
@@ -139,7 +140,7 @@ struct Pushed: ViewModifier {
                 }
                 .padding(.horizontal, 4)
                 .padding(.bottom, title == nil ? 0 : 12)
-                .background(Theme.ground)
+                .background(tint.ignoresSafeArea(edges: .top))
             }
             .page()
     }

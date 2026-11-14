@@ -108,7 +108,7 @@ struct LibraryView: View {
             ImportSheet { id in Task { await loadPlaylists(); opened = playlists?.first { $0.id == id } } }
                 .presentationBackground(.clear)
         }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed() }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
         .onChange(of: sort) { reloadTracks() }
         .onChange(of: shown) { reloadTracks() }
         .task {
