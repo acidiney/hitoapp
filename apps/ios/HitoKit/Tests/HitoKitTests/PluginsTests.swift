@@ -30,4 +30,34 @@ import Testing
         let state = try await plugins(fake).load()
         #expect(state.available.map(\.name) == ["Lyrics"])
     }
+
+    @Test func checkingAConnectionKeepsTheCredentialAndReportsAnUpdate() async throws {
+        let installation = #"{"id":"i1","service_id":"s1","revision":2,"checked_at":5,"credential_set":false,"health":{"state":"ok"},"manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search"]}}"#
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"updated","installation":\#(installation)}"#)])
+        let result = try await plugins(fake).check("i1", revision: 1)
+        #expect(result == .updated)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["revision"] as? Int == 1)
+        #expect((body["credential"] as? [String: String]) == ["action": "keep"])
+        #expect(body["accept_manifest_digest"] is NSNull)
+    }
+
+    @Test func aPluginAskingForMoreNamesWhatItWants() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"review_required","digest":"d1","manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search","artwork"]}}"#)])
+        let result = try await plugins(fake).check("i1", revision: 1, had: ["search"])
+        #expect(result == .review(digest: "d1", wants: ["Covers"]))
+    }
+
+    @Test func acceptingAReviewSendsItsDigest() async throws {
+        let installation = #"{"id":"i1","service_id":"s1","revision":3,"checked_at":5,"credential_set":false,"health":null,"manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search","artwork"]}}"#
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"updated","installation":\#(installation)}"#)])
+        _ = try await plugins(fake).check("i1", revision: 2, accept: "d1")
+        #expect(fake.requests.first?.object?["accept_manifest_digest"] as? String == "d1")
+    }
+
+    @Test func removingAPluginDeletesItsInstallation() async throws {
+        let fake = FakeServer(routes: ["DELETE /api/v1/plugins/i1": .text(204, "")])
+        try await plugins(fake).remove("i1")
+        #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i1"])
+    }
 }
