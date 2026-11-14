@@ -26,6 +26,7 @@ pub(crate) struct Native {
     controls: Controls,
     closing: Option<Pending<()>>,
     failed: bool,
+    suspended: bool,
     update: Option<Update>,
     lookahead: Lookahead,
     track: u64,
@@ -48,13 +49,16 @@ impl Native {
             controls: Controls::default(),
             closing: None,
             failed: false,
+            suspended: false,
             update: None,
         }
     }
     pub fn sync(&mut self, target: Option<Target>) {
         let key = target.as_ref().map(|target| target.key);
         let crossed = self.crossed.take();
+        let mut suspended_now = false;
         if self.target.as_ref().map(|target| target.key) != key {
+            self.suspended = false;
             if self.session.is_some() && key.is_some() && crossed == key {
                 self.adopt();
             } else {
@@ -69,6 +73,14 @@ impl Native {
             self.failed = false;
             self.controls = Controls::default();
         }
+        let restoring_suspended_idle = self.suspended
+            && target
+                .as_ref()
+                .is_some_and(|target| target.permitted && target.output && !target.playing)
+            && self
+                .target
+                .as_ref()
+                .is_some_and(|target| !target.permitted || !target.output);
         if let Some(restoration) = target.as_ref().and_then(|target| target.restoration)
             && self
                 .target
@@ -80,6 +92,9 @@ impl Native {
             self.controls.request_restoration(restoration);
         }
         if target.as_ref().is_some_and(|target| !target.permitted) {
+            if self.suspended {
+                self.update = None;
+            }
             if self.target.as_ref().is_none_or(|target| target.permitted) {
                 self.retire();
                 self.sources.reset(target.as_ref().map(|target| target.key));
@@ -89,6 +104,9 @@ impl Native {
             return;
         }
         if target.as_ref().is_some_and(|target| !target.output) {
+            if self.suspended {
+                self.update = None;
+            }
             if self.session.is_some() {
                 self.retire();
                 self.sources.reset(target.as_ref().map(|target| target.key));
@@ -115,12 +133,28 @@ impl Native {
         }) && self.controls.busy()
         {
             self.retire();
-        } else if target.as_ref().is_some_and(|next| {
-            !next.playing && self.target.as_ref().is_some_and(|old| old.playing)
-        }) && self.controls.busy()
+        } else if let Some(next) = target
+            .as_ref()
+            .filter(|next| !next.playing && self.target.as_ref().is_some_and(|old| old.playing))
         {
-            self.retire();
-            self.failed = false;
+            if self.sources.has_demand() && (self.session.is_none() || !self.controls.configured())
+            {
+                self.suspended = true;
+                suspended_now = true;
+                self.update = None;
+                self.sources.reset(Some(next.key));
+                self.retire();
+                self.failed = false;
+                tracing::debug!(
+                    event = "player_acquisition_suspended",
+                    selection = next.key.selection,
+                    outcome = "paused",
+                    "Suspending unconfigured native acquisition"
+                );
+            } else if self.controls.busy() {
+                self.retire();
+                self.failed = false;
+            }
         } else if target.as_ref().is_some_and(|next| {
             next.playing
                 && self
@@ -133,10 +167,25 @@ impl Native {
             }
             self.failed = false;
         }
+        if self.suspended && target.as_ref().is_some_and(|target| target.playing) {
+            self.suspended = false;
+            tracing::debug!(
+                event = "player_acquisition_resumed",
+                selection = target.as_ref().unwrap().key.selection,
+                outcome = "fresh_demand",
+                "Resuming native acquisition"
+            );
+        }
         self.target = target;
+        if suspended_now || restoring_suspended_idle {
+            self.update = Some(self.status(PlayerPhase::Idle, None));
+        }
         let Some(target) = self.target.as_ref() else {
             return;
         };
+        if self.suspended {
+            return;
+        }
         if self.closing.is_none() && self.session.is_none() && !self.failed {
             if let Some(grant) = self.sources.current() {
                 let session = Arc::new(Session::start(grant.clone()));
@@ -248,11 +297,12 @@ impl Native {
                 biased;
                 _ = async { self.closing.as_mut().unwrap().await }, if self.closing.is_some() => {
                     self.closing = None;
-                    if self.target.is_some() {
+                    if self.target.is_some() && !self.suspended {
                         return if self.failed { self.status(PlayerPhase::Failed, Some(self.sources.failure())) } else { self.status(PlayerPhase::Resolving, None) };
                     }
                 },
                 grant = self.sources.next() => {
+                    if self.suspended { continue; }
                     match grant {
                         Ok(Some(_)) => return self.status(PlayerPhase::Resolving, None),
                         Ok(None) => return self.exhausted(self.sources.failure()),
