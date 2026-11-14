@@ -55,7 +55,6 @@ struct PlaylistView: View {
                                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false)
                                     }
                                     .buttonStyle(.plain)
-                                    .disabled(!track.isPlayable)
                                     Menu { TrackMenu(track: track) } label: {
                                         Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
                                     }

@@ -7,6 +7,7 @@ final class FakeServer: @unchecked Sendable {
         case text(Int, String)
         case redirect(String)
         case acknowledging
+        indirect case sequence([Answer])
     }
 
     struct Request {
@@ -65,7 +66,10 @@ final class FakeServer: @unchecked Sendable {
             let usesFullLines = server.routes.keys.contains { $0.contains("://") } || !server.failures.isEmpty
             server.recorded.append(Request(line: usesFullLines ? full : short, query: url.query(), headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
             if let failure = server.failures["\(origin)\(url.path())"] ?? server.failures[origin] { return (nil, failure) }
-            return (server.routes[full] ?? server.routes[short] ?? .text(404, "not found"), nil)
+            let routed = server.routes[full] ?? server.routes[short] ?? .text(404, "not found")
+            guard case let .sequence(answers) = routed, let last = answers.last else { return (routed, nil) }
+            let seen = server.recorded.filter { $0.line == server.recorded.last?.line }.count
+            return (answers.indices.contains(seen - 1) ? answers[seen - 1] : last, nil)
         }
     }
 }
@@ -120,7 +124,7 @@ final class FakeProtocol: URLProtocol {
         case let .json(status, body): (status, body, ["Content-Type": "application/json"])
         case let .headed(status, body, extra): (status, body, extra.merging(["Content-Type": "application/json"]) { first, _ in first })
         case let .text(status, body): (status, body, ["Content-Type": "text/plain"])
-        case .redirect, .acknowledging: (0, "", [:])
+        case .redirect, .acknowledging, .sequence: (0, "", [:])
         }
         let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

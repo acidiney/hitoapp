@@ -254,10 +254,14 @@ final class Player {
         loadArtwork(for: track)
         loading = Task { [weak self, playback, tried] in
             do {
-                let audio = try await playback.prepare(track.id, skipping: tried)
+                let audio = try await playback.acquire(track.id, skipping: tried)
                 guard let self, !Task.isCancelled else { return }
                 self.attach(audio)
             } catch is CancellationError {
+            } catch let Playback.Problem.notFound(reason) {
+                guard let self, !Task.isCancelled else { return }
+                self.log.info("player.not_found")
+                self.skip(track, because: "\(reason).")
             } catch {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.no_source")

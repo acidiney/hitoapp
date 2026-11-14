@@ -119,7 +119,6 @@ struct SearchView: View {
                                         SearchRow(track: track, isCurrent: model.player?.current?.id == track.id)
                                     }
                                     .buttonStyle(.plain)
-                                    .disabled(!track.isPlayable)
                                     if !track.isPlayable {
                                         FindButton(track: track) { tracks.replace(track.id, with: $0) }
                                     }
@@ -321,7 +320,7 @@ struct TopResult: View {
         Task {
             do {
                 let page = try await Library(api: api).tracks(offset: 0, artist: id)
-                model.player?.play(page.items, at: page.items.firstIndex { $0.isPlayable } ?? 0, from: name)
+                model.player?.play(page.items, at: 0, from: name)
             } catch {
                 model.handle(error)
             }
