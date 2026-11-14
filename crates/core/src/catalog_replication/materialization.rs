@@ -431,7 +431,10 @@ mod encoding_limits_tests {
     #[test]
     fn cached_fact_encoding_rejects_the_fact_limit() {
         let oversized = fact("x".repeat(MAX_FACT_BYTES));
-        assert!(matches!(encode_fact(&oversized), Err(crate::Error::Conflict(_))));
+        assert!(matches!(
+            encode_fact(&oversized),
+            Err(crate::Error::Conflict(_))
+        ));
     }
 
     #[test]
@@ -461,12 +464,7 @@ mod encoding_limits_tests {
             next_ordinal: None,
         };
         assert!(matches!(
-            finish(
-                &empty,
-                &[],
-                &mut Vec::new(),
-                &mut (MAX_EXPORT_BYTES - 1)
-            ),
+            finish(&empty, &[], &mut Vec::new(), &mut (MAX_EXPORT_BYTES - 1)),
             Err(crate::Error::Conflict(_))
         ));
     }

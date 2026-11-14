@@ -56,7 +56,11 @@ mod tests {
             } else {
                 format!("title-{index}")
             },
-            artist: if unusual { "artist 東京".into() } else { "artist".into() },
+            artist: if unusual {
+                "artist 東京".into()
+            } else {
+                "artist".into()
+            },
             duration_ms: [-1, 0, 86_400_000][index % 3],
             sources: vec![
                 LocalSourceFact {
