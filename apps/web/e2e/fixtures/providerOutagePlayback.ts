@@ -23,6 +23,39 @@ export type OutageQueueRequest = {
   status: number | "failed";
 };
 
+export type OutageQueueScreen = {
+  url_is_queue: boolean;
+  queue_track_items: number;
+  now_playing_regions: number;
+  queue_now_sections: number;
+  queue_first_sections: number;
+  queue_next_sections: number;
+};
+
+async function queueScreenFacts(page: Page): Promise<OutageQueueScreen> {
+  const count = async (selector: () => Promise<number>) => {
+    try {
+      return await selector();
+    } catch {
+      return -1;
+    }
+  };
+  return {
+    url_is_queue: new URL(page.url()).pathname === "/queue",
+    queue_track_items: await count(() =>
+      page.locator("ol.queue-tracks > li").count(),
+    ),
+    now_playing_regions: await count(() =>
+      page.getByRole("region", { name: "Now playing", exact: true }).count(),
+    ),
+    queue_now_sections: await count(() => page.locator(".queue-now").count()),
+    queue_first_sections: await count(() =>
+      page.locator(".queue-first").count(),
+    ),
+    queue_next_sections: await count(() => page.locator(".queue-next").count()),
+  };
+}
+
 function queueRole(suffix: string): OutageQueueRequest["role"] {
   if (suffix === "sources") return "sources";
   if (suffix === "sources/refresh") return "refresh";
@@ -141,6 +174,7 @@ export async function playThroughOutage(
   evidence: OutageEvidence,
   checkpoint: (phase: OutagePlaybackPhase) => void,
   observeQueue: (request: OutageQueueRequest) => void = () => {},
+  observeQueueScreen: (facts: OutageQueueScreen) => void = () => {},
 ) {
   checkpoint("accepted_lost_ack");
   provider.setAvailability("retry", "unavailable");
@@ -385,19 +419,25 @@ export async function playThroughOutage(
   ).toBe(true);
   await expect(dock(page).getByRole("status")).toHaveCount(0);
   checkpoint("queue_ui");
-  await dock(page)
-    .getByRole("button", { name: "Open queue", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/queue$/);
-  await expect(page.locator("ol.queue-tracks > li")).toHaveCount(2);
+  let upNext: string[];
   const nowPlaying = page
     .getByRole("region", { name: "Now playing", exact: true })
     .locator("strong");
-  await expect(nowPlaying).toHaveText(/\S/);
-  const upNext = await page
-    .locator("ol.queue-tracks > li strong")
-    .allTextContents();
-  expect(upNext).toHaveLength(2);
+  try {
+    await dock(page)
+      .getByRole("button", { name: "Open queue", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/queue$/);
+    await expect(page.locator("ol.queue-tracks > li")).toHaveCount(2);
+    await expect(nowPlaying).toHaveText(/\S/);
+    upNext = await page
+      .locator("ol.queue-tracks > li strong")
+      .allTextContents();
+    expect(upNext).toHaveLength(2);
+  } catch (error) {
+    observeQueueScreen(await queueScreenFacts(page));
+    throw error;
+  }
   checkpoint("queue_seek");
   const queueAudio = await activeAudio(page).elementHandle();
   if (!queueAudio) throw new Error("Owned queue media is missing");

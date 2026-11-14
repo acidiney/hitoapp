@@ -30,6 +30,7 @@ import {
 import {
   playThroughOutage,
   type OutageQueueRequest,
+  type OutageQueueScreen,
   outageMediaFacts,
   type OutageMediaFacts,
   type OutagePlaybackPhase,
@@ -106,6 +107,7 @@ test("a populated version54 library upgrades and plays through truthful provider
     Record<OutageResolutionDiagnostic["target"], OutageResolutionDiagnostic>
   > = {};
   const queueRequests: OutageQueueRequest[] = [];
+  let queueScreen: OutageQueueScreen | null = null;
   const started = performance.now();
   try {
     if (
@@ -224,6 +226,9 @@ test("a populated version54 library upgrades and plays through truthful provider
       (request) => {
         if (queueRequests.length < 16) queueRequests.push(request);
       },
+      (facts) => {
+        queueScreen = facts;
+      },
     );
     phase = "preservation";
     const after = await outageLibraryState(page, read, library);
@@ -311,6 +316,7 @@ test("a populated version54 library upgrades and plays through truthful provider
         media,
         resolutions,
         queue_requests: queueRequests,
+        queue_screen: queueScreen,
         provider: provider?.counts ?? null,
         elapsed_ms: Math.round(performance.now() - started),
       }),
