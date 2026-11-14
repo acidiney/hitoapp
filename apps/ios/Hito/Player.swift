@@ -358,9 +358,13 @@ final class Player {
         artworkTask = Task { [weak self, api] in
             guard let image = await ArtworkCache.shared.image(api.request(track.artworkPath)) else { return }
             guard let self, !Task.isCancelled, self.queue.current?.id == track.id else { return }
-            self.artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            self.artwork = Self.lockScreenArtwork(image)
             self.publish()
         }
+    }
+
+    private nonisolated static func lockScreenArtwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
     }
 
     private func publish() {
