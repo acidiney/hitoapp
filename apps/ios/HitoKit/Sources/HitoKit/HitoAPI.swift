@@ -40,6 +40,12 @@ public struct HitoAPI: Sendable {
         try await change("POST", path, body: body, as: type)
     }
 
+    func getWithResponse<Value: Decodable>(_ path: [String], query: [URLQueryItem] = [], as type: Value.Type) async throws -> (Value, HTTPURLResponse) {
+        var request = request(path, query: query)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try await exchange(request, as: type)
+    }
+
     func put<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
         try await change("PUT", path, body: body, as: type)
     }
@@ -96,6 +102,10 @@ public struct HitoAPI: Sendable {
     }
 
     private func send<Value: Decodable>(_ request: URLRequest, as type: Value.Type, explained: Bool = false) async throws -> Value {
+        try await exchange(request, as: type, explained: explained).0
+    }
+
+    private func exchange<Value: Decodable>(_ request: URLRequest, as type: Value.Type, explained: Bool = false) async throws -> (Value, HTTPURLResponse) {
         let (data, response): (Data, HTTPURLResponse)
         do {
             (data, response) = try await ServerConnection.load(request, with: session, staying: address)
@@ -106,11 +116,11 @@ public struct HitoAPI: Sendable {
         }
         switch response.statusCode {
         case 200..<300:
-            if let nothing = Nothing() as? Value { return nothing }
+            if let nothing = Nothing() as? Value { return (nothing, response) }
             guard let value = try? JSONDecoder().decode(type, from: data) else {
                 throw Problem.unexpected(response.statusCode)
             }
-            return value
+            return (value, response)
         case 401: throw Problem.signedOut
         case 423: throw Problem.locked
         case 400..<500 where explained:

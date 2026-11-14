@@ -34,6 +34,26 @@ import Testing
         #expect(TrackSort.Unsupported(sort: .album).message == "This server can't sort by album yet. Update the server to use it.")
     }
 
+    @Test func aServerSaysWhetherItFiltersByAvailability() async throws {
+        let page = #"{"items":[],"total":0,"offset":0,"limit":1}"#
+        let new = FakeServer(routes: ["GET /api/v1/recordings": .headed(200, page, ["Hito-Recordings-Availability": "all"])])
+        #expect(try await library(new).filtersByAvailability())
+        #expect(new.requests.first?.query == "offset=0&limit=1")
+        let old = FakeServer(routes: ["GET /api/v1/recordings": .json(200, page)])
+        #expect(try await library(old).filtersByAvailability() == false)
+    }
+
+    @Test func aFilteredListNeedsTheServerToConfirmTheFilter() async throws {
+        let page = #"{"items":[],"total":0,"offset":0,"limit":50}"#
+        let confirmed = FakeServer(routes: ["GET /api/v1/recordings": .headed(200, page, ["Hito-Recordings-Availability": "no_source"])])
+        _ = try await library(confirmed).tracks(offset: 0, availability: .noSource)
+        #expect(confirmed.requests.first?.query == "offset=0&limit=50&availability=no_source")
+        let ignored = FakeServer(routes: ["GET /api/v1/recordings": .json(200, page)])
+        await #expect(throws: Availability.Unconfirmed()) { try await library(ignored).tracks(offset: 0, availability: .noSource) }
+        let other = FakeServer(routes: ["GET /api/v1/recordings": .headed(200, page, ["Hito-Recordings-Availability": "all"])])
+        await #expect(throws: Availability.Unconfirmed()) { try await library(other).tracks(offset: 0, availability: .playable) }
+    }
+
     @Test func likedTracksAndSearchesNarrowTheList() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
         _ = try await library(fake).tracks(offset: 50, liked: true)

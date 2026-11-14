@@ -47,6 +47,8 @@ final class Feed<Item: Decodable & Equatable & Identifiable & Sendable> {
             guard current == generation else { return }
             if let refused = error as? TrackSort.Unsupported {
                 unsupported = refused.message
+            } else if let refused = error as? Availability.Unconfirmed {
+                unsupported = refused.message
                 total = items.count
             } else if !(error is CancellationError) {
                 failed = true

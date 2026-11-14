@@ -103,14 +103,25 @@ public struct Library: Sendable {
         self.api = api
     }
 
-    public func tracks(offset: Int, search: String? = nil, liked: Bool = false, artist: String? = nil, sort: TrackSort? = nil) async throws -> Page<Track> {
+    public func filtersByAvailability() async throws -> Bool {
+        let query = [URLQueryItem(name: "offset", value: "0"), URLQueryItem(name: "limit", value: "1")]
+        let (_, response) = try await api.getWithResponse(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
+        return response.value(forHTTPHeaderField: Availability.header) != nil
+    }
+
+    public func tracks(offset: Int, search: String? = nil, liked: Bool = false, artist: String? = nil, sort: TrackSort? = nil, availability: Availability? = nil) async throws -> Page<Track> {
         var query = paging(offset)
         if let sort { query.append(URLQueryItem(name: "sort", value: sort.rawValue)) }
         if liked { query.append(URLQueryItem(name: "liked", value: "true")) }
         if let artist { query.append(URLQueryItem(name: "artist", value: artist)) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
+        if let availability { query.append(URLQueryItem(name: "availability", value: availability.rawValue)) }
         do {
-            return try await api.get(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
+            let (page, response) = try await api.getWithResponse(["api", "v1", "recordings"], query: query, as: Page<Track>.self)
+            if let availability, response.value(forHTTPHeaderField: Availability.header) != availability.rawValue {
+                throw Availability.Unconfirmed()
+            }
+            return page
         } catch HitoAPI.Problem.refused(400) {
             guard let sort, [.album, .duration].contains(sort) else { throw HitoAPI.Problem.refused(400) }
             throw TrackSort.Unsupported(sort: sort)
@@ -127,6 +138,25 @@ public struct Library: Sendable {
 
     private func paging(_ offset: Int) -> [URLQueryItem] {
         [URLQueryItem(name: "offset", value: String(offset)), URLQueryItem(name: "limit", value: String(Self.pageSize))]
+    }
+}
+
+public enum Availability: String, CaseIterable, Sendable {
+    case playable = "available_or_service"
+    case noSource = "no_source"
+
+    static let header = "Hito-Recordings-Availability"
+
+    public struct Unconfirmed: Error, Equatable {
+        public init() {}
+        public let message = "This server didn't apply the filter. Update the server to use it."
+    }
+
+    public var label: String {
+        switch self {
+        case .playable: "Ready"
+        case .noSource: "No source"
+        }
     }
 }
 

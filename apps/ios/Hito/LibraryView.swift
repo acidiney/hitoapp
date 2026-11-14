@@ -15,6 +15,8 @@ struct LibraryView: View {
     @State private var albums = Feed<Album>()
     @State private var artists = Feed<Artist>()
     @State private var playlists: [Playlist]?
+    @State private var shown = TrackShown.all
+    @State private var filters = false
     @State private var playlistsFailed = false
     @State private var sort = TrackSort.recent
     @State private var filtering = false
@@ -76,7 +78,7 @@ struct LibraryView: View {
         .scrollIndicators(.hidden)
         .refreshable { reload() }
         .fullScreenCover(isPresented: $filtering) {
-            FilterSheet(sort: $sort, total: tracks.unsupported == nil ? tracks.total : nil)
+            FilterSheet(sort: $sort, shown: $shown, filters: filters, total: tracks.unsupported == nil ? tracks.total : nil)
                 .presentationBackground(.clear)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -108,8 +110,10 @@ struct LibraryView: View {
         }
         .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed() }
         .onChange(of: sort) { reloadTracks() }
+        .onChange(of: shown) { reloadTracks() }
         .task {
             if tracks.total == nil && albums.total == nil { reload() }
+            if let api = model.api { filters = (try? await Library(api: api).filtersByAvailability()) ?? false }
         }
     }
 
@@ -126,7 +130,8 @@ struct LibraryView: View {
         guard let api = model.api else { return }
         let library = Library(api: api)
         let sort = sort
-        tracks.reset { try await library.tracks(offset: $0, sort: sort) }
+        let availability = shown.availability
+        tracks.reset { try await library.tracks(offset: $0, sort: sort, availability: availability) }
     }
 
     private func queueSelected(_ chosen: Set<String>) {
@@ -620,9 +625,25 @@ struct AlbumView: View {
     }
 }
 
+enum TrackShown: Hashable, CaseIterable {
+    case all, ready, noSource
+
+    var availability: Availability? {
+        switch self {
+        case .all: nil
+        case .ready: .playable
+        case .noSource: .noSource
+        }
+    }
+
+    var label: String { availability?.label ?? "All" }
+}
+
 struct FilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var sort: TrackSort
+    @Binding var shown: TrackShown
+    let filters: Bool
     let total: Int?
 
     var body: some View {
@@ -643,6 +664,12 @@ struct FilterSheet: View {
                 Spacer()
                 IconButton(icon: "close", label: "Close", glyph: 18) { dismiss() }
             }
+            if filters {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Availability").font(Theme.small).foregroundStyle(Theme.quiet)
+                    FlowChips(items: TrackShown.allCases, label: \.label, selected: shown) { shown = $0 }
+                }
+            }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sort").font(Theme.small).foregroundStyle(Theme.quiet)
                 FlowChips(items: TrackSort.allCases, label: \.label, selected: sort) { sort = $0 }
@@ -656,7 +683,10 @@ struct FilterSheet: View {
                         .background(Capsule().fill(Theme.accent))
                 }
                 .buttonStyle(.plain)
-                TextAction(title: "Reset") { sort = .recent }
+                TextAction(title: "Reset") {
+                    sort = .recent
+                    shown = .all
+                }
                     .padding(.horizontal, 8)
             }
         }

@@ -3,6 +3,7 @@ import Foundation
 final class FakeServer: @unchecked Sendable {
     enum Answer {
         case json(Int, String)
+        case headed(Int, String, [String: String])
         case text(Int, String)
         case redirect(String)
         case acknowledging
@@ -115,12 +116,13 @@ final class FakeProtocol: URLProtocol {
         } else {
             echoed = answer
         }
-        let (status, body, type): (Int, String, String) = switch echoed {
-        case let .json(status, body): (status, body, "application/json")
-        case let .text(status, body): (status, body, "text/plain")
-        case .redirect, .acknowledging: (0, "", "")
+        let (status, body, fields): (Int, String, [String: String]) = switch echoed {
+        case let .json(status, body): (status, body, ["Content-Type": "application/json"])
+        case let .headed(status, body, extra): (status, body, extra.merging(["Content-Type": "application/json"]) { first, _ in first })
+        case let .text(status, body): (status, body, ["Content-Type": "text/plain"])
+        case .redirect, .acknowledging: (0, "", [:])
         }
-        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": type])!
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
