@@ -66,6 +66,25 @@ public struct HitoAPI: Sendable {
         return try await send(request, as: type)
     }
 
+    struct Refusal: Error {
+        let status: Int
+        let reason: String?
+    }
+
+    struct Reason: Decodable {
+        let error: String
+    }
+
+    func postExplained<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
+        var request = request(path)
+        request.httpMethod = "POST"
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONEncoder().encode(body)
+        return try await send(request, as: type, explained: true)
+    }
+
     private func change<Body: Encodable, Value: Decodable>(_ method: String, _ path: [String], body: Body, as type: Value.Type) async throws -> Value {
         var request = request(path)
         request.httpMethod = method
@@ -76,7 +95,7 @@ public struct HitoAPI: Sendable {
         return try await send(request, as: type)
     }
 
-    private func send<Value: Decodable>(_ request: URLRequest, as type: Value.Type) async throws -> Value {
+    private func send<Value: Decodable>(_ request: URLRequest, as type: Value.Type, explained: Bool = false) async throws -> Value {
         let (data, response): (Data, HTTPURLResponse)
         do {
             (data, response) = try await ServerConnection.load(request, with: session, staying: address)
@@ -94,6 +113,8 @@ public struct HitoAPI: Sendable {
             return value
         case 401: throw Problem.signedOut
         case 423: throw Problem.locked
+        case 400..<500 where explained:
+            throw Refusal(status: response.statusCode, reason: try? JSONDecoder().decode(Reason.self, from: data).error)
         case 400..<500: throw Problem.refused(response.statusCode)
         default: throw Problem.unexpected(response.statusCode)
         }
