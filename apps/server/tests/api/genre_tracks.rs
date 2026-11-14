@@ -25,9 +25,12 @@ fn tagged(path: &Path, offset: i16, title: &str) {
     tag.save_to_path(path, WriteOptions::default()).unwrap();
 }
 
-fn genre_tracks_uri(after: Option<&str>) -> String {
+fn genre_tracks_uri(limit: Option<i64>, after: Option<&str>) -> String {
     let mut query = url::form_urlencoded::Serializer::new(String::new());
-    query.append_pair("key", "FADO").append_pair("limit", "100");
+    query.append_pair("key", "FADO");
+    if let Some(limit) = limit {
+        query.append_pair("limit", &limit.to_string());
+    }
     if let Some(after) = after {
         query.append_pair("after", after);
     }
@@ -58,6 +61,7 @@ async fn inertia_genre(app: &Router, token: &str) -> (StatusCode, Value) {
 async fn genre_tracks_page(
     app: &Router,
     token: &str,
+    limit: Option<i64>,
     after: Option<&str>,
 ) -> (
     StatusCode,
@@ -70,7 +74,7 @@ async fn genre_tracks_page(
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri(genre_tracks_uri(after))
+                    .uri(genre_tracks_uri(limit, after))
                     .header("authorization", format!("Bearer {token}"))
                     .header("x-hito-request", "1")
                     .body(Body::empty())
@@ -175,8 +179,13 @@ async fn genre_tracks_page_beyond_the_detail_preview_without_losing_title_ties()
     let mut seen_recording_ids = HashSet::new();
     let mut observed = 0;
     for (page_index, expected_count) in [100, 100, 1].into_iter().enumerate() {
-        let (status, content_type, cache_control, bytes) =
-            genre_tracks_page(&app, &token, after.as_deref()).await;
+        let (status, content_type, cache_control, bytes) = genre_tracks_page(
+            &app,
+            &token,
+            (page_index > 0).then_some(100_i64),
+            after.as_deref(),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             content_type,
@@ -215,4 +224,33 @@ async fn genre_tracks_page_beyond_the_detail_preview_without_losing_title_ties()
     }
     assert_eq!(observed, 201);
     assert_eq!(seen_recording_ids.len(), 201);
+
+    let (status, content_type, cache_control, bytes) =
+        genre_tracks_page(&app, &token, Some(999), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        content_type,
+        Some(axum::http::HeaderValue::from_static("application/json"))
+    );
+    assert_eq!(
+        cache_control,
+        Some(axum::http::HeaderValue::from_static("private, no-store"))
+    );
+    let page: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 200);
+    assert!(
+        page["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(&baseline[..200])
+            .all(|(actual, expected)| actual == expected)
+    );
+    let cursor = page["next_after"].as_str().unwrap().to_owned();
+    let (status, _, _, bytes) = genre_tracks_page(&app, &token, Some(999), Some(&cursor)).await;
+    assert_eq!(status, StatusCode::OK);
+    let terminal: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(terminal["items"].as_array().unwrap().len(), 1);
+    assert_eq!(terminal["items"][0], baseline[200]);
+    assert!(terminal["next_after"].is_null());
 }

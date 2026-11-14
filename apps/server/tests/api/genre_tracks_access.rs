@@ -16,10 +16,10 @@ use std::{path::Path, time::Duration};
 use tower::ServiceExt;
 
 struct GenreFixture {
-    _directory: tempfile::TempDir,
     app: Router,
     admin: String,
     library: String,
+    _directory: tempfile::TempDir,
 }
 
 fn tagged(path: &Path, offset: i16, title: &str, genre: &str) {
@@ -100,10 +100,10 @@ async fn genre_fixture() -> GenreFixture {
             assert_eq!(recordings["items"].as_array().unwrap().len(), 4);
 
             GenreFixture {
-                _directory: directory,
                 app,
                 admin,
                 library,
+                _directory: directory,
             }
         }),
     )
@@ -302,18 +302,6 @@ async fn genre_track_cursors_limits_and_encoded_keys_keep_their_scopes() {
     let first: Value = serde_json::from_slice(&first_bytes).unwrap();
     let cursor = first["next_after"].as_str().unwrap().to_owned();
 
-    let (status, _, _, default_bytes) = track_request(
-        &fixture.app,
-        &tracks_uri("fado", None, None),
-        Some(&fixture.admin),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    let default_page: Value = serde_json::from_slice(&default_bytes).unwrap();
-    assert_eq!(default_page["items"].as_array().unwrap().len(), 2);
-    assert!(default_page["next_after"].is_null());
-
     let (status, _, _, lower_bytes) = track_request(
         &fixture.app,
         &tracks_uri("fado", Some(0), None),
@@ -326,42 +314,38 @@ async fn genre_track_cursors_limits_and_encoded_keys_keep_their_scopes() {
     assert_eq!(lower_page["items"].as_array().unwrap().len(), 1);
     assert!(lower_page["next_after"].as_str().is_some());
 
-    let (status, _, _, upper_bytes) = track_request(
+    let (status, _, _, _) = track_request(
         &fixture.app,
-        &tracks_uri("fado", Some(999), None),
+        &tracks_uri("fado", Some(1), Some("not-a-valid-cursor")),
         Some(&fixture.admin),
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    let upper_page: Value = serde_json::from_slice(&upper_bytes).unwrap();
-    assert_eq!(upper_page["items"].as_array().unwrap().len(), 2);
-    assert!(upper_page["next_after"].is_null());
-
-    for (key, after, expected) in [
-        (
-            "fado",
-            "not-a-valid-cursor",
-            StatusCode::UNPROCESSABLE_ENTITY,
-        ),
-        ("jazz", cursor.as_str(), StatusCode::UNPROCESSABLE_ENTITY),
-        ("fado", cursor.as_str(), StatusCode::UNPROCESSABLE_ENTITY),
-        ("no such genre", cursor.as_str(), StatusCode::NOT_FOUND),
-    ] {
-        let bearer = if key == "fado" && after == cursor.as_str() {
-            member_token.as_str()
-        } else {
-            fixture.admin.as_str()
-        };
-        let (status, _, _, _) = track_request(
-            &fixture.app,
-            &tracks_uri(key, Some(1), Some(after)),
-            Some(bearer),
-            None,
-        )
-        .await;
-        assert_eq!(status, expected);
-    }
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _, _, _) = track_request(
+        &fixture.app,
+        &tracks_uri("jazz", Some(1), Some(&cursor)),
+        Some(&fixture.admin),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _, _, _) = track_request(
+        &fixture.app,
+        &tracks_uri("fado", Some(1), Some(&cursor)),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _, _, _) = track_request(
+        &fixture.app,
+        &tracks_uri("no such genre", Some(1), None),
+        Some(&fixture.admin),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 
     let encoded_key = tracks_uri("CAFÉ + /?", Some(10), None);
     assert!(
