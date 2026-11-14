@@ -4,6 +4,7 @@ import SwiftUI
 struct ImportSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    var initialLink = ""
     let added: (String) -> Void
     @State private var link = ""
     @State private var connections: [PluginConnection]?
@@ -29,7 +30,7 @@ struct ImportSheet: View {
             sheet
         }
         .ignoresSafeArea(edges: .top)
-        .task { await load() }
+        .task { if link.isEmpty { link = initialLink }; await load() }
         .onChange(of: link) { request = UUID(); problem = nil }
         .onChange(of: following) { request = UUID() }
     }

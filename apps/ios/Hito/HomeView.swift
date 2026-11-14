@@ -37,7 +37,7 @@ struct HomeView: View {
                 Button(action: openSearch) {
                     HStack(spacing: 10) {
                         Icon("search")
-                        Text("Search your library")
+                        Text("Search, or paste a playlist link")
                         Spacer()
                     }
                     .foregroundStyle(Theme.quiet)

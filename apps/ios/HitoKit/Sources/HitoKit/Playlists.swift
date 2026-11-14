@@ -126,6 +126,13 @@ public enum PlaylistLink {
         return url?.host.flatMap { hosts[$0] }
     }
 
+    public static func looksLikePlaylist(_ reference: String) -> Bool {
+        let text = reference.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= 8, !text.contains(where: \.isWhitespace), keyword(text) != nil else { return false }
+        let lower = text.lowercased()
+        return lower.contains("playlist") || lower.contains("list=") || lower.hasPrefix("spotify:")
+    }
+
     public static func service(of reference: String) -> String? {
         keyword(reference).map { $0.prefix(1).uppercased() + $0.dropFirst() }
     }

@@ -12,19 +12,24 @@ struct SearchView: View {
     @State private var remoteState = RemoteState.idle
     @State private var adopting: String?
     @State private var adoptNote: String?
+    @State private var importing: String?
+    @State private var opened: Playlist?
     @FocusState private var focused: Bool
 
     enum RemoteState: Equatable {
         case idle, searching, failed
     }
 
-    var query: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var query: String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return PlaylistLink.looksLikePlaylist(trimmed) ? "" : trimmed
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Icon("search").foregroundStyle(Theme.quiet)
-                TextField("", text: $text, prompt: Text("Search your library").foregroundStyle(Theme.quiet))
+                TextField("", text: $text, prompt: Text("Search, or paste a playlist link").foregroundStyle(Theme.quiet))
                     .accessibilityLabel("Search")
                     .focused($focused)
                     .submitLabel(.search)
@@ -40,6 +45,24 @@ struct SearchView: View {
             .background(Capsule().fill(Theme.field))
             .overlay(Capsule().strokeBorder(focused ? Theme.accent : Theme.line, lineWidth: focused ? 2 : 1))
             .padding(.horizontal, 16)
+            if PlaylistLink.looksLikePlaylist(text) {
+                HStack(spacing: 12) {
+                    Icon("link", size: 20).foregroundStyle(Theme.focus)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(PlaylistLink.service(of: text) ?? "Playlist") playlist link").font(Theme.bodyStrong)
+                        Text("Follow it or copy it").font(Theme.small).foregroundStyle(Theme.quiet)
+                    }
+                    Spacer(minLength: 8)
+                    Button { importing = text.trimmingCharacters(in: .whitespacesAndNewlines) } label: {
+                        Text("Open").font(Theme.smallStrong).foregroundStyle(Theme.onAccent).padding(.horizontal, 18).frame(minHeight: 40).background(Capsule().fill(Theme.accent))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.field))
+                .padding(.horizontal, 16)
+                .accessibilityElement(children: .combine)
+            }
             if !searchable.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
@@ -132,6 +155,16 @@ struct SearchView: View {
         }
         .task(id: "\(query)|\(scope?.id ?? "")") { await searchRemote() }
         .task { await loadSearchable() }
+        .fullScreenCover(item: Binding(get: { importing.map(Link.init) }, set: { importing = $0?.value })) { link in
+            ImportSheet(initialLink: link.value) { id in
+                Task {
+                    guard let api = model.api else { return }
+                    opened = (try? await Playlists(api: api).list())?.first { $0.id == id }
+                }
+            }
+            .presentationBackground(.clear)
+        }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed() }
         .onAppear { focused = true }
     }
 
@@ -287,4 +320,9 @@ struct TopResult: View {
             }
         }
     }
+}
+
+struct Link: Identifiable {
+    let value: String
+    var id: String { value }
 }

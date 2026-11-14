@@ -103,4 +103,13 @@ import Testing
             try await playlists(fake).insert(["r1"], into: "p1", device: "device-1", from: 0)
         }
     }
+
+    @Test func aPastedPlaylistLinkIsRecognised() {
+        #expect(PlaylistLink.looksLikePlaylist("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"))
+        #expect(PlaylistLink.looksLikePlaylist("music.youtube.com/playlist?list=PL123"))
+        #expect(PlaylistLink.looksLikePlaylist("spotify:playlist:abc123"))
+        #expect(!PlaylistLink.looksLikePlaylist("stromae"))
+        #expect(!PlaylistLink.looksLikePlaylist("https://open.spotify.com/track/abc"))
+        #expect(!PlaylistLink.looksLikePlaylist("https://example.com/playlist/1"))
+    }
 }
