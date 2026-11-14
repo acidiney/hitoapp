@@ -4,6 +4,11 @@ mod fixture;
 #[path = "construction_stage_diagnostic.rs"]
 mod diagnostic;
 
+#[path = "materialization_batch_boundary.rs"]
+mod materialization_batch_boundary;
+#[path = "materialization_batch_boundary_fixture.rs"]
+mod materialization_batch_boundary_fixture;
+
 use crate::test_support::support;
 use fixture::{install_meter, populate};
 use serde_json::Value;

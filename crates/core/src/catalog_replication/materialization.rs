@@ -18,7 +18,7 @@ pub(super) const MAX_FACT_BYTES: usize = 64 * 1024;
 pub(super) const MAX_PAGE_BYTES: usize = 256 * 1024;
 pub(super) const MAX_EXPORT_BYTES: usize = 128 * 1024 * 1024;
 const MAX_PAGE_FACTS: usize = 200;
-const RECORDING_BATCH: usize = 64;
+const RECORDING_BATCH: usize = 256;
 const LOCAL_EVIDENCE: &str = "EXISTS (SELECT 1 FROM sources s INDEXED BY sources_recording CROSS JOIN source_metadata m INDEXED BY sqlite_autoindex_source_metadata_1 ON m.source_id=s.id WHERE s.recording_id=r.id AND s.provider='local')";
 const RECORDING_BYTES: &str = "length(CAST(r.id AS BLOB))+length(CAST(r.library_id AS BLOB))+length(CAST(r.title AS BLOB))+length(CAST(r.artist AS BLOB))";
 
