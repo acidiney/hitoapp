@@ -7,6 +7,7 @@ struct PlaylistView: View {
     }
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     let playlist: Playlist
     @State private var detail: PlaylistDetail?
@@ -16,6 +17,10 @@ struct PlaylistView: View {
     @State private var finding: (done: Int, total: Int)?
     @State private var findNote: String?
     @State private var search: Task<Void, Never>?
+    @State private var draft: PlaylistDraft?
+    @State private var saving = false
+    @State private var editProblem: String?
+    @State private var confirmingDelete = false
 
     var ready: [Track] { tracks.filter(\.isPlayable) }
     var notReady: [Track] { tracks.filter { !$0.isPlayable } }
@@ -42,6 +47,8 @@ struct PlaylistView: View {
                         .font(Theme.small)
                     } else if detail == nil {
                         ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+                    } else if let draft {
+                        editor(draft)
                     } else if tracks.isEmpty {
                         Text("No tracks in this playlist yet.").font(Theme.small).foregroundStyle(Theme.soft)
                     } else {
@@ -73,6 +80,11 @@ struct PlaylistView: View {
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
         .onDisappear { search?.cancel() }
+        .confirmationDialog("Delete \(detail?.playlist.name ?? playlist.name)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete playlist", role: .destructive) { Task { await deletePlaylist() } }
+        } message: {
+            Text("The playlist is removed from your account. The tracks stay in your library.")
+        }
     }
 
     private var header: some View {
@@ -84,7 +96,7 @@ struct PlaylistView: View {
                         .font(Theme.smallStrong)
                         .foregroundStyle(Theme.soft)
                         .lineLimit(2)
-                    Text(playlist.name)
+                    Text(detail?.playlist.name ?? playlist.name)
                         .font(Theme.title)
                         .lineLimit(3)
                         .accessibilityAddTraits(.isHeader)
@@ -103,7 +115,10 @@ struct PlaylistView: View {
                 .frame(height: 6)
                 .accessibilityHidden(true)
             }
-            if !tracks.isEmpty {
+            if tracks.isEmpty, detail != nil, draft == nil, playlist.kind == .local {
+                moreMenu
+            }
+            if !tracks.isEmpty, draft == nil {
                 let actions = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
                 actions {
                     if !ready.isEmpty {
@@ -118,14 +133,7 @@ struct PlaylistView: View {
                         OutlineAction(title: "Find \(findable.count)", busy: false, action: findAll)
                             .accessibilityLabel("Find sources for \(findable.count) tracks that aren't ready")
                     }
-                    if !ready.isEmpty {
-                        Menu {
-                            Button("Play next") { ready.reversed().forEach { model.player?.playNext($0) } }
-                        } label: {
-                            Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
-                        }
-                        .accessibilityLabel("More actions")
-                    }
+                    moreMenu
                 }
                 if let findNote {
                     Text(findNote).font(Theme.small).foregroundStyle(Theme.soft)
@@ -137,6 +145,108 @@ struct PlaylistView: View {
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.raised.ignoresSafeArea(edges: .top))
+    }
+
+    @ViewBuilder private var moreMenu: some View {
+        if !ready.isEmpty || playlist.kind == .local {
+            Menu {
+                if !ready.isEmpty {
+                    Button("Play next") { ready.forEach { model.player?.playNext($0) } }
+                }
+                if playlist.kind == .local, let detail {
+                    Button("Edit playlist") {
+                        draft = PlaylistDraft(name: detail.playlist.name, entries: detail.entries)
+                        editProblem = nil
+                    }
+                    Button("Delete playlist", role: .destructive) { confirmingDelete = true }
+                }
+            } label: {
+                Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
+            }
+            .accessibilityLabel("More actions")
+        }
+    }
+
+    private func editor(_ current: PlaylistDraft) -> some View {
+        let byEntry = Dictionary(uniqueKeysWithValues: zip((detail?.entries ?? []).map(\.id), tracks))
+        let unavailable = current.entries.filter { byEntry[$0]?.isPlayable == false }
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Edit playlist").font(Theme.section).accessibilityAddTraits(.isHeader)
+            TextField("Playlist name", text: Binding(get: { draft?.name ?? "" }, set: { draft?.name = $0 }))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.field))
+            if !unavailable.isEmpty {
+                TextAction(title: "Remove \(unavailable.count) without a source") { unavailable.forEach { draft?.remove($0) } }
+            }
+            ForEach(current.entries, id: \.self) { entry in
+                HStack(spacing: 4) {
+                    if let track = byEntry[entry] {
+                        LibraryRow(track: track, showsTime: false)
+                    }
+                    Button { shift(entry, by: -1) } label: {
+                        Image(systemName: "chevron.up").frame(width: 36, height: 44)
+                    }
+                    .disabled(current.entries.first == entry)
+                    .accessibilityLabel("Move up")
+                    Button { shift(entry, by: 1) } label: {
+                        Image(systemName: "chevron.down").frame(width: 36, height: 44)
+                    }
+                    .disabled(current.entries.last == entry)
+                    .accessibilityLabel("Move down")
+                    Button { draft?.remove(entry) } label: {
+                        Icon("close", size: 16).frame(width: 36, height: 44)
+                    }
+                    .accessibilityLabel("Remove \(byEntry[entry]?.title ?? "track") from playlist")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.soft)
+            }
+            if let editProblem { Text(editProblem).font(Theme.small).foregroundStyle(Theme.warning) }
+            HStack(spacing: 8) {
+                Button("Discard changes") { draft = nil; editProblem = nil }
+                    .buttonStyle(.plain)
+                    .font(Theme.bodyMedium)
+                    .padding(.horizontal, 18)
+                    .frame(minHeight: 48)
+                    .overlay(Capsule().strokeBorder(Theme.line))
+                    .disabled(saving)
+                PrimaryButton(title: "Save changes", busyTitle: "Saving…", busy: saving) { Task { await save(current) } }
+                    .disabled(saving || current.name.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+    }
+
+    private func save(_ current: PlaylistDraft) async {
+        guard let api = model.api else { return }
+        let changes = current.changes
+        guard !changes.isEmpty else { draft = nil; return }
+        saving = true
+        defer { saving = false }
+        do {
+            try await Playlists(api: api).apply(changes, to: playlist.id, device: Player.device)
+            draft = nil
+            editProblem = nil
+            await load()
+        } catch {
+            editProblem = "The changes weren't saved. Try again."
+        }
+    }
+
+    private func shift(_ entry: String, by delta: Int) {
+        if draft?.move(entry, by: delta) == false {
+            editProblem = "This playlist's order can't be changed here. Try again later."
+        }
+    }
+
+    private func deletePlaylist() async {
+        guard let api = model.api else { return }
+        do {
+            try await Playlists(api: api).delete(playlist.id, device: Player.device)
+            dismiss()
+        } catch {
+            editProblem = "The playlist wasn't deleted. Try again."
+        }
     }
 
     private var chips: some View {

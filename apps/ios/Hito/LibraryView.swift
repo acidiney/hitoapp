@@ -24,6 +24,8 @@ struct LibraryView: View {
     @State private var selected: Set<String>?
     @State private var notice: String?
     @State private var opened: Playlist?
+    @State private var naming = false
+    @State private var newName = ""
     @State private var finding: String?
 
     var active: Int { (sort == .recent ? 0 : 1) + (shown == .all ? 0 : 1) }
@@ -74,6 +76,18 @@ struct LibraryView: View {
                 case .artists:
                     ArtistRows(feed: artists)
                 case .playlists:
+                    Button { newName = ""; naming = true } label: {
+                        HStack(spacing: 12) {
+                            ZStack { Theme.tile; Icon("plus", size: 20).foregroundStyle(Theme.focus) }
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Text("New playlist").font(Theme.bodyMedium)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 60)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                     Button { importing = true } label: {
                         HStack(spacing: 12) {
                             ZStack { Theme.tile; Icon("link", size: 20).foregroundStyle(Theme.focus) }
@@ -128,10 +142,15 @@ struct LibraryView: View {
                 .presentationBackground(.clear)
         }
         .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .alert("New playlist", isPresented: $naming) {
+            TextField("Give it a name", text: $newName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") { Task { await create() } }
+        }
         .onChange(of: sort) { reloadTracks() }
         .onChange(of: shown) { reloadTracks() }
         .task {
-            if tracks.total == nil && albums.total == nil { reload() }
+            if tracks.total == nil && albums.total == nil { reload() } else if section == .playlists { await loadPlaylists() }
             if let api = model.api { filters = (try? await Library(api: api).filtersByAvailability()) ?? false }
         }
     }
@@ -178,6 +197,18 @@ struct LibraryView: View {
                 model.handle(error)
             }
             finding = nil
+        }
+    }
+
+    private func create() async {
+        let name = newName.trimmingCharacters(in: .whitespaces)
+        guard let api = model.api, !name.isEmpty else { return }
+        do {
+            let id = try await Playlists(api: api).create(named: name, device: Player.device)
+            await loadPlaylists()
+            opened = playlists?.first { $0.id == id } ?? Playlist(id: id, name: name, kind: .local)
+        } catch {
+            notice = "The playlist wasn't created. Try again."
         }
     }
 
@@ -259,7 +290,7 @@ struct PlaylistRows: View {
     var body: some View {
         if let playlists {
             if playlists.isEmpty {
-                Text("No playlists yet. Import one from a link, or make one on the web.")
+                Text("No playlists yet. Make one, or import one from a link.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.soft)
                     .padding(.vertical, 12)
