@@ -32,6 +32,31 @@ public struct Privacy: Sendable {
         }
     }
 
+    struct SetLock: Encodable {
+        let pin: String?
+        let idleMinutes: Int
+        let password: String
+
+        enum CodingKeys: String, CodingKey {
+            case pin, password
+            case idleMinutes = "idle_minutes"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(pin, forKey: .pin)
+            try container.encode(idleMinutes, forKey: .idleMinutes)
+            try container.encode(password, forKey: .password)
+        }
+    }
+
+    public struct LockState: Equatable, Sendable {
+        public let pinEnabled: Bool
+        public let idleMinutes: Int
+    }
+
+    public static let idleChoices = [0, 5, 15, 60]
+
     struct History: Codable { let enabled: Bool }
 
     public struct Lookups: Decodable, Sendable {
@@ -58,6 +83,11 @@ public struct Privacy: Sendable {
         async let lookups = api.get(["api", "v1", "metadata", "settings"], as: Lookups.self)
         let (pin, saved, automatic) = try await (lock, history, lookups)
         return PrivacySettings(pinEnabled: pin.pinEnabled, idleMinutes: pin.idleMinutes, history: saved.enabled, artistLookup: automatic.artistLookup, artwork: automatic.artwork)
+    }
+
+    public func saveLock(pin: String?, idleMinutes: Int, password: String) async throws -> LockState {
+        let lock = try await api.put(["api", "v1", "account", "pin"], body: SetLock(pin: pin, idleMinutes: idleMinutes, password: password), as: Lock.self)
+        return LockState(pinEnabled: lock.pinEnabled, idleMinutes: lock.idleMinutes)
     }
 
     public func saveHistory(_ enabled: Bool) async throws -> Bool {

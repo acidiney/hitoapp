@@ -39,4 +39,14 @@ import Testing
         #expect(fake.requests.first?.object?["automatic_artwork"] as? Bool == false)
         #expect(saved.artwork == false && saved.artistLookup == true)
     }
+
+    @Test func changingTheLockNeedsThePasswordAndKeepsThePinWhenNoneIsGiven() async throws {
+        let fake = FakeServer(routes: ["PUT /api/v1/account/pin": .json(200, #"{"pin_enabled":true,"idle_minutes":60,"locked":false}"#)])
+        let lock = try await privacy(fake).saveLock(pin: nil, idleMinutes: 60, password: "test-password")
+        #expect(lock.idleMinutes == 60 && lock.pinEnabled)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["idle_minutes"] as? Int == 60)
+        #expect(body["password"] as? String == "test-password")
+        #expect(body["pin"] is NSNull)
+    }
 }
