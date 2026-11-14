@@ -4,7 +4,7 @@ use super::{
     provider::{Candidate, Page, Subject},
 };
 use crate::{
-    Actor, Catalog, Error, Result,
+    Actor, Catalog, Error, PlaybackFailure, Result,
     catalog::{Origin, ranking_on},
 };
 use std::{collections::VecDeque, vec::IntoIter};
@@ -20,6 +20,7 @@ struct Connection {
 #[derive(Default)]
 pub(super) struct Candidates {
     pub(super) provider_unavailable: bool,
+    pub(super) failure: Option<PlaybackFailure>,
     pub(super) connection_count: usize,
     query: String,
     connections: IntoIter<Connection>,
@@ -52,6 +53,7 @@ impl Candidates {
         connections.truncate(MAX_CONNECTIONS);
         Ok(Self {
             provider_unavailable: false,
+            failure: None,
             connection_count: connections.len(),
             query,
             connections: connections.into_iter(),
@@ -76,6 +78,7 @@ impl Candidates {
             };
             let ranked = page.next_by_provider_rank(catalog, actor, subject).await;
             self.provider_unavailable |= page.provider_unavailable;
+            PlaybackFailure::merge(&mut self.failure, page.failure);
             match ranked {
                 Ok(Traversal::Current(Some(found))) => return Ok(Some(found)),
                 Ok(Traversal::Superseded) => {
@@ -85,6 +88,10 @@ impl Candidates {
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     self.provider_unavailable |= super::is_provider_unavailable(&error);
+                    PlaybackFailure::merge(
+                        &mut self.failure,
+                        PlaybackFailure::from_provider_error(&error),
+                    );
                     tracing::debug!(
                         event = "source_resolution_provider_failed",
                         error_kind = error.code(),
@@ -110,6 +117,7 @@ impl Candidates {
             if let Some(page) = self.page.as_mut() {
                 let candidate = page.next(catalog, actor, subject).await;
                 self.provider_unavailable |= page.provider_unavailable;
+                PlaybackFailure::merge(&mut self.failure, page.failure);
                 match candidate {
                     Ok(Traversal::Current(Some(candidate))) => return Ok(Some(candidate)),
                     Ok(Traversal::Superseded) => {
@@ -119,6 +127,10 @@ impl Candidates {
                     Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                     Err(error) => {
                         self.provider_unavailable |= super::is_provider_unavailable(&error);
+                        PlaybackFailure::merge(
+                            &mut self.failure,
+                            PlaybackFailure::from_provider_error(&error),
+                        );
                         tracing::debug!(
                             event = "source_resolution_provider_failed",
                             error_kind = error.code(),
@@ -151,6 +163,10 @@ impl Candidates {
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     self.provider_unavailable |= super::is_provider_unavailable(&error);
+                    PlaybackFailure::merge(
+                        &mut self.failure,
+                        PlaybackFailure::from_provider_error(&error),
+                    );
                     tracing::debug!(
                         event = "source_resolution_provider_failed",
                         error_kind = error.code(),

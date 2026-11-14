@@ -38,6 +38,11 @@ pub enum Error {
     Upstream(&'static str),
     #[error("{0}")]
     UpstreamNotice(String),
+    #[error("A playback provider request failed")]
+    PlaybackProvider {
+        reason: crate::PlaybackFailureReason,
+        original: Box<Error>,
+    },
     #[error("The audio service sent data too slowly")]
     StreamTooSlow,
     #[error("There is not enough disk space to save this audio")]
@@ -82,6 +87,7 @@ impl Error {
             Self::PluginCredentialsRequired(_) => "plugin_credentials_required",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) | Self::UpstreamNotice(_) => "upstream",
+            Self::PlaybackProvider { original, .. } => original.code(),
             Self::StreamTooSlow => "stream_too_slow",
             Self::InsufficientStorage => "insufficient_storage",
             Self::MediaToolsMissing => "media_tools_missing",

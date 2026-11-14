@@ -2,7 +2,7 @@ use super::{
     SourceResolutionOutcome,
     authority::{self, Target},
 };
-use crate::{Actor, Catalog, Error, Result, Store};
+use crate::{Actor, Catalog, Error, PlaybackFailure, Result, Store};
 use sqlx::{SqliteConnection, SqlitePool};
 use uuid::Uuid;
 
@@ -132,7 +132,14 @@ async fn reclaim(
         });
     }
     if saved.0 != digest {
-        finish_on(connection, id, None, SourceResolutionOutcome::Cancelled).await?;
+        finish_on(
+            connection,
+            id,
+            None,
+            SourceResolutionOutcome::Cancelled,
+            None,
+        )
+        .await?;
         return Ok(Admission::Observe {
             id: id.into(),
             outcome: Some("cancelled".into()),
@@ -177,9 +184,14 @@ pub(super) async fn finish_on(
     id: &str,
     token: Option<&str>,
     outcome: SourceResolutionOutcome,
+    failure: Option<PlaybackFailure>,
 ) -> Result<()> {
-    let changed = sqlx::query("UPDATE source_resolutions SET outcome = ?,completed_at = unixepoch(),lease_token = NULL,lease_until = NULL WHERE id = ? AND outcome IS NULL AND (? IS NULL OR lease_token = ?)")
-        .bind(outcome.as_str()).bind(id).bind(token).bind(token).execute(connection).await?.rows_affected();
+    let failure = failure
+        .map(|failure| serde_json::to_string(&failure))
+        .transpose()
+        .map_err(|_| Error::Internal("Playback failure could not be encoded".into()))?;
+    let changed = sqlx::query("UPDATE source_resolutions SET outcome = ?,failure = ?,completed_at = unixepoch(),lease_token = NULL,lease_until = NULL WHERE id = ? AND outcome IS NULL AND (? IS NULL OR lease_token = ?)")
+        .bind(outcome.as_str()).bind(failure).bind(id).bind(token).bind(token).execute(connection).await?.rows_affected();
     if changed == 1 {
         Ok(())
     } else {
@@ -187,4 +199,28 @@ pub(super) async fn finish_on(
             "This source resolution was replaced or completed".into(),
         ))
     }
+}
+
+pub(super) async fn failure_on(
+    connection: &mut SqliteConnection,
+    account: &str,
+    id: &str,
+) -> Result<Option<PlaybackFailure>> {
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT failure FROM source_resolutions WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(account)
+            .fetch_optional(connection)
+            .await?
+            .ok_or(Error::NotFound)?;
+    let parsed: Option<PlaybackFailure> = stored
+        .map(|stored| serde_json::from_str(&stored))
+        .transpose()
+        .map_err(|_| Error::Internal("Stored playback failure is invalid".into()))?;
+    if parsed.is_some_and(|failure| !failure.valid()) {
+        return Err(Error::Internal(
+            "Stored playback failure decision is inconsistent".into(),
+        ));
+    }
+    Ok(parsed)
 }

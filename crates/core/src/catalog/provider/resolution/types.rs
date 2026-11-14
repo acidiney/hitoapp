@@ -1,4 +1,4 @@
-use crate::{Error, Result, Source};
+use crate::{Error, PlaybackFailure, Result, Source};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -51,4 +51,5 @@ pub struct SourceResolution {
     pub recording_id: String,
     pub outcome: SourceResolutionOutcome,
     pub sources: Vec<Source>,
+    pub failure: Option<PlaybackFailure>,
 }

@@ -14,6 +14,7 @@ mod maintenance;
 mod media_command;
 mod metadata;
 mod playback_access;
+mod playback_failure;
 mod plugins;
 mod podcasts;
 mod private_file;
@@ -136,6 +137,7 @@ pub use playback_access::{
     OpenedAudio, PcmBlock, PcmFormat, PcmOpening, PcmStream, PlaybackAccess, PlaybackCandidates,
     PlaybackLease, PlaybackSource, QualityAudio, QualityRequest, StreamPace, StreamQuality,
 };
+pub use playback_failure::{PlaybackFailure, PlaybackFailureReason};
 pub use plugins::{
     ConfiguredOffer, ConfiguredPluginService, Connections, InstallPlugin, OfferPluginService,
     PluginAuthorization, PluginAuthorizationCallback, PluginAuthorizationOutcome,
