@@ -120,7 +120,9 @@ async fn run(catalog: Catalog, demand: &Demand, stop: SourceStop, started: Insta
                     (Outcome::Exhausted, "no_suitable_source", attempt < 3)
                 }
                 SourceResolutionOutcome::ProviderUnavailable => {
-                    (Outcome::Exhausted, "provider_unavailable", false)
+                    let retry =
+                        attempt < 3 && resolution.failure.is_some_and(|failure| failure.retryable);
+                    (Outcome::Exhausted, "provider_unavailable", retry)
                 }
                 SourceResolutionOutcome::ProtectedChoice => {
                     (Outcome::Exhausted, "protected_choice", false)
