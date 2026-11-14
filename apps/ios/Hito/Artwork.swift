@@ -58,6 +58,36 @@ struct Cover: View {
     }
 }
 
+struct AccountPicture: View {
+    @Environment(AppModel.self) private var model
+    let user: User
+    var size: CGFloat = 44
+    var fill = Theme.avatar
+    var font = Theme.bodyBold
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            Circle().fill(fill)
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Text(String((user.displayName ?? user.username).prefix(1)).uppercased()).font(font)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .accessibilityHidden(true)
+        .task(id: user.avatarVersion) {
+            guard let version = user.avatarVersion, let api = model.api else {
+                image = nil
+                return
+            }
+            image = await ArtworkCache.shared.image(api.request(Profile.photoPath(of: user), query: [URLQueryItem(name: "v", value: version)]))
+        }
+    }
+}
+
 struct StatusDot: View {
     let track: Track
     var size: CGFloat = 8

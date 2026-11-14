@@ -26,10 +26,7 @@ struct HomeView: View {
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 0)
                     NavigationLink(value: SettingsPage.root) {
-                        Text(String(name.prefix(1)).uppercased())
-                            .font(Theme.bodyBold)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(Theme.avatar))
+                        AccountPicture(user: user)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Settings for \(name)")

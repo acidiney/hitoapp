@@ -1,4 +1,5 @@
 import HitoKit
+import PhotosUI
 import SwiftUI
 
 struct SettingsGroup<Rows: View>: View {
@@ -22,6 +23,8 @@ struct ProfileView: View {
     @State private var confirmingSignOut = false
     @State private var changingPassword = false
     @State private var passwordNote: String?
+    @State private var photo: PhotosPickerItem?
+    @State private var photoBusy = false
 
     var user: User? {
         if case let .signedIn(_, user) = model.step { return user }
@@ -31,6 +34,33 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                if let user {
+                    SettingsGroup(title: "Photo") {
+                        HStack(spacing: 16) {
+                            AccountPicture(user: user, size: 72, fill: Theme.tile, font: Theme.pageTitle)
+                                .overlay { if photoBusy { ProgressView().tint(Theme.text) } }
+                            VStack(alignment: .leading, spacing: 8) {
+                                PhotosPicker(selection: $photo, matching: .images) {
+                                    Text(user.avatarVersion == nil ? "Choose photo" : "Change photo")
+                                        .font(Theme.smallMedium)
+                                        .foregroundStyle(Theme.text)
+                                        .padding(.horizontal, 16)
+                                        .frame(minHeight: 44)
+                                        .overlay(Capsule().strokeBorder(Theme.line))
+                                }
+                                .disabled(photoBusy)
+                                if user.avatarVersion != nil {
+                                    Button { Task { await removePhoto() } } label: {
+                                        Text("Remove photo").font(Theme.smallMedium).foregroundStyle(Theme.focus).frame(minHeight: 44)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(photoBusy)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
                 SettingsGroup(title: "Name") {
                     VStack(alignment: .leading, spacing: 8) {
                         TextField("", text: $name, prompt: Text(user?.username ?? "").foregroundStyle(Theme.quiet))
@@ -106,6 +136,42 @@ struct ProfileView: View {
         .task {
             name = user?.displayName ?? ""
             await loadDevices()
+        }
+        .onChange(of: photo) {
+            guard let photo else { return }
+            Task { await upload(photo) }
+        }
+    }
+
+    private func upload(_ item: PhotosPickerItem) async {
+        guard let api = model.api else { return }
+        photoBusy = true
+        problem = nil
+        defer { photoBusy = false; photo = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self), let picture = UIImage(data: data), let jpeg = picture.squareJPEG(side: 1024) else {
+            problem = "That photo couldn't be opened. Choose another one."
+            return
+        }
+        do {
+            model.renamed(try await Profile(api: api).setPhoto(jpeg))
+        } catch let photoProblem as Profile.PhotoProblem {
+            problem = photoProblem.message
+        } catch {
+            problem = "Your photo didn't save. Try again."
+            model.handle(error)
+        }
+    }
+
+    private func removePhoto() async {
+        guard let api = model.api else { return }
+        photoBusy = true
+        problem = nil
+        defer { photoBusy = false }
+        do {
+            model.renamed(try await Profile(api: api).removePhoto())
+        } catch {
+            problem = "Your photo is still there. Try again."
+            model.handle(error)
         }
     }
 
@@ -332,5 +398,21 @@ struct PasswordSheet: View {
             .padding(.horizontal, 16)
             .frame(minHeight: 48)
             .background(Capsule().fill(Theme.ground))
+    }
+}
+
+extension UIImage {
+    func squareJPEG(side: CGFloat) -> Data? {
+        let edge = min(size.width, size.height)
+        guard edge > 0 else { return nil }
+        let target = min(side, edge)
+        let scale = target / edge
+        let drawn = CGSize(width: size.width * scale, height: size.height * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format).image { _ in
+            draw(in: CGRect(x: (target - drawn.width) / 2, y: (target - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }
+        return image.jpegData(compressionQuality: 0.85)
     }
 }

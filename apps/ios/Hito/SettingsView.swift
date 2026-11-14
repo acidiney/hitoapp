@@ -30,7 +30,7 @@ struct SettingsView: View {
     private var sections: [(page: SettingsPage, title: String, detail: String)] {
         let admin: Bool = if case let .signedIn(_, user) = model.step { user.admin } else { false }
         return [
-            (.profile, "Profile", "Name, password, devices"),
+            (.profile, "Profile", "Name, photo, password, devices"),
             (.privacy, "Privacy & lock", "PIN, history, what Hito sends out"),
             (.music, "Music", admin ? "Folders and libraries" : "Libraries you can listen to"),
             (.playback, "Playback", "Source order"),
@@ -65,11 +65,7 @@ struct SettingsView: View {
 
     private func account(_ user: User) -> some View {
         HStack(spacing: 14) {
-            Text(String((user.displayName ?? user.username).prefix(1)).uppercased())
-                .font(Theme.playing)
-                .frame(width: 48, height: 48)
-                .background(Circle().fill(Theme.tile))
-                .accessibilityHidden(true)
+            AccountPicture(user: user, size: 48, fill: Theme.tile, font: Theme.playing)
             VStack(alignment: .leading, spacing: 0) {
                 Text(user.displayName ?? user.username).font(Theme.bodyStrong)
                 Text("\(user.username) · \(user.admin ? "Administrator" : "Member")").font(Theme.small).foregroundStyle(Theme.quiet)

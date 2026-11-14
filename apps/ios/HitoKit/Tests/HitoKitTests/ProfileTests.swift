@@ -35,6 +35,31 @@ import Testing
         #expect(fake.requests.first?.object?["display_name"] is NSNull)
     }
 
+    @Test func aPhotoIsSentAsItsBytesAndComesBackVersioned() async throws {
+        let fake = FakeServer(routes: ["PUT /api/v1/account/avatar": .json(200, #"{"id":"u1","username":"tester","display_name":null,"admin":true,"avatar_version":"v7"}"#)])
+        let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let user = try await Profile(api: api(fake)).setPhoto(bytes)
+        #expect(user.avatarVersion == "v7")
+        #expect(fake.requests.first?.body == bytes)
+        #expect(fake.requests.first?.header("content-type") == "application/octet-stream")
+        #expect(fake.requests.first?.header("x-hito-request") == "1")
+        #expect(Profile.photoPath(of: user) == ["api", "v1", "accounts", "u1", "avatar"])
+    }
+
+    @Test func aPhotoThatIsTooBigOrNotAPictureSaysSo() async throws {
+        let fake = FakeServer(routes: ["PUT /api/v1/account/avatar": .json(413, #"{"error":"too large"}"#)])
+        await #expect(throws: Profile.PhotoProblem.tooBig) { try await Profile(api: api(fake)).setPhoto(Data([1])) }
+        let other = FakeServer(routes: ["PUT /api/v1/account/avatar": .json(422, #"{"error":"unsupported"}"#)])
+        await #expect(throws: Profile.PhotoProblem.notAPicture) { try await Profile(api: api(other)).setPhoto(Data([1])) }
+        #expect(Profile.PhotoProblem.tooBig.message == "That photo is over 2 MB. Choose a smaller one.")
+    }
+
+    @Test func removingThePhotoClearsItsVersion() async throws {
+        let fake = FakeServer(routes: ["DELETE /api/v1/account/avatar": .json(200, #"{"id":"u1","username":"tester","display_name":null,"admin":true,"avatar_version":null}"#)])
+        let user = try await Profile(api: api(fake)).removePhoto()
+        #expect(user.avatarVersion == nil)
+    }
+
     @Test func theSourceOrderMovesAndSavesWithItsRevision() async throws {
         let order = #"{"revision":4,"fallback":true,"entries":[{"kind":"local_files"},{"kind":"saved_copies"},{"kind":"provider","installation_id":"i1"}]}"#
         let fake = FakeServer(routes: ["GET /api/v1/source-preferences": .json(200, order), "PUT /api/v1/source-preferences": .json(200, order)])

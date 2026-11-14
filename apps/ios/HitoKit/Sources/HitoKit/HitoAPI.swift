@@ -56,6 +56,16 @@ public struct HitoAPI: Sendable {
         try await change("DELETE", path, body: body, as: type)
     }
 
+    func upload<Value: Decodable>(_ path: [String], bytes: Data, as type: Value.Type) async throws -> Value {
+        var request = request(path)
+        request.httpMethod = "PUT"
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = bytes
+        return try await send(request, as: type)
+    }
+
     private func change<Body: Encodable, Value: Decodable>(_ method: String, _ path: [String], body: Body, as type: Value.Type) async throws -> Value {
         var request = request(path)
         request.httpMethod = method

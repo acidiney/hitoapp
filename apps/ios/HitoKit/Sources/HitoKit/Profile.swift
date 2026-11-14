@@ -47,6 +47,36 @@ public struct Profile: Sendable {
         _ = try await api.delete(["api", "v1", "account", "sessions", id], as: Nothing.self)
     }
 
+    public enum PhotoProblem: Error, Equatable {
+        case tooBig
+        case notAPicture
+
+        public var message: String {
+            switch self {
+            case .tooBig: "That photo is over 2 MB. Choose a smaller one."
+            case .notAPicture: "Hito can use a JPEG, PNG or WebP photo. Choose another one."
+            }
+        }
+    }
+
+    public static func photoPath(of user: User) -> [String] {
+        ["api", "v1", "accounts", user.id, "avatar"]
+    }
+
+    public func setPhoto(_ bytes: Data) async throws -> User {
+        do {
+            return try await api.upload(["api", "v1", "account", "avatar"], bytes: bytes, as: User.self)
+        } catch HitoAPI.Problem.refused(413) {
+            throw PhotoProblem.tooBig
+        } catch HitoAPI.Problem.refused(422) {
+            throw PhotoProblem.notAPicture
+        }
+    }
+
+    public func removePhoto() async throws -> User {
+        try await api.delete(["api", "v1", "account", "avatar"], as: User.self)
+    }
+
     public func rename(_ name: String) async throws -> User {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return try await api.put(["api", "v1", "account", "display-name"], body: Rename(displayName: trimmed.isEmpty ? nil : trimmed), as: User.self)
