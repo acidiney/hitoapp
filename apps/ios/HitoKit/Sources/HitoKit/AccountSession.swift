@@ -6,6 +6,13 @@ public struct User: Codable, Equatable, Sendable {
     public let admin: Bool
     public let displayName: String?
 
+    public init(id: String, username: String, admin: Bool, displayName: String?) {
+        self.id = id
+        self.username = username
+        self.admin = admin
+        self.displayName = displayName
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, username, admin
         case displayName = "display_name"
@@ -17,8 +24,27 @@ public struct SignedIn: Codable, Equatable, Sendable {
     public let user: User
 }
 
+public struct LockStatus: Codable, Equatable, Sendable {
+    public let pinEnabled: Bool
+    public let idleMinutes: Int
+    public let locked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case pinEnabled = "pin_enabled"
+        case idleMinutes = "idle_minutes"
+        case locked
+    }
+}
+
+public enum UnlockResult: Equatable, Sendable {
+    case unlocked
+    case wrongPin
+    case signedOut
+}
+
 public struct AccountSession: Sendable {
     public enum Problem: Error, Equatable {
+        case locked
         case alreadySetUp
         case wrongCredentials
         case tooManyAttempts(String)
@@ -53,6 +79,36 @@ public struct AccountSession: Sendable {
         switch response.statusCode {
         case 200: return try decode(User.self, data, response)
         case 401, 403: throw Problem.signedOut
+        case 423: throw Problem.locked
+        default: throw Problem.unexpected(response.statusCode)
+        }
+    }
+
+    public func lockStatus(at address: ServerAddress, token: String) async throws -> LockStatus {
+        var request = URLRequest(url: address.url("api/v1/account/lock"), timeoutInterval: 15)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await load(request, at: address)
+        switch response.statusCode {
+        case 200: return try decode(LockStatus.self, data, response)
+        case 401, 403: throw Problem.signedOut
+        default: throw Problem.unexpected(response.statusCode)
+        }
+    }
+
+    public func unlock(at address: ServerAddress, token: String, pin: String) async throws -> UnlockResult {
+        var request = URLRequest(url: address.url("api/v1/account/unlock"), timeoutInterval: 15)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONEncoder().encode(["pin": pin])
+        let (data, response) = try await load(request, at: address)
+        switch response.statusCode {
+        case 200: return try decode(LockStatus.self, data, response).locked ? .wrongPin : .unlocked
+        case 401, 403: return .signedOut
+        case 400, 422: return .wrongPin
         default: throw Problem.unexpected(response.statusCode)
         }
     }
