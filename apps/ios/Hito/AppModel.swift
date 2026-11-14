@@ -140,8 +140,15 @@ final class AppModel {
     func checkLock() async {
         guard case let .signedIn(address, user) = step, let token = store.token(for: address) else { return }
         let current = generation
-        if let status = try? await account.lockStatus(at: address, token: token), status.locked,
-           current == generation, case .signedIn(address, _) = step {
+        let status: LockStatus?
+        do {
+            status = try await account.recordActivity(at: address, token: token)
+        } catch AccountSession.Problem.locked {
+            status = LockStatus(pinEnabled: true, idleMinutes: 0, locked: true)
+        } catch {
+            status = nil
+        }
+        if let status, status.locked, current == generation, case .signedIn(address, _) = step {
             step = .locked(address, user)
         }
     }

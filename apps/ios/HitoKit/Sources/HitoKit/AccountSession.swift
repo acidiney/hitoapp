@@ -29,6 +29,12 @@ public struct LockStatus: Codable, Equatable, Sendable {
     public let idleMinutes: Int
     public let locked: Bool
 
+    public init(pinEnabled: Bool, idleMinutes: Int, locked: Bool) {
+        self.pinEnabled = pinEnabled
+        self.idleMinutes = idleMinutes
+        self.locked = locked
+    }
+
     enum CodingKeys: String, CodingKey {
         case pinEnabled = "pin_enabled"
         case idleMinutes = "idle_minutes"
@@ -92,6 +98,21 @@ public struct AccountSession: Sendable {
         switch response.statusCode {
         case 200: return try decode(LockStatus.self, data, response)
         case 401, 403: throw Problem.signedOut
+        default: throw Problem.unexpected(response.statusCode)
+        }
+    }
+
+    public func recordActivity(at address: ServerAddress, token: String) async throws -> LockStatus {
+        var request = URLRequest(url: address.url("api/v1/account/activity"), timeoutInterval: 15)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("1", forHTTPHeaderField: "x-hito-request")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await load(request, at: address)
+        switch response.statusCode {
+        case 200: return try decode(LockStatus.self, data, response)
+        case 401, 403: throw Problem.signedOut
+        case 423: throw Problem.locked
         default: throw Problem.unexpected(response.statusCode)
         }
     }
