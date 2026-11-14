@@ -189,7 +189,7 @@ impl Converter {
         self.output
     }
 
-    #[cfg(feature = "test-support")]
+    #[cfg(all(feature = "test-support", feature = "device"))]
     pub(crate) fn conversion_service(&self) -> ConversionService {
         self.stage
             .as_ref()
