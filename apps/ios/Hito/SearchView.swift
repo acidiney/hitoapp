@@ -156,7 +156,7 @@ struct SearchView: View {
                     ZStack { Theme.tile }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(result.title).font(Theme.bodyStrong).lineLimit(1)
-                        Text("\(result.artist) · not in your library").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+                        Text(([result.artist] + (result.durationMs.map { [Duration.milliseconds($0).clock] } ?? [])).joined(separator: " · ")).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
                     }
                     Spacer(minLength: 4)
                     if plugin.capabilities.contains("sources") {
