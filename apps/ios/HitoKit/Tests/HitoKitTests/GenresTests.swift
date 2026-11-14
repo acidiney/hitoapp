@@ -27,4 +27,17 @@ struct GenresTests {
         #expect(detail.tracks.map(\.id) == ["r1"])
         #expect(detail.showing == "Showing 1 of 5 tracks.")
     }
+
+    @Test func genreTracksPageWithTheServersCursor() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/genres/tracks": .sequence([
+            .json(200, #"{"items":[\#(recording)],"next_after":"c1"}"#),
+            .json(200, #"{"items":[],"next_after":null}"#),
+        ])])
+        let first = try await genres(fake).tracks("r&b soul", after: nil)
+        #expect(first.items.map(\.id) == ["r1"])
+        #expect(first.next == "c1")
+        let last = try await genres(fake).tracks("r&b soul", after: "c1")
+        #expect(last.items.isEmpty && last.next == nil)
+        #expect(fake.requests.map(\.query) == ["key=r%26b%20soul&limit=100", "key=r%26b%20soul&limit=100&after=c1"])
+    }
 }

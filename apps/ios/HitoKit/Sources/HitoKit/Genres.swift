@@ -67,6 +67,28 @@ public struct Genres: Sendable {
         try await api.get(["api", "v1", "genres"], as: [Genre].self)
     }
 
+    public struct TracksPage: Equatable, Sendable {
+        public let items: [Track]
+        public let next: String?
+    }
+
+    struct WireTracks: Decodable {
+        let items: [Track]
+        let nextAfter: String?
+
+        enum CodingKeys: String, CodingKey {
+            case items
+            case nextAfter = "next_after"
+        }
+    }
+
+    public func tracks(_ key: String, after: String?) async throws -> TracksPage {
+        var query = [URLQueryItem(name: "key", value: key), URLQueryItem(name: "limit", value: "100")]
+        if let after { query.append(URLQueryItem(name: "after", value: after)) }
+        let page = try await api.get(["api", "v1", "genres", "tracks"], query: query, as: WireTracks.self)
+        return TracksPage(items: page.items, next: page.nextAfter)
+    }
+
     public func detail(_ key: String) async throws -> GenreDetail {
         try await api.get(["api", "v1", "genres", "detail"], query: [URLQueryItem(name: "key", value: key)], as: GenreDetail.self)
     }

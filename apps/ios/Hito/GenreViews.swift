@@ -53,6 +53,12 @@ struct GenreView: View {
     let genre: Genre
     @State private var detail: GenreDetail?
     @State private var failed = false
+    @State private var paged: [Track]?
+    @State private var cursor: String?
+    @State private var loadingMore = false
+    @State private var moreFailed = false
+
+    private func shown(_ detail: GenreDetail) -> [Track] { paged ?? detail.tracks }
 
     var body: some View {
         ScrollView {
@@ -69,11 +75,12 @@ struct GenreView: View {
                     }
                     .font(Theme.small)
                 } else if let detail {
-                    if !detail.tracks.isEmpty {
+                    let tracks = shown(detail)
+                    if !tracks.isEmpty {
                         HStack(spacing: 8) {
-                            PlayAllButton(label: "Play") { model.player?.play(detail.tracks, at: 0, from: genre.title) }
+                            PlayAllButton(label: "Play") { model.player?.play(tracks, at: 0, from: genre.title) }
                             OutlineButton(title: "Shuffle") {
-                                let mixed = detail.tracks.shuffled()
+                                let mixed = tracks.shuffled()
                                 model.player?.play(mixed, at: 0, from: genre.title)
                             }
                         }
@@ -92,14 +99,14 @@ struct GenreView: View {
                         .padding(.trailing, -16)
                     }
                     Text("Tracks").font(Theme.section).padding(.top, 8).accessibilityAddTraits(.isHeader)
-                    if let showing = detail.showing {
-                        Text(showing).font(Theme.small).foregroundStyle(Theme.soft)
+                    if genre.trackCount > tracks.count {
+                        Text("Showing \(tracks.count) of \(genre.shortCount) tracks.").font(Theme.small).foregroundStyle(Theme.soft)
                     }
                     VStack(spacing: 0) {
-                        ForEach(Array(detail.tracks.enumerated()), id: \.element.id) { index, track in
+                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             HStack(spacing: 0) {
                                 Button {
-                                    model.player?.play(detail.tracks, at: index, from: genre.title)
+                                    model.player?.play(tracks, at: index, from: genre.title)
                                 } label: {
                                     LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
                                 }
@@ -112,6 +119,13 @@ struct GenreView: View {
                         }
                     }
                     .padding(.trailing, -8)
+                    if genre.trackCount > tracks.count && (paged == nil || cursor != nil) {
+                        if moreFailed {
+                            Text("More tracks didn't load.").font(Theme.small).foregroundStyle(Theme.soft)
+                        }
+                        TextAction(title: loadingMore ? "Loading…" : moreFailed ? "Try again" : "Load more tracks") { Task { await loadMore() } }
+                            .disabled(loadingMore)
+                    }
                 } else {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
@@ -122,6 +136,23 @@ struct GenreView: View {
         .scrollIndicators(.hidden)
         .refreshable { await load() }
         .task { if detail == nil { await load() } }
+    }
+
+    private func loadMore() async {
+        guard let api = model.api else { return }
+        loadingMore = true
+        moreFailed = false
+        defer { loadingMore = false }
+        do {
+            let page = try await Genres(api: api).tracks(genre.key, after: paged == nil ? nil : cursor)
+            let known = Set((paged ?? []).map(\.id))
+            paged = (paged ?? []) + page.items.filter { !known.contains($0.id) }
+            cursor = page.next
+        } catch is CancellationError {
+        } catch {
+            moreFailed = true
+            model.handle(error)
+        }
     }
 
     private func load() async {
