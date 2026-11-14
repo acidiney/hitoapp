@@ -37,7 +37,6 @@ struct Screen<Content: View>: View {
             .frame(maxWidth: 440, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .scrollDismissesKeyboard(.interactively)
         .background(Theme.ground.ignoresSafeArea())
         .foregroundStyle(Theme.text)
     }
