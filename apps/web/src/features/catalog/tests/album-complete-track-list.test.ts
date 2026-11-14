@@ -128,7 +128,10 @@ test("the complete track list is explicit, ordered, and distinguishes library tr
   ).toEqual([]);
 
   const region = await chooseEdition();
-  expect(JSON.parse(fetch.mock.calls.at(-1)![1]!.body as string)).toEqual({
+  const trackListRead = fetch.mock.calls.find(([path]) =>
+    String(path).endsWith("/edition-track-list"),
+  );
+  expect(JSON.parse(trackListRead![1]!.body as string)).toEqual({
     recording_id: firstLibraryRecording.id,
     association_id: artistAssociation.id,
     release_group_id: editionGroup.id,
