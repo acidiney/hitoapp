@@ -165,6 +165,7 @@ async fn collect_inner(
                         || current_bytes + encoded.len() + 512 > MAX_PAGE_BYTES)
                 {
                     current.next_ordinal = Some(current.ordinal + 1);
+                    #[cfg(test)]
                     let previous_bytes = bytes;
                     finish(&current, &mut pages, &mut bytes)?;
                     #[cfg(test)]
@@ -303,7 +304,7 @@ async fn sources(
     let mut facts: Vec<Vec<LocalSourceFact>> = (0..rows.len()).map(|_| Vec::new()).collect();
     #[cfg(test)]
     diagnostic.start(Phase::SourceFactAssembly);
-    let assembly = (|| {
+    let assembly: Result<()> = (|| {
         for row in sources {
             let ordinal = usize::try_from(row.ordinal).map_err(|_| limit())?;
             facts
