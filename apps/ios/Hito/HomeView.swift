@@ -220,7 +220,9 @@ struct AlbumCard: View {
             Cover(path: album.artworkPath, size: width, radius: 10)
             VStack(alignment: .leading, spacing: 0) {
                 Text(album.title).font(Theme.small).lineLimit(2)
-                Text(album.artist ?? "Various artists").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(2)
+                if let credit = album.credit {
+                    Text(credit).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(2)
+                }
             }
         }
         .frame(width: width)

@@ -76,6 +76,22 @@ import Testing
         #expect(fake.requests.first?.query == "offset=0&limit=50&sort=recent")
     }
 
+    @Test func anAlbumIsCreditedLikeTheWeb() async throws {
+        func release(_ artist: String, _ inferred: String) -> String {
+            #"{"id":"a1","library_id":"l1","title":"T","artist":\#(artist),"artist_id":null,"track_count":1,"duration_ms":1,"inferred_artist":\#(inferred),"year":null}"#
+        }
+        let rows = [
+            release(#""Own Band""#, #"{"kind":"named","name":"Other"}"#),
+            release("null", #"{"kind":"named","name":"Inferred Band"}"#),
+            release("null", #"{"kind":"various"}"#),
+            release("null", "null"),
+            release(#""  ""#, "null"),
+        ].joined(separator: ",")
+        let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[\#(rows)],"total":5,"offset":0,"limit":50}"#)])
+        let page = try await library(fake).albums(offset: 0)
+        #expect(page.items.map(\.credit) == ["Own Band", "Inferred Band", "Various artists", nil, nil])
+    }
+
     @Test func anAlbumComesWithItsTracksInOrder() async throws {
         let release = #"{"id":"a1","library_id":"l1","title":"Fixture Album","artist":null,"artist_id":null,"track_count":2,"duration_ms":500000,"inferred_artist":null,"year":null}"#
         let second = track.replacingOccurrences(of: #""id":"r1""#, with: #""id":"r2""#).dropLast() + #","entry_id":"e2","track_number":2,"disc_number":1}"#

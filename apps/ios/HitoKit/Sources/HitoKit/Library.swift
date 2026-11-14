@@ -45,14 +45,16 @@ public struct Album: Decodable, Equatable, Hashable, Identifiable, Sendable {
     public let trackCount: Int
     public let year: Int?
     public let durationMs: Int?
+    public let credit: String?
 
-    public init(id: String, title: String, artist: String?, trackCount: Int, year: Int?, durationMs: Int?) {
+    public init(id: String, title: String, artist: String?, trackCount: Int, year: Int?, durationMs: Int?, credit: String? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
         self.trackCount = trackCount
         self.year = year
         self.durationMs = durationMs
+        self.credit = credit ?? Self.own(artist)
     }
 
     public var artworkPath: [String] { ["api", "v1", "releases", id, "artwork"] }
@@ -61,6 +63,40 @@ public struct Album: Decodable, Equatable, Hashable, Identifiable, Sendable {
         case id, title, artist, year
         case trackCount = "track_count"
         case durationMs = "duration_ms"
+        case inferredArtist = "inferred_artist"
+    }
+
+    struct Inferred: Decodable {
+        let kind: String
+        let name: String?
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let artist = try values.decodeIfPresent(String.self, forKey: .artist)
+        let inferred = try? values.decodeIfPresent(Inferred.self, forKey: .inferredArtist)
+        self.init(
+            id: try values.decode(String.self, forKey: .id),
+            title: try values.decode(String.self, forKey: .title),
+            artist: artist,
+            trackCount: try values.decode(Int.self, forKey: .trackCount),
+            year: try values.decodeIfPresent(Int.self, forKey: .year),
+            durationMs: try values.decodeIfPresent(Int.self, forKey: .durationMs),
+            credit: Self.own(artist) ?? Self.credit(inferred)
+        )
+    }
+
+    static func own(_ artist: String?) -> String? {
+        guard let trimmed = artist?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    static func credit(_ inferred: Inferred?) -> String? {
+        switch inferred?.kind {
+        case "named": inferred?.name
+        case "various": "Various artists"
+        default: nil
+        }
     }
 }
 

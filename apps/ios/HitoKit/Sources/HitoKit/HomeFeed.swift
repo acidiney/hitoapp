@@ -58,19 +58,31 @@ public struct HomeFeed: Sendable {
         let id: String
         let title: String
         let artist: String?
+        let inferredArtist: Album.Inferred?
+
+        var credit: String? { Album.own(artist) ?? Album.credit(inferredArtist) }
+
+        enum CodingKeys: String, CodingKey {
+            case id, title, artist
+            case inferredArtist = "inferred_artist"
+        }
     }
 
     struct Unheard: Decodable {
         let releaseId: String
         let title: String
         let artist: String?
+        let inferredArtist: Album.Inferred?
         let played: Int
         let remaining: Int
         let tracks: [Track]
 
+        var credit: String? { Album.own(artist) ?? Album.credit(inferredArtist) }
+
         enum CodingKeys: String, CodingKey {
             case title, artist, played, remaining, tracks
             case releaseId = "release_id"
+            case inferredArtist = "inferred_artist"
         }
     }
 
@@ -101,8 +113,8 @@ public struct HomeFeed: Sendable {
         }
         return HomeSummary(
             likedCount: body.likedCount,
-            recentAlbums: body.recentAlbums.map { Album(id: $0.id, title: $0.title, artist: $0.artist, trackCount: 0, year: nil, durationMs: nil) },
-            unheard: body.unheard.map { UnheardAlbum(id: $0.releaseId, title: $0.title, artist: $0.artist, played: $0.played, remaining: $0.remaining, tracks: $0.tracks) }
+            recentAlbums: body.recentAlbums.map { Album(id: $0.id, title: $0.title, artist: $0.credit, trackCount: 0, year: nil, durationMs: nil) },
+            unheard: body.unheard.map { UnheardAlbum(id: $0.releaseId, title: $0.title, artist: $0.credit, played: $0.played, remaining: $0.remaining, tracks: $0.tracks) }
         )
     }
 }
