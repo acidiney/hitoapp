@@ -353,7 +353,8 @@ fn source_batch_query(
     host: &HostDeviceId,
 ) -> QueryBuilder<'static, Sqlite> {
     let mut query = wanted(rows);
-    query.push(", stats AS MATERIALIZED (
+    query.push(
+        ", stats AS MATERIALIZED (
         SELECT wanted.ordinal AS ordinal,count(*) AS source_count,
             COALESCE(sum(length(CAST(s.id AS BLOB))
                 +COALESCE(length(CAST(m.observation_id AS BLOB)),0)
@@ -370,7 +371,8 @@ fn source_batch_query(
         GROUP BY wanted.ordinal
     ), admission AS MATERIALIZED (
         SELECT CASE WHEN (SELECT count(*) FROM stats)=(SELECT count(*) FROM wanted)
-            AND NOT EXISTS (SELECT 1 FROM stats WHERE source_count>");
+            AND NOT EXISTS (SELECT 1 FROM stats WHERE source_count>",
+    );
     query
         .push_bind(MAX_SOURCES)
         .push(" OR source_bytes>")
