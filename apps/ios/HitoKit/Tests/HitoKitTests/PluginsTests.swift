@@ -35,7 +35,7 @@ import Testing
         let installation = #"{"id":"i1","service_id":"s1","revision":2,"checked_at":5,"credential_set":false,"health":{"state":"ok"},"manifest":{"id":"yt","name":"YouTube","protocol_version":1,"capabilities":["search"]}}"#
         let fake = FakeServer(routes: ["POST /api/v1/plugins/i1/refresh": .json(200, #"{"kind":"updated","installation":\#(installation)}"#)])
         let result = try await plugins(fake).check("i1", revision: 1)
-        #expect(result == .updated(revision: 2))
+        #expect(result == .updated(PluginConnection(id: "i1", name: "YouTube", capabilities: ["search"], health: .ok, revision: 2, checkedAt: Date(timeIntervalSince1970: 5))))
         let body = try #require(fake.requests.first?.object)
         #expect(body["revision"] as? Int == 1)
         #expect((body["credential"] as? [String: String]) == ["action": "keep"])

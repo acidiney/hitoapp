@@ -4,15 +4,17 @@ import SwiftUI
 struct PluginDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    let connection: PluginConnection
-    @State private var revision: Int?
-    @State private var checkedAt: Date?
+    @State private var connection: PluginConnection
     @State private var review: (digest: String, wants: [String])?
     @State private var working = false
     @State private var note: String?
     @State private var problem: String?
     @State private var confirmingRemove = false
     @State private var confirmingReview = false
+
+    init(connection: PluginConnection) {
+        _connection = State(initialValue: connection)
+    }
 
     private static let what: [String: String] = [
         "Search": "Finds music beyond your library, only when you ask.",
@@ -28,6 +30,7 @@ struct PluginDetailView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 PluginTile(name: connection.name, size: 56)
@@ -59,7 +62,7 @@ struct PluginDetailView: View {
                             Text(review.wants.isEmpty ? "New permissions" : review.wants.joined(separator: ", ")).font(Theme.bodyStrong)
                             HStack(spacing: 6) {
                                 Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 9, height: 9)
-                                Text("Wants to add · stays off until you accept").font(Theme.smallStrong).foregroundStyle(Theme.warning)
+                                Text("Wants to add · off until you accept").font(Theme.smallStrong).foregroundStyle(Theme.warning)
                             }
                         }
                         Spacer(minLength: 0)
@@ -88,7 +91,12 @@ struct PluginDetailView: View {
             if let note {
                 Text(note).font(Theme.small).foregroundStyle(Theme.soft)
             }
-            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 8) {
                 Button { Task { await check() } } label: {
                     Text(working ? "Checking…" : "Check connection")
@@ -114,9 +122,11 @@ struct PluginDetailView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+            .background(Theme.ground)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 28)
         .confirmationDialog("Disconnect \(connection.name)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button("Disconnect", role: .destructive) { Task { await remove() } }
         } message: {
@@ -125,14 +135,14 @@ struct PluginDetailView: View {
         .confirmationDialog("Let \(connection.name) add \(review?.wants.joined(separator: ", ") ?? "new permissions")?", isPresented: $confirmingReview, titleVisibility: .visible) {
             Button("Accept") { Task { await check(accept: review?.digest) } }
         } message: {
-            Text("It stays off until you accept. You can disconnect the plugin at any time.")
+            Text("Hito starts using \(connection.name) for this as soon as you accept. You can disconnect the plugin at any time.")
         }
     }
 
     private var status: String {
         switch connection.health {
         case .ok:
-            if let checked = checkedAt ?? connection.checkedAt {
+            if let checked = connection.checkedAt {
                 return "Connected · checked \(checked.formatted(.relative(presentation: .named)))"
             }
             return "Connected"
@@ -149,12 +159,11 @@ struct PluginDetailView: View {
         note = nil
         defer { working = false }
         do {
-            switch try await Plugins(api: api).check(connection.id, revision: revision ?? connection.revision, had: connection.capabilities, accept: digest) {
+            switch try await Plugins(api: api).check(connection.id, revision: connection.revision, had: connection.capabilities, accept: digest) {
             case let .updated(saved):
                 review = nil
-                checkedAt = .now
+                connection = saved
                 note = digest == nil ? "Connection checked." : "Accepted. \(connection.name) can use it now."
-                revision = saved
             case let .review(digest, wants):
                 review = (digest, wants)
             }

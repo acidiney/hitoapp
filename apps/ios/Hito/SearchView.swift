@@ -11,6 +11,7 @@ struct SearchView: View {
     @State private var remote: [PluginResult] = []
     @State private var remoteState = RemoteState.idle
     @State private var adopting: String?
+    @State private var adoptNote: String?
     @FocusState private var focused: Bool
 
     enum RemoteState: Equatable {
@@ -147,6 +148,9 @@ struct SearchView: View {
                     Text("Nothing on \(plugin.name) matches “\(query)”.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
                 }
             }
+            if let adoptNote {
+                Text(adoptNote).font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 6)
+            }
             ForEach(remote) { result in
                 HStack(spacing: 12) {
                     ZStack { Theme.tile }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
@@ -174,13 +178,14 @@ struct SearchView: View {
 
     private func searchRemote() async {
         remote = []
+        adoptNote = nil
         guard let scope, !query.isEmpty, let api = model.api else {
             remoteState = .idle
             return
         }
+        remoteState = .searching
         try? await Task.sleep(for: .milliseconds(350))
         guard !Task.isCancelled else { return }
-        remoteState = .searching
         do {
             let found = try await Plugins(api: api).search(scope.id, revision: scope.revision, query: query)
             guard !Task.isCancelled else { return }
@@ -201,7 +206,12 @@ struct SearchView: View {
         do {
             let track = try await Plugins(api: api).adopt(plugin.id, revision: plugin.revision, result: result.id)
             remote.removeAll { $0.id == result.id }
-            if play { model.player?.play([track], at: 0, from: "Search") }
+            if play && track.available {
+                model.player?.play([track], at: 0, from: "Search")
+                adoptNote = nil
+            } else {
+                adoptNote = play ? "No source is ready to play \(track.title) yet. It was added to your library." : "Added \(track.title) to your library."
+            }
         } catch {
             model.handle(error)
         }

@@ -104,7 +104,7 @@ public struct Plugins: Sendable {
     }
 
     public enum CheckResult: Equatable, Sendable {
-        case updated(revision: Int)
+        case updated(PluginConnection)
         case review(digest: String, wants: [String])
     }
 
@@ -163,7 +163,8 @@ public struct Plugins: Sendable {
     public func check(_ id: String, revision: Int, had: [String] = [], accept digest: String? = nil) async throws -> CheckResult {
         let result = try await api.post(["api", "v1", "plugins", id, "refresh"], body: Refresh(revision: revision, acceptManifestDigest: digest), as: Refreshed.self)
         guard result.kind == "review_required", let digest = result.digest, let manifest = result.manifest else {
-            return .updated(revision: result.installation?.revision ?? revision)
+            guard let installation = result.installation else { throw HitoAPI.Problem.unexpected(200) }
+            return .updated(installation.connection)
         }
         let wants = PluginState.rows.filter { manifest.capabilities.contains($0.capability) && !had.contains($0.capability) }.map(\.name)
         return .review(digest: digest, wants: wants)

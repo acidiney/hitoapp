@@ -132,6 +132,13 @@ struct RecentlyAdded: View {
                     .foregroundStyle(Theme.soft)
             } else if feed.failed && feed.items.isEmpty {
                 FeedFooter(feed: feed)
+            } else if feed.items.isEmpty {
+                HStack(spacing: 12) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 10).fill(Theme.field).frame(width: 136, height: 136)
+                    }
+                }
+                .accessibilityLabel("Loading recently added albums")
             } else {
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: 12) {
