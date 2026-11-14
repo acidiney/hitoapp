@@ -98,7 +98,10 @@ struct LibraryView: View {
             }
         }
         .onChange(of: selected == nil) { if selected != nil, playlists == nil { Task { await loadPlaylists() } } }
-        .onChange(of: section) { selected = nil }
+        .onChange(of: section) {
+            selected = nil
+            if section == .playlists { Task { await loadPlaylists() } }
+        }
         .fullScreenCover(isPresented: $importing) {
             ImportSheet { id in Task { await loadPlaylists(); opened = playlists?.first { $0.id == id } } }
                 .presentationBackground(.clear)
@@ -394,17 +397,18 @@ struct TrackListView: View {
 
 struct PlayAllButton: View {
     let label: String
+    var stretch = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Icon("play", size: 16)
-                Text(label).font(Theme.bodyStrong)
+                Text(label).font(Theme.bodyStrong).lineLimit(1).minimumScaleFactor(0.8)
             }
             .foregroundStyle(Theme.onAccent)
-            .padding(.horizontal, 22)
-            .frame(minHeight: 48)
+            .padding(.horizontal, stretch ? 14 : 22)
+            .frame(maxWidth: stretch ? .infinity : nil, minHeight: 48)
             .background(Capsule().fill(Theme.accent))
         }
         .buttonStyle(.plain)

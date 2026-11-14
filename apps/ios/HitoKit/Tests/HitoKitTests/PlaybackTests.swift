@@ -130,5 +130,19 @@ import Testing
         let local = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/resolve": .json(404, #"{"error":"Resource not found"}"#)])
         #expect(try await playback(local).find("r1", request: request) == .notFound("No service knows this track"))
     }
+
+    @Test func findingManyTracksReportsEachOneWithItsOwnRequest() async throws {
+        let server = FakeServer(routes: [
+            "POST /api/v1/recordings/r1/sources/resolve": .json(200, #"{"outcome":"ready","sources":[]}"#),
+            "POST /api/v1/recordings/r2/sources/resolve": .json(404, #"{"error":"Resource not found"}"#),
+        ])
+        var seen: [String: Playback.Finding] = [:]
+        let found = try await playback(server).find(["r1", "r2"]) { seen[$0] = $1 }
+        #expect(found == 1)
+        #expect(seen == ["r1": .found, "r2": .notFound("No service knows this track")])
+        let requests = server.requests.compactMap { $0.json?["request_id"] }
+        #expect(requests.count == 2)
+        #expect(Set(requests).count == 2)
+    }
 }
 

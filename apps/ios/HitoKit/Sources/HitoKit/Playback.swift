@@ -53,6 +53,17 @@ public struct Playback: Sendable {
         }
     }
 
+    public func find(_ recordings: [String], isolation: isolated (any Actor)? = #isolation, each: (String, Finding) -> Void) async throws -> Int {
+        var found = 0
+        for recording in recordings {
+            try Task.checkCancellation()
+            let finding = try await find(recording, request: UUID())
+            if finding == .found { found += 1 }
+            each(recording, finding)
+        }
+        return found
+    }
+
     struct Source: Decodable {
         let id: String
         let label: String

@@ -11,15 +11,19 @@ struct PlaylistView: View {
     @State private var detail: PlaylistDetail?
     @State private var failed = false
     @State private var filter = Filter.all
+    @State private var tracks: [Track] = []
+    @State private var finding: (done: Int, total: Int)?
+    @State private var findNote: String?
+    @State private var search: Task<Void, Never>?
 
-    var tracks: [Track] { detail?.tracks ?? [] }
     var ready: [Track] { tracks.filter(\.isPlayable) }
+    var notReady: [Track] { tracks.filter { !$0.isPlayable } }
 
     var shown: [Track] {
         switch filter {
         case .all: tracks
         case .ready: ready
-        case .notReady: tracks.filter { !$0.isPlayable }
+        case .notReady: notReady
         }
     }
 
@@ -67,6 +71,7 @@ struct PlaylistView: View {
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
+        .onDisappear { search?.cancel() }
     }
 
     private var header: some View {
@@ -82,8 +87,8 @@ struct PlaylistView: View {
                         .font(Theme.title)
                         .lineLimit(3)
                         .accessibilityAddTraits(.isHeader)
-                    if let detail {
-                        Text("\(detail.ready) of \(tracks.count) ready").foregroundStyle(Theme.soft)
+                    if detail != nil {
+                        Text("\(ready.count) of \(tracks.count) ready").foregroundStyle(Theme.soft)
                     }
                 }
             }
@@ -97,17 +102,31 @@ struct PlaylistView: View {
                 .frame(height: 6)
                 .accessibilityHidden(true)
             }
-            if !ready.isEmpty {
+            if !tracks.isEmpty {
                 HStack(spacing: 8) {
-                    PlayAllButton(label: "Play \(ready.count) ready") {
-                        model.player?.play(ready, at: 0, from: playlist.name)
+                    if !ready.isEmpty {
+                        PlayAllButton(label: "Play \(ready.count) ready", stretch: true) {
+                            model.player?.play(ready, at: 0, from: playlist.name)
+                        }
                     }
-                    Menu {
-                        Button("Play next") { ready.reversed().forEach { model.player?.playNext($0) } }
-                    } label: {
-                        Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
+                    if let finding {
+                        OutlineAction(title: "Finding \(min(finding.done + 1, finding.total)) of \(finding.total)…", busy: true) { search?.cancel() }
+                            .accessibilityHint("Stops looking for sources")
+                    } else if !notReady.isEmpty {
+                        OutlineAction(title: "Find \(notReady.count)", busy: false, action: findAll)
+                            .accessibilityLabel("Find sources for \(notReady.count) tracks that aren't ready")
                     }
-                    .accessibilityLabel("More actions")
+                    if !ready.isEmpty {
+                        Menu {
+                            Button("Play next") { ready.reversed().forEach { model.player?.playNext($0) } }
+                        } label: {
+                            Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
+                        }
+                        .accessibilityLabel("More actions")
+                    }
+                }
+                if let findNote {
+                    Text(findNote).font(Theme.small).foregroundStyle(Theme.soft)
                 }
             }
         }
@@ -130,11 +149,62 @@ struct PlaylistView: View {
         guard let api = model.api else { return }
         failed = false
         do {
-            detail = try await Playlists(api: api).detail(playlist.id)
+            let loaded = try await Playlists(api: api).detail(playlist.id)
+            detail = loaded
+            tracks = loaded.tracks
         } catch {
             failed = true
             model.handle(error)
         }
+    }
+
+    private func findAll() {
+        guard let api = model.api else { return }
+        let ids = notReady.map(\.id)
+        findNote = nil
+        finding = (0, ids.count)
+        search = Task {
+            do {
+                let found = try await Playback(api: api).find(ids) { id, result in
+                    if result == .found, let index = tracks.firstIndex(where: { $0.id == id }) {
+                        tracks[index] = tracks[index].readied
+                    }
+                    finding?.done += 1
+                }
+                findNote = found == 0 ? "No sources found. These tracks stay No source." : "Found sources for \(found) of \(ids.count)."
+            } catch is CancellationError {
+                findNote = "Stopped looking. Tracks found so far are ready."
+            } catch {
+                findNote = "The search stopped. Try again."
+                model.handle(error)
+            }
+            finding = nil
+        }
+    }
+}
+
+struct OutlineAction: View {
+    let title: String
+    let busy: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView().tint(Theme.soft).controlSize(.small)
+                } else {
+                    Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 10, height: 10)
+                }
+                Text(title).font(Theme.bodyStrong).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .overlay(Capsule().strokeBorder(Theme.line))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
