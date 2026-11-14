@@ -120,3 +120,45 @@ public struct SourceOrder: Sendable {
         })
     }
 }
+
+public enum PasswordChange {
+    public enum Problem: Error, Equatable {
+        case wrongPassword
+        case tooManyTries
+    }
+
+    static let minimum = 12
+
+    public static func problem(new: String, again: String) -> String? {
+        if new.count < minimum { return "Use a new password of at least \(minimum) characters." }
+        if new != again { return "The new passwords don't match." }
+        return nil
+    }
+}
+
+extension Profile {
+    struct ChangePassword: Encodable {
+        let currentPassword: String
+        let newPassword: String
+
+        enum CodingKeys: String, CodingKey {
+            case currentPassword = "current_password"
+            case newPassword = "new_password"
+        }
+    }
+
+    struct Revoked: Decodable { let revoked: Int }
+
+    public func changePassword(current: String, new: String) async throws -> String {
+        let result: Revoked
+        do {
+            result = try await api.post(["api", "v1", "account", "password"], body: ChangePassword(currentPassword: current, newPassword: new), as: Revoked.self)
+        } catch HitoAPI.Problem.refused(422) {
+            throw PasswordChange.Problem.wrongPassword
+        } catch HitoAPI.Problem.refused(429) {
+            throw PasswordChange.Problem.tooManyTries
+        }
+        if result.revoked == 0 { return "Password changed." }
+        return "Password changed. \(result.revoked) other \(result.revoked == 1 ? "device was" : "devices were") signed out."
+    }
+}

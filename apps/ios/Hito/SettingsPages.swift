@@ -20,6 +20,8 @@ struct ProfileView: View {
     @State private var problem: String?
     @State private var saved = false
     @State private var confirmingSignOut = false
+    @State private var changingPassword = false
+    @State private var passwordNote: String?
 
     var user: User? {
         if case let .signedIn(_, user) = model.step { return user }
@@ -47,7 +49,9 @@ struct ProfileView: View {
                     }
                 }
                 SettingsGroup(title: "Password") {
-                    SettingRow(title: "Change your password", detail: "Do this on the web for now. Other devices sign out when it changes.") { EmptyView() }
+                    SettingRow(title: "Change your password", detail: passwordNote ?? "Other devices sign out when it changes.") {
+                        OutlineButton(title: "Change") { changingPassword = true }
+                    }
                 }
                 SettingsGroup(title: "Devices") {
                     if let devices {
@@ -82,6 +86,23 @@ struct ProfileView: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
+        .sheet(isPresented: $changingPassword) {
+            PasswordSheet { current, new in
+                guard let api = model.api else { return "Sign in again to change your password." }
+                do {
+                    passwordNote = try await Profile(api: api).changePassword(current: current, new: new)
+                    await loadDevices()
+                    return nil
+                } catch PasswordChange.Problem.wrongPassword {
+                    return "The current password isn't right."
+                } catch PasswordChange.Problem.tooManyTries {
+                    return "Too many tries. Wait a few minutes, then try again."
+                } catch {
+                    model.handle(error)
+                    return "Your password didn't change. Try again."
+                }
+            }
+        }
         .task {
             name = user?.displayName ?? ""
             await loadDevices()
@@ -252,5 +273,64 @@ struct AboutView: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
+    }
+}
+
+struct PasswordSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let save: (String, String) async -> String?
+    @State private var current = ""
+    @State private var new = ""
+    @State private var again = ""
+    @State private var problem: String?
+    @State private var saving = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Change your password").font(Theme.playing).accessibilityAddTraits(.isHeader)
+            Text("At least 12 characters. A long phrase is easier to remember. Other devices sign out when it changes.")
+                .font(Theme.small)
+                .foregroundStyle(Theme.soft)
+            field("Current password", $current, .password)
+            field("New password", $new, .newPassword)
+            field("New password again", $again, .newPassword)
+            if let problem {
+                Text(problem).font(Theme.small).foregroundStyle(Theme.alert)
+            }
+            Button {
+                if let invalid = PasswordChange.problem(new: new, again: again) {
+                    problem = invalid
+                    return
+                }
+                Task {
+                    saving = true
+                    problem = await save(current, new)
+                    saving = false
+                    if problem == nil { dismiss() }
+                }
+            } label: {
+                Text(saving ? "Changing…" : "Change password")
+                    .font(Theme.bodyStrong)
+                    .foregroundStyle(Theme.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(Capsule().fill(Theme.accent))
+            }
+            .buttonStyle(.plain)
+            .disabled(saving || current.isEmpty || new.isEmpty || again.isEmpty)
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .foregroundStyle(Theme.text)
+        .presentationDetents([.large])
+        .presentationBackground(Theme.field)
+    }
+
+    private func field(_ label: String, _ text: Binding<String>, _ content: UITextContentType) -> some View {
+        SecureField("", text: text, prompt: Text(label).foregroundStyle(Theme.quiet))
+            .textContentType(content)
+            .accessibilityLabel(label)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 48)
+            .background(Capsule().fill(Theme.ground))
     }
 }

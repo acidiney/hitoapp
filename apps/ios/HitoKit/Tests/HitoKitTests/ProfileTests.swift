@@ -46,4 +46,27 @@ import Testing
         #expect(body["revision"] as? Int == 4)
         #expect((body["entries"] as? [[String: String]])?.map { $0["kind"] ?? "" } == ["local_files", "provider", "saved_copies"])
     }
+
+    @Test func aNewPasswordIsCheckedBeforeItIsSent() {
+        #expect(PasswordChange.problem(new: "short", again: "short") == "Use a new password of at least 12 characters.")
+        #expect(PasswordChange.problem(new: "long enough phrase", again: "long enough phrasf") == "The new passwords don't match.")
+        #expect(PasswordChange.problem(new: "long enough phrase", again: "long enough phrase") == nil)
+    }
+
+    @Test func changingThePasswordSaysHowManyOtherDevicesWereSignedOut() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/account/password": .json(200, #"{"revoked":2}"#)])
+        let done = try await Profile(api: api(fake)).changePassword(current: "old secret phrase", new: "new secret phrase")
+        #expect(done == "Password changed. 2 other devices were signed out.")
+        let body = try #require(fake.requests.first?.json)
+        #expect(body == ["current_password": "old secret phrase", "new_password": "new secret phrase"])
+        let alone = FakeServer(routes: ["POST /api/v1/account/password": .json(200, #"{"revoked":0}"#)])
+        #expect(try await Profile(api: api(alone)).changePassword(current: "a", new: "b") == "Password changed.")
+    }
+
+    @Test func aWrongCurrentPasswordSaysSo() async {
+        let fake = FakeServer(routes: ["POST /api/v1/account/password": .json(422, #"{"code":"wrong_password","message":"Wrong password"}"#)])
+        await #expect(throws: PasswordChange.Problem.wrongPassword) {
+            try await Profile(api: api(fake)).changePassword(current: "bad", new: "new secret phrase")
+        }
+    }
 }
