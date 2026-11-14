@@ -112,7 +112,9 @@ test("a stamped error marks only the affected connection and leaves its peer con
       stamp: { installationId: "a", installationRevision: 3 },
     }),
   );
-  await screen.findByRole("button", { name: "Update credentials for Lyrics A" });
+  await screen.findByRole("button", {
+    name: "Update credentials for Lyrics A",
+  });
   expect(card("Lyrics A").textContent).toContain("Credentials need updating");
   expect(card("Lyrics A").textContent).toContain(
     "Lyrics A needs its credentials updated.",
@@ -141,8 +143,12 @@ test("a stale stamp for an older revision, another account or no connection mark
       stamp: { installationId: "b", installationRevision: 5 },
     }),
   );
-  await screen.findByRole("button", { name: "Update credentials for Lyrics B" });
-  expect(card("Lyrics A").textContent).not.toContain("Credentials need updating");
+  await screen.findByRole("button", {
+    name: "Update credentials for Lyrics B",
+  });
+  expect(card("Lyrics A").textContent).not.toContain(
+    "Credentials need updating",
+  );
   expect(card("Lyrics A").textContent).not.toContain("needs its credentials");
   expect(
     screen.getAllByRole("button", { name: /^Update credentials for / }),
