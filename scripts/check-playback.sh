@@ -3,6 +3,7 @@ set -eu
 docker compose --profile tools run --rm rust cargo test --locked -p hito-playback
 docker compose --profile desktop run --rm desktop cargo clippy --locked -p hito-playback --features device --all-targets -- -D warnings
 docker compose --profile desktop run --rm desktop cargo test --locked -p hito-playback --features device --lib pcm::tests
+docker compose --profile desktop run --rm desktop cargo test --locked -p hito-playback --features device --lib player::effects::native::tests::sources_yield_two_then_one_then_one_grants_for_persistent_provider_failures -- --exact --nocapture
 docker compose --profile tools run --rm desktop python3 scripts/desktop/test_audio_launcher.py -v
 sh scripts/run-audio-test.sh hito-audio output_recovery --backend-fault-control "$@"
 sh scripts/run-audio-test.sh hito-playback native_session "$@"
