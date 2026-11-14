@@ -33,7 +33,11 @@ struct ServerAddressView: View {
                     .focused($focused)
                     .disabled(looking)
                     .onSubmit(connect)
-                    .onChange(of: input) { fieldProblem = nil }
+                    .onChange(of: input) {
+                        fieldProblem = nil
+                        problem = []
+                        canRetry = false
+                    }
                     .frame(minHeight: 44)
             }
             if !problem.isEmpty { Alert(lines: problem) }
