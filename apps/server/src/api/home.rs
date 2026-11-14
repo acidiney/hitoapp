@@ -11,6 +11,9 @@ use hito_core::{Home, Services};
     (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
 ))]
-pub async fn home(State(services): State<Services>, Account(actor): Account) -> ApiResult<Json<Home>> {
+pub async fn home(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<Json<Home>> {
     Ok(Json(services.collection.home(&actor).await?))
 }

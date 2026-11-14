@@ -47,19 +47,32 @@ async fn inertia_home(app: &Router, token: &str) -> axum::response::Response {
 async fn body(response: axum::response::Response) -> (StatusCode, Value) {
     let status = response.status();
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 async fn member(app: &Router, admin: &str) -> (String, String, String) {
     let credentials = json!({"username":"home-member","password":"owned home member password"});
-    let (status, user) = call(app, "POST", "/api/v1/users", credentials.clone(), Some(admin)).await;
+    let (status, user) = call(
+        app,
+        "POST",
+        "/api/v1/users",
+        credentials.clone(),
+        Some(admin),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     let (status, libraries) = call(app, "GET", "/api/v1/libraries", Value::Null, Some(admin)).await;
     assert_eq!(status, StatusCode::OK);
     let library_id = libraries[0]["id"].as_str().unwrap();
     let member_id = user["id"].as_str().unwrap();
     let access = format!("/api/v1/libraries/{library_id}/members/{member_id}");
-    assert_eq!(call(app, "PUT", &access, Value::Null, Some(admin)).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(
+        call(app, "PUT", &access, Value::Null, Some(admin)).await.0,
+        StatusCode::NO_CONTENT
+    );
     let (status, session) = call(app, "POST", "/api/v1/login", credentials, None).await;
     assert_eq!(status, StatusCode::OK);
     (
@@ -71,11 +84,8 @@ async fn member(app: &Router, admin: &str) -> (String, String, String) {
 
 #[tokio::test]
 async fn home_json_matches_the_authenticated_inertia_home_prop() {
-    let (_dir, app, token, recording) = hang_guard(
-        "owned indexed Home JSON setup",
-        Box::pin(indexed_app()),
-    )
-    .await;
+    let (_dir, app, token, recording) =
+        hang_guard("owned indexed Home JSON setup", Box::pin(indexed_app())).await;
     let (status, _) = call(
         &app,
         "POST",
@@ -102,8 +112,19 @@ async fn home_json_matches_the_authenticated_inertia_home_prop() {
     assert_eq!(page["component"], "HomePage");
     assert_eq!(json_home, page["props"]["home"]);
     assert_eq!(
-        json_home.as_object().unwrap().keys().map(String::as_str).collect::<Vec<_>>(),
-        ["has_music", "liked_count", "recent_albums", "recently_added", "unheard"]
+        json_home
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        [
+            "has_music",
+            "liked_count",
+            "recent_albums",
+            "recently_added",
+            "unheard"
+        ]
     );
     assert_eq!(json_home["has_music"], true);
     assert_eq!(json_home["liked_count"], 1);
@@ -116,11 +137,8 @@ async fn home_json_matches_the_authenticated_inertia_home_prop() {
 
 #[tokio::test]
 async fn home_json_uses_the_authenticated_account_and_its_library_access() {
-    let (_dir, app, admin_token, recording) = hang_guard(
-        "owned shared Home JSON setup",
-        Box::pin(indexed_app()),
-    )
-    .await;
+    let (_dir, app, admin_token, recording) =
+        hang_guard("owned shared Home JSON setup", Box::pin(indexed_app())).await;
     let (member_id, member_token, library_id) = member(&app, &admin_token).await;
     let (status, _) = call(
         &app,
@@ -153,19 +171,29 @@ async fn home_json_uses_the_authenticated_account_and_its_library_access() {
                 .uri("/api/v1/login")
                 .header("content-type", "application/json")
                 .header("x-hito-request", "1")
-                .body(Body::from(json!({"username":"admin","password":"administrator test password"}).to_string()))
+                .body(Body::from(
+                    json!({"username":"admin","password":"administrator test password"})
+                        .to_string(),
+                ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(cookie_response.status(), StatusCode::OK);
-    let cookie = cookie_response.headers()["set-cookie"].to_str().unwrap().split(';').next().unwrap().to_owned();
+    let cookie = cookie_response.headers()["set-cookie"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap()
+        .to_owned();
     let (status, admin_cookie_home) = body(get(&app, HOME, None, Some(&cookie)).await).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(admin_cookie_home, admin_bearer_home);
     assert_eq!(admin_cookie_home["liked_count"], 0);
 
-    let (status, member_home) = body(get(&app, HOME, Some(&member_token), Some(&cookie)).await).await;
+    let (status, member_home) =
+        body(get(&app, HOME, Some(&member_token), Some(&cookie)).await).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(member_home["liked_count"], 1);
     assert_ne!(member_home, admin_cookie_home);
@@ -189,7 +217,9 @@ async fn home_json_uses_the_authenticated_account_and_its_library_access() {
 
     let access = format!("/api/v1/libraries/{library_id}/members/{member_id}");
     assert_eq!(
-        call(&app, "DELETE", &access, Value::Null, Some(&admin_token)).await.0,
+        call(&app, "DELETE", &access, Value::Null, Some(&admin_token))
+            .await
+            .0,
         StatusCode::NO_CONTENT
     );
     let (status, no_library_home) = body(get(&app, HOME, Some(&member_token), None).await).await;
@@ -208,14 +238,16 @@ async fn home_json_uses_the_authenticated_account_and_its_library_access() {
 
 #[tokio::test]
 async fn home_json_requires_an_unlocked_live_session() {
-    let (_dir, app, token, _) = hang_guard(
-        "owned Home JSON session setup",
-        Box::pin(indexed_app()),
-    )
-    .await;
-    assert_eq!(get(&app, HOME, None, None).await.status(), StatusCode::UNAUTHORIZED);
+    let (_dir, app, token, _) =
+        hang_guard("owned Home JSON session setup", Box::pin(indexed_app())).await;
     assert_eq!(
-        get(&app, HOME, Some("malformed-session-token"), None).await.status(),
+        get(&app, HOME, None, None).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        get(&app, HOME, Some("malformed-session-token"), None)
+            .await
+            .status(),
         StatusCode::UNAUTHORIZED
     );
 
@@ -232,9 +264,15 @@ async fn home_json_requires_an_unlocked_live_session() {
         StatusCode::OK
     );
     assert_eq!(
-        call(&app, "POST", "/api/v1/account/lock", Value::Null, Some(&token))
-            .await
-            .0,
+        call(
+            &app,
+            "POST",
+            "/api/v1/account/lock",
+            Value::Null,
+            Some(&token)
+        )
+        .await
+        .0,
         StatusCode::OK
     );
     let locked = body(get(&app, HOME, Some(&token), None).await).await;
@@ -249,7 +287,8 @@ async fn deleting_an_account_invalidates_its_home_session() {
         Box::pin(indexed_app()),
     )
     .await;
-    let credentials = json!({"username":"deleted-home-member","password":"owned deleted home password"});
+    let credentials =
+        json!({"username":"deleted-home-member","password":"owned deleted home password"});
     let (status, user) = call(
         &app,
         "POST",
@@ -261,7 +300,10 @@ async fn deleting_an_account_invalidates_its_home_session() {
     assert_eq!(status, StatusCode::CREATED);
     let (_, session) = call(&app, "POST", "/api/v1/login", credentials, None).await;
     let token = session["token"].as_str().unwrap();
-    assert_eq!(get(&app, HOME, Some(token), None).await.status(), StatusCode::OK);
+    assert_eq!(
+        get(&app, HOME, Some(token), None).await.status(),
+        StatusCode::OK
+    );
     let path = format!("/api/v1/users/{}", user["id"].as_str().unwrap());
     assert_eq!(
         call(
