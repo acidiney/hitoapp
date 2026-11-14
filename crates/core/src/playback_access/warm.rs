@@ -168,8 +168,8 @@ impl Registry {
         let start_deadline = (now + START_DEADLINE).min(lease_deadline);
         let deadline = (now + HOLD).min(lease_deadline);
         let (canceled, cancel_rx) = watch::channel(false);
-        let (claimed, claim_rx) = watch::channel(false);
-        let (commands, command_rx) = tokio::sync::mpsc::channel(2);
+        let (claimed, mut claim_rx) = watch::channel(false);
+        let (commands, mut command_rx) = tokio::sync::mpsc::channel(2);
         let entry = Arc::new(Entry {
             lease,
             actor: actor.clone(),
