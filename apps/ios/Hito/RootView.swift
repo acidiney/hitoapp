@@ -8,7 +8,9 @@ struct RootView: View {
         Group {
             switch model.step {
             case .opening:
-                Screen { ProgressView().tint(Theme.text) }
+                Theme.ground.ignoresSafeArea()
+            case let .connecting(address):
+                ConnectingView(address: address)
             case .choose:
                 ChooseLibraryView()
             case .thisPhone:
