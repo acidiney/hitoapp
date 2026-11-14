@@ -34,6 +34,7 @@ final class Player {
     private var loading: Task<Void, Never>?
     private var tried: Set<String> = []
     private var leaseId: String?
+    private var listed: Double = 0
     private var ticker: Any?
     private var observers: [NSObjectProtocol] = []
     private var itemStatus: NSKeyValueObservation?
@@ -237,6 +238,7 @@ final class Player {
         state = .loading
         position = 0
         duration = Double(track.durationMs) / 1000
+        listed = duration
         sourceLabel = nil
         sourceId = nil
         engine.pause()
@@ -307,6 +309,7 @@ final class Player {
         if let following = queue.advance() {
             load(following)
         } else {
+            engine.pause()
             state = .paused
             seek(to: 0)
         }
@@ -325,8 +328,11 @@ final class Player {
     private func tick(_ seconds: Double) {
         guard seconds.isFinite else { return }
         position = seconds
-        if let length = engine.currentItem?.duration.seconds, length.isFinite, length > 0 {
-            duration = length
+        guard let stream = engine.currentItem?.duration.seconds, stream.isFinite, stream > 0 else { return }
+        duration = PlaybackClock.length(stream: stream, listed: listed)
+        if state == .playing, PlaybackClock.pastTheEnd(at: seconds, length: duration, stream: stream) {
+            log.info("player.ended_at_real_length")
+            ended(currentIdentity)
         }
     }
 
