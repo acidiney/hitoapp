@@ -393,7 +393,7 @@ struct SourcePanel: View {
                             }
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(source.label).font(Theme.bodyBold)
-                                Text(source.ready ? "Ready" : "Not ready yet")
+                                Text(note(source))
                                     .font(Theme.small)
                                     .foregroundStyle(source.ready ? Theme.soft : Theme.warning)
                             }
@@ -431,6 +431,12 @@ struct SourcePanel: View {
         }
         .scrollIndicators(.hidden)
         .task(id: "\(track.id)-\(player.sourceId ?? "")") { await load() }
+    }
+
+    private func note(_ source: PlaybackSource) -> String {
+        if source.missingFile { return "No file in your music folders" }
+        if !source.ready { return "Not ready yet" }
+        return source.bestGuess ? "Ready · best guess" : "Ready"
     }
 
     private func load() async {

@@ -11,7 +11,11 @@ public struct AudioRequest: Equatable, Sendable {
 public struct PlaybackSource: Equatable, Identifiable, Sendable {
     public let id: String
     public let label: String
+    public let provider: String
     public let ready: Bool
+    public let bestGuess: Bool
+
+    public var missingFile: Bool { provider == "local" && !ready }
 }
 
 public struct Playback: Sendable {
@@ -22,12 +26,15 @@ public struct Playback: Sendable {
     struct Source: Decodable {
         let id: String
         let label: String
+        let provider: String
         let providerLabel: String?
         let ready: Bool
+        let matchKind: String
 
         enum CodingKeys: String, CodingKey {
-            case id, label, ready
+            case id, label, ready, provider
             case providerLabel = "provider_label"
+            case matchKind = "match_kind"
         }
     }
 
@@ -50,7 +57,16 @@ public struct Playback: Sendable {
     }
 
     public func sources(_ recordingId: String) async throws -> [PlaybackSource] {
-        try await listed(recordingId).map { PlaybackSource(id: $0.id, label: $0.providerLabel ?? $0.label, ready: $0.ready) }
+        var seen: [String: Int] = [:]
+        return try await listed(recordingId).map { source in
+            let name = source.providerLabel ?? source.label
+            let count = seen[source.provider, default: 0] + 1
+            seen[source.provider] = count
+            let ordinals = [2: "second", 3: "third", 4: "fourth", 5: "fifth"]
+            let ordinal = ordinals[count].map { "\($0) match" } ?? "match \(count)"
+            let label = count == 1 ? name : "\(name), \(ordinal)"
+            return PlaybackSource(id: source.id, label: label, provider: source.provider, ready: source.ready, bestGuess: source.matchKind == "best_guess")
+        }
     }
 
     public func prepare(_ recordingId: String, source chosen: String) async throws -> AudioRequest {

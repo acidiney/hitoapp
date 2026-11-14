@@ -61,10 +61,24 @@ import Testing
         let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/playback-sources": .json(200, sources)])
         let listed = try await playback(fake).sources("r1")
         #expect(listed == [
-            PlaybackSource(id: "s0", label: "YouTube", ready: false),
-            PlaybackSource(id: "s1", label: "Local file", ready: true),
-            PlaybackSource(id: "s2", label: "YouTube", ready: true),
+            PlaybackSource(id: "s0", label: "YouTube", provider: "youtube", ready: false, bestGuess: true),
+            PlaybackSource(id: "s1", label: "Local file", provider: "local", ready: true, bestGuess: false),
+            PlaybackSource(id: "s2", label: "YouTube, second match", provider: "youtube", ready: true, bestGuess: true),
         ])
+    }
+
+    @Test func aLocalSourceThatIsNotReadyHasNoFile() async throws {
+        let missing = #"[{"id":"s1","recording_id":"r1","provider":"local","label":"Local file","ready":false,"can_prepare":false,"match_kind":"verified"}]"#
+        let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/playback-sources": .json(200, missing)])
+        let listed = try await playback(fake).sources("r1")
+        #expect(listed.map(\.missingFile) == [true])
+    }
+
+    @Test func aThirdMatchFromTheSameProviderIsNamedSo() async throws {
+        let three = #"[{"id":"a","recording_id":"r1","provider":"youtube","label":"YouTube","ready":true,"can_prepare":false,"match_kind":"verified"},{"id":"b","recording_id":"r1","provider":"youtube","label":"YouTube","ready":true,"can_prepare":false,"match_kind":"verified"},{"id":"c","recording_id":"r1","provider":"youtube","label":"YouTube","ready":false,"can_prepare":false,"match_kind":"verified"}]"#
+        let fake = FakeServer(routes: ["GET /api/v1/recordings/r1/playback-sources": .json(200, three)])
+        let listed = try await playback(fake).sources("r1")
+        #expect(listed.map(\.label) == ["YouTube", "YouTube, second match", "YouTube, third match"])
     }
 
     @Test func aChosenSourceIsLeasedEvenWhenAnotherComesFirst() async throws {
