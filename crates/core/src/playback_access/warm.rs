@@ -103,12 +103,12 @@ impl WarmBody {
             .map_err(|_| Error::NotFound)?;
         let received = tokio::select! {
             biased;
-            _ = stopped.changed() => return Err(Error::NotFound),
             result = received => result.map_err(|_| Error::NotFound)?,
+            _ = stopped.changed() => return Err(Error::NotFound),
         };
-        self.check_running()?;
         match received {
             Ok(Some(bytes)) => {
+                self.check_running()?;
                 if !self.first_emitted {
                     self.check_prefix().await?;
                 }
