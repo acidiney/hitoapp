@@ -19,6 +19,7 @@ struct PlaylistView: View {
 
     var ready: [Track] { tracks.filter(\.isPlayable) }
     var notReady: [Track] { tracks.filter { !$0.isPlayable } }
+    var findable: [Track] { tracks.filter(\.canFind) }
 
     var shown: [Track] {
         switch filter {
@@ -114,9 +115,9 @@ struct PlaylistView: View {
                     if let finding {
                         OutlineAction(title: "Finding \(min(finding.done + 1, finding.total)) of \(finding.total)…", busy: true) { search?.cancel() }
                             .accessibilityHint("Stops looking for sources")
-                    } else if !notReady.isEmpty {
-                        OutlineAction(title: "Find \(notReady.count)", busy: false, action: findAll)
-                            .accessibilityLabel("Find sources for \(notReady.count) tracks that aren't ready")
+                    } else if !findable.isEmpty {
+                        OutlineAction(title: "Find \(findable.count)", busy: false, action: findAll)
+                            .accessibilityLabel("Find sources for \(findable.count) tracks that aren't ready")
                     }
                     if !ready.isEmpty {
                         Menu {
@@ -162,7 +163,7 @@ struct PlaylistView: View {
 
     private func findAll() {
         guard let api = model.api else { return }
-        let ids = notReady.map(\.id)
+        let ids = findable.map(\.id)
         findNote = nil
         finding = (0, ids.count)
         search = Task {

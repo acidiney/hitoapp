@@ -28,6 +28,33 @@ import Testing
         #expect(detail.ready == 1)
     }
 
+    @Test func onlyTracksLinkedToTheLibraryCanBeFound() async throws {
+        let unlinkedReady = entry.replacingOccurrences(of: #""entry_id":"e1""#, with: #""entry_id":"e3""#).replacingOccurrences(of: #""recording_id":"r1""#, with: #""recording_id":"r3""#).replacingOccurrences(of: #""available":true"#, with: #""available":false"#)
+        let body = #"{"playlist":{"id":"p2","name":"Banger","kind":"followed"},"entries":[\#(entry),\#(missing),\#(unlinkedReady)]}"#
+        let fake = FakeServer(routes: ["GET /api/v1/playlists/p2": .json(200, body)])
+        let tracks = try await playlists(fake).detail("p2").tracks
+        #expect(tracks.map(\.canFind) == [false, false, true])
+    }
+
+    @Test func homePointsAtThePlaylistWithTheMostUnreadyTracks() async throws {
+        func detail(_ id: String, _ entries: [String]) -> FakeServer.Answer {
+            .json(200, #"{"playlist":{"id":"\#(id)","name":"\#(id)","kind":"followed"},"entries":[\#(entries.joined(separator: ","))]}"#)
+        }
+        let fake = FakeServer(routes: [
+            "GET /api/v1/playlists/p1": detail("p1", [entry, missing]),
+            "GET /api/v1/playlists/p2": detail("p2", [missing, missing.replacingOccurrences(of: "e2", with: "e4")]),
+            "GET /api/v1/playlists/p3": .json(500, "{}"),
+            "GET /api/v1/playlists/p4": detail("p4", [missing, missing, missing]),
+        ])
+        let lists = ["p1", "p2", "p3", "p4"].map { Playlist(id: $0, name: $0, kind: .followed) }
+        let worst = await playlists(fake).leastReady(lists, checking: 3)
+        #expect(worst?.playlist.id == "p2")
+        #expect(worst?.unready == 2)
+        #expect(fake.requests.count == 3)
+        let none = await playlists(FakeServer(routes: ["GET /api/v1/playlists/p1": detail("p1", [entry])])).leastReady([lists[0]], checking: 3)
+        #expect(none == nil)
+    }
+
     @Test func aCopiedPlaylistSaysWhereItCameFrom() async throws {
         let body = #"{"playlist":{"id":"p1","name":"Copy","kind":"local"},"entries":[],"origin":{"installation_id":"i1","installation_revision":1,"service_id":"s1","service_revision":1,"provider":"spotify","provider_playlist_id":"x","snapshot":"y","attribution":{"label":"Spotify"},"imported_at":1}}"#
         let fake = FakeServer(routes: ["GET /api/v1/playlists/p1": .json(200, body)])

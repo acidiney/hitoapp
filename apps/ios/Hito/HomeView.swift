@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var albums = Feed<Album>()
     @State private var summary: HomeSummary?
     @State private var playlists: [Playlist] = []
+    @State private var unready: Playlists.Unready?
 
     var name: String { user.displayName ?? user.username }
 
@@ -53,6 +54,9 @@ struct HomeView: View {
                 } else if !albums.isEmpty {
                     JumpBackIn(tiles: [.liked(0)] + albums.items.prefix(5).map(QuickTile.album))
                 }
+                if let unready {
+                    UnreadyBanner(unready: unready)
+                }
                 RecentlyAdded(feed: albums)
             }
             .padding(.horizontal, 16)
@@ -75,7 +79,9 @@ struct HomeView: View {
     private func loadSummary() async {
         guard let api = model.api else { return }
         summary = try? await HomeFeed(api: api).load()
-        if summary != nil { playlists = (try? await Playlists(api: api).list()) ?? [] }
+        let lists = Playlists(api: api)
+        playlists = (try? await lists.list()) ?? []
+        unready = await lists.leastReady(playlists, checking: 4)
     }
 
     private func reload() {
@@ -119,6 +125,29 @@ struct JumpBackIn: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Jump back in")
+    }
+}
+
+struct UnreadyBanner: View {
+    let unready: Playlists.Unready
+
+    var body: some View {
+        NavigationLink(value: unready.playlist) {
+            HStack(spacing: 12) {
+                Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 10, height: 10)
+                Text("\(unready.unready) \(unready.unready == 1 ? "track" : "tracks") in \(unready.playlist.name) \(unready.unready == 1 ? "isn't" : "aren't") ready")
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Find sources").font(Theme.smallStrong).foregroundStyle(Theme.focus)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.line))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens \(unready.playlist.name)")
     }
 }
 

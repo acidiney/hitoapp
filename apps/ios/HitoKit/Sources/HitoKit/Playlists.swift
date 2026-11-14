@@ -53,7 +53,7 @@ public struct Playlists: Sendable {
 
         var track: Track {
             Track(
-                id: recordingId ?? "entry:\(entryId)",
+                id: recordingId ?? "\(Track.unlinked)\(entryId)",
                 title: title,
                 artist: artist,
                 album: album,
@@ -91,6 +91,23 @@ public struct Playlists: Sendable {
         case (.local, .none): "Your playlist"
         }
         return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track))
+    }
+
+    public struct Unready: Equatable, Sendable {
+        public let playlist: Playlist
+        public let unready: Int
+    }
+
+    public func leastReady(_ playlists: [Playlist], checking limit: Int) async -> Unready? {
+        var worst: Unready?
+        for playlist in playlists.prefix(limit) {
+            guard let detail = try? await detail(playlist.id) else { continue }
+            let unready = detail.tracks.count - detail.ready
+            if unready > 0, unready > (worst?.unready ?? 0) {
+                worst = Unready(playlist: playlist, unready: unready)
+            }
+        }
+        return worst
     }
 }
 

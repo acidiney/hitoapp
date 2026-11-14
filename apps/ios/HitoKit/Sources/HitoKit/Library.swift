@@ -27,6 +27,10 @@ public struct Track: Decodable, Equatable, Hashable, Identifiable, Sendable {
 
     public var isPlayable: Bool { available || playsFromServices }
 
+    static let unlinked = "entry:"
+
+    public var canFind: Bool { !isPlayable && !id.hasPrefix(Self.unlinked) }
+
     public var artworkPath: [String] { ["api", "v1", "recordings", id, "artwork"] }
 
     enum CodingKeys: String, CodingKey {
