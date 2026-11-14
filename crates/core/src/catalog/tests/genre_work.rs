@@ -24,7 +24,7 @@ async fn genre_track_continuation_reaches_past_the_bounded_count() {
         let seed = music.join("folder-seed.wav");
         support::write_wav(&seed, 17);
         let mut tag = Tag::new(TagType::Id3v2);
-        tag.set_title("Folder seed");
+        tag.set_title("Folder seed".to_owned());
         tag.set_artist("Owned artist".into());
         tag.set_genre("Jazz".into());
         tag.save_to_path(&seed, Default::default()).unwrap();
