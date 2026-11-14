@@ -45,7 +45,7 @@ struct ConnectSheet: View {
                         .font(Theme.bodyMedium)
                         .fixedSize(horizontal: false, vertical: true)
                     if preview.signsIn {
-                        Text("It also signs in to your \(preview.name) account. Do that on the web after connecting.")
+                        Text("It also signs in to your \(preview.name) account. You can sign in from its page after connecting.")
                             .font(Theme.small).foregroundStyle(Theme.soft)
                             .fixedSize(horizontal: false, vertical: true)
                     }

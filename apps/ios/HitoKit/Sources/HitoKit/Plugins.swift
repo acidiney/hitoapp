@@ -42,6 +42,16 @@ public enum PluginAccount: Equatable, Sendable {
     case notConnected, connected, needsSignInAgain
 }
 
+public struct SignInAttempt: Equatable, Sendable {
+    public let id: String
+    public let url: URL
+    public let expires: Date
+}
+
+public enum SignInProgress: Equatable, Sendable {
+    case waiting, done, failed
+}
+
 public struct PluginPower: Equatable, Identifiable, Sendable {
     public let name: String
     public let providers: [String]
@@ -262,6 +272,49 @@ public struct Plugins: Sendable {
 
     public func signOut(_ id: String) async throws {
         _ = try await api.delete(["api", "v1", "plugins", id, "connection"], as: Nothing.self)
+    }
+
+    struct Attempt: Decodable {
+        let id: String
+        let authorizationUrl: String
+        let expiresAt: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case authorizationUrl = "authorization_url"
+            case expiresAt = "expires_at"
+        }
+    }
+
+    struct AttemptStatus: Decodable { let status: String }
+
+    public struct BadSignInAddress: Error {}
+
+    public struct SignInRefused: Error, Equatable {
+        public let reason: String
+    }
+
+    public func beginSignIn(_ id: String, revision: Int) async throws -> SignInAttempt {
+        let attempt: Attempt
+        do {
+            attempt = try await api.postExplained(["api", "v1", "plugins", id, "authorization"], body: Revision(revision: revision), as: Attempt.self)
+        } catch let refusal as HitoAPI.Refusal where refusal.status == 409 || refusal.status == 422 {
+            throw SignInRefused(reason: refusal.reason ?? "This plugin can't start a sign-in right now.")
+        }
+        guard let url = URL(string: attempt.authorizationUrl), url.scheme == "https" || url.scheme == "http" else { throw BadSignInAddress() }
+        return SignInAttempt(id: attempt.id, url: url, expires: Date(timeIntervalSince1970: TimeInterval(attempt.expiresAt)))
+    }
+
+    public func signIn(_ id: String, attempt: String) async throws -> SignInProgress {
+        do {
+            switch try await api.get(["api", "v1", "plugins", id, "authorization", attempt], as: AttemptStatus.self).status {
+            case "completed": return .done
+            case "failed": return .failed
+            default: return .waiting
+            }
+        } catch HitoAPI.Problem.refused(404) {
+            return .failed
+        }
     }
 
     struct Install: Encodable {

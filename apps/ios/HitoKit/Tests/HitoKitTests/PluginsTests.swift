@@ -111,6 +111,34 @@ import Testing
         #expect(fake.requests.map(\.line) == ["DELETE /api/v1/plugins/i3/connection"])
     }
 
+    @Test func signingInStartsAnAttemptForTheCurrentRevision() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i3/authorization": .json(201, #"{"id":"a1","authorization_url":"https://provider.test/authorize?state=x","expires_at":1800000000}"#)])
+        let attempt = try await plugins(fake).beginSignIn("i3", revision: 4)
+        #expect(attempt.id == "a1")
+        #expect(attempt.url.absoluteString == "https://provider.test/authorize?state=x")
+        #expect(attempt.expires == Date(timeIntervalSince1970: 1_800_000_000))
+        #expect(fake.requests.first?.object?["revision"] as? Int == 4)
+    }
+
+    @Test func aRefusedSignInSaysWhy() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/plugins/i3/authorization": .json(422, #"{"error":"Configure the public address first"}"#)])
+        await #expect(throws: Plugins.SignInRefused(reason: "Configure the public address first")) {
+            try await plugins(fake).beginSignIn("i3", revision: 4)
+        }
+    }
+
+    @Test func aSignInAttemptSaysWhereItIs() async throws {
+        func state(_ status: String) -> FakeServer {
+            FakeServer(routes: ["GET /api/v1/plugins/i3/authorization/a1": .json(200, #"{"id":"a1","status":"\#(status)","expires_at":1800000000}"#)])
+        }
+        #expect(try await plugins(state("pending")).signIn("i3", attempt: "a1") == .waiting)
+        #expect(try await plugins(state("exchanging")).signIn("i3", attempt: "a1") == .waiting)
+        #expect(try await plugins(state("completed")).signIn("i3", attempt: "a1") == .done)
+        #expect(try await plugins(state("failed")).signIn("i3", attempt: "a1") == .failed)
+        let gone = FakeServer(routes: ["GET /api/v1/plugins/i3/authorization/a1": .json(404, #"{"error":"Resource not found"}"#)])
+        #expect(try await plugins(gone).signIn("i3", attempt: "a1") == .failed)
+    }
+
     @Test func anOfferKeepsItsServiceRevision() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/plugins": .json(200, settings)])
         let state = try await plugins(fake).load()
