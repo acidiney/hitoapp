@@ -32,6 +32,7 @@ final class Player {
     private let listening: ListeningProgress
     private var heardId: String?
     private var checkpoint = ProgressCheckpoint()
+    private var fallbackEnabled = true
     private var resumeAt: Double?
     private var remembered: Double = 0
 
@@ -87,6 +88,14 @@ final class Player {
             MainActor.assumeIsolated { self?.remember() }
         })
         connectRemote()
+        refreshFallback()
+    }
+
+    private func refreshFallback() {
+        Task { [weak self, api] in
+            guard let order = try? await SourceOrder(api: api).load() else { return }
+            self?.fallbackEnabled = order.fallback
+        }
     }
 
     func restore() async {
@@ -306,6 +315,7 @@ final class Player {
 
     private func load(_ track: Track?) {
         settle()
+        refreshFallback()
         defer { remember() }
         loading?.cancel()
         tried = []
@@ -354,7 +364,7 @@ final class Player {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.no_source")
                 let failed = !self.tried.isEmpty
-                if !failed || !self.retry(track) {
+                if !failed || !self.fallbackEnabled || !self.retry(track) {
                     self.skip(track, because: failed ? "\(track.title) didn't play from any source." : "\(track.title) has no source that plays right now.")
                 }
             }
@@ -433,8 +443,12 @@ final class Player {
         guard let item, item == currentIdentity, let track = queue.current else { return }
         log.info("player.source_failed")
         let failedLabel = sourceLabel ?? "That source"
-        notice = "\(failedLabel) didn't play \(track.title). Trying the next source."
         engine.replaceCurrentItem(with: nil)
+        guard SourceFallback.allows(tried: tried.count, enabled: fallbackEnabled) else {
+            log.info("player.fallback_declined")
+            return skip(track, because: fallbackEnabled ? "\(track.title) didn't play from any of its sources." : "\(failedLabel) didn't play \(track.title). Trying the next source is off in Settings.")
+        }
+        notice = "\(failedLabel) didn't play \(track.title). Trying the next source."
         start(track)
     }
 
