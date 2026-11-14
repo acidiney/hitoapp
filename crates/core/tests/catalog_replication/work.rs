@@ -8,6 +8,8 @@ mod diagnostic;
 mod materialization_batch_boundary;
 #[path = "materialization_batch_boundary_fixture.rs"]
 mod materialization_batch_boundary_fixture;
+#[path = "materialization_limits.rs"]
+mod materialization_limits;
 
 use crate::test_support::support;
 use fixture::{install_meter, populate};
