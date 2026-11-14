@@ -206,6 +206,17 @@
 .lyric-card-actions .lyric-action {
   padding: 0 16px;
 }
+.lyric-card-actions > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--np-tint);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
 .track-lyrics .lyric-card p.lyric-card-title {
   margin-top: 16px;
   font-size: 20px;

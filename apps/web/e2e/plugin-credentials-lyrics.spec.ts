@@ -60,6 +60,21 @@ test("a lyric plugin that rejects its saved token shows credential guidance with
       card.getByRole("link", { name: settingsLinkName }),
     ).toHaveAttribute("href", pluginsPath);
     await expect(card.getByRole("button", { name: "Retry" })).toBeVisible();
+    const link = card.getByRole("link", { name: settingsLinkName });
+    const another = card.getByRole("button", { name: "Try another plugin" });
+    const look = (target: typeof link) =>
+      target.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return {
+          color: style.color,
+          size: style.fontSize,
+          weight: style.fontWeight,
+          middle: Math.round(box.top + box.height / 2),
+          height: Math.round(box.height),
+        };
+      });
+    expect(await look(link)).toEqual(await look(another));
     await expect(page).toHaveURL(new RegExp(`/recordings/${track.id}`));
     await expect(
       page.getByRole("heading", { name: "Sign in", exact: true }),
