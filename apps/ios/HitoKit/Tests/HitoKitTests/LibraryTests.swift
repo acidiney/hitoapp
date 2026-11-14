@@ -21,6 +21,13 @@ import Testing
         #expect(request.query == "offset=0&limit=50")
     }
 
+    @Test func tracksCanBeSortedTheWaysTheServerSorts() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
+        for sort in TrackSort.allCases { _ = try await library(fake).tracks(offset: 0, sort: sort) }
+        #expect(fake.requests.map(\.query) == ["offset=0&limit=50&sort=recent", "offset=0&limit=50&sort=title", "offset=0&limit=50&sort=artist", "offset=0&limit=50&sort=year"])
+        #expect(TrackSort.allCases.map(\.label) == ["Recently added", "Title", "Artist", "Year"])
+    }
+
     @Test func likedTracksAndSearchesNarrowTheList() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/recordings": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
         _ = try await library(fake).tracks(offset: 50, liked: true)

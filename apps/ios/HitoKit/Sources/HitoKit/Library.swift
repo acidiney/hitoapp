@@ -90,8 +90,9 @@ public struct Library: Sendable {
         self.api = api
     }
 
-    public func tracks(offset: Int, search: String? = nil, liked: Bool = false, artist: String? = nil) async throws -> Page<Track> {
+    public func tracks(offset: Int, search: String? = nil, liked: Bool = false, artist: String? = nil, sort: TrackSort? = nil) async throws -> Page<Track> {
         var query = paging(offset)
+        if let sort { query.append(URLQueryItem(name: "sort", value: sort.rawValue)) }
         if liked { query.append(URLQueryItem(name: "liked", value: "true")) }
         if let artist { query.append(URLQueryItem(name: "artist", value: artist)) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
@@ -136,5 +137,18 @@ extension Library {
         var query = [URLQueryItem(name: "offset", value: String(offset)), URLQueryItem(name: "limit", value: String(Self.pageSize))]
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "q", value: search)) }
         return try await api.get(["api", "v1", "artists"], query: query, as: Page<Artist>.self)
+    }
+}
+
+public enum TrackSort: String, CaseIterable, Sendable {
+    case recent, title, artist, year
+
+    public var label: String {
+        switch self {
+        case .recent: "Recently added"
+        case .title: "Title"
+        case .artist: "Artist"
+        case .year: "Year"
+        }
     }
 }

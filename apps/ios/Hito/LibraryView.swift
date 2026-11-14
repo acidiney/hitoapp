@@ -16,11 +16,30 @@ struct LibraryView: View {
     @State private var artists = Feed<Artist>()
     @State private var playlists: [Playlist]?
     @State private var playlistsFailed = false
+    @State private var sort = TrackSort.recent
+    @State private var filtering = false
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                Text("Your library").font(Theme.title).accessibilityAddTraits(.isHeader)
+                HStack {
+                    Text("Your library").font(Theme.title).accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: 8)
+                    if section == .tracks {
+                        Button { filtering = true } label: {
+                            HStack(spacing: 8) {
+                                Icon("filters", size: 18)
+                                Text(sort == .recent ? "Filters" : "Filters · 1").font(Theme.smallMedium)
+                            }
+                            .foregroundStyle(Theme.text)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 44)
+                            .overlay(Capsule().strokeBorder(sort == .recent ? Theme.line : Theme.accent, lineWidth: sort == .recent ? 1 : 1.5))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(sort == .recent ? "Filter and sort" : "Filter and sort, sorted by \(sort.label)")
+                    }
+                }
                 SectionTabs(selection: $section)
                 switch section {
                 case .tracks:
@@ -40,6 +59,11 @@ struct LibraryView: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { reload() }
+        .fullScreenCover(isPresented: $filtering) {
+            FilterSheet(sort: $sort, total: tracks.total)
+                .presentationBackground(.clear)
+        }
+        .onChange(of: sort) { reloadTracks() }
         .task {
             if tracks.total == nil && albums.total == nil { reload() }
         }
@@ -48,10 +72,17 @@ struct LibraryView: View {
     private func reload() {
         guard let api = model.api else { return }
         let library = Library(api: api)
-        tracks.reset { try await library.tracks(offset: $0) }
+        reloadTracks()
         albums.reset { try await library.albums(offset: $0) }
         artists.reset { try await library.artists(offset: $0) }
         Task { await loadPlaylists() }
+    }
+
+    private func reloadTracks() {
+        guard let api = model.api else { return }
+        let library = Library(api: api)
+        let sort = sort
+        tracks.reset { try await library.tracks(offset: $0, sort: sort) }
     }
 
     private func loadPlaylists() async {
@@ -375,6 +406,87 @@ struct AlbumView: View {
         } catch {
             failed = true
             model.handle(error)
+        }
+    }
+}
+
+struct FilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var sort: TrackSort
+    let total: Int?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.black.opacity(0.55)
+                .onTapGesture { dismiss() }
+                .accessibilityHidden(true)
+            sheet
+        }
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private var sheet: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Capsule().fill(Theme.line).frame(width: 40, height: 4).frame(maxWidth: .infinity)
+            HStack {
+                Text("Filter and sort").font(Theme.playing).accessibilityAddTraits(.isHeader)
+                Spacer()
+                IconButton(icon: "close", label: "Close", glyph: 18) { dismiss() }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Sort").font(Theme.small).foregroundStyle(Theme.quiet)
+                FlowChips(items: TrackSort.allCases, label: \.label, selected: sort) { sort = $0 }
+            }
+            HStack(spacing: 8) {
+                Button { dismiss() } label: {
+                    Text(total.map { "Show \($0) \($0 == 1 ? "track" : "tracks")" } ?? "Show tracks")
+                        .font(Theme.bodyStrong)
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Capsule().fill(Theme.accent))
+                }
+                .buttonStyle(.plain)
+                TextAction(title: "Reset") { sort = .recent }
+                    .padding(.horizontal, 8)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .foregroundStyle(Theme.text)
+        .background(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16).fill(Theme.field).ignoresSafeArea(edges: .bottom))
+        .accessibilityAddTraits(.isModal)
+    }
+}
+
+struct FlowChips<Item: Hashable>: View {
+    let items: [Item]
+    let label: KeyPath<Item, String>
+    let selected: Item
+    let pick: (Item) -> Void
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { chips }
+            VStack(alignment: .leading, spacing: 8) { chips }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var chips: some View {
+        ForEach(items, id: \.self) { item in
+            let on = item == selected
+            Button { pick(item) } label: {
+                Text(item[keyPath: label])
+                    .font(Theme.smallMedium)
+                    .foregroundStyle(on ? Theme.ground : Theme.text)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .background(Capsule().fill(on ? Theme.text : .clear))
+                    .overlay(Capsule().strokeBorder(on ? Theme.text : Theme.line))
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(on ? [.isSelected] : [])
         }
     }
 }
