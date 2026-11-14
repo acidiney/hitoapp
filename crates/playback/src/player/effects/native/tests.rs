@@ -7,6 +7,22 @@ use hito_core::{
 use tokio::sync::oneshot;
 
 #[test]
+fn acquisition_keeps_one_fifteen_second_deadline_across_its_retry_budget() {
+    let key = Key {
+        scope: uuid::Uuid::new_v4(),
+        selection: 1,
+        entry: uuid::Uuid::new_v4(),
+        start: None,
+    };
+    let run = super::acquisition::Acquisition::start(key, uuid::Uuid::new_v4(), 1, None, None);
+    assert_eq!(run.attempts, 1);
+    assert_eq!(
+        run.deadline_at.duration_since(run.started),
+        Duration::from_secs(15)
+    );
+}
+
+#[test]
 fn only_an_output_format_failure_has_its_own_player_error() {
     assert_eq!(
         failure_of(Some(crate::Error::Native(hito_audio::Error::OutputFormat))),

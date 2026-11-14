@@ -4,12 +4,16 @@ use hito_audio::test_support::capture;
 use hito_core::test_support::provider_audio as audio_fixture;
 use hito_core::test_support::support;
 use hito_playback::{Player, PlayerAction, PlayerCommand};
+use hito_testkit::logs::LogCapture;
 use std::time::Duration;
+use tracing::instrument::WithSubscriber;
 use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
-async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_queue() {
+async fn exhausted_sources_report_failure_after_three_bounded_attempts_and_continue_the_queue() {
+    let logs = LogCapture::default();
+    let dispatch = logs.dispatch("off,hito_core=debug,hito_playback=debug");
     let f = audio_fixture::AudioLibrary::start().await;
     f.server
         .audio(
@@ -52,7 +56,9 @@ async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_
         .items
         .remove(0);
     let capture = capture::Capture::open();
-    let (player, owner) = Player::native(f.hito.clone());
+    let (player, owner) = async { Player::native(f.hito.clone()) }
+        .with_subscriber(dispatch)
+        .await;
     let attached = player
         .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
         .await
@@ -110,7 +116,47 @@ async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_
     assert_eq!(state.current.unwrap().recording_id.to_string(), next.id);
     assert_eq!(state.revision, 2);
     assert_eq!(f.server.requests("v1/sources").await.len(), 2);
-    assert_eq!(f.server.requests("v1/audio").await.len(), 2);
+    let final_logs = logs.events();
+    let attempts = final_logs
+        .iter()
+        .filter(|event| event["fields"]["event"] == "player_source_discovery_attempt_started")
+        .map(|event| {
+            (
+                event["fields"]["operation_id"].as_str().unwrap(),
+                event["fields"]["attempt"].as_u64().unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        attempts
+            .iter()
+            .map(|(_, attempt)| *attempt)
+            .collect::<Vec<_>>(),
+        [1, 2, 3],
+        "the failed occurrence must settle three logical attempts"
+    );
+    let demand = attempts[0].0;
+    assert!(attempts.iter().all(|(operation, _)| *operation == demand));
+    let acquisitions = final_logs
+        .iter()
+        .filter(|event| {
+            event["fields"]["event"] == "player_acquisition_started"
+                && event["fields"]["request_id"] == demand
+        })
+        .count();
+    assert_eq!(
+        acquisitions, 1,
+        "the occurrence must keep one acquisition demand"
+    );
+    let audio_requests = f.server.requests("v1/audio").await;
+    assert_eq!(audio_requests.len(), 4);
+    assert!(
+        audio_requests.iter().all(|(_, query)| {
+            query["_method"] == "GET"
+                && query["source_id"].as_str() == Some("audio:/1?private=value&other=bad")
+        }),
+        "each audio open must be a GET for the owned failing source"
+    );
     capture.after(capture.mark(), 0.1);
     assert!(capture::amplitude(&capture.recent(0.05), 440.) > 0.2);
     player
@@ -151,13 +197,21 @@ async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_
     .unwrap()
     .unwrap();
     assert_eq!(f.server.requests("v1/sources").await.len(), 2);
-    assert_eq!(f.server.requests("v1/audio").await.len(), 2);
+    let audio_requests = f.server.requests("v1/audio").await;
+    assert_eq!(audio_requests.len(), 4);
+    assert!(
+        audio_requests.iter().all(|(_, query)| {
+            query["_method"] == "GET"
+                && query["source_id"].as_str() == Some("audio:/1?private=value&other=bad")
+        }),
+        "paused Previous must not add an audio open"
+    );
     owner.close().await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
-async fn an_all_failed_queue_ends_after_one_cached_and_one_refreshed_pass_per_occurrence() {
+async fn an_all_failed_queue_ends_after_three_bounded_attempts_per_occurrence() {
     let f = audio_fixture::AudioLibrary::start().await;
     f.server
         .audio(
@@ -225,5 +279,13 @@ async fn an_all_failed_queue_ends_after_one_cached_and_one_refreshed_pass_per_oc
     );
     owner.close().await.unwrap();
     assert_eq!(f.server.requests("v1/sources").await.len(), 3);
-    assert_eq!(f.server.requests("v1/audio").await.len(), 4);
+    let audio_requests = f.server.requests("v1/audio").await;
+    assert_eq!(audio_requests.len(), 8);
+    assert!(
+        audio_requests.iter().all(|(_, query)| {
+            query["_method"] == "GET"
+                && query["source_id"].as_str() == Some("audio:/1?private=value&other=bad")
+        }),
+        "each bounded attempt must open only the owned failing source"
+    );
 }
