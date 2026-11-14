@@ -44,7 +44,7 @@ struct DiscoverView: View {
         .page()
         .refreshable { await load() }
         .task { if artists == nil { await load() } }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
     }
 
     private func heroCard(_ artist: RadioArtist) -> some View {

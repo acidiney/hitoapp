@@ -131,13 +131,15 @@ struct LibraryRow: View {
     let track: Track
     var isCurrent = false
     var showsTime = true
+    var gap: CGFloat = 8
+    var dimsUnplayable = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: gap) {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
+                    .foregroundStyle(isCurrent ? Theme.focus : dimsUnplayable && !track.isPlayable ? Theme.soft : Theme.text)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 Group {
                     if typeSize.isAccessibilitySize {

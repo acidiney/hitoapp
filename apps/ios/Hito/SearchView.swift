@@ -175,7 +175,7 @@ struct SearchView: View {
             }
             .presentationBackground(.clear)
         }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
         .onAppear { focused = active }
         .onChange(of: active) { focused = active }
     }

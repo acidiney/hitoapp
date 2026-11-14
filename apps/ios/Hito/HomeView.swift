@@ -90,7 +90,7 @@ struct HomeView: View {
             }
             .presentationBackground(.clear)
         }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
         .refreshable {
             reload()
             await albums.more(model)
