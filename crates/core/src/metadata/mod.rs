@@ -29,7 +29,7 @@ pub(crate) use projection::release as refresh_release;
 pub(crate) use projection::{provision, source as refresh_source};
 pub(crate) use recording_credits::{
     Scope as RecordingScope, folder as refresh_folder_credits,
-    recording as refresh_recording_credits,
+    recording as refresh_recording_credits, repair_missing_main_members,
 };
 
 pub(crate) use release_fields::set_release_field;

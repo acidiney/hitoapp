@@ -88,6 +88,7 @@ impl Store {
         }
         MIGRATOR.run(&pool).await?;
         crate::artist_catalog::erasure::clear_stray_scopes(&pool).await?;
+        crate::metadata::repair_missing_main_members(&pool).await?;
         Ok(Self { pool })
     }
 
