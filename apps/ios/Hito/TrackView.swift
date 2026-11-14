@@ -32,6 +32,7 @@ struct TrackView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
                 TrackDetailsCard(track: track, details: $details)
                 CopiesCard(track: track)
+                SourceHistoryCard(track: track)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
