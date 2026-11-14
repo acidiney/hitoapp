@@ -88,7 +88,7 @@ The queue skips tracks without a source. To find one, open the row menu and choo
 
 A track can have several sources. Hito tries them in your source order, set in Settings, Playback, **Source order**. Local files and saved copies come first unless you move them.
 
-If a source fails to open, Hito moves to the next ready source. On desktop, when a service is briefly unavailable, Hito looks for audio for the track again, up to three tries within about 15 seconds, before it skips the track. A service that refuses the request is not tried again. In the browser, Hito checks the services once more for new audio, then skips the track. You may see "An audio service is unavailable. Select the track again to retry."
+If a source fails to open, Hito moves to the next ready source in your order. In the browser and desktop app, if a service is briefly unavailable, Hito checks for audio again for up to three tries within about 15 seconds before it skips the track. A service that refuses the request is not tried again. You may see "An audio service is unavailable. Select the track again to retry."
 
 To stop after the first failure instead, turn off **Try the next source if one fails** in the same settings.
 
