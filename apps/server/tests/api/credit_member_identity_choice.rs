@@ -1,5 +1,6 @@
 use crate::{
-    account::exchange,
+    account::{Account, exchange},
+    artist_identity_read_fence_fixture::{Fixture as ScannedFixture, Ready as ScannedReady},
     credit_member_identity_choice_fixture::{Checkpoint, Reads, Response, with_member_group},
     credit_member_review_preview_fixture::{Context, Library, accepted, private},
     member_search_order_library::MEMBER,
@@ -107,6 +108,285 @@ async fn a_confirmed_featured_member_has_its_own_choice_group_and_exact_replay()
     assert_eq!(replayed_reads.current.2, reads.current.2);
     assert_eq!(replayed_reads.detail.2, reads.detail.2);
     assert_eq!(replayed_reads.filtered.2, reads.filtered.2);
+}
+
+#[tokio::test]
+async fn shared_member_reads_use_each_accounts_own_ids_and_follow_current_access() {
+    let mut fixture = ScannedFixture::new("member139_shared_member_read");
+    let outcome = AssertUnwindSafe(Box::pin(async {
+        hang_guard("shared scanned member setup", Box::pin(fixture.prepare())).await;
+        let ready = fixture.ready.as_ref().unwrap();
+        tokio::time::timeout(Duration::from_secs(30), exercise_shared(ready))
+            .await
+            .expect("The shared member access workflow must finish within its existing deadline")
+    }))
+    .catch_unwind()
+    .await;
+    fixture.retire().await;
+    if let Err(panic) = outcome {
+        resume_unwind(panic);
+    }
+}
+
+async fn exercise_shared(ready: &ScannedReady) {
+    let recording = ready.local.as_str();
+    let owner_metadata = ready
+        .owner
+        .get(
+            &ready.app,
+            &format!("/api/v1/recordings/{recording}/metadata"),
+        )
+        .await;
+    let owner_members = owner_metadata["credited_artists"].as_array().unwrap();
+    assert_eq!(owner_members.len(), 2);
+    assert!(owner_members.iter().any(|member| member["role"] == "main"));
+    assert!(
+        owner_members
+            .iter()
+            .any(|member| member["role"] == "featured")
+    );
+    let (owner_lookup_status, owner_recordings) = ready
+        .owner
+        .request(
+            &ready.app,
+            "POST",
+            "/api/v1/recordings/lookup",
+            json!({"recording_ids": [recording]}),
+        )
+        .await;
+    assert_eq!(owner_lookup_status, StatusCode::OK);
+    let owner_recording_members = owner_recordings[0]["credited_artists"].as_array().unwrap();
+    let main = owner_recording_members
+        .iter()
+        .find(|member| member["role"] == "main")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let featured = owner_recording_members
+        .iter()
+        .find(|member| member["role"] == "featured")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    for (artist, role) in [(&main, "main"), (&featured, "featured")] {
+        let response = exchange(
+            &ready.app,
+            "GET",
+            &format!("/api/v1/recordings/{recording}/credit-members/{artist}/artist-identity"),
+            Value::Null,
+            ready.owner.headers(),
+        )
+        .await;
+        assert_eq!(response.0, StatusCode::OK);
+        let choice = response.2;
+        assert_eq!(choice["role"], role);
+        assert_eq!(choice["revision"], 0);
+        assert_eq!(choice["state"]["status"], "unselected");
+    }
+    let (status, created) = ready
+        .owner
+        .request(
+            &ready.app,
+            "POST",
+            "/api/v1/users",
+            json!({
+                "username": "member139-peer", "password": "owned member139 peer password",
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let peer = Account::login(
+        &ready.app,
+        "member139-peer",
+        "owned member139 peer password",
+    )
+    .await;
+    let personal_path = format!(
+        "/api/v1/recordings/{}/credit-members/{}/artist-identity",
+        ready.imported, ready.member
+    );
+    assert_eq!(
+        peer.request(&ready.app, "GET", &personal_path, Value::Null)
+            .await
+            .0,
+        StatusCode::NOT_FOUND,
+        "the adopted personal recording must remain private"
+    );
+    assert_eq!(
+        ready
+            .owner
+            .request(
+                &ready.app,
+                "PUT",
+                &format!("/api/v1/libraries/{}/members/{}", ready.shared, peer.id),
+                Value::Null
+            )
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        peer.request(&ready.app, "GET", &personal_path, Value::Null)
+            .await
+            .0,
+        StatusCode::NOT_FOUND,
+        "granting the scanned library must not expose personal adoption data"
+    );
+
+    assert_eq!(created["id"], peer.id);
+    let peer_metadata = peer
+        .get(
+            &ready.app,
+            &format!("/api/v1/recordings/{recording}/metadata"),
+        )
+        .await;
+    let peer_members = peer_metadata["credited_artists"].as_array().unwrap();
+    assert_eq!(peer_members.len(), 2);
+    assert!(peer_members.iter().any(|member| member["role"] == "main"));
+    assert!(
+        peer_members
+            .iter()
+            .any(|member| member["role"] == "featured")
+    );
+    let (peer_lookup_status, peer_recordings) = peer
+        .request(
+            &ready.app,
+            "POST",
+            "/api/v1/recordings/lookup",
+            json!({"recording_ids": [recording]}),
+        )
+        .await;
+    assert_eq!(peer_lookup_status, StatusCode::OK);
+    let peer_recording_members = peer_recordings[0]["credited_artists"].as_array().unwrap();
+    let peer_main = peer_recording_members
+        .iter()
+        .find(|member| member["role"] == "main")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let peer_featured = peer_recording_members
+        .iter()
+        .find(|member| member["role"] == "featured")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    for (artist, role) in [(&peer_main, "main"), (&peer_featured, "featured")] {
+        let response = exchange(
+            &ready.app,
+            "GET",
+            &format!("/api/v1/recordings/{recording}/credit-members/{artist}/artist-identity"),
+            Value::Null,
+            peer.headers(),
+        )
+        .await;
+        assert_eq!(response.0, StatusCode::OK);
+        let choice = response.2;
+        assert_eq!(choice["role"], role);
+        assert_eq!(choice["revision"], 0);
+        assert_eq!(choice["state"]["status"], "unselected");
+    }
+    let peer_groups_before = peer.get(&ready.app, "/api/v1/artist-identity-groups").await;
+    let owner_before = ready
+        .owner
+        .get(
+            &ready.app,
+            &format!("/api/v1/recordings/{recording}/artist-identity"),
+        )
+        .await;
+    let member_review_path =
+        format!("/api/v1/recordings/{recording}/credit-members/{main}/artist-review");
+    let context = accepted(
+        &ready.app,
+        &ready.owner,
+        "POST",
+        &format!("{member_review_path}/context"),
+        json!({"provider": ready.selected}),
+    )
+    .await;
+    let association = accepted(
+        &ready.app,
+        &ready.owner,
+        "POST",
+        &format!("{member_review_path}/confirm"),
+        json!({"context": context, "provider_artist_id": catalog::SECOND_ARTIST}),
+    )
+    .await;
+    let chosen = accepted(
+        &ready.app,
+        &ready.owner,
+        "PUT",
+        &format!("/api/v1/recordings/{recording}/credit-members/{main}/artist-identity"),
+        json!({
+            "request_id": Uuid::new_v4(), "expected_revision": 0,
+            "association_id": association["id"], "context": context,
+        }),
+    )
+    .await;
+    assert_eq!(chosen["revision"], 1);
+    assert_eq!(chosen["selection"]["association_id"], association["id"]);
+    assert_eq!(
+        ready
+            .owner
+            .get(
+                &ready.app,
+                &format!("/api/v1/recordings/{recording}/artist-identity")
+            )
+            .await,
+        owner_before
+    );
+    let featured_after = ready
+        .owner
+        .get(
+            &ready.app,
+            &format!("/api/v1/recordings/{recording}/credit-members/{featured}/artist-identity"),
+        )
+        .await;
+    assert_eq!(featured_after["revision"], 0);
+    assert_eq!(featured_after["state"]["status"], "unselected");
+    let peer_after = exchange(
+        &ready.app,
+        "GET",
+        &format!("/api/v1/recordings/{recording}/credit-members/{peer_main}/artist-identity"),
+        Value::Null,
+        peer.headers(),
+    )
+    .await;
+    assert_eq!(peer_after.0, StatusCode::OK);
+    assert_eq!(peer_after.2["revision"], 0);
+    assert_eq!(peer_after.2["state"]["status"], "unselected");
+    assert_eq!(
+        peer.get(&ready.app, "/api/v1/artist-identity-groups").await,
+        peer_groups_before
+    );
+
+    assert_eq!(
+        ready
+            .owner
+            .request(
+                &ready.app,
+                "DELETE",
+                &format!("/api/v1/libraries/{}/members/{}", ready.shared, peer.id),
+                Value::Null
+            )
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        peer.request(
+            &ready.app,
+            "GET",
+            &format!("/api/v1/recordings/{recording}/credit-members/{peer_main}/artist-identity"),
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
 }
 
 async fn exercise(library: &Library, owned: &Context) -> Observed {

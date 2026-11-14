@@ -5,10 +5,11 @@ use hito_core::test_support::{
 };
 use hito_core::{
     Actor, ArtistAssociationEvidence, ArtistCreditRole, ArtistDiscographyAvailability,
-    ArtistProfileAvailability, AssociateRecordingArtist, ChooseRecordingArtistIdentity, CoreConfig,
-    Credentials, CreditRole, HostDeviceId, ImportProviderPlaylist, InstallPlugin,
-    MetadataHistoryQuery, MetadataObservation, MetadataProvider, OfferPluginService,
-    ReadArtistDiscography, RecordingArtistIdentityState, Services, UpdateMetadataSettings,
+    ArtistProfileAvailability, AssociateRecordingArtist, ChooseCreditMemberIdentity,
+    ChooseRecordingArtistIdentity, CoreConfig, Credentials, CreditRole, HostDeviceId,
+    ImportProviderPlaylist, InstallPlugin, MetadataHistoryQuery, MetadataObservation,
+    MetadataProvider, OfferPluginService, PluginInstallation, ReadArtistDiscography,
+    RecordingArtistIdentityState, Services, UpdateMetadataSettings,
 };
 use serde_json::{Value, json};
 use std::{future::pending, panic::AssertUnwindSafe, sync::Arc, time::Duration};
@@ -17,14 +18,16 @@ use uuid::Uuid;
 
 const ADA: &str = "owned:artist/ada";
 
-struct Library {
-    hito: Services,
-    actor: Actor,
-    owner: DatabaseOwner,
+pub(super) struct Library {
+    pub(super) hito: Services,
+    pub(super) actor: Actor,
+    pub(super) owner: DatabaseOwner,
+    pub(super) directory: Arc<tempfile::TempDir>,
+    pub(super) token: String,
 }
 
 impl Library {
-    async fn open() -> Self {
+    pub(super) async fn open() -> Self {
         let directory = Arc::new(tempfile::tempdir().unwrap());
         let music = directory.path().join("music");
         std::fs::create_dir(&music).unwrap();
@@ -45,10 +48,16 @@ impl Library {
             .await
             .unwrap();
         let actor = hito.identity.authenticate(&session.token).await.unwrap();
-        Self { hito, actor, owner }
+        Self {
+            hito,
+            actor,
+            owner,
+            directory,
+            token: session.token,
+        }
     }
 
-    async fn close(self) {
+    pub(super) async fn close(self) {
         self.hito.playback.close().await.unwrap();
         self.hito.replicas.close().await.unwrap();
         self.hito.catalog_replication.close().await.unwrap();
@@ -84,7 +93,9 @@ async fn featured_member_review_preserves_the_main_choice_and_reads_its_own_cata
         .await;
         timeout(
             Duration::from_secs(30),
-            Box::pin(exercise(&library, &prepared, &catalog)),
+            Box::pin(async {
+                exercise(&library, &prepared, &catalog).await;
+            }),
         )
         .await
     }))
@@ -108,24 +119,26 @@ async fn featured_member_review_preserves_the_main_choice_and_reads_its_own_cata
     }
 }
 
-struct Prepared {
-    recording: String,
-    playlist: Uuid,
-    ada: String,
-    cy: String,
-    observation: MetadataObservation,
-    provider: MetadataProvider,
-    policy_revision: i64,
+pub(super) struct Prepared {
+    pub(super) recording: String,
+    pub(super) playlist: Uuid,
+    pub(super) ada: String,
+    pub(super) cy: String,
+    pub(super) observation: MetadataObservation,
+    pub(super) provider: MetadataProvider,
+    pub(super) playlist_installation: PluginInstallation,
+    pub(super) policy_revision: i64,
 }
 
-async fn prepare(
+pub(super) async fn prepare(
     library: &Library,
     origin: &origin::ProviderServer,
     catalog: &catalog::CatalogServer,
 ) -> Prepared {
     let hito = &library.hito;
     let actor = &library.actor;
-    let installation = Box::pin(origin::connect(hito, actor, origin, &["playlists"])).await;
+    let playlist_installation =
+        Box::pin(origin::connect(hito, actor, origin, &["playlists"])).await;
     origin::playlist(
         origin,
         "owned-credit",
@@ -145,10 +158,10 @@ async fn prepare(
     .await;
     let imported = Box::pin(hito.collection.import_provider_playlist(
         actor,
-        &installation.id,
+        &playlist_installation.id,
         ImportProviderPlaylist {
             request_id: Uuid::new_v4(),
-            installation_revision: installation.revision,
+            installation_revision: playlist_installation.revision,
             playlist_reference: "https://provider.invalid/owned-credit".into(),
         },
     ))
@@ -206,7 +219,7 @@ async fn prepare(
     .await
     .unwrap();
     let provider = MetadataProvider::HttpPlugin {
-        installation_id: installation.id,
+        installation_id: installation.id.clone(),
     };
     let defaults = hito.artist_catalog.metadata_settings(actor).await.unwrap();
     let settings = hito
@@ -228,11 +241,16 @@ async fn prepare(
         cy,
         observation,
         provider,
+        playlist_installation,
         policy_revision: settings.revision,
     }
 }
 
-async fn exercise(library: &Library, prepared: &Prepared, catalog: &catalog::CatalogServer) {
+pub(super) async fn exercise(
+    library: &Library,
+    prepared: &Prepared,
+    catalog: &catalog::CatalogServer,
+) -> String {
     let hito = &library.hito;
     let actor = &library.actor;
     let recording = prepared.recording.as_str();
@@ -249,6 +267,20 @@ async fn exercise(library: &Library, prepared: &Prepared, catalog: &catalog::Cat
         provider_artist_id: identity.into(),
         policy_revision: prepared.policy_revision,
     };
+    for (member, role) in [(ada, CreditRole::Main), (cy, CreditRole::Featured)] {
+        let choice = hito
+            .artist_catalog
+            .recording_credit_member_identity_choice(actor, recording, member)
+            .await
+            .expect("each explicitly credited member must have an unselected identity read");
+        assert_eq!(choice.artist_id, member);
+        assert_eq!(choice.role, role);
+        assert_eq!(choice.revision, 0);
+        assert!(matches!(
+            choice.state,
+            RecordingArtistIdentityState::Unselected
+        ));
+    }
     let main = Box::pin(hito.artist_catalog.associate_recording_artist(
         actor,
         recording,
@@ -378,6 +410,62 @@ async fn exercise(library: &Library, prepared: &Prepared, catalog: &catalog::Cat
         before
     );
     assert_eq!(catalog.unexpected(), 0);
+    let main_context = hito
+        .artist_catalog
+        .begin_credit_member_review(actor, recording, ada, provider.clone())
+        .await
+        .unwrap();
+    let main_member_association = hito
+        .artist_catalog
+        .confirm_credit_member_review(actor, &main_context, ADA)
+        .await
+        .unwrap();
+    let main_member_choice = hito
+        .artist_catalog
+        .choose_credit_member_identity(
+            actor,
+            recording,
+            ada,
+            ChooseCreditMemberIdentity {
+                request_id: Uuid::new_v4(),
+                expected_revision: 0,
+                association_id: Uuid::parse_str(&main_member_association.id).unwrap(),
+                context: main_context,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(main_member_choice.revision, 1);
+    assert_eq!(
+        main_member_choice
+            .selection
+            .as_ref()
+            .unwrap()
+            .association_id,
+        main_member_association.id
+    );
+    assert_eq!(
+        serde_json::to_value(
+            hito.artist_catalog
+                .recording_artist_identity_choice(actor, recording)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        choice_before,
+        "choosing the main member must preserve the whole-credit choice",
+    );
+    let featured_choice = hito
+        .artist_catalog
+        .recording_credit_member_identity_choice(actor, recording, cy)
+        .await
+        .unwrap();
+    assert_eq!(featured_choice.revision, 0);
+    assert!(matches!(
+        featured_choice.state,
+        RecordingArtistIdentityState::Unselected
+    ));
+    guest.id
 }
 
 async fn snapshot(library: &Library, recording: &str, playlist: Uuid) -> Value {

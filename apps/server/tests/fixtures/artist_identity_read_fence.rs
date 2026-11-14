@@ -16,8 +16,10 @@ use hito_core::{
 };
 use hito_testkit::held_authority_snapshot::HeldSnapshot;
 use lofty::{
-    prelude::{Accessor, TagExt},
-    tag::{Tag, TagType},
+    TextEncoding,
+    id3::v2::{ExtendedTextFrame, Frame, FrameId, Id3v2Tag, TextInformationFrame},
+    prelude::{ItemKey, TagExt, TaggedFileExt},
+    probe::Probe,
 };
 use serde_json::{Value, json};
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -37,7 +39,7 @@ pub(crate) struct Ready {
     pub(crate) imported: String,
     pub(crate) member: String,
     pub(crate) group: String,
-    selected: MetadataProvider,
+    pub(crate) selected: MetadataProvider,
 }
 
 impl Ready {
@@ -139,10 +141,37 @@ impl Fixture {
         std::fs::create_dir(&music).unwrap();
         let audio = music.join("owned-read-fence.wav");
         support::write_wav(&audio);
-        let mut tag = Tag::new(TagType::Id3v2);
-        tag.set_title("Owned read fence local recording".into());
-        tag.set_artist("Owned read fence local performer".into());
+        let mut tag = Id3v2Tag::new();
+        for (id, text) in [
+            ("TIT2", "Owned read fence local recording"),
+            ("TPE1", "Ada feat. Cy"),
+        ] {
+            tag.insert(Frame::Text(TextInformationFrame::new(
+                FrameId::Valid(id.into()),
+                TextEncoding::UTF8,
+                text.into(),
+            )));
+        }
+        tag.insert(Frame::UserText(ExtendedTextFrame::new(
+            TextEncoding::UTF8,
+            "ARTISTS".into(),
+            "Ada\0Cy".into(),
+        )));
         tag.save_to_path(&audio, Default::default()).unwrap();
+        let tagged = Probe::open(&audio)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let artist_names: Vec<String> = tagged
+            .tags()
+            .iter()
+            .flat_map(|tag| tag.get_strings(&ItemKey::TrackArtists))
+            .flat_map(|value| value.split('\0'))
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(artist_names, ["Ada", "Cy"]);
         let original = std::fs::read(&audio).unwrap();
         let database = DatabaseOwner::retain(directory.clone());
         let mut config = CoreConfig::new(
