@@ -22,10 +22,14 @@ enum Theme {
     static let selected = Color(red: 0x1c / 255, green: 0x21 / 255, blue: 0x40 / 255)
     static let danger = Color(red: 0xf6 / 255, green: 0xb8 / 255, blue: 0xa8 / 255)
     static let liked = Color(red: 0xf0 / 255, green: 0xb4 / 255, blue: 0x9a / 255)
+    static let rest = Color(red: 0x4a / 255, green: 0x4a / 255, blue: 0x46 / 255)
+    static let missing = Color(red: 0x8a / 255, green: 0x89 / 255, blue: 0x84 / 255)
+    static let avatar = Color(red: 0x1f / 255, green: 0x4a / 255, blue: 0x43 / 255)
 
     static let body = Font.custom("Figtree-Regular", size: 16, relativeTo: .body)
     static let bodyStrong = Font.custom("Figtree-SemiBold", size: 16, relativeTo: .body)
     static let bodyBold = Font.custom("Figtree-Bold", size: 16, relativeTo: .body)
+    static let bodyMedium = Font.custom("Figtree-Medium", size: 16, relativeTo: .body)
     static let small = Font.custom("Figtree-Regular", size: 14, relativeTo: .subheadline)
     static let smallMedium = Font.custom("Figtree-Medium", size: 14, relativeTo: .subheadline)
     static let smallStrong = Font.custom("Figtree-SemiBold", size: 14, relativeTo: .subheadline)
@@ -37,6 +41,10 @@ enum Theme {
     static let caption = Font.custom("Figtree-Regular", size: 12, relativeTo: .caption)
     static let tab = Font.custom("Figtree-Medium", size: 11, relativeTo: .caption2)
     static let tabCurrent = Font.custom("Figtree-Bold", size: 11, relativeTo: .caption2)
+    static let heading = Font.custom("Figtree-Bold", size: 18, relativeTo: .title3)
+    static let result = Font.custom("Figtree-Bold", size: 20, relativeTo: .title2)
+    static let lyric = Font.custom("Figtree-Bold", size: 22, relativeTo: .title2)
+    static let lyricCurrent = Font.custom("Figtree-Bold", size: 32, relativeTo: .largeTitle)
 }
 
 struct Screen<Content: View>: View {
@@ -150,7 +158,7 @@ struct TextAction: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                if let icon { Image(systemName: icon).font(Theme.smallStrong) }
+                if let icon { Icon(icon) }
                 Text(title)
             }
             .font(Theme.smallMedium)
@@ -172,5 +180,43 @@ struct Alert: View {
         .foregroundStyle(Theme.alert)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+struct Icon: View {
+    let name: String
+    var size: CGFloat = 18
+
+    init(_ name: String, size: CGFloat = 18) {
+        self.name = name
+        self.size = size
+    }
+
+    var body: some View {
+        Image("Icon-\(name)")
+            .resizable()
+            .renderingMode(.template)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+struct IconButton: View {
+    let icon: String
+    let label: String
+    var size: CGFloat = 44
+    var glyph: CGFloat = 18
+    var color = Theme.text
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Icon(icon, size: glyph)
+                .foregroundStyle(color)
+                .frame(width: size, height: size)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
