@@ -119,6 +119,9 @@ struct SearchView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .disabled(!track.isPlayable)
+                                    if !track.isPlayable {
+                                        FindButton(track: track) { tracks.replace(track.id, with: $0) }
+                                    }
                                     Menu { TrackMenu(track: track) } label: {
                                         Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
                                     }

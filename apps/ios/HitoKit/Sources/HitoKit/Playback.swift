@@ -24,6 +24,35 @@ public struct Playback: Sendable {
         case noReadySource
     }
 
+    public enum Finding: Equatable, Sendable {
+        case found
+        case notFound(String)
+    }
+
+    struct Resolve: Encodable {
+        let requestId: UUID
+
+        enum CodingKeys: String, CodingKey { case requestId = "request_id" }
+    }
+
+    struct Resolution: Decodable { let outcome: String }
+
+    public func find(_ recording: String, request: UUID) async throws -> Finding {
+        let resolution: Resolution
+        do {
+            resolution = try await api.post(["api", "v1", "recordings", recording, "sources", "resolve"], body: Resolve(requestId: request), as: Resolution.self)
+        } catch HitoAPI.Problem.refused(404) {
+            return .notFound("No service knows this track")
+        }
+        switch resolution.outcome {
+        case "ready": return .found
+        case "provider_unavailable": return .notFound("The music service didn't answer")
+        case "protected_choice": return .notFound("You chose a source for this track. Change it in Source.")
+        case "cancelled": return .notFound("The search was cancelled")
+        default: return .notFound("No source found")
+        }
+    }
+
     struct Source: Decodable {
         let id: String
         let label: String

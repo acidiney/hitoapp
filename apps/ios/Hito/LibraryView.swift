@@ -303,13 +303,18 @@ struct TrackRows: View {
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(picked ? [.isButton, .isSelected] : .isButton)
             } else {
-                Button {
-                    model.player?.play(feed.items, at: index, from: context)
-                } label: {
-                    LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                HStack(spacing: 0) {
+                    Button {
+                        model.player?.play(feed.items, at: index, from: context)
+                    } label: {
+                        LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: track.isPlayable)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!track.isPlayable)
+                    if !track.isPlayable {
+                        FindButton(track: track) { feed.replace(track.id, with: $0) }
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(!track.isPlayable)
                 .contextMenu {
                     TrackMenu(track: track)
                     if selection.wrappedValue == nil, selectable {

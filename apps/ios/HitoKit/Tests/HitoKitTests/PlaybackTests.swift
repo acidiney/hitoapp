@@ -114,4 +114,21 @@ import Testing
         #expect(audio.sourceId == "s2")
         #expect(fake.requests.last?.json == ["recording_id": "r1", "source_id": "s2"])
     }
+
+    @Test func findingASourceSaysWhatHappened() async throws {
+        let request = UUID(uuidString: "7B0A62C1-58E4-4D2B-9C59-7C1D1B0D3A11")!
+        func answer(_ outcome: String) -> String {
+            #"{"request_id":"7B0A62C1-58E4-4D2B-9C59-7C1D1B0D3A11","resolution_id":"8B0A62C1-58E4-4D2B-9C59-7C1D1B0D3A11","recording_id":"r1","outcome":"\#(outcome)","sources":[]}"#
+        }
+        let ready = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/resolve": .json(200, answer("ready"))])
+        #expect(try await playback(ready).find("r1", request: request) == .found)
+        #expect((ready.requests.first?.json?["request_id"])?.uppercased() == request.uuidString)
+        let none = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/resolve": .json(200, answer("no_suitable_source"))])
+        #expect(try await playback(none).find("r1", request: request) == .notFound("No source found"))
+        let down = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/resolve": .json(200, answer("provider_unavailable"))])
+        #expect(try await playback(down).find("r1", request: request) == .notFound("The music service didn't answer"))
+        let local = FakeServer(routes: ["POST /api/v1/recordings/r1/sources/resolve": .json(404, #"{"error":"Resource not found"}"#)])
+        #expect(try await playback(local).find("r1", request: request) == .notFound("No service knows this track"))
+    }
 }
+

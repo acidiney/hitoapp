@@ -17,6 +17,11 @@ final class Feed<Item: Decodable & Equatable & Identifiable & Sendable> {
     var isEmpty: Bool { total == 0 && unsupported == nil }
     var hasMore: Bool { total.map { items.count < $0 } ?? true }
 
+    func replace(_ id: Item.ID, with item: Item) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index] = item
+    }
+
     func reset(_ fetch: @escaping Fetch) {
         generation += 1
         self.fetch = fetch
@@ -96,6 +101,53 @@ enum TrackList: Hashable {
         switch self {
         case .liked: try await library.tracks(offset: offset, liked: true)
         case .artist(let artist): try await library.tracks(offset: offset, artist: artist.id)
+        }
+    }
+}
+
+extension Track {
+    var readied: Track {
+        Track(id: id, title: title, artist: artist, album: album, releaseId: releaseId, durationMs: durationMs, available: true, playsFromServices: playsFromServices, liked: liked, trackNumber: trackNumber)
+    }
+}
+
+struct FindButton: View {
+    @Environment(AppModel.self) private var model
+    let track: Track
+    let found: (Track) -> Void
+    @State private var finding = false
+    @State private var note: String?
+    @State private var request = UUID()
+
+    var body: some View {
+        Group {
+            if finding {
+                ProgressView().tint(Theme.soft).frame(width: 52, height: 44)
+            } else if let note {
+                Text(note).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(2).multilineTextAlignment(.trailing).frame(width: 110, alignment: .trailing).padding(.trailing, 8)
+            } else {
+                Button { Task { await find() } } label: {
+                    Text("Find").font(Theme.smallMedium).foregroundStyle(Theme.focus).padding(.horizontal, 8).frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Find a source for \(track.title)")
+            }
+        }
+    }
+
+    private func find() async {
+        guard let api = model.api else { return }
+        finding = true
+        defer { finding = false }
+        do {
+            switch try await Playback(api: api).find(track.id, request: request) {
+            case .found: found(track.readied)
+            case let .notFound(reason): note = reason
+            }
+            request = UUID()
+        } catch {
+            note = "Couldn't search"
+            model.handle(error)
         }
     }
 }
