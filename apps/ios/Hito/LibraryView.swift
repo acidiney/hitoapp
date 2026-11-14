@@ -24,6 +24,9 @@ struct LibraryView: View {
     @State private var selected: Set<String>?
     @State private var notice: String?
     @State private var opened: Playlist?
+    @State private var finding: String?
+
+    var active: Int { (sort == .recent ? 0 : 1) + (shown == .all ? 0 : 1) }
 
     var body: some View {
         ScrollView {
@@ -35,20 +38,34 @@ struct LibraryView: View {
                         Button { filtering = true } label: {
                             HStack(spacing: 8) {
                                 Icon("filters", size: 18)
-                                Text(sort == .recent ? "Filters" : "Filters · 1").font(Theme.smallMedium)
+                                Text(active == 0 ? "Filters" : "Filters · \(active)").font(Theme.smallMedium)
                             }
                             .foregroundStyle(Theme.text)
                             .padding(.horizontal, 14)
                             .frame(minHeight: 44)
-                            .overlay(Capsule().strokeBorder(sort == .recent ? Theme.line : Theme.accent, lineWidth: sort == .recent ? 1 : 1.5))
+                            .overlay(Capsule().strokeBorder(active == 0 ? Theme.line : Theme.accent, lineWidth: active == 0 ? 1 : 1.5))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(sort == .recent ? "Filter and sort" : "Filter and sort, sorted by \(sort.label)")
+                        .accessibilityLabel(active == 0 ? "Filter and sort" : "Filter and sort, \(active) active")
                     }
                 }
                 SectionTabs(selection: $section)
                 switch section {
                 case .tracks:
+                    if active > 0 {
+                        Wrap(spacing: 8) {
+                            if shown != .all {
+                                ActiveChip(title: shown.label) { shown = .all }
+                            }
+                            if sort != .recent {
+                                ActiveChip(title: "Sorted by \(sort.label.lowercased())") { sort = .recent }
+                            }
+                            TextAction(title: "Reset") {
+                                shown = .all
+                                sort = .recent
+                            }
+                        }
+                    }
                     TrackRows(feed: tracks, context: "Your library", empty: "No tracks yet. An administrator adds music folders on the web.", selection: $selected, selectable: true)
                         .padding(.leading, -6)
                         .padding(.trailing, -8)
@@ -87,7 +104,9 @@ struct LibraryView: View {
                     count: chosen.count,
                     loaded: tracks.items.count,
                     playlists: (playlists ?? []).filter { $0.kind == .local },
+                    finding: finding,
                     selectLoaded: { selected = Set(tracks.items.map(\.id)) },
+                    find: { findSelected(chosen) },
                     queue: { queueSelected(chosen) },
                     add: { playlist in Task { await add(chosen, to: playlist) } },
                     close: { selected = nil }
@@ -132,6 +151,34 @@ struct LibraryView: View {
         let sort = sort
         let availability = shown.availability
         tracks.reset { try await library.tracks(offset: $0, sort: sort, availability: availability) }
+    }
+
+    private func findSelected(_ chosen: Set<String>) {
+        guard let api = model.api, finding == nil else { return }
+        let ids = tracks.items.filter { chosen.contains($0.id) && $0.canFind }.map(\.id)
+        guard !ids.isEmpty else {
+            notice = "The selected tracks already have a source."
+            return
+        }
+        var done = 0
+        finding = "Finding 1 of \(ids.count)…"
+        Task {
+            do {
+                let found = try await Playback(api: api).find(ids) { id, result in
+                    done += 1
+                    finding = done < ids.count ? "Finding \(done + 1) of \(ids.count)…" : nil
+                    if result == .found, let track = tracks.items.first(where: { $0.id == id }) {
+                        tracks.replace(id, with: track.readied)
+                    }
+                }
+                notice = found == 0 ? "No sources found for the selected tracks." : "Found sources for \(found) of \(ids.count)."
+                selected = nil
+            } catch {
+                notice = "The search stopped. Try again."
+                model.handle(error)
+            }
+            finding = nil
+        }
     }
 
     private func queueSelected(_ chosen: Set<String>) {
@@ -699,6 +746,26 @@ struct FilterSheet: View {
     }
 }
 
+struct ActiveChip: View {
+    let title: String
+    let clear: () -> Void
+
+    var body: some View {
+        Button(action: clear) {
+            HStack(spacing: 8) {
+                Text(title).font(Theme.bodyMedium).lineLimit(1)
+                Icon("close", size: 14)
+            }
+            .foregroundStyle(Theme.ground)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(Capsule().fill(Theme.text))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Remove \(title)")
+    }
+}
+
 struct FlowChips<Item: Hashable>: View {
     let items: [Item]
     let label: KeyPath<Item, String>
@@ -780,7 +847,9 @@ struct SelectionBar: View {
     let count: Int
     let loaded: Int
     let playlists: [Playlist]
+    let finding: String?
     let selectLoaded: () -> Void
+    let find: () -> Void
     let queue: () -> Void
     let add: (Playlist) -> Void
     let close: () -> Void
@@ -796,6 +865,17 @@ struct SelectionBar: View {
                 IconButton(icon: "close", label: "Stop selecting", glyph: 18, action: close)
             }
             HStack(spacing: 10) {
+                Button(action: find) {
+                    Text(finding ?? "Find sources")
+                        .font(Theme.bodyStrong)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Capsule().fill(Theme.accent).opacity(finding == nil ? 1 : 0.6))
+                }
+                .buttonStyle(.plain)
+                .disabled(count == 0 || finding != nil)
                 Menu {
                     if playlists.isEmpty {
                         Text("No playlists of yours yet")
@@ -805,21 +885,21 @@ struct SelectionBar: View {
                     }
                 } label: {
                     Text("Add to playlist")
-                        .font(Theme.bodyStrong)
-                        .foregroundStyle(Theme.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(Capsule().fill(Theme.accent))
-                }
-                .disabled(count == 0)
-                Button(action: queue) {
-                    Text("Add to queue")
                         .font(Theme.bodyMedium)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.text)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .overlay(Capsule().strokeBorder(Theme.line))
                 }
-                .buttonStyle(.plain)
                 .disabled(count == 0)
+                Menu {
+                    Button("Add to queue", action: queue)
+                } label: {
+                    Icon("more").foregroundStyle(Theme.text).frame(width: 44, height: 48).contentShape(Rectangle())
+                }
+                .disabled(count == 0)
+                .accessibilityLabel("More actions for the selected tracks")
             }
         }
         .padding(16)
