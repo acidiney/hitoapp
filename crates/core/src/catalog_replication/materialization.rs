@@ -32,14 +32,15 @@ struct RecordingRow {
 }
 
 #[derive(sqlx::FromRow)]
-struct SourceRow {
-    ordinal: i64,
-    id: String,
+struct SourceBatchRow {
+    rejected: bool,
+    ordinal: Option<i64>,
+    id: Option<String>,
     observation_id: Option<String>,
-    title: String,
-    artist: String,
-    duration_ms: i64,
-    ready: bool,
+    title: Option<String>,
+    artist: Option<String>,
+    duration_ms: Option<i64>,
+    ready: Option<bool>,
     release_id: Option<String>,
     release_title: Option<String>,
     release_artist: Option<String>,
@@ -294,26 +295,15 @@ async fn sources(
     #[cfg(test)] diagnostic: &mut MaterializationDiagnostic,
 ) -> Result<Vec<Vec<LocalSourceFact>>> {
     #[cfg(test)]
-    diagnostic.start(Phase::SourcePreflightQuery);
-    let mut preflight = source_preflight(rows);
-    let preflight_result = preflight.build_query_as().fetch_all(&mut *connection).await;
+    diagnostic.start(Phase::SourceFactsQuery);
+    let mut query = source_batch_query(rows, actor, host);
+    let source_result = query.build_query_as().fetch_all(&mut *connection).await;
     #[cfg(test)]
     diagnostic.end();
-    let groups: Vec<(i64, i64, i64)> = preflight_result?;
-    if groups.len() != rows.len()
-        || groups
-            .iter()
-            .any(|(_, count, size)| *count > MAX_SOURCES || *size > (MAX_FACT_BYTES / 6) as i64)
-    {
+    let sources: Vec<SourceBatchRow> = source_result?;
+    if sources.iter().any(|row| row.rejected) {
         return Err(limit());
     }
-    #[cfg(test)]
-    diagnostic.start(Phase::SourceFactsQuery);
-    let mut query = source_query(rows, actor, host);
-    let source_result = query.build_query_as().fetch_all(connection).await;
-    #[cfg(test)]
-    diagnostic.end();
-    let sources: Vec<SourceRow> = source_result?;
     #[cfg(test)]
     diagnostic.source_rows(sources.len());
     let mut facts: Vec<Vec<LocalSourceFact>> = (0..rows.len()).map(|_| Vec::new()).collect();
@@ -321,25 +311,26 @@ async fn sources(
     diagnostic.start(Phase::SourceFactAssembly);
     let assembly: Result<()> = (|| {
         for row in sources {
-            let ordinal = usize::try_from(row.ordinal).map_err(|_| limit())?;
+            let ordinal = usize::try_from(row.ordinal.ok_or_else(limit)?).map_err(|_| limit())?;
+            let id = row.id.ok_or_else(limit)?;
             facts
                 .get_mut(ordinal)
                 .ok_or_else(limit)?
                 .push(LocalSourceFact {
-                    release: row.release_id.map(|id| LocalReleaseAppearance {
-                        id,
-                        entry_id: row.id.clone(),
+                    release: row.release_id.map(|release_id| LocalReleaseAppearance {
+                        id: release_id,
+                        entry_id: id.clone(),
                         title: row.release_title.unwrap_or_default(),
                         artist: row.release_artist,
                         disc_number: row.disc_number,
                         track_number: row.track_number,
                     }),
-                    id: row.id,
+                    id,
                     observation_id: row.observation_id,
-                    title: row.title,
-                    artist: row.artist,
-                    duration_ms: row.duration_ms,
-                    server_relay: if row.ready {
+                    title: row.title.ok_or_else(limit)?,
+                    artist: row.artist.ok_or_else(limit)?,
+                    duration_ms: row.duration_ms.ok_or_else(limit)?,
+                    server_relay: if row.ready.ok_or_else(limit)? {
                         ServerRelayObservation::Ready
                     } else {
                         ServerRelayObservation::Unavailable
@@ -356,29 +347,66 @@ async fn sources(
     Ok(facts)
 }
 
-fn source_preflight(rows: &[RecordingRow]) -> QueryBuilder<'static, Sqlite> {
-    let mut preflight = wanted(rows);
-    preflight.push("SELECT wanted.ordinal,count(*),COALESCE(sum(length(CAST(s.id AS BLOB))+COALESCE(length(CAST(m.observation_id AS BLOB)),0)+length(CAST(m.title AS BLOB))+length(CAST(m.artist AS BLOB))+COALESCE(length(CAST(a.id AS BLOB)),0)+COALESCE(length(CAST(a.title AS BLOB)),0)+COALESCE(length(CAST(a.artist AS BLOB)),0)),0)
-        FROM wanted CROSS JOIN sources s INDEXED BY sources_recording ON s.recording_id=wanted.id AND s.provider='local'
-        CROSS JOIN source_metadata m INDEXED BY sqlite_autoindex_source_metadata_1 ON m.source_id=s.id LEFT JOIN releases a INDEXED BY sqlite_autoindex_releases_1 ON a.id=m.release_id GROUP BY wanted.ordinal");
-    preflight
-}
-
-fn source_query(
+fn source_batch_query(
     rows: &[RecordingRow],
     actor: &Actor,
     host: &HostDeviceId,
 ) -> QueryBuilder<'static, Sqlite> {
     let mut query = wanted(rows);
-    query.push("SELECT wanted.ordinal,s.id,m.observation_id,m.title,m.artist,m.duration_ms, CASE WHEN s.ready=1 AND (s.device_id IS NULL OR s.device_id=")
-        .push_bind(host.as_str().to_owned()).push(") AND file.source_id IS NOT NULL AND folder.connected=1 AND folder.bound=1 AND ");
+    query.push(", stats AS MATERIALIZED (
+        SELECT wanted.ordinal AS ordinal,count(*) AS source_count,
+            COALESCE(sum(length(CAST(s.id AS BLOB))
+                +COALESCE(length(CAST(m.observation_id AS BLOB)),0)
+                +length(CAST(m.title AS BLOB))
+                +length(CAST(m.artist AS BLOB))
+                +COALESCE(length(CAST(a.id AS BLOB)),0)
+                +COALESCE(length(CAST(a.title AS BLOB)),0)
+                +COALESCE(length(CAST(a.artist AS BLOB)),0)),0) AS source_bytes
+        FROM wanted CROSS JOIN sources s INDEXED BY sources_recording
+            ON s.recording_id=wanted.id AND s.provider='local'
+        CROSS JOIN source_metadata m INDEXED BY sqlite_autoindex_source_metadata_1
+            ON m.source_id=s.id
+        LEFT JOIN releases a INDEXED BY sqlite_autoindex_releases_1 ON a.id=m.release_id
+        GROUP BY wanted.ordinal
+    ), admission AS MATERIALIZED (
+        SELECT CASE WHEN (SELECT count(*) FROM stats)=(SELECT count(*) FROM wanted)
+            AND NOT EXISTS (SELECT 1 FROM stats WHERE source_count>");
+    query
+        .push_bind(MAX_SOURCES)
+        .push(" OR source_bytes>")
+        .push_bind((MAX_FACT_BYTES / 6) as i64)
+        .push(") THEN 1 ELSE 0 END AS allowed
+    ), facts AS (
+        SELECT 0 AS rejected,wanted.ordinal,
+            CASE WHEN admission.allowed=1 THEN s.id ELSE NULL END AS id,
+            CASE WHEN admission.allowed=1 THEN m.observation_id ELSE NULL END AS observation_id,
+            CASE WHEN admission.allowed=1 THEN m.title ELSE NULL END AS title,
+            CASE WHEN admission.allowed=1 THEN m.artist ELSE NULL END AS artist,
+            CASE WHEN admission.allowed=1 THEN m.duration_ms ELSE NULL END AS duration_ms,
+            CASE WHEN admission.allowed=1 THEN CASE WHEN s.ready=1 AND (s.device_id IS NULL OR s.device_id=");
+    query.push_bind(host.as_str().to_owned());
+    query.push(") AND file.source_id IS NOT NULL AND folder.connected=1 AND folder.bound=1 AND ");
     push_source_choice(&mut query, actor.id());
-    query.push(" THEN 1 ELSE 0 END AS ready,a.id AS release_id,a.title AS release_title,a.artist AS release_artist,m.disc_number,m.track_number
-        FROM wanted CROSS JOIN sources s INDEXED BY sources_recording ON s.recording_id=wanted.id AND s.provider='local'
+    query.push(" THEN 1 ELSE 0 END ELSE NULL END AS ready,
+            CASE WHEN admission.allowed=1 THEN a.id ELSE NULL END AS release_id,
+            CASE WHEN admission.allowed=1 THEN a.title ELSE NULL END AS release_title,
+            CASE WHEN admission.allowed=1 THEN a.artist ELSE NULL END AS release_artist,
+            CASE WHEN admission.allowed=1 THEN m.disc_number ELSE NULL END AS disc_number,
+            CASE WHEN admission.allowed=1 THEN m.track_number ELSE NULL END AS track_number
+        FROM admission CROSS JOIN wanted
+        CROSS JOIN sources s INDEXED BY sources_recording ON s.recording_id=wanted.id AND s.provider='local'
         CROSS JOIN source_metadata m INDEXED BY sqlite_autoindex_source_metadata_1 ON m.source_id=s.id
         LEFT JOIN releases a INDEXED BY sqlite_autoindex_releases_1 ON a.id=m.release_id
         LEFT JOIN local_files file INDEXED BY sqlite_autoindex_local_files_1 ON file.source_id=s.id
-        LEFT JOIN music_folders folder INDEXED BY sqlite_autoindex_music_folders_1 ON folder.id=file.folder_id ORDER BY wanted.ordinal,s.id");
+        LEFT JOIN music_folders folder INDEXED BY sqlite_autoindex_music_folders_1 ON folder.id=file.folder_id
+        WHERE admission.allowed=1
+        UNION ALL
+        SELECT 1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+        FROM admission WHERE allowed=0
+    )
+    SELECT rejected,ordinal,id,observation_id,title,artist,duration_ms,ready,
+        release_id,release_title,release_artist,disc_number,track_number
+    FROM facts ORDER BY 1,2,3");
     query
 }
 
@@ -400,8 +428,7 @@ pub(super) async fn explain_plans(
     let cursor = (last.title.clone(), last.id.clone());
     for (name, mut query) in [
         ("recordings", recordings_query(library, Some(&cursor))),
-        ("source_preflight", source_preflight(&rows)),
-        ("source_facts", source_query(&rows, actor, host)),
+        ("source_batch", source_batch_query(&rows, actor, host)),
     ] {
         let sql = format!("EXPLAIN QUERY PLAN {}", query.sql());
         let arguments = query.build().take_arguments().unwrap().unwrap();
