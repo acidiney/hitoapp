@@ -58,10 +58,10 @@ async fn exercise(f: fixture::Fixture, logs: &LogCapture) {
         }
         f.rank(true).await;
         first_search.release();
-        let progressed = tokio::time::timeout(Duration::from_secs(3),
+        let progressed = *(tokio::time::timeout(Duration::from_secs(3),
             position.wait_for(|position| position.selection != 1 || position.position_ms >= 100))
             .await.map_err(|_| "the first occurrence never presented progressing audio")?
-            .map_err(|_| "the authorized position observer closed during acquisition")?.clone();
+            .map_err(|_| "the authorized position observer closed during acquisition")?);
         if progressed.selection != 1 {
             return Err("the player skipped the requested occurrence during discovery retries");
         }
