@@ -5,7 +5,9 @@ enum SettingsPage: Hashable {
     case root
     case profile
     case privacy
+    case music
     case playback
+    case accounts
     case about
 
     var title: String {
@@ -13,7 +15,9 @@ enum SettingsPage: Hashable {
         case .root: "Settings"
         case .profile: "Profile"
         case .privacy: "Privacy & lock"
+        case .music: "Music"
         case .playback: "Playback"
+        case .accounts: "Accounts"
         case .about: "About"
         }
     }
@@ -23,12 +27,17 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var search = ""
 
-    private let sections: [(page: SettingsPage, title: String, detail: String)] = [
-        (.profile, "Profile", "Name, password, devices"),
-        (.privacy, "Privacy & lock", "PIN, history, what Hito sends out"),
-        (.playback, "Playback", "Source order"),
-        (.about, "About", "Version and server"),
-    ]
+    private var sections: [(page: SettingsPage, title: String, detail: String)] {
+        let admin: Bool = if case let .signedIn(_, user) = model.step { user.admin } else { false }
+        return [
+            (.profile, "Profile", "Name, password, devices"),
+            (.privacy, "Privacy & lock", "PIN, history, what Hito sends out"),
+            (.music, "Music", admin ? "Folders and libraries" : "Libraries you can listen to"),
+            (.playback, "Playback", "Source order"),
+        ] + (admin ? [(.accounts, "Accounts", "People on this server")] : []) + [
+            (.about, "About", "Version and server"),
+        ]
+    }
 
     var body: some View {
         ScrollView {

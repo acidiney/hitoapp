@@ -82,6 +82,8 @@ extension View {
                 case .profile: ProfileView().pushed(page.title)
                 case .privacy: PrivacyView().pushed(page.title)
                 case .playback: PlaybackSettingsView().pushed(page.title)
+                case .music: MusicSettingsView().pushed(page.title)
+                case .accounts: AccountsSettingsView().pushed(page.title)
                 case .about: AboutView().pushed(page.title)
                 }
             }
