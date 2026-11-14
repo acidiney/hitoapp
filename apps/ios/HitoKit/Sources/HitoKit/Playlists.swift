@@ -93,3 +93,100 @@ public struct Playlists: Sendable {
         return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track))
     }
 }
+
+public enum FollowInterval: String, CaseIterable, Sendable {
+    case hourly, daily
+
+    public var label: String {
+        switch self {
+        case .hourly: "Every hour"
+        case .daily: "Every day"
+        }
+    }
+}
+
+public enum PlaylistMode: Equatable, Sendable {
+    case copy
+    case follow(FollowInterval)
+}
+
+public enum PlaylistLink {
+    public struct Problem: Error {}
+
+    static let hosts = [
+        "open.spotify.com": "spotify", "play.spotify.com": "spotify",
+        "music.youtube.com": "youtube", "www.youtube.com": "youtube", "youtube.com": "youtube", "m.youtube.com": "youtube", "youtu.be": "youtube",
+        "jamendo.com": "jamendo", "www.jamendo.com": "jamendo",
+    ]
+
+    static func keyword(_ reference: String) -> String? {
+        let text = reference.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.hasPrefix("spotify:") { return "spotify" }
+        let url = URL(string: text.contains("://") ? text : "https://\(text)")
+        return url?.host.flatMap { hosts[$0] }
+    }
+
+    public static func service(of reference: String) -> String? {
+        keyword(reference).map { $0.prefix(1).uppercased() + $0.dropFirst() }
+    }
+
+    public static func connection(for reference: String, among connections: [PluginConnection]) -> PluginConnection? {
+        let able = connections.filter { $0.capabilities.contains("playlists") }
+        let matches = able.filter { connection in keyword(reference).map { connection.name.lowercased().contains($0) } ?? false }
+        if matches.count == 1 { return matches[0] }
+        return able.count == 1 && matches.isEmpty ? able[0] : nil
+    }
+
+    public static func problem(_ error: Error, service: String, following: Bool) -> String {
+        let status: Int? = switch error as? HitoAPI.Problem {
+        case let .refused(code), let .unexpected(code): code
+        default: nil
+        }
+        switch status {
+        case nil: return "Hito didn't get an answer. Trying again won't import it twice."
+        case 401, 403: return "\(service) refused. Its connection may need your review. Nothing was saved."
+        case 404: return "\(service) didn't return this playlist. It may be private, a personal mix, or deleted. Nothing was saved."
+        case 429: return following ? "Hito can't follow more playlists right now. You can still copy this one." : "Hito can't import more playlists right now. Try again later."
+        case 502, 503, 504: return "The \(service) plugin is busy. Nothing was saved. Try again in a moment."
+        default: return "Hito couldn't import this playlist. Check the link and try again."
+        }
+    }
+}
+
+extension Playlists {
+    struct Add: Encodable {
+        let requestId: String
+        let installationRevision: Int
+        let playlistReference: String
+        let interval: String?
+
+        enum CodingKeys: String, CodingKey {
+            case interval
+            case requestId = "request_id"
+            case installationRevision = "installation_revision"
+            case playlistReference = "playlist_reference"
+        }
+    }
+
+    struct Receipt: Decodable {
+        let requestId: String
+        let playlistId: String
+
+        enum CodingKeys: String, CodingKey {
+            case requestId = "request_id"
+            case playlistId = "playlist_id"
+        }
+    }
+
+    public func add(_ reference: String, from connection: PluginConnection, as mode: PlaylistMode, request: UUID = UUID()) async throws -> String {
+        let id = request.uuidString.lowercased()
+        let (path, interval): (String, String?) = switch mode {
+        case .copy: ("import", nil)
+        case let .follow(every): ("follow", every.rawValue)
+        }
+        let body = Add(requestId: id, installationRevision: connection.revision, playlistReference: reference.trimmingCharacters(in: .whitespacesAndNewlines), interval: interval)
+        let receipt = try await api.post(["api", "v1", "plugins", connection.id, "playlists", path], body: body, as: Receipt.self)
+        guard receipt.requestId.lowercased() == id else { throw PlaylistLink.Problem() }
+        return receipt.playlistId
+    }
+}

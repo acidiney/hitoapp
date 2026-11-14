@@ -18,6 +18,8 @@ struct LibraryView: View {
     @State private var playlistsFailed = false
     @State private var sort = TrackSort.recent
     @State private var filtering = false
+    @State private var importing = false
+    @State private var opened: Playlist?
 
     var body: some View {
         ScrollView {
@@ -51,6 +53,18 @@ struct LibraryView: View {
                 case .artists:
                     ArtistRows(feed: artists)
                 case .playlists:
+                    Button { importing = true } label: {
+                        HStack(spacing: 12) {
+                            ZStack { Theme.tile; Icon("link", size: 20).foregroundStyle(Theme.focus) }
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Text("Import a playlist from a link").font(Theme.bodyMedium)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 60)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                     PlaylistRows(playlists: playlists, failed: playlistsFailed) { Task { await loadPlaylists() } }
                 }
             }
@@ -63,6 +77,11 @@ struct LibraryView: View {
             FilterSheet(sort: $sort, total: tracks.total)
                 .presentationBackground(.clear)
         }
+        .fullScreenCover(isPresented: $importing) {
+            ImportSheet { id in Task { await loadPlaylists(); opened = playlists?.first { $0.id == id } } }
+                .presentationBackground(.clear)
+        }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed() }
         .onChange(of: sort) { reloadTracks() }
         .task {
             if tracks.total == nil && albums.total == nil { reload() }
@@ -143,7 +162,7 @@ struct PlaylistRows: View {
     var body: some View {
         if let playlists {
             if playlists.isEmpty {
-                Text("No playlists yet. Make one on the web, or follow one from a link.")
+                Text("No playlists yet. Import one from a link, or make one on the web.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.soft)
                     .padding(.vertical, 12)
