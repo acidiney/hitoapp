@@ -1,7 +1,7 @@
 use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;
 use hito_core::test_support::provider_audio as audio_fixture;
-use hito_core::{AudioRequest, ByteRange, Error, OpenedAudio, StreamPace};
+use hito_core::{AudioRequest, ByteRange, Error, OpenedAudio, PlaybackFailureReason, StreamPace};
 use std::time::{Duration, Instant};
 
 async fn open(f: &AudioLibrary) -> hito_core::Result<OpenedAudio> {
@@ -28,22 +28,48 @@ async fn expired_links_and_server_errors_fail_each_open_once_and_recover_when_th
     let f = AudioLibrary::start().await;
     f.ready().await;
     let failures = [
-        StatusCode::FORBIDDEN,
-        StatusCode::GONE,
-        StatusCode::NOT_FOUND,
-        StatusCode::INTERNAL_SERVER_ERROR,
-        StatusCode::BAD_GATEWAY,
-        StatusCode::SERVICE_UNAVAILABLE,
-        StatusCode::GATEWAY_TIMEOUT,
+        (
+            StatusCode::UNAUTHORIZED,
+            PlaybackFailureReason::CredentialsRequired,
+        ),
+        (
+            StatusCode::FORBIDDEN,
+            PlaybackFailureReason::ProviderRefused,
+        ),
+        (StatusCode::GONE, PlaybackFailureReason::ProviderRefused),
+        (
+            StatusCode::NOT_FOUND,
+            PlaybackFailureReason::ProviderRefused,
+        ),
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            PlaybackFailureReason::ProviderUnavailable,
+        ),
+        (
+            StatusCode::BAD_GATEWAY,
+            PlaybackFailureReason::ProviderUnavailable,
+        ),
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            PlaybackFailureReason::ProviderUnavailable,
+        ),
+        (
+            StatusCode::GATEWAY_TIMEOUT,
+            PlaybackFailureReason::ProviderUnavailable,
+        ),
     ];
-    f.server.audio_statuses(failures.to_vec());
-    for status in failures {
+    f.server
+        .audio_statuses(failures.iter().map(|(status, _)| *status).collect());
+    for (status, reason) in failures {
         let started = Instant::now();
         let error = match open(&f).await {
             Ok(_) => panic!("{status} must not open audio"),
             Err(error) => error,
         };
-        assert!(matches!(error, Error::Upstream(_)), "{status}: {error:?}");
+        assert!(
+            matches!(error, Error::PlaybackProvider { reason: actual, .. } if actual == reason),
+            "{status}: {error:?}"
+        );
         assert!(started.elapsed() < Duration::from_secs(2), "{status}");
     }
     assert_eq!(
@@ -85,7 +111,16 @@ async fn a_slow_first_byte_is_waited_for_within_its_bound_and_a_silent_provider_
         Err(error) => error,
     };
     let waited = started.elapsed();
-    assert!(matches!(error, Error::Upstream(_)), "{error:?}");
+    assert!(
+        matches!(
+            error,
+            Error::PlaybackProvider {
+                reason: PlaybackFailureReason::ProviderUnavailable,
+                ..
+            }
+        ),
+        "{error:?}"
+    );
     assert!(
         (Duration::from_secs(9)..Duration::from_secs(13)).contains(&waited),
         "the header wait must end at its ten second bound, not {waited:?}"

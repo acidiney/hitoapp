@@ -11,6 +11,7 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+type RefreshResult = (Key, Uuid, Result<bool, (PlayerError, bool)>);
 type Read = Result<(PlaybackCandidates, Option<PlaybackSource>), PlayerError>;
 #[derive(Debug)]
 pub(super) struct PassFailure {
@@ -27,7 +28,7 @@ struct Demand {
 }
 struct Refresh {
     cancel: Option<oneshot::Sender<()>>,
-    done: Pending<(Key, Uuid, Result<bool, PlayerError>)>,
+    done: Pending<RefreshResult>,
 }
 pub(super) struct Sources {
     catalog: Catalog,
@@ -101,10 +102,10 @@ impl Sources {
     pub fn has_demand(&self) -> bool {
         self.demand.is_some() && !self.exhausted
     }
-    pub fn failed(&mut self, error: PlayerError) {
+    pub fn failed(&mut self, error: PlayerError, retryable: bool) {
         self.current = None;
         self.error = error;
-        self.pass_retryable = false;
+        self.pass_retryable &= retryable;
     }
     pub fn failure(&self) -> PlayerError {
         self.error
@@ -167,7 +168,24 @@ impl Sources {
                             let _ = cancelled.await;
                         })
                         .await
-                        .map_err(PlayerError::from);
+                        .map_err(|error| {
+                            let retryable = matches!(
+                                &error,
+                                hito_core::Error::PlaybackProvider {
+                                    reason: hito_core::PlaybackFailureReason::ProviderUnavailable,
+                                    ..
+                                }
+                            );
+                            let player_error = match error {
+                                hito_core::Error::PlaybackProvider { .. } => PlayerError::Playback,
+                                hito_core::Error::PluginCredentialsRequired(_)
+                                | hito_core::Error::AuthorizationRequired(_) => {
+                                    PlayerError::Playback
+                                }
+                                error => PlayerError::from(error),
+                            };
+                            (player_error, retryable)
+                        });
                     (demand.key, demand_id, result)
                 }),
             });
@@ -209,11 +227,14 @@ impl Sources {
                         self.candidates = None;
                         tracing::debug!(event = "player_sources_refreshed", success = result.is_ok(), selection = key.selection, "Provider refresh finished; reading current sources");
                         match result {
-                            Err(PlayerError::Unauthorized) => {
+                            Err((PlayerError::Unauthorized, _)) => {
                                 self.exhausted = true;
                                 return Err(PassFailure { error: PlayerError::Unauthorized, retryable: false, cancelled: false });
                             }
-                            Err(_) => self.pass_retryable = false,
+                            Err((error, retryable)) => {
+                                self.error = merged(self.error, error);
+                                self.pass_retryable &= retryable;
+                            }
                             Ok(_) => (),
                         }
                     } else {
@@ -362,10 +383,24 @@ mod tests {
         assert!(sources.request(&library.actor, &library.source.recording_id));
         let grant = sources.next().await.unwrap().unwrap();
         assert_eq!(grant.source_id(), alternate.second);
-        sources.failed(PlayerError::Playback);
+        sources.failed(PlayerError::Playback, false);
         assert!(sources.request(&library.actor, &library.source.recording_id));
         assert!(sources.next().await.is_err());
         assert!(sources.current().is_none());
+    }
+
+    #[tokio::test]
+    async fn terminal_candidate_failure_stays_terminal_in_either_provider_order() {
+        let library = AudioLibrary::start().await;
+        let mut sources = Sources::new(library.hito.catalog.clone(), library.hito.playback.clone());
+        sources.reset(Some(key()));
+        sources.failed(PlayerError::Playback, false);
+        sources.failed(PlayerError::Playback, true);
+        assert!(!sources.pass_retryable);
+        sources.reset(Some(key()));
+        sources.failed(PlayerError::Playback, true);
+        sources.failed(PlayerError::Playback, false);
+        assert!(!sources.pass_retryable);
     }
 
     #[test]

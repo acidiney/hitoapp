@@ -1,6 +1,6 @@
 mod authority;
 use crate::{
-    AudioRequest, AudioStream, Error, OpenedAudio, Result,
+    AudioRequest, AudioStream, Error, OpenedAudio, PlaybackFailureReason, Result,
     admission::Accounts,
     playback_access::relay::{
         headers,
@@ -91,16 +91,44 @@ impl MediaClient {
                 tokio::time::timeout(Duration::from_secs(10), outgoing.send())
                     .await
                     .map_err(|_| {
-                        Error::Upstream("The audio service did not return headers in time")
+                        playback_error(
+                            Error::Upstream("The audio service did not return headers in time"),
+                            PlaybackFailureReason::ProviderUnavailable,
+                        )
                     })?
-                    .map_err(|_| Error::Upstream("The audio service could not be reached"))
+                    .map_err(|_| {
+                        playback_error(
+                            Error::Upstream("The audio service could not be reached"),
+                            PlaybackFailureReason::ProviderUnavailable,
+                        )
+                    })
             })
             .await?;
         tracing::debug!(
             status = response.status().as_u16(),
             "Provider audio headers received"
         );
-        let mut opened = headers::read(&response, request)?;
+        let status = response.status();
+        if !matches!(
+            status,
+            reqwest::StatusCode::OK
+                | reqwest::StatusCode::PARTIAL_CONTENT
+                | reqwest::StatusCode::RANGE_NOT_SATISFIABLE
+        ) {
+            let reason = match status.as_u16() {
+                401 => PlaybackFailureReason::CredentialsRequired,
+                408 | 429 | 500 | 502 | 503 | 504 => PlaybackFailureReason::ProviderUnavailable,
+                400..=499 | 501 | 505 => PlaybackFailureReason::ProviderRefused,
+                _ => PlaybackFailureReason::InvalidProviderResponse,
+            };
+            return Err(playback_error(
+                Error::Upstream("The audio service returned an unsuccessful status"),
+                reason,
+            ));
+        }
+        let mut opened = headers::read(&response, request).map_err(|error| {
+            playback_error(error, PlaybackFailureReason::InvalidProviderResponse)
+        })?;
         authority.check().await?;
         if !request.head
             && let OpenedAudio::Content(audio) = &mut opened
@@ -119,5 +147,12 @@ impl MediaClient {
             ));
         }
         Ok(opened)
+    }
+}
+
+fn playback_error(error: Error, reason: PlaybackFailureReason) -> Error {
+    Error::PlaybackProvider {
+        reason,
+        original: Box::new(error),
     }
 }

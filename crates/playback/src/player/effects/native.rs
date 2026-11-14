@@ -849,7 +849,17 @@ impl Native {
                 .as_ref()
                 .and_then(|session| session.snapshot().error)
         }));
-        self.sources.failed(failure);
+        let retryable = matches!(
+            error.or_else(|| {
+                self.session
+                    .as_ref()
+                    .and_then(|session| session.snapshot().error)
+            }),
+            Some(crate::Error::Provider(
+                hito_core::PlaybackFailureReason::ProviderUnavailable
+            ))
+        );
+        self.sources.failed(failure, retryable);
         self.retire();
         tracing::debug!(
             event = "player_source_failed",
@@ -899,6 +909,12 @@ impl Native {
 fn failure_of(error: Option<crate::Error>) -> PlayerError {
     match error {
         Some(crate::Error::Native(hito_audio::Error::OutputFormat)) => PlayerError::OutputFormat,
+        Some(crate::Error::Provider(
+            hito_core::PlaybackFailureReason::CredentialsRequired
+            | hito_core::PlaybackFailureReason::ProviderUnavailable
+            | hito_core::PlaybackFailureReason::ProviderRefused
+            | hito_core::PlaybackFailureReason::InvalidProviderResponse,
+        )) => PlayerError::Playback,
         _ => PlayerError::Playback,
     }
 }

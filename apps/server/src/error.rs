@@ -40,7 +40,11 @@ impl From<hito_core::Error> for ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         use hito_core::Error;
-        let status = match &self.0 {
+        let error = match &self.0 {
+            Error::PlaybackProvider { original, .. } => original.as_ref(),
+            error => error,
+        };
+        let status = match error {
             Error::Invalid(_) | Error::WrongPassword => StatusCode::UNPROCESSABLE_ENTITY,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::Forbidden => StatusCode::FORBIDDEN,
@@ -60,7 +64,7 @@ impl IntoResponse for ApiError {
             Error::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let code = match &self.0 {
+        let code = match error {
             Error::OperationRejected(_) => Some(ErrorCode::OperationRejected),
             Error::Locked => Some(ErrorCode::Locked),
             Error::WrongPassword => Some(ErrorCode::WrongPassword),
@@ -70,16 +74,16 @@ impl IntoResponse for ApiError {
             _ => None,
         };
         let error = if matches!(
-            &self.0,
+            error,
             Error::Upstream(_) | Error::UpstreamNotice(_) | Error::StreamTooSlow
         ) {
             tracing::warn!(
                 event = "upstream_failed",
-                error_kind = self.0.code(),
+                error_kind = error.code(),
                 status = status.as_u16(),
                 "External service failed"
             );
-            match &self.0 {
+            match error {
                 Error::Upstream(message) => message.to_string(),
                 Error::UpstreamNotice(message) => message.clone(),
                 other => other.to_string(),
@@ -87,7 +91,7 @@ impl IntoResponse for ApiError {
         } else if status.is_server_error() {
             tracing::error!(
                 event = "request_failed",
-                error_kind = self.0.code(),
+                error_kind = error.code(),
                 status = status.as_u16(),
                 "Request failed"
             );
@@ -95,11 +99,11 @@ impl IntoResponse for ApiError {
         } else {
             tracing::debug!(
                 event = "request_rejected",
-                error_kind = self.0.code(),
+                error_kind = error.code(),
                 status = status.as_u16(),
                 "Request rejected"
             );
-            self.0.to_string()
+            error.to_string()
         };
         let retry_after = match &self.0 {
             Error::RateLimited(seconds) => Some([("retry-after", seconds.to_string())]),
