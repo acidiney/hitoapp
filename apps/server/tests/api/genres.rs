@@ -111,16 +111,22 @@ async fn genre_json_list_matches_authenticated_discover_tiles() {
                 .await
                 .unwrap();
             let status = response.status();
-            let content_type = response.headers()["content-type"].clone();
-            let cache_control = response.headers()["cache-control"].clone();
+            let content_type = response.headers().get("content-type").cloned();
+            let cache_control = response.headers().get("cache-control").cloned();
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             (status, content_type, cache_control, bytes)
         })
         .await
         .expect("genre JSON request and body must finish within 5 seconds");
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(content_type, "application/json");
-    assert_eq!(cache_control, "private, no-store");
+    assert_eq!(
+        content_type,
+        Some(axum::http::HeaderValue::from_static("application/json"))
+    );
+    assert_eq!(
+        cache_control,
+        Some(axum::http::HeaderValue::from_static("private, no-store"))
+    );
     let actual: Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(actual, expected);
 }
