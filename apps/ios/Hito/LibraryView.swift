@@ -411,8 +411,24 @@ struct AlbumView: View {
     let album: Album
     @State private var detail: AlbumDetail?
     @State private var failed = false
+    @State private var edition: EditionRead?
+    @State private var onlyMine = false
+    @State private var adding: Set<String> = []
+    @State private var notes: [String: String] = [:]
 
     var tracks: [Track] { detail?.tracks ?? [] }
+
+    private var complete: CompleteAlbum? {
+        if case let .available(album) = edition { return album }
+        return nil
+    }
+
+    private var playable: [Track] {
+        guard let complete else { return tracks }
+        let owned = complete.tracks.compactMap(\.owned)
+        let ids = Set(owned.map(\.id))
+        return owned + tracks.filter { !ids.contains($0.id) }
+    }
 
     var body: some View {
         ScrollView {
@@ -433,7 +449,7 @@ struct AlbumView: View {
                 HStack(spacing: 8) {
                     if tracks.contains(where: \.isPlayable) {
                         PlayAllButton(label: "Play") {
-                            model.player?.play(tracks, at: tracks.firstIndex { $0.isPlayable } ?? 0, from: album.title)
+                            model.player?.play(playable, at: playable.firstIndex { $0.isPlayable } ?? 0, from: album.title)
                         }
                         Menu {
                             Button("Play next") { tracks.filter(\.isPlayable).reversed().forEach { model.player?.playNext($0) } }
@@ -452,34 +468,125 @@ struct AlbumView: View {
                 } else if detail == nil {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
-                VStack(spacing: 0) {
-                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                        HStack(spacing: 4) {
-                            Button {
-                                model.player?.play(tracks, at: index, from: album.title)
-                            } label: {
-                                AlbumTrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                if let complete {
+                    editionHeader(complete)
+                    VStack(spacing: 0) {
+                        ForEach(complete.tracks) { track in
+                            if let owned = track.owned {
+                                ownedRow(owned)
+                            } else if !onlyMine {
+                                missingRow(track, in: complete)
                             }
-                            .buttonStyle(.plain)
-                            .disabled(!track.isPlayable)
-                            Icon("check", size: 16)
-                                .foregroundStyle(Theme.focus)
-                                .frame(width: 44, height: 44)
-                                .accessibilityLabel("In your library")
-                            Menu { TrackMenu(track: track) } label: {
-                                Icon("more").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
-                            }
-                            .accessibilityLabel("More actions for \(track.title)")
                         }
+                        let ids = Set(complete.tracks.compactMap(\.owned?.id))
+                        ForEach(tracks.filter { !ids.contains($0.id) }) { ownedRow($0) }
                     }
+                    .padding(.trailing, -8)
+                } else {
+                    if case let .unavailable(reason) = edition {
+                        Text(reason).font(Theme.small).foregroundStyle(Theme.quiet)
+                    }
+                    VStack(spacing: 0) {
+                        ForEach(tracks) { ownedRow($0) }
+                    }
+                    .padding(.trailing, -8)
                 }
-                .padding(.trailing, -8)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
+    }
+
+    private func editionHeader(_ complete: CompleteAlbum) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Text(complete.summary).font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                Spacer(minLength: 0)
+                let missing = complete.addable.filter { notes[$0.id] == nil }
+                if !missing.isEmpty {
+                    OutlineButton(title: adding.isEmpty ? "Add the other \(missing.count)" : "Adding…") { Task { await addAll(missing, in: complete) } }
+                        .disabled(!adding.isEmpty)
+                }
+            }
+            HStack(spacing: 8) {
+                FilterChip(title: "All \(complete.tracks.count)", on: !onlyMine) { onlyMine = false }
+                FilterChip(title: "In my library \(complete.ownedCount)", on: onlyMine) { onlyMine = true }
+                Spacer(minLength: 0)
+                Text("Edition · \(complete.editionName)").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+            }
+        }
+    }
+
+    private func ownedRow(_ track: Track) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                let list = playable
+                model.player?.play(list, at: list.firstIndex { $0.id == track.id } ?? 0, from: album.title)
+            } label: {
+                AlbumTrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
+            }
+            .buttonStyle(.plain)
+            .disabled(!track.isPlayable)
+            Icon("check", size: 16)
+                .foregroundStyle(Theme.focus)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("In your library")
+            Menu { TrackMenu(track: track) } label: {
+                Icon("more").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+            }
+            .accessibilityLabel("More actions for \(track.title)")
+        }
+    }
+
+    private func missingRow(_ track: EditionTrack, in complete: CompleteAlbum) -> some View {
+        let canAdd = complete.addable.contains { $0.id == track.id } && notes[track.id] == nil
+        return HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(track.title).foregroundStyle(Theme.soft).lineLimit(1)
+                Text(adding.contains(track.id) ? "Finding audio…" : notes[track.id] ?? track.note ?? "")
+                    .font(Theme.small)
+                    .foregroundStyle(Theme.quiet)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+            if adding.contains(track.id) {
+                ProgressView().tint(Theme.soft).frame(width: 44, height: 44)
+            } else if canAdd {
+                Button { Task { await add(track, in: complete) } } label: {
+                    Icon("plus", size: 18).foregroundStyle(Theme.text).frame(width: 44, height: 44).contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!adding.isEmpty)
+                .accessibilityLabel("Add \(track.title) to your library")
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func add(_ track: EditionTrack, in complete: CompleteAlbum) async {
+        guard let api = model.api, let saved = detail?.savedEdition else { return }
+        adding.insert(track.id)
+        defer { adding.remove(track.id) }
+        do {
+            switch try await AlbumEditions(api: api).add(track, of: complete, release: album.id, saved: saved) {
+            case let .saved(recording):
+                if case let .available(current) = edition { edition = .available(current.replacing(track.id, with: recording)) }
+            case let .missing(reason):
+                notes[track.id] = reason
+            }
+        } catch {
+            notes[track.id] = "Couldn't find audio"
+            model.handle(error)
+        }
+    }
+
+    private func addAll(_ missing: [EditionTrack], in complete: CompleteAlbum) async {
+        for track in missing {
+            guard case let .available(current) = edition else { return }
+            await add(track, in: current)
+        }
     }
 
     private var facts: String {
@@ -496,7 +603,10 @@ struct AlbumView: View {
         } catch {
             failed = true
             model.handle(error)
+            return
         }
+        guard detail?.savedEdition != nil else { return }
+        edition = try? await AlbumEditions(api: api).read(album.id)
     }
 }
 

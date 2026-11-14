@@ -67,18 +67,31 @@ public struct Album: Decodable, Equatable, Hashable, Identifiable, Sendable {
 public struct AlbumDetail: Decodable, Equatable, Sendable {
     public let album: Album
     public let tracks: [Track]
+    public let savedEdition: SavedEdition?
 
     struct Tracks: Decodable { let items: [Track] }
+
+    struct Choice: Decodable {
+        struct State: Decodable {
+            let status: String
+            let edition: SavedEdition?
+        }
+
+        let state: State
+    }
 
     enum CodingKeys: String, CodingKey {
         case album = "release"
         case tracks
+        case savedEdition = "saved_edition"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         album = try container.decode(Album.self, forKey: .album)
         tracks = try container.decode(Tracks.self, forKey: .tracks).items
+        let choice = try? container.decodeIfPresent(Choice.self, forKey: .savedEdition)
+        savedEdition = choice?.state.status == "ready" ? choice?.state.edition : nil
     }
 }
 
