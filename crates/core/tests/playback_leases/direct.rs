@@ -25,6 +25,10 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
     let mut lease_is_gone = false;
     let mut playback_completed = false;
     let mut playback_bytes = Vec::new();
+    let mut prefix_bytes = 0usize;
+    let mut tail_bytes = 0usize;
+    let mut drain_outcome = "not_started";
+    let mut drain_error_code = "none";
 
     if let Ok(Ok(lease)) = tokio::time::timeout(
         Duration::from_secs(5),
@@ -87,6 +91,7 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
                         .get(..prefix_size)
                         .is_some_and(|prefix| prefix == &f.original[..prefix_size])
                         && !held_tail.released();
+                    prefix_bytes = prefix.len();
                     playback_bytes.extend_from_slice(&prefix);
                 }
 
@@ -111,17 +116,26 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
 
                 held_tail.release();
                 if prefix_was_available_while_tail_held {
-                    if let Ok(Ok(remaining)) = tokio::time::timeout(Duration::from_secs(5), async {
+                    match tokio::time::timeout(Duration::from_secs(5), async {
                         let mut remaining = Vec::new();
                         while let Some(chunk) = body.chunk().await? {
+                            tail_bytes = tail_bytes.saturating_add(chunk.len());
                             remaining.extend_from_slice(&chunk);
                         }
                         Ok::<_, Error>(remaining)
                     })
                     .await
                     {
-                        playback_bytes.extend_from_slice(&remaining);
-                        playback_completed = true;
+                        Ok(Ok(remaining)) => {
+                            playback_bytes.extend_from_slice(&remaining);
+                            playback_completed = true;
+                            drain_outcome = "eof";
+                        }
+                        Ok(Err(error)) => {
+                            drain_outcome = "error";
+                            drain_error_code = error.code();
+                        }
+                        Err(_) => drain_outcome = "timeout",
                     }
                 }
                 drop(body);
@@ -166,6 +180,14 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
         .await
         .is_ok();
 
+    eprintln!(
+        "playback_access_diagnostic stage=post_release_drain outcome={} error_code={} prefix_bytes={} tail_bytes={} expected_bytes={}",
+        drain_outcome,
+        drain_error_code,
+        prefix_bytes,
+        tail_bytes,
+        f.original.len()
+    );
     assert!(
         playback_closed && replicas_closed && replication_closed && server_closed,
         "owned provider audio services must close within their teardown deadlines"
