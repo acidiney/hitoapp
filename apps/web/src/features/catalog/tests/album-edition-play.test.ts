@@ -17,6 +17,7 @@ import {
   artistReviewAccount,
   editionGroup,
   firstLibraryRecording,
+  installation,
   mergedTrackList,
   readyChoice,
   savedRecording,
@@ -58,6 +59,7 @@ vi.mock("@inertiajs/react", () => ({
 
 const savedRead = `/api/v1/albums/${albumId}/edition/track-list`;
 const audioPath = `/api/v1/albums/${albumId}/edition-track-audio`;
+const adoptPath = `/api/v1/plugins/${installation.id}/recordings`;
 const otherRelease = { ...firstLibraryRecording, release_id: "other-release" };
 const editionList = {
   ...mergedTrackList,
@@ -69,6 +71,7 @@ const editionList = {
 
 let searchOn = true;
 let audioBodies: Record<string, string>[] = [];
+let adoptBodies: Record<string, unknown>[] = [];
 let savedReads = 0;
 
 function serve() {
@@ -76,6 +79,10 @@ function serve() {
     if (path === savedRead) {
       savedReads++;
       return Response.json(editionList);
+    }
+    if (path === adoptPath) {
+      adoptBodies.push(JSON.parse(init!.body as string));
+      return Response.json(savedRecording);
     }
     if (path === audioPath) {
       const body = JSON.parse(init!.body as string);
@@ -135,12 +142,13 @@ async function playFromHeader() {
 beforeEach(() => {
   searchOn = true;
   audioBodies = [];
+  adoptBodies = [];
   savedReads = 0;
   vi.clearAllMocks();
 });
 afterEach(() => vi.unstubAllGlobals());
 
-test("header Play with a remembered edition plays owned and catalog tracks in edition order through the catalog search", async () => {
+test("header Play with a remembered edition plays owned and catalog tracks in edition order, adding identified tracks from the catalog and searching for the rest", async () => {
   serve();
   render(page());
   const selection = await playFromHeader();
@@ -152,14 +160,13 @@ test("header Play with a remembered edition plays owned and catalog tracks in ed
     savedRecording.id,
     otherRelease.id,
   ]);
-  expect(audioBodies).toEqual([
+  expect(adoptBodies).toEqual([
     {
-      recording_id: firstLibraryRecording.id,
-      association_id: artistAssociation.id,
-      release_group_id: editionGroup.id,
-      edition_id: standardEdition.id,
-      occurrence_id: "occ-1-2",
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
     },
+  ]);
+  expect(audioBodies).toEqual([
     {
       recording_id: firstLibraryRecording.id,
       association_id: artistAssociation.id,
@@ -182,17 +189,25 @@ test("the album header counts the edition's tracks once the edition is shown", a
   );
 });
 
-test("with automatic service search off, header Play keeps to the owned tracks in edition order and explains why", async () => {
+test("with automatic service search off, header Play adds identified tracks from the catalog, skips the unidentified one without a search and explains why", async () => {
   serve();
   searchOn = false;
   render(page());
   const selection = await playFromHeader();
   expect(selection.queue).toEqual([firstLibraryRecording]);
+  expect(adoptBodies).toEqual([]);
   expect(await drain(selection)).toEqual([
     firstLibraryRecording.id,
+    savedRecording.id,
     otherRelease.id,
   ]);
-  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-1-2"]);
+  expect(adoptBodies).toEqual([
+    {
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
+    },
+  ]);
+  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-2-2"]);
   expect(
     await screen.findByText(/Search connected services automatically/),
   ).toBeTruthy();
@@ -219,15 +234,19 @@ test("header Shuffle with an edition starts the edition through the catalog path
     firstLibraryRecording.id,
   ]);
   expect(audioBodies).toEqual([]);
+  expect(adoptBodies).toEqual([]);
   expect(await drain(selection)).toEqual([
     firstLibraryRecording.id,
     savedRecording.id,
     otherRelease.id,
   ]);
-  expect(audioBodies.map((body) => body.occurrence_id)).toEqual([
-    "occ-1-2",
-    "occ-2-2",
+  expect(adoptBodies).toEqual([
+    {
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
+    },
   ]);
+  expect(audioBodies.map((body) => body.occurrence_id)).toEqual(["occ-2-2"]);
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 
@@ -298,10 +317,17 @@ test("playing an owned first row continues with the rest of the album instead of
   expect(player.playQueue).not.toHaveBeenCalled();
 });
 
-test("playing a catalog-only row searches for it and then plays on through the album", async () => {
+test("playing an identified catalog-only row adds it from the catalog and then plays on through the album", async () => {
   serve();
   render(page());
   const selection = await playRow(1);
+  expect(adoptBodies).toEqual([
+    {
+      installation_revision: installation.revision,
+      provider_recording_id: "provider:two",
+    },
+  ]);
+  expect(audioBodies).toEqual([]);
   expect(selection.queue).toEqual([savedRecording]);
   expect(await drain(selection)).toEqual([savedRecording.id, otherRelease.id]);
   expect(player.playQueue).not.toHaveBeenCalled();
