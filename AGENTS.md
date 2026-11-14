@@ -104,7 +104,7 @@ Tests use real temporary SQLite and owned, deterministic audio fixtures. Never c
 - Open a focused pull request for every delivery. This is standing authorization; do not wait to be asked. Keep it in draft while implementation or qualification remains incomplete.
 - Title a PR in Conventional Commits form, such as `fix(web): wrap the album credit line on phones`.
 - In the PR body, describe the problem in a sentence or two, then the fix and the evidence. Write it in plain language and run it through the unslop skill before you post it.
-- When a change shows in the app, its evidence is before and after images of the running app, or a short video for motion or a flow across screens. Test results back the evidence up but don't replace it. Attach the images or video to the PR itself, and never commit PR-only screenshots.
+- When a change shows in the app, its evidence is before and after images of the running app, or a short video for motion or a flow across screens. Test results back the evidence up but don't replace it. Push the images to the `pr-assets` branch, one folder per PR (`pr<number>/`), and link them in the PR body with a commit-pinned `raw.githubusercontent.com` URL. Never commit PR-only screenshots to a feature branch or to `main`.
 - For a backend change, show the evidence the way the [show-me skill](https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md) does. Pick the smallest view that makes the point, such as a call tree, a Mermaid sequence diagram or a diff of the control flow. Put it next to the real request and response, log line or measurement that proves the change.
 - One request is one pull request.
 
