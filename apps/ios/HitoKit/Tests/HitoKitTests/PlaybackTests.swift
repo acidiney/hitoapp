@@ -26,6 +26,20 @@ import Testing
         #expect(begin.json == ["recording_id": "r1", "source_id": "s1"])
     }
 
+    @Test func aLeaseIsReleasedWhenTheTrackIsDone() async throws {
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),
+            "POST /api/v1/playback/leases": .json(200, lease),
+            "DELETE /api/v1/playback/leases/6f0b7c1e-0000-4000-8000-000000000001": .text(204, ""),
+        ])
+        let audio = try await playback(fake).prepare("r1")
+        #expect(audio.leaseId == "6f0b7c1e-0000-4000-8000-000000000001")
+        await playback(fake).release(audio.leaseId)
+        let release = try #require(fake.requests.last)
+        #expect(release.line == "DELETE /api/v1/playback/leases/6f0b7c1e-0000-4000-8000-000000000001")
+        #expect(release.header("x-hito-request") == "1")
+    }
+
     @Test func afterASourceFailsTheNextReadyOneIsTried() async throws {
         let fake = FakeServer(routes: [
             "GET /api/v1/recordings/r1/playback-sources": .json(200, sources),

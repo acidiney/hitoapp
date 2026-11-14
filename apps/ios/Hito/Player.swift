@@ -33,6 +33,7 @@ final class Player {
     private let log = Logger(subsystem: "app.hito", category: "player")
     private var loading: Task<Void, Never>?
     private var tried: Set<String> = []
+    private var leaseId: String?
     private var ticker: Any?
     private var observers: [NSObjectProtocol] = []
     private var itemStatus: NSKeyValueObservation?
@@ -211,6 +212,7 @@ final class Player {
     func stop() {
         loading?.cancel()
         engine.replaceCurrentItem(with: nil)
+        releaseLease()
         state = .idle
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -224,7 +226,14 @@ final class Player {
         start(track)
     }
 
+    private func releaseLease() {
+        guard let leaseId else { return }
+        self.leaseId = nil
+        Task { [playback] in await playback.release(leaseId) }
+    }
+
     private func start(_ track: Track) {
+        releaseLease()
         state = .loading
         position = 0
         duration = Double(track.durationMs) / 1000
@@ -248,6 +257,8 @@ final class Player {
     }
 
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
+        releaseLease()
+        leaseId = audio.leaseId
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
         sourceId = audio.sourceId
@@ -285,6 +296,7 @@ final class Player {
             tried = []
             start(following)
         } else {
+            releaseLease()
             state = .idle
             publish()
         }

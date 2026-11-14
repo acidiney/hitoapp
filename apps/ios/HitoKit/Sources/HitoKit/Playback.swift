@@ -1,6 +1,7 @@
 import Foundation
 
 public struct AudioRequest: Equatable, Sendable {
+    public let leaseId: String
     public let recordingId: String
     public let sourceId: String
     public let sourceLabel: String
@@ -74,6 +75,10 @@ public struct Playback: Sendable {
         return try await prepare(recordingId, skipping: Set(others))
     }
 
+    public func release(_ leaseId: String) async {
+        _ = try? await api.delete(["api", "v1", "playback", "leases", leaseId], as: Nothing.self)
+    }
+
     private func listed(_ recordingId: String) async throws -> [Source] {
         try await api.get(["api", "v1", "recordings", recordingId, "playback-sources"], as: [Source].self)
     }
@@ -89,6 +94,7 @@ public struct Playback: Sendable {
                 continue
             }
             return AudioRequest(
+                leaseId: lease.id,
                 recordingId: recordingId,
                 sourceId: source.id,
                 sourceLabel: source.providerLabel ?? source.label,
