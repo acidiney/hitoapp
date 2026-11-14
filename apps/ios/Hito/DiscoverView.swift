@@ -4,6 +4,7 @@ import SwiftUI
 struct DiscoverView: View {
     @Environment(AppModel.self) private var model
     let openSearch: () -> Void
+    @State private var genres: [Genre] = []
     @State private var artists: [RadioArtist]?
     @State private var heroLabel = ""
     @State private var hero: ArtistRadio?
@@ -26,6 +27,7 @@ struct DiscoverView: View {
                         if let notice {
                             Text(notice).font(Theme.small).foregroundStyle(Theme.soft)
                         }
+                        GenreTiles(genres: genres)
                         artistSection(artists)
                     } else {
                         Text("No artist radios yet. Radios start from artists Hito has matched on MusicBrainz, and none in your library are matched yet.")
@@ -182,6 +184,7 @@ struct DiscoverView: View {
             model.handle(error)
         }
         shelf = try? await discovery.featured()
+        genres = (try? await Genres(api: api).list()) ?? genres
     }
 
     private func start(_ artist: RadioArtist) async {

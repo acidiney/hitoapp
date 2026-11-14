@@ -52,6 +52,7 @@ enum Theme {
     static let tab = Font.custom("Figtree-Medium", size: 11, relativeTo: .caption2)
     static let tabCurrent = Font.custom("Figtree-Bold", size: 11, relativeTo: .caption2)
     static let heading = Font.custom("Figtree-Bold", size: 18, relativeTo: .title3)
+    static let genreName = Font.custom("Figtree-Bold", size: 17, relativeTo: .headline)
     static let result = Font.custom("Figtree-Bold", size: 20, relativeTo: .title2)
     static let lyric = Font.custom("Figtree-Bold", size: 22, relativeTo: .title2)
     static let lyricCurrent = Font.custom("Figtree-Bold", size: 32, relativeTo: .largeTitle)
