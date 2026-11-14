@@ -1,5 +1,7 @@
 import hashlib
+from contextlib import redirect_stdout
 import importlib.util
+from io import StringIO
 import json
 from pathlib import Path
 import sys
@@ -132,6 +134,60 @@ class PackagedInputTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     RUNNER.source_pin_contract("HITO_PACKAGED", tree)
 
+    def test_selected_module_volume_is_required_and_propagated_to_compose(self):
+        name = "hito-cred-e2e_node-modules"
+        selected = getattr(RUNNER, "selected_modules_volume", lambda _environment: None)
+        self.assertEqual(selected({"HITO_OUTAGE_MODULES_VOLUME": name}), name)
+        matches = getattr(RUNNER, "module_volume_matches", lambda _name, _volume: False)
+        valid = {
+            "Name": name,
+            "CreatedAt": "2026-11-13T02:35:42Z",
+            "Driver": "local",
+            "Labels": {
+                "com.docker.compose.project": "hito-cred-e2e",
+                "com.docker.compose.volume": "node-modules",
+            },
+        }
+        self.assertTrue(matches(name, valid))
+        self.assertFalse(matches("hito_node-modules", valid))
+        self.assertFalse(matches(name, dict(valid, Labels={})))
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.dict("os.environ", {"HITO_OUTAGE_MODULES_VOLUME": name}):
+                with patch.object(RUNNER.tempfile, "mkdtemp", return_value=temporary):
+                    gate = RUNNER.Gate()
+                with patch.object(RUNNER, "command", return_value=b"") as run:
+                    gate.compose_run("config")
+                self.assertEqual(
+                    run.call_args.kwargs.get("env", {}).get("HITO_OUTAGE_MODULES_VOLUME"),
+                    name,
+                )
+            with self.assertRaises(ValueError):
+                selected({})
+
+    def test_failing_module_command_reports_safe_phase_and_exit(self):
+        sentinel = "private-command-output-sentinel"
+        class FailedModuleGate:
+            phase = "module_pin_before"
+            evidence = "/owned/evidence"
+
+            def execute(self):
+                RUNNER.command([
+                    sys.executable, "-c", f"import sys; print({sentinel!r}); sys.exit(17)",
+                ])
+
+            def cleanup(self):
+                return None
+
+        output = StringIO()
+        with patch.object(RUNNER, "Gate", FailedModuleGate), redirect_stdout(output):
+            status = RUNNER.main()
+        self.assertEqual(status, 1)
+        result = json.loads(output.getvalue())
+        self.assertEqual(
+            result.get("failure"),
+            {"phase": "module_pin_before", "kind": "command_exit", "exit_code": 17},
+        )
+        self.assertNotIn(sentinel, output.getvalue())
 
 if __name__ == "__main__":
     unittest.main()

@@ -163,10 +163,49 @@ def interrupted(number, _frame):
     raise Interrupted(128 + number)
 
 
-def command(arguments, seconds=30, maximum=2 * 1024 * 1024):
+class OwnedCommandFailure(ValueError):
+    def __init__(self, phase, kind, exit_code=None):
+        self.phase = phase
+        self.kind = kind
+        self.exit_code = exit_code
+
+
+def safe_failure(phase, error):
+    if isinstance(error, OwnedCommandFailure):
+        result = {"phase": error.phase or phase, "kind": error.kind}
+        if error.exit_code is not None:
+            result["exit_code"] = error.exit_code
+        return result
+    return {"phase": phase, "kind": "validation"}
+
+
+def selected_modules_volume(environment):
+    name = environment.get("HITO_OUTAGE_MODULES_VOLUME")
+    if not isinstance(name, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", name):
+        raise ValueError("An explicit qualified Node modules volume is required")
+    return name
+
+
+def module_volume_matches(name, volume):
+    if not isinstance(volume, dict):
+        return False
+    labels = volume.get("Labels")
+    return (
+        volume.get("Name") == name
+        and volume.get("Driver") == "local"
+        and isinstance(volume.get("CreatedAt"), str)
+        and bool(volume.get("CreatedAt"))
+        and isinstance(labels, dict)
+        and isinstance(labels.get("com.docker.compose.project"), str)
+        and bool(labels.get("com.docker.compose.project"))
+        and labels.get("com.docker.compose.volume") == "node-modules"
+    )
+
+
+def command(arguments, seconds=30, maximum=2 * 1024 * 1024, env=None, phase=None):
     process = subprocess.Popen(
         arguments, cwd=ROOT, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, start_new_session=True,
+        stderr=subprocess.STDOUT, start_new_session=True, env=env,
     )
     output = bytearray()
     deadline = time.monotonic() + seconds
@@ -175,7 +214,7 @@ def command(arguments, seconds=30, maximum=2 * 1024 * 1024):
     try:
         while selector.get_map():
             if time.monotonic() >= deadline:
-                raise ValueError("Owned command deadline exceeded")
+                raise OwnedCommandFailure(phase, "deadline")
             for key, _ in selector.select(min(0.25, deadline - time.monotonic())):
                 chunk = os.read(key.fd, 65536)
                 if not chunk:
@@ -183,10 +222,10 @@ def command(arguments, seconds=30, maximum=2 * 1024 * 1024):
                     continue
                 output.extend(chunk)
                 if len(output) > maximum:
-                    raise ValueError("Owned command output exceeded its bound")
+                    raise OwnedCommandFailure(phase, "output_limit")
         status = process.wait(timeout=max(0.1, deadline - time.monotonic()))
         if status:
-            raise ValueError("Owned command failed")
+            raise OwnedCommandFailure(phase, "command_exit", status)
         return bytes(output)
     finally:
         selector.close()
@@ -236,6 +275,9 @@ class Gate:
         self.reader = None
         self.container_services = {}
         self.modules_before = None
+        self.modules_volume_name = None
+        self.modules_volume_identity = None
+        self.phase = "preflight"
         os.environ.update({
             "HITO_OUTAGE_RUN_ID": self.run_id,
             "HITO_OUTAGE_PROJECT": self.project,
@@ -243,9 +285,38 @@ class Gate:
             "HITO_OUTAGE_MUSIC": str(self.music),
             "HITO_OUTAGE_EVIDENCE": str(self.evidence),
         })
+        self.compose_environment = dict(os.environ)
 
     def compose_run(self, *arguments, seconds=60):
-        return command([*self.compose, *arguments], seconds)
+        return command(
+            [*self.compose, *arguments], seconds,
+            env=self.compose_environment, phase=self.phase,
+        )
+
+    def inspect_modules_volume(self, capture=False):
+        raw = command(
+            ["docker", "volume", "inspect", self.modules_volume_name],
+            maximum=65536, phase="module_volume_identity",
+        )
+        [volume] = json.loads(raw)
+        if not module_volume_matches(self.modules_volume_name, volume):
+            raise ValueError("The selected Node modules volume identity is invalid")
+        labels = volume["Labels"]
+        identity = {
+            "name": volume["Name"],
+            "created_at": volume["CreatedAt"],
+            "driver": volume["Driver"],
+            "labels": {
+                key: labels[key]
+                for key in ("com.docker.compose.project", "com.docker.compose.volume")
+            },
+        }
+        if capture:
+            self.modules_volume_identity = identity
+            (self.evidence / "module-volume.json").write_text(json.dumps(identity, sort_keys=True))
+        elif identity != self.modules_volume_identity:
+            raise ValueError("The selected Node modules volume identity changed")
+        return identity
 
     def identity(self, identifier, service=None):
         [container] = json.loads(command(["docker", "inspect", identifier]))
@@ -293,6 +364,11 @@ class Gate:
         temporary.replace(path)
 
     def preflight(self):
+        self.phase = "module_volume_identity"
+        self.modules_volume_name = selected_modules_volume(self.compose_environment)
+        self.compose_environment["HITO_OUTAGE_MODULES_VOLUME"] = self.modules_volume_name
+        self.inspect_modules_volume(capture=True)
+        self.phase = "preflight"
         for prefix in ("HITO_PACKAGED", "HITO_OUTAGE_LEGACY"):
             image, source, inputs, tree = [
                 os.environ[f"{prefix}_{key}"]
@@ -372,6 +448,8 @@ class Gate:
         (self.evidence / "compose.json").write_bytes(self.compose_run("config", "--format", "json"))
 
     def module_pin(self, name):
+        self.phase = "module_pin_before" if name == "modules-before" else "module_pin_after"
+        self.inspect_modules_volume()
         raw = self.compose_run(
             "run", "-T", "--rm", "--no-deps", "--pull", "never",
             "outage-prepare", "node", "/workspace/scripts/lyrics/provider-choice/module-pin.mjs",
@@ -470,17 +548,22 @@ class Gate:
         self.publish("logs-checked", "logs_checked", **result)
 
     def execute(self):
+        self.phase = "preflight"
         self.preflight()
         self.modules_before = self.module_pin("modules-before")
+        self.phase = "fixture_setup"
         self.before = source_snapshot()
         (self.evidence / "gate-source.json").write_text(json.dumps(self.before, sort_keys=True))
         self.compose_run("run", "-T", "--rm", "--no-deps", "--pull", "never", "outage-prepare", seconds=60)
+        self.phase = "legacy_start"
         self.compose_run("up", "-d", "--no-build", "--pull", "never", "--wait", "outage-legacy", seconds=60)
         self.service("outage-keeper")
         self.service("outage-legacy")
         self.start_browser()
+        self.phase = "legacy_ready"
         legacy = self.wait_marker("legacy-ready", "legacy_ready", 90)
         self.assert_assets("outage-legacy", legacy)
+        self.phase = "migration"
         self.compose_run("stop", "-t", "15", "outage-legacy", seconds=25)
         migration_output = self.compose_run(
             "run", "-T", "--rm", "--no-deps", "--pull", "never",
@@ -506,6 +589,7 @@ class Gate:
             raise ValueError("The candidate migration inventory changed after preflight")
         if not migration_receipt_matches(migration, inventory):
             raise ValueError("The actual populated version54 migration was not proven")
+        self.phase = "current_start"
         self.compose_run("up", "-d", "--no-build", "--pull", "never", "--wait", "outage-current", seconds=45)
         self.service("outage-current")
         self.publish(
@@ -514,9 +598,12 @@ class Gate:
             current_version=migration["current_version"],
             applied_count=migration["applied_count"],
         )
+        self.phase = "current_ready"
         current = self.wait_marker("log-check-ready", "log_check_ready", 60)
         self.assert_assets("outage-current", current)
+        self.phase = "logs"
         self.check_logs()
+        self.phase = "browser_result"
         status = self.browser.wait(timeout=20)
         self.reader.join(timeout=5)
         if status or self.browser_overflow or self.reader.is_alive():
@@ -544,6 +631,7 @@ class Gate:
         return not found.strip()
 
     def cleanup(self):
+        self.phase = "cleanup"
         failures = []
         errors = (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError)
         try:
@@ -562,6 +650,11 @@ class Gate:
                     raise ValueError("Browser execution module content changed")
             except errors:
                 failures.append("module_pin")
+        if self.modules_volume_identity is not None:
+            try:
+                self.inspect_modules_volume()
+            except errors:
+                failures.append("module_volume_identity")
         identifiers = []
         try:
             identifiers = command([
@@ -646,6 +739,11 @@ class Gate:
                 raise ValueError("Gate source changed during qualification")
         except errors:
             failures.append("source_pin")
+        if self.modules_volume_identity is not None:
+            try:
+                self.inspect_modules_volume()
+            except errors:
+                failures.append("module_volume_identity")
         (self.evidence / "cleanup.json").write_text(json.dumps({
             "containers": remaining, "volumes": remaining_volumes,
             "failures": failures,
@@ -664,26 +762,35 @@ def main():
     gate = Gate()
     status = 0
     phase = "execute"
+    failure = None
     try:
         gate.execute()
     except KeyboardInterrupt:
         status = 130
     except Interrupted as interruption:
         status = interruption.status
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError) as error:
         status = 1
+        phase = gate.phase
+        failure = safe_failure(gate.phase, error)
     finally:
         for number in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
             signal.signal(number, signal.SIG_IGN)
+        gate.phase = "cleanup"
         try:
             gate.cleanup()
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError) as error:
             if status == 0: status = 1
-            phase = "cleanup"
-    print(json.dumps({
+            if failure is None:
+                failure = safe_failure("cleanup", error)
+                phase = "cleanup"
+    result = {
         "event": "provider_outage_gate_finished", "status": status,
         "phase": phase, "evidence": str(gate.evidence),
-    }))
+    }
+    if failure is not None:
+        result["failure"] = failure
+    print(json.dumps(result))
     return status
 
 
