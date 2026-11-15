@@ -2,6 +2,7 @@ use crate::test_support::{hang_guard::hang_guard, support, work_meter::WorkMeter
 use lofty::prelude::{Accessor, TagExt};
 use std::time::Duration;
 
+#[path = "genre_paging_work/statements.rs"]
 mod statements;
 
 const PAGE_SIZE: i64 = 20;
