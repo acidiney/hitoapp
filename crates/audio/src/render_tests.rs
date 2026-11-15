@@ -291,7 +291,7 @@ impl std::io::Write for Sink {
 fn a_presentation_overflow_on_a_callback_thread_reaches_its_owners_subscriber() {
     let sink = Sink::default();
     let writer = sink.clone();
-    let owner = tracing::Dispatch::new(
+    let owner = crate::test_support::scoped_dispatch(
         tracing_subscriber::fmt()
             .json()
             .with_max_level(tracing::Level::INFO)

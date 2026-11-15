@@ -400,7 +400,7 @@ mod tests {
 
     fn owner(sink: &Sink) -> tracing::Dispatch {
         let writer = sink.clone();
-        tracing::Dispatch::new(
+        crate::test_support::scoped_dispatch(
             tracing_subscriber::fmt()
                 .json()
                 .with_max_level(tracing::Level::INFO)
@@ -435,6 +435,28 @@ mod tests {
         ] {
             assert!(event.contains(field), "{field} missing from {event}");
         }
+    }
+
+    #[test]
+    fn a_failure_event_reaches_its_owner_after_an_unobserved_thread_registered_it_first() {
+        let sink = Sink::default();
+        let owner = owner(&sink);
+        let emit = |audio_id| {
+            let state = Arc::new(active(1, 0));
+            let origin = Origin::capture((audio_id, 1));
+            std::thread::spawn(move || {
+                report(&state, &origin, 0, cpal::ErrorKind::DeviceNotAvailable)
+            })
+            .join()
+            .unwrap();
+        };
+        emit(8);
+        tracing::dispatcher::with_default(&owner, || emit(9));
+        let logged = String::from_utf8(sink.0.lock().unwrap().clone()).unwrap();
+        assert!(
+            logged.lines().any(|line| line.contains("\"audio_id\":9")),
+            "the owner's subscriber must receive its failure event"
+        );
     }
 
     fn active(generation: u64, xruns: u64) -> State {
