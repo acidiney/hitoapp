@@ -284,10 +284,17 @@ export async function providerOutageEvidence(
         "logs_checked",
         30_000,
       );
+      const resolutions = new Set(
+        receipts.map((receipt) => receipt.resolution_id),
+      );
+      expect(resolutions.size).toBe(receipts.length);
+      const committed = (outcome: Schema<"SourceResolution">["outcome"]) =>
+        receipts.filter((receipt) => receipt.outcome === outcome).length;
       expect(
         result.private_matches === 0 &&
           result.malformed === 0 &&
-          result.unavailable_commits === 2 &&
+          result.unavailable_commits === committed("provider_unavailable") &&
+          result.ready_commits === committed("ready") &&
           result.ready_commits === 1,
       ).toBe(true);
       return result;
