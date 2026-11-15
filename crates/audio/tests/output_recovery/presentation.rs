@@ -36,32 +36,58 @@ fn discard_limit(spans: &[Span], index: usize) -> Result<u64, String> {
         .min(span.samples.len() as u64))
 }
 
-fn presented(
-    spans: &[Span],
-    limits: &[u64],
-    monitor: &[f32],
-    index: usize,
-    remaining: u64,
-) -> bool {
-    let samples = spans[index].samples;
-    if index + 1 == spans.len() {
-        return remaining == 0 && same(monitor, samples);
-    }
-    let prefix = matching(monitor, samples);
-    (0..=limits[index].min(remaining)).any(|discard| {
-        let kept = samples.len() - discard as usize;
-        kept <= prefix
-            && presented(
-                spans,
-                limits,
-                &monitor[kept..],
-                index + 1,
-                remaining - discard,
-            )
-    })
+struct Search<'s> {
+    spans: &'s [Span<'s>],
+    limits: Vec<u64>,
+    capacity: Vec<u64>,
+    discarded: u64,
+    failed: std::collections::HashSet<(usize, u64)>,
+    expanded: usize,
 }
 
-pub fn unobserved(spans: &[Span], monitor: &[f32]) -> Result<u64, String> {
+impl Search<'_> {
+    fn presented(&mut self, monitor: &[f32], index: usize, remaining: u64) -> bool {
+        if remaining > self.capacity[index] || self.failed.contains(&(index, remaining)) {
+            return false;
+        }
+        self.expanded += 1;
+        let samples = self.spans[index].samples;
+        let found = if index + 1 == self.spans.len() {
+            remaining == 0 && same(monitor, samples)
+        } else {
+            let prefix = matching(monitor, samples);
+            (0..=self.limits[index].min(remaining)).any(|discard| {
+                let kept = samples.len() - discard as usize;
+                kept <= prefix && self.presented(&monitor[kept..], index + 1, remaining - discard)
+            })
+        };
+        if !found {
+            self.failed.insert((index, remaining));
+        }
+        found
+    }
+}
+
+fn search(spans: &[Span], monitor: &[f32]) -> (Result<u64, String>, usize) {
+    match prepare(spans, monitor) {
+        Ok(mut search) => {
+            let found = search.presented(monitor, 0, search.discarded);
+            let outcome = if found {
+                Ok(search.discarded)
+            } else {
+                Err(format!(
+                    "monitor of {} frames is not the submitted frames less {} unpresented retired-tail frames within each replayed overlap and replay bound",
+                    monitor.len(),
+                    search.discarded
+                ))
+            };
+            (outcome, search.expanded)
+        }
+        Err(reason) => (Err(reason), 0),
+    }
+}
+
+fn prepare<'s>(spans: &'s [Span<'s>], monitor: &[f32]) -> Result<Search<'s>, String> {
     if spans.is_empty() {
         return Err("no output generation was submitted".into());
     }
@@ -77,19 +103,26 @@ pub fn unobserved(spans: &[Span], monitor: &[f32]) -> Result<u64, String> {
                 monitor.len()
             )
         })?;
-    if presented(spans, &limits, monitor, 0, discarded) {
-        Ok(discarded)
-    } else {
-        Err(format!(
-            "monitor of {} frames is not the {submitted} submitted frames less {discarded} unpresented retired-tail frames within each replayed overlap and replay bound",
-            monitor.len()
-        ))
-    }
+    let capacity = (0..limits.len())
+        .map(|index| limits[index..].iter().sum())
+        .collect();
+    Ok(Search {
+        spans,
+        limits,
+        capacity,
+        discarded,
+        failed: std::collections::HashSet::new(),
+        expanded: 0,
+    })
+}
+
+pub fn unobserved(spans: &[Span], monitor: &[f32]) -> Result<u64, String> {
+    search(spans, monitor).0
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Span, unobserved};
+    use super::{Span, search, unobserved};
     use hito_audio::test_support::continuity::counter;
 
     fn source(frames: std::ops::Range<u64>) -> Vec<f32> {
@@ -199,5 +232,43 @@ mod tests {
         let generations = vec![(0, source(0..3000), 1500), (3100, source(3100..6000), 1500)];
         let monitor = joined(&[source(0..3000), source(3100..6000)]);
         assert!(unobserved(&spans(&generations), &monitor).is_err());
+    }
+
+    #[test]
+    fn an_ambiguous_periodic_capture_with_late_corruption_expands_each_state_at_most_once() {
+        let period = 4093;
+        let start = 2000;
+        let mut generations = vec![(0, source(0..start + period), period)];
+        for _ in 0..6 {
+            generations.push((start, source(start..start + period), period));
+        }
+        generations.push((start, source(start..start + 3 * period), 0));
+        let mut monitor = joined(&[source(0..start + period), source(start..start + 3 * period)]);
+        let middle = source(start..start + period);
+        for _ in 0..3 {
+            monitor.splice(
+                start as usize + period as usize..start as usize + period as usize,
+                middle.iter().copied(),
+            );
+        }
+        let last = monitor.len() - 1;
+        monitor[last] += 400. / 32768.;
+        let spans = spans(&generations);
+        let submitted: usize = generations
+            .iter()
+            .map(|(_, samples, _)| samples.len())
+            .sum();
+        let discarded = (submitted - monitor.len()) as u64;
+        let (outcome, states) = search(&spans, &monitor);
+        assert!(
+            outcome.is_err(),
+            "a corrupted final sample must be rejected"
+        );
+        let states = states as u64;
+        assert!(
+            states <= spans.len() as u64 * (discarded + 1),
+            "{states} states expanded for {} generations and a discard of {discarded}",
+            spans.len()
+        );
     }
 }
