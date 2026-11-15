@@ -14,7 +14,10 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use tokio::sync::{Notify, mpsc, oneshot};
+use tokio::{
+    sync::{Notify, mpsc, oneshot, watch},
+    task::JoinSet,
+};
 use uuid::Uuid;
 
 pub(super) enum Command {
@@ -25,7 +28,6 @@ pub(super) enum Command {
 
 pub(super) struct QualityOpen {
     pub request: QualityRequest,
-    pub target: u32,
     pub limits: ConversionLimits,
     pub tools: MediaTools,
 }
@@ -109,6 +111,8 @@ pub(super) async fn serve(
     file: Option<Arc<RetainedFile>>,
 ) {
     let mut streams = HashMap::<Uuid, Stream>::new();
+    let mut pending = JoinSet::<Pending>::new();
+    let mut pending_bodies = 0usize;
     let mut stop = entry.cancel.subscribe();
     let grant = entry.grant.get().expect("published lease has its grant");
     loop {
@@ -129,6 +133,54 @@ pub(super) async fn serve(
             _ = stop.changed() => break,
             _ = tokio::time::sleep_until(entry.deadline) => break,
             _ = grant.revoked() => { entry.stop(); break; },
+            Some(done) = pending.join_next(), if !pending.is_empty() => {
+                let Ok(Pending { reply, head, result }) = done else { continue };
+                if !head {
+                    pending_bodies -= 1;
+                }
+                let result = match result {
+                    Ok(Negotiated::Converted(Some(stream))) => match entry.check().await {
+                        Ok(()) if !reply.is_closed() => {
+                            let id = Uuid::new_v4();
+                            let control = Arc::new(BodyControl {
+                                closed: AtomicBool::new(false),
+                                wake: entry.wake.clone(),
+                            });
+                            streams.insert(
+                                id,
+                                Stream {
+                                    input: Input::Converted(stream),
+                                    control: control.clone(),
+                                },
+                            );
+                            Ok(LeaseConversion::Converted(Some(AudioStream::lease(
+                                LeaseBody {
+                                    entry: Arc::downgrade(entry),
+                                    id,
+                                    commands: entry.commands.clone(),
+                                    control,
+                                },
+                                None,
+                            ))))
+                        }
+                        Ok(()) => {
+                            (*stream).close().await;
+                            continue;
+                        }
+                        Err(error) => {
+                            (*stream).close().await;
+                            Err(error)
+                        }
+                    },
+                    Ok(Negotiated::Converted(None)) => Ok(LeaseConversion::Converted(None)),
+                    Ok(Negotiated::Unchanged(reason)) => Ok(LeaseConversion::Unchanged(reason)),
+                    Err(error) => Err(error),
+                };
+                let _ = reply.send(result);
+                #[cfg(test)]
+                entry.publications.opened.notify_one();
+                continue;
+            }
             _ = entry.wake.notified() => continue,
             command = commands.recv() => match command { Some(command) => command, None => break },
         };
@@ -139,7 +191,7 @@ pub(super) async fn serve(
                 }
                 let result = async {
                     entry.check().await?;
-                    if streams.len() >= 2 && !request.head {
+                    if streams.len() + pending_bodies >= 2 && !request.head {
                         return Err(Error::Conflict(
                             "This playback lease already has two audio bodies".into(),
                         ));
@@ -226,85 +278,34 @@ pub(super) async fn serve(
                 #[cfg(test)]
                 entry.publications.opened.notify_one();
             }
-            Command::OpenQuality(open, mut reply) => {
+            Command::OpenQuality(open, reply) => {
                 if reply.is_closed() {
                     continue;
                 }
                 let head = open.request.original.head;
-                let result = async {
+                let admitted = async {
                     entry.check().await?;
-                    if streams.len() >= 2 && !head {
+                    if streams.len() + pending_bodies >= 2 && !head {
                         return Err(Error::Conflict(
                             "This playback lease already has two audio bodies".into(),
                         ));
                     }
-                    let Some(file) = &file else {
-                        return Ok(Negotiated::Unchanged("remote-source"));
-                    };
-                    if let Err(error) = file.check() {
-                        entry.stop();
-                        return Err(error);
-                    }
-                    let positioned: Arc<dyn PositionedAudio> = file.clone();
-                    conversion::negotiate(
-                        &open.limits,
-                        &open.tools,
-                        &entry.actor,
-                        grant,
-                        conversion::Input::Positioned(&positioned),
-                        open.request,
-                        open.target,
-                    )
-                    .await
+                    Ok(())
                 };
-                let result = tokio::select! {
-                    biased;
-                    _ = stop.changed() => Err(Error::NotFound),
-                    _ = tokio::time::sleep_until(entry.deadline) => Err(Error::NotFound),
-                    _ = reply.closed() => continue,
-                    result = result => result,
-                };
-                let result = match result {
-                    Ok(Negotiated::Converted(Some(stream))) => match entry.check().await {
-                        Ok(()) if !reply.is_closed() => {
-                            let id = Uuid::new_v4();
-                            let control = Arc::new(BodyControl {
-                                closed: AtomicBool::new(false),
-                                wake: entry.wake.clone(),
-                            });
-                            streams.insert(
-                                id,
-                                Stream {
-                                    input: Input::Converted(stream),
-                                    control: control.clone(),
-                                },
-                            );
-                            Ok(LeaseConversion::Converted(Some(AudioStream::lease(
-                                LeaseBody {
-                                    entry: Arc::downgrade(entry),
-                                    id,
-                                    commands: entry.commands.clone(),
-                                    control,
-                                },
-                                None,
-                            ))))
-                        }
-                        Ok(()) => {
-                            (*stream).close().await;
-                            continue;
-                        }
-                        Err(error) => {
-                            (*stream).close().await;
-                            Err(error)
-                        }
-                    },
-                    Ok(Negotiated::Converted(None)) => Ok(LeaseConversion::Converted(None)),
-                    Ok(Negotiated::Unchanged(reason)) => Ok(LeaseConversion::Unchanged(reason)),
-                    Err(error) => Err(error),
-                };
-                let _ = reply.send(result);
-                #[cfg(test)]
-                entry.publications.opened.notify_one();
+                if let Err(error) = admitted.await {
+                    let _ = reply.send(Err(error));
+                    continue;
+                }
+                if !head {
+                    pending_bodies += 1;
+                }
+                pending.spawn(negotiation(
+                    entry.clone(),
+                    grant.clone(),
+                    file.clone(),
+                    open,
+                    reply,
+                ));
             }
             Command::Read(id, mut reply) => {
                 if reply.is_closed() {
@@ -336,13 +337,23 @@ pub(super) async fn serve(
                             }
                         }
                         Input::Converted(body) => {
-                            tokio::select! {
+                            let file = file.as_ref().ok_or_else(stopped)?;
+                            if let Err(error) = file.check() {
+                                entry.stop();
+                                return Err(error);
+                            }
+                            let bytes = tokio::select! {
                                 biased;
                                 _ = stop.changed() => return Err(Error::NotFound),
                                 _ = tokio::time::sleep_until(entry.deadline) => return Err(Error::NotFound),
                                 _ = reply.closed() => return Err(Error::NotFound),
                                 result = body.chunk() => result?,
+                            };
+                            if let Err(error) = file.check() {
+                                entry.stop();
+                                return Err(error);
                             }
+                            bytes
                         }
                     };
                     entry.check().await?;
@@ -360,10 +371,18 @@ pub(super) async fn serve(
             }
         }
     }
+    entry.stop();
+    while let Some(done) = pending.join_next().await {
+        if let Ok(Pending { reply, result, .. }) = done {
+            if let Ok(Negotiated::Converted(Some(stream))) = result {
+                (*stream).close().await;
+            }
+            let _ = reply.send(Err(Error::NotFound));
+        }
+    }
     for (_, stream) in streams.drain() {
         retire_stream(stream).await;
     }
-    entry.stop();
     let _ = entry.warm.retire_lease(entry.metadata.id).await;
     tracing::debug!(
         event = "playback_lease_retired",
@@ -372,6 +391,62 @@ pub(super) async fn serve(
         bodies = streams.len(),
         "Playback lease retired"
     );
+}
+
+struct Pending {
+    reply: oneshot::Sender<Result<LeaseConversion>>,
+    head: bool,
+    result: Result<Negotiated>,
+}
+
+async fn negotiation(
+    entry: Arc<Entry>,
+    grant: crate::PlaybackSource,
+    file: Option<Arc<RetainedFile>>,
+    open: QualityOpen,
+    mut reply: oneshot::Sender<Result<LeaseConversion>>,
+) -> Pending {
+    let head = open.request.original.head;
+    let (cancel, mut cancelled) = watch::channel(false);
+    let mut stop = entry.cancel.subscribe();
+    let work = async {
+        let Some(file) = file else {
+            return Ok(Negotiated::Unchanged("remote-source"));
+        };
+        if let Err(error) = file.check() {
+            entry.stop();
+            return Err(error);
+        }
+        let positioned: Arc<dyn PositionedAudio> = file;
+        conversion::negotiate(
+            &open.limits,
+            &open.tools,
+            &entry.actor,
+            &grant,
+            conversion::Input::Positioned(&positioned),
+            open.request,
+            &mut cancelled,
+        )
+        .await
+    };
+    tokio::pin!(work);
+    let deadline = tokio::time::sleep_until(entry.deadline);
+    tokio::pin!(deadline);
+    let result = loop {
+        let requested = *cancel.borrow();
+        tokio::select! {
+            biased;
+            result = &mut work => break result,
+            _ = conversion::cancelled(&mut stop), if !requested => { let _ = cancel.send(true); }
+            _ = &mut deadline, if !requested => { let _ = cancel.send(true); }
+            _ = reply.closed(), if !requested => { let _ = cancel.send(true); }
+        }
+    };
+    Pending {
+        reply,
+        head,
+        result,
+    }
 }
 
 async fn retire_stream(stream: Stream) {

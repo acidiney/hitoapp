@@ -34,6 +34,8 @@ struct Entry {
     bytes_read: std::sync::atomic::AtomicU64,
     #[cfg(test)]
     publications: testing::Publications,
+    #[cfg(test)]
+    positioned_reads: Arc<std::sync::atomic::AtomicUsize>,
     correlation: u64,
     started: std::time::Instant,
     actor: Actor,
@@ -117,6 +119,8 @@ impl PlaybackAccess {
             bytes_read: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             publications: testing::Publications::default(),
+            #[cfg(test)]
+            positioned_reads: Arc::default(),
             correlation: NEXT_LEASE.fetch_add(1, Ordering::Relaxed),
             started: std::time::Instant::now(),
             actor: actor.clone(),
@@ -174,7 +178,13 @@ impl PlaybackAccess {
                         }?;
                         owned.alive()?;
                         let file = if grant.is_local() {
-                            Some(Arc::new(file::RetainedFile::new(grant.open_file().await?)?))
+                            let retained = file::RetainedFile::new(grant.open_file().await?)?;
+                            #[cfg(test)]
+                            let retained = retained.observed(
+                                owned.positioned_reads.clone(),
+                                owned.read_pause.get().cloned(),
+                            );
+                            Some(Arc::new(retained))
                         } else {
                             None
                         };
@@ -313,7 +323,6 @@ impl PlaybackAccess {
             .send(owner::Command::OpenQuality(
                 owner::QualityOpen {
                     request,
-                    target,
                     limits: self.conversions.clone(),
                     tools: self.tools.clone(),
                 },
@@ -422,3 +431,7 @@ mod publication;
 #[cfg(test)]
 #[path = "../../tests/playback_leases/pin_retirement.rs"]
 mod pin_retirement;
+
+#[cfg(test)]
+#[path = "../../tests/playback_leases/quality_lifecycle.rs"]
+mod quality_lifecycle;

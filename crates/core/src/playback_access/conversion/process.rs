@@ -1,4 +1,4 @@
-use super::{ConversionSlot, StreamQuality};
+use super::{ConversionSlot, QualityRequest};
 use crate::{AudioFile, Error, MediaTools, PlaybackSource, Result, media_command};
 use bytes::Bytes;
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use std::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::{Child, ChildStdin, ChildStdout},
-    sync::mpsc,
+    sync::{mpsc, watch},
     task::JoinHandle,
 };
 use tracing::Instrument;
@@ -60,9 +60,12 @@ pub(super) struct Feeder {
 }
 
 impl Feeder {
-    pub(super) async fn run(mut self) -> Result<()> {
+    async fn run(mut self, mut stop: watch::Receiver<bool>) -> Result<()> {
         let mut offset = 0;
         loop {
+            if *stop.borrow() {
+                return Ok(());
+            }
             let source = self.source.clone();
             let bytes = tokio::task::spawn_blocking(move || source.read_at(offset, CHUNK))
                 .await
@@ -71,23 +74,37 @@ impl Feeder {
                 return Ok(());
             }
             offset += bytes.len() as u64;
-            if self.stdin.write_all(&bytes).await.is_err() {
-                return Ok(());
+            tokio::select! {
+                biased;
+                _ = stop.changed() => return Ok(()),
+                written = self.stdin.write_all(&bytes) => if written.is_err() { return Ok(()); },
             }
         }
     }
 }
 
-pub(super) async fn fed(
+pub(super) async fn fed<T>(
     feeder: Option<Feeder>,
-    work: impl Future<Output = Result<()>>,
-) -> Result<()> {
-    match feeder {
-        None => work.await,
-        Some(feeder) => {
-            let (fed, worked) = tokio::join!(feeder.run(), work);
-            worked.and(fed)
+    work: impl Future<Output = T>,
+) -> (T, Result<()>) {
+    let (stop, stopped) = watch::channel(false);
+    let feeding = async move {
+        match feeder {
+            Some(feeder) => feeder.run(stopped).await,
+            None => Ok(()),
         }
+    };
+    let working = async move {
+        let value = work.await;
+        let _ = stop.send(true);
+        value
+    };
+    tokio::join!(working, feeding)
+}
+
+pub(crate) async fn cancelled(cancel: &mut watch::Receiver<bool>) {
+    if cancel.wait_for(|stop| *stop).await.is_err() {
+        std::future::pending::<()>().await;
     }
 }
 
@@ -115,14 +132,15 @@ pub(super) async fn retire(child: &mut Child) {
 pub(super) async fn start(
     tools: &MediaTools,
     input: Input<'_>,
-    quality: StreamQuality,
-    target: u32,
-    start: Duration,
+    request: QualityRequest,
     authority: PlaybackSource,
     slot: ConversionSlot,
+    cancel: &mut watch::Receiver<bool>,
 ) -> Result<ConversionStream> {
+    let quality = request.quality;
+    let target = quality.target_bitrate().ok_or_else(unfinished)?;
     authority.check().await?;
-    let mut arguments = media_command::audio_input_at(Path::new("/dev/stdin"), start);
+    let mut arguments = media_command::audio_input_at(Path::new("/dev/stdin"), request.start);
     arguments.extend(
         [
             "-map",
@@ -158,16 +176,24 @@ pub(super) async fn start(
         async move {
             let started = Instant::now();
             let mut bytes = 0;
-            let (outcome, error) = tokio::select! {
-                biased;
-                _ = sender.closed() => ("cancelled", None),
-                error = owner.revoked() => ("revoked", Some(error)),
-                result = fed(feeder, pump(&mut child, stdout, &sender, &mut bytes)) => match result {
-                    Ok(()) => ("complete", None),
-                    Err(error) => ("failed", Some(error)),
-                },
+            let ((outcome, error), fed) = fed(feeder, async {
+                let outcome = tokio::select! {
+                    biased;
+                    _ = sender.closed() => ("cancelled", None),
+                    error = owner.revoked() => ("revoked", Some(error)),
+                    result = pump(&mut child, stdout, &sender, &mut bytes) => match result {
+                        Ok(()) => ("complete", None),
+                        Err(error) => ("failed", Some(error)),
+                    },
+                };
+                retire(&mut child).await;
+                outcome
+            })
+            .await;
+            let (outcome, error) = match (outcome, error, fed) {
+                ("complete", None, Err(error)) => ("failed", Some(error)),
+                (outcome, error, _) => (outcome, error),
             };
-            retire(&mut child).await;
             drop(slot);
             tracing::debug!(
                 event = "audio_conversion_closed",
@@ -189,11 +215,24 @@ pub(super) async fn start(
         finished: false,
         task: Some(task),
     };
-    let first = tokio::time::timeout(START_TIMEOUT, stream.chunk())
-        .await
-        .map_err(|_| unfinished())??;
-    stream.first = Some(first.ok_or_else(unfinished)?);
-    Ok(stream)
+    let first = tokio::select! {
+        biased;
+        _ = cancelled(cancel) => Err(unfinished()),
+        first = tokio::time::timeout(START_TIMEOUT, stream.chunk()) => first
+            .map_err(|_| unfinished())
+            .and_then(|first| first)
+            .and_then(|first| first.ok_or_else(unfinished)),
+    };
+    match first {
+        Ok(first) => {
+            stream.first = Some(first);
+            Ok(stream)
+        }
+        Err(error) => {
+            stream.close().await;
+            Err(error)
+        }
+    }
 }
 
 async fn pump(

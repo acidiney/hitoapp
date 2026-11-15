@@ -12,6 +12,11 @@ pub(super) struct RetainedFile {
     stamp: Stamp,
     pub length: u64,
     pub content_type: &'static str,
+    #[cfg(test)]
+    observed: Option<(
+        Arc<std::sync::atomic::AtomicUsize>,
+        Option<Arc<super::testing::ReadPause>>,
+    )>,
 }
 
 #[derive(PartialEq)]
@@ -62,7 +67,19 @@ impl RetainedFile {
             stamp,
             length: audio.length,
             content_type: audio.content_type,
+            #[cfg(test)]
+            observed: None,
         })
+    }
+
+    #[cfg(test)]
+    pub fn observed(
+        mut self,
+        reads: Arc<std::sync::atomic::AtomicUsize>,
+        pause: Option<Arc<super::testing::ReadPause>>,
+    ) -> Self {
+        self.observed = Some((reads, pause));
+        self
     }
 
     pub fn check(&self) -> Result<()> {
@@ -130,6 +147,14 @@ impl RetainedFile {
 
 impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
     fn read_at(&self, offset: u64, count: usize) -> Result<Bytes> {
+        #[cfg(test)]
+        let _reading = self.observed.as_ref().map(|(reads, pause)| {
+            reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if let Some(pause) = pause {
+                let _ = pause.pause();
+            }
+            Reading(reads.clone())
+        });
         self.check()?;
         let mut buffer = vec![0; count.min(65536)];
         #[cfg(unix)]
@@ -148,6 +173,15 @@ impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
         let read = read.map_err(|_| Error::Upstream("Audio file could not be read"))?;
         buffer.truncate(read);
         Ok(Bytes::from(buffer))
+    }
+}
+
+#[cfg(test)]
+struct Reading(Arc<std::sync::atomic::AtomicUsize>);
+#[cfg(test)]
+impl Drop for Reading {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 

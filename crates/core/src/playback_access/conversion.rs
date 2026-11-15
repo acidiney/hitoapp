@@ -5,8 +5,9 @@ mod profile;
 use crate::{Actor, AudioRequest, Error, MediaTools, OpenedAudio, PlaybackSource, Result};
 pub(crate) use limits::{ConversionLimits, ConversionSlot};
 pub use process::ConversionStream;
-pub(crate) use process::{Input, PositionedAudio};
+pub(crate) use process::{Input, PositionedAudio, cancelled};
 use std::time::{Duration, Instant};
+use tokio::sync::watch;
 
 const CONTENT_TYPE: &str = "audio/aac";
 pub const MAX_CONVERSION_START: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -115,8 +116,12 @@ pub(super) async fn negotiate(
     grant: &PlaybackSource,
     input: Input<'_>,
     request: QualityRequest,
-    target: u32,
+    cancel: &mut watch::Receiver<bool>,
 ) -> Result<Negotiated> {
+    let target = request
+        .quality
+        .target_bitrate()
+        .ok_or_else(|| Error::Invalid("Choose a converted quality".into()))?;
     let slot = limits.acquire(actor.id())?;
     let started = Instant::now();
     let unchanged = |reason: &'static str| {
@@ -128,7 +133,7 @@ pub(super) async fn negotiate(
         );
         Ok(Negotiated::Unchanged(reason))
     };
-    let (profile, slot) = match profile::probe(tools, input, grant.clone(), slot).await {
+    let (profile, slot) = match profile::probe(tools, input, grant.clone(), slot, cancel).await {
         Ok(profile) => profile,
         Err(error) => {
             tracing::warn!(
@@ -148,17 +153,7 @@ pub(super) async fn negotiate(
     if request.original.head {
         return Ok(Negotiated::Converted(None));
     }
-    match process::start(
-        tools,
-        input,
-        request.quality,
-        target,
-        request.start,
-        grant.clone(),
-        slot,
-    )
-    .await
-    {
+    match process::start(tools, input, request, grant.clone(), slot, cancel).await {
         Ok(stream) => {
             tracing::debug!(
                 event = "audio_conversion_started",
@@ -190,6 +185,7 @@ pub(super) async fn convert(
     request: QualityRequest,
     target: u32,
 ) -> Result<QualityAudio> {
+    let (_never, mut cancel) = watch::channel(false);
     match negotiate(
         limits,
         tools,
@@ -197,7 +193,7 @@ pub(super) async fn convert(
         &grant,
         Input::Descriptor(&file),
         request,
-        target,
+        &mut cancel,
     )
     .await?
     {
