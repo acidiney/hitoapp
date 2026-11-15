@@ -27,7 +27,7 @@ struct FinalizationArm {
 
 enum Boundary {
     Open,
-    Holding(Pin<Box<tokio::time::Sleep>>, tokio::time::Instant),
+    Holding(Pin<Box<tokio::time::Sleep>>, tokio::time::Instant, Key),
     Released,
 }
 
@@ -287,6 +287,9 @@ impl Native {
         let crossed = self.crossed.take();
         let mut suspended_now = false;
         if self.target.as_ref().map(|target| target.key) != key {
+            if target.as_ref().is_none_or(|target| !target.playing) {
+                self.held_out = None;
+            }
             self.acquisition = None;
             self.acquired = None;
             self.deadline_pending = None;
@@ -726,9 +729,13 @@ impl Native {
                     }
                 },
                 _ = async {
-                    if let Boundary::Holding(timer, _) = &mut self.boundary { timer.as_mut().await }
+                    if let Boundary::Holding(timer, ..) = &mut self.boundary { timer.as_mut().await }
                 }, if matches!(self.boundary, Boundary::Holding(..)) => {
-                    self.held_out = self.target.as_ref().and_then(|target| target.next).map(|next| next.key);
+                    let next = self.target.as_ref().and_then(|target| target.next).map(|next| next.key);
+                    self.held_out = match self.boundary {
+                        Boundary::Holding(.., held) if next == Some(held) => Some(held),
+                        _ => None,
+                    };
                     return self.release("timeout");
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
@@ -761,6 +768,7 @@ impl Native {
             self.boundary = Boundary::Holding(
                 Box::pin(tokio::time::sleep(BOUNDARY_WAIT)),
                 tokio::time::Instant::now(),
+                next.key,
             );
             tracing::info!(
                 event = "player_boundary_wait_started",
@@ -778,7 +786,7 @@ impl Native {
         update
     }
     fn release(&mut self, reason: &'static str) -> Update {
-        if let Boundary::Holding(_, since) =
+        if let Boundary::Holding(_, since, _) =
             std::mem::replace(&mut self.boundary, Boundary::Released)
         {
             tracing::info!(
