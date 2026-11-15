@@ -5,6 +5,7 @@ mod profile;
 use crate::{Actor, AudioRequest, Error, MediaTools, OpenedAudio, PlaybackSource, Result};
 pub(crate) use limits::{ConversionLimits, ConversionSlot};
 pub use process::ConversionStream;
+pub(crate) use process::{Input, PositionedAudio};
 use std::time::{Duration, Instant};
 
 const CONTENT_TYPE: &str = "audio/aac";
@@ -68,7 +69,21 @@ pub struct ConvertedAudio {
     pub content_type: &'static str,
     pub bitrate: u32,
     pub start: Duration,
-    pub body: Option<ConversionStream>,
+    pub body: Option<ConvertedBody>,
+}
+
+pub enum ConvertedBody {
+    Direct(Box<ConversionStream>),
+    Lease(crate::AudioStream),
+}
+
+impl ConvertedBody {
+    pub async fn chunk(&mut self) -> Result<Option<bytes::Bytes>> {
+        match self {
+            Self::Direct(stream) => stream.chunk().await,
+            Self::Lease(stream) => stream.chunk().await,
+        }
+    }
 }
 
 pub enum QualityAudio {
@@ -88,26 +103,32 @@ impl QualityRequest {
     }
 }
 
-pub(super) async fn convert(
+pub(crate) enum Negotiated {
+    Converted(Option<Box<ConversionStream>>),
+    Unchanged(&'static str),
+}
+
+pub(super) async fn negotiate(
     limits: &ConversionLimits,
     tools: &MediaTools,
     actor: &Actor,
-    grant: PlaybackSource,
-    file: crate::AudioFile,
+    grant: &PlaybackSource,
+    input: Input<'_>,
     request: QualityRequest,
     target: u32,
-) -> Result<QualityAudio> {
+) -> Result<Negotiated> {
     let slot = limits.acquire(actor.id())?;
     let started = Instant::now();
-    let fallback = |reason: &'static str| {
+    let unchanged = |reason: &'static str| {
         tracing::debug!(
             event = "audio_conversion_skipped",
             quality = request.quality.label(),
             reason,
             "Audio is streamed unchanged"
         );
+        Ok(Negotiated::Unchanged(reason))
     };
-    let (profile, slot) = match profile::probe(tools, &file, grant.clone(), slot).await {
+    let (profile, slot) = match profile::probe(tools, input, grant.clone(), slot).await {
         Ok(profile) => profile,
         Err(error) => {
             tracing::warn!(
@@ -116,30 +137,20 @@ pub(super) async fn convert(
                 error_kind = error.code(),
                 "Audio could not be inspected for conversion"
             );
-            fallback("conversion-failed");
-            return original(&grant, request, "conversion-failed").await;
+            return unchanged("conversion-failed");
         }
     };
     grant.check().await?;
     if let Some(reason) = profile.passthrough_reason(target) {
-        fallback(reason);
         drop(slot);
-        return original(&grant, request, reason).await;
+        return unchanged(reason);
     }
-    let converted = |body| {
-        QualityAudio::Converted(Box::new(ConvertedAudio {
-            content_type: CONTENT_TYPE,
-            bitrate: target,
-            start: request.start,
-            body,
-        }))
-    };
     if request.original.head {
-        return Ok(converted(None));
+        return Ok(Negotiated::Converted(None));
     }
     match process::start(
         tools,
-        &file,
+        input,
         request.quality,
         target,
         request.start,
@@ -156,7 +167,7 @@ pub(super) async fn convert(
                 startup_ms = started.elapsed().as_millis() as u64,
                 "Audio conversion started"
             );
-            Ok(converted(Some(stream)))
+            Ok(Negotiated::Converted(Some(Box::new(stream))))
         }
         Err(error) => {
             tracing::warn!(
@@ -165,9 +176,51 @@ pub(super) async fn convert(
                 error_kind = error.code(),
                 "Audio conversion did not start"
             );
-            original(&grant, request, "conversion-failed").await
+            unchanged("conversion-failed")
         }
     }
+}
+
+pub(super) async fn convert(
+    limits: &ConversionLimits,
+    tools: &MediaTools,
+    actor: &Actor,
+    grant: PlaybackSource,
+    file: crate::AudioFile,
+    request: QualityRequest,
+    target: u32,
+) -> Result<QualityAudio> {
+    match negotiate(
+        limits,
+        tools,
+        actor,
+        &grant,
+        Input::Descriptor(&file),
+        request,
+        target,
+    )
+    .await?
+    {
+        Negotiated::Converted(stream) => Ok(converted(
+            request,
+            target,
+            stream.map(ConvertedBody::Direct),
+        )),
+        Negotiated::Unchanged(reason) => original(&grant, request, reason).await,
+    }
+}
+
+pub(super) fn converted(
+    request: QualityRequest,
+    target: u32,
+    body: Option<ConvertedBody>,
+) -> QualityAudio {
+    QualityAudio::Converted(Box::new(ConvertedAudio {
+        content_type: CONTENT_TYPE,
+        bitrate: target,
+        start: request.start,
+        body,
+    }))
 }
 
 pub(super) async fn original(

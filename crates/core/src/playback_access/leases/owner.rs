@@ -1,5 +1,11 @@
 use super::{Entry, file::RetainedFile, stopped};
-use crate::{AudioContent, AudioRequest, AudioStream, AudioValidators, Error, OpenedAudio, Result};
+use crate::playback_access::conversion::{
+    self, ConversionLimits, ConversionStream, Negotiated, PositionedAudio,
+};
+use crate::{
+    AudioContent, AudioRequest, AudioStream, AudioValidators, Error, MediaTools, OpenedAudio,
+    QualityRequest, Result,
+};
 use bytes::Bytes;
 use std::{
     collections::HashMap,
@@ -13,7 +19,20 @@ use uuid::Uuid;
 
 pub(super) enum Command {
     Open(AudioRequest, oneshot::Sender<Result<OpenedAudio>>),
+    OpenQuality(QualityOpen, oneshot::Sender<Result<LeaseConversion>>),
     Read(Uuid, oneshot::Sender<Result<Option<Bytes>>>),
+}
+
+pub(super) struct QualityOpen {
+    pub request: QualityRequest,
+    pub target: u32,
+    pub limits: ConversionLimits,
+    pub tools: MediaTools,
+}
+
+pub(super) enum LeaseConversion {
+    Converted(Option<AudioStream>),
+    Unchanged(&'static str),
 }
 
 pub(super) struct BodyControl {
@@ -77,6 +96,7 @@ impl Drop for CancelRead {
 enum Input {
     File { position: u64, remaining: u64 },
     Remote(AudioStream),
+    Converted(Box<ConversionStream>),
 }
 struct Stream {
     input: Input,
@@ -206,6 +226,86 @@ pub(super) async fn serve(
                 #[cfg(test)]
                 entry.publications.opened.notify_one();
             }
+            Command::OpenQuality(open, mut reply) => {
+                if reply.is_closed() {
+                    continue;
+                }
+                let head = open.request.original.head;
+                let result = async {
+                    entry.check().await?;
+                    if streams.len() >= 2 && !head {
+                        return Err(Error::Conflict(
+                            "This playback lease already has two audio bodies".into(),
+                        ));
+                    }
+                    let Some(file) = &file else {
+                        return Ok(Negotiated::Unchanged("remote-source"));
+                    };
+                    if let Err(error) = file.check() {
+                        entry.stop();
+                        return Err(error);
+                    }
+                    let positioned: Arc<dyn PositionedAudio> = file.clone();
+                    conversion::negotiate(
+                        &open.limits,
+                        &open.tools,
+                        &entry.actor,
+                        grant,
+                        conversion::Input::Positioned(&positioned),
+                        open.request,
+                        open.target,
+                    )
+                    .await
+                };
+                let result = tokio::select! {
+                    biased;
+                    _ = stop.changed() => Err(Error::NotFound),
+                    _ = tokio::time::sleep_until(entry.deadline) => Err(Error::NotFound),
+                    _ = reply.closed() => continue,
+                    result = result => result,
+                };
+                let result = match result {
+                    Ok(Negotiated::Converted(Some(stream))) => match entry.check().await {
+                        Ok(()) if !reply.is_closed() => {
+                            let id = Uuid::new_v4();
+                            let control = Arc::new(BodyControl {
+                                closed: AtomicBool::new(false),
+                                wake: entry.wake.clone(),
+                            });
+                            streams.insert(
+                                id,
+                                Stream {
+                                    input: Input::Converted(stream),
+                                    control: control.clone(),
+                                },
+                            );
+                            Ok(LeaseConversion::Converted(Some(AudioStream::lease(
+                                LeaseBody {
+                                    entry: Arc::downgrade(entry),
+                                    id,
+                                    commands: entry.commands.clone(),
+                                    control,
+                                },
+                                None,
+                            ))))
+                        }
+                        Ok(()) => {
+                            (*stream).close().await;
+                            continue;
+                        }
+                        Err(error) => {
+                            (*stream).close().await;
+                            Err(error)
+                        }
+                    },
+                    Ok(Negotiated::Converted(None)) => Ok(LeaseConversion::Converted(None)),
+                    Ok(Negotiated::Unchanged(reason)) => Ok(LeaseConversion::Unchanged(reason)),
+                    Err(error) => Err(error),
+                };
+                let _ = reply.send(result);
+                #[cfg(test)]
+                entry.publications.opened.notify_one();
+            }
             Command::Read(id, mut reply) => {
                 if reply.is_closed() {
                     continue;
@@ -227,6 +327,15 @@ pub(super) async fn serve(
                             (!bytes.is_empty()).then_some(bytes)
                         }
                         Input::Remote(body) => {
+                            tokio::select! {
+                                biased;
+                                _ = stop.changed() => return Err(Error::NotFound),
+                                _ = tokio::time::sleep_until(entry.deadline) => return Err(Error::NotFound),
+                                _ = reply.closed() => return Err(Error::NotFound),
+                                result = body.chunk() => result?,
+                            }
+                        }
+                        Input::Converted(body) => {
                             tokio::select! {
                                 biased;
                                 _ = stop.changed() => return Err(Error::NotFound),
@@ -265,9 +374,11 @@ pub(super) async fn serve(
     );
 }
 
-async fn retire_stream(mut stream: Stream) {
-    if let Input::Remote(body) = &mut stream.input {
-        body.shutdown().await;
+async fn retire_stream(stream: Stream) {
+    match stream.input {
+        Input::Remote(mut body) => body.shutdown().await,
+        Input::Converted(body) => (*body).close().await,
+        Input::File { .. } => {}
     }
 }
 

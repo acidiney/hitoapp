@@ -5,7 +5,9 @@ pub(super) mod registry;
 mod testing;
 mod types;
 
-use super::{AudioRequest, OpenedAudio, PlaybackAccess, PlaybackSource};
+use super::{
+    AudioRequest, OpenedAudio, PlaybackAccess, PlaybackSource, QualityAudio, QualityRequest,
+};
 use crate::{Actor, Error, Result};
 use futures_util::FutureExt;
 use registry::{Completion, Retirement, Work};
@@ -280,6 +282,58 @@ impl PlaybackAccess {
         let result = opened.await.map_err(|_| Error::NotFound)?;
         entry.check().await?;
         result
+    }
+
+    #[tracing::instrument(level="debug", skip_all, err(Debug), fields(account_id=actor.id(), playback_lease=tracing::field::Empty, quality=request.quality.label()))]
+    pub async fn open_lease_quality_audio(
+        &self,
+        actor: &Actor,
+        id: Uuid,
+        request: QualityRequest,
+    ) -> Result<QualityAudio> {
+        request.validate()?;
+        let Some(target) = request.quality.target_bitrate() else {
+            if !request.start.is_zero() {
+                return Err(Error::Invalid(
+                    "Start position requires a converted stream".into(),
+                ));
+            }
+            return Ok(QualityAudio::Original {
+                audio: self.open_lease_audio(actor, id, request.original).await?,
+                reason: "original-requested",
+            });
+        };
+        self.lease_actor(actor, id).await?;
+        let entry = self.leases.entry(actor, id)?;
+        tracing::Span::current().record("playback_lease", entry.correlation);
+        entry.check().await?;
+        let (reply, opened) = oneshot::channel();
+        entry
+            .commands
+            .send(owner::Command::OpenQuality(
+                owner::QualityOpen {
+                    request,
+                    target,
+                    limits: self.conversions.clone(),
+                    tools: self.tools.clone(),
+                },
+                reply,
+            ))
+            .await
+            .map_err(|_| Error::NotFound)?;
+        let result = opened.await.map_err(|_| Error::NotFound)?;
+        entry.check().await?;
+        match result? {
+            owner::LeaseConversion::Converted(body) => Ok(super::conversion::converted(
+                request,
+                target,
+                body.map(super::conversion::ConvertedBody::Lease),
+            )),
+            owner::LeaseConversion::Unchanged(reason) => Ok(QualityAudio::Original {
+                audio: self.open_lease_audio(actor, id, request.original).await?,
+                reason,
+            }),
+        }
     }
 
     #[tracing::instrument(level="debug", skip_all, err(Debug), fields(account_id=actor.id(), playback_lease=tracing::field::Empty))]

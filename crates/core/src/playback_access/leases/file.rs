@@ -128,6 +128,29 @@ impl RetainedFile {
     }
 }
 
+impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
+    fn read_at(&self, offset: u64, count: usize) -> Result<Bytes> {
+        self.check()?;
+        let mut buffer = vec![0; count.min(65536)];
+        #[cfg(unix)]
+        let read = {
+            use std::os::unix::fs::FileExt;
+            self.file.read_at(&mut buffer, offset)
+        };
+        #[cfg(windows)]
+        let read = {
+            use std::os::windows::fs::FileExt;
+            self.file.seek_read(&mut buffer, offset)
+        };
+        #[cfg(not(any(unix, windows)))]
+        let read: std::io::Result<usize> = Err(std::io::Error::other("Unsupported file platform"));
+        self.check()?;
+        let read = read.map_err(|_| Error::Upstream("Audio file could not be read"))?;
+        buffer.truncate(read);
+        Ok(Bytes::from(buffer))
+    }
+}
+
 fn changed() -> Error {
     Error::Conflict("Audio file changed during playback".into())
 }

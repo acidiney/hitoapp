@@ -12,8 +12,8 @@ mod warm;
 
 pub use candidates::{CandidatesEnd, MAX_FALLBACK_ATTEMPTS, PlaybackCandidates};
 pub use conversion::{
-    ConversionStream, ConvertedAudio, MAX_CONVERSION_START, QualityAudio, QualityRequest,
-    StreamQuality,
+    ConversionStream, ConvertedAudio, ConvertedBody, MAX_CONVERSION_START, QualityAudio,
+    QualityRequest, StreamQuality,
 };
 pub use decoding::{PcmBlock, PcmFormat, PcmOpening, PcmStream};
 pub use grant::PlaybackSource;

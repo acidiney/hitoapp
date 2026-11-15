@@ -1,7 +1,7 @@
 use crate::{
     auth::{Account, LockableAccount},
     error::{ApiResult, ErrorResponse},
-    extract::JsonBody,
+    extract::{JsonBody, QueryParams},
 };
 use axum::{
     Json,
@@ -90,11 +90,15 @@ pub async fn release(
 }
 
 #[utoipa::path(get, path = "/api/v1/playback/leases/{id}/audio", operation_id = "playback_lease_audio",
-    description = "Stream the admitted original representation. Single byte ranges are supported when the source is seekable. If-Range ignores Range because this route supplies no conditional validator. There is no conversion or quality negotiation.",
-    params(("id" = Uuid, Path), ("Range" = Option<String>, Header), ("If-Range" = Option<String>, Header)),
+    description = "Stream the admitted audio. The default original representation supports single byte ranges when the source is seekable; If-Range ignores Range because this route supplies no conditional validator. High and saver qualities stream AAC from start_ms with no Content-Length or byte ranges, and Range is ignored. When conversion is unavailable, including remote-only sources, the response is 409 and the client should retry the original.",
+    params(("id" = Uuid, Path), ("Range" = Option<String>, Header), ("If-Range" = Option<String>, Header), crate::audio::AudioQuery),
     security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = AudioStream, content_type = "application/octet-stream"),
+    (status = 200, content((AudioStream = "application/octet-stream"), (AudioStream = "audio/aac")), headers(
+        ("X-Hito-Stream-Quality" = hito_core::StreamQuality, description = "Effective representation quality"),
+        ("X-Hito-Stream-Start-Ms" = u64, description = "Converted segment start in milliseconds; absent for originals"),
+    )),
     (status = 206, body = AudioStream, content_type = "application/octet-stream"),
+    (status = 400, body = ErrorResponse),
     (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
     (status = 416), (status = 422, body = ErrorResponse),
@@ -106,15 +110,26 @@ pub async fn audio(
     State(services): State<Services>,
     LockableAccount(actor): LockableAccount,
     path: Result<Path<String>, PathRejection>,
+    QueryParams(query): QueryParams<crate::audio::AudioQuery>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::lease_response(&services.playback, &actor, parse_path(path)?, request).await
+    crate::audio::lease_response(
+        &services.playback,
+        &actor,
+        parse_path(path)?,
+        query,
+        request,
+    )
+    .await
 }
 
 #[utoipa::path(head, path = "/api/v1/playback/leases/{id}/audio", operation_id = "playback_lease_audio_head",
-    description = "Read original representation headers without an audio body. Range is ignored for HEAD.",
-    params(("id" = Uuid, Path)), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200), (status = 401, body = ErrorResponse),
+    description = "Read the representation headers without an audio body or starting an encoder. Range is ignored for HEAD. For high or saver quality, the headers report the representation GET would stream; when conversion is unavailable they describe the original.",
+    params(("id" = Uuid, Path), crate::audio::AudioQuery), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, headers(
+        ("X-Hito-Stream-Quality" = hito_core::StreamQuality, description = "Effective representation quality"),
+        ("X-Hito-Stream-Start-Ms" = u64, description = "Converted segment start in milliseconds; absent for originals"),
+    )), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
     (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
     (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
@@ -125,9 +140,17 @@ pub async fn audio_head(
     State(services): State<Services>,
     LockableAccount(actor): LockableAccount,
     path: Result<Path<String>, PathRejection>,
+    QueryParams(query): QueryParams<crate::audio::AudioQuery>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::lease_response(&services.playback, &actor, parse_path(path)?, request).await
+    crate::audio::lease_response(
+        &services.playback,
+        &actor,
+        parse_path(path)?,
+        query,
+        request,
+    )
+    .await
 }
 
 fn parse_path(path: Result<Path<String>, PathRejection>) -> hito_core::Result<Uuid> {

@@ -7512,7 +7512,7 @@
     },
     "/api/v1/playback/leases/{id}/audio": {
       "get": {
-        "description": "Stream the admitted original representation. Single byte ranges are supported when the source is seekable. If-Range ignores Range because this route supplies no conditional validator. There is no conversion or quality negotiation.",
+        "description": "Stream the admitted audio. The default original representation supports single byte ranges when the source is seekable; If-Range ignores Range because this route supplies no conditional validator. High and saver qualities stream AAC from start_ms with no Content-Length or byte ranges, and Range is ignored. When conversion is unavailable, including remote-only sources, the response is 409 and the client should retry the original.",
         "operationId": "playback_lease_audio",
         "parameters": [
           {
@@ -7545,12 +7545,52 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
           "200": {
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            },
             "content": {
               "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStream"
+                }
+              },
+              "audio/aac": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
                 }
@@ -7562,6 +7602,15 @@
               "application/octet-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioStream"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7650,7 +7699,7 @@
         ]
       },
       "head": {
-        "description": "Read original representation headers without an audio body. Range is ignored for HEAD.",
+        "description": "Read the representation headers without an audio body or starting an encoder. Range is ignored for HEAD. For high or saver quality, the headers report the representation GET would stream; when conversion is unavailable they describe the original.",
         "operationId": "playback_lease_audio_head",
         "parameters": [
           {
@@ -7661,10 +7710,55 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StreamQuality"
+            }
+          },
+          {
+            "name": "start_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 604800000,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
-          "200": {},
+          "200": {
+            "headers": {
+              "X-Hito-Stream-Quality": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamQuality"
+                },
+                "description": "Effective representation quality"
+              },
+              "X-Hito-Stream-Start-Ms": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "description": "Converted segment start in milliseconds; absent for originals"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "content": {
               "application/json": {
