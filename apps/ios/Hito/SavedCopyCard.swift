@@ -16,7 +16,7 @@ struct SavedCopyCard: View {
                 if copy?.state == .ready {
                     Circle().fill(Theme.text).frame(width: 10, height: 10)
                 } else {
-                    Circle().strokeBorder(copy?.state == .failed ? Theme.warning : Theme.soft, lineWidth: 1.5).frame(width: 10, height: 10)
+                    Circle().strokeBorder(copy?.state == .failed ? Theme.warning : Theme.soft, style: StrokeStyle(lineWidth: 1.5, dash: copy?.transferring == true ? [2, 2] : [])).frame(width: 10, height: 10)
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Saved copy").font(Theme.bodyBold)
@@ -42,10 +42,23 @@ struct SavedCopyCard: View {
             }
             if let copy, copy.transferring {
                 if let progress = copy.progress {
-                    ProgressView(value: progress).tint(Theme.text)
+                    HStack(spacing: 10) {
+                        GeometryReader { box in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Theme.text.opacity(0.2))
+                                Capsule().fill(Theme.text).frame(width: box.size.width * min(max(progress, 0), 1))
+                            }
+                        }
+                        .frame(height: 6)
+                        Text("\(Int((progress * 100).rounded()))%").font(Theme.caption).monospacedDigit()
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Saving the copy")
+                    .accessibilityValue("\(Int((progress * 100).rounded())) percent")
                 } else {
                     ProgressView().progressViewStyle(.linear).tint(Theme.text)
                 }
+                Text("Plays from the copy next time.").font(Theme.small).foregroundStyle(Theme.soft)
             }
             if let copyProblem {
                 Text(copyProblem).font(Theme.small).foregroundStyle(Theme.warning)
@@ -60,8 +73,22 @@ struct SavedCopyCard: View {
     private func followCopy() async {
         guard let api = model.api else { return }
         let copies = SavedCopies(api: api)
+        var misses = 0
         while !Task.isCancelled {
-            copy = try? await copies.status(track.id)
+            do {
+                copy = try await copies.status(track.id)
+                misses = 0
+                copyProblem = nil
+            } catch is CancellationError {
+                return
+            } catch {
+                misses += 1
+                model.handle(error)
+                if misses >= 3 || copy?.transferring != true {
+                    copyProblem = "Hito can't check this copy right now. Pull to refresh or open the track again."
+                    return
+                }
+            }
             guard copy?.transferring == true else { return }
             try? await Task.sleep(for: .seconds(2))
         }

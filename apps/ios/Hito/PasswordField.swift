@@ -25,12 +25,13 @@ struct PasswordField: View {
             .submitLabel(.go)
             .onSubmit(submit)
             .frame(minHeight: 44)
+            .padding(.trailing, 12)
             Button {
                 shown.toggle()
             } label: {
                 Icon("eye")
                     .frame(width: 44, height: 44)
-                    .foregroundStyle(shown ? Theme.text : Theme.quiet)
+                    .foregroundStyle(Theme.quiet)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Show password")

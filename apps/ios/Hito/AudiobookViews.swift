@@ -151,7 +151,7 @@ struct AudiobookView: View {
                 Cover(path: route.playlist.artworkPath, size: 96, radius: 10, mark: "book")
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Audiobook").font(Theme.smallStrong).foregroundStyle(Theme.soft)
-                    Text(book?.playlist.name ?? route.playlist.name).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                    Text(book?.playlist.name ?? route.playlist.name).font(Theme.title).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
                     if let book { Text("\(book.chapters.count) \(book.chapters.count == 1 ? "chapter" : "chapters")").foregroundStyle(Theme.soft) }
                 }
             }
