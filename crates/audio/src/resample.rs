@@ -66,8 +66,8 @@ impl Decimator {
                     f64::from(self.taps[self.half]) * f64::from(frame[self.half * 2 + 1]);
                 for (tap, weight) in self.taps[..self.half].iter().enumerate() {
                     let outer = (width - 1 - tap) * 2;
-                    left += f64::from(*weight)
-                        * (f64::from(frame[tap * 2]) + f64::from(frame[outer]));
+                    left +=
+                        f64::from(*weight) * (f64::from(frame[tap * 2]) + f64::from(frame[outer]));
                     right += f64::from(*weight)
                         * (f64::from(frame[tap * 2 + 1]) + f64::from(frame[outer + 1]));
                 }
