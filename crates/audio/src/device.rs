@@ -245,7 +245,9 @@ fn await_callbacks(state: &State, generation: u64, deadline: Instant) -> Result<
         if let Some(error) = state.error() {
             return Err(error);
         }
-        if state.rebuild_request.load(Ordering::Acquire) == generation {
+        if state.rebuild_request.load(Ordering::Acquire) == generation
+            || state.stopped.load(Ordering::Acquire)
+        {
             return Err(Error::Output);
         }
         if Instant::now() >= deadline {
@@ -440,6 +442,17 @@ mod tests {
         let result = await_callbacks(&state, 2, started + Duration::from_secs(2));
         let waited = started.elapsed();
         assert!(matches!(result, Err(Error::Output)), "{result:?}");
+        assert!(waited < Duration::from_secs(1), "{waited:?}");
+    }
+
+    #[test]
+    fn stopping_ends_a_replacements_startup_without_waiting_for_callbacks() {
+        let state = active(2, 1);
+        state.stopped.store(true, Ordering::Release);
+        let started = Instant::now();
+        let result = await_callbacks(&state, 2, started + Duration::from_secs(2));
+        let waited = started.elapsed();
+        assert!(result.is_err());
         assert!(waited < Duration::from_secs(1), "{waited:?}");
     }
 

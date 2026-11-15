@@ -172,30 +172,16 @@ pub(crate) fn run(
             epoch = reposition(&mut decoder, &state, target)?;
             finished = false;
             output_generation += 1;
-            let (next, replacement) = loop {
-                match Output::start(format, state.clone(), audio_id, output_generation) {
-                    Ok(started) => break started,
-                    Err(error)
-                        if state.rebuild_request.load(Ordering::Acquire) == output_generation =>
-                    {
-                        resets += 1;
-                        if resets > 3 {
-                            tracing::warn!(
-                                event = "audio_output_failed",
-                                audio_id,
-                                generation = output_generation,
-                                reason = "reset_budget",
-                                resets,
-                                current_xruns = reported,
-                                terminal = true,
-                                "Audio output recovery could not continue"
-                            );
-                            return Err(error);
-                        }
-                        output_generation += 1;
-                    }
-                    Err(error) => return Err(error),
-                }
+            let Some((next, replacement)) = restart(
+                &state,
+                audio_id,
+                &mut output_generation,
+                &mut resets,
+                reported,
+                |generation| Output::start(format, state.clone(), audio_id, generation),
+            )?
+            else {
+                return Ok(());
             };
             producer = next;
             buffering = Buffering::new(producer.buffer().capacity());
@@ -291,6 +277,43 @@ pub(crate) fn run(
                 continue;
             }
             finished = true;
+        }
+    }
+}
+
+fn restart<T>(
+    state: &State,
+    audio_id: u64,
+    generation: &mut u64,
+    resets: &mut u32,
+    reported: u64,
+    mut attempt: impl FnMut(u64) -> Result<T>,
+) -> Result<Option<T>> {
+    loop {
+        if state.stopped.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        match attempt(*generation) {
+            Ok(started) => return Ok(Some(started)),
+            Err(_) if state.stopped.load(Ordering::Acquire) => return Ok(None),
+            Err(error) if state.rebuild_request.load(Ordering::Acquire) == *generation => {
+                *resets += 1;
+                if *resets > 3 {
+                    tracing::warn!(
+                        event = "audio_output_failed",
+                        audio_id,
+                        generation = *generation,
+                        reason = "reset_budget",
+                        resets = *resets,
+                        current_xruns = reported,
+                        terminal = true,
+                        "Audio output recovery could not continue"
+                    );
+                    return Err(error);
+                }
+                *generation += 1;
+            }
+            Err(error) => return Err(error),
         }
     }
 }
@@ -467,5 +490,81 @@ mod tests {
             Ok(true),
             "a full ring must wake for its rebuild request"
         );
+    }
+
+    struct Owned(u64);
+
+    fn attempts(
+        state: &State,
+        resets: u32,
+        outcome: impl Fn(&State, u64) -> Result<()>,
+    ) -> (Result<Option<Owned>>, Vec<u64>, u32) {
+        let mut generation = 2;
+        let mut resets = resets;
+        let mut seen = Vec::new();
+        let result = restart(state, 1, &mut generation, &mut resets, 1, |generation| {
+            seen.push(generation);
+            state.rebuild_request.store(0, Ordering::Release);
+            outcome(state, generation).map(|()| Owned(generation))
+        });
+        (result, seen, resets)
+    }
+
+    fn requested(state: &State, generation: u64) -> Result<()> {
+        state.rebuild_request.store(generation, Ordering::Release);
+        state.rebuild_request.store(generation, Ordering::Release);
+        Err(Error::Output)
+    }
+
+    #[test]
+    fn a_persistent_replacement_failure_stops_after_three_attempts() {
+        let state = State::new();
+        let (result, seen, resets) = attempts(&state, 1, requested);
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2, 3, 4]);
+        assert_eq!(resets, 4);
+    }
+
+    #[test]
+    fn a_later_replacement_that_starts_is_returned_to_its_owner() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            if generation < 4 {
+                requested(state, generation)
+            } else {
+                Ok(())
+            }
+        });
+        assert!(matches!(result, Ok(Some(Owned(4)))));
+        assert_eq!(seen, [2, 3, 4]);
+    }
+
+    #[test]
+    fn a_replacement_failure_without_a_rebuild_request_is_not_retried() {
+        let state = State::new();
+        let (result, seen, resets) = attempts(&state, 1, |_, _| Err(Error::OutputUnavailable));
+        assert!(matches!(result, Err(Error::OutputUnavailable)));
+        assert_eq!(seen, [2]);
+        assert_eq!(resets, 1);
+    }
+
+    #[test]
+    fn stopping_during_a_failed_replacement_start_launches_no_further_output() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            state.stopped.store(true, Ordering::Release);
+            requested(state, generation)
+        });
+        assert!(matches!(result, Ok(None)), "{:?}", result.err());
+        assert_eq!(seen, [2]);
+    }
+
+    #[test]
+    fn a_stopped_player_starts_no_replacement_output() {
+        let state = State::new();
+        state.stopped.store(true, Ordering::Release);
+        let (result, seen, _) = attempts(&state, 1, |_, _| Ok(()));
+        assert!(matches!(result, Ok(None)));
+        assert!(seen.is_empty());
     }
 }
