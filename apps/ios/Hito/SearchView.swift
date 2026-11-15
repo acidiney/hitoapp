@@ -6,11 +6,15 @@ struct SearchView: View {
     var active = true
     @State private var text = ""
     @State private var tracks = Feed<Track>()
-    @State private var artist: Artist?
+    @State private var artists: [Artist] = []
+    @State private var albums: [Album] = []
+    @State private var scope = SearchScope.all
     @State private var searchable: [PluginConnection] = []
-    @State private var scope: PluginConnection?
+    @State private var service: PluginConnection?
     @State private var remote: [PluginResult] = []
     @State private var remoteState = RemoteState.idle
+    @State private var searchFailed = false
+    @State private var attempt = 0
     @State private var adopting: String?
     @State private var adoptNote: String?
     @State private var importing: String?
@@ -18,7 +22,7 @@ struct SearchView: View {
     @FocusState private var focused: Bool
 
     enum RemoteState: Equatable {
-        case idle, searching, failed
+        case idle, searching, failed, credentials
     }
 
     var query: String {
@@ -65,25 +69,50 @@ struct SearchView: View {
                 .padding(.horizontal, 16)
                 .accessibilityElement(children: .combine)
             }
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(SearchScope.allCases) { option in
+                        let on = scope == option
+                        Button { scope = option } label: {
+                            Text(option.label)
+                                .font(Theme.smallMedium)
+                                .foregroundStyle(on ? Theme.ground : Theme.text)
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 44)
+                                .background(Capsule().fill(on ? Theme.text : Color.clear))
+                                .overlay(Capsule().strokeBorder(on ? Color.clear : Theme.line))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .scrollIndicators(.hidden)
+            .accessibilityLabel("Search scope")
             if !searchable.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         Text("Your library")
-                            .font(Theme.bodyMedium)
-                            .padding(.horizontal, 16)
+                            .font(Theme.smallMedium)
+                            .padding(.horizontal, 14)
                             .frame(minHeight: 44)
                             .background(Capsule().fill(Theme.field))
                         ForEach(searchable) { plugin in
-                            let on = scope?.id == plugin.id
-                            Button { scope = on ? nil : plugin } label: {
+                            let on = service?.id == plugin.id
+                            Button {
+                                service = on ? nil : plugin
+                                if !on, scope == .albums || scope == .artists { scope = .all }
+                            } label: {
                                 HStack(spacing: 8) {
-                                    if on { Icon("check", size: 16).foregroundStyle(Theme.accent) }
-                                    Text(plugin.name).font(Theme.bodyMedium)
+                                    if on { Icon("check", size: 14).foregroundStyle(Theme.focus) }
+                                    Text(plugin.name).font(Theme.smallMedium)
                                 }
                                 .foregroundStyle(Theme.text)
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, 14)
                                 .frame(minHeight: 44)
-                                .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.line, lineWidth: on ? 1.5 : 1))
+                                .background(Capsule().fill(on ? Theme.field : Color.clear))
+                                .overlay(Capsule().strokeBorder(on ? Theme.accent : Theme.line))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Also search \(plugin.name)")
@@ -97,44 +126,28 @@ struct SearchView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if query.isEmpty {
-                        Text("Find tracks and artists in your library.")
-                            .font(Theme.small)
-                            .foregroundStyle(Theme.soft)
-                    } else if tracks.isEmpty && artist == nil {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Search your library and connected services").font(Theme.bodyStrong)
+                            Text("Find an artist, album or track.").font(Theme.small).foregroundStyle(Theme.soft)
+                        }
+                    } else if searchFailed && tracks.isEmpty && artists.isEmpty && albums.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your library couldn't be searched").font(Theme.bodyStrong)
+                            HStack(spacing: 8) {
+                                Text("Hito didn't get an answer.").font(Theme.small).foregroundStyle(Theme.soft)
+                                TextAction(title: "Try again") { attempt += 1 }
+                            }
+                        }
+                    } else if tracks.isEmpty && artists.isEmpty && albums.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Nothing in your library matches “\(query)”").font(Theme.bodyStrong)
                             Text("Check the spelling, or try fewer words.").font(Theme.small).foregroundStyle(Theme.soft)
                         }
                     } else {
-                        if let artist { TopResult(artist: artist) }
-                        if !tracks.items.isEmpty {
-                            Text("Tracks").font(Theme.heading).padding(.top, 4).accessibilityAddTraits(.isHeader)
-                        }
-                        VStack(spacing: 0) {
-                            ForEach(Array(tracks.items.enumerated()), id: \.element.id) { index, track in
-                                HStack(spacing: 0) {
-                                    Button {
-                                        model.player?.play(tracks.items, at: index, from: "Search")
-                                    } label: {
-                                        SearchRow(track: track, isCurrent: model.player?.current?.id == track.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!track.isPlayable)
-                                    if !track.isPlayable {
-                                        FindButton(track: track) { tracks.replace(track.id, with: $0) }
-                                    }
-                                    Menu { TrackMenu(track: track) } label: {
-                                        Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
-                                    }
-                                    .accessibilityLabel("More actions for \(track.title)")
-                                }
-                            }
-                            FeedFooter(feed: tracks)
-                        }
-                        .padding(.trailing, -8)
+                        results
                     }
-                    if let scope, !query.isEmpty {
-                        remoteSection(scope)
+                    if let service, !query.isEmpty {
+                        remoteSection(service)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -142,9 +155,11 @@ struct SearchView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .task(id: query) {
+        .task(id: "\(query)|\(attempt)") {
+            searchFailed = false
             guard !query.isEmpty, let api = model.api else {
-                artist = nil
+                artists = []
+                albums = []
                 return
             }
             try? await Task.sleep(for: .milliseconds(250))
@@ -152,13 +167,16 @@ struct SearchView: View {
             let library = Library(api: api)
             let search = query
             tracks.reset { try await library.tracks(offset: $0, search: search) }
-            async let found = try? library.artists(offset: 0, search: search).items.first
+            async let foundArtists = try? library.artists(offset: 0, search: search).items
+            async let foundAlbums = try? library.albums(offset: 0, search: search).items
             await tracks.more(model)
-            let match = await found
+            let (matchedArtists, matchedAlbums) = await (foundArtists, foundAlbums)
             guard !Task.isCancelled else { return }
-            artist = match
+            artists = matchedArtists ?? []
+            albums = matchedAlbums ?? []
+            searchFailed = matchedArtists == nil || matchedAlbums == nil || tracks.failed
         }
-        .task(id: "\(query)|\(scope?.id ?? "")") { await searchRemote() }
+        .task(id: "\(query)|\(service?.id ?? "")") { await searchRemote() }
         .task { await loadSearchable() }
         .fullScreenCover(item: Binding(get: { importing.map(Link.init) }, set: { importing = $0?.value })) { link in
             ImportSheet(initialLink: link.value) { id in
@@ -169,19 +187,112 @@ struct SearchView: View {
             }
             .presentationBackground(.clear)
         }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
         .onAppear { focused = active }
         .onChange(of: active) { focused = active }
     }
 
+    private var top: SearchScope.Top? {
+        SearchScope.topKind(query: query, tracks: tracks.items.count, albums: albums.count, artistNames: artists.map(\.name))
+    }
+
+    private var topArtist: Artist? {
+        guard top == .artist else { return nil }
+        let wanted = query.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        return artists.first { $0.name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) == wanted } ?? artists.first
+    }
+
+    @ViewBuilder private var results: some View {
+        if scope == .all {
+            switch top {
+            case .artist: if let topArtist { TopResult(artist: topArtist) }
+            case .track: if let first = tracks.items.first { TopTrack(track: first) { model.player?.play([first], at: 0, from: "Search") } }
+            case .album: if let first = albums.first { NavigationLink(value: first) { TopAlbum(album: first) }.buttonStyle(.plain) }
+            case nil: EmptyView()
+            }
+        }
+        if scope == .all || scope == .tracks, !tracks.items.isEmpty {
+            trackSection
+        }
+        if scope == .all || scope == .albums, !albums.isEmpty {
+            Text("Albums").font(Theme.heading).padding(.top, 4).accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(albums) { album in
+                        NavigationLink(value: album) { AlbumCard(album: album, width: 132) }.buttonStyle(.plain)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        let others = scope == .artists ? artists : artists.filter { $0.id != topArtist?.id }
+        if scope == .all || scope == .artists, !others.isEmpty {
+            Text("Artists").font(Theme.heading).padding(.top, 4).accessibilityAddTraits(.isHeader)
+            ForEach(others) { artist in
+                NavigationLink(value: artist) {
+                    HStack(spacing: 12) {
+                        ZStack { Theme.tile; Icon("person", size: 20).foregroundStyle(Theme.coverMark) }
+                            .frame(width: 44, height: 44)
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(artist.name).lineLimit(1)
+                            Text("\(artist.trackCount) \(artist.trackCount == 1 ? "track" : "tracks")").font(Theme.small).foregroundStyle(Theme.quiet)
+                        }
+                        Spacer(minLength: 8)
+                        Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                    }
+                    .frame(minHeight: 60)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var trackSection: some View {
+        let limited = scope == .all
+        let shown = limited ? Array(tracks.items.prefix(SearchScope.trackPreview)) : tracks.items
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("Tracks").font(Theme.heading).padding(.top, 4).padding(.bottom, 14).accessibilityAddTraits(.isHeader)
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, track in
+                HStack(spacing: 0) {
+                    Button {
+                        model.player?.play(shown, at: index, from: "Search")
+                    } label: {
+                        SearchRow(track: track, isCurrent: model.player?.current?.id == track.id)
+                    }
+                    .buttonStyle(.plain)
+                    if !track.isPlayable {
+                        FindButton(track: track) { tracks.replace(track.id, with: $0) }
+                    }
+                    Menu { TrackMenu(track: track) } label: {
+                        Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
+                    }
+                    .accessibilityLabel("More actions for \(track.title)")
+                }
+            }
+            if limited {
+                if tracks.total.map({ $0 > shown.count }) ?? (tracks.items.count > shown.count) {
+                    TextAction(title: "Show all \(tracks.total ?? tracks.items.count) tracks") { scope = .tracks }
+                        .padding(.top, 6)
+                }
+            } else {
+                FeedFooter(feed: tracks)
+            }
+        }
+        .padding(.trailing, -8)
+    }
+
     private func remoteSection(_ plugin: PluginConnection) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("From \(plugin.name)").font(Theme.heading).padding(.top, 8).padding(.bottom, 4).accessibilityAddTraits(.isHeader)
+            Text("From \(plugin.name)").font(Theme.heading).padding(.top, 4).padding(.bottom, 14).accessibilityAddTraits(.isHeader)
             switch remoteState {
             case .searching where remote.isEmpty:
                 Text("Searching \(plugin.name)…").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
             case .failed:
                 Text("\(plugin.name) couldn't be searched. Your library results are unaffected.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
+            case .credentials:
+                Text(HitoAPI.Problem.credentialsMessage + " Open Plugins to sign in again.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
             default:
                 if remote.isEmpty {
                     Text("Nothing on \(plugin.name) matches “\(query)”.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
@@ -192,7 +303,7 @@ struct SearchView: View {
             }
             ForEach(remote) { result in
                 HStack(spacing: 12) {
-                    ZStack { Theme.tile }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
+                    ZStack { Theme.raised }.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(result.title).font(Theme.bodyStrong).lineLimit(1)
                         Text(([result.artist] + (result.durationMs.map { [Duration.milliseconds($0).clock] } ?? [])).joined(separator: " · ")).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
@@ -207,18 +318,19 @@ struct SearchView: View {
                 .accessibilityElement(children: .contain)
             }
         }
+        .padding(.trailing, -8)
     }
 
     private func loadSearchable() async {
         guard let api = model.api, let state = try? await Plugins(api: api).load() else { return }
         searchable = state.connections.filter { $0.capabilities.contains("search") }
-        if let scope, !searchable.contains(where: { $0.id == scope.id }) { self.scope = nil }
+        if let service, !searchable.contains(where: { $0.id == service.id }) { self.service = nil }
     }
 
     private func searchRemote() async {
         remote = []
         adoptNote = nil
-        guard let scope, !query.isEmpty, let api = model.api else {
+        guard let service, !query.isEmpty, let api = model.api else {
             remoteState = .idle
             return
         }
@@ -226,14 +338,14 @@ struct SearchView: View {
         try? await Task.sleep(for: .milliseconds(350))
         guard !Task.isCancelled else { return }
         do {
-            let found = try await Plugins(api: api).search(scope.id, revision: scope.revision, query: query)
+            let found = try await Plugins(api: api).search(service.id, revision: service.revision, query: query)
             guard !Task.isCancelled else { return }
             remote = found
             remoteState = .idle
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
-            remoteState = .failed
+            remoteState = error as? HitoAPI.Problem == .credentialsRequired ? .credentials : .failed
             model.handle(error)
         }
     }
@@ -252,6 +364,7 @@ struct SearchView: View {
                 adoptNote = play ? "No source is ready to play \(track.title) yet. It was added to your library." : "Added \(track.title) to your library."
             }
         } catch {
+            adoptNote = PluginTrouble.message(error, otherwise: "\(plugin.name) couldn't add \(result.title). Try again.")
             model.handle(error)
         }
     }
@@ -266,7 +379,7 @@ struct RoundAction: View {
     var body: some View {
         Button(action: action) {
             Group {
-                if busy { ProgressView().tint(Theme.soft) } else { Icon(icon, size: 16) }
+                if busy { ProgressView().tint(Theme.soft) } else { Icon(icon, size: icon == "play" ? 14 : 16) }
             }
             .foregroundStyle(Theme.text)
             .frame(width: 44, height: 44)
@@ -321,7 +434,7 @@ struct TopResult: View {
         Task {
             do {
                 let page = try await Library(api: api).tracks(offset: 0, artist: id)
-                model.player?.play(page.items, at: page.items.firstIndex { $0.isPlayable } ?? 0, from: name)
+                model.player?.play(page.items, at: 0, from: name)
             } catch {
                 model.handle(error)
             }
@@ -332,4 +445,54 @@ struct TopResult: View {
 struct Link: Identifiable {
     let value: String
     var id: String { value }
+}
+
+struct TopTrack: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let track: Track
+    let play: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Cover(path: track.artworkPath, size: 64, radius: 8)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Top result").font(Theme.label).foregroundStyle(Theme.focus)
+                Text(track.title).font(Theme.result).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+                Text("Track · \(track.artist)").font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+            }
+            Spacer(minLength: 0)
+            Button(action: play) {
+                Icon("play", size: 16)
+                    .foregroundStyle(Theme.onAccent)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Theme.accent))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Play \(track.title)")
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+    }
+}
+
+struct TopAlbum: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let album: Album
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Cover(path: album.artworkPath, size: 64, radius: 8)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Top result").font(Theme.label).foregroundStyle(Theme.focus)
+                Text(album.title).font(Theme.result).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+                Text(["Album", album.credit].compactMap { $0 }.joined(separator: " · ")).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+            }
+            Spacer(minLength: 0)
+            Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
 }

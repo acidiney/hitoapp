@@ -1,10 +1,173 @@
+use super::super::sources::Sources;
 use super::*;
 use hito_core::test_support::hang_guard::hang_guard;
 use hito_core::{
-    Credentials, Search,
-    test_support::{provider_audio::AudioLibrary, support},
+    AudioRequest, Credentials, PlaybackFailureReason, Search,
+    test_support::{content_service::ProviderServer, provider_audio::AudioLibrary, support},
 };
+use std::time::Duration;
 use tokio::sync::oneshot;
+
+#[tokio::test]
+async fn sources_yield_two_then_one_then_one_grants_for_persistent_provider_failures() {
+    let library = hang_guard(
+        "owned persistent provider failure fixture",
+        AudioLibrary::start(),
+    )
+    .await;
+    let hito_core::test_support::provider_audio::AudioLibrary {
+        directory,
+        server,
+        hito,
+        actor,
+        source,
+        ..
+    } = library;
+    server
+        .audio(
+            axum::http::StatusCode::BAD_GATEWAY,
+            Default::default(),
+            Vec::new(),
+        )
+        .await;
+    let key = Key {
+        scope: uuid::Uuid::new_v4(),
+        selection: 1,
+        entry: uuid::Uuid::new_v4(),
+        start: None,
+    };
+    let mut sources = Sources::new(hito.catalog.clone(), hito.playback.clone());
+    sources.reset(Some(key));
+    let result = tokio::time::timeout(
+        Duration::from_secs(4),
+        persistent_failure_source_passes(
+            &mut sources,
+            &server,
+            &actor,
+            &source.recording_id,
+            &source.id,
+        ),
+    )
+    .await;
+    sources.close().await;
+    server.shutdown().await;
+    drop(hito);
+    drop(actor);
+    drop(source);
+    drop(directory);
+    let outcome = match result {
+        Ok(result) => result,
+        Err(_) => Err("Sources retry control exceeded its behavior deadline"),
+    };
+    assert!(outcome.is_ok(), "{}", outcome.unwrap_err());
+}
+
+async fn persistent_failure_source_passes(
+    sources: &mut Sources,
+    server: &ProviderServer,
+    actor: &hito_core::Actor,
+    recording: &str,
+    source_id: &str,
+) -> Result<(), &'static str> {
+    if server.requests("v1/sources").await.len() != 1 {
+        return Err("the fixture must begin with only the adoption source request");
+    }
+    if !sources.request(actor, recording) {
+        return Err("the initial source request did not start");
+    }
+    let Some(demand) = sources.prepare_request(actor, recording) else {
+        return Err("the source request did not retain its demand");
+    };
+    let started = tokio::time::Instant::now();
+
+    for (attempt, expected_opens, expected_audio_total) in [(1, 2, 2), (2, 1, 3), (3, 1, 4)] {
+        if attempt > 1 {
+            if !sources.restart_attempt() {
+                return Err("a later Sources pass did not start");
+            }
+            if sources.prepare_request(actor, recording) != Some(demand) {
+                return Err("a retry changed the acquisition demand");
+            }
+        }
+        let mut opened = 0;
+        let failure = loop {
+            match sources.next_with_attempt(Some((attempt, started))).await {
+                Ok(Some(grant)) => {
+                    if grant.source_id() != source_id {
+                        return Err("a pass selected a source outside the owned fixture");
+                    }
+                    let error = match grant.open(AudioRequest::default()).await {
+                        Ok(_) => {
+                            return Err("the owned provider did not return its persistent 502");
+                        }
+                        Err(error) => error,
+                    };
+                    let reason = match error {
+                        hito_core::Error::PlaybackProvider { reason, .. } => reason,
+                        _ => return Err("the audio open failed outside the provider boundary"),
+                    };
+                    let native_error = crate::Error::Provider(reason);
+                    let retryable = matches!(
+                        &native_error,
+                        crate::Error::Provider(reason)
+                            if *reason == PlaybackFailureReason::ProviderUnavailable
+                    );
+                    let failure = failure_of(Some(native_error));
+                    if !retryable || failure != PlayerError::Playback {
+                        return Err(
+                            "the provider failure did not map to retryable playback failure",
+                        );
+                    }
+                    sources.failed(failure, retryable);
+                    opened += 1;
+                    if !sources.request(actor, recording) {
+                        return Err("source continuation did not schedule the next candidate read");
+                    }
+                    let (audio_total, source_total) = match (attempt, opened) {
+                        (1, 1) => (1, 1),
+                        (1, 2) => (2, 2),
+                        (2, 1) => (3, 2),
+                        (3, 1) => (4, 2),
+                        _ => return Err("a Sources pass opened more candidates than expected"),
+                    };
+                    let requests = server.requests("v1/audio").await;
+                    if requests.len() != audio_total
+                        || requests.iter().any(|(_, query)| {
+                            query["_method"] != "GET"
+                                || query["source_id"].as_str()
+                                    != Some("audio:/1?private=value&other=bad")
+                        })
+                    {
+                        return Err("audio request milestones did not match owned-source GETs");
+                    }
+                    if server.requests("v1/sources").await.len() != source_total {
+                        return Err("provider sources refresh count changed after adoption");
+                    }
+                }
+                Ok(None) => {
+                    return Err("the owned candidate iterator ended without a pass failure");
+                }
+                Err(failure) => break failure,
+            }
+        };
+        if opened != expected_opens
+            || failure.error != PlayerError::Playback
+            || !failure.retryable
+            || failure.cancelled
+        {
+            return Err("a pass did not end with a retryable provider failure");
+        }
+        if server.requests("v1/audio").await.len() != expected_audio_total
+            || server.requests("v1/sources").await.len() != 2
+        {
+            return Err("the pass ended with unexpected request totals");
+        }
+    }
+    if sources.has_demand() {
+        return Err("the third Sources pass has not exhausted its current demand");
+    }
+    Ok(())
+}
 
 #[test]
 fn only_an_output_format_failure_has_its_own_player_error() {

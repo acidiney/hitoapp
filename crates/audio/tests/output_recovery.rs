@@ -2,6 +2,8 @@
 
 #[path = "output_recovery/client_starvation.rs"]
 mod client_starvation;
+#[path = "output_recovery/presentation.rs"]
+mod presentation;
 
 use client_starvation::ClientStarvation;
 use hito_audio::{Player, test_support};
@@ -13,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 use test_support::{
-    capture::{Capture, wait},
+    capture::{Capture, reached, wait},
     continuity::{counter, dump, heard, level},
     output_witness::OutputWitness,
 };
@@ -191,7 +193,32 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
     std::thread::sleep(Duration::from_millis(200));
     backend.resume();
     let fault_elapsed = fault_started.elapsed();
-    wait(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    let signalled =
+        reached(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    if !signalled {
+        let stalled = player.snapshot();
+        let events: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
+            .unwrap()
+            .lines()
+            .filter(|line| line.contains("\"event\":\"audio_output"))
+            .map(str::to_owned)
+            .collect();
+        panic!(
+            "backend interruption produced no xrun or error: fault_ms={} playing={} ended={} buffer_ready={} notices={} xruns_before={} xruns={} underruns={} error={:?} output_failure={:?} position_before_ns={} position_ns={} output_events={events:?}",
+            fault_elapsed.as_millis(),
+            stalled.playing,
+            stalled.ended,
+            stalled.buffer_ready,
+            stalled.notices,
+            before.xruns,
+            stalled.xruns,
+            stalled.underruns,
+            stalled.error,
+            stalled.output_failure,
+            before.position.as_nanos(),
+            stalled.position.as_nanos()
+        );
+    }
     assert!(player.snapshot().error.is_none());
     wait(|| player.snapshot().ended || player.snapshot().error.is_some());
     let final_state = player.snapshot();
@@ -250,7 +277,7 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
     assert!(first_target >= before.position);
     assert!(first_target <= before.position + fault_elapsed + buffering_bound);
     assert_eq!(final_state.underruns, 0);
-    let mut expected_monitor = Vec::new();
+    let mut submitted = Vec::new();
     let mut previous_end = 0;
     let mut replayed_frames = 0;
     for (index, generation) in generations.iter().enumerate() {
@@ -283,24 +310,30 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
         if index + 1 == generations.len() {
             assert_eq!(start + audio.len() as u64, u64::from(FRAMES));
         }
-        expected_monitor.extend(audio);
+        submitted.push((start, audio, generation.replay_bound_frames()));
     }
     let audible = heard(&monitored);
-    assert_eq!(audible.len(), expected_monitor.len());
-    for (index, (audible, submitted)) in audible.iter().zip(&expected_monitor).enumerate() {
-        assert!(
-            (level(*audible) - level(*submitted)).abs() <= 1,
-            "backend capture diverged from submitted output at {index}"
-        );
-    }
+    let spans: Vec<presentation::Span> = submitted
+        .iter()
+        .map(|(start, samples, replay_bound)| presentation::Span {
+            start: *start,
+            samples,
+            replay_bound: *replay_bound,
+        })
+        .collect();
+    let unobserved = presentation::unobserved(&spans, &audible).unwrap_or_else(|reason| {
+        panic!("backend capture diverged from submitted output: {reason}")
+    });
+    let submitted_frames: usize = submitted.iter().map(|(_, samples, _)| samples.len()).sum();
     eprintln!(
-        "controlled_recovery recoveries={} first_target_ns={} observed_before_ns={} submitted_frames={} monitor_frames={} already_heard_replayed_frames={} submitted_not_heard_frames=0 underruns={}",
+        "controlled_recovery recoveries={} first_target_ns={} observed_before_ns={} submitted_frames={} monitor_frames={} replayed_frames={} unobserved_submitted_frames={} underruns={}",
         targets.len(),
         targets[0],
         before.position.as_nanos(),
-        expected_monitor.len(),
+        submitted_frames,
         audible.len(),
         replayed_frames,
+        unobserved,
         final_state.underruns
     );
 }
@@ -376,8 +409,24 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         );
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert!(first.snapshot().error.is_none());
-    assert!(second.snapshot().error.is_none());
+    let snapshots = [("first", first.snapshot()), ("second", second.snapshot())];
+    let failures: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
+        .unwrap()
+        .lines()
+        .filter(|line| line.contains("\"event\":\"audio_output_failed\""))
+        .map(str::to_owned)
+        .collect();
+    for (name, snapshot) in snapshots {
+        assert!(
+            snapshot.error.is_none(),
+            "{name} player output failed after starvation: error={:?} output_failure={:?} xruns={} underruns={} position_ns={} output_failure_events={failures:?}",
+            snapshot.error,
+            snapshot.output_failure,
+            snapshot.xruns,
+            snapshot.underruns,
+            snapshot.position.as_nanos()
+        );
+    }
     first.close().unwrap();
     second.close().unwrap();
     let bytes = logs.0.lock().unwrap();

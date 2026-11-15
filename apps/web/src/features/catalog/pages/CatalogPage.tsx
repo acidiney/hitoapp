@@ -10,9 +10,11 @@ import {
   TRACK_SORTS,
   useCatalogSort,
 } from "../../../shared/hooks/useCatalogSort";
+import { useTrackAvailability } from "../../../shared/hooks/useTrackAvailability";
 
 export default function CatalogPage(props: Schema<"CatalogPageProps">) {
   const order = useCatalogSort("/library", TRACK_SORTS);
+  const availability = useTrackAvailability("/library");
   const shared = props.libraries.find((library) => !library.personal);
   const { scan, scanning } = useScanJob(props.user.id, shared?.id);
   const scanLabel = scanning ? "Scanning music…" : "Scan music";
@@ -29,6 +31,7 @@ export default function CatalogPage(props: Schema<"CatalogPageProps">) {
           total: props.recordings.total,
           files: props.files,
           query: props.query,
+          availability: availability.active,
         })}
         headingActions={
           canScan && (
@@ -50,6 +53,7 @@ export default function CatalogPage(props: Schema<"CatalogPageProps">) {
           options: order.options,
           onChange: order.change,
         }}
+        availability={availability}
         emptyTitle={
           props.user.admin
             ? "Bring your music along"

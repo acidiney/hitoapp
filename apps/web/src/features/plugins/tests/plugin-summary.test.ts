@@ -1,9 +1,11 @@
 import type { Schema } from "../../../shared/schema";
 import { expect, test } from "vitest";
 import {
+  acceptanceEffects,
   capabilityChips,
   newCapabilities,
   serviceSummary,
+  wantedActions,
 } from "../model/pluginSummary";
 
 type Capability = Schema<"Manifest">["capabilities"][number];
@@ -102,4 +104,26 @@ test("capability chips use plain labels in a fixed order", () => {
   ]);
   expect(capabilityChips(caps())).toEqual([]);
   expect(capabilityChips(caps("search", "search"))).toEqual(["Search"]);
+});
+
+test("source links read as a link lookup for a track, never as search", () => {
+  expect(serviceSummary("YouTube", caps("sources", "source_links"))).toBe(
+    "Plays songs from YouTube, and recognizes pasted YouTube links.",
+  );
+  expect(capabilityChips(caps("sources", "source_links"))).toEqual([
+    "Playback",
+    "Links",
+  ]);
+});
+
+test("consent to source links names the lookup and the review step", () => {
+  const before = caps("sources");
+  const after = caps("sources", "source_links");
+  expect(newCapabilities(before, after)).toEqual([
+    "song lookup from pasted links",
+  ]);
+  expect(wantedActions(before, after)).toBe("look up songs from pasted links");
+  expect(acceptanceEffects("YouTube", before, after)).toEqual([
+    "When you paste a YouTube link on a track, Hito can ask YouTube which song it is. You check the match before it becomes a source.",
+  ]);
 });

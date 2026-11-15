@@ -18,6 +18,25 @@ import Testing
         #expect(state.connections.map(\.health) == [.ok, .unreachable])
     }
 
+    @Test func unhealthyConnectionsSayWhatIsWrongLikeTheWeb() {
+        func connection(_ health: PluginConnection.Health, _ reason: String?) -> PluginConnection {
+            PluginConnection(id: "i1", name: "YouTube", capabilities: [], health: health, revision: 1, checkedAt: nil, healthReason: reason)
+        }
+        #expect(connection(.ok, nil).notice == nil)
+        #expect(connection(.unreachable, "network").notice == PluginConnection.Notice(title: "YouTube is not responding right now.", hint: "Try again in a moment."))
+        #expect(connection(.degraded, "network").notice == PluginConnection.Notice(title: "Hito cannot reach YouTube.", hint: "Check the server's internet connection or DNS."))
+        #expect(connection(.degraded, "refused").notice == PluginConnection.Notice(title: "YouTube is refusing requests right now.", hint: "Try again later."))
+        #expect(connection(.credentialsRequired, nil).notice == PluginConnection.Notice(title: "YouTube needs its credentials updated.", hint: "Open the plugin and sign in again."))
+    }
+
+    @Test func aServiceThatSignsInButHasNoCredentialNeedsSignIn() async throws {
+        let signing = #"{"credential_storage_ready":true,"installations":[{"id":"i3","service_id":"s3","revision":1,"checked_at":1,"credential_set":false,"health":{"state":"degraded","reason":"refused"},"manifest":{"id":"sp","name":"Spotify","protocol_version":1,"capabilities":["playlists"],"authorization":{"kind":"oauth2_pkce","client_id":"c","authorization_endpoint":"https://a","token_endpoint":"https://t","scopes":["read"]}}}],"services":[]}"#
+        let fake = FakeServer(routes: ["GET /api/v1/plugins": .json(200, signing)])
+        let connection = try #require(try await plugins(fake).load().connections.first)
+        #expect(connection.needsSignIn)
+        #expect(connection.healthReason == "refused")
+    }
+
     @Test func whatPluginsPowerNamesTheProviderForEachCapability() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/plugins": .json(200, settings)])
         let state = try await plugins(fake).load()

@@ -225,3 +225,50 @@ test("an empty library shows no sort control", () => {
   page(props({ tracks: 0 }));
   expect(screen.queryByRole("combobox", { name: "Sort" })).toBeNull();
 });
+
+test("the Tracks page offers availability next to sort and applies the chosen filter", () => {
+  vi.mocked(router.get).mockClear();
+  window.history.replaceState(null, "", "/library");
+  page(props());
+  fireEvent.click(screen.getByRole("combobox", { name: "Show" }));
+  fireEvent.click(screen.getByRole("option", { name: "No source" }));
+  expect(router.get).toHaveBeenCalledWith(
+    "/library",
+    { availability: "no_source" },
+    expect.anything(),
+  );
+});
+
+test("a filter that matches no track keeps the controls and offers to show every track", () => {
+  vi.mocked(router.get).mockClear();
+  window.history.replaceState(null, "", "/library?availability=no_source");
+  page(props({ tracks: 0 }));
+  expect(
+    screen.getByRole("heading", { name: "No tracks without a source" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("combobox", { name: "Show" }).textContent).toContain(
+    "No source",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Show all tracks" }));
+  expect(router.get).toHaveBeenCalledWith("/library", {}, expect.anything());
+  window.history.replaceState(null, "", "/library");
+});
+
+test("a filtered library heading says which tracks it counts", () => {
+  expect(
+    libraryDescription({
+      total: 2,
+      files: 9,
+      query: "",
+      availability: "available_or_service",
+    }),
+  ).toBe("2 tracks with a source");
+  expect(
+    libraryDescription({
+      total: 1,
+      files: 1,
+      query: "",
+      availability: "no_source",
+    }),
+  ).toBe("1 track without a source");
+});

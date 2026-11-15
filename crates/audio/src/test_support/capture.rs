@@ -92,12 +92,19 @@ impl Drop for Capture {
 }
 
 #[track_caller]
-pub fn wait(mut condition: impl FnMut() -> bool) {
+pub fn wait(condition: impl FnMut() -> bool) {
+    assert!(reached(condition), "audio condition timed out");
+}
+
+pub fn reached(mut condition: impl FnMut() -> bool) -> bool {
     let deadline = Instant::now() + Duration::from_secs(5);
     while !condition() {
-        assert!(Instant::now() < deadline, "audio condition timed out");
+        if Instant::now() >= deadline {
+            return false;
+        }
         thread::sleep(Duration::from_millis(5));
     }
+    true
 }
 
 pub fn energy(samples: &[f32]) -> f64 {

@@ -72,6 +72,10 @@ const BENEFITS: Partial<Record<Capability, { name: string; text: string }>> = {
     name: "Playback",
     text: "for tracks with no file, after local files and saved copies",
   },
+  source_links: {
+    name: "Links",
+    text: "look up the song behind a link you paste on a track",
+  },
   metadata: { name: "Track details", text: "filled in for incomplete tags" },
   playlists: {
     name: "Playlists",
@@ -85,6 +89,7 @@ const BENEFITS: Partial<Record<Capability, { name: string; text: string }>> = {
 const BENEFIT_ORDER: Capability[] = [
   "search",
   "sources",
+  "source_links",
   "metadata",
   "playlists",
   "artwork",
@@ -100,6 +105,10 @@ export function connectionBenefits(capabilities: Capability[]) {
 }
 
 const EXTRA: Partial<Record<Capability, { name: string; what: string }>> = {
+  source_links: {
+    name: "Links",
+    what: "Look up the song behind a link you paste on a track. You check the match before it becomes a source.",
+  },
   catalog: {
     name: "Browse",
     what: "Lists albums and artists from the service.",
