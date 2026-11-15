@@ -1,6 +1,6 @@
 use hito_audio::test_support as support;
 use hito_audio::{AudioFormat, Converter, Decoder, Error, SpeedCapability};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const RANGE: SpeedCapability = SpeedCapability::Range { min: 0.5, max: 3. };
 
@@ -385,6 +385,80 @@ fn device_converter(
 ) -> Converter {
     let decoder = Decoder::open(support::wave(rate, channels, frames, sample)).unwrap();
     Converter::with_output(decoder, target.0, target.1)
+}
+
+fn asymmetric_stereo_sample(frame: u32, channel: u16) -> i16 {
+    let value = match channel {
+        0 => (frame % 251) as i32 - 125,
+        _ => ((frame * 17) % 239) as i32 - 119,
+    };
+    (value * if channel == 0 { 72 } else { 64 }) as i16
+}
+
+#[test]
+fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
+    for (source, target) in [
+        (705_600, 48_000),
+        (768_000, 48_000),
+        (96_000, 48_000),
+        (176_400, 48_000),
+        (44_100, 48_000),
+    ] {
+        let frames = source / 4;
+        let expected_frames = (u64::from(frames) * u64::from(target) / u64::from(source)) as usize;
+        let mut stereo = device_converter(source, 2, frames, (target, 2), asymmetric_stereo_sample);
+        assert_eq!(stereo.format().channels, 2, "{source}->{target}");
+        assert_eq!(stereo.format().sample_rate, target, "{source}->{target}");
+        let started = Instant::now();
+        let stereo = drain(&mut stereo);
+        let stereo_elapsed_ns = started.elapsed().as_nanos();
+        assert_eq!(stereo.frames, expected_frames, "{source}->{target} stereo");
+        assert_eq!(
+            stereo.samples.len(),
+            stereo.frames * 2,
+            "{source}->{target}"
+        );
+
+        let mut mono_pair_elapsed_ns = 0;
+        for channel_index in 0..2_usize {
+            let mut mono = device_converter(source, 1, frames, (target, 1), |frame, _| {
+                asymmetric_stereo_sample(frame, channel_index as u16)
+            });
+            assert_eq!(
+                mono.format().channels,
+                1,
+                "{source}->{target} channel {channel_index}"
+            );
+            assert_eq!(mono.format().sample_rate, target, "{source}->{target}");
+            let started = Instant::now();
+            let mono = drain(&mut mono);
+            mono_pair_elapsed_ns += started.elapsed().as_nanos();
+            assert_eq!(mono.frames, expected_frames, "{source}->{target} mono");
+
+            let stereo_channel = stereo
+                .samples
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|frame| frame[channel_index])
+                .collect::<Vec<_>>();
+            assert_eq!(stereo_channel.len(), mono.samples.len());
+            assert_eq!(
+                stereo_channel
+                    .iter()
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+                mono.samples
+                    .iter()
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+                "{source}->{target} channel {channel_index}"
+            );
+        }
+        println!(
+            "stereo_conversion_service_contrast source_rate={source} target_rate={target} frames={frames} stereo_elapsed_ns={stereo_elapsed_ns} mono_pair_elapsed_ns={mono_pair_elapsed_ns}"
+        );
+    }
 }
 
 const DEVICE_PAIRS: [(u32, u32); 7] = [
