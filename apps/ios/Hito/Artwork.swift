@@ -25,6 +25,77 @@ actor ArtworkCache {
         if let image { memory.setObject(image, forKey: url as NSURL) } else { missing.insert(url) }
         return image
     }
+
+    func forget(_ request: URLRequest) {
+        guard let url = request.url else { return }
+        missing.remove(url)
+    }
+}
+
+@MainActor
+@Observable
+final class ArtworkRetries {
+    static let shared = ArtworkRetries()
+    static let limit = 4
+
+    private(set) var unavailable: Set<ArtworkRetrieval.Subject> = []
+    private(set) var revisions: [ArtworkRetrieval.Subject: Int] = [:]
+    private var attempted: Set<ArtworkRetrieval.Subject> = []
+    private var running = 0
+    private var queue: [CheckedContinuation<Void, Never>] = []
+
+    func fetched(_ subject: ArtworkRetrieval.Subject, api: HitoAPI) async -> Bool {
+        guard attempted.insert(subject).inserted else { return false }
+        await admit()
+        defer { release() }
+        guard !Task.isCancelled else {
+            attempted.remove(subject)
+            return false
+        }
+        do {
+            switch try await ArtworkRetrieval(api: api).retrieve(subject) {
+            case .ready: return true
+            case .unavailable: unavailable.insert(subject)
+            case .failed: break
+            case .cancelled: attempted.remove(subject)
+            }
+        } catch {
+            if Task.isCancelled { attempted.remove(subject) }
+        }
+        return false
+    }
+
+    func retry(_ subject: ArtworkRetrieval.Subject) {
+        unavailable.remove(subject)
+        attempted.remove(subject)
+        revisions[subject, default: 0] += 1
+    }
+
+    private func admit() async {
+        if running < Self.limit {
+            running += 1
+            return
+        }
+        await withCheckedContinuation { queue.append($0) }
+    }
+
+    private func release() {
+        if queue.isEmpty {
+            running -= 1
+        } else {
+            queue.removeFirst().resume()
+        }
+    }
+}
+
+struct ArtworkRetryButton: View {
+    let path: [String]
+
+    var body: some View {
+        if let subject = ArtworkRetrieval.Subject(path: path), ArtworkRetries.shared.unavailable.contains(subject) {
+            Button("Retry artwork") { ArtworkRetries.shared.retry(subject) }
+        }
+    }
 }
 
 struct Cover: View {
@@ -51,10 +122,21 @@ struct Cover: View {
         .aspectRatio(1, contentMode: .fit)
         .clipShape(round ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: radius)))
         .accessibilityHidden(true)
-        .task(id: path) {
+        .task(id: Retrieval(path: path, revision: subject.map { ArtworkRetries.shared.revisions[$0] ?? 0 } ?? 0)) {
             guard let api = model.api else { return }
-            image = await ArtworkCache.shared.image(api.request(path))
+            let request = api.request(path)
+            image = await ArtworkCache.shared.image(request)
+            guard image == nil, let subject, await ArtworkRetries.shared.fetched(subject, api: api) else { return }
+            await ArtworkCache.shared.forget(request)
+            image = await ArtworkCache.shared.image(request)
         }
+    }
+
+    private var subject: ArtworkRetrieval.Subject? { ArtworkRetrieval.Subject(path: path) }
+
+    private struct Retrieval: Equatable {
+        let path: [String]
+        let revision: Int
     }
 }
 
