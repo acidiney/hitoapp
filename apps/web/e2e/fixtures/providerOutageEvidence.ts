@@ -205,6 +205,17 @@ export async function providerOutageEvidence(
         )
           reject(url.pathname, "shape");
         else counts.progressWrites++;
+      } else if (url.pathname === "/api/v1/recordings/lookup") {
+        const ids = (data as Partial<Schema<"RecordingLookupRequest">>)
+          .recording_ids;
+        if (
+          Object.keys(data).join() !== "recording_ids" ||
+          !Array.isArray(ids) ||
+          !ids.length ||
+          ids.length > 64 ||
+          !ids.every((id) => typeof id === "string" && uuid.test(id))
+        )
+          reject(url.pathname, "shape");
       } else reject(url.pathname, "route");
     } catch {
       counts.callbacks++;
