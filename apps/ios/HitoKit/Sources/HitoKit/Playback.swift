@@ -22,6 +22,7 @@ public struct PlaybackSource: Equatable, Identifiable, Sendable {
 public struct Playback: Sendable {
     public enum Problem: Error, Equatable {
         case noReadySource
+        case notFound(String)
     }
 
     public enum Finding: Equatable, Sendable {
@@ -121,6 +122,17 @@ public struct Playback: Sendable {
 
     private func listed(_ recordingId: String) async throws -> [Source] {
         try await api.get(["api", "v1", "recordings", recordingId, "playback-sources"], as: [Source].self)
+    }
+
+    public func acquire(_ recordingId: String, skipping tried: Set<String> = []) async throws -> AudioRequest {
+        do {
+            return try await prepare(recordingId, skipping: tried)
+        } catch Problem.noReadySource {
+            if case let .notFound(reason) = try await find(recordingId, request: UUID()) {
+                throw Problem.notFound(reason)
+            }
+            return try await prepare(recordingId, skipping: tried)
+        }
     }
 
     public func prepare(_ recordingId: String, skipping tried: Set<String> = []) async throws -> AudioRequest {

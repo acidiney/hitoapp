@@ -167,8 +167,7 @@ struct UnheardCard: View {
             }
             HStack(spacing: 8) {
                 PlayAllButton(label: "Listen") {
-                    let ready = album.tracks.filter(\.isPlayable)
-                    if !ready.isEmpty { model.player?.play(ready, at: 0, from: album.title) }
+                    if !album.tracks.isEmpty { model.player?.play(album.tracks, at: 0, from: album.title) }
                 }
                 .accessibilityLabel("Listen to \(album.title)")
                 NavigationLink(value: album.album) {

@@ -28,10 +28,9 @@ public struct PlayQueue: Equatable, Sendable {
     public var hasNext: Bool { !queued.isEmpty || !upNext.isEmpty || (repeatMode == .list && !list.isEmpty) }
 
     public mutating func start(_ tracks: [Track], at index: Int, from context: String) {
-        let chosen = tracks.indices.contains(index) ? tracks[index] : nil
-        list = tracks.filter { $0.isPlayable || $0.id == chosen?.id }
+        list = tracks
         original = list
-        position = chosen.flatMap { track in list.firstIndex { $0.id == track.id } } ?? 0
+        position = tracks.indices.contains(index) ? index : 0
         queued = []
         shuffled = false
         current = list.indices.contains(position) ? list[position] : nil

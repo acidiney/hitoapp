@@ -182,9 +182,9 @@ struct LibraryView: View {
     }
 
     private func queueSelected(_ chosen: Set<String>) {
-        let picked = tracks.items.filter { chosen.contains($0.id) && $0.isPlayable }
+        let picked = tracks.items.filter { chosen.contains($0.id) }
         picked.forEach { model.player?.playNext($0) }
-        notice = picked.count == chosen.count ? "Added \(picked.count) to the queue" : "Added \(picked.count) to the queue. Tracks without a source were left out."
+        notice = "Added \(picked.count) to the queue"
         selected = nil
     }
 
@@ -365,7 +365,6 @@ struct TrackRows: View {
                         LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: track.isPlayable)
                     }
                     .buttonStyle(.plain)
-                    .disabled(!track.isPlayable)
                     if !track.isPlayable {
                         FindButton(track: track) { feed.replace(track.id, with: $0) }
                     }
@@ -388,9 +387,7 @@ struct TrackMenu: View {
     let track: Track
 
     var body: some View {
-        if track.isPlayable {
-            Button("Play next") { model.player?.playNext(track) }
-        }
+        Button("Play next") { model.player?.playNext(track) }
         if let player = model.player {
             Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
         }
@@ -425,7 +422,7 @@ struct TrackListView: View {
                 Text(list.title).font(Theme.title).accessibilityAddTraits(.isHeader)
                 if let total = feed.total, total > 0 {
                     PlayAllButton(label: "Play") {
-                        model.player?.play(feed.items, at: feed.items.firstIndex { $0.isPlayable } ?? 0, from: list.title)
+                        model.player?.play(feed.items, at: 0, from: list.title)
                     }
                 }
                 VStack(spacing: 0) {
@@ -525,9 +522,9 @@ struct AlbumView: View {
                     ProgressLine(owned: complete.ownedCount, total: complete.tracks.count)
                 }
                 HStack(spacing: 8) {
-                    if playable.contains(where: \.isPlayable) {
+                    if !playable.isEmpty {
                         PlayAllButton(label: "Play") {
-                            model.player?.play(playable, at: playable.firstIndex { $0.isPlayable } ?? 0, from: album.title)
+                            model.player?.play(playable, at: 0, from: album.title)
                         }
                     }
                     if let complete {
@@ -536,9 +533,9 @@ struct AlbumView: View {
                             AddOthers(count: missing.count, busy: !adding.isEmpty) { Task { await addAll(missing, in: complete) } }
                         }
                     }
-                    if tracks.contains(where: \.isPlayable) {
+                    if !tracks.isEmpty {
                         Menu {
-                            Button("Play next") { tracks.filter(\.isPlayable).reversed().forEach { model.player?.playNext($0) } }
+                            Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
@@ -657,7 +654,6 @@ struct AlbumView: View {
                 AlbumTrackRow(track: track, isCurrent: model.player?.current?.id == track.id)
             }
             .buttonStyle(.plain)
-            .disabled(!track.isPlayable)
             Icon("check", size: 16)
                 .foregroundStyle(Theme.focus)
                 .frame(width: 44, height: 44)
