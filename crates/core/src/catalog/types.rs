@@ -40,6 +40,8 @@ pub enum CatalogSort {
     Recent,
     Artist,
     Year,
+    Album,
+    Duration,
 }
 
 #[derive(Clone, Deserialize, Default, ToSchema)]

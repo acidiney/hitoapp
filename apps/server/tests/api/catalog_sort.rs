@@ -80,6 +80,23 @@ async fn the_catalog_endpoints_sort_page_and_reject_unknown_sorts() {
         ["alpha", "Bravo", "Charlie"]
     );
     assert_eq!(
+        titles(&app, &token, "/api/v1/recordings?sort=album").await,
+        ["alpha", "Bravo", "Charlie"]
+    );
+    assert_eq!(
+        titles(
+            &app,
+            &token,
+            "/api/v1/recordings?sort=album&limit=1&offset=1"
+        )
+        .await,
+        ["Bravo"]
+    );
+    assert_eq!(
+        titles(&app, &token, "/api/v1/recordings?sort=duration").await,
+        ["alpha", "Bravo", "Charlie"]
+    );
+    assert_eq!(
         titles(&app, &token, "/api/v1/releases?sort=year").await,
         ["New album", "Old album", "Undated album"]
     );
@@ -108,6 +125,10 @@ async fn the_catalog_endpoints_sort_page_and_reject_unknown_sorts() {
         "/api/v1/artists?sort=Title",
         "/api/v1/recordings?sort=year",
         "/api/v1/artists?sort=year",
+        "/api/v1/releases?sort=album",
+        "/api/v1/releases?sort=duration",
+        "/api/v1/artists?sort=album",
+        "/api/v1/artists?sort=duration",
     ] {
         let (status, _) = call(&app, "GET", path, Value::Null, Some(&token)).await;
         assert!(

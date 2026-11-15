@@ -62,6 +62,8 @@ impl Catalog {
             CatalogSort::Title => "title COLLATE NOCASE, r.id",
             CatalogSort::Recent => "added_rank DESC, r.id",
             CatalogSort::Artist => "artist COLLATE NOCASE, title COLLATE NOCASE, r.id",
+            CatalogSort::Album => "album_missing, album COLLATE NOCASE, title COLLATE NOCASE, r.id",
+            CatalogSort::Duration => "duration_ms, title COLLATE NOCASE, r.id",
             CatalogSort::Year => {
                 return Err(Error::Invalid("Tracks cannot be sorted by year".into()));
             }
@@ -90,7 +92,7 @@ impl Catalog {
                 .push(" AS title, r.title AS inherited_title, ")
                 .push(if personal { "p.artist" } else { "r.artist" })
                 .push(
-                    " AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ",
+                    " AS artist, r.artist AS inherited_artist, a.title AS album, a.title IS NULL AS album_missing, r.duration_ms, ",
                 );
             push_available(&mut query, &self.host, actor.id());
             query.push(" AS available, ");

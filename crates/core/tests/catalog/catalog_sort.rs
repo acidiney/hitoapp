@@ -272,3 +272,121 @@ async fn artists_sort_by_recently_added_or_name_and_reject_a_year_sort() {
         .unwrap();
     assert!(matches!(error, Error::Invalid(_)));
 }
+
+fn write_tone(music: &Path, title: &str, album: Option<&str>, samples: u32, audio: i16) {
+    let file = music.join(format!("{title}.wav"));
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + samples * 2).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&8000u32.to_le_bytes());
+    bytes.extend_from_slice(&16000u32.to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&(samples * 2).to_le_bytes());
+    for index in 0..samples {
+        bytes.extend_from_slice(&((index as i16 % 64) + audio).to_le_bytes());
+    }
+    std::fs::write(&file, bytes).unwrap();
+    let mut tag = Tag::new(TagType::Id3v2);
+    tag.set_title(title.into());
+    tag.set_artist("Owned band".into());
+    if let Some(album) = album {
+        tag.set_album(album.into());
+        tag.insert_text(ItemKey::AlbumArtist, "Owned band".into());
+    }
+    tag.save_to_path(file, WriteOptions::default()).unwrap();
+}
+
+async fn timed_library() -> (tempfile::TempDir, Services, Actor) {
+    let (dir, hito, actor, library, music) = library("sort-timed-host").await;
+    write_tone(&music, "delta", Some("beta album"), 24000, 1);
+    write_tone(&music, "Echo", Some("Alpha album"), 8000, 2);
+    write_tone(&music, "foxtrot", None, 16000, 3);
+    write_tone(&music, "Golf", Some("Alpha album"), 16000, 4);
+    scan(&hito, &actor, &library).await;
+    (dir, hito, actor)
+}
+
+async fn sorted_titles(
+    hito: &Services,
+    actor: &Actor,
+    sort: CatalogSort,
+    limit: i64,
+) -> Vec<String> {
+    let mut titles = Vec::new();
+    let mut offset = 0;
+    loop {
+        let page = hito
+            .catalog
+            .recordings(
+                actor,
+                Search {
+                    sort: Some(sort),
+                    offset: Some(offset),
+                    limit: Some(limit),
+                    ..Search::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(page.total, 4);
+        if page.items.is_empty() {
+            return titles;
+        }
+        offset += page.items.len() as i64;
+        titles.extend(page.items.into_iter().map(|item| item.title));
+    }
+}
+
+#[tokio::test]
+async fn tracks_sort_by_album_with_missing_albums_last_and_by_duration() {
+    let (_dir, hito, actor) = timed_library().await;
+    for limit in [1, 3, 200] {
+        assert_eq!(
+            sorted_titles(&hito, &actor, CatalogSort::Album, limit).await,
+            ["Echo", "Golf", "delta", "foxtrot"]
+        );
+        assert_eq!(
+            sorted_titles(&hito, &actor, CatalogSort::Duration, limit).await,
+            ["Echo", "foxtrot", "Golf", "delta"]
+        );
+    }
+}
+
+#[tokio::test]
+async fn albums_and_artists_reject_track_only_sorts() {
+    let (_dir, hito, actor) = added_in_two_scans().await;
+    for sort in [CatalogSort::Album, CatalogSort::Duration] {
+        let albums = hito
+            .catalog
+            .releases(
+                &actor,
+                Browse {
+                    sort: Some(sort),
+                    ..Browse::default()
+                },
+            )
+            .await
+            .err()
+            .unwrap();
+        assert!(matches!(albums, Error::Invalid(_)));
+        let artists = hito
+            .catalog
+            .artists(
+                &actor,
+                Browse {
+                    sort: Some(sort),
+                    ..Browse::default()
+                },
+            )
+            .await
+            .err()
+            .unwrap();
+        assert!(matches!(artists, Error::Invalid(_)));
+    }
+}
