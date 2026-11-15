@@ -71,6 +71,7 @@ test("browser shuffle visits each occurrence once and stops with repeat off", as
 });
 
 test("browser source exhaustion follows shuffled successors instead of canonical neighbors", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   vi.spyOn(Math, "random").mockReturnValue(0);
   const audio = document.createElement("audio");
   vi.spyOn(audio, "load").mockImplementation(() => {});
@@ -91,7 +92,13 @@ test("browser source exhaustion follows shuffled successors instead of canonical
     2,
   );
   player.shuffle();
-  await player.next();
+  const advanced = player.next();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(player.snapshot().current?.id).toBe("failed");
+  expect(player.snapshot().retrying).toEqual({ attempt: 2, of: 3 });
+  await vi.advanceTimersByTimeAsync(1500);
+  await advanced;
+  vi.useRealTimers();
   expect(player.snapshot().current?.id).toBe("healthy");
   expect(player.snapshot().error).toContain("Audio is unavailable");
 });

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { act } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { browserPreparationMedia } from "../fixtures/browserPreparationMedia";
@@ -18,6 +19,14 @@ test("repeated system play during a pending browser play does not toggle playbac
     await act(async () => {
       await view.player().playQueue([recording]);
     });
+    const playingMedia = media.created[0];
+    expect(playingMedia.getAttribute("src")).not.toBeNull();
+    act(() => {
+      playingMedia.currentTime = 1;
+      playingMedia.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(view.player().snapshot().desiredPlaying).toBeUndefined();
+    expect(view.player().snapshot().playing).toBe(true);
     await act(async () => system.invoke("pause"));
     expect(view.player().snapshot().playing).toBe(false);
     held = media.holdNextPlay();
@@ -47,7 +56,29 @@ test("repeated system play during a pending browser play does not toggle playbac
     expect(audio.paused).toBe(true);
     expect(view.player().snapshot().playing).toBe(false);
     expect(system.session.playbackState).toBe("paused");
-    expect(requests).toHaveLength(1);
+    expect(requests.map(({ method, path }) => [method, path])).toEqual([
+      ["GET", `/api/v1/recordings/${recording.id}/playback-sources`],
+      ["POST", "/api/v1/sync"],
+    ]);
+    expect(
+      requests.every((request) => request.account === "owned-system-account"),
+    ).toBe(true);
+    const syncs = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.filter(
+        ([input, options]) =>
+          String(input) === "/api/v1/sync" && options?.method === "POST",
+      );
+    expect(syncs).toHaveLength(1);
+    const batch = JSON.parse(String(syncs[0][1]?.body)) as Schema<"SyncBatch">;
+    expect(batch.operations.map(({ action }) => action)).toEqual([
+      {
+        kind: "progress_set",
+        recording_id: recording.id,
+        position_ms: 1000,
+        speed: 1,
+      },
+    ]);
   } finally {
     held?.release();
     view.unmount();

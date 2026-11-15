@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { addMusicFolders } from "./music-folders";
 import type { Schema } from "../../src/shared/schema";
 
 export type PodcastFixtureStatus = {
@@ -52,26 +53,7 @@ async function sourceAudio(page: Page, source: string) {
 }
 
 export async function prepareOwnedOriginal(page: Page) {
-  await page
-    .getByRole("link", { name: "Account and settings", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Add music folder", exact: true })
-    .click();
-  const picker = page.getByRole("dialog", {
-    name: "Add a music folder",
-    exact: true,
-  });
-  await picker
-    .getByRole("button", { name: "Open Owned original folder", exact: true })
-    .click();
-  await picker
-    .getByRole("button", { name: "Use this folder", exact: true })
-    .click();
-  await expect(picker).not.toBeVisible();
-  await expect(
-    page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
-  ).toHaveCount(1, { timeout: 20_000 });
+  await addMusicFolders(page, ["Owned original folder"]);
   const recordings = await read<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings",

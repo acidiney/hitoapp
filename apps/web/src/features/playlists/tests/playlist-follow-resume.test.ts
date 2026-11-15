@@ -149,7 +149,12 @@ test("a paused playlist explains the change, resumes with one action and retries
     );
   });
   expect(statusReads).toBe(3);
-  expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Playlist updates" })).getByText(
+      "Ready",
+      { exact: true },
+    ),
+  ).toBeTruthy();
   expect(
     screen.queryByRole("region", { name: "Resume playlist updates" }),
   ).toBeNull();

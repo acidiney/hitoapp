@@ -11,8 +11,8 @@ mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
-    AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
-    ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
+    AdoptProviderRecording, AttachReviewedProviderSource, LookupSourceLink, PrepareSource,
+    ProviderCandidate, ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub(crate) use provider::{AudioPermit, CatalogAudio, CatalogTrack};
@@ -81,7 +81,9 @@ pub use releases::{
 };
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-pub use types::{CatalogSort, Page, Recording, Search, Source, SourceMatchKind};
+pub use types::{
+    CatalogSort, Page, Recording, RecordingAvailability, Search, Source, SourceMatchKind,
+};
 
 #[derive(Clone)]
 pub struct Catalog {

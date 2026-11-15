@@ -126,7 +126,26 @@ export async function albumEditionProvider(
   const calls: string[] = [];
   const details: string[] = [];
   const audioRequests: string[] = [];
-  const state = { outage: false, unexpected: 0 };
+  const state = {
+    outage: false,
+    unexpected: 0,
+    durations: null as (number | null)[] | null,
+  };
+  const timed = (edition: typeof deluxe) => {
+    const durations = state.durations;
+    if (!durations) return edition;
+    let index = 0;
+    return {
+      ...edition,
+      media: edition.media.map((medium) => ({
+        ...medium,
+        tracks: medium.tracks.map((track) => ({
+          ...track,
+          duration_ms: durations[index++] ?? null,
+        })),
+      })),
+    };
+  };
   const sourceFor = (id: string) => `e2e:source/${id}`;
   const server = createServer(async (request, response) => {
     const url = new URL(request.url!, "http://fixture.invalid");
@@ -235,7 +254,7 @@ export async function albumEditionProvider(
               },
             ],
           });
-        return reply(edition);
+        return reply(timed(edition));
       }
       case "v1/recordings/detail": {
         const id = value.recording_id as string;

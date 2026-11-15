@@ -75,8 +75,7 @@ export default function AlbumPage({
     trackArtistIds.size === 1 ? ([...trackArtistIds][0] ?? null) : null;
   const artistId = release.artist_id ?? sharedTrackArtist;
   const trackCount = editionPlay?.tracks ?? release.track_count;
-  const durationMs = editionPlay?.durationMs ?? release.duration_ms;
-  const duration = longDuration(durationMs);
+  const durationMs = editionPlay ? editionPlay.durationMs : release.duration_ms;
   const libraryPlay = usePlayTracks(tracks, listing);
   const retry = useArtworkRetryItem({ release: release.id });
   const play = editionPlay
@@ -121,7 +120,7 @@ export default function AlbumPage({
               </span>
             ))
           }
-          stats={`${trackCount} ${trackCount === 1 ? "track" : "tracks"}${durationMs >= 60_000 ? ` · ${duration}` : ""}`}
+          stats={`${trackCount} ${trackCount === 1 ? "track" : "tracks"}${durationMs !== null && durationMs >= 60_000 ? ` · ${longDuration(durationMs)}` : ""}`}
           status={progress && <AlbumProgressLine progress={progress} />}
           actions={
             <AlbumActions

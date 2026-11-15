@@ -58,14 +58,15 @@ test("browser History retains its rendered saved cursor and current speed prefer
   }
 });
 
-test("browser repeat modes exhaust unavailable occurrences without looping", async () => {
+test("browser repeat modes exhaust unavailable occurrences after three passes each without looping", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   for (const shuffled of [false, true])
     for (const cycles of [1, 2]) {
       const resolve = vi.fn(async () => []);
       const player = new Playback(new Media(), resolve);
       for (let i = 0; i < cycles; i++) player.repeat();
       if (shuffled) player.shuffle();
-      await player.playQueue(
+      const started = player.playQueue(
         ["first", "last"].map((id) => ({
           id,
           title: id,
@@ -75,11 +76,22 @@ test("browser repeat modes exhaust unavailable occurrences without looping", asy
         })),
         1,
       );
-      expect(resolve).toHaveBeenCalledTimes(shuffled || cycles === 1 ? 6 : 3);
+      const visited = shuffled || cycles === 1 ? 2 : 1;
+      for (let occurrence = 0; occurrence < visited; occurrence++) {
+        await vi.advanceTimersByTimeAsync(0);
+        expect(player.snapshot().retrying).toEqual({ attempt: 2, of: 3 });
+        await vi.advanceTimersByTimeAsync(500);
+        expect(player.snapshot().retrying).toEqual({ attempt: 3, of: 3 });
+        await vi.advanceTimersByTimeAsync(1000);
+      }
+      await started;
+      expect(resolve).toHaveBeenCalledTimes(visited * 9);
       expect(player.snapshot().playing).toBe(false);
       expect(player.snapshot().loading).toBe(false);
       expect(player.snapshot().error).toContain("Audio is unavailable");
+      expect(player.snapshot().retrying ?? null).toBeNull();
     }
+  vi.useRealTimers();
 });
 
 test("browser repeat one applies only to completion and repeat all wraps stable occurrences", async () => {
@@ -139,6 +151,7 @@ test("browser queue replacement and clear retain shuffle without retaining old o
 });
 
 test("selecting a healthy stable queue entry clears the previous source failure", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const player = new Playback(new Media(), async (id) =>
     id === "failed" ? [] : [{ id: "source", ready: true }],
   );
@@ -149,7 +162,10 @@ test("selecting a healthy stable queue entry clears the previous source failure"
     duration_ms: 10000,
     available: true,
   });
-  await player.playQueue([track("failed"), track("healthy")]);
+  const started = player.playQueue([track("failed"), track("healthy")]);
+  await vi.advanceTimersByTimeAsync(1500);
+  await started;
+  vi.useRealTimers();
   expect(player.snapshot().error).toContain("Audio is unavailable");
   const entries = await player.queuePage(0, 50);
   await player.selectEntry(entries.entries[1].id);
@@ -179,10 +195,23 @@ test("position observations do not notify structural playback subscribers", asyn
   let positions = 0;
   player.subscribe(() => structure++);
   player.subscribePosition(() => positions++);
+  expect(player.snapshot().desiredPlaying).toBe(true);
+  audio.currentTime = 0.5;
+  audio.dispatchEvent(new Event("timeupdate"));
+  expect(player.snapshot().desiredPlaying).toBeUndefined();
+  expect(structure).toBe(1);
+  expect(positions).toBe(1);
+  structure = 0;
+  positions = 0;
   audio.currentTime = 1.25;
   audio.dispatchEvent(new Event("timeupdate"));
   expect(player.positionSnapshot().position).toBe(1.25);
   expect(positions).toBe(1);
+  expect(structure).toBe(0);
+  audio.currentTime = 2.5;
+  audio.dispatchEvent(new Event("timeupdate"));
+  expect(player.positionSnapshot().position).toBe(2.5);
+  expect(positions).toBe(2);
   expect(structure).toBe(0);
 });
 
@@ -454,9 +483,16 @@ test.each(["selection", "recovery", "clear"])(
       { id: `${id}-second`, ready: true },
     ]);
     await player.playQueue([track("old")]);
+    audio.currentTime = 1;
+    audio.dispatchEvent(new Event("timeupdate"));
+    expect(player.snapshot().desiredPlaying).toBeUndefined();
     await player.toggle();
+    expect(audio.paused).toBe(true);
+    expect(audio.src).toContain("/old-first/audio");
+    expect(player.snapshot().position).toBe(1);
     audio.delayNext = true;
     const resume = player.toggle();
+    expect(rejectResume).toBeDefined();
     if (transition === "selection") await player.playQueue([track("new")]);
     else if (transition === "recovery") await player.recover();
     else player.clear();

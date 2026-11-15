@@ -179,6 +179,8 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
     );
     expect(logs).not.toContain(privateError);
     expect(logs).not.toContain("token=secret");
+    act(() => media.advance(second, 1));
+    expect(player.snapshot().desiredPlaying).toBeUndefined();
     expect(vi.getTimerCount()).toBe(0);
     await act(async () => vi.advanceTimersByTimeAsync(30_000));
     expect(submitted).toHaveLength(2);

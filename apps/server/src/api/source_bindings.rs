@@ -8,7 +8,8 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    AttachReviewedProviderSource, ProviderCandidate, ProviderSourceReview, Recording, Services,
+    AttachReviewedProviderSource, LookupSourceLink, ProviderCandidate, ProviderSourceReview,
+    Recording, Services,
 };
 
 #[utoipa::path(post, path = "/api/v1/recordings/{id}/sources/review", operation_id = "review_provider_source",
@@ -55,6 +56,31 @@ pub async fn attach(
         services
             .catalog
             .attach_provider_source(&actor, &id, request)
+            .await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/sources/lookup", operation_id = "lookup_source_link",
+    params(("id" = String, Path)), request_body = LookupSourceLink,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ProviderCandidate, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn lookup(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<LookupSourceLink>,
+) -> ApiResult<Json<ProviderCandidate>> {
+    Ok(Json(
+        services
+            .catalog
+            .lookup_source_link(&actor, &id, request, std::future::pending())
             .await?,
     ))
 }

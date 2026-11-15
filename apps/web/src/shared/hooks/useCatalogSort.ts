@@ -12,6 +12,8 @@ export const TRACK_SORTS: SortOption[] = [
   { value: "recent", label: "Recently added" },
   { value: "title", label: "Title" },
   { value: "artist", label: "Artist" },
+  { value: "album", label: "Album" },
+  { value: "duration", label: "Duration" },
 ];
 
 export const ALBUM_SORTS: SortOption[] = [
@@ -26,7 +28,7 @@ export const ARTIST_SORTS: SortOption[] = [
   { value: "title", label: "Name" },
 ];
 
-const PAGING_PARAMETERS = [
+export const PAGING_PARAMETERS = [
   "offset",
   "recording_offset",
   "group_offset",

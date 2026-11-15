@@ -50,29 +50,45 @@ async function openAlbum(page: Page, baseURL: string) {
     return connection;
   };
   const dispose = async () => {
-    if (original && connections.length > 0) {
-      const latest = await (
-        await page.request.get("/api/v1/metadata/settings")
-      ).json();
-      const restored = await page.request.put("/api/v1/metadata/settings", {
-        headers,
-        data: {
-          revision: latest.revision,
-          enabled: original.enabled,
-          providers: original.providers,
-        } satisfies Schema<"UpdateMetadataSettings">,
+    const failures: string[] = [];
+    const attempt = async (name: string, step: () => Promise<void>) => {
+      try {
+        await step();
+      } catch (failure) {
+        failures.push(`${name}: ${String(failure)}`);
+      }
+    };
+    const bounded = { timeout: 10_000 };
+    const settings = original;
+    if (settings && connections.length > 0)
+      await attempt("metadata settings", async () => {
+        const latest = await (
+          await page.request.get("/api/v1/metadata/settings", bounded)
+        ).json();
+        const restored = await page.request.put("/api/v1/metadata/settings", {
+          ...bounded,
+          headers,
+          data: {
+            revision: latest.revision,
+            enabled: settings.enabled,
+            providers: settings.providers,
+          } satisfies Schema<"UpdateMetadataSettings">,
+        });
+        if (restored.status() !== 200)
+          throw new Error(`restore answered ${restored.status()}`);
       });
-      expect(restored.status()).toBe(200);
-    }
-    for (const connection of connections.reverse()) {
-      const removed = await page.request.delete(
-        `/api/v1/plugins/${connection.id}`,
-        { headers, data: { revision: connection.revision } },
-      );
-      expect(removed.status(), "plugin cleanup").toBeLessThan(300);
-    }
-    await catalog.close();
-    await audio.close();
+    for (const connection of [...connections].reverse())
+      await attempt(`plugin ${connection.id}`, async () => {
+        const removed = await page.request.delete(
+          `/api/v1/plugins/${connection.id}`,
+          { ...bounded, headers, data: { revision: connection.revision } },
+        );
+        if (removed.status() >= 300)
+          throw new Error(`delete answered ${removed.status()}`);
+      });
+    await attempt("catalog fixture", () => catalog.close());
+    await attempt("audio fixture", () => audio.close());
+    expect.soft(failures, "album fixture cleanup").toEqual([]);
   };
   try {
     const connection = await connect(
@@ -192,14 +208,17 @@ test("an album track without a catalog identity is saved as a best guess when on
       row.getByRole("img", { name: "In your library" }),
     ).toBeVisible();
     expect(await total()).toBe(before + 1);
-    expect(audio.audioRequests.length).toBeGreaterThan(0);
-    await album.play.click();
+    expect(audio.audioRequests).toEqual([]);
+    await row
+      .getByRole("button", { name: "Play A different song", exact: true })
+      .click();
     const player = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
         player.evaluate((element: HTMLAudioElement) => element.currentTime),
       )
       .toBeGreaterThan(0.2);
+    expect(audio.audioRequests.length).toBeGreaterThan(0);
 
     const adopted = await page.request.get(
       `/api/v1/recordings?q=${encodeURIComponent("A different song")}`,

@@ -229,7 +229,12 @@ test("account and playlist changes fence held Follow responses and keep polling 
     );
   });
   expect(currentSignal?.aborted).toBe(false);
-  expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Playlist updates" })).getByText(
+      "Ready",
+      { exact: true },
+    ),
+  ).toBeTruthy();
   expect(screen.getByText("Every day", { exact: true })).toBeTruthy();
   expect(entries()).toEqual(currentEntries);
   expect(screen.queryByRole("alert")).toBeNull();

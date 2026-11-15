@@ -85,6 +85,22 @@ export function audiobookContinuationMedia() {
       media.dispatchEvent(new Event("playing"));
       media.dispatchEvent(new Event("timeupdate"));
     },
+    advance(media: HTMLAudioElement, position: number) {
+      const state = states.get(media);
+      if (
+        !state ||
+        state.paused ||
+        state.ready < 3 ||
+        !Number.isFinite(position) ||
+        position <= media.currentTime ||
+        position > media.duration
+      )
+        throw new Error(
+          "The owned ready source must already be playing before its clock advances",
+        );
+      media.currentTime = position;
+      media.dispatchEvent(new Event("timeupdate"));
+    },
     end(media: HTMLAudioElement) {
       media.currentTime = media.duration;
       states.get(media)!.paused = true;

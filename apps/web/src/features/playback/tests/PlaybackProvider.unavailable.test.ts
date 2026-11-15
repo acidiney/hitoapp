@@ -1,6 +1,6 @@
 import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import TrackToolbar from "../components/TrackToolbar";
@@ -9,7 +9,8 @@ import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import PlaybackStatus from "../components/PlaybackStatus";
 
-test("an accepted service outage is shown once and selecting Play again makes a new resolution request", async () => {
+test("an accepted service outage is retried for three passes, shown once, and selecting Play again makes a new resolution request", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const logged: unknown[][] = [];
   vi.spyOn(console, "info").mockImplementation((...values) =>
     logged.push(values),
@@ -118,18 +119,38 @@ test("an accepted service outage is shown once and selecting Play again makes a 
     ),
   );
   expect(requests).toHaveLength(0);
+  const pass = [
+    { path: cachedPath, method: "GET", account },
+    { path: `${sourcePath}/refresh`, method: "POST", account },
+    { path: `${sourcePath}/resolve`, method: "POST", account },
+  ];
   fireEvent.click(screen.getByRole("button", { name: "Play playlist" }));
+  await vi.waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe(
+      "Trying again (2 of 3)…",
+    ),
+  );
+  expect(requests).toEqual(pass);
+  expect(player.snapshot().error).toBe("");
+  await act(() => vi.advanceTimersByTimeAsync(500));
+  await vi.waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe(
+      "Trying again (3 of 3)…",
+    ),
+  );
+  expect(requests).toEqual([...pass, ...pass]);
+  await act(() => vi.advanceTimersByTimeAsync(1000));
   await vi.waitFor(() => {
     expect(player.snapshot().loading).toBe(false);
     expect(player.snapshot().error).not.toBe("");
   });
-  expect(attempts).toHaveLength(1);
+  expect(attempts).toHaveLength(3);
+  expect(new Set(attempts.map((attempt) => attempt.body.request_id)).size).toBe(
+    3,
+  );
   expect(unexpected).toEqual([]);
-  expect(requests).toEqual([
-    { path: cachedPath, method: "GET", account },
-    { path: `${sourcePath}/refresh`, method: "POST", account },
-    { path: `${sourcePath}/resolve`, method: "POST", account },
-  ]);
+  expect(requests).toEqual([...pass, ...pass, ...pass]);
+  expect(player.snapshot().retrying ?? null).toBeNull();
   expect(screen.getByRole("status").textContent).toBe(
     "An audio service is unavailable. Select the track again to retry.",
   );
@@ -141,10 +162,17 @@ test("an accepted service outage is shown once and selecting Play again makes a 
   available = true;
   fireEvent.click(screen.getByRole("button", { name: "Play playlist" }));
   await vi.waitFor(() => expect(player.snapshot().playing).toBe(true));
-  expect(attempts).toHaveLength(2);
-  expect(attempts[1].body.request_id).not.toBe(attempts[0].body.request_id);
-  expect(attempts[0].signal.aborted).toBe(true);
-  expect(attempts[1].signal.aborted).toBe(false);
+  expect(attempts).toHaveLength(4);
+  expect(
+    attempts
+      .slice(0, 3)
+      .map((attempt) => attempt.body.request_id)
+      .includes(attempts[3].body.request_id),
+  ).toBe(false);
+  expect(attempts.slice(0, 3).every((attempt) => attempt.signal.aborted)).toBe(
+    true,
+  );
+  expect(attempts[3].signal.aborted).toBe(false);
   expect(player.snapshot().error).toBe("");
   expect(player.snapshot().current?.id).toBe(recording);
   expect(play).toHaveBeenCalledTimes(1);
@@ -152,7 +180,7 @@ test("an accepted service outage is shown once and selecting Play again makes a 
     `/api/v1/sources/${source.id}/audio`,
   );
   expect(unexpected).toEqual([]);
-  expect(requests).toHaveLength(6);
+  expect(requests).toEqual([...pass, ...pass, ...pass, ...pass]);
   const completions = logged
     .map((values) => values[1])
     .filter(
@@ -163,6 +191,8 @@ test("an accepted service outage is shown once and selecting Play again makes a 
         value.event === "playback.source_resolution_completed",
     );
   expect(completions.map((event) => event.reason)).toEqual([
+    "provider_unavailable",
+    "provider_unavailable",
     "provider_unavailable",
     "ready",
   ]);
@@ -185,4 +215,5 @@ test("an accepted service outage is shown once and selecting Play again makes a 
   unmount();
   expect(attempts.every((attempt) => attempt.signal.aborted)).toBe(true);
   expect(document.querySelectorAll("audio")).toHaveLength(0);
+  vi.useRealTimers();
 });

@@ -15,6 +15,7 @@ mod catalog_release_group;
 mod catalog_similarity;
 mod featured;
 mod health;
+mod source_links;
 mod timed_content;
 pub(crate) use catalog_discovery::CatalogDiscoveryResponse;
 pub(crate) use timed_content::LyricsDocumentResponse;

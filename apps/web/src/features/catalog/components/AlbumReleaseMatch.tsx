@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useReviewedArtistProfile } from "../../artists/hooks/useReviewedArtistProfile";
 import { useReleaseSuggestion } from "../hooks/useReleaseSuggestion";
 import AlbumEditionStep, { type AlbumFacts } from "./AlbumEditionStep";
+import MatchDialog from "./MatchDialog";
 import MatchPanel from "./MatchPanel";
 import ReleasePicker from "./ReleasePicker";
 
@@ -153,7 +154,7 @@ function ReleaseMatch({
     );
   if (!choosing)
     return (
-      <MatchPanel title={`Which release is ${album.title}?`}>
+      <MatchDialog title={`Which release is ${album.title}?`} onClose={dismiss}>
         <p className="match-alert">
           Hito could not match this album to a release by its title. Choose the
           release yourself, or keep your tracks as they are.
@@ -171,7 +172,7 @@ function ReleaseMatch({
             Just show my tracks
           </button>
         </div>
-      </MatchPanel>
+      </MatchDialog>
     );
   return (
     <ReleasePicker

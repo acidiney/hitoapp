@@ -38,6 +38,8 @@ export class PlaybackSources {
   private resolutionOutcome: Schema<"SourceResolution">["outcome"] | null =
     null;
   private waiting: Source | null = null;
+  private refused = false;
+  private declined = false;
 
   constructor(
     private recording: string,
@@ -59,6 +61,20 @@ export class PlaybackSources {
     return this.waiting;
   }
 
+  get retryable(): boolean {
+    if (this.refused || this.declined) return false;
+    if (
+      this.resolutionOutcome === "protected_choice" ||
+      this.resolutionOutcome === "cancelled"
+    )
+      return false;
+    return (
+      this.attempted.size === 0 ||
+      this.resolutionOutcome === "provider_unavailable" ||
+      this.resolutionOutcome === "no_suitable_source"
+    );
+  }
+
   async reloadCached(): Promise<void> {
     if (this.controller.signal.aborted) return;
     await this.load({ purpose: "cached" });
@@ -78,6 +94,7 @@ export class PlaybackSources {
         recording_id: this.recording,
         count: this.attempted.size,
       });
+      this.declined = true;
       return;
     }
     if (!this.loaded) {
@@ -92,8 +109,9 @@ export class PlaybackSources {
       this.refreshed = true;
       try {
         await this.load({ purpose: "refresh" });
-      } catch {
+      } catch (error) {
         if (this.controller.signal.aborted) return;
+        if (refusal(error)) this.refused = true;
         log.warn("playback.source_refresh_failed", {
           recording_id: this.recording,
         });
@@ -114,6 +132,7 @@ export class PlaybackSources {
           recording_id: this.recording,
           count: this.attempted.size,
         });
+        this.declined = true;
         return;
       }
       const source = this.candidates.shift();
@@ -154,16 +173,14 @@ export class PlaybackSources {
         return;
       } catch (error) {
         if (this.controller.signal.aborted) return;
-        if (
-          attempt === 0 &&
-          !(error instanceof HttpError && error.status < 500)
-        ) {
+        if (attempt === 0 && !refusal(error)) {
           log.warn("playback.source_resolution_retry", {
             recording_id: this.recording,
             request_id: body.request_id,
           });
           continue;
         }
+        if (refusal(error)) this.refused = true;
         log.warn("playback.source_resolution_failed", {
           recording_id: this.recording,
           request_id: body.request_id,
@@ -210,4 +227,8 @@ export class PlaybackSources {
     this.controller.abort();
     this.candidates = [];
   }
+}
+
+export function refusal(error: unknown) {
+  return error instanceof HttpError && error.status < 500;
 }

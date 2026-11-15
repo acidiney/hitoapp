@@ -105,7 +105,9 @@ export function TransportButtons() {
         className="play-button"
         disabled={
           !selected ||
-          (player.mode === "browser" && state.loading) ||
+          (player.mode === "browser" &&
+            state.loading &&
+            state.desiredPlaying !== true) ||
           state.connection !== "ready"
         }
         aria-label={playing ? "Pause" : "Play"}

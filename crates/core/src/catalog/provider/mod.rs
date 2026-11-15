@@ -8,6 +8,7 @@ mod preparation;
 mod refresh;
 mod resolution;
 mod search;
+mod source_links;
 mod sources;
 
 use super::Catalog;
@@ -26,3 +27,4 @@ pub(crate) use resolution::FALLBACK_POLICY;
 pub(crate) use resolution::{AudioPermit, CatalogAudio, CatalogTrack};
 pub use resolution::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 pub use search::ProviderSearch;
+pub use source_links::LookupSourceLink;

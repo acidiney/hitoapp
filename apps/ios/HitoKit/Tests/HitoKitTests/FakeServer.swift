@@ -1,0 +1,136 @@
+import Foundation
+
+final class FakeServer: @unchecked Sendable {
+    enum Answer {
+        case json(Int, String)
+        case headed(Int, String, [String: String])
+        case text(Int, String)
+        case redirect(String)
+        case acknowledging
+        indirect case sequence([Answer])
+    }
+
+    struct Request {
+        let line: String
+        let query: String?
+        let headers: [String: String]
+        let body: Data?
+
+        var authorization: String? { header("authorization") }
+
+        func header(_ name: String) -> String? {
+            headers.first { $0.key.lowercased() == name.lowercased() }?.value
+        }
+
+        var object: [String: Any]? {
+            body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        }
+
+        var json: [String: String]? {
+            body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: String] }
+        }
+    }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var servers: [String: FakeServer] = [:]
+    fileprivate static let routing = "X-Fake-Server"
+
+    let routes: [String: Answer]
+    let failures: [String: URLError]
+    private var recorded: [Request] = []
+
+    var requests: [Request] { Self.lock.withLock { recorded } }
+
+    let session: URLSession
+
+    init(routes: [String: Answer], failures: [String: URLError] = [:]) {
+        self.routes = routes
+        self.failures = failures
+        let id = UUID().uuidString
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FakeProtocol.self]
+        configuration.httpAdditionalHeaders = [Self.routing: id]
+        session = URLSession(configuration: configuration)
+        Self.lock.withLock { Self.servers[id] = self }
+    }
+
+    fileprivate static func answer(_ request: URLRequest) -> (Answer?, URLError?) {
+        lock.withLock {
+            guard let id = request.value(forHTTPHeaderField: routing), let server = servers[id], let url = request.url else {
+                return (nil, URLError(.unknown))
+            }
+            let method = request.httpMethod ?? "GET"
+            let origin = "\(url.scheme ?? "")://\(url.host() ?? "")\(url.port.map { ":\($0)" } ?? "")"
+            let full = "\(method) \(origin)\(url.path())"
+            let short = "\(method) \(url.path())"
+            let usesFullLines = server.routes.keys.contains { $0.contains("://") } || !server.failures.isEmpty
+            server.recorded.append(Request(line: usesFullLines ? full : short, query: url.query(), headers: request.allHTTPHeaderFields ?? [:], body: request.bodyData))
+            if let failure = server.failures["\(origin)\(url.path())"] ?? server.failures[origin] { return (nil, failure) }
+            let routed = server.routes[full] ?? server.routes[short] ?? .text(404, "not found")
+            guard case let .sequence(answers) = routed, let last = answers.last else { return (routed, nil) }
+            let seen = server.recorded.filter { $0.line == server.recorded.last?.line }.count
+            return (answers.indices.contains(seen - 1) ? answers[seen - 1] : last, nil)
+        }
+    }
+}
+
+extension URLRequest {
+    var bodyData: Data? {
+        if let httpBody { return httpBody }
+        guard let stream = httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let read = stream.read(&buffer, maxLength: buffer.count)
+            if read <= 0 { break }
+            data.append(buffer, count: read)
+        }
+        return data
+    }
+}
+
+final class FakeProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let (answer, failure) = FakeServer.answer(request)
+        if let failure {
+            client?.urlProtocol(self, didFailWithError: failure)
+            return
+        }
+        guard let answer, let url = request.url else { return }
+        if case let .redirect(location) = answer {
+            let target = URL(string: location)!
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": location])!
+            var next = URLRequest(url: target)
+            next.allHTTPHeaderFields = request.allHTTPHeaderFields
+            client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        let echoed: FakeServer.Answer
+        if case .acknowledging = answer {
+            let operations = (request.bodyData.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["operations"] as? [[String: Any]]) ?? []
+            let ids = operations.compactMap { $0["id"] as? String }.map { "\"\($0)\"" }.joined(separator: ",")
+            echoed = .json(200, "{\"acknowledged\":[\(ids)]}")
+        } else {
+            echoed = answer
+        }
+        let (status, body, fields): (Int, String, [String: String]) = switch echoed {
+        case let .json(status, body): (status, body, ["Content-Type": "application/json"])
+        case let .headed(status, body, extra): (status, body, extra.merging(["Content-Type": "application/json"]) { first, _ in first })
+        case let .text(status, body): (status, body, ["Content-Type": "text/plain"])
+        case .redirect, .acknowledging, .sequence: (0, "", [:])
+        }
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}

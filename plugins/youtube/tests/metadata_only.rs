@@ -102,7 +102,8 @@ fn default_mode_keeps_sources_and_logs_its_mode() {
             Capability::Search,
             Capability::Sources,
             Capability::Metadata,
-            Capability::Artwork
+            Capability::Artwork,
+            Capability::SourceLinks
         ])
     );
     let (_, body) = http(host.address, "GET", "/v1/audio?source_id=short", "").unwrap();

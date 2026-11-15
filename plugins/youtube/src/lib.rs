@@ -2,6 +2,7 @@ mod artwork;
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 mod classify;
 mod extractor;
+mod links;
 mod media;
 mod process;
 mod recording;
@@ -21,7 +22,8 @@ use axum::{
 };
 use hito_plugin_sdk::{
     ArtworkRequest, Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource,
-    RecordingMetadata, RecordingRequest, SearchPage, SearchRequest, SourcePage,
+    RecordingLookupRequest, RecordingMetadata, RecordingRequest, SearchPage, SearchRequest,
+    SourcePage,
 };
 use std::{
     path::PathBuf,
@@ -103,6 +105,7 @@ impl Service {
         let router = if self.state.audio {
             router
                 .route("/v1/sources", post(sources))
+                .route("/v1/recordings/lookup", post(lookup))
                 .route("/v1/audio", get(audio))
         } else {
             router
@@ -131,10 +134,12 @@ async fn manifest(State(state): State<Arc<HttpState>>) -> Json<Manifest> {
         Capability::Sources,
         Capability::Metadata,
         Capability::Artwork,
+        Capability::SourceLinks,
     ]
     .into();
     if !state.audio {
         capabilities.remove(&Capability::Sources);
+        capabilities.remove(&Capability::SourceLinks);
     }
     Json(Manifest {
         id: "org.hito.youtube".into(),
@@ -209,6 +214,19 @@ async fn metadata(
     resolved.metadata().map(Json)
 }
 
+async fn lookup(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<RecordingLookupRequest>, JsonRejection>,
+) -> Result<Json<RecordingMetadata>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRecordingRequest)?;
+    request
+        .validate()
+        .map_err(|_| Error::InvalidRecordingRequest)?;
+    let id = links::video_id(&request.reference).ok_or(Error::NotFound)?;
+    let resolved = state.catalog.recording(&id).await?;
+    resolved.metadata().map(Json)
+}
+
 async fn artwork(
     State(state): State<Arc<HttpState>>,
     payload: Result<Json<ArtworkRequest>, JsonRejection>,
@@ -253,6 +271,7 @@ async fn observe(request: Request, next: Next) -> Response {
         "/v1/search" => "search",
         "/v1/recordings/detail" => "detail",
         "/v1/recordings/metadata" => "metadata",
+        "/v1/recordings/lookup" => "lookup",
         "/v1/sources" => "sources",
         "/v1/audio" => "audio",
         "/v1/artwork" => "artwork",

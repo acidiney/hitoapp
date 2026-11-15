@@ -18,6 +18,7 @@ mod lyrics;
 mod preparation;
 mod refusal;
 mod source_batch;
+mod source_links;
 pub(crate) use source_batch::SourceBatch;
 
 pub(super) struct Admission {

@@ -63,6 +63,8 @@ impl CatalogReplication {
         budget.check()?;
         #[cfg(test)]
         self.before_reader.notify_one();
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "reader_wait");
         let mut idle = tokio::select! {
             biased;
             _=tokio::time::sleep_until(deadline)=>return Err(timed_out()),
@@ -70,6 +72,8 @@ impl CatalogReplication {
             slot=self.reader.lock()=>slot,
         };
         budget.check()?;
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "reader_open");
         let mut connection = match idle.take() {
             Some(connection) => connection,
             None => SqliteConnection::connect_with(&self.store.pool.connect_options()).await?,
@@ -116,6 +120,8 @@ impl CatalogReplication {
                 Ok(snapshot)
             }
             Err(error) => {
+                #[cfg(test)]
+                tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "reader_close");
                 connection.close().await?;
                 Err(error)
             }
@@ -132,12 +138,16 @@ impl CatalogReplication {
         reservation: &mut Option<Reservation>,
     ) -> Result<(Prepared, String)> {
         budget.check()?;
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "read_transaction");
         let mut tx = connection.begin().await?;
         let result = tokio::select! {
             biased;
             _=tokio::time::sleep_until(budget.deadline)=>Err(timed_out()),
             _=budget.stop.changed()=>Err(busy()),
             result=async {
+                #[cfg(test)]
+                tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "read_authority");
                 let grant=self.grant(&mut tx,actor,library).await?;
                 {
                     let mut registry = self.registry.lock().map_err(|_| unavailable())?;
@@ -155,12 +165,16 @@ impl CatalogReplication {
         if result.is_err() {
             self.before_read_settlement.notify_one();
         }
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "read_settlement");
         let settled = if result.is_ok() {
             tx.commit().await
         } else {
             tx.rollback().await
         };
         settled?;
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "read_settled");
         budget.check()?;
         result
     }
@@ -180,9 +194,13 @@ impl CatalogReplication {
         let fresh = matches!(prepared, Prepared::Fresh(_));
         #[cfg(test)]
         self.before_publication.notify_one();
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "publication_transaction");
         let mut fence = connection.begin_with("BEGIN IMMEDIATE").await?;
         let publication: Result<()> = async {
             budget.check()?;
+            #[cfg(test)]
+            tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "publication_authority");
             if self.grant(&mut fence, actor, library).await? != expected_grant {
                 return Err(Error::NotFound);
             }
@@ -219,6 +237,8 @@ impl CatalogReplication {
             Ok(())
         }
         .await;
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "publication_settlement");
         let completed = if publication.is_ok() {
             fence.commit().await
         } else {
@@ -231,6 +251,8 @@ impl CatalogReplication {
         completed?;
         publication?;
         valid?;
+        #[cfg(test)]
+        tracing::trace!(target: "hito_core::catalog_snapshot_stage_test", stage = "ready");
         Ok(metadata)
     }
 }

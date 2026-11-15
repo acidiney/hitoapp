@@ -15,7 +15,12 @@ import {
   prepareOutageLibrary,
   type OutageSetupPhase,
   type OutageResolutionDiagnostic,
+  type OutageState,
 } from "./fixtures/providerOutageLibrary";
+import {
+  legacyOutageState,
+  legacySourceResolution,
+} from "./fixtures/providerOutageLegacyView";
 import {
   hash,
   outageControl,
@@ -24,6 +29,8 @@ import {
 } from "./fixtures/providerOutageEvidence";
 import {
   playThroughOutage,
+  type OutageQueueRequest,
+  type OutageQueueScreen,
   outageMediaFacts,
   type OutageMediaFacts,
   type OutagePlaybackPhase,
@@ -40,6 +47,45 @@ type OutagePhase =
   | "evidence"
   | "browser_cleanup"
   | "provider_cleanup";
+type MigrationCheck =
+  | "migrated_version"
+  | "library_heading"
+  | "state_read"
+  | "state_equality"
+  | "receipt_identities"
+  | "replay_receipt"
+  | "replay_provider_silence";
+type MigrationReplayIndex = 0 | 1 | 2;
+type MigrationCheckMarker = {
+  check: MigrationCheck;
+  index?: MigrationReplayIndex;
+  differing?: (keyof OutageState)[];
+  local_differing?: (keyof OutageState["local"])[];
+};
+const OUTAGE_STATE_FIELDS = [
+  "local",
+  "originals",
+  "copies",
+  "metadata",
+  "choices",
+  "progress",
+  "absent",
+  "settings",
+] as const satisfies readonly (keyof OutageState)[];
+const LOCAL_STATE_FIELDS = [
+  "libraries",
+  "catalog",
+  "artists",
+  "releases",
+  "playlist",
+  "activity",
+  "events",
+  "progress",
+  "metadata",
+  "sources",
+  "choices",
+] as const satisfies readonly (keyof OutageState["local"])[];
+const REPLAY_INDEXES: readonly MigrationReplayIndex[] = [0, 1, 2];
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.skip(
   process.env.HITO_PROVIDER_OUTAGE_E2E !== "1",
@@ -56,9 +102,14 @@ test("a populated version54 library upgrades and plays through truthful provider
   let failure: OutagePhase | null = null;
   let provider: OutageProvider | null = null;
   let media: OutageMediaFacts | null = null;
+  let migrationCheck: MigrationCheckMarker | null = null;
   const resolutions: Partial<
     Record<OutageResolutionDiagnostic["target"], OutageResolutionDiagnostic>
   > = {};
+  const queueRequests: OutageQueueRequest[] = [];
+  let queueScreen: OutageQueueScreen | null = null;
+  let observerCounts: Record<string, number> | null = null;
+  let observerRejections: Record<string, number> | null = null;
   const started = performance.now();
   try {
     if (
@@ -101,18 +152,38 @@ test("a populated version54 library upgrades and plays through truthful provider
       assets: evidence.assets,
     });
     const migrated = await waitOutageControl("migrated", "migrated", 90_000);
+    migrationCheck = { check: "migrated_version" };
     expect(
       migrated.previous_version === 54 &&
-        migrated.current_version === 55 &&
-        migrated.applied_count === 1,
+        migrated.current_version === 98 &&
+        migrated.applied_count === 44,
     ).toBe(true);
+    migrationCheck = { check: "library_heading" };
     await page.goto("/library");
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
+    migrationCheck = { check: "state_read" };
     const afterMigration = await outageLibraryState(page, read, library);
-    expect(isDeepStrictEqual(before, afterMigration)).toBe(true);
+    const legacyBefore = legacyOutageState(before);
+    const legacyAfterMigration = legacyOutageState(afterMigration);
+    migrationCheck = {
+      check: "state_equality",
+      differing: OUTAGE_STATE_FIELDS.filter(
+        (field) =>
+          !isDeepStrictEqual(legacyBefore[field], legacyAfterMigration[field]),
+      ),
+      local_differing: LOCAL_STATE_FIELDS.filter(
+        (field) =>
+          !isDeepStrictEqual(
+            legacyBefore.local[field],
+            legacyAfterMigration.local[field],
+          ),
+      ),
+    };
+    expect(isDeepStrictEqual(legacyBefore, legacyAfterMigration)).toBe(true);
     const callsBeforeReplay = { ...provider.counts };
+    migrationCheck = { check: "receipt_identities" };
     expect(
       library.legacyResolutions.length === 3 &&
         new Set(
@@ -124,7 +195,9 @@ test("a populated version54 library upgrades and plays through truthful provider
             item.receipt.recording_id === item.recording,
         ),
     ).toBe(true);
-    for (const resolution of library.legacyResolutions) {
+    for (const [position, resolution] of library.legacyResolutions.entries()) {
+      const index = REPLAY_INDEXES[position];
+      migrationCheck = { check: "replay_receipt", index };
       const replay = await outageWrite<Schema<"SourceResolution">>(
         page,
         library.user.id,
@@ -132,9 +205,16 @@ test("a populated version54 library upgrades and plays through truthful provider
         `/api/v1/recordings/${resolution.recording}/sources/resolve`,
         resolution.request,
       );
-      expect(isDeepStrictEqual(replay, resolution.receipt)).toBe(true);
+      expect(
+        isDeepStrictEqual(
+          legacySourceResolution(replay),
+          legacySourceResolution(resolution.receipt),
+        ),
+      ).toBe(true);
+      migrationCheck = { check: "replay_provider_silence", index };
       expect(isDeepStrictEqual(callsBeforeReplay, provider.counts)).toBe(true);
     }
+    migrationCheck = null;
     phase = "playback";
     evidence.arm(library.user.id, [library.ids.retry, library.ids.healthy]);
     const playback = await playThroughOutage(
@@ -144,6 +224,12 @@ test("a populated version54 library upgrades and plays through truthful provider
       evidence,
       (playbackPhase) => {
         phase = playbackPhase;
+      },
+      (request) => {
+        if (queueRequests.length < 16) queueRequests.push(request);
+      },
+      (facts) => {
+        queueScreen = facts;
       },
     );
     phase = "preservation";
@@ -168,14 +254,14 @@ test("a populated version54 library upgrades and plays through truthful provider
     }
     await evidence.drain();
     expect(
-      evidence.requests.length === 4 &&
-        evidence.receipts.length === 3 &&
+      evidence.requests.length === 8 &&
+        evidence.receipts.length === 7 &&
         evidence.receipts.filter(
           (receipt) => receipt.outcome === "provider_unavailable",
-        ).length === 2 &&
+        ).length === 6 &&
         evidence.receipts.filter((receipt) => receipt.outcome === "ready")
           .length === 1 &&
-        evidence.completions.length === 3,
+        evidence.completions.length === 7,
     ).toBe(true);
     expect(
       provider.counts.unavailable > 0 &&
@@ -185,13 +271,18 @@ test("a populated version54 library upgrades and plays through truthful provider
     phase = "runtime_logs";
     const logs = await evidence.serverLogCheck();
     phase = "evidence";
+    observerCounts = { ...evidence.counts };
+    observerRejections = { ...evidence.rejections };
     await writeFile(
       "/evidence/provider-outage.json",
       JSON.stringify({
         event: "provider_outage_packaged_verified",
         migration: migrated,
         playback,
-        preserved_migration_state: hash(before) === hash(afterMigration),
+        preserved_migration_state: isDeepStrictEqual(
+          legacyBefore,
+          legacyAfterMigration,
+        ),
         original_hashes: after.originals,
         legacy_receipts_replayed: library.legacyResolutions.length,
         provider: provider.counts,
@@ -225,8 +316,13 @@ test("a populated version54 library upgrades and plays through truthful provider
       JSON.stringify({
         event: "provider_outage_failed",
         phase: failure,
+        migration_check: migrationCheck,
         media,
         resolutions,
+        queue_requests: queueRequests,
+        queue_screen: queueScreen,
+        observer_counts: observerCounts,
+        observer_rejections: observerRejections,
         provider: provider?.counts ?? null,
         elapsed_ms: Math.round(performance.now() - started),
       }),

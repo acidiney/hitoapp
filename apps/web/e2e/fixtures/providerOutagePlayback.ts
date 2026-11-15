@@ -1,9 +1,86 @@
 import { isDeepStrictEqual } from "node:util";
-import { expect, type Page, type Route } from "@playwright/test";
+import {
+  expect,
+  type Page,
+  type Request,
+  type Response,
+  type Route,
+} from "@playwright/test";
 import type { Schema } from "../../src/shared/schema";
 import type { OutageProvider } from "./providerOutageProvider";
 import type { OutageLibrary } from "./providerOutageLibrary";
 import { outageMessage, type OutageEvidence } from "./providerOutageEvidence";
+
+export type OutageQueueRequest = {
+  role:
+    | "sources"
+    | "refresh"
+    | "resolve"
+    | "playback_sources"
+    | "source_other"
+    | "other";
+  method: "GET" | "POST" | "HEAD" | "OTHER";
+  status: number | "failed";
+};
+
+export type OutageQueueScreen = {
+  queue_panel_open: boolean;
+  queue_track_items: number;
+  panel_upcoming_items: number;
+  now_playing_regions: number;
+  queue_now_sections: number;
+  queue_first_sections: number;
+  queue_next_sections: number;
+};
+
+async function queueScreenFacts(page: Page): Promise<OutageQueueScreen> {
+  const count = async (selector: () => Promise<number>) => {
+    try {
+      return await selector();
+    } catch {
+      return -1;
+    }
+  };
+  return {
+    queue_panel_open:
+      (await count(() =>
+        page.locator("aside#queue-panel[data-open]").count(),
+      )) === 1,
+    queue_track_items: await count(() =>
+      page.locator("ol.queue-tracks > li").count(),
+    ),
+    panel_upcoming_items: await count(() =>
+      page
+        .getByRole("complementary", { name: "Queue", exact: true })
+        .getByRole("region", { name: "Up next", exact: true })
+        .locator("ol.queue-tracks > li")
+        .count(),
+    ),
+    now_playing_regions: await count(() =>
+      page.getByRole("region", { name: "Now playing", exact: true }).count(),
+    ),
+    queue_now_sections: await count(() => page.locator(".queue-now").count()),
+    queue_first_sections: await count(() =>
+      page.locator(".queue-first").count(),
+    ),
+    queue_next_sections: await count(() => page.locator(".queue-next").count()),
+  };
+}
+
+function queueRole(suffix: string): OutageQueueRequest["role"] {
+  if (suffix === "sources") return "sources";
+  if (suffix === "sources/refresh") return "refresh";
+  if (suffix === "sources/resolve") return "resolve";
+  if (suffix === "playback-sources") return "playback_sources";
+  if (suffix.startsWith("sources/")) return "source_other";
+  return "other";
+}
+
+function queueMethod(method: string): OutageQueueRequest["method"] {
+  return method === "GET" || method === "POST" || method === "HEAD"
+    ? method
+    : "OTHER";
+}
 
 export type OutagePlaybackPhase =
   | "accepted_lost_ack"
@@ -107,6 +184,8 @@ export async function playThroughOutage(
   provider: OutageProvider,
   evidence: OutageEvidence,
   checkpoint: (phase: OutagePlaybackPhase) => void,
+  observeQueue: (request: OutageQueueRequest) => void = () => {},
+  observeQueueScreen: (facts: OutageQueueScreen) => void = () => {},
 ) {
   checkpoint("accepted_lost_ack");
   provider.setAvailability("retry", "unavailable");
@@ -115,17 +194,28 @@ export async function playThroughOutage(
   let accepted: Schema<"SourceResolution"> | null = null;
   let delivered: Schema<"SourceResolution"> | null = null;
   let providerCallsAfterAcceptance = 0;
+  let providerCallsAtReplay = -1;
   const attempts: string[] = [];
   let invalid = false;
   const intercept = async (route: Route) => {
     if (route.request().method() !== "POST") return route.continue();
     const raw = route.request().postData();
-    if (!raw || Buffer.byteLength(raw) > 4096 || attempts.length >= 2) {
+    if (!raw || Buffer.byteLength(raw) > 4096 || attempts.length >= 4) {
       invalid = true;
       return route.abort("failed");
     }
     attempts.push(raw);
-    if (attempts.length === 2) return route.continue();
+    if (attempts.length > 2) return route.continue();
+    if (attempts.length === 2) {
+      try {
+        const replay = await route.fetch({ timeout: 10_000 });
+        providerCallsAtReplay = provider.counts.sources;
+        return route.fulfill({ response: replay });
+      } catch {
+        invalid = true;
+        return route.abort("failed");
+      }
+    }
     try {
       const response = await route.fetch({ timeout: 10_000 });
       try {
@@ -158,21 +248,29 @@ export async function playThroughOutage(
     delivered = JSON.parse(bytes.toString()) as Schema<"SourceResolution">;
     await expect(dock(page).getByRole("status")).toHaveText(outageMessage);
     const receipt = accepted as Schema<"SourceResolution"> | null;
+    const passes = attempts.map(
+      (raw) => (JSON.parse(raw) as Schema<"ResolveSource">).request_id,
+    );
     expect(
       !invalid &&
-        attempts.length === 2 &&
+        attempts.length === 4 &&
         attempts[0] === attempts[1] &&
+        new Set(passes).size === 3 &&
         receipt?.outcome === "provider_unavailable" &&
         receipt.sources.length === 0 &&
         isDeepStrictEqual(receipt, delivered) &&
-        provider.counts.sources === providerCallsAfterAcceptance,
+        providerCallsAtReplay === providerCallsAfterAcceptance,
     ).toBe(true);
     expect(await activeAudio(page).getAttribute("src")).toBeNull();
   } finally {
     await page.unroute(`**${path}`, intercept);
   }
   checkpoint("fresh_play");
-  const failedRequest = JSON.parse(attempts[0]) as Schema<"ResolveSource">;
+  const failedRequests = new Set(
+    attempts.map(
+      (raw) => (JSON.parse(raw) as Schema<"ResolveSource">).request_id,
+    ),
+  );
   provider.setAvailability("retry", "ready");
   const response = page.waitForResponse(
     (response) =>
@@ -194,7 +292,7 @@ export async function playThroughOutage(
     ready.outcome === "ready" &&
       ready.sources.length === 1 &&
       ready.request_id === fresh.request_id &&
-      fresh.request_id !== failedRequest.request_id &&
+      !failedRequests.has(fresh.request_id) &&
       ready.resolution_id !== delivered?.resolution_id,
   ).toBe(true);
   checkpoint("recovered_playing");
@@ -265,20 +363,56 @@ export async function playThroughOutage(
   checkpoint("pause_recovery");
   await pause(page);
   checkpoint("queue_start");
-  await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
-  const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
-  const queueResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === queuePath &&
-      response.status() === 200,
-    { timeout: 10_000 },
-  );
-  await page
-    .getByRole("button", { name: "Play playlist", exact: true })
-    .click();
-  await playing(page);
-  checkpoint("queue_outage");
-  const queueBytes = await (await queueResponse).body();
+  const queuePrefix = `/api/v1/recordings/${library.ids.queue}/`;
+  const queueSuffix = (url: string) => {
+    const { pathname } = new URL(url);
+    return pathname.startsWith(queuePrefix)
+      ? pathname.slice(queuePrefix.length)
+      : null;
+  };
+  const onQueueResponse = (response: Response) => {
+    const suffix = queueSuffix(response.url());
+    if (suffix === null) return;
+    observeQueue({
+      role: queueRole(suffix),
+      method: queueMethod(response.request().method()),
+      status: response.status(),
+    });
+  };
+  const onQueueFailure = (request: Request) => {
+    const suffix = queueSuffix(request.url());
+    if (suffix === null) return;
+    observeQueue({
+      role: queueRole(suffix),
+      method: queueMethod(request.method()),
+      status: "failed",
+    });
+  };
+  page.on("response", onQueueResponse);
+  page.on("requestfailed", onQueueFailure);
+  let queueBytes: Buffer;
+  try {
+    await page.goto(`/playlists/${library.copies.queue.playlist.id}`);
+    const queuePlay = page.getByRole("button", {
+      name: "Play 2 ready",
+      exact: true,
+    });
+    await expect(queuePlay).toBeVisible();
+    const queuePath = `/api/v1/recordings/${library.ids.queue}/sources/resolve`;
+    const queueResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === queuePath &&
+        response.status() === 200,
+      { timeout: 10_000 },
+    );
+    await queuePlay.click();
+    await playing(page);
+    checkpoint("queue_outage");
+    queueBytes = await (await queueResponse).body();
+  } finally {
+    page.off("response", onQueueResponse);
+    page.off("requestfailed", onQueueFailure);
+  }
   if (queueBytes.length > 16_384)
     throw new Error("Owned queue receipt exceeded its bound");
   const queueReceipt = JSON.parse(
@@ -296,19 +430,36 @@ export async function playThroughOutage(
   ).toBe(true);
   await expect(dock(page).getByRole("status")).toHaveCount(0);
   checkpoint("queue_ui");
-  await dock(page)
-    .getByRole("button", { name: "Open queue", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/queue$/);
-  await expect(page.locator("ol.queue-tracks > li")).toHaveCount(2);
-  const nowPlaying = page
+  let upNext: string[];
+  const queuePanel = page.getByRole("complementary", {
+    name: "Queue",
+    exact: true,
+  });
+  const nowPlaying = queuePanel
     .getByRole("region", { name: "Now playing", exact: true })
     .locator("strong");
-  await expect(nowPlaying).toHaveText(/\S/);
-  const upNext = await page
-    .locator("ol.queue-tracks > li strong")
-    .allTextContents();
-  expect(upNext).toHaveLength(2);
+  const upcoming = queuePanel
+    .getByRole("region", { name: "Up next", exact: true })
+    .locator("ol.queue-tracks > li");
+  try {
+    const playlistUrl = page.url();
+    const openQueue = dock(page).getByRole("button", {
+      name: "Open queue",
+      exact: true,
+    });
+    await openQueue.click();
+    await expect(openQueue).toHaveAttribute("aria-controls", "queue-panel");
+    await expect(openQueue).toHaveAttribute("aria-expanded", "true");
+    await expect(queuePanel).toBeVisible();
+    expect(page.url()).toBe(playlistUrl);
+    await expect(upcoming).toHaveCount(2);
+    await expect(nowPlaying).toHaveText(/\S/);
+    upNext = await upcoming.locator("strong").allTextContents();
+    expect(upNext).toHaveLength(2);
+  } catch (error) {
+    observeQueueScreen(await queueScreenFacts(page));
+    throw error;
+  }
   checkpoint("queue_seek");
   const queueAudio = await activeAudio(page).elementHandle();
   if (!queueAudio) throw new Error("Owned queue media is missing");
@@ -334,25 +485,25 @@ export async function playThroughOutage(
     .toBe(1);
   checkpoint("queue_advance");
   await expect(nowPlaying).toHaveText(upNext[1]);
-  await expect(page.locator("ol.queue-tracks > li")).toHaveCount(0);
+  await expect(upcoming).toHaveCount(0);
   await playing(page);
   await expect(dock(page).getByRole("status")).toHaveText(outageMessage);
   expect(
     evidence.requests.filter(
       (request) => request.recording === library.ids.queue,
     ).length,
-  ).toBe(1);
+  ).toBe(3);
   expect(
     evidence.requests.filter(
       (request) => request.recording === library.ids.retry,
     ).length,
-  ).toBe(3);
+  ).toBe(5);
   checkpoint("pause_queue");
   await pause(page);
   return {
     lost_acknowledgements: 1,
     retry_wire_attempts: attempts.length,
-    accepted_unavailable_commands: 2,
+    accepted_unavailable_commands: 6,
     exact_retry_bytes: true,
     fresh_explicit_request: true,
     pcm_decoded: true,

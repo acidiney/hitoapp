@@ -75,7 +75,8 @@ async fn manifest_declares_search_sources_metadata_and_artwork_without_starting_
             Capability::Search,
             Capability::Sources,
             Capability::Metadata,
-            Capability::Artwork
+            Capability::Artwork,
+            Capability::SourceLinks
         ])
     );
     assert!(manifest.authorization.is_none());

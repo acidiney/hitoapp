@@ -334,6 +334,40 @@ test("a remembered edition that cannot load falls back to your own tracks with T
   ).toBeNull();
 });
 
+test("the fallback for a remembered edition that cannot load never shows without your own tracks", async () => {
+  serve({ [savedRead]: () => Response.json({ status: "unavailable" }) });
+  const states: string[] = [];
+  const observer = new MutationObserver(() => {
+    const fallback = screen.queryByRole("heading", {
+      name: "Showing only your tracks",
+    });
+    if (!fallback) return;
+    const table = screen.queryByRole("table", { name: "Tracks" });
+    states.push(table ? "with tracks" : "without tracks");
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  render(
+    createElement(AlbumPage, {
+      errors: {},
+      native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+      user: { id: artistReviewAccount, username: "Listener", admin: false },
+      libraries: [],
+      playlists: [],
+      detail: {
+        ...albumDetail,
+        saved_edition: readyChoice,
+        tracks: { ...albumDetail.tracks, total: 200 },
+      },
+    }),
+  );
+  await screen.findByRole("heading", { name: "Showing only your tracks" });
+  await screen.findByRole("table", { name: "Tracks" });
+  observer.disconnect();
+  expect(states.length).toBeGreaterThan(0);
+  expect(states).not.toContain("without tracks");
+});
+
 test("while a remembered edition loads the header shows at once with a track list loading state and never the library table", async () => {
   let release!: () => void;
   const held = new Promise<void>((resolve) => {

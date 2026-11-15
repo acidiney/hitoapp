@@ -19,6 +19,7 @@ mod lifecycle;
 mod logging;
 mod manifest;
 mod music_search;
+mod source_links;
 mod sources;
 
 #[tokio::test]

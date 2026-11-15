@@ -81,6 +81,13 @@ test.each(["error", "timeout"] as const)(
       await act(async () => {
         await view.player().playQueue([recording]);
       });
+      const playingMedia = media.created[0];
+      expect(playingMedia.getAttribute("src")).not.toBeNull();
+      act(() => {
+        playingMedia.currentTime = 1;
+        playingMedia.dispatchEvent(new Event("timeupdate"));
+      });
+      expect(view.player().snapshot().desiredPlaying).toBeUndefined();
       const probe = images.created[0];
       images.size(probe);
       const lateLoad = images.holdLoad(probe);

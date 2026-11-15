@@ -713,6 +713,12 @@ test.each([
         await player.playQueue([first, next, after]);
       });
       const current = media.created[0];
+      expect(current.getAttribute("src")).toBe(audioPath(firstSource.id));
+      act(() => {
+        current.currentTime = 1;
+        current.dispatchEvent(new Event("timeupdate"));
+      });
+      expect(player.snapshot().desiredPlaying).toBeUndefined();
       await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(80_000);
@@ -761,6 +767,13 @@ test("three consecutive failed status reads stop polling", async () => {
     await act(async () => {
       await player.playQueue([first, next]);
     });
+    const current = media.created[0];
+    expect(current.getAttribute("src")).toBe(audioPath(firstSource.id));
+    act(() => {
+      current.currentTime = 1;
+      current.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(player.snapshot().desiredPlaying).toBeUndefined();
     await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
@@ -792,6 +805,13 @@ test("a next check beyond the lookahead deadline stops instead of polling", asyn
     await act(async () => {
       await player.playQueue([first, next]);
     });
+    const current = media.created[0];
+    expect(current.getAttribute("src")).toBe(audioPath(firstSource.id));
+    act(() => {
+      current.currentTime = 1;
+      current.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(player.snapshot().desiredPlaying).toBeUndefined();
     await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(120_000);

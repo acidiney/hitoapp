@@ -17,6 +17,7 @@ export class PlaybackStore {
     speedRange: null,
     volume: 1,
     connection: "ready",
+    retrying: null,
   };
   queueView: QueueView = {
     version: 0,

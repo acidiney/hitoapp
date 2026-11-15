@@ -151,7 +151,12 @@ test("the first Follow content revision reconciles reused provider tokens withou
     headers: { "x-hito-account": before.user.id },
     signal: expect.any(AbortSignal),
   });
-  expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Playlist updates" })).getByText(
+      "Ready",
+      { exact: true },
+    ),
+  ).toBeTruthy();
   expect(
     within(table)
       .getAllByRole("row")

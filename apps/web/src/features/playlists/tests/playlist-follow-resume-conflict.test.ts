@@ -116,7 +116,12 @@ test("a definite Resume conflict reloads the current review and a new operation 
     service_revision: 6,
   } satisfies Schema<"Action">);
   expect(statusReads).toBe(3);
-  expect(screen.getByText("Ready", { exact: true })).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Playlist updates" })).getByText(
+      "Ready",
+      { exact: true },
+    ),
+  ).toBeTruthy();
   expect(
     screen.queryByRole("region", { name: "Resume playlist updates" }),
   ).toBeNull();

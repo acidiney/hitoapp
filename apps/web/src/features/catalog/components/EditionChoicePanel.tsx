@@ -2,7 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { regionName } from "../../../shared/regionName";
 import CatalogCover from "../../artists/components/CatalogCover";
 import { suggestedSubtitle, groupSubtitle } from "../model/releaseMatch";
-import MatchPanel from "./MatchPanel";
+import MatchDialog from "./MatchDialog";
 
 function editionName(edition: Schema<"CatalogEditionSummary">) {
   return edition.disambiguation
@@ -29,6 +29,7 @@ export default function EditionChoicePanel({
   use,
   different,
   dismiss,
+  close,
   more,
 }: {
   title: string;
@@ -41,10 +42,11 @@ export default function EditionChoicePanel({
   use: () => void;
   different: () => void;
   dismiss: () => void;
+  close: () => void;
   more: (() => void) | null;
 }) {
   return (
-    <MatchPanel title={title} busy={pending}>
+    <MatchDialog title={title} busy={pending} onClose={close}>
       <div className="match-release">
         <span className="match-release-cover">
           <CatalogCover
@@ -109,6 +111,6 @@ export default function EditionChoicePanel({
           Just show my tracks
         </button>
       </div>
-    </MatchPanel>
+    </MatchDialog>
   );
 }

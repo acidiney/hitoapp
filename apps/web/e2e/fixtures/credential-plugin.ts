@@ -36,6 +36,7 @@ async function serveCredentialPlugin(
   const state = {
     expected: newToken(),
     manifestOpen: false,
+    addedCapabilities: [] as Schema<"Capability">[],
     health,
     openRoutes: new Set<string>(),
   };
@@ -70,7 +71,17 @@ async function serveCredentialPlugin(
       const manifest = (await upstream.json()) as Schema<"Manifest">;
       response
         .writeHead(upstream.status, { "content-type": "application/json" })
-        .end(JSON.stringify({ ...manifest, id: manifestId, name: label }));
+        .end(
+          JSON.stringify({
+            ...manifest,
+            id: manifestId,
+            name: label,
+            capabilities: [
+              ...manifest.capabilities,
+              ...state.addedCapabilities,
+            ],
+          }),
+        );
       return;
     }
     const outgoing: Record<string, string> = {};
