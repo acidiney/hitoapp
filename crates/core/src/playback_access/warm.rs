@@ -638,6 +638,30 @@ impl Registry {
             .await
     }
 
+    async fn wait_for_ticket(entry: &Entry) -> Option<Arc<crate::plugins::WarmTicket>> {
+        let mut entry_cancel = entry.canceled.subscribe();
+        loop {
+            let changed = entry.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if *entry_cancel.borrow() {
+                return None;
+            }
+            let ticket = {
+                let ticket = entry.ticket.lock().ok()?;
+                ticket.as_ref().cloned()
+            };
+            if ticket.is_some() {
+                return ticket;
+            }
+            tokio::select! {
+                biased;
+                _ = entry_cancel.changed() => return None,
+                _ = changed => {}
+            }
+        }
+    }
+
     async fn claim_with_owner(
         &self,
         actor: &Actor,
@@ -677,6 +701,14 @@ impl Registry {
             elapsed_ms = entry.started.elapsed().as_millis() as u64,
             "Playback lease warm claim decision"
         );
+        let ticket = if ticket.is_some() {
+            ticket
+        } else {
+            tokio::time::timeout_at(entry.start_deadline, Self::wait_for_ticket(&entry))
+                .await
+                .ok()
+                .flatten()
+        };
         let Some(ticket) = ticket else {
             self.retire_unclaimed(lease).await?;
             return Ok(None);
