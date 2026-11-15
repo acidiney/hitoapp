@@ -5,7 +5,7 @@ use std::time::Duration;
 const PAGE_SIZE: i64 = 20;
 const PAGE_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct PageSnapshot {
     ids: Vec<String>,
     next_after: Option<String>,
