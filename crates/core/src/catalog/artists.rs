@@ -156,6 +156,11 @@ fn selected(
     if sort == CatalogSort::Year {
         return Err(Error::Invalid("Artists cannot be sorted by year".into()));
     }
+    if matches!(sort, CatalogSort::Album | CatalogSort::Duration) {
+        return Err(Error::Invalid(
+            "Artists cannot be sorted by album or duration".into(),
+        ));
+    }
     let mut query = ChosenRecordings::new(actor);
     query.push(", selected AS (SELECT c.*, c.rowid AS added_rank FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;

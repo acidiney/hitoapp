@@ -25674,7 +25674,9 @@
           "title",
           "recent",
           "artist",
-          "year"
+          "year",
+          "album",
+          "duration"
         ]
       },
       "CatalogTrackKind": {

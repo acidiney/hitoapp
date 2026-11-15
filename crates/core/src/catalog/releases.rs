@@ -156,7 +156,7 @@ impl Catalog {
         query.push(SUMMARY);
         query
             .push(" GROUP BY a.id ORDER BY ")
-            .push(summary_order(browse.sort.unwrap_or_default()));
+            .push(summary_order(browse.sort.unwrap_or_default())?);
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         tracing::debug!(total, offset, limit, "Album page loaded");
         Ok(Page {
@@ -271,8 +271,17 @@ pub(crate) async fn release_contains(
         .is_some())
 }
 
-fn selection_order(sort: CatalogSort) -> String {
-    match sort {
+fn track_only(sort: CatalogSort) -> Error {
+    let name = if sort == CatalogSort::Album {
+        "album"
+    } else {
+        "duration"
+    };
+    Error::Invalid(format!("Albums cannot be sorted by {name}"))
+}
+
+fn selection_order(sort: CatalogSort) -> Result<String> {
+    Ok(match sort {
         CatalogSort::Title => "a.title COLLATE NOCASE, a.id".into(),
         CatalogSort::Recent => "a.rowid DESC, a.id".into(),
         CatalogSort::Artist => {
@@ -282,18 +291,20 @@ fn selection_order(sort: CatalogSort) -> String {
             "{year} IS NULL, {year} DESC, a.title COLLATE NOCASE, a.id",
             year = release_year!()
         ),
-    }
+        CatalogSort::Album | CatalogSort::Duration => return Err(track_only(sort)),
+    })
 }
 
-fn summary_order(sort: CatalogSort) -> &'static str {
-    match sort {
+fn summary_order(sort: CatalogSort) -> Result<&'static str> {
+    Ok(match sort {
         CatalogSort::Title => "a.title COLLATE NOCASE, a.id",
         CatalogSort::Recent => "a.added_rank DESC, a.id",
         CatalogSort::Artist => {
             "a.artist IS NULL, a.artist COLLATE NOCASE, a.title COLLATE NOCASE, a.id"
         }
         CatalogSort::Year => "year IS NULL, year DESC, a.title COLLATE NOCASE, a.id",
-    }
+        CatalogSort::Album | CatalogSort::Duration => return Err(track_only(sort)),
+    })
 }
 
 fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {
@@ -390,7 +401,7 @@ pub(crate) fn selected(
         let (offset, limit) = browse.bounds();
         query
             .push(" ORDER BY ")
-            .push(selection_order(browse.sort.unwrap_or_default()))
+            .push(selection_order(browse.sort.unwrap_or_default())?)
             .push(" LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
