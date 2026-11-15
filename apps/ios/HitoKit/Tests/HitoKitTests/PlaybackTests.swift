@@ -167,8 +167,27 @@ import Testing
             "GET /api/v1/recordings/r1/playback-sources": .json(200, none),
             "POST /api/v1/recordings/r1/sources/resolve": .json(200, #"{"outcome":"no_suitable_source","sources":[]}"#),
         ])
-        await #expect(throws: Playback.Problem.notFound("No source found")) {
+        await #expect(throws: Playback.Problem.notFound("No source found", retryable: true)) {
             try await playback(fake).acquire("r1")
         }
+    }
+    @Test func onlyMissesThatMayPassAreRetried() async {
+        let none = #"[{"id":"s0","recording_id":"r1","provider":"youtube","label":"YouTube","ready":false,"can_prepare":true}]"#
+        func miss(_ answer: FakeServer.Answer) async -> Playback.Problem? {
+            let fake = FakeServer(routes: [
+                "GET /api/v1/recordings/r1/playback-sources": .json(200, none),
+                "POST /api/v1/recordings/r1/sources/resolve": answer,
+            ])
+            do {
+                _ = try await playback(fake).acquire("r1")
+                return nil
+            } catch {
+                return error as? Playback.Problem
+            }
+        }
+        #expect(await miss(.json(200, #"{"outcome":"provider_unavailable","sources":[]}"#)) == .notFound("The music service didn't answer", retryable: true))
+        #expect(await miss(.json(200, #"{"outcome":"protected_choice","sources":[]}"#)) == .notFound("You chose a source for this track. Change it in Source.", retryable: false))
+        #expect(await miss(.json(200, #"{"outcome":"cancelled","sources":[]}"#)) == .notFound("The search was cancelled", retryable: false))
+        #expect(await miss(.json(404, #"{"error":"Resource not found"}"#)) == .notFound("No service knows this track", retryable: false))
     }
 }

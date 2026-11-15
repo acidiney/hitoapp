@@ -40,6 +40,21 @@ import Testing
         #expect(QuickTile.mixed(albums: Array(albums.prefix(1)), playlists: []).map(\.title) == ["Album a1", "Liked tracks"])
     }
 
+    @Test func recentlyPlayedKeepsTheServerOrder() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/home": .json(200, body)])
+        let summary = try #require(try await home(fake).load())
+        #expect(summary.recentAlbums.map(\.id) == ["a1", "a2", "a3", "a4", "a5"])
+        #expect(summary.hasMusic)
+    }
+
+    @Test func anAccountWithNoMusicAndNothingToJumpBackToIsEmpty() async throws {
+        let empty = #"{"has_music":false,"liked_count":0,"recent_albums":[],"recently_added":[],"unheard":[]}"#
+        let fake = FakeServer(routes: ["GET /api/v1/home": .json(200, empty)])
+        let summary = try #require(try await home(fake).load())
+        #expect(summary.isEmpty(playlists: []))
+        #expect(!summary.isEmpty(playlists: [Playlist(id: "p1", name: "Mix", kind: .local)]))
+    }
+
     @Test func anOlderServerWithoutHomeFallsBack() async throws {
         let fake = FakeServer(routes: ["GET /api/v1/home": .json(404, #"{"error":"Resource not found"}"#)])
         #expect(try await home(fake).load() == nil)
