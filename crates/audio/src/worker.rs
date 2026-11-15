@@ -172,8 +172,31 @@ pub(crate) fn run(
             epoch = reposition(&mut decoder, &state, target)?;
             finished = false;
             output_generation += 1;
-            let (next, replacement) =
-                Output::start(format, state.clone(), audio_id, output_generation)?;
+            let (next, replacement) = loop {
+                match Output::start(format, state.clone(), audio_id, output_generation) {
+                    Ok(started) => break started,
+                    Err(error)
+                        if state.rebuild_request.load(Ordering::Acquire) == output_generation =>
+                    {
+                        resets += 1;
+                        if resets > 3 {
+                            tracing::warn!(
+                                event = "audio_output_failed",
+                                audio_id,
+                                generation = output_generation,
+                                reason = "reset_budget",
+                                resets,
+                                current_xruns = reported,
+                                terminal = true,
+                                "Audio output recovery could not continue"
+                            );
+                            return Err(error);
+                        }
+                        output_generation += 1;
+                    }
+                    Err(error) => return Err(error),
+                }
+            };
             producer = next;
             buffering = Buffering::new(producer.buffer().capacity());
             output = Some(replacement);
@@ -212,7 +235,7 @@ pub(crate) fn run(
         let block = match decoder.read_until(|| {
             state.stopped.load(Ordering::Acquire)
                 || state.seek_requested.load(Ordering::Acquire)
-                || state.xruns.load(Ordering::Acquire) != xruns
+                || state.recovery_due(xruns, output_generation)
                 || state.error().is_some()
         }) {
             Ok(block) => block,
@@ -241,7 +264,7 @@ pub(crate) fn run(
                     &mut producer,
                     &commands,
                     &state,
-                    xruns,
+                    (xruns, output_generation),
                     &mut deferred,
                     &mut buffering,
                 )? {
@@ -260,7 +283,7 @@ pub(crate) fn run(
                 &mut producer,
                 &commands,
                 &state,
-                xruns,
+                (xruns, output_generation),
                 &mut deferred,
                 &mut buffering,
             )? {
@@ -295,10 +318,11 @@ fn send(
     producer: &mut Producer<Frame>,
     commands: &Receiver<Control>,
     state: &State,
-    xruns: u64,
+    recovery: (u64, u64),
     deferred: &mut Deferred,
     buffering: &mut Buffering,
 ) -> Result<Option<Control>> {
+    let (xruns, generation) = recovery;
     loop {
         if state.stopped.load(Ordering::Acquire) {
             return Ok(Some(Control::Stop));
@@ -313,7 +337,7 @@ fn send(
         {
             return Ok(Some(control));
         }
-        if state.xruns.load(Ordering::Acquire) != xruns {
+        if state.recovery_due(xruns, generation) {
             return Ok(Some(Control::Recover));
         }
         match producer.push(frame) {
@@ -383,5 +407,65 @@ fn defer(control: Control, deferred: &mut Deferred) -> Option<Control> {
             None
         }
         control => Some(control),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{tempo::Tempo, test_support::wave};
+    use std::sync::mpsc;
+
+    #[test]
+    fn a_full_output_ring_wakes_for_a_rebuild_request_of_its_generation() {
+        let decoder = Tempo::new(Converter::with_output(
+            Decoder::open(wave(48_000, 2, 4_800, |_, _| 0)).unwrap(),
+            48_000,
+            2,
+        ));
+        let format = decoder.format();
+        let mut deferred = Deferred {
+            speed: None,
+            handoff: decoder.handoff(),
+            target: Target {
+                sample_rate: 48_000,
+                channels: 2,
+            },
+            format,
+        };
+        let (mut producer, _consumer) = rtrb::RingBuffer::new(1);
+        let frame = Frame::End {
+            position: 0,
+            epoch: 1,
+            track: 0,
+        };
+        producer.push(frame).unwrap();
+        let mut buffering = Buffering::new(1);
+        let state = Arc::new(State::new());
+        state.output_generation.store(2, Ordering::Release);
+        state.rebuild_request.store(2, Ordering::Release);
+        let (_commands_open, commands) = mpsc::sync_channel::<Control>(1);
+        let (result, outcome) = mpsc::channel();
+        let sender_state = state.clone();
+        let sender = std::thread::spawn(move || {
+            let woke = send(
+                frame,
+                &mut producer,
+                &commands,
+                &sender_state,
+                (0, 2),
+                &mut deferred,
+                &mut buffering,
+            );
+            let _ = result.send(matches!(woke, Ok(Some(Control::Recover))));
+        });
+        let woke = outcome.recv_timeout(Duration::from_secs(3));
+        state.stopped.store(true, Ordering::Release);
+        sender.join().unwrap();
+        assert_eq!(
+            woke,
+            Ok(true),
+            "a full ring must wake for its rebuild request"
+        );
     }
 }

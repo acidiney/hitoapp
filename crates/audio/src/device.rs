@@ -184,16 +184,7 @@ impl Output {
             );
             return Err(Error::Output);
         }
-        let deadline = Instant::now() + Duration::from_secs(2);
-        while state.callbacks.load(Ordering::Acquire) < 2 {
-            if let Some(error) = state.error() {
-                return Err(error);
-            }
-            if Instant::now() >= deadline {
-                return Err(Error::OutputUnavailable);
-            }
-            thread::sleep(Duration::from_millis(1));
-        }
+        await_callbacks(&state, generation, Instant::now() + Duration::from_secs(2))?;
         if let Some(error) = state.error() {
             return Err(error);
         }
@@ -247,6 +238,22 @@ where
             Some(Duration::from_secs(2)),
         )
         .map_err(|_| Error::OutputUnavailable)
+}
+
+fn await_callbacks(state: &State, generation: u64, deadline: Instant) -> Result<()> {
+    while state.callbacks.load(Ordering::Acquire) < 2 {
+        if let Some(error) = state.error() {
+            return Err(error);
+        }
+        if state.rebuild_request.load(Ordering::Acquire) == generation {
+            return Err(Error::Output);
+        }
+        if Instant::now() >= deadline {
+            return Err(Error::OutputUnavailable);
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+    Ok(())
 }
 
 fn failure_kind(kind: cpal::ErrorKind) -> &'static str {
@@ -423,6 +430,17 @@ mod tests {
         assert_eq!(state.error(), None);
         assert_eq!(state.rebuild_request.load(Ordering::Acquire), 2);
         assert_eq!(state.xruns.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn a_requested_rebuild_ends_a_replacements_startup_without_waiting_for_callbacks() {
+        let state = active(2, 1);
+        state.rebuild_request.store(2, Ordering::Release);
+        let started = Instant::now();
+        let result = await_callbacks(&state, 2, started + Duration::from_secs(2));
+        let waited = started.elapsed();
+        assert!(matches!(result, Err(Error::Output)), "{result:?}");
+        assert!(waited < Duration::from_secs(1), "{waited:?}");
     }
 
     #[test]

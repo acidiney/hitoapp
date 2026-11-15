@@ -94,6 +94,11 @@ impl State {
         self.playing.store(false, Ordering::Release);
     }
 
+    pub fn recovery_due(&self, xruns: u64, generation: u64) -> bool {
+        self.xruns.load(Ordering::Acquire) != xruns
+            || self.rebuild_request.load(Ordering::Acquire) == generation
+    }
+
     pub fn error(&self) -> Option<Error> {
         match self.failure.load(Ordering::Acquire) {
             0 => None,
