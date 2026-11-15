@@ -1,6 +1,6 @@
 use hito_core::test_support::support;
 
-use hito_core::{Actor, Browse, CatalogSort, Error, Search, Services};
+use hito_core::{Action, Actor, Browse, CatalogSort, Credentials, Error, Search, Services};
 use lofty::{
     config::WriteOptions,
     prelude::{Accessor, ItemKey, TagExt},
@@ -389,4 +389,99 @@ async fn albums_and_artists_reject_track_only_sorts() {
             .unwrap();
         assert!(matches!(artists, Error::Invalid(_)));
     }
+}
+
+async fn album_order(hito: &Services, actor: &Actor) -> Vec<String> {
+    let mut titles = Vec::new();
+    let mut total = None;
+    loop {
+        let page = hito
+            .catalog
+            .recordings(
+                actor,
+                Search {
+                    sort: Some(CatalogSort::Album),
+                    offset: Some(titles.len() as i64),
+                    limit: Some(2),
+                    ..Search::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(*total.get_or_insert(page.total), page.total);
+        if page.items.is_empty() {
+            return titles;
+        }
+        titles.extend(page.items.into_iter().map(|item| item.title));
+    }
+}
+
+#[tokio::test]
+async fn an_untagged_album_sorts_last_while_a_tagged_unknown_album_sorts_by_name() {
+    let (_dir, hito, actor, library, music) = library("sort-unknown-tag").await;
+    write_tone(&music, "Echo", Some("Alpha album"), 8000, 1);
+    write_tone(&music, "hotel", Some("Unknown album"), 8000, 2);
+    write_tone(&music, "india", Some("Zeta album"), 8000, 3);
+    write_tone(&music, "delta", Some("Zulu album"), 8000, 4);
+    write_tone(&music, "foxtrot", None, 8000, 5);
+    scan(&hito, &actor, &library).await;
+    assert_eq!(
+        album_order(&hito, &actor).await,
+        ["Echo", "hotel", "india", "delta", "foxtrot"]
+    );
+}
+
+#[tokio::test]
+async fn a_personal_release_title_of_unknown_album_sorts_by_name_for_that_account_only() {
+    let (_dir, hito, actor, library, music) = library("sort-unknown-personal").await;
+    write_tone(&music, "Echo", Some("Alpha album"), 8000, 1);
+    write_tone(&music, "india", Some("Zeta album"), 8000, 2);
+    write_tone(&music, "delta", Some("Zulu album"), 8000, 3);
+    write_tone(&music, "foxtrot", None, 8000, 4);
+    scan(&hito, &actor, &library).await;
+    let credentials = || Credentials {
+        username: "listener".into(),
+        password: "sort listener password".into(),
+    };
+    let listener = hito
+        .identity
+        .create_user(&actor, credentials())
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(&actor, &library, &listener.id, true)
+        .await
+        .unwrap();
+    let session = hito.identity.login(credentials()).await.unwrap();
+    let listener = hito.identity.authenticate(&session.token).await.unwrap();
+    let delta = hito
+        .catalog
+        .recordings(
+            &actor,
+            Search {
+                q: Some("delta".into()),
+                ..Search::default()
+            },
+        )
+        .await
+        .unwrap()
+        .items
+        .remove(0);
+    support::synchronize(
+        &hito,
+        &actor,
+        vec![Action::ReleaseTitleSet {
+            release_id: uuid::Uuid::parse_str(delta.release_id.as_deref().unwrap()).unwrap(),
+            title: "Unknown album".into(),
+        }],
+    )
+    .await;
+    assert_eq!(
+        album_order(&hito, &actor).await,
+        ["Echo", "delta", "india", "foxtrot"]
+    );
+    assert_eq!(
+        album_order(&hito, &listener).await,
+        ["Echo", "india", "delta", "foxtrot"]
+    );
 }
