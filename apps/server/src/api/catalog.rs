@@ -8,7 +8,9 @@ use axum::{
     extract::{Path, Request, State},
     response::Response,
 };
-use hito_core::{AudioStream, Library, Page, Recording, Search, Services, Source};
+use hito_core::{
+    AudioStream, Library, Page, Recording, RecordingAvailability, Search, Services, Source,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -31,8 +33,12 @@ pub async fn libraries(
     ("q" = Option<String>, Query), ("liked" = Option<bool>, Query), ("artist" = Option<String>, Query),
     ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query), ("library" = Option<String>, Query),
     ("sort" = Option<hito_core::CatalogSort>, Query),
+    ("availability" = Option<hito_core::RecordingAvailability>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = RecordingPage), (status = 401, body = ErrorResponse),
+    (status = 200, body = RecordingPage, headers((
+        "Hito-Recordings-Availability" = String,
+        description = "The applied availability filter: all, available_or_service or no_source"
+    ))), (status = 401, body = ErrorResponse),
     (status = 400, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
@@ -40,11 +46,20 @@ pub async fn recordings(
     State(services): State<Services>,
     Account(actor): Account,
     QueryParams(search): QueryParams<Search>,
-) -> ApiResult<Json<RecordingPage>> {
-    Ok(Json(RecordingPage(
-        services.catalog.recordings(&actor, search).await?,
-    )))
+) -> ApiResult<([(&'static str, &'static str); 1], Json<RecordingPage>)> {
+    let applied = match search.availability {
+        None => "all",
+        Some(RecordingAvailability::AvailableOrService) => "available_or_service",
+        Some(RecordingAvailability::NoSource) => "no_source",
+    };
+    let page = services.catalog.recordings(&actor, search).await?;
+    Ok((
+        [(RECORDINGS_AVAILABILITY, applied)],
+        Json(RecordingPage(page)),
+    ))
 }
+
+const RECORDINGS_AVAILABILITY: &str = "hito-recordings-availability";
 
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
