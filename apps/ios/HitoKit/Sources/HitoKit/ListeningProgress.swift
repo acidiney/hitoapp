@@ -13,7 +13,20 @@ public struct ListeningProgress: Sendable {
 
     struct Operation: Encodable {
         let id: String
-        let action: Action
+        let action: any Encodable
+
+        enum CodingKeys: String, CodingKey { case id, action }
+
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(id, forKey: .id)
+            try values.encode(action, forKey: .action)
+        }
+    }
+
+    struct ChapterAction: Encodable {
+        let kind = "audiobook_chapter_set"
+        let chapter: AudiobookAnchor
     }
 
     struct Action: Encodable {
@@ -39,11 +52,14 @@ public struct ListeningProgress: Sendable {
         self.device = device
     }
 
-    public func save(_ recordingId: String, position: Double, speed: Double) async throws {
+    public func save(_ recordingId: String, position: Double, speed: Double, chapter: AudiobookAnchor? = nil) async throws {
         let operation = UUID().uuidString.lowercased()
         let action = Action(recordingId: recordingId, positionMs: Int((position * 1000).rounded(.down)), speed: speed)
-        let receipt = try await api.post(["api", "v1", "sync"], body: Batch(deviceId: device, operations: [Operation(id: operation, action: action)]), as: Receipt.self)
-        guard receipt.acknowledged.contains(where: { $0.lowercased() == operation }) else { throw Likes.Problem.notAcknowledged }
+        var operations = [Operation(id: operation, action: action)]
+        if let chapter { operations.append(Operation(id: UUID().uuidString.lowercased(), action: ChapterAction(chapter: chapter))) }
+        let receipt = try await api.post(["api", "v1", "sync"], body: Batch(deviceId: device, operations: operations), as: Receipt.self)
+        let acknowledged = Set(receipt.acknowledged.map { $0.lowercased() })
+        guard operations.allSatisfy({ acknowledged.contains($0.id) }) else { throw Likes.Problem.notAcknowledged }
     }
 }
 

@@ -9,6 +9,7 @@ struct TrackView: View {
     @State private var saving = false
     @State private var problem: String?
     @State private var details: TrackMetadata.Details?
+    @State private var changingLyrics = false
 
     var body: some View {
         ScrollView {
@@ -18,7 +19,20 @@ struct TrackView: View {
                 FindAudioCard(track: track, prominent: !(choice?.entries.contains(where: \.ready) ?? track.isPlayable)) {
                     Task { await load() }
                 }
+                if choice?.entries.contains(where: { !$0.local }) == true {
+                    SavedCopyCard(track: track)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Lyrics").font(Theme.section).accessibilityAddTraits(.isHeader)
+                    Text("Choose where this track's lyrics come from, or find a different match.").font(Theme.small).foregroundStyle(Theme.soft)
+                    TextAction(title: "Lyrics for this track") { changingLyrics = true }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
                 TrackDetailsCard(track: track, details: $details)
+                CopiesCard(track: track)
+                SourceHistoryCard(track: track)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -26,13 +40,14 @@ struct TrackView: View {
         .scrollIndicators(.hidden)
         .task { await load() }
         .refreshable { await load() }
+        .sheet(isPresented: $changingLyrics) { LyricsSheet(track: track) {} }
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
             Cover(path: track.artworkPath, size: 96, radius: 10)
             VStack(alignment: .leading, spacing: 4) {
-                Text(details?.title.value ?? track.title).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                Text(details?.title.value ?? track.title).font(Theme.title).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
                 Text(details?.artist.value ?? track.artist).foregroundStyle(Theme.soft).lineLimit(2)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
