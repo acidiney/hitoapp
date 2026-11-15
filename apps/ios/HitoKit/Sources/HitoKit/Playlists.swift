@@ -22,6 +22,7 @@ public struct PlaylistDetail: Equatable, Sendable {
     public let playlist: Playlist
     public let origin: String
     public let tracks: [Track]
+    public var entries: [PlaylistDraft.Slot] = []
 
     public var ready: Int { tracks.filter(\.isPlayable).count }
 }
@@ -32,6 +33,7 @@ public struct Playlists: Sendable {
 
     struct Entry: Decodable {
         let entryId: String
+        let position: Int
         let recordingId: String?
         let title: String
         let artist: String
@@ -43,7 +45,7 @@ public struct Playlists: Sendable {
         let liked: Bool
 
         enum CodingKeys: String, CodingKey {
-            case title, artist, album, available, liked
+            case title, artist, album, available, liked, position
             case entryId = "entry_id"
             case recordingId = "recording_id"
             case releaseId = "release_id"
@@ -90,7 +92,7 @@ public struct Playlists: Sendable {
         case (.local, .some(let source)): "A copy of \(source), yours to edit"
         case (.local, .none): "Your playlist"
         }
-        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track))
+        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track), entries: detail.entries.map { PlaylistDraft.Slot(id: $0.entryId, position: $0.position) })
     }
 
     public struct Unready: Equatable, Sendable {
