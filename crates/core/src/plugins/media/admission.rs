@@ -1,7 +1,10 @@
 use crate::Error;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, Weak, atomic::{AtomicBool, AtomicU64, Ordering}},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     time::Duration,
 };
 use tokio::sync::watch;
@@ -41,7 +44,14 @@ impl Admission {
         account: &str,
         accounts: &crate::admission::Accounts,
         slots: &Arc<tokio::sync::Semaphore>,
-    ) -> Result<(Arc<WarmTicket>, tokio::sync::OwnedSemaphorePermit, tokio::sync::OwnedSemaphorePermit), Error> {
+    ) -> Result<
+        (
+            Arc<WarmTicket>,
+            tokio::sync::OwnedSemaphorePermit,
+            tokio::sync::OwnedSemaphorePermit,
+        ),
+        Error,
+    > {
         let mut state = self
             .state
             .lock()
@@ -82,7 +92,11 @@ impl Admission {
         Ok((ticket, account_permit, global_permit))
     }
 
-    pub(super) fn active(&self, account: &str, slots: &tokio::sync::Semaphore) -> Result<(Active<'_>, Vec<watch::Receiver<bool>>), Error> {
+    pub(super) fn active(
+        &self,
+        account: &str,
+        slots: &tokio::sync::Semaphore,
+    ) -> Result<(Active<'_>, Vec<watch::Receiver<bool>>), Error> {
         let mut state = self
             .state
             .lock()
@@ -101,7 +115,13 @@ impl Admission {
                 waiting.push(ticket.done.subscribe());
             }
         }
-        Ok((Active { admission: self, account: account.into() }, waiting))
+        Ok((
+            Active {
+                admission: self,
+                account: account.into(),
+            },
+            waiting,
+        ))
     }
 
     pub(super) fn preempt_global(&self) -> Result<Vec<watch::Receiver<bool>>, Error> {
@@ -157,7 +177,6 @@ impl WarmTicket {
     pub(crate) fn finish_preparation(&self) {
         self.preparing.store(false, Ordering::Release);
     }
-
 }
 
 impl Drop for WarmTicket {
@@ -196,4 +215,3 @@ pub(super) async fn await_preemptions(
     .await
     .unwrap_or(false)
 }
-

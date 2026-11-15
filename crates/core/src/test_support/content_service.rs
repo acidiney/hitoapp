@@ -233,10 +233,7 @@ async fn audio(
             let total = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
             let Some(selection) = parse_byte_range(range).and_then(|range| range.resolve(total))
             else {
-                headers.insert(
-                    "content-range",
-                    format!("bytes */{total}").parse().unwrap(),
-                );
+                headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
                 headers.insert("content-length", "0".parse().unwrap());
                 return (StatusCode::RANGE_NOT_SATISFIABLE, headers, Vec::new()).into_response();
             };

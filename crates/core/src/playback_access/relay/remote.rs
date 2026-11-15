@@ -1,11 +1,17 @@
 use super::pace::{Meter, StreamPace};
 use crate::{Error, Result};
 use bytes::Bytes;
-use futures_util::{FutureExt, future::{BoxFuture, Shared}};
+use futures_util::{
+    FutureExt,
+    future::{BoxFuture, Shared},
+};
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, Mutex as StdMutex, Weak, atomic::{AtomicU64, Ordering}},
+    sync::{
+        Arc, Mutex as StdMutex, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit, watch};
@@ -37,7 +43,10 @@ impl MonitorRegistry {
         stop: watch::Sender<bool>,
         monitor: impl Future<Output = ()> + Send + 'static,
     ) -> Result<u64> {
-        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.closed {
             return Err(Error::NotFound);
         }
@@ -51,12 +60,22 @@ impl MonitorRegistry {
         .boxed()
         .shared();
         state.work.retain(|_, work| !work.finished.is_finished());
-        state.work.insert(id, MonitorWork { stop, finished, completion });
+        state.work.insert(
+            id,
+            MonitorWork {
+                stop,
+                finished,
+                completion,
+            },
+        );
         Ok(id)
     }
 
     fn stop(&self, id: u64) {
-        let state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(work) = state.work.get(&id) {
             work.stop.send_replace(true);
         }
@@ -64,7 +83,10 @@ impl MonitorRegistry {
 
     async fn stop_and_join(&self, id: u64) -> Result<()> {
         let completion = {
-            let state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             state.work.get(&id).map(|work| {
                 work.stop.send_replace(true);
                 work.completion.clone()
@@ -72,7 +94,10 @@ impl MonitorRegistry {
         };
         if let Some(completion) = completion {
             completion.await.map_err(|_| Error::NotFound)?;
-            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             state.work.remove(&id);
         }
         Ok(())
@@ -80,17 +105,27 @@ impl MonitorRegistry {
 
     pub(crate) async fn close(&self) -> Result<()> {
         let completions = {
-            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             state.closed = true;
-            state.work.values().map(|work| {
-                work.stop.send_replace(true);
-                work.completion.clone()
-            }).collect::<Vec<_>>()
+            state
+                .work
+                .values()
+                .map(|work| {
+                    work.stop.send_replace(true);
+                    work.completion.clone()
+                })
+                .collect::<Vec<_>>()
         };
         for completion in completions {
             completion.await.map_err(|_| Error::NotFound)?;
         }
-        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.work.retain(|_, work| !work.finished.is_finished());
         Ok(())
     }
@@ -162,41 +197,44 @@ impl RemoteAudio {
         let guard = authority.clone();
         let mut stop = cancel.subscribe();
         let monitor = async move {
-                loop {
-                    let stopping = tokio::select! {
-                        biased;
-                        _ = stop.changed() => true,
-                        _ = tokio::time::sleep(Duration::from_millis(250)) => {
-                            let checked = tokio::select! {
-                                biased;
-                                _ = stop.changed() => None,
-                                checked = guard.check() => Some(checked),
-                            };
-                            match checked {
-                                Some(Ok(())) => false,
-                                Some(Err(_)) => {
-                                    let _ = monitor_cancel.send(true);
-                                    release_connection(&weak).await;
-                                    tracing::debug!(
-                                        event = "remote_audio_authority_withdrawn",
-                                        "Remote audio authority withdrawn"
-                                    );
-                                    true
-                                }
-                                None => true,
+            loop {
+                let stopping = tokio::select! {
+                    biased;
+                    _ = stop.changed() => true,
+                    _ = tokio::time::sleep(Duration::from_millis(250)) => {
+                        let checked = tokio::select! {
+                            biased;
+                            _ = stop.changed() => None,
+                            checked = guard.check() => Some(checked),
+                        };
+                        match checked {
+                            Some(Ok(())) => false,
+                            Some(Err(_)) => {
+                                let _ = monitor_cancel.send(true);
+                                release_connection(&weak).await;
+                                tracing::debug!(
+                                    event = "remote_audio_authority_withdrawn",
+                                    "Remote audio authority withdrawn"
+                                );
+                                true
                             }
+                            None => true,
                         }
-                    };
-                    if stopping {
-                        release_connection(&weak).await;
-                        break;
                     }
+                };
+                if stopping {
+                    release_connection(&weak).await;
+                    break;
                 }
             }
-            .instrument(tracing::Span::current())
-            .with_current_subscriber();
+        }
+        .instrument(tracing::Span::current())
+        .with_current_subscriber();
         let (warm_monitor, monitor_task) = if let Some(monitors) = warm_monitors {
-            (Some((monitors.clone(), monitors.spawn(cancel.clone(), monitor)?)), None)
+            (
+                Some((monitors.clone(), monitors.spawn(cancel.clone(), monitor)?)),
+                None,
+            )
         } else {
             (None, Some(tokio::spawn(monitor)))
         };
@@ -235,11 +273,9 @@ impl RemoteAudio {
                 },
             };
             match read {
-                Ok(Some(bytes))
-                    if bytes.len() > 65536 && warm_read =>
-                {
-                    Err(Error::Upstream("The audio service returned an oversized chunk"))
-                }
+                Ok(Some(bytes)) if bytes.len() > 65536 && warm_read => Err(Error::Upstream(
+                    "The audio service returned an oversized chunk",
+                )),
                 Ok(Some(bytes)) => self
                     .meter
                     .record(waiting.elapsed(), bytes.len())

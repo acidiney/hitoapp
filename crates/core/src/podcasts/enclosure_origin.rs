@@ -38,10 +38,7 @@ struct PodcastEnclosure {
 }
 
 impl EnclosureOrigin {
-    pub(crate) fn new(
-        store: Store,
-        remote: RemoteHttp,
-    ) -> Self {
+    pub(crate) fn new(store: Store, remote: RemoteHttp) -> Self {
         Self {
             store,
             remote,

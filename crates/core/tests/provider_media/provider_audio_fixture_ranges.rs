@@ -48,7 +48,10 @@ async fn explicit_range_end_is_bounded_within_maximum_chunk() {
         Ok(Ok(response)) => Some(response),
         Ok(Err(_)) | Err(_) => None,
     };
-    assert!(result.is_some(), "the owned fake range request must complete");
+    assert!(
+        result.is_some(),
+        "the owned fake range request must complete"
+    );
     let (status, content_range, content_length, body) = result.unwrap();
     assert_eq!(status, StatusCode::PARTIAL_CONTENT);
     assert_eq!(content_range.as_deref(), Some("bytes 0-1/256"));
