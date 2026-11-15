@@ -1,7 +1,6 @@
 use super::{ConversionSlot, QualityRequest};
 use crate::{AudioFile, Error, MediaTools, PlaybackSource, Result, media_command};
 use bytes::Bytes;
-use std::sync::Arc;
 use std::{
     ffi::OsString,
     path::Path,
@@ -9,8 +8,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::{Child, ChildStdin, ChildStdout},
+    io::AsyncReadExt,
+    process::{Child, ChildStdout},
     sync::{mpsc, watch},
     task::JoinHandle,
 };
@@ -21,83 +20,15 @@ const START_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 const EXIT_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub(crate) trait PositionedAudio: Send + Sync + 'static {
-    fn read_at(&self, offset: u64, count: usize) -> Result<Bytes>;
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum Input<'a> {
-    Descriptor(&'a AudioFile),
-    Positioned(&'a Arc<dyn PositionedAudio>),
-}
-
-impl Input<'_> {
-    pub(super) fn stdin(&self) -> Result<Stdio> {
-        match self {
-            Self::Descriptor(file) => file
-                .file
-                .try_clone()
-                .map(Stdio::from)
-                .map_err(|_| unfinished()),
-            Self::Positioned(_) => Ok(Stdio::piped()),
-        }
-    }
-
-    pub(super) fn feeder(&self, child: &mut Child) -> Option<Feeder> {
-        match self {
-            Self::Descriptor(_) => None,
-            Self::Positioned(source) => child.stdin.take().map(|stdin| Feeder {
-                stdin,
-                source: (*source).clone(),
-            }),
-        }
-    }
-}
-
-pub(super) struct Feeder {
-    stdin: ChildStdin,
-    source: Arc<dyn PositionedAudio>,
-}
-
-impl Feeder {
-    async fn run(mut self, mut stop: watch::Receiver<bool>) -> Result<()> {
-        let mut offset = 0;
-        loop {
-            if *stop.borrow() {
-                return Ok(());
-            }
-            let source = self.source.clone();
-            let bytes = tokio::task::spawn_blocking(move || source.read_at(offset, CHUNK))
-                .await
-                .map_err(|_| unfinished())??;
-            if bytes.is_empty() {
-                return Ok(());
-            }
-            offset += bytes.len() as u64;
-            tokio::select! {
-                biased;
-                _ = stop.changed() => return Ok(()),
-                written = self.stdin.write_all(&bytes) => if written.is_err() { return Ok(()); },
-            }
-        }
-    }
-}
-
-pub(super) async fn fed<T, Work>(
-    feeder: Option<Feeder>,
-    work: impl FnOnce(watch::Sender<bool>) -> Work,
-) -> (T, Result<()>)
-where
-    Work: Future<Output = T>,
-{
-    let (stop, stopped) = watch::channel(false);
-    let feeding = async move {
-        match feeder {
-            Some(feeder) => feeder.run(stopped).await,
-            None => Ok(()),
-        }
-    };
-    tokio::join!(work(stop), feeding)
+pub(super) fn stdin_of(file: &AudioFile) -> Result<Stdio> {
+    use std::io::{Seek, SeekFrom};
+    (&file.file)
+        .seek(SeekFrom::Start(0))
+        .map_err(|_| unfinished())?;
+    file.file
+        .try_clone()
+        .map(Stdio::from)
+        .map_err(|_| unfinished())
 }
 
 pub(crate) async fn cancelled(cancel: &mut watch::Receiver<bool>) {
@@ -129,7 +60,7 @@ pub(super) async fn retire(child: &mut Child) {
 
 pub(super) async fn start(
     tools: &MediaTools,
-    input: Input<'_>,
+    file: &AudioFile,
     request: QualityRequest,
     authority: PlaybackSource,
     slot: ConversionSlot,
@@ -162,10 +93,9 @@ pub(super) async fn start(
         .map(OsString::from),
     );
     let mut command = media_command::command(&tools.ffmpeg, arguments);
-    command.stdin(input.stdin()?).stderr(Stdio::null());
+    command.stdin(stdin_of(file)?).stderr(Stdio::null());
     let mut child = command.spawn().map_err(spawn_error)?;
     let stdout = child.stdout.take();
-    let feeder = input.feeder(&mut child);
     let (sender, receiver) = mpsc::channel(2);
     let owner = authority.clone();
     let span = tracing::debug_span!(
@@ -177,26 +107,16 @@ pub(super) async fn start(
         async move {
             let started = Instant::now();
             let mut bytes = 0;
-            let (child, sender, owner, transferred) = (&mut child, &sender, &owner, &mut bytes);
-            let ((outcome, error), fed) = fed(feeder, |stop| async move {
-                let outcome = tokio::select! {
-                    biased;
-                    _ = sender.closed() => ("cancelled", None),
-                    error = owner.revoked() => ("revoked", Some(error)),
-                    result = pump(child, stdout, sender, transferred) => match result {
-                        Ok(()) => ("complete", None),
-                        Err(error) => ("failed", Some(error)),
-                    },
-                };
-                let _ = stop.send(true);
-                retire(child).await;
-                outcome
-            })
-            .await;
-            let (outcome, error) = match (outcome, error, fed) {
-                ("complete", None, Err(error)) => ("failed", Some(error)),
-                (outcome, error, _) => (outcome, error),
+            let (outcome, error) = tokio::select! {
+                biased;
+                _ = sender.closed() => ("cancelled", None),
+                error = owner.revoked() => ("revoked", Some(error)),
+                result = pump(&mut child, stdout, &sender, &mut bytes) => match result {
+                    Ok(()) => ("complete", None),
+                    Err(error) => ("failed", Some(error)),
+                },
             };
+            retire(&mut child).await;
             drop(slot);
             tracing::debug!(
                 event = "audio_conversion_closed",

@@ -1,7 +1,5 @@
 use super::{Entry, file::RetainedFile, stopped};
-use crate::playback_access::conversion::{
-    self, ConversionLimits, ConversionStream, Negotiated, PositionedAudio,
-};
+use crate::playback_access::conversion::{self, ConversionLimits, ConversionStream, Negotiated};
 use crate::{
     AudioContent, AudioRequest, AudioStream, AudioValidators, Error, MediaTools, OpenedAudio,
     QualityRequest, Result,
@@ -432,13 +430,13 @@ async fn negotiation(
             entry.stop();
             return Err(error);
         }
-        let positioned: Arc<dyn PositionedAudio> = file;
+        let fresh = file.reopen(&grant).await?;
         conversion::negotiate(
             &open.limits,
             &open.tools,
             &entry.actor,
             &grant,
-            conversion::Input::Positioned(&positioned),
+            &fresh,
             open.request,
             &mut cancelled,
         )

@@ -12,8 +12,6 @@ pub(super) struct RetainedFile {
     stamp: Stamp,
     pub length: u64,
     pub content_type: &'static str,
-    #[cfg(test)]
-    observed: Option<Observation>,
 }
 
 #[derive(PartialEq)]
@@ -64,24 +62,16 @@ impl RetainedFile {
             stamp,
             length: audio.length,
             content_type: audio.content_type,
-            #[cfg(test)]
-            observed: None,
         })
     }
 
-    #[cfg(test)]
-    pub fn observed(
-        mut self,
-        reads: Arc<std::sync::atomic::AtomicUsize>,
-        started: Arc<std::sync::atomic::AtomicUsize>,
-        pause: Option<Arc<super::testing::ReadPause>>,
-    ) -> Self {
-        self.observed = Some(Observation {
-            reads,
-            started,
-            pause,
-        });
-        self
+    pub async fn reopen(&self, grant: &crate::PlaybackSource) -> Result<AudioFile> {
+        let audio = grant.open_file().await?;
+        let stamp = Stamp::read(audio.file.metadata().map_err(|_| changed())?)?;
+        if stamp != self.stamp || audio.length != self.length {
+            return Err(changed());
+        }
+        Ok(audio)
     }
 
     pub fn check(&self) -> Result<()> {
@@ -144,58 +134,6 @@ impl RetainedFile {
         })
         .await
         .map_err(|_| Error::Internal("Playback file worker stopped".into()))?
-    }
-}
-
-impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
-    fn read_at(&self, offset: u64, count: usize) -> Result<Bytes> {
-        #[cfg(test)]
-        let _reading = self.observed.as_ref().map(|observed| {
-            observed
-                .reads
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            observed
-                .started
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            if let Some(pause) = &observed.pause {
-                let _ = pause.pause();
-            }
-            Reading(observed.reads.clone())
-        });
-        self.check()?;
-        let mut buffer = vec![0; count.min(65536)];
-        #[cfg(unix)]
-        let read = {
-            use std::os::unix::fs::FileExt;
-            self.file.read_at(&mut buffer, offset)
-        };
-        #[cfg(windows)]
-        let read = {
-            use std::os::windows::fs::FileExt;
-            self.file.seek_read(&mut buffer, offset)
-        };
-        #[cfg(not(any(unix, windows)))]
-        let read: std::io::Result<usize> = Err(std::io::Error::other("Unsupported file platform"));
-        self.check()?;
-        let read = read.map_err(|_| Error::Upstream("Audio file could not be read"))?;
-        buffer.truncate(read);
-        Ok(Bytes::from(buffer))
-    }
-}
-
-#[cfg(test)]
-struct Observation {
-    reads: Arc<std::sync::atomic::AtomicUsize>,
-    started: Arc<std::sync::atomic::AtomicUsize>,
-    pause: Option<Arc<super::testing::ReadPause>>,
-}
-
-#[cfg(test)]
-struct Reading(Arc<std::sync::atomic::AtomicUsize>);
-#[cfg(test)]
-impl Drop for Reading {
-    fn drop(&mut self) {
-        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 

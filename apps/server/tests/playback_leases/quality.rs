@@ -304,3 +304,48 @@ async fn releasing_a_lease_stops_its_conversion_and_frees_the_slot() {
     assert_eq!(after_status, StatusCode::OK);
     assert_eq!(tones::probe(&after_bytes).codec, "aac");
 }
+
+async fn alac_case() -> Case {
+    Case::with_named_audio("private-owned.m4a", |path| {
+        let status = std::process::Command::new("ffmpeg")
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg("sine=frequency=550:sample_rate=44100:duration=30")
+            .args(["-c:a", "alac", "-metadata", "title=Owned ALAC"])
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::fs::read(path).unwrap()
+    })
+    .await
+}
+
+#[tokio::test]
+async fn a_late_seek_into_trailing_metadata_alac_is_converted_or_truthfully_refused() {
+    let f = hang_guard("the ALAC lease fixture must start", alac_case()).await;
+    let path = audio_path(&f).await.expect("the lease must begin");
+    let query = format!("{path}?quality=saver&start_ms=25000");
+    let head = f.request("HEAD", &query, &[], None).await;
+    let head_quality = header_of(&head, "x-hito-stream-quality");
+    let head_status = head.status();
+    let get = f.request("GET", &query, &[], None).await;
+    let get_status = get.status();
+    let get_type = header_of(&get, "content-type");
+    let bytes = hang_guard("the ALAC conversion must finish", get.into_body().collect())
+        .await
+        .unwrap()
+        .to_bytes();
+    let probed = (get_type.as_deref() == Some("audio/aac")).then(|| tones::probe(&bytes));
+    f.close().await;
+    assert_eq!(head_status, StatusCode::OK);
+    match head_quality.as_deref() {
+        Some("saver") => {
+            assert_eq!(get_status, StatusCode::OK);
+            let probed = probed.expect("converted audio");
+            assert_eq!(probed.codec, "aac");
+            assert!((4.0..6.0).contains(&probed.seconds), "{}", probed.seconds);
+        }
+        Some("original") => assert_eq!(get_status, StatusCode::CONFLICT),
+        other => panic!("unexpected HEAD quality {other:?}"),
+    }
+}

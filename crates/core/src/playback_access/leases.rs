@@ -34,10 +34,6 @@ struct Entry {
     bytes_read: std::sync::atomic::AtomicU64,
     #[cfg(test)]
     publications: testing::Publications,
-    #[cfg(test)]
-    positioned_reads: Arc<std::sync::atomic::AtomicUsize>,
-    #[cfg(test)]
-    positioned_started: Arc<std::sync::atomic::AtomicUsize>,
     correlation: u64,
     started: std::time::Instant,
     actor: Actor,
@@ -121,10 +117,6 @@ impl PlaybackAccess {
             bytes_read: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             publications: testing::Publications::default(),
-            #[cfg(test)]
-            positioned_reads: Arc::default(),
-            #[cfg(test)]
-            positioned_started: Arc::default(),
             correlation: NEXT_LEASE.fetch_add(1, Ordering::Relaxed),
             started: std::time::Instant::now(),
             actor: actor.clone(),
@@ -182,14 +174,7 @@ impl PlaybackAccess {
                         }?;
                         owned.alive()?;
                         let file = if grant.is_local() {
-                            let retained = file::RetainedFile::new(grant.open_file().await?)?;
-                            #[cfg(test)]
-                            let retained = retained.observed(
-                                owned.positioned_reads.clone(),
-                                owned.positioned_started.clone(),
-                                owned.read_pause.get().cloned(),
-                            );
-                            Some(Arc::new(retained))
+                            Some(Arc::new(file::RetainedFile::new(grant.open_file().await?)?))
                         } else {
                             None
                         };

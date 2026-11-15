@@ -5,7 +5,7 @@ mod profile;
 use crate::{Actor, AudioRequest, Error, MediaTools, OpenedAudio, PlaybackSource, Result};
 pub(crate) use limits::{ConversionLimits, ConversionSlot};
 pub use process::ConversionStream;
-pub(crate) use process::{Input, PositionedAudio, cancelled};
+pub(crate) use process::cancelled;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 
@@ -114,7 +114,7 @@ pub(super) async fn negotiate(
     tools: &MediaTools,
     actor: &Actor,
     grant: &PlaybackSource,
-    input: Input<'_>,
+    file: &crate::AudioFile,
     request: QualityRequest,
     cancel: &mut watch::Receiver<bool>,
 ) -> Result<Negotiated> {
@@ -136,7 +136,7 @@ pub(super) async fn negotiate(
         );
         Ok(Negotiated::Unchanged(reason))
     };
-    let (profile, slot) = match profile::probe(tools, input, grant.clone(), slot, cancel).await {
+    let (profile, slot) = match profile::probe(tools, file, grant.clone(), slot, cancel).await {
         Ok(profile) => profile,
         Err(error) => {
             tracing::warn!(
@@ -156,7 +156,7 @@ pub(super) async fn negotiate(
     if request.original.head {
         return Ok(Negotiated::Converted(None));
     }
-    match process::start(tools, input, request, grant.clone(), slot, cancel).await {
+    match process::start(tools, file, request, grant.clone(), slot, cancel).await {
         Ok(stream) => {
             tracing::debug!(
                 event = "audio_conversion_started",
@@ -207,7 +207,7 @@ pub(super) async fn convert(
             &tools,
             &actor,
             &grant,
-            Input::Descriptor(&file),
+            &file,
             request,
             &mut cancelled,
         )
