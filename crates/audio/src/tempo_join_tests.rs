@@ -25,6 +25,48 @@ fn frames_by_track(speed: f32) -> (u64, u64, Duration) {
     (first, second, start.unwrap())
 }
 
+#[cfg(feature = "test-support")]
+#[test]
+fn conversion_service_totals_survive_an_input_handoff() {
+    let first = Converter::with_output(
+        Decoder::open(wave(96_000, 1, 9_600, |frame, _| {
+            (frame % 2_000) as i16 + 1
+        }))
+        .unwrap(),
+        48_000,
+        1,
+    );
+    let second = Converter::with_output(
+        Decoder::open(wave(48_000, 1, 2_400, |frame, _| {
+            (frame % 2_000) as i16 + 1
+        }))
+        .unwrap(),
+        48_000,
+        1,
+    );
+    let mut tempo = Tempo::new(first);
+    assert!(!tempo.handoff().set(second).unwrap());
+
+    let (mut first_frames, mut second_frames) = (0_u64, 0_u64);
+    while let Some(block) = tempo.read_until(|| false).unwrap() {
+        match block.track {
+            0 => first_frames += block.samples.len() as u64,
+            1 => second_frames += block.samples.len() as u64,
+            other => panic!("unexpected track {other}"),
+        }
+    }
+    assert_eq!((first_frames, second_frames), (4_800, 2_400));
+    assert_eq!(tempo.track(), 1);
+
+    let service = tempo.conversion_service();
+    assert_eq!(service.input_frames, 9_600);
+    assert_eq!(service.output_frames, 4_800);
+    let repeated = tempo.conversion_service();
+    assert_eq!(repeated.elapsed_ns, service.elapsed_ns);
+    assert_eq!(repeated.input_frames, service.input_frames);
+    assert_eq!(repeated.output_frames, service.output_frames);
+}
+
 #[test]
 fn the_output_track_changes_after_exactly_the_frames_of_the_first_input() {
     for (speed, first, second) in [
