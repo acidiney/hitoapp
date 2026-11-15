@@ -181,7 +181,18 @@ async fn revoking_artwork_after_queueing_sends_no_plugin_request() {
     .await;
     assert_eq!(t.drive().await, 1);
     assert_eq!(artist_requests(&t).await, 0);
-    assert!(matches!(t.photo().await, CoverArtLookup::Missing));
+    assert!(matches!(t.photo().await, CoverArtLookup::Unknown));
+    assert_eq!(
+        t.scalar(&format!(
+            "SELECT count(*) FROM cover_art_lookups WHERE user_id = '{}' AND kind = 'credited_artist' AND mbid = '{}'",
+            t.actor.user().id,
+            t.artist
+        ))
+        .await,
+        0
+    );
+    assert_eq!(t.drive().await, 0);
+    assert_eq!(artist_requests(&t).await, 0);
 }
 
 #[tokio::test]

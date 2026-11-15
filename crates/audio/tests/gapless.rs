@@ -384,6 +384,14 @@ fn lossy_streams_join_without_silence_only_when_their_delay_is_declared() {
 #[test]
 #[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
 fn offering_and_withdrawing_inputs_mid_playback_never_drops_samples() {
+    let _diagnostics = tracing::subscriber::set_default(
+        tracing_subscriber::fmt()
+            .json()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::INFO)
+            .with_writer(std::io::stderr)
+            .finish(),
+    );
     let capture = Capture::open();
     let mut player = Player::open(wave(RATE, 0, 4 * RATE / 2, counter)).unwrap();
     player.resume().unwrap();
