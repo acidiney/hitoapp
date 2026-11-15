@@ -127,9 +127,21 @@ async fn artist_and_release_group_genres_page_one_recording_once() {
     );
     let fado = paged_tracks_match_preview(&world, "fado").await;
     assert_eq!(fado.len(), 2);
+    assert_eq!(
+        fado.iter()
+            .map(|track| track.title.as_str())
+            .collect::<Vec<_>>(),
+        ["artist-and-group", "artist-only"]
+    );
     let fado_ids: HashSet<_> = fado.iter().map(|track| track.id.clone()).collect();
     let folk = paged_tracks_match_preview(&world, "folk").await;
     assert_eq!(folk.len(), 2);
+    assert_eq!(
+        folk.iter()
+            .map(|track| track.title.as_str())
+            .collect::<Vec<_>>(),
+        ["artist-and-group", "artist-only"]
+    );
     let folk_ids: HashSet<_> = folk.iter().map(|track| track.id.clone()).collect();
     assert_eq!(fado_ids, folk_ids);
     let grouped = fado
