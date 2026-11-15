@@ -304,7 +304,7 @@ fn write_tone(music: &Path, title: &str, album: Option<&str>, samples: u32, audi
 
 async fn timed_library() -> (tempfile::TempDir, Services, Actor) {
     let (dir, hito, actor, library, music) = library("sort-timed-host").await;
-    write_tone(&music, "delta", Some("beta album"), 24000, 1);
+    write_tone(&music, "delta", Some("Zulu album"), 24000, 1);
     write_tone(&music, "Echo", Some("Alpha album"), 8000, 2);
     write_tone(&music, "foxtrot", None, 16000, 3);
     write_tone(&music, "Golf", Some("Alpha album"), 16000, 4);

@@ -44,6 +44,8 @@ pub use types::{Job, JobFailure};
 pub use watching::WatchCounters;
 pub use watching::{FolderWatchSettings, WatchBackend, WatchMode, WatchStatus, WatchedFolder};
 
+pub(crate) const UNKNOWN_ALBUM: &str = "Unknown album";
+
 #[derive(Clone)]
 pub struct LibraryStorage {
     pub(crate) store: Store,

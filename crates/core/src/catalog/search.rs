@@ -91,9 +91,9 @@ impl Catalog {
                 .push(if personal { "p.title" } else { "r.title" })
                 .push(" AS title, r.title AS inherited_title, ")
                 .push(if personal { "p.artist" } else { "r.artist" })
-                .push(
-                    " AS artist, r.artist AS inherited_artist, a.title AS album, a.title IS NULL AS album_missing, r.duration_ms, ",
-                );
+                .push(" AS artist, r.artist AS inherited_artist, a.title AS album, (a.title IS NULL OR a.title = ")
+                .push_bind(crate::library_storage::UNKNOWN_ALBUM)
+                .push(") AS album_missing, r.duration_ms, ");
             push_available(&mut query, &self.host, actor.id());
             query.push(" AS available, ");
             push_primary_artist(&mut query, actor.id());
