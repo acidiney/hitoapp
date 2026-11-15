@@ -387,6 +387,65 @@ fn device_converter(
     Converter::with_output(decoder, target.0, target.1)
 }
 
+fn asymmetric_stereo_sample(frame: u32, channel: u16) -> i16 {
+    let value = match channel {
+        0 => (frame % 251) as i32 - 125,
+        _ => ((frame * 17) % 239) as i32 - 119,
+    };
+    (value * if channel == 0 { 72 } else { 64 }) as i16
+}
+
+#[test]
+fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
+    for (source, target) in [
+        (705_600, 48_000),
+        (768_000, 48_000),
+        (96_000, 48_000),
+        (176_400, 48_000),
+        (44_100, 48_000),
+    ] {
+        let frames = source / 4;
+        let expected_frames =
+            (u64::from(frames) * u64::from(target) / u64::from(source)) as usize;
+        let mut stereo = device_converter(source, 2, frames, (target, 2), asymmetric_stereo_sample);
+        assert_eq!(stereo.format().channels, 2, "{source}->{target}");
+        let stereo = drain(&mut stereo);
+        assert_eq!(stereo.frames, expected_frames, "{source}->{target} stereo");
+        assert_eq!(stereo.samples.len(), stereo.frames * 2, "{source}->{target}");
+
+        for channel_index in 0..2_usize {
+            let mut mono = device_converter(source, 1, frames, (target, 1), |frame, _| {
+                asymmetric_stereo_sample(frame, channel_index as u16)
+            });
+            assert_eq!(
+                mono.format().channels,
+                1,
+                "{source}->{target} channel {channel_index}"
+            );
+            let mono = drain(&mut mono);
+            assert_eq!(mono.frames, expected_frames, "{source}->{target} mono");
+
+            let stereo_channel = stereo
+                .samples
+                .chunks_exact(2)
+                .map(|frame| frame[channel_index])
+                .collect::<Vec<_>>();
+            assert_eq!(stereo_channel.len(), mono.samples.len());
+            assert_eq!(
+                stereo_channel
+                    .iter()
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+                mono.samples
+                    .iter()
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+                "{source}->{target} channel {channel_index}"
+            );
+        }
+    }
+}
+
 const DEVICE_PAIRS: [(u32, u32); 7] = [
     (176_400, 48_000),
     (192_000, 44_100),
