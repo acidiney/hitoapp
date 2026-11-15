@@ -58,7 +58,8 @@ import Testing
             "POST /api/v1/plugins/i1/recordings": .json(200, recording("r2", "Second")),
         ])
         guard case let .available(album) = try await editions(fake).read("rel1") else { return }
-        #expect(album.addable.map(\.id) == ["o2"])
+        #expect(album.addable.map(\.id) == ["o2", "o3"])
+        #expect(album.tracks[2].note == "Not in your library · No provider identity for this track")
         _ = try await editions(fake).add(album.addable[0], of: album, release: "rel1", saved: saved)
         #expect(fake.requests.last?.object?["provider_recording_id"] as? String == "m2")
     }
@@ -76,5 +77,84 @@ import Testing
         let json = #"{"release":{"id":"rel1","title":"Album","artist":"Band","year":null,"track_count":1,"duration_ms":1000,"library_id":"l1"},"tracks":{"items":[],"total":0,"offset":0,"limit":200},"catalog_anchor":null,"saved_edition":{"revision":2,"state":{"status":"ready","edition":{"recording_id":"r1","association_id":"a1","release_group_id":"g1","edition_id":"e1"}}}}"#
         let detail = try JSONDecoder().decode(AlbumDetail.self, from: Data(json.utf8))
         #expect(detail.savedEdition == saved)
+    }
+
+    let anchor = CatalogAnchor(recordingId: "r1", associationId: "a1")
+
+    @Test func aReleaseSaysWhetherAnEditionCanBeChosen() throws {
+        func detail(_ anchor: String, _ state: String) throws -> AlbumDetail {
+            let json = #"{"release":{"id":"rel1","title":"Album","artist":"Band","year":null,"track_count":1,"duration_ms":1000,"library_id":"l1"},"tracks":{"items":[],"total":0,"offset":0,"limit":200},"catalog_anchor":\#(anchor),"saved_edition":{"revision":3,"state":\#(state)}}"#
+            return try JSONDecoder().decode(AlbumDetail.self, from: Data(json.utf8))
+        }
+        let unset = try detail(#"{"recording_id":"r1","association_id":"a1"}"#, #"{"status":"unset"}"#)
+        #expect(unset.anchor == anchor)
+        #expect(unset.choiceRevision == 3)
+        #expect(unset.needsChoice == false)
+        let stale = try detail("null", #"{"status":"needs_choice"}"#)
+        #expect(stale.anchor == nil)
+        #expect(stale.needsChoice)
+    }
+
+    func discography(_ titles: [(String, String, String)]) -> String {
+        let items = titles.map { #"{"id":"\#($0.0)","title":"\#($0.1)","artist_credit":null,"kind":"\#($0.2)","secondary_types":[],"first_release_date":null,"revision":null}"# }.joined(separator: ",")
+        return #"{"status":"available","association_id":"a1","continuation":null,"page":{"artist_id":"x","snapshot":null,"items":[\#(items)],"total_count":\#(titles.count),"next_cursor":null}}"#
+    }
+
+    let editionPage = #"{"status":"available","association_id":"a1","continuation":null,"page":{"release_group_id":"g2","snapshot":null,"items":[{"id":"e1","title":"Album","artist_credit":null,"disambiguation":"deluxe","release_date":"2019-05","country":"GB","revision":null},{"id":"e2","title":"Album","artist_credit":null,"disambiguation":null,"release_date":null,"country":null,"revision":null}],"total_count":2,"next_cursor":null}}"#
+
+    @Test func theAlbumsEditionsAreFoundThroughItsArtist() async throws {
+        let fake = FakeServer(routes: [
+            "POST /api/v1/recordings/r1/artist-associations/a1/discography": .json(200, discography([("g1", "Album Live", "album"), ("g2", "  album ", "album"), ("g3", "Album", "single")])),
+            "POST /api/v1/recordings/r1/artist-associations/a1/release-group-editions": .json(200, editionPage),
+        ])
+        let options = try await editions(fake).options(for: "Album", anchor: anchor)
+        #expect(options == [
+            EditionOption(id: "e1", releaseGroupId: "g2", name: "Deluxe", detail: "2019 · GB"),
+            EditionOption(id: "e2", releaseGroupId: "g2", name: "Album", detail: nil),
+        ])
+        #expect(options.map(\.label) == ["Deluxe · 2019 · GB", "Album"])
+        #expect(fake.requests.first?.object?["limit"] as? Int == 20)
+        #expect(fake.requests.first?.object?["continuation"] is NSNull)
+        #expect(fake.requests.last?.object?["release_group_id"] as? String == "g2")
+    }
+
+    @Test func anAlbumTheArtistDoesntListHasNoEditions() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/recordings/r1/artist-associations/a1/discography": .json(200, discography([("g1", "Other", "album")]))])
+        #expect(try await editions(fake).options(for: "Album", anchor: anchor).isEmpty)
+        let off = FakeServer(routes: ["POST /api/v1/recordings/r1/artist-associations/a1/discography": .json(200, #"{"status":"disabled"}"#)])
+        await #expect(throws: EditionOption.Unavailable(reason: "Track details from plugins are off in your settings.")) {
+            try await editions(off).options(for: "Album", anchor: anchor)
+        }
+    }
+
+    let deluxe = EditionOption(id: "e1", releaseGroupId: "g1", name: "Deluxe", detail: nil)
+
+    @Test func anEditionIsComparedBeforeItIsSaved() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/albums/rel1/edition-track-list": .json(200, list())])
+        guard case let .available(album) = try await editions(fake).preview(deluxe, release: "rel1", anchor: anchor) else { Issue.record("not available"); return }
+        #expect(album.summary == "1 of 4 in your library")
+        #expect(fake.requests.first?.json == ["recording_id": "r1", "association_id": "a1", "release_group_id": "g1", "edition_id": "e1"])
+    }
+
+    @Test func choosingAnEditionSavesItOnceWithTheRevision() async throws {
+        let request = UUID(uuidString: "11111111-2222-4333-8444-555555555555")!
+        let fake = FakeServer(routes: ["PUT /api/v1/albums/rel1/edition": .json(200, #"{"request_id":"11111111-2222-4333-8444-555555555555","release_id":"rel1","revision":4,"edition":{"recording_id":"r1","association_id":"a1","release_group_id":"g1","edition_id":"e1"}}"#)])
+        let saved = try await editions(fake).choose(deluxe, release: "rel1", anchor: anchor, revision: 3, request: request)
+        #expect(saved == 4)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["request_id"] as? String == "11111111-2222-4333-8444-555555555555")
+        #expect(body["expected_revision"] as? Int == 3)
+        #expect(body["edition_id"] as? String == "e1")
+        let stale = FakeServer(routes: ["PUT /api/v1/albums/rel1/edition": .json(409, #"{"error":"changed"}"#)])
+        await #expect(throws: EditionOption.Changed()) {
+            try await editions(stale).choose(deluxe, release: "rel1", anchor: anchor, revision: 3, request: request)
+        }
+    }
+
+    @Test func forgettingAnEditionClearsIt() async throws {
+        let request = UUID(uuidString: "11111111-2222-4333-8444-555555555555")!
+        let fake = FakeServer(routes: ["POST /api/v1/albums/rel1/edition/clear": .json(200, #"{"request_id":"11111111-2222-4333-8444-555555555555","release_id":"rel1","revision":5,"edition":null}"#)])
+        #expect(try await editions(fake).forget(release: "rel1", revision: 4, request: request) == 5)
+        #expect(fake.requests.first?.object?["expected_revision"] as? Int == 4)
     }
 }
