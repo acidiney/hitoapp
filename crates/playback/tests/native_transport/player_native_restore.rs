@@ -109,15 +109,19 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
         "an unconfigured restore published zero"
     );
     gate.open();
-    tokio::time::timeout(
+    let paused = tokio::time::timeout(
         Duration::from_secs(3),
         state.wait_for(|state| {
-            state.phase == PlayerPhase::Ready && !state.playing && !state.desired_playing
+            state.phase == PlayerPhase::Idle && !state.playing && !state.desired_playing
         }),
     )
     .await
-    .unwrap()
-    .unwrap();
+    .map(|waited| waited.map(|_| ()));
+    assert!(
+        matches!(paused, Ok(Ok(()))),
+        "the paused restore never settled: {:?}",
+        *state.borrow()
+    );
     assert!(
         position.borrow().position_ms >= saved,
         "pause lost the retained restore target"

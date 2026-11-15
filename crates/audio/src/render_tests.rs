@@ -16,6 +16,14 @@ fn format() -> AudioFormat {
     }
 }
 
+fn stereo_format() -> AudioFormat {
+    AudioFormat {
+        channels: 2,
+        sample_rate: 48_000,
+        duration: None,
+    }
+}
+
 fn ready_state() -> Arc<State> {
     let state = Arc::new(State::new());
     state.ready_epoch.store(1, Ordering::Release);
@@ -235,6 +243,79 @@ fn buffering_preserves_queued_audio_without_publishing_an_underrun() {
 }
 
 #[test]
+fn a_ring_gap_outputs_silence_and_advances_only_presented_source_frames() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(8);
+    let state = ready_state();
+    state.playing.store(true, Ordering::Release);
+    let mut render = Render::new(consumer, state.clone(), stereo_format());
+    let mut output = [0_f32; 2];
+    producer
+        .push(Frame::Audio {
+            samples: [0.25, 0.125],
+            speed: 1.,
+            position: 20_833,
+            epoch: 1,
+            track: 0,
+        })
+        .unwrap();
+
+    render.fill(&mut output, &info(100_000, 100_000));
+    assert_eq!(output, [0.25, 0.125]);
+    assert_eq!(state.snapshot(stereo_format()).position, Duration::ZERO);
+    assert_eq!(state.snapshot(stereo_format()).underruns, 0);
+
+    render.fill(&mut output, &info(120_000, 120_000));
+    assert_eq!(output, [0., 0.]);
+    let after_first_gap = state.snapshot(stereo_format());
+    assert_eq!(after_first_gap.position, Duration::from_nanos(20_833));
+    assert_eq!(after_first_gap.underruns, 1);
+    assert!(!after_first_gap.ended);
+
+    render.fill(&mut output, &info(140_000, 140_000));
+    assert_eq!(output, [0., 0.]);
+    let after_second_gap = state.snapshot(stereo_format());
+    assert_eq!(after_second_gap.position, after_first_gap.position);
+    assert_eq!(after_second_gap.underruns, 2);
+    assert!(!after_second_gap.ended);
+
+    for (samples, position) in [([0.5, 0.25], 41_667), ([0.75, 0.375], 62_500)] {
+        producer
+            .push(Frame::Audio {
+                samples,
+                speed: 1.,
+                position,
+                epoch: 1,
+                track: 0,
+            })
+            .unwrap();
+    }
+    producer
+        .push(Frame::End {
+            position: 62_500,
+            epoch: 1,
+            track: 0,
+        })
+        .unwrap();
+
+    render.fill(&mut output, &info(160_000, 160_000));
+    assert_eq!(output, [0.5, 0.25]);
+    render.fill(&mut output, &info(180_000, 180_000));
+    assert_eq!(output, [0.75, 0.375]);
+    assert_eq!(producer.slots(), 7);
+    assert_eq!(state.snapshot(stereo_format()).underruns, 2);
+
+    render.fill(&mut output, &info(200_000, 200_000));
+    assert_eq!(output, [0., 0.]);
+    assert!(!state.snapshot(stereo_format()).ended);
+    render.fill(&mut output, &info(220_000, 220_000));
+    let ended = state.snapshot(stereo_format());
+    assert_eq!(output, [0., 0.]);
+    assert!(ended.ended);
+    assert_eq!(ended.position, Duration::from_nanos(62_500));
+    assert_eq!(ended.underruns, 2);
+}
+
+#[test]
 fn a_new_epoch_retires_stale_frames_while_waiting_for_its_own_buffer() {
     let (mut producer, consumer) = rtrb::RingBuffer::new(4);
     let state = ready_state();
@@ -271,4 +352,64 @@ fn a_new_epoch_retires_stale_frames_while_waiting_for_its_own_buffer() {
     state.ready_epoch.store(epoch, Ordering::Release);
     render.fill(&mut output, &info(200, 300));
     assert_eq!(output, [0.5]);
+}
+
+#[derive(Clone, Default)]
+struct Sink(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Sink {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_presentation_overflow_on_a_callback_thread_reaches_its_owners_subscriber() {
+    let sink = Sink::default();
+    let writer = sink.clone();
+    let owner = crate::test_support::scoped_dispatch(
+        tracing_subscriber::fmt()
+            .json()
+            .with_max_level(tracing::Level::INFO)
+            .with_writer(move || writer.clone())
+            .finish(),
+    );
+    let (_producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = ready_state();
+    let mut render = tracing::dispatcher::with_default(&owner, || {
+        Render::new(consumer, state.clone(), format()).with_stream((9, 4))
+    });
+    std::thread::spawn(move || {
+        for position in 0..1025 {
+            render.schedule(Point {
+                at: StreamInstant::from_micros(position),
+                epoch: 1,
+                position,
+                ended: false,
+                speed: None,
+                track: 0,
+            });
+        }
+    })
+    .join()
+    .unwrap();
+    assert_eq!(state.error(), Some(Error::Output));
+    let logged = String::from_utf8(sink.0.lock().unwrap().clone()).unwrap();
+    let event = logged
+        .lines()
+        .find(|line| line.contains("\"event\":\"audio_output_failed\""))
+        .expect("the owner's subscriber must receive the overflow event");
+    for field in [
+        "\"reason\":\"presentation_overflow\"",
+        "\"audio_id\":9",
+        "\"generation\":4",
+        "\"terminal\":true",
+    ] {
+        assert!(event.contains(field), "{field} missing from {event}");
+    }
 }
