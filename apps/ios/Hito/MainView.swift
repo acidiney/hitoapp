@@ -73,7 +73,7 @@ extension MainView {
     @ViewBuilder func screen(_ item: Tab) -> some View {
         switch item {
         case .home:
-            NavigationStack { HomeView(user: user, openSearch: { tab = .search }).browsing() }
+            NavigationStack { HomeView(user: user, openSearch: { tab = .search }, openDiscover: { tab = .discover }, openPlugins: { tab = .plugins }).browsing() }
         case .search:
             NavigationStack { SearchView(active: tab == .search).browsing() }
         case .discover:
