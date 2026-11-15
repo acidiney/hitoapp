@@ -10,18 +10,22 @@ struct DiscoverView: View {
     @State private var shelf: FeaturedShelf?
     @State private var starting: String?
     @State private var problem: String?
+    @State private var notice: String?
     @State private var opened: Playlist?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text("Discover").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Discover").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let problem {
                     Text(problem).font(Theme.small).foregroundStyle(Theme.warning)
                 }
                 if let artists {
                     if let first = artists.first {
                         heroCard(first)
+                        if let notice {
+                            Text(notice).font(Theme.small).foregroundStyle(Theme.soft)
+                        }
                         artistSection(artists)
                     } else {
                         Text("No artist radios yet. Radios start from artists Hito has matched on MusicBrainz, and none in your library are matched yet.")
@@ -40,15 +44,13 @@ struct DiscoverView: View {
         .page()
         .refreshable { await load() }
         .task { if artists == nil { await load() } }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
     }
 
     private func heroCard(_ artist: RadioArtist) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
-                ZStack { Circle().fill(Theme.tile); Icon("person", size: 30).foregroundStyle(Theme.quiet) }
-                    .frame(width: 72, height: 72)
-                    .accessibilityHidden(true)
+                avatar(artist, size: 72)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(heroLabel).font(Theme.smallStrong).foregroundStyle(Theme.soft)
                     Text("\(artist.name) radio").font(Theme.pageTitle).lineLimit(2)
@@ -67,7 +69,7 @@ struct DiscoverView: View {
             Button { Task { await start(artist) } } label: {
                 HStack(spacing: 8) {
                     if starting == artist.id { ProgressView().tint(Theme.onAccent) } else { Icon("play", size: 16) }
-                    Text("Start radio").font(Theme.bodyStrong)
+                    Text(starting == artist.id ? "Building your radio…" : "Start radio").font(Theme.bodyStrong)
                 }
                 .foregroundStyle(Theme.onAccent)
                 .padding(.horizontal, 22)
@@ -82,17 +84,26 @@ struct DiscoverView: View {
         .background(RoundedRectangle(cornerRadius: 18).fill(Theme.field))
     }
 
+    @ViewBuilder private func avatar(_ artist: RadioArtist, size: CGFloat) -> some View {
+        if let path = artist.artworkPath {
+            Cover(path: path, size: size, mark: "person", round: true)
+        } else {
+            ZStack { Circle().fill(Theme.tile); Icon("person", size: size * 0.42).foregroundStyle(Theme.quiet) }
+                .frame(width: size, height: size)
+                .accessibilityHidden(true)
+        }
+    }
+
     private func artistSection(_ artists: [RadioArtist]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Start a radio from an artist").font(Theme.section).accessibilityAddTraits(.isHeader)
             ForEach(artists) { artist in
                 Button { Task { await start(artist) } } label: {
                     HStack(spacing: 12) {
-                        ZStack { Circle().fill(Theme.tile); Icon("person", size: 18).foregroundStyle(Theme.quiet) }
-                            .frame(width: 44, height: 44)
+                        avatar(artist, size: 44)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(artist.name).font(Theme.bodyMedium).lineLimit(1)
-                            Text("\(artist.tracks) \(artist.tracks == 1 ? "track" : "tracks") in your library")
+                            Text(starting == artist.id ? "Building your radio…" : "\(artist.tracks) \(artist.tracks == 1 ? "track" : "tracks") in your library")
                                 .font(Theme.small).foregroundStyle(Theme.quiet)
                         }
                         Spacer(minLength: 8)
@@ -177,6 +188,7 @@ struct DiscoverView: View {
         guard let api = model.api else { return }
         starting = artist.id
         problem = nil
+        notice = nil
         defer { starting = nil }
         do {
             let radio: ArtistRadio
@@ -186,10 +198,11 @@ struct DiscoverView: View {
                 radio = try await Discovery(api: api).radio(artist.id)
             }
             guard !radio.tracks.isEmpty else {
-                problem = "\(artist.name) radio has nothing to play yet."
+                problem = ArtistRadio.nothingPlayable(artist.name)
                 return
             }
             model.player?.play(radio.tracks, at: 0, from: "\(artist.name) radio")
+            notice = radio.playing
         } catch {
             problem = "\(artist.name) radio didn't start. Try again."
             model.handle(error)
