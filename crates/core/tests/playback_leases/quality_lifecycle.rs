@@ -346,3 +346,40 @@ async fn logging_out_stops_a_converted_lease_body() {
         "converted bytes must stop once the owning session logs out"
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_replaced_original_with_identical_bytes_is_not_converted() {
+    let f = hang_guard("the lease fixture must start", Case::new()).await;
+    let lease = f
+        .services
+        .playback
+        .begin_lease(&f.actor, f.request())
+        .await
+        .unwrap();
+    let modified = std::fs::metadata(f.path()).unwrap().modified().unwrap();
+    let replacement = f.path().with_extension("replacement");
+    std::fs::write(&replacement, std::fs::read(f.path()).unwrap()).unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&replacement)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    std::fs::rename(&replacement, f.path()).unwrap();
+    let opened = f
+        .services
+        .playback
+        .open_lease_quality_audio(&f.actor, lease.id, quality(false))
+        .await;
+    let reopened = f
+        .services
+        .playback
+        .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
+        .await;
+    f.close().await;
+    assert!(
+        !matches!(opened, Ok(QualityAudio::Converted(_))),
+        "a different file at the retained path must not be converted"
+    );
+    assert!(reopened.is_err());
+}

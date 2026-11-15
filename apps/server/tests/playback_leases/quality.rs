@@ -321,13 +321,12 @@ async fn alac_case() -> Case {
 }
 
 #[tokio::test]
-async fn a_late_seek_into_trailing_metadata_alac_is_converted_or_truthfully_refused() {
+async fn a_late_seek_into_trailing_metadata_alac_converts_from_the_requested_time() {
     let f = hang_guard("the ALAC lease fixture must start", alac_case()).await;
     let path = audio_path(&f).await.expect("the lease must begin");
     let query = format!("{path}?quality=saver&start_ms=25000");
     let head = f.request("HEAD", &query, &[], None).await;
-    let head_quality = header_of(&head, "x-hito-stream-quality");
-    let head_status = head.status();
+    let head_facts = (head.status(), header_of(&head, "x-hito-stream-quality"));
     let get = f.request("GET", &query, &[], None).await;
     let get_status = get.status();
     let get_type = header_of(&get, "content-type");
@@ -337,15 +336,37 @@ async fn a_late_seek_into_trailing_metadata_alac_is_converted_or_truthfully_refu
         .to_bytes();
     let probed = (get_type.as_deref() == Some("audio/aac")).then(|| tones::probe(&bytes));
     f.close().await;
-    assert_eq!(head_status, StatusCode::OK);
-    match head_quality.as_deref() {
-        Some("saver") => {
-            assert_eq!(get_status, StatusCode::OK);
-            let probed = probed.expect("converted audio");
-            assert_eq!(probed.codec, "aac");
-            assert!((4.0..6.0).contains(&probed.seconds), "{}", probed.seconds);
-        }
-        Some("original") => assert_eq!(get_status, StatusCode::CONFLICT),
-        other => panic!("unexpected HEAD quality {other:?}"),
-    }
+    assert_eq!(head_facts, (StatusCode::OK, Some("saver".to_owned())));
+    assert_eq!(get_status, StatusCode::OK);
+    let probed = probed.expect("converted audio");
+    assert_eq!(probed.codec, "aac");
+    assert!((4.0..6.0).contains(&probed.seconds), "{}", probed.seconds);
+}
+
+async fn alaw_case() -> Case {
+    Case::with_named_audio("private-owned-alaw.wav", |path| {
+        let status = std::process::Command::new("ffmpeg")
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg("sine=frequency=440:sample_rate=8000:duration=5")
+            .args(["-c:a", "pcm_alaw"])
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::fs::read(path).unwrap()
+    })
+    .await
+}
+
+#[tokio::test]
+async fn an_unsupported_codec_heads_original_and_asks_get_to_retry_the_original() {
+    let f = hang_guard("the A-law lease fixture must start", alaw_case()).await;
+    let path = audio_path(&f).await.expect("the lease must begin");
+    let query = format!("{path}?quality=saver&start_ms=1000");
+    let head = f.request("HEAD", &query, &[], None).await;
+    let head_facts = (head.status(), header_of(&head, "x-hito-stream-quality"));
+    let get_status = f.request("GET", &query, &[], None).await.status();
+    f.close().await;
+    assert_eq!(head_facts, (StatusCode::OK, Some("original".to_owned())));
+    assert_eq!(get_status, StatusCode::CONFLICT);
 }
