@@ -93,6 +93,8 @@ impl Render {
 
     fn schedule(&mut self, point: Point) {
         if !self.presentation.push(point) {
+            #[cfg(test)]
+            crate::test_support::register_bystanders();
             let stream = self.stream;
             tracing::dispatcher::with_default(&self.dispatch, || {
                 tracing::warn!(

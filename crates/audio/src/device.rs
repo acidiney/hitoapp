@@ -303,6 +303,8 @@ impl Origin {
 }
 
 fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind) {
+    #[cfg(test)]
+    crate::test_support::register_bystanders();
     let (audio_id, generation) = origin.stream;
     let emit = |reason: &'static str, current_xruns: u64, action: &'static str, terminal: bool| {
         tracing::dispatcher::with_default(&origin.dispatch, || {
