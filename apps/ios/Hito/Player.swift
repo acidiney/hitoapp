@@ -25,6 +25,8 @@ final class Player {
     private(set) var removed: (track: Track, undo: PlayQueue.Removed)?
     private(set) var liked: Set<String> = []
     private(set) var unliked: Set<String> = []
+    private(set) var retrying: RetryPasses.Pass?
+    private var passes = RetryPasses()
 
     private let playback: Playback
     private let likes: Likes
@@ -93,6 +95,10 @@ final class Player {
             state = .playing
         case .idle where queue.current != nil:
             load(queue.current)
+        case .loading:
+            loading?.cancel()
+            retrying = nil
+            state = .idle
         default:
             break
         }
@@ -234,6 +240,8 @@ final class Player {
     private func load(_ track: Track?) {
         loading?.cancel()
         tried = []
+        passes = RetryPasses()
+        retrying = nil
         notice = nil
         guard let track else { return stop() }
         start(track)
@@ -269,14 +277,17 @@ final class Player {
                 guard let self, !Task.isCancelled else { return }
                 self.attach(audio)
             } catch is CancellationError {
-            } catch let Playback.Problem.notFound(reason) {
+            } catch let Playback.Problem.notFound(reason, retryable) {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.not_found")
-                self.skip(track, because: "\(reason).")
+                if !retryable || !self.retry(track) { self.skip(track, because: "\(reason).") }
             } catch {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.no_source")
-                self.skip(track, because: self.tried.isEmpty ? "\(track.title) has no source that plays right now." : "\(track.title) didn't play from any source.")
+                let failed = !self.tried.isEmpty
+                if !failed || !self.retry(track) {
+                    self.skip(track, because: failed ? "\(track.title) didn't play from any source." : "\(track.title) has no source that plays right now.")
+                }
             }
         }
     }
@@ -317,6 +328,7 @@ final class Player {
 
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
         releaseLease()
+        retrying = nil
         leaseId = audio.leaseId
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
@@ -348,8 +360,24 @@ final class Player {
         start(track)
     }
 
+    private func retry(_ track: Track) -> Bool {
+        guard let pass = passes.next() else { return false }
+        retrying = pass
+        tried = []
+        state = .loading
+        log.info("player.retry")
+        loading = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(pass.wait))
+            guard let self, !Task.isCancelled else { return }
+            self.start(track)
+        }
+        return true
+    }
+
     private func skip(_ track: Track, because reason: String) {
         notice = reason
+        passes = RetryPasses()
+        retrying = nil
         engine.replaceCurrentItem(with: nil)
         if let following = queue.advance() {
             tried = []
