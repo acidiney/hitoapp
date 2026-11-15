@@ -5,18 +5,24 @@ use std::time::Duration;
 #[tokio::test]
 async fn explicit_range_end_is_bounded_within_maximum_chunk() {
     let original: Vec<u8> = (0..=255).collect();
-    let server = hang_guard("owned fake audio server setup", async {
+    let (server, client) = hang_guard("owned fake audio server setup", async {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("the owned fake range client must initialize");
         let server = ProviderServer::start().await;
         server.range_chunks(81).await;
         server
             .audio(StatusCode::OK, HeaderMap::new(), original.clone())
             .await;
-        server
+        (server, client)
     })
     .await;
 
     let response = tokio::time::timeout(Duration::from_secs(5), async {
-        let response = reqwest::Client::new()
+        let response = client
             .get(format!("{}v1/audio", server.url))
             .header(reqwest::header::RANGE, "bytes=0-1")
             .send()
