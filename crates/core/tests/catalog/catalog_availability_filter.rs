@@ -1,5 +1,8 @@
 use hito_core::test_support::{playlist_service, provider_audio::AudioLibrary, support};
-use hito_core::{Actor, ImportProviderPlaylist, RecordingAvailability, Search, Services};
+use hito_core::{
+    Actor, Credentials, ImportProviderPlaylist, InstallPlugin, OfferPluginService,
+    RecordingAvailability, Search, Services,
+};
 use serde_json::json;
 use std::collections::BTreeSet;
 use uuid::Uuid;
@@ -170,5 +173,119 @@ async fn availability_filters_combine_with_search_and_likes() {
             .unwrap()
             .total,
         0
+    );
+}
+
+async fn guest_of(hito: &Services, admin: &Actor, library: &str) -> Actor {
+    let credentials = || Credentials {
+        username: "guest".into(),
+        password: "availability guest password".into(),
+    };
+    let guest = hito
+        .identity
+        .create_user(admin, credentials())
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(admin, library, &guest.id, true)
+        .await
+        .unwrap();
+    let session = hito.identity.login(credentials()).await.unwrap();
+    hito.identity.authenticate(&session.token).await.unwrap()
+}
+
+async fn filtered(hito: &Services, actor: &Actor) -> [(i64, Vec<String>); 2] {
+    [
+        paged_ids(hito, actor, Some(RecordingAvailability::AvailableOrService)).await,
+        paged_ids(hito, actor, Some(RecordingAvailability::NoSource)).await,
+    ]
+}
+
+#[tokio::test]
+async fn another_accounts_service_binding_does_not_change_the_filter() {
+    let f = AudioLibrary::start().await;
+    f.ready().await;
+    let libraries = f.hito.catalog.libraries(&f.actor).await.unwrap();
+    let shared = libraries.iter().find(|library| !library.personal).unwrap();
+    support::scan(&f.hito, &f.actor, &shared.id).await;
+    let admin_before = filtered(&f.hito, &f.actor).await;
+    assert!(admin_before[0].1.contains(&f.source.recording_id));
+
+    let guest = guest_of(&f.hito, &f.actor, &shared.id).await;
+    let server = playlist_service::ProviderServer::start().await;
+    server
+        .reply(
+            "v1/manifest",
+            json!({"id": "org.hito.guest-fixture", "name": "Guest fixture",
+                "protocol_version": 1, "capabilities": ["playlists", "sources"]}),
+        )
+        .await;
+    let offered = f
+        .hito
+        .plugins
+        .offer_service(
+            &f.actor,
+            OfferPluginService {
+                name: "Guest fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let installed = f
+        .hito
+        .plugins
+        .install(
+            &guest,
+            InstallPlugin {
+                accept_manifest_digest: None,
+                service_id: offered.id,
+                service_revision: offered.revision,
+                bearer_token: None,
+            },
+        )
+        .await
+        .unwrap();
+    playlist_service::playlist(
+        &server,
+        "playlist/guest",
+        "v1",
+        vec![
+            json!({"occurrence_id": "one", "item": {"kind": "recording", "recording": {
+            "id": "guest", "title": "Guest", "artist": "Band", "duration_ms": 100000,
+            "release": {"id": "album-guest", "title": "Album"}, "disc_number": 1, "track_number": 1,
+            "revision": "v1"}}}),
+        ],
+    )
+    .await;
+    f.hito
+        .collection
+        .import_provider_playlist(
+            &guest,
+            &installed.id,
+            ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installed.revision,
+                playlist_reference: "https://provider.invalid/playlist/guest".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        filtered(&f.hito, &f.actor).await,
+        admin_before,
+        "Another account's service and imports leave both filters unchanged"
+    );
+    let combinations = assert_filters_partition(&f.hito, &guest).await;
+    assert!(
+        combinations.contains(&(false, true)),
+        "The guest's own binding counts for the guest"
+    );
+    let guest_lists = filtered(&f.hito, &guest).await;
+    assert!(
+        !guest_lists[0].1.contains(&f.source.recording_id)
+            && !guest_lists[1].1.contains(&f.source.recording_id),
+        "The admin's personal provider recording never reaches the guest"
     );
 }
