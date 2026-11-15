@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 use test_support::{
-    capture::{Capture, wait},
+    capture::{Capture, reached, wait},
     continuity::{counter, dump, heard, level},
     output_witness::OutputWitness,
 };
@@ -191,7 +191,28 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
     std::thread::sleep(Duration::from_millis(200));
     backend.resume();
     let fault_elapsed = fault_started.elapsed();
-    wait(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    let signalled =
+        reached(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    if !signalled {
+        let stalled = player.snapshot();
+        let events: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
+            .unwrap()
+            .lines()
+            .filter(|line| line.contains("\"event\":\"audio_output"))
+            .map(str::to_owned)
+            .collect();
+        panic!(
+            "backend interruption produced no xrun or error: fault_ms={} xruns_before={} xruns={} underruns={} error={:?} output_failure={:?} position_before_ns={} position_ns={} output_events={events:?}",
+            fault_elapsed.as_millis(),
+            before.xruns,
+            stalled.xruns,
+            stalled.underruns,
+            stalled.error,
+            stalled.output_failure,
+            before.position.as_nanos(),
+            stalled.position.as_nanos()
+        );
+    }
     assert!(player.snapshot().error.is_none());
     wait(|| player.snapshot().ended || player.snapshot().error.is_some());
     let final_state = player.snapshot();
