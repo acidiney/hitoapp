@@ -247,83 +247,114 @@ async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal
         f
     })
     .await;
-    let lease = f
-        .hito
-        .playback
-        .begin_lease(
+    let (lease, lease_outcome) = match tokio::time::timeout(
+        Duration::from_secs(5),
+        f.hito.playback.begin_lease(
             &f.actor,
             BeginPlaybackLease {
                 recording_id: f.source.recording_id.clone(),
                 source_id: f.source.id.clone(),
             },
-        )
-        .await
-        .ok();
-    let first_open = if let Some(lease) = &lease {
-        Some(
+        ),
+    )
+    .await
+    {
+        Ok(Ok(lease)) => (Some(lease), "created"),
+        Ok(Err(error)) => (None, error.code()),
+        Err(_) => (None, "timeout"),
+    };
+    let (first_open_was_upstream, first_open_outcome) = if let Some(lease) = &lease {
+        match tokio::time::timeout(
+            Duration::from_secs(5),
             f.hito
                 .playback
-                .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
-                .await,
+                .open_lease_audio(&f.actor, lease.id, AudioRequest::default()),
         )
+        .await
+        {
+            Ok(Ok(opened)) => {
+                drop(opened);
+                (false, "none")
+            }
+            Ok(Err(Error::Upstream(_))) => (true, "upstream"),
+            Ok(Err(error)) => (false, error.code()),
+            Err(_) => (false, "timeout"),
+        }
     } else {
-        None
+        (false, "not_attempted")
     };
-    let first_open_error_code = first_open
-        .as_ref()
-        .and_then(|result| result.as_ref().err().map(Error::code))
-        .unwrap_or("not_attempted");
-    let first_open_was_upstream = matches!(first_open.as_ref(), Some(Err(Error::Upstream(_))));
-    drop(first_open);
     let lease_status_preserved = if let Some(lease) = &lease {
-        matches!(
-            f.hito.playback.lease_status(&f.actor, lease.id).await,
-            Ok(status) if status == *lease
+        match tokio::time::timeout(
+            Duration::from_secs(5),
+            f.hito.playback.lease_status(&f.actor, lease.id),
         )
+        .await
+        {
+            Ok(Ok(status)) => status == *lease,
+            Ok(Err(_)) | Err(_) => false,
+        }
     } else {
         false
     };
-    f.ready().await;
-    let second_open = if let Some(lease) = &lease {
-        Some(
+    let response_restored = tokio::time::timeout(Duration::from_secs(5), f.ready())
+        .await
+        .is_ok();
+    let (second_open, second_open_outcome) = if let Some(lease) = &lease {
+        match tokio::time::timeout(
+            Duration::from_secs(5),
             f.hito
                 .playback
-                .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
-                .await,
+                .open_lease_audio(&f.actor, lease.id, AudioRequest::default()),
         )
+        .await
+        {
+            Ok(Ok(opened)) => (Some(opened), "none"),
+            Ok(Err(error)) => (None, error.code()),
+            Err(_) => (None, "timeout"),
+        }
     } else {
-        None
+        (None, "not_attempted")
     };
-    let second_open_error_code = second_open
-        .as_ref()
-        .and_then(|result| result.as_ref().err().map(Error::code))
-        .unwrap_or("not_attempted");
-    let mut playback_bytes = None;
-    let mut playback_body_error_code = "none";
-    if let Some(Ok(OpenedAudio::Content(mut opened))) = second_open {
-        if let Some(mut body) = opened.body.take() {
-            let mut bytes = Vec::new();
-            loop {
-                match body.chunk().await {
-                    Ok(Some(chunk)) => bytes.extend_from_slice(&chunk),
-                    Ok(None) => {
-                        playback_bytes = Some(bytes);
-                        break;
-                    }
-                    Err(error) => {
-                        playback_body_error_code = error.code();
-                        break;
+    let (playback_bytes, playback_body_outcome) = match second_open {
+        Some(OpenedAudio::Content(mut opened)) => match opened.body.take() {
+            Some(mut body) => match tokio::time::timeout(Duration::from_secs(5), async {
+                let mut bytes = Vec::new();
+                loop {
+                    match body.chunk().await {
+                        Ok(Some(chunk)) => bytes.extend_from_slice(&chunk),
+                        Ok(None) => return Ok(bytes),
+                        Err(error) => return Err(error.code()),
                     }
                 }
-            }
-        }
-    }
-    let playback_closed = f.hito.playback.close().await.is_ok();
-    let replicas_closed = f.hito.replicas.close().await.is_ok();
-    let replication_closed = f.hito.catalog_replication.close().await.is_ok();
-    f.server.shutdown().await;
+            })
+            .await
+            {
+                Ok(Ok(bytes)) => (Some(bytes), "complete"),
+                Ok(Err(error_code)) => (None, error_code),
+                Err(_) => (None, "timeout"),
+            },
+            None => (None, "body_missing"),
+        },
+        Some(OpenedAudio::Unsatisfiable { .. }) => (None, "unexpected_response"),
+        None => (None, "not_opened"),
+    };
+    let playback_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.playback.close()).await,
+        Ok(Ok(()))
+    );
+    let replicas_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.replicas.close()).await,
+        Ok(Ok(()))
+    );
+    let replication_closed = matches!(
+        tokio::time::timeout(Duration::from_secs(5), f.hito.catalog_replication.close()).await,
+        Ok(Ok(()))
+    );
+    let server_closed = tokio::time::timeout(Duration::from_secs(5), f.server.shutdown())
+        .await
+        .is_ok();
     eprintln!(
-        "playback_lease_provider_fault_diagnostic first_open_error_code={first_open_error_code} second_open_error_code={second_open_error_code} body_error_code={playback_body_error_code}"
+        "playback_lease_provider_fault_diagnostic lease_outcome={lease_outcome} first_open_outcome={first_open_outcome} second_open_outcome={second_open_outcome} body_outcome={playback_body_outcome} lease_status_preserved={lease_status_preserved} response_restored={response_restored}"
     );
     assert!(
         lease.is_some(),
@@ -337,9 +368,13 @@ async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal
         lease_status_preserved,
         "a temporary provider open failure must preserve lease status"
     );
+    assert!(
+        response_restored,
+        "the owned provider response must be restored"
+    );
     assert_eq!(playback_bytes.as_deref(), Some(f.original.as_slice()));
     assert!(
-        playback_closed && replicas_closed && replication_closed,
+        playback_closed && replicas_closed && replication_closed && server_closed,
         "owned playback services must close before assertions"
     );
 }
