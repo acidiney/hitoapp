@@ -26,7 +26,7 @@ export const ARTIST_SORTS: SortOption[] = [
   { value: "title", label: "Name" },
 ];
 
-const PAGING_PARAMETERS = [
+export const PAGING_PARAMETERS = [
   "offset",
   "recording_offset",
   "group_offset",
