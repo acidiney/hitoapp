@@ -27,7 +27,9 @@ struct DiscoverView: View {
                         if let notice {
                             Text(notice).font(Theme.small).foregroundStyle(Theme.soft)
                         }
-                        GenreTiles(genres: genres)
+                    }
+                    GenreTiles(genres: genres)
+                    if !artists.isEmpty {
                         artistSection(artists)
                     } else {
                         Text("No artist radios yet. Radios start from artists Hito has matched on MusicBrainz, and none in your library are matched yet.")
