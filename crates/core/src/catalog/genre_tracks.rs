@@ -165,16 +165,11 @@ impl Catalog {
             .zip(anchor_id.as_deref())
             .map(|(title, id)| GenrePosition { title, id });
 
-        let candidates: Vec<(String, String)> = candidates_query(
-            &self.host,
-            actor,
-            &key,
-            limit,
-            after_position,
-        )
-        .build_query_as()
-        .fetch_all(&mut *tx)
-        .await?;
+        let candidates: Vec<(String, String)> =
+            candidates_query(&self.host, actor, &key, limit, after_position)
+                .build_query_as()
+                .fetch_all(&mut *tx)
+                .await?;
         let has_more = candidates.len() > limit as usize;
         let candidates: Vec<(String, String)> =
             candidates.into_iter().take(limit as usize).collect();

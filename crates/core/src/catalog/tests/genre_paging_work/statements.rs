@@ -123,11 +123,9 @@ pub(super) async fn collect(
         .bind(expected.anchor_id.to_owned());
     let anchor_arguments = anchor_query.take_arguments();
     let late_anchor_plan = match anchor_arguments {
-            Ok(Some(arguments)) => {
-                explain_sql(&mut transaction, ANCHOR_TITLE_SQL, arguments).await
-            }
-            Ok(None) => Err("anchor query has no bind arguments".to_owned()),
-            Err(error) => Err(error.to_string()),
+        Ok(Some(arguments)) => explain_sql(&mut transaction, ANCHOR_TITLE_SQL, arguments).await,
+        Ok(None) => Err("anchor query has no bind arguments".to_owned()),
+        Err(error) => Err(error.to_string()),
     };
 
     let (late_anchor, late_anchor_steps) = meter
@@ -153,27 +151,15 @@ pub(super) async fn collect(
     };
     let late_candidate_plan = explain_builder(
         &mut transaction,
-        candidates_query(
-            host,
-            actor,
-            "fado",
-            super::PAGE_SIZE,
-            Some(late_position),
-        ),
+        candidates_query(host, actor, "fado", super::PAGE_SIZE, Some(late_position)),
     )
     .await;
     let (late_candidates, late_candidate_steps) = meter
         .measure(tokio::time::timeout(STATEMENT_TIMEOUT, async {
-            candidates_query(
-                host,
-                actor,
-                "fado",
-                super::PAGE_SIZE,
-                Some(late_position),
-            )
-            .build_query_as::<(String, String)>()
-            .fetch_all(&mut *transaction)
-            .await
+            candidates_query(host, actor, "fado", super::PAGE_SIZE, Some(late_position))
+                .build_query_as::<(String, String)>()
+                .fetch_all(&mut *transaction)
+                .await
         }))
         .await;
     let late_candidates = statement_result(late_candidates, late_candidate_steps);
