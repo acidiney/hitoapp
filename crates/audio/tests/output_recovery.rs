@@ -202,8 +202,12 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
             .map(str::to_owned)
             .collect();
         panic!(
-            "backend interruption produced no xrun or error: fault_ms={} xruns_before={} xruns={} underruns={} error={:?} output_failure={:?} position_before_ns={} position_ns={} output_events={events:?}",
+            "backend interruption produced no xrun or error: fault_ms={} playing={} ended={} buffer_ready={} notices={} xruns_before={} xruns={} underruns={} error={:?} output_failure={:?} position_before_ns={} position_ns={} output_events={events:?}",
             fault_elapsed.as_millis(),
+            stalled.playing,
+            stalled.ended,
+            stalled.buffer_ready,
+            stalled.notices,
             before.xruns,
             stalled.xruns,
             stalled.underruns,
