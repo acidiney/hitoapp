@@ -13,10 +13,7 @@ pub(super) struct RetainedFile {
     pub length: u64,
     pub content_type: &'static str,
     #[cfg(test)]
-    observed: Option<(
-        Arc<std::sync::atomic::AtomicUsize>,
-        Option<Arc<super::testing::ReadPause>>,
-    )>,
+    observed: Option<Observation>,
 }
 
 #[derive(PartialEq)]
@@ -76,9 +73,14 @@ impl RetainedFile {
     pub fn observed(
         mut self,
         reads: Arc<std::sync::atomic::AtomicUsize>,
+        started: Arc<std::sync::atomic::AtomicUsize>,
         pause: Option<Arc<super::testing::ReadPause>>,
     ) -> Self {
-        self.observed = Some((reads, pause));
+        self.observed = Some(Observation {
+            reads,
+            started,
+            pause,
+        });
         self
     }
 
@@ -148,12 +150,17 @@ impl RetainedFile {
 impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
     fn read_at(&self, offset: u64, count: usize) -> Result<Bytes> {
         #[cfg(test)]
-        let _reading = self.observed.as_ref().map(|(reads, pause)| {
-            reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            if let Some(pause) = pause {
+        let _reading = self.observed.as_ref().map(|observed| {
+            observed
+                .reads
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            observed
+                .started
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if let Some(pause) = &observed.pause {
                 let _ = pause.pause();
             }
-            Reading(reads.clone())
+            Reading(observed.reads.clone())
         });
         self.check()?;
         let mut buffer = vec![0; count.min(65536)];
@@ -174,6 +181,13 @@ impl crate::playback_access::conversion::PositionedAudio for RetainedFile {
         buffer.truncate(read);
         Ok(Bytes::from(buffer))
     }
+}
+
+#[cfg(test)]
+struct Observation {
+    reads: Arc<std::sync::atomic::AtomicUsize>,
+    started: Arc<std::sync::atomic::AtomicUsize>,
+    pause: Option<Arc<super::testing::ReadPause>>,
 }
 
 #[cfg(test)]

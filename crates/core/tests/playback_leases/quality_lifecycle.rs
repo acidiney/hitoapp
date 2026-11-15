@@ -172,6 +172,7 @@ async fn releasing_a_lease_waits_for_a_blocked_conversion_read() {
         Err(_) => tokio::time::timeout(Duration::from_secs(5), releasing).await,
     };
     let reads_after_release = entry.positioned_reads.load(Ordering::SeqCst);
+    let reads_started = entry.positioned_started.load(Ordering::SeqCst);
     let opened = tokio::time::timeout(Duration::from_secs(5), opening).await;
     drop(entry);
     f.close().await;
@@ -181,6 +182,10 @@ async fn releasing_a_lease_waits_for_a_blocked_conversion_read() {
     );
     assert!(matches!(released, Ok(Ok(Ok(())))));
     assert_eq!(reads_after_release, 0);
+    assert_eq!(
+        reads_started, 1,
+        "no new conversion read may start after cancellation"
+    );
     assert!(opened.is_ok());
 }
 

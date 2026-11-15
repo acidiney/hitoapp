@@ -138,6 +138,21 @@ pub(super) async fn serve(
                 if !head {
                     pending_bodies -= 1;
                 }
+                let fenced = match &file {
+                    Some(file) => file.check(),
+                    None => Ok(()),
+                };
+                let result = match fenced {
+                    Ok(()) => result,
+                    Err(error) => {
+                        entry.stop();
+                        tracing::debug!(event = "lease_conversion_fenced", error_kind = error.code(), "Retained file changed before publication");
+                        if let Ok(Negotiated::Converted(Some(stream))) = result {
+                            (*stream).close().await;
+                        }
+                        Err(error)
+                    }
+                };
                 let result = match result {
                     Ok(Negotiated::Converted(Some(stream))) => match entry.check().await {
                         Ok(()) if !reply.is_closed() => {

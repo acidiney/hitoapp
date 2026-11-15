@@ -36,6 +36,8 @@ struct Entry {
     publications: testing::Publications,
     #[cfg(test)]
     positioned_reads: Arc<std::sync::atomic::AtomicUsize>,
+    #[cfg(test)]
+    positioned_started: Arc<std::sync::atomic::AtomicUsize>,
     correlation: u64,
     started: std::time::Instant,
     actor: Actor,
@@ -121,6 +123,8 @@ impl PlaybackAccess {
             publications: testing::Publications::default(),
             #[cfg(test)]
             positioned_reads: Arc::default(),
+            #[cfg(test)]
+            positioned_started: Arc::default(),
             correlation: NEXT_LEASE.fetch_add(1, Ordering::Relaxed),
             started: std::time::Instant::now(),
             actor: actor.clone(),
@@ -182,6 +186,7 @@ impl PlaybackAccess {
                             #[cfg(test)]
                             let retained = retained.observed(
                                 owned.positioned_reads.clone(),
+                                owned.positioned_started.clone(),
                                 owned.read_pause.get().cloned(),
                             );
                             Some(Arc::new(retained))

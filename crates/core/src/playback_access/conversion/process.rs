@@ -83,10 +83,13 @@ impl Feeder {
     }
 }
 
-pub(super) async fn fed<T>(
+pub(super) async fn fed<T, Work>(
     feeder: Option<Feeder>,
-    work: impl Future<Output = T>,
-) -> (T, Result<()>) {
+    work: impl FnOnce(watch::Sender<bool>) -> Work,
+) -> (T, Result<()>)
+where
+    Work: Future<Output = T>,
+{
     let (stop, stopped) = watch::channel(false);
     let feeding = async move {
         match feeder {
@@ -94,12 +97,7 @@ pub(super) async fn fed<T>(
             None => Ok(()),
         }
     };
-    let working = async move {
-        let value = work.await;
-        let _ = stop.send(true);
-        value
-    };
-    tokio::join!(working, feeding)
+    tokio::join!(work(stop), feeding)
 }
 
 pub(crate) async fn cancelled(cancel: &mut watch::Receiver<bool>) {
@@ -179,17 +177,19 @@ pub(super) async fn start(
         async move {
             let started = Instant::now();
             let mut bytes = 0;
-            let ((outcome, error), fed) = fed(feeder, async {
+            let (child, sender, owner, transferred) = (&mut child, &sender, &owner, &mut bytes);
+            let ((outcome, error), fed) = fed(feeder, |stop| async move {
                 let outcome = tokio::select! {
                     biased;
                     _ = sender.closed() => ("cancelled", None),
                     error = owner.revoked() => ("revoked", Some(error)),
-                    result = pump(&mut child, stdout, &sender, &mut bytes) => match result {
+                    result = pump(child, stdout, sender, transferred) => match result {
                         Ok(()) => ("complete", None),
                         Err(error) => ("failed", Some(error)),
                     },
                 };
-                retire(&mut child).await;
+                let _ = stop.send(true);
+                retire(child).await;
                 outcome
             })
             .await;

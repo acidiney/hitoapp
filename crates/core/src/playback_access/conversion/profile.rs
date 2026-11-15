@@ -94,15 +94,16 @@ pub(super) async fn probe(
         playback_grant = authority.correlation_id()
     );
     let mut output = Vec::new();
-    let (result, fed) = fed(feeder, async {
+    let (child, output_buffer, authority_ref) = (&mut child, &mut output, &authority);
+    let (result, fed) = fed(feeder, |stop| async move {
         let read = async {
             stdout
                 .ok_or_else(unfinished)?
                 .take(PROBE_LIMIT as u64 + 1)
-                .read_to_end(&mut output)
+                .read_to_end(output_buffer)
                 .await
                 .map_err(|_| unfinished())?;
-            if output.len() > PROBE_LIMIT {
+            if output_buffer.len() > PROBE_LIMIT {
                 return Err(unfinished());
             }
             if !child.wait().await.map_err(|_| unfinished())?.success() {
@@ -113,10 +114,11 @@ pub(super) async fn probe(
         let result = tokio::select! {
             biased;
             _ = cancelled(cancel) => Err(unfinished()),
-            error = authority.revoked() => Err(error),
+            error = authority_ref.revoked() => Err(error),
             result = tokio::time::timeout(PROBE_TIMEOUT, read) => result.unwrap_or_else(|_| Err(unfinished())),
         };
-        retire(&mut child).await;
+        let _ = stop.send(true);
+        retire(child).await;
         result
     })
     .instrument(span)
