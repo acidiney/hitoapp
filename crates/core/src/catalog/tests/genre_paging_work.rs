@@ -1,24 +1,11 @@
 use crate::test_support::{hang_guard::hang_guard, support, work_meter::WorkMeter};
-use crate::{
-    Actor,
-    catalog::{
-        genre_tracks::{ANCHOR_TITLE_SQL, accessible_query, candidates_query},
-        genres::GenrePosition,
-    },
-};
 use lofty::prelude::{Accessor, TagExt};
-use sqlx::{QueryBuilder, Sqlite, Transaction};
 use std::time::Duration;
+
+mod statements;
 
 const PAGE_SIZE: i64 = 20;
 const PAGE_TIMEOUT: Duration = Duration::from_secs(5);
-
-type PlanNode = (i64, i64, i64, String);
-type PlanResult = Result<Result<Vec<PlanNode>, sqlx::Error>, tokio::time::error::Elapsed>;
-type Timed<T> = (
-    Result<Result<T, sqlx::Error>, tokio::time::error::Elapsed>,
-    u64,
-);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PageSnapshot {
@@ -39,33 +26,7 @@ struct PageWork {
     replicas_closed: bool,
     replication_closed: bool,
     pool_closed: bool,
-    statements: Option<StatementWork>,
-}
-
-struct StatementWork {
-    accessible_plan: PlanResult,
-    first_plan: PlanResult,
-    late_plan: Option<PlanResult>,
-    anchor_plan: Option<PlanResult>,
-    accessible: Timed<Option<String>>,
-    first_candidates: Timed<Vec<(String, String)>>,
-    late_candidates: Option<Timed<Vec<(String, String)>>>,
-    anchor: Option<Timed<Option<String>>>,
-    expected_first_candidate_ids: Vec<String>,
-    expected_late_candidate_ids: Vec<String>,
-    anchor_matches_fixture: bool,
-    transaction_committed: bool,
-}
-
-async fn explain_query(
-    transaction: &mut Transaction<'_, Sqlite>,
-    mut query: QueryBuilder<'static, Sqlite>,
-) -> Result<Vec<PlanNode>, sqlx::Error> {
-    let statement = format!("EXPLAIN QUERY PLAN {}", query.sql());
-    let arguments = query.build().take_arguments().unwrap().unwrap();
-    sqlx::query_as_with(&statement, arguments)
-        .fetch_all(&mut **transaction)
-        .await
+    statements: Result<statements::StatementDiagnostics, String>,
 }
 
 fn snapshot(page: &crate::GenreTracksPage) -> PageSnapshot {
@@ -228,7 +189,7 @@ async fn measure_file_tag_population(size: usize, host: &str) -> PageWork {
             late_anchor = page
                 .items
                 .last()
-                .map(|recording| (recording.id.to_string(), recording.title.clone()));
+                .map(|recording| (recording.id.to_string(), recording.inherited_title.clone()));
         }
         expected_pages.push(current);
     }
@@ -262,147 +223,32 @@ async fn measure_file_tag_population(size: usize, host: &str) -> PageWork {
         })
         .await;
 
-    let mut statements = None;
-    if let Ok(Ok(mut transaction)) =
-        tokio::time::timeout(PAGE_TIMEOUT, hito.catalog.store.pool.begin()).await
-    {
-        let accessible_plan = tokio::time::timeout(
-            PAGE_TIMEOUT,
-            explain_query(
-                &mut transaction,
-                accessible_query(&hito.catalog.host, &actor, "fado"),
-            ),
-        )
-        .await;
-        let first_plan = tokio::time::timeout(
-            PAGE_TIMEOUT,
-            explain_query(
-                &mut transaction,
-                candidates_query(&hito.catalog.host, &actor, "fado", PAGE_SIZE, None),
-            ),
-        )
-        .await;
-        let (accessible, accessible_steps) = meter
-            .measure(tokio::time::timeout(PAGE_TIMEOUT, async {
-                accessible_query(&hito.catalog.host, &actor, "fado")
-                    .build_query_scalar::<String>()
-                    .fetch_optional(&mut *transaction)
-                    .await
-            }))
-            .await;
-        let (first_candidates, first_candidate_steps) = meter
-            .measure(tokio::time::timeout(PAGE_TIMEOUT, async {
-                candidates_query(&hito.catalog.host, &actor, "fado", PAGE_SIZE, None)
-                    .build_query_as::<(String, String)>()
-                    .fetch_all(&mut *transaction)
-                    .await
-            }))
-            .await;
-
-        let mut anchor_plan = None;
-        let mut anchor = None;
-        let mut late_plan = None;
-        let mut late_candidates = None;
-        let mut anchor_matches_fixture = false;
-        if let Some((anchor_id, expected_title)) = late_anchor.as_ref() {
-            let mut anchor_builder = QueryBuilder::<Sqlite>::new(ANCHOR_TITLE_SQL);
-            anchor_builder
-                .push_bind(actor.id().to_owned())
-                .push_bind(anchor_id.clone());
-            anchor_plan = Some(
-                tokio::time::timeout(
-                    PAGE_TIMEOUT,
-                    explain_query(&mut transaction, anchor_builder),
-                )
-                .await,
-            );
-            let (result, steps) = meter
-                .measure(tokio::time::timeout(PAGE_TIMEOUT, async {
-                    sqlx::query_scalar::<_, String>(ANCHOR_TITLE_SQL)
-                        .bind(actor.id().to_owned())
-                        .bind(anchor_id.clone())
-                        .fetch_optional(&mut *transaction)
-                        .await
-                }))
-                .await;
-            anchor_matches_fixture = result
-                .as_ref()
-                .ok()
-                .and_then(|result| result.as_ref().ok())
-                .and_then(Option::as_deref)
-                == Some(expected_title.as_str());
-            let late_title = result
-                .as_ref()
-                .ok()
-                .and_then(|result| result.as_ref().ok())
-                .and_then(Option::as_deref)
-                .map(str::to_owned);
-            anchor = Some((result, steps));
-            if let Some(title) = late_title {
-                let after = GenrePosition {
-                    title: &title,
-                    id: anchor_id,
-                };
-                late_plan = Some(
-                    tokio::time::timeout(
-                        PAGE_TIMEOUT,
-                        explain_query(
-                            &mut transaction,
-                            candidates_query(
-                                &hito.catalog.host,
-                                &actor,
-                                "fado",
-                                PAGE_SIZE,
-                                Some(after),
-                            ),
-                        ),
-                    )
-                    .await,
-                );
-                late_candidates = Some(
-                    meter
-                        .measure(tokio::time::timeout(PAGE_TIMEOUT, async {
-                            candidates_query(
-                                &hito.catalog.host,
-                                &actor,
-                                "fado",
-                                PAGE_SIZE,
-                                Some(after),
-                            )
-                            .build_query_as::<(String, String)>()
-                            .fetch_all(&mut *transaction)
-                            .await
-                        }))
-                        .await,
-                );
-            }
-        }
-        let transaction_committed = tokio::time::timeout(PAGE_TIMEOUT, transaction.commit())
-            .await
-            .is_ok_and(|result| result.is_ok());
-        statements = Some(StatementWork {
-            accessible_plan,
-            first_plan,
-            late_plan,
-            anchor_plan,
-            accessible: (accessible, accessible_steps),
-            first_candidates: (first_candidates, first_candidate_steps),
-            late_candidates,
-            anchor,
-            expected_first_candidate_ids: ordered_ids
+    let statements = match late_anchor.as_ref() {
+        Some((anchor_id, expected_title)) => {
+            let expected_first_ids = ordered_ids
                 .iter()
                 .take(PAGE_SIZE as usize + 1)
                 .cloned()
-                .collect(),
-            expected_late_candidate_ids: ordered_ids
+                .collect::<Vec<_>>();
+            let expected_late_ids = ordered_ids
                 .iter()
                 .skip(size - PAGE_SIZE as usize)
                 .cloned()
-                .collect(),
-            anchor_matches_fixture,
-            transaction_committed,
-        });
-    }
+                .collect::<Vec<_>>();
+            statements::collect(
+                &hito.catalog.store.pool,
+                &hito.catalog.host,
+                &actor,
+                anchor_id,
+                expected_title,
+                &expected_first_ids,
+                &expected_late_ids,
+                &meter,
+            )
+            .await
+        }
+        None => Err("late page anchor is missing".to_owned()),
+    };
     meter.remove(&hito.catalog.store.pool).await;
 
     let playback_closed = tokio::time::timeout(PAGE_TIMEOUT, hito.playback.close())
@@ -471,144 +317,8 @@ async fn file_tag_genre_pages_measure_first_and_late_population_work() {
         let statements = result
             .statements
             .as_ref()
-            .expect("genre paging diagnostic transaction starts");
-        assert!(statements.transaction_committed);
-        assert!(statements
-            .accessible_plan
-            .as_ref()
-            .is_ok_and(|plan| plan.is_ok()));
-        assert!(statements
-            .first_plan
-            .as_ref()
-            .is_ok_and(|plan| plan.is_ok()));
-        assert!(statements
-            .accessible
-            .0
-            .as_ref()
-            .is_ok_and(|query| query.as_ref().is_ok_and(Option::is_some)));
-        assert!(statements
-            .first_candidates
-            .0
-            .as_ref()
-            .is_ok_and(|query| query.as_ref().is_ok_and(|rows| rows.len() == PAGE_SIZE as usize + 1)));
-        assert!(statements.first_candidates.1 > 0);
-        assert!(statements.anchor_matches_fixture);
-        let anchor_plan = statements
-            .anchor_plan
-            .as_ref()
-            .expect("late public cursor resolves its anchor plan");
-        assert!(anchor_plan.as_ref().is_ok_and(|plan| plan.is_ok()));
-        let late_plan = statements
-            .late_plan
-            .as_ref()
-            .expect("late public cursor produces a candidate plan");
-        assert!(late_plan.as_ref().is_ok_and(|plan| plan.is_ok()));
-        let (anchor, anchor_steps) = statements
-            .anchor
-            .as_ref()
-            .expect("late public cursor resolves its anchor");
-        assert!(anchor
-            .as_ref()
-            .is_ok_and(|query| query.as_ref().is_ok_and(Option::is_some)));
-        assert!(*anchor_steps > 0);
-        let (late_candidates, late_candidate_steps) = statements
-            .late_candidates
-            .as_ref()
-            .expect("late public cursor measures candidate work");
-        assert!(late_candidates.as_ref().is_ok_and(|query| query
-            .as_ref()
-            .is_ok_and(|rows| rows.len() == result.expected_late.ids.len())));
-        assert!(*late_candidate_steps > 0);
-        assert_eq!(
-            statements
-                .first_candidates
-                .0
-                .as_ref()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-                .iter()
-                .map(|(id, _)| id.clone())
-                .collect::<Vec<_>>(),
-            statements.expected_first_candidate_ids
-        );
-        assert_eq!(
-            late_candidates
-                .as_ref()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-                .iter()
-                .map(|(id, _)| id.clone())
-                .collect::<Vec<_>>(),
-            statements.expected_late_candidate_ids
-        );
-        let (accessible, accessible_steps) = &statements.accessible;
-        assert!(accessible
-            .as_ref()
-            .is_ok_and(|query| query.as_ref().is_ok_and(Option::is_some)));
-        assert!(*accessible_steps > 0);
-        let first_eqp = statements.first_plan.as_ref().unwrap().as_ref().unwrap();
-        let accessible_eqp = statements
-            .accessible_plan
-            .as_ref()
-            .unwrap()
-            .as_ref()
-            .unwrap();
-        let anchor_eqp = anchor_plan.as_ref().unwrap().as_ref().unwrap();
-        let late_eqp = late_plan.as_ref().unwrap().as_ref().unwrap();
-        assert!(!accessible_eqp.is_empty());
-        assert!(!first_eqp.is_empty());
-        assert!(!anchor_eqp.is_empty());
-        assert!(!late_eqp.is_empty());
-        let accessible_rows = if accessible.as_ref().unwrap().as_ref().unwrap().is_some() {
-            1
-        } else {
-            0
-        };
-        eprintln!(
-            "genre_page_statement case=file-tag size={} statement=accessible vm_steps={} row_count={}",
-            result.size,
-            accessible_steps,
-            accessible_rows
-        );
-        eprintln!(
-            "genre_page_statement case=file-tag size={} statement=candidates-first vm_steps={} row_count={}",
-            result.size,
-            statements.first_candidates.1,
-            statements.first_candidates.0.as_ref().unwrap().as_ref().unwrap().len()
-        );
-        eprintln!(
-            "genre_page_statement case=file-tag size={} statement=anchor-late vm_steps={} row_count=1",
-            result.size,
-            anchor_steps
-        );
-        eprintln!(
-            "genre_page_statement case=file-tag size={} statement=candidates-late vm_steps={} row_count={}",
-            result.size,
-            late_candidate_steps,
-            late_candidates.as_ref().unwrap().as_ref().unwrap().len()
-        );
-        eprintln!(
-            "genre_page_eqp case=file-tag size={} statement=accessible nodes={:?}",
-            result.size,
-            accessible_eqp
-        );
-        eprintln!(
-            "genre_page_eqp case=file-tag size={} statement=candidates-first nodes={:?}",
-            result.size,
-            first_eqp
-        );
-        eprintln!(
-            "genre_page_eqp case=file-tag size={} statement=anchor-late nodes={:?}",
-            result.size,
-            anchor_eqp
-        );
-        eprintln!(
-            "genre_page_eqp case=file-tag size={} statement=candidates-late nodes={:?}",
-            result.size,
-            late_eqp
-        );
+            .expect("genre paging statements complete before assertions");
+        statements::assert_and_log(result.size, statements);
         eprintln!(
             "genre_page_work case=file-tag size={} page=first vm_steps={} item_count={} next_after={}",
             result.size,
