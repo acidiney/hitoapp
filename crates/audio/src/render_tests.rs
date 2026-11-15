@@ -272,3 +272,63 @@ fn a_new_epoch_retires_stale_frames_while_waiting_for_its_own_buffer() {
     render.fill(&mut output, &info(200, 300));
     assert_eq!(output, [0.5]);
 }
+
+#[derive(Clone, Default)]
+struct Sink(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Sink {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_presentation_overflow_on_a_callback_thread_reaches_its_owners_subscriber() {
+    let sink = Sink::default();
+    let writer = sink.clone();
+    let owner = tracing::Dispatch::new(
+        tracing_subscriber::fmt()
+            .json()
+            .with_max_level(tracing::Level::INFO)
+            .with_writer(move || writer.clone())
+            .finish(),
+    );
+    let (_producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = ready_state();
+    let mut render = tracing::dispatcher::with_default(&owner, || {
+        Render::new(consumer, state.clone(), format()).with_stream((9, 4))
+    });
+    std::thread::spawn(move || {
+        for position in 0..1025 {
+            render.schedule(Point {
+                at: StreamInstant::from_micros(position),
+                epoch: 1,
+                position,
+                ended: false,
+                speed: None,
+                track: 0,
+            });
+        }
+    })
+    .join()
+    .unwrap();
+    assert_eq!(state.error(), Some(Error::Output));
+    let logged = String::from_utf8(sink.0.lock().unwrap().clone()).unwrap();
+    let event = logged
+        .lines()
+        .find(|line| line.contains("\"event\":\"audio_output_failed\""))
+        .expect("the owner's subscriber must receive the overflow event");
+    for field in [
+        "\"reason\":\"presentation_overflow\"",
+        "\"audio_id\":9",
+        "\"generation\":4",
+        "\"terminal\":true",
+    ] {
+        assert!(event.contains(field), "{field} missing from {event}");
+    }
+}

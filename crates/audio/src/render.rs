@@ -43,6 +43,7 @@ pub(crate) struct Render {
     next_buffer_at: Option<StreamInstant>,
     xruns: u64,
     stream: (u64, u64),
+    dispatch: tracing::Dispatch,
 }
 
 impl Render {
@@ -56,6 +57,7 @@ impl Render {
             next_buffer_at: None,
             xruns: 0,
             stream: (0, 0),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
         }
     }
 
@@ -91,14 +93,17 @@ impl Render {
 
     fn schedule(&mut self, point: Point) {
         if !self.presentation.push(point) {
-            tracing::warn!(
-                event = "audio_output_failed",
-                audio_id = self.stream.0,
-                generation = self.stream.1,
-                reason = "presentation_overflow",
-                terminal = true,
-                "Audio output recovery could not continue"
-            );
+            let stream = self.stream;
+            tracing::dispatcher::with_default(&self.dispatch, || {
+                tracing::warn!(
+                    event = "audio_output_failed",
+                    audio_id = stream.0,
+                    generation = stream.1,
+                    reason = "presentation_overflow",
+                    terminal = true,
+                    "Audio output recovery could not continue"
+                )
+            });
             self.state.fail(Error::Output);
         }
     }

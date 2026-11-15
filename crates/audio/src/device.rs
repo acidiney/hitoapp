@@ -216,6 +216,7 @@ where
     f32: FromSample<T>,
 {
     let mut render = Render::new(consumer, state.clone(), format).with_stream(stream);
+    let origin = Origin::capture(stream);
     let born_xruns = state.xruns.load(Ordering::Acquire);
     #[cfg(feature = "test-support")]
     let mut witness = crate::test_support::output_witness::attach(&state, format);
@@ -229,13 +230,27 @@ where
                     witness.record(data, info);
                 }
             },
-            move |error| report(&state, stream, born_xruns, error.kind()),
+            move |error| report(&state, &origin, born_xruns, error.kind()),
             Some(Duration::from_secs(2)),
         )
         .map_err(|_| Error::OutputUnavailable)
 }
 
-fn report(state: &State, stream: (u64, u64), born_xruns: u64, kind: cpal::ErrorKind) {
+struct Origin {
+    stream: (u64, u64),
+    dispatch: tracing::Dispatch,
+}
+
+impl Origin {
+    fn capture(stream: (u64, u64)) -> Self {
+        Self {
+            stream,
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
+        }
+    }
+}
+
+fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind) {
     if matches!(
         kind,
         cpal::ErrorKind::DeviceChanged | cpal::ErrorKind::RealtimeDenied
@@ -253,16 +268,18 @@ fn report(state: &State, stream: (u64, u64), born_xruns: u64, kind: cpal::ErrorK
         state.output_failure.store(code, Ordering::Release);
         let current_xruns = state.xruns.load(Ordering::Acquire);
         let terminal = current_xruns == born_xruns;
-        tracing::warn!(
-            event = "audio_output_failed",
-            audio_id = stream.0,
-            generation = stream.1,
-            reason,
-            born_xruns,
-            current_xruns,
-            terminal,
-            "Audio output reported a failure"
-        );
+        tracing::dispatcher::with_default(&origin.dispatch, || {
+            tracing::warn!(
+                event = "audio_output_failed",
+                audio_id = origin.stream.0,
+                generation = origin.stream.1,
+                reason,
+                born_xruns,
+                current_xruns,
+                terminal,
+                "Audio output reported a failure"
+            )
+        });
         if terminal {
             state.fail(Error::Output);
         }
@@ -284,12 +301,71 @@ impl Drop for Output {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    #[derive(Clone, Default)]
+    struct Sink(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Sink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn owner(sink: &Sink) -> tracing::Dispatch {
+        let writer = sink.clone();
+        tracing::Dispatch::new(
+            tracing_subscriber::fmt()
+                .json()
+                .with_max_level(tracing::Level::INFO)
+                .with_writer(move || writer.clone())
+                .finish(),
+        )
+    }
+
+    #[test]
+    fn a_backend_failure_on_a_callback_thread_reaches_its_owners_subscriber() {
+        let sink = Sink::default();
+        let state = Arc::new(State::new());
+        tracing::dispatcher::with_default(&owner(&sink), || {
+            let callback_state = state.clone();
+            let origin = Origin::capture((7, 3));
+            std::thread::spawn(move || {
+                report(&callback_state, &origin, 0, cpal::ErrorKind::BackendError)
+            })
+            .join()
+            .unwrap();
+        });
+        let logged = String::from_utf8(sink.0.lock().unwrap().clone()).unwrap();
+        let event = logged
+            .lines()
+            .find(|line| line.contains("\"event\":\"audio_output_failed\""))
+            .expect("the owner's subscriber must receive the callback thread's failure event");
+        for field in [
+            "\"reason\":\"backend\"",
+            "\"audio_id\":7",
+            "\"generation\":3",
+            "\"terminal\":true",
+        ] {
+            assert!(event.contains(field), "{field} missing from {event}");
+        }
+    }
 
     #[test]
     fn a_replacement_failure_is_terminal_before_recovery_is_acknowledged() {
         let state = State::new();
         state.xruns.store(1, Ordering::Release);
-        report(&state, (1, 1), 1, cpal::ErrorKind::BackendError);
+        report(
+            &state,
+            &Origin::capture((1, 1)),
+            1,
+            cpal::ErrorKind::BackendError,
+        );
         assert_eq!(state.error(), Some(Error::Output));
         assert_eq!(
             state
@@ -306,8 +382,13 @@ mod tests {
     #[test]
     fn follow_on_failure_of_the_old_stream_does_not_stop_its_replacement() {
         let state = State::new();
-        report(&state, (1, 1), 0, cpal::ErrorKind::Xrun);
-        report(&state, (1, 1), 0, cpal::ErrorKind::BackendError);
+        report(&state, &Origin::capture((1, 1)), 0, cpal::ErrorKind::Xrun);
+        report(
+            &state,
+            &Origin::capture((1, 1)),
+            0,
+            cpal::ErrorKind::BackendError,
+        );
         assert_eq!(state.xruns.load(Ordering::Acquire), 1);
         assert_eq!(state.error(), None);
     }
@@ -319,7 +400,7 @@ mod tests {
             cpal::ErrorKind::RealtimeDenied,
         ] {
             let state = State::new();
-            report(&state, (1, 1), 0, kind);
+            report(&state, &Origin::capture((1, 1)), 0, kind);
             assert_eq!(state.error(), None);
         }
     }
