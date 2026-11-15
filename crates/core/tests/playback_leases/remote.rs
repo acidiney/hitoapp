@@ -234,8 +234,19 @@ async fn provider_leases_reuse_ranged_relay_and_retire_with_actual_credential_au
 
 #[tokio::test]
 async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal() {
-    let f = AudioLibrary::start().await;
-    f.ready().await;
+    let f = hang_guard("owned temporary provider failure setup", async {
+        let f = AudioLibrary::start().await;
+        f.ready().await;
+        f.server
+            .audio(
+                StatusCode::SERVICE_UNAVAILABLE,
+                headers(),
+                f.original.clone(),
+            )
+            .await;
+        f
+    })
+    .await;
     let lease = f
         .hito
         .playback
@@ -247,33 +258,88 @@ async fn temporary_provider_open_failure_does_not_fabricate_authority_withdrawal
             },
         )
         .await
-        .unwrap();
-    f.server
-        .audio_statuses(vec![StatusCode::SERVICE_UNAVAILABLE]);
-    assert!(matches!(
-        f.hito
-            .playback
-            .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
-            .await,
-        Err(Error::Upstream(_))
-    ));
-    assert_eq!(
-        f.hito
-            .playback
-            .lease_status(&f.actor, lease.id)
-            .await
-            .unwrap(),
-        lease
-    );
-    let opened = f
-        .hito
-        .playback
-        .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
-        .await
-        .unwrap();
-    assert_eq!(content(opened).await, f.original);
-    f.hito.playback.close().await.unwrap();
-    f.hito.replicas.close().await.unwrap();
-    f.hito.catalog_replication.close().await.unwrap();
+        .ok();
+    let first_open = if let Some(lease) = &lease {
+        Some(
+            f.hito
+                .playback
+                .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
+                .await,
+        )
+    } else {
+        None
+    };
+    let first_open_error_code = first_open
+        .as_ref()
+        .and_then(|result| result.as_ref().err().map(Error::code))
+        .unwrap_or("not_attempted");
+    let first_open_was_upstream = matches!(first_open.as_ref(), Some(Err(Error::Upstream(_))));
+    drop(first_open);
+    let lease_status_preserved = if let Some(lease) = &lease {
+        matches!(
+            f.hito.playback.lease_status(&f.actor, lease.id).await,
+            Ok(status) if status == *lease
+        )
+    } else {
+        false
+    };
+    f.ready().await;
+    let second_open = if let Some(lease) = &lease {
+        Some(
+            f.hito
+                .playback
+                .open_lease_audio(&f.actor, lease.id, AudioRequest::default())
+                .await,
+        )
+    } else {
+        None
+    };
+    let second_open_error_code = second_open
+        .as_ref()
+        .and_then(|result| result.as_ref().err().map(Error::code))
+        .unwrap_or("not_attempted");
+    let mut playback_bytes = None;
+    let mut playback_body_error_code = "none";
+    if let Some(Ok(OpenedAudio::Content(mut opened))) = second_open {
+        if let Some(mut body) = opened.body.take() {
+            let mut bytes = Vec::new();
+            loop {
+                match body.chunk().await {
+                    Ok(Some(chunk)) => bytes.extend_from_slice(&chunk),
+                    Ok(None) => {
+                        playback_bytes = Some(bytes);
+                        break;
+                    }
+                    Err(error) => {
+                        playback_body_error_code = error.code();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    let playback_closed = f.hito.playback.close().await.is_ok();
+    let replicas_closed = f.hito.replicas.close().await.is_ok();
+    let replication_closed = f.hito.catalog_replication.close().await.is_ok();
     f.server.shutdown().await;
+    eprintln!(
+        "playback_lease_provider_fault_diagnostic first_open_error_code={first_open_error_code} second_open_error_code={second_open_error_code} body_error_code={playback_body_error_code}"
+    );
+    assert!(
+        lease.is_some(),
+        "the authorized provider lease must be created"
+    );
+    assert!(
+        first_open_was_upstream,
+        "a persistent provider failure must reject the first explicit open"
+    );
+    assert!(
+        lease_status_preserved,
+        "a temporary provider open failure must preserve lease status"
+    );
+    assert_eq!(playback_bytes.as_deref(), Some(f.original.as_slice()));
+    assert!(
+        playback_closed && replicas_closed && replication_closed,
+        "owned playback services must close before assertions"
+    );
 }
