@@ -328,6 +328,8 @@ mod genre_access_fixture;
 mod genre_tracks;
 #[path = "api/genre_tracks_access.rs"]
 mod genre_tracks_access;
+#[path = "api/genre_tracks_privacy.rs"]
+mod genre_tracks_privacy;
 #[path = "api/genres.rs"]
 mod genres;
 #[path = "api/metadata.rs"]
