@@ -125,6 +125,9 @@ mod provider_attachment_bound;
 #[path = "api/catalog.rs"]
 mod catalog;
 
+#[path = "api/catalog_availability.rs"]
+mod catalog_availability;
+
 #[path = "api/catalog_sort.rs"]
 mod catalog_sort;
 

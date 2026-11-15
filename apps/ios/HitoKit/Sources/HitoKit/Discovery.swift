@@ -4,6 +4,9 @@ public struct RadioArtist: Equatable, Hashable, Identifiable, Sendable {
     public let id: String
     public let name: String
     public let tracks: Int
+    public var recording: String?
+
+    public var artworkPath: [String]? { recording.map { ["api", "v1", "recordings", $0, "artwork"] } }
 }
 
 public struct ArtistRadio: Equatable, Sendable {
@@ -17,6 +20,15 @@ public struct ArtistRadio: Equatable, Sendable {
         let ready = "\(count) ready \(count == 1 ? "track" : "tracks")"
         if similar == 0 { return "Starts with \(ready) of \(artist)." }
         return "Starts with \(ready), then \(similar) nearby \(similar == 1 ? "artist" : "artists") in your library."
+    }
+
+    public var playing: String {
+        if similar == 0 { return "Playing a mix of \(artist) from your library." }
+        return "Playing a mix of \(artist) and \(similar) similar \(similar == 1 ? "artist" : "artists") from your library."
+    }
+
+    public static func nothingPlayable(_ artist: String) -> String {
+        "Nothing playable from \(artist) is in your library right now."
     }
 }
 
@@ -36,7 +48,15 @@ public enum FeaturedShelf: Equatable, Sendable {
 }
 
 public struct Discovery: Sendable {
-    struct Name: Decodable { let value: String }
+    struct Name: Decodable {
+        let value: String
+        let recordingId: String?
+
+        enum CodingKeys: String, CodingKey {
+            case value
+            case recordingId = "recording_id"
+        }
+    }
 
     struct Group: Decodable {
         let id: String
@@ -119,7 +139,7 @@ public struct Discovery: Sendable {
     public func artists() async throws -> RadioArtists {
         let page = try await api.get(["api", "v1", "artist-identity-groups"], query: [URLQueryItem(name: "limit", value: "24")], as: Groups.self)
         let items = page.items
-            .map { RadioArtist(id: $0.id, name: $0.name.value, tracks: $0.recordingCount) }
+            .map { RadioArtist(id: $0.id, name: $0.name.value, tracks: $0.recordingCount, recording: $0.name.recordingId) }
             .sorted { $0.tracks > $1.tracks }
         return RadioArtists(items: items, complete: page.total <= page.items.count)
     }

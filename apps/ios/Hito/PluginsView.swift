@@ -10,14 +10,31 @@ struct PluginsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Plugins").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Plugins").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let state, state.connections.isEmpty {
                     Text("Your library plays local files on its own. Connect a plugin to search, play and follow music you don't have files for.")
-                        .font(Theme.body).foregroundStyle(Theme.soft)
+                        .font(Theme.small).foregroundStyle(Theme.soft)
                 }
                 if let state {
                     powers(state)
                     connections(state)
+                    if !state.connections.isEmpty {
+                        NavigationLink(value: SettingsPage.playback) {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Playback order").font(Theme.bodyStrong)
+                                    Text("Which source plays first when a track has several. A source you choose for one track always wins.")
+                                        .font(Theme.small).foregroundStyle(Theme.soft)
+                                }
+                                Spacer(minLength: 8)
+                                Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                            }
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 } else if failed {
                     HStack(spacing: 8) {
                         Text("Plugins didn't load.").foregroundStyle(Theme.soft)
@@ -87,11 +104,11 @@ struct PluginsView: View {
                             Text(connection.name).font(Theme.bodyStrong).lineLimit(1)
                             Text(status(connection))
                                 .font(Theme.small)
-                                .foregroundStyle(connection.health == .ok ? Theme.quiet : Theme.warning)
+                                .foregroundStyle(connection.health == .ok && !connection.needsSignIn ? Theme.quiet : Theme.warning)
                                 .lineLimit(3)
                         }
                         Spacer(minLength: 0)
-                        Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+                        Icon("chevron-right", size: 18).foregroundStyle(Theme.quiet)
                     }
                     .padding(.horizontal, 12)
                     .frame(minHeight: 60)
@@ -106,18 +123,17 @@ struct PluginsView: View {
                     Text(available(state)).font(Theme.small).foregroundStyle(Theme.quiet)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                 .accessibilityElement(children: .combine)
             } else {
-                Text("Available on this server").font(Theme.smallStrong).foregroundStyle(Theme.quiet).padding(.top, 8).accessibilityAddTraits(.isHeader)
+                Text("Available on this server").font(Theme.smallStrong).foregroundStyle(Theme.quiet).padding(.top, 10).accessibilityAddTraits(.isHeader)
                 ForEach(state.available) { offer in
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 12) {
                             PluginTile(name: offer.name)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(offer.name).font(Theme.bodyStrong).lineLimit(1)
+                                Text(offer.name).font(Theme.bodyBold).lineLimit(1)
                                 Text("Not connected").font(Theme.small).foregroundStyle(Theme.quiet)
                             }
                         }
@@ -131,6 +147,7 @@ struct PluginsView: View {
                     }
                     .padding(14)
                     .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
+                    .padding(.top, 6)
                 }
                 Text("Connections are yours only.").font(Theme.small).foregroundStyle(Theme.quiet)
             }
@@ -142,17 +159,13 @@ struct PluginsView: View {
     }
 
     private func status(_ connection: PluginConnection) -> String {
-        switch connection.health {
-        case .ok: connection.summary
-        case .degraded: "Working, with problems"
-        case .unreachable: "Can't reach it right now"
-        case .credentialsRequired: "Needs you to sign in again"
-        }
+        if let notice = connection.notice { return notice.title }
+        return connection.needsSignIn ? "Needs sign-in · \(connection.summary)" : connection.summary
     }
 
     private func available(_ state: PluginState) -> String {
         if !state.available.isEmpty {
-            return "\(state.available.map(\.name).joined(separator: ", ")). Connect on the web for now."
+            return "\(state.available.map(\.name).joined(separator: ", ")) can be connected."
         }
         if state.connections.isEmpty { return "Your administrator hasn't offered any plugins yet." }
         return "\(state.connections.count == 2 ? "Both" : "All") connected. New plugins show up here to connect."

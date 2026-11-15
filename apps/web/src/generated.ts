@@ -5829,6 +5829,8 @@ export interface components {
             creators: string[];
             provider_label: string;
         };
+        /** @enum {string} */
+        RecordingAvailability: "available_or_service" | "no_source";
         RecordingCopies: {
             canonical_id: string;
             copies: components["schemas"]["RecordingCopy"][];
@@ -16109,6 +16111,7 @@ export interface operations {
                 limit?: number;
                 library?: string;
                 sort?: components["schemas"]["CatalogSort"];
+                availability?: components["schemas"]["RecordingAvailability"];
             };
             header?: never;
             path?: never;
@@ -16118,6 +16121,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The applied availability filter: all, available_or_service or no_source */
+                    "Hito-Recordings-Availability"?: string;
                     [name: string]: unknown;
                 };
                 content: {

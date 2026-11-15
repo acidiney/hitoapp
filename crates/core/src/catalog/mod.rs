@@ -86,7 +86,9 @@ pub use releases::{
 };
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-pub use types::{CatalogSort, Page, Recording, Search, Source, SourceMatchKind};
+pub use types::{
+    CatalogSort, Page, Recording, RecordingAvailability, Search, Source, SourceMatchKind,
+};
 
 #[derive(Clone)]
 pub struct Catalog {

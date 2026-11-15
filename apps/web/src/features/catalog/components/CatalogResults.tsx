@@ -22,6 +22,13 @@ import {
   useMediaQuery,
 } from "../../../shared/hooks/useMediaQuery";
 import type { SortOption } from "../../../shared/hooks/useCatalogSort";
+import type { ListboxOption } from "../../../shared/ui/Listbox";
+import { ALL_TRACKS } from "../../../shared/hooks/useTrackAvailability";
+
+const UNMATCHED: Record<string, string> = {
+  available_or_service: "No tracks with a source",
+  no_source: "No tracks without a source",
+};
 
 export default function CatalogResults({
   title,
@@ -37,6 +44,7 @@ export default function CatalogResults({
   emptyAction,
   browse = false,
   sort,
+  availability,
 }: Pick<
   Schema<"CatalogPageProps">,
   "user" | "playlists" | "query" | "recordings"
@@ -54,6 +62,12 @@ export default function CatalogResults({
     options: SortOption[];
     onChange: (value: string) => void;
   };
+  availability?: {
+    value: string;
+    active: string | null;
+    options: ListboxOption[];
+    onChange: (value: string) => void;
+  };
 }) {
   const { mutate } = useMutation(user.id);
   const rowIds = recordings.items.map((track) => track.id);
@@ -64,6 +78,7 @@ export default function CatalogResults({
     setView(mode);
   }
   const phone = useMediaQuery(PHONE_QUERY);
+  const filtered = Boolean(availability?.active);
   const sortControl =
     sort &&
     (phone ? (
@@ -71,13 +86,24 @@ export default function CatalogResults({
         options={sort.options}
         value={sort.value}
         onChange={sort.onChange}
+        filter={availability}
       />
     ) : (
-      <SortControl
-        options={sort.options}
-        value={sort.value}
-        onChange={sort.onChange}
-      />
+      <>
+        {availability && (
+          <SortControl
+            label="Show"
+            options={availability.options}
+            value={availability.value}
+            onChange={availability.onChange}
+          />
+        )}
+        <SortControl
+          options={sort.options}
+          value={sort.value}
+          onChange={sort.onChange}
+        />
+      </>
     ));
   const tracks = recordings.items.map((track) => ({
     ...track,
@@ -94,7 +120,7 @@ export default function CatalogResults({
       <LibraryHeading path={path} title={title} description={description}>
         <div className="library-heading-actions">
           {headingActions}
-          {phone && tracks.length > 0 && sortControl}
+          {phone && (tracks.length > 0 || filtered) && sortControl}
           {tracks.length > 0 && (
             <PlayShuffle
               tracks={tracks}
@@ -159,6 +185,31 @@ export default function CatalogResults({
               mutate={mutate}
             />
           )}
+        </>
+      ) : filtered && availability?.active ? (
+        <>
+          {!phone && (
+            <div
+              role="group"
+              aria-label="Sort tracks"
+              className="library-filters"
+            >
+              {sortControl}
+            </div>
+          )}
+          <EmptyState
+            title={UNMATCHED[availability.active]}
+            text="Change the filter or show every track."
+            libraryLink={false}
+          >
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => availability.onChange(ALL_TRACKS)}
+            >
+              Show all tracks
+            </button>
+          </EmptyState>
         </>
       ) : (
         <EmptyState

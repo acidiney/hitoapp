@@ -22,8 +22,27 @@ public struct PlaylistDetail: Equatable, Sendable {
     public let playlist: Playlist
     public let origin: String
     public let tracks: [Track]
+    public var entries: [PlaylistDraft.Slot] = []
+    public var copied = false
+
+    public enum Cover: Equatable, Sendable {
+        case playlist
+        case track(String)
+        case mosaic([String])
+    }
 
     public var ready: Int { tracks.filter(\.isPlayable).count }
+
+    public var cover: Cover {
+        if copied { return .playlist }
+        var seen: Set<String> = []
+        var picked: [String] = []
+        for track in tracks where seen.insert(track.releaseId ?? track.id).inserted {
+            picked.append(track.id)
+            if picked.count == 4 { return .mosaic(picked) }
+        }
+        return picked.first.map(Cover.track) ?? .playlist
+    }
 }
 
 public struct Playlists: Sendable {
@@ -32,6 +51,7 @@ public struct Playlists: Sendable {
 
     struct Entry: Decodable {
         let entryId: String
+        let position: Int
         let recordingId: String?
         let title: String
         let artist: String
@@ -43,7 +63,7 @@ public struct Playlists: Sendable {
         let liked: Bool
 
         enum CodingKeys: String, CodingKey {
-            case title, artist, album, available, liked
+            case title, artist, album, available, liked, position
             case entryId = "entry_id"
             case recordingId = "recording_id"
             case releaseId = "release_id"
@@ -90,7 +110,7 @@ public struct Playlists: Sendable {
         case (.local, .some(let source)): "A copy of \(source), yours to edit"
         case (.local, .none): "Your playlist"
         }
-        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track))
+        return PlaylistDetail(playlist: detail.playlist, origin: origin, tracks: detail.entries.map(\.track), entries: detail.entries.map { PlaylistDraft.Slot(id: $0.entryId, position: $0.position) }, copied: detail.playlist.kind == .local && source != nil)
     }
 
     public struct Unready: Equatable, Sendable {
@@ -162,6 +182,9 @@ public enum PlaylistLink {
     }
 
     public static func problem(_ error: Error, service: String, following: Bool) -> String {
+        if case HitoAPI.Problem.credentialsRequired = error {
+            return "The \(service) connection needs its credentials updated. Open Plugins to sign in again. Nothing was saved."
+        }
         let status: Int? = switch error as? HitoAPI.Problem {
         case let .refused(code), let .unexpected(code): code
         default: nil
