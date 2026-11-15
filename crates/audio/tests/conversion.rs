@@ -437,7 +437,9 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
 
             let stereo_channel = stereo
                 .samples
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|frame| frame[channel_index])
                 .collect::<Vec<_>>();
             assert_eq!(stereo_channel.len(), mono.samples.len());
