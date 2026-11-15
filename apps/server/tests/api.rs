@@ -125,6 +125,9 @@ mod provider_attachment_bound;
 #[path = "api/catalog.rs"]
 mod catalog;
 
+#[path = "api/catalog_availability.rs"]
+mod catalog_availability;
+
 #[path = "api/catalog_sort.rs"]
 mod catalog_sort;
 
@@ -204,6 +207,9 @@ mod inertia;
 
 #[path = "api/home_search_pages.rs"]
 mod home_search_pages;
+
+#[path = "api/home.rs"]
+mod home;
 
 #[path = "api/security.rs"]
 mod security;
