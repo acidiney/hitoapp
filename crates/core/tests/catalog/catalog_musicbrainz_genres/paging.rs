@@ -42,7 +42,7 @@ async fn genre_track_pages_deduplicate_tagged_sources_before_the_next_candidate(
         .expect("genre tiles finish within 5 seconds");
     assert_eq!(
         tiles,
-        pairs(&[("fado", 2), ("folk", 2), ("jazz", 1), ("rock", 2)])
+        pairs(&[("fado", 2), ("folk", 2), ("rock", 2), ("jazz", 1)])
     );
     let requests = world.genre_requests();
     let fado = paged_tracks_match_preview(&world, "fado").await;
