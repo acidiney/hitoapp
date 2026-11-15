@@ -121,7 +121,7 @@ struct ImportSheet: View {
         let trimmed = link.trimmingCharacters(in: .whitespacesAndNewlines)
         if let connections {
             if connections.allSatisfy({ !$0.capabilities.contains("playlists") }) {
-                note("No connected plugin can add playlists. Connect one on the web, then try again.")
+                note("No connected plugin can add playlists. Connect one in Plugins, then try again.")
             } else if let connection, !trimmed.isEmpty {
                 HStack(spacing: 14) {
                     ZStack { Theme.tile; Icon("playlist", size: 24).foregroundStyle(Theme.coverMark) }

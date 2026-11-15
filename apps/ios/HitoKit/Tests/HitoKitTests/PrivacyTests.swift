@@ -55,4 +55,12 @@ import Testing
         #expect(body["password"] as? String == "test-password")
         #expect(body["pin"] is NSNull)
     }
+
+    @Test func removingThePinNeedsThePassword() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/account/pin/remove": .json(200, #"{"pin_enabled":false,"idle_minutes":15,"locked":false}"#)])
+        let lock = try await privacy(fake).removePin(password: "test-password")
+        #expect(!lock.pinEnabled)
+        let body = try #require(fake.requests.first?.object)
+        #expect(body["password"] as? String == "test-password")
+    }
 }

@@ -13,6 +13,8 @@ struct SearchView: View {
     @State private var service: PluginConnection?
     @State private var remote: [PluginResult] = []
     @State private var remoteState = RemoteState.idle
+    @State private var searchFailed = false
+    @State private var attempt = 0
     @State private var adopting: String?
     @State private var adoptNote: String?
     @State private var importing: String?
@@ -20,7 +22,7 @@ struct SearchView: View {
     @FocusState private var focused: Bool
 
     enum RemoteState: Equatable {
-        case idle, searching, failed
+        case idle, searching, failed, credentials
     }
 
     var query: String {
@@ -128,6 +130,14 @@ struct SearchView: View {
                             Text("Search your library and connected services").font(Theme.bodyStrong)
                             Text("Find an artist, album or track.").font(Theme.small).foregroundStyle(Theme.soft)
                         }
+                    } else if searchFailed && tracks.isEmpty && artists.isEmpty && albums.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your library couldn't be searched").font(Theme.bodyStrong)
+                            HStack(spacing: 8) {
+                                Text("Hito didn't get an answer.").font(Theme.small).foregroundStyle(Theme.soft)
+                                TextAction(title: "Try again") { attempt += 1 }
+                            }
+                        }
                     } else if tracks.isEmpty && artists.isEmpty && albums.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Nothing in your library matches “\(query)”").font(Theme.bodyStrong)
@@ -145,7 +155,8 @@ struct SearchView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .task(id: query) {
+        .task(id: "\(query)|\(attempt)") {
+            searchFailed = false
             guard !query.isEmpty, let api = model.api else {
                 artists = []
                 albums = []
@@ -163,6 +174,7 @@ struct SearchView: View {
             guard !Task.isCancelled else { return }
             artists = matchedArtists ?? []
             albums = matchedAlbums ?? []
+            searchFailed = matchedArtists == nil || matchedAlbums == nil || tracks.failed
         }
         .task(id: "\(query)|\(service?.id ?? "")") { await searchRemote() }
         .task { await loadSearchable() }
@@ -279,6 +291,8 @@ struct SearchView: View {
                 Text("Searching \(plugin.name)…").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
             case .failed:
                 Text("\(plugin.name) couldn't be searched. Your library results are unaffected.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
+            case .credentials:
+                Text(HitoAPI.Problem.credentialsMessage + " Open Plugins to sign in again.").font(Theme.small).foregroundStyle(Theme.alert).padding(.vertical, 8)
             default:
                 if remote.isEmpty {
                     Text("Nothing on \(plugin.name) matches “\(query)”.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 8)
@@ -331,7 +345,7 @@ struct SearchView: View {
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
-            remoteState = .failed
+            remoteState = error as? HitoAPI.Problem == .credentialsRequired ? .credentials : .failed
             model.handle(error)
         }
     }
@@ -350,6 +364,7 @@ struct SearchView: View {
                 adoptNote = play ? "No source is ready to play \(track.title) yet. It was added to your library." : "Added \(track.title) to your library."
             }
         } catch {
+            adoptNote = PluginTrouble.message(error, otherwise: "\(plugin.name) couldn't add \(result.title). Try again.")
             model.handle(error)
         }
     }

@@ -223,9 +223,9 @@ struct PluginDetailView: View {
                 return "Connected · checked \(checked.formatted(.relative(presentation: .named)))"
             }
             return "Connected"
-        case .degraded: return "Working, with problems"
-        case .unreachable: return "Can't reach it right now"
-        case .credentialsRequired: return "Sign in again needed"
+        default:
+            guard let notice = connection.notice else { return "Connected" }
+            return "\(notice.title) \(notice.hint)"
         }
     }
 

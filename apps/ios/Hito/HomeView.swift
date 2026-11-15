@@ -13,6 +13,7 @@ struct HomeView: View {
     @State private var summary: HomeSummary?
     @State private var playlists: [Playlist] = []
     @State private var unready: Playlists.Unready?
+    @State private var homeFailed = false
 
     var name: String { user.displayName ?? user.username }
 
@@ -52,6 +53,14 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")
+                if homeFailed {
+                    HStack(spacing: 8) {
+                        Text(summary == nil ? "Home didn't load." : "Home didn't refresh. This is what it showed last.")
+                            .foregroundStyle(Theme.soft)
+                        TextAction(title: "Try again") { Task { await loadSummary() } }
+                    }
+                    .font(Theme.small)
+                }
                 if let summary, summary.isEmpty(playlists: playlists) {
                     HomeEmpty(admin: user.admin, importPlaylist: { importing = true }, connectService: openPlugins)
                 } else {
@@ -106,9 +115,18 @@ struct HomeView: View {
 
     private func loadSummary() async {
         guard let api = model.api else { return }
-        summary = try? await HomeFeed(api: api).load()
         let lists = Playlists(api: api)
-        playlists = (try? await lists.list()) ?? []
+        do {
+            summary = try await HomeFeed(api: api).load()
+            playlists = try await lists.list()
+            homeFailed = false
+        } catch is CancellationError {
+            return
+        } catch {
+            homeFailed = true
+            model.handle(error)
+            return
+        }
         unready = await lists.leastReady(playlists, checking: 4)
     }
 
@@ -309,7 +327,7 @@ struct RecentlyAdded: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recently added").font(Theme.section).accessibilityAddTraits(.isHeader)
             if feed.isEmpty {
-                Text("Albums you add show up here. An administrator adds music folders on the web.")
+                Text("Albums you add show up here. An administrator adds music folders in Settings.")
                     .font(Theme.small)
                     .foregroundStyle(Theme.soft)
             } else if feed.failed && feed.items.isEmpty {

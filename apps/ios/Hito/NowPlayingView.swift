@@ -278,6 +278,7 @@ struct LyricsPanel: View {
     let track: Track
     @State private var result: LyricsResult?
     @State private var failed = false
+    @State private var failure = "Lyrics didn't load."
     @State private var following = true
     @State private var changing = false
 
@@ -354,7 +355,7 @@ struct LyricsPanel: View {
                 Spacer()
                 if failed {
                     HStack(spacing: 8) {
-                        Text("Lyrics didn't load.").foregroundStyle(Theme.soft)
+                        Text(failure).foregroundStyle(Theme.soft)
                         TextAction(title: "Try again") { Task { await load() } }
                     }
                     .font(Theme.small)
@@ -380,6 +381,7 @@ struct LyricsPanel: View {
                 result = try await Lyrics(api: api).load(track.id)
             }
         } catch {
+            failure = PluginTrouble.message(error, otherwise: "Lyrics didn't load.")
             failed = true
             model.handle(error)
         }
@@ -407,7 +409,20 @@ struct SourcePanel: View {
                                 .foregroundStyle(Theme.soft)
                         }
                         Spacer(minLength: 0)
-                        Text("Current").font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                        if player.pickedSource {
+                            Button { player.useAutomaticSource() } label: {
+                                Text("Automatic")
+                                    .font(Theme.smallMedium)
+                                    .foregroundStyle(Theme.text)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: 44)
+                                    .overlay(Capsule().strokeBorder(Theme.text.opacity(0.4)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Go back to the automatic source")
+                        } else {
+                            Text("Current").font(Theme.smallStrong).foregroundStyle(Theme.soft)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
@@ -490,6 +505,7 @@ struct QueueSheet: View {
     @Environment(\.dismiss) private var dismiss
     let player: Player
     @State private var showingPlayed = false
+    @State private var confirmingClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -498,7 +514,7 @@ struct QueueSheet: View {
                 Text("Queue").font(Theme.playing).accessibilityAddTraits(.isHeader)
                 Spacer()
                 if player.queue.hasNext {
-                    TextAction(title: "Clear upcoming", inset: 12) { player.clearUpcoming() }
+                    TextAction(title: "Clear upcoming", inset: 12) { confirmingClear = true }
                 }
                 IconButton(icon: "close", label: "Close queue", glyph: 20) { dismiss() }
             }
@@ -565,6 +581,11 @@ struct QueueSheet: View {
         .padding(EdgeInsets(top: 10, leading: 16, bottom: 24, trailing: 8))
         .background(Theme.field.ignoresSafeArea())
         .foregroundStyle(Theme.text)
+        .confirmationDialog("Clear the queue?", isPresented: $confirmingClear, titleVisibility: .visible) {
+            Button("Clear upcoming", role: .destructive) { player.clearUpcoming() }
+        } message: {
+            Text("The track playing now keeps playing. Everything after it is removed from the queue.")
+        }
         .presentationDetents([.fraction(0.9)])
         .presentationCornerRadius(24)
     }

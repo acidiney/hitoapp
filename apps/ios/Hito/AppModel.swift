@@ -129,6 +129,8 @@ final class AppModel {
         }
     }
 
+    var serverUnreachable = false
+
     func handle(_ error: Error) {
         switch error as? HitoAPI.Problem {
         case .signedOut:
@@ -137,6 +139,8 @@ final class AppModel {
             step = .signIn(address, reason: "Your session ended. Sign in again.")
         case .locked:
             Task { await checkLock() }
+        case .noAnswer:
+            serverUnreachable = true
         default:
             break
         }
@@ -193,10 +197,13 @@ final class AppModel {
         let status: LockStatus?
         do {
             status = try await account.recordActivity(at: address, token: token)
+            serverUnreachable = false
         } catch AccountSession.Problem.locked {
             status = LockStatus(pinEnabled: true, idleMinutes: 0, locked: true)
+            serverUnreachable = false
         } catch {
             status = nil
+            serverUnreachable = true
         }
         if let status, status.locked, current == generation, case .signedIn(address, _) = step {
             step = .locked(address, user)
