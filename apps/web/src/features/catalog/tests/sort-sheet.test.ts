@@ -1,5 +1,11 @@
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import SortSheet from "../components/SortSheet";
 import { TRACK_SORTS } from "../../../shared/hooks/useCatalogSort";
@@ -38,4 +44,42 @@ test("the sort sheet names the current sort, lists every sort and applies the on
   expect(change).toHaveBeenCalledWith(TRACK_SORTS[1].value);
   fireEvent.click(screen.getByRole("button", { name: "Done" }));
   expect(screen.queryByRole("group", { name: "Sort by" })).toBeNull();
+});
+
+test("with a filter the sheet becomes filter and sort and applies the availability chosen", () => {
+  const change = vi.fn();
+  const filter = vi.fn();
+  render(
+    createElement(SortSheet, {
+      options: TRACK_SORTS,
+      value: TRACK_SORTS[0].value,
+      onChange: change,
+      filter: {
+        options: [
+          { value: "all", label: "All" },
+          { value: "available_or_service", label: "Has a source" },
+          { value: "no_source", label: "No source" },
+        ],
+        value: "available_or_service",
+        onChange: filter,
+      },
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /^Sort · Recently added · Has a source$/,
+    }),
+  );
+  expect(screen.getByRole("heading", { name: "Filter and sort" })).toBeTruthy();
+  const availability = screen.getByRole("group", { name: "Availability" });
+  expect(
+    within(availability)
+      .getByRole("button", { name: "Has a source" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(
+    within(availability).getByRole("button", { name: "No source" }),
+  );
+  expect(filter).toHaveBeenCalledWith("no_source");
+  expect(change).not.toHaveBeenCalled();
 });
