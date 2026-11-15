@@ -112,7 +112,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
     let paused = tokio::time::timeout(
         Duration::from_secs(3),
         state.wait_for(|state| {
-            state.phase == PlayerPhase::Ready && !state.playing && !state.desired_playing
+            state.phase == PlayerPhase::Idle && !state.playing && !state.desired_playing
         }),
     )
     .await
