@@ -1,6 +1,6 @@
 use hito_core::test_support::{playlist_service, provider_audio::AudioLibrary, support};
 use hito_core::{
-    Actor, Credentials, ImportProviderPlaylist, InstallPlugin, OfferPluginService,
+    Action, Actor, Credentials, ImportProviderPlaylist, InstallPlugin, OfferPluginService,
     RecordingAvailability, Search, Services,
 };
 use serde_json::json;
@@ -288,4 +288,114 @@ async fn another_accounts_service_binding_does_not_change_the_filter() {
             && !guest_lists[1].1.contains(&f.source.recording_id),
         "The admin's personal provider recording never reaches the guest"
     );
+}
+
+#[tokio::test]
+async fn availability_filters_keep_membership_counts_and_pages_after_a_personal_edit() {
+    let f = AudioLibrary::start().await;
+    f.ready().await;
+    let libraries = f.hito.catalog.libraries(&f.actor).await.unwrap();
+    let shared = libraries
+        .iter()
+        .find(|library| !library.personal)
+        .unwrap()
+        .id
+        .clone();
+    support::scan(&f.hito, &f.actor, &shared).await;
+    let playlists = playlist_service::ProviderServer::start().await;
+    let installed =
+        playlist_service::connect(&f.hito, &f.actor, &playlists, &["playlists", "sources"]).await;
+    playlist_service::playlist(
+        &playlists,
+        "playlist/personal",
+        "v1",
+        vec![
+            json!({"occurrence_id": "one", "item": {"kind": "recording", "recording": {
+            "id": "unbound", "title": "Unbound", "artist": "Band", "duration_ms": 100000,
+            "release": {"id": "album-unbound", "title": "Album"}, "disc_number": 1, "track_number": 1,
+            "revision": "v1"}}}),
+        ],
+    )
+    .await;
+    f.hito
+        .collection
+        .import_provider_playlist(
+            &f.actor,
+            &installed.id,
+            ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installed.revision,
+                playlist_reference: "https://provider.invalid/playlist/personal".into(),
+            },
+        )
+        .await
+        .unwrap();
+    f.hito
+        .plugins
+        .remove(&f.actor, &installed.id, installed.revision)
+        .await
+        .unwrap();
+    let guest = guest_of(&f.hito, &f.actor, &shared).await;
+    let admin_before = filtered(&f.hito, &f.actor).await;
+    let guest_before = filtered(&f.hito, &guest).await;
+    assert!(
+        !admin_before[0].1.is_empty() && !admin_before[1].1.is_empty(),
+        "both filters have members before the edit"
+    );
+
+    let everything = page(&f.hito, &f.actor, None, 0, 200).await;
+    support::synchronize(
+        &f.hito,
+        &f.actor,
+        everything
+            .items
+            .iter()
+            .map(|item| Action::RecordingTitleSet {
+                recording_id: Uuid::parse_str(&item.id).unwrap(),
+                title: format!("Personal {}", item.title),
+            })
+            .collect(),
+    )
+    .await;
+
+    assert_filters_partition(&f.hito, &f.actor).await;
+    assert_filters_partition(&f.hito, &guest).await;
+    assert_eq!(filtered(&f.hito, &f.actor).await, admin_before);
+    assert_eq!(filtered(&f.hito, &guest).await, guest_before);
+    for availability in [
+        RecordingAvailability::AvailableOrService,
+        RecordingAvailability::NoSource,
+    ] {
+        let edited = page(&f.hito, &f.actor, Some(availability), 0, 200).await;
+        assert!(
+            edited
+                .items
+                .iter()
+                .all(|item| item.title.starts_with("Personal ")),
+            "{availability:?} returns the account's personal titles"
+        );
+        let unedited = page(&f.hito, &guest, Some(availability), 0, 200).await;
+        assert!(
+            unedited
+                .items
+                .iter()
+                .all(|item| !item.title.starts_with("Personal ")),
+            "{availability:?} never shows another account's personal titles"
+        );
+    }
+    let personal = f
+        .hito
+        .catalog
+        .recordings(
+            &f.actor,
+            Search {
+                q: Some("Personal Unbound".into()),
+                availability: Some(RecordingAvailability::NoSource),
+                ..Search::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(personal.total, 1);
+    assert_eq!(personal.items[0].title, "Personal Unbound");
 }
