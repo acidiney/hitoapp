@@ -405,8 +405,7 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
         (44_100, 48_000),
     ] {
         let frames = source / 4;
-        let expected_frames =
-            (u64::from(frames) * u64::from(target) / u64::from(source)) as usize;
+        let expected_frames = (u64::from(frames) * u64::from(target) / u64::from(source)) as usize;
         let mut stereo = device_converter(source, 2, frames, (target, 2), asymmetric_stereo_sample);
         assert_eq!(stereo.format().channels, 2, "{source}->{target}");
         assert_eq!(stereo.format().sample_rate, target, "{source}->{target}");
@@ -414,7 +413,11 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
         let stereo = drain(&mut stereo);
         let stereo_elapsed_ns = started.elapsed().as_nanos();
         assert_eq!(stereo.frames, expected_frames, "{source}->{target} stereo");
-        assert_eq!(stereo.samples.len(), stereo.frames * 2, "{source}->{target}");
+        assert_eq!(
+            stereo.samples.len(),
+            stereo.frames * 2,
+            "{source}->{target}"
+        );
 
         let mut mono_pair_elapsed_ns = 0;
         for channel_index in 0..2_usize {
