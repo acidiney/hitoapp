@@ -18,6 +18,7 @@ struct ProfileView: View {
     @Environment(AppModel.self) private var model
     @State private var name = ""
     @State private var devices: [Device]?
+    @State private var devicesNote: String?
     @State private var problem: String?
     @State private var saved = false
     @State private var confirmingSignOut = false
@@ -100,7 +101,14 @@ struct ProfileView: View {
                     } else {
                         ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                     }
+                    if devices?.contains(where: { !$0.current }) == true {
+                        Button { Task { await signOutOthers() } } label: {
+                            Text("Sign out everywhere else").font(Theme.smallStrong).foregroundStyle(Theme.focus).frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                if let devicesNote { Text(devicesNote).font(Theme.small).foregroundStyle(Theme.soft) }
                 if let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.alert) }
                 Button { confirmingSignOut = true } label: {
                     Text("Sign out of this device").font(Theme.bodyMedium).foregroundStyle(Color(hex: 0xf0a08c)).frame(minHeight: 44)
@@ -189,6 +197,18 @@ struct ProfileView: View {
         }
     }
 
+    private func signOutOthers() async {
+        guard let api = model.api else { return }
+        do {
+            let count = try await Profile(api: api).signOutOthers()
+            devicesNote = count == 1 ? "Signed out 1 other device." : "Signed out \(count) other devices."
+            await loadDevices()
+        } catch {
+            problem = "Your other devices are still signed in. Try again."
+            model.handle(error)
+        }
+    }
+
     private func signOut(_ device: Device) async {
         guard let api = model.api else { return }
         problem = nil
@@ -215,6 +235,7 @@ struct ProfileView: View {
 
 struct PlaybackSettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var automaticLyrics: Bool?
     @State private var order: SourceOrder.Order?
     @State private var names: [String: String] = [:]
     @State private var problem: String?
@@ -252,6 +273,16 @@ struct PlaybackSettingsView: View {
                     }
                 } else if problem == nil {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+                }
+                if let player = model.player {
+                    SettingsGroup(title: "Lyrics") {
+                        SettingRow(title: "Load lyrics automatically", detail: "Opening Lyrics asks your first lyrics provider for the playing track.") {
+                            Switch(on: automaticLyrics ?? LyricChoices.automaticEnabled(account: player.account), label: "Load lyrics automatically") { on in
+                                LyricChoices.setAutomatic(on, account: player.account)
+                                automaticLyrics = on
+                            }
+                        }
+                    }
                 }
                 if let problem { Text(problem).font(Theme.small).foregroundStyle(Theme.alert) }
             }

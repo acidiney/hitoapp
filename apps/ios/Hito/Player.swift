@@ -26,12 +26,15 @@ final class Player {
     private(set) var liked: Set<String> = []
     private(set) var unliked: Set<String> = []
     private(set) var retrying: RetryPasses.Pass?
+    private(set) var speed: Double = 1
     private var passes = RetryPasses()
     private let memory: QueueMemory
     private let listening: ListeningProgress
     private var heardId: String?
     private var checkpoint = ProgressCheckpoint()
+    private var fallbackEnabled = true
     private var resumeAt: Double?
+    private var chapters: [String: AudiobookAnchor] = [:]
     private var remembered: Double = 0
 
     private let playback: Playback
@@ -55,8 +58,11 @@ final class Player {
     private var warmMissed: String?
     private static let warmLead: Double = 30
 
+    let account: String
+
     init(api: HitoAPI, account: String) {
         self.api = api
+        self.account = account
         memory = QueueMemory(account: account)
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
@@ -87,6 +93,14 @@ final class Player {
             MainActor.assumeIsolated { self?.remember() }
         })
         connectRemote()
+        refreshFallback()
+    }
+
+    private func refreshFallback() {
+        Task { [weak self, api] in
+            guard let order = try? await SourceOrder(api: api).load() else { return }
+            self?.fallbackEnabled = order.fallback
+        }
     }
 
     func restore() async {
@@ -106,9 +120,10 @@ final class Player {
     }
 
     private func report(_ id: String, _ position: Double) {
-        Task { [listening, log] in
+        let chapter = chapters[id]
+        Task { [listening, log, speed] in
             do {
-                try await listening.save(id, position: position, speed: 1)
+                try await listening.save(id, position: position, speed: speed, chapter: chapter)
             } catch {
                 log.info("player.progress_failed")
             }
@@ -127,8 +142,14 @@ final class Player {
 
     var current: Track? { queue.current }
 
-    func play(_ tracks: [Track], at index: Int, from context: String) {
-        resumeAt = nil
+    func playAudiobook(_ tracks: [Track], anchors: [AudiobookAnchor], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        play(tracks, at: index, from: context, startingAt: seconds)
+        chapters = Dictionary(anchors.map { ($0.recordingId, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func play(_ tracks: [Track], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        chapters = [:]
+        resumeAt = seconds > 0 ? seconds : nil
         queue.start(tracks, at: index, from: context)
         load(queue.current)
     }
@@ -176,6 +197,12 @@ final class Player {
         publish()
     }
 
+    func jump(to track: Track) {
+        resumeAt = nil
+        guard let chosen = queue.jump(to: track.id) else { return }
+        load(chosen)
+    }
+
     func playNext(_ track: Track) {
         queue.playNext(track)
     }
@@ -206,6 +233,14 @@ final class Player {
     func toggleShuffle() {
         var generator = SystemRandomNumberGenerator()
         queue.setShuffle(!queue.shuffled, using: &generator)
+    }
+
+    func setSpeed(_ chosen: Double) {
+        speed = chosen
+        engine.defaultRate = Float(chosen)
+        if state == .playing { engine.rate = Float(chosen) }
+        log.info("player.speed_changed")
+        publish()
     }
 
     func cycleRepeat() {
@@ -271,6 +306,28 @@ final class Player {
         }
     }
 
+    func useAutomaticSource() {
+        guard let track = queue.current, pickedSource else { return }
+        loading?.cancel()
+        notice = nil
+        state = .loading
+        let resume = position
+        loading = Task { [weak self, playback] in
+            do {
+                let audio = try await playback.acquire(track.id, skipping: [])
+                guard let self, !Task.isCancelled else { return }
+                self.tried = []
+                self.attach(audio)
+                self.seek(to: resume)
+            } catch is CancellationError {
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.notice = "The automatic source didn't play. Still playing from \(self.sourceLabel ?? "the last source")."
+                self.state = self.engine.currentItem == nil ? .idle : .playing
+            }
+        }
+    }
+
     static var device: String {
         let key = "app.hito.device"
         if let saved = UserDefaults.standard.string(forKey: key) { return saved }
@@ -292,6 +349,7 @@ final class Player {
 
     private func load(_ track: Track?) {
         settle()
+        refreshFallback()
         defer { remember() }
         loading?.cancel()
         tried = []
@@ -340,7 +398,7 @@ final class Player {
                 guard let self, !Task.isCancelled else { return }
                 self.log.info("player.no_source")
                 let failed = !self.tried.isEmpty
-                if !failed || !self.retry(track) {
+                if !failed || !self.fallbackEnabled || !self.retry(track) {
                     self.skip(track, because: failed ? "\(track.title) didn't play from any source." : "\(track.title) has no source that plays right now.")
                 }
             }
@@ -428,8 +486,12 @@ final class Player {
         guard let item, item == currentIdentity, let track = queue.current else { return }
         log.info("player.source_failed")
         let failedLabel = sourceLabel ?? "That source"
-        notice = "\(failedLabel) didn't play \(track.title). Trying the next source."
         engine.replaceCurrentItem(with: nil)
+        guard SourceFallback.allows(tried: tried.count, enabled: fallbackEnabled) else {
+            log.info("player.fallback_declined")
+            return skip(track, because: fallbackEnabled ? "\(track.title) didn't play from any of its sources." : "\(failedLabel) didn't play \(track.title). Trying the next source is off in Settings.")
+        }
+        notice = "\(failedLabel) didn't play \(track.title). Trying the next source."
         start(track)
     }
 
@@ -532,7 +594,8 @@ final class Player {
             MPMediaItemPropertyArtist: track.artist,
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
-            MPNowPlayingInfoPropertyPlaybackRate: state == .playing ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: state == .playing ? speed : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: speed,
         ]
         if let album = track.album { info[MPMediaItemPropertyAlbumTitle] = album }
         if let artwork { info[MPMediaItemPropertyArtwork] = artwork }

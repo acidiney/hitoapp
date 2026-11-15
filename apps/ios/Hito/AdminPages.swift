@@ -109,6 +109,7 @@ struct MusicSettingsView: View {
                         ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                     }
                 }
+                ArtistDetailsSettings()
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)

@@ -82,6 +82,25 @@ import Testing
         queue.repeatMode = .track
         #expect(queue.following?.id == "c")
     }
+
+    @Test func playedTracksAreTheOnesBeforeTheCurrentOne() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.played.map(\.id) == ["a", "b"])
+    }
+
+    @Test func tappingATrackInTheQueuePlaysItFromThere() {
+        var queue = PlayQueue()
+        queue.start(tracks, at: 2, from: "Fixture Album")
+        #expect(queue.jump(to: "a")?.id == "a")
+        #expect(queue.played.isEmpty)
+        #expect(queue.upNext.map(\.id) == ["b", "c", "d"])
+        queue.playNext(track("x"))
+        #expect(queue.jump(to: "x")?.id == "x")
+        #expect(queue.queued.isEmpty)
+        #expect(queue.advance()?.id == "b")
+        #expect(queue.jump(to: "missing") == nil)
+    }
 }
 
 @Suite struct PlayQueueOrderTests {
