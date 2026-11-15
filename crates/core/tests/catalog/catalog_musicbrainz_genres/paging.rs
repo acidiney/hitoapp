@@ -3,14 +3,14 @@ use hito_core::test_support::musicbrainz::Reply;
 use std::time::Duration;
 
 #[tokio::test]
-async fn genre_track_pages_deduplicate_tagged_sources_and_keep_file_genre_precedence() {
+async fn genre_track_pages_deduplicate_tagged_sources_before_the_next_candidate() {
     let world = hito_core::test_support::hang_guard::hang_guard(
         "genre track duplicate tagged source setup",
         Box::pin(async {
             let world = two_artists().await;
             world.track(
                 5,
-                "tagged-rock",
+                "first-rock",
                 Ids {
                     artist: Some(A),
                     genre: Some("Rock"),
@@ -18,8 +18,8 @@ async fn genre_track_pages_deduplicate_tagged_sources_and_keep_file_genre_preced
                 },
             );
             std::fs::copy(
-                world.music.join("tagged-rock.wav"),
-                world.music.join("tagged-rock-copy.wav"),
+                world.music.join("first-rock.wav"),
+                world.music.join("first-rock-copy.wav"),
             )
             .unwrap();
             world.track(
@@ -52,18 +52,18 @@ async fn genre_track_pages_deduplicate_tagged_sources_and_keep_file_genre_preced
             .collect::<Vec<_>>(),
         ["a1", "a2"]
     );
-    assert!(fado.iter().all(|track| track.title != "tagged-rock"));
+    assert!(fado.iter().all(|track| track.title != "first-rock"));
     let rock = paged_tracks_match_preview(&world, "rock").await;
     assert_eq!(rock.len(), 2);
     assert_eq!(
         rock.iter()
             .map(|track| track.title.as_str())
             .collect::<Vec<_>>(),
-        ["second-rock", "tagged-rock"]
+        ["first-rock", "second-rock"]
     );
     let duplicate = rock
         .iter()
-        .find(|track| track.title == "tagged-rock")
+        .find(|track| track.title == "first-rock")
         .unwrap();
     let sources = tokio::time::timeout(
         Duration::from_secs(5),

@@ -1,10 +1,8 @@
 use self::fixture::{
-    A, B, GROUP, RECORDING, VARIOUS_ARTISTS, World, paged_tracks_match_preview, pairs, two_artists,
+    A, B, GROUP, Ids, RECORDING, VARIOUS_ARTISTS, World, paged_tracks_match_preview, pairs,
+    two_artists,
 };
-use hito_core::test_support::{
-    metadata_tag_logs::CapturedLogs,
-    musicbrainz::{FakeMusicBrainz, Reply},
-};
+use hito_core::test_support::{metadata_tag_logs::CapturedLogs, musicbrainz::Reply};
 use hito_core::{Credentials, UpdateAutomaticLookups};
 use std::time::Duration;
 use tracing::instrument::WithSubscriber;
