@@ -260,9 +260,13 @@ async fn deleted_member_cannot_continue_a_genre_track_cursor() {
         }),
     )
     .await;
-    let (first, cursor) = one_track_page(&fixture.app, &member_token, None).await;
+    let (member_first, cursor) = one_track_page(&fixture.app, &member_token, None).await;
     let cursor = cursor.expect("two Fado recordings require a continuation cursor");
-    assert_eq!(first["title"], "Owned Fado A");
+    let (admin_before, admin_cursor) = one_track_page(&fixture.app, &fixture.admin, None).await;
+    assert!(admin_cursor.is_some());
+    assert_eq!(member_first["id"], admin_before["id"]);
+    assert_eq!(member_first["title"], admin_before["title"]);
+    assert_eq!(member_first["title"], "Owned Fado A");
 
     let (status, _) = bounded_call(
         &fixture.app,
@@ -283,11 +287,10 @@ async fn deleted_member_cannot_continue_a_genre_track_cursor() {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     let denied: Value = serde_json::from_slice(&denied_bytes).unwrap();
-    assert_eq!(hito_core::Error::Unauthorized.code(), "unauthorized");
     assert_eq!(denied["error"], hito_core::Error::Unauthorized.to_string());
     assert!(denied.get("items").is_none());
 
-    let (admin_first, admin_cursor) = one_track_page(&fixture.app, &fixture.admin, None).await;
-    assert_eq!(admin_first, first);
-    assert!(admin_cursor.is_some());
+    let (admin_after, cursor_after) = one_track_page(&fixture.app, &fixture.admin, None).await;
+    assert_eq!(admin_after, admin_before);
+    assert_eq!(cursor_after, admin_cursor);
 }
