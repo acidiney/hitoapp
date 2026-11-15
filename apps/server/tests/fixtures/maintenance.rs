@@ -606,10 +606,10 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         }
         if declared.0 == "table" && declared.1 == "source_resolutions" {
             declared.3 = declared.3.map(|ddl| {
-                ddl.replace(
+                schema_history::playback_failure_schema::with_failure(&ddl.replace(
                     "'no_suitable_source'",
                     "'no_suitable_source','provider_unavailable'",
-                )
+                ))
             });
         }
         if declared.0 == "table" && declared.1 == "playlist_follows" {
@@ -943,6 +943,8 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
     declared_additions.extend_from_slice(schema_history::replica_catalog_schema::ADDED);
     declared_additions.extend_from_slice(schema_history::recording_lyric_identity_schema::ADDED);
     declared_additions.extend_from_slice(schema_history::artist_credit_target_schema::ADDED);
+    declared_additions
+        .extend_from_slice(schema_history::credit_member_identity_choice_schema::ADDED);
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
