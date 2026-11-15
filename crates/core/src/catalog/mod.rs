@@ -36,11 +36,11 @@ mod album_anchor_work;
 #[path = "tests/credit_member_work.rs"]
 mod credit_member_work;
 #[cfg(test)]
-#[path = "tests/genre_work.rs"]
-mod genre_work;
-#[cfg(test)]
 #[path = "tests/genre_paging_work.rs"]
 mod genre_paging_work;
+#[cfg(test)]
+#[path = "tests/genre_work.rs"]
+mod genre_work;
 #[cfg(test)]
 #[path = "tests/group_work.rs"]
 mod group_work;
