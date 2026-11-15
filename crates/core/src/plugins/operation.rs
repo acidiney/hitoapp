@@ -276,21 +276,10 @@ impl Operation {
     }
     pub(crate) async fn audio_warm(
         &self,
-        source: &str,
-        remote_source: &str,
-        binding: &str,
-        binding_revision: i64,
-        source_generation: i64,
+        authority: super::AudioAuthority,
         request: crate::AudioRequest,
         monitors: std::sync::Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<(crate::OpenedAudio, std::sync::Arc<super::WarmTicket>)> {
-        let authority = self.audio_authority(
-            source,
-            remote_source,
-            binding,
-            binding_revision,
-            source_generation,
-        );
         authority.check().await?;
         let (mut audio, ticket) = self
             .media
@@ -305,7 +294,9 @@ impl Operation {
         let mut canceled = ticket.cancelled();
         if *canceled.borrow() {
             shutdown_audio(&mut audio).await;
-            return Err(crate::Error::Conflict("Audio streams are busy. Try again.".into()));
+            return Err(crate::Error::Conflict(
+                "Audio streams are busy. Try again.".into(),
+            ));
         }
         let mut connection = tokio::select! {
             biased;

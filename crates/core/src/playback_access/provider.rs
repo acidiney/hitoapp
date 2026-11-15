@@ -161,35 +161,29 @@ impl AudioOrigin for ProviderOrigin {
         grant: &'a PlaybackSource,
         request: AudioRequest,
         monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
-    ) -> BoxFuture<'a, Result<Option<(OpenedAudio, std::sync::Arc<crate::plugins::WarmTicket>)>>> {
+    ) -> BoxFuture<'a, Result<Option<super::origin::WarmAudio>>> {
         Box::pin(async move {
             grant.warm_check().await?;
-            let Some(provider) = self.provider_audio(grant.actor(), grant.source_id()).await? else {
+            let Some(provider) = self
+                .provider_audio(grant.actor(), grant.source_id())
+                .await?
+            else {
                 return Ok(None);
             };
-            let located = Located::new(provider.operation.audio_authority(
+            let current = provider.operation.audio_authority(
                 grant.source_id(),
                 &provider.remote,
                 &provider.binding_id,
                 provider.binding_revision,
                 provider.source_generation,
-            ));
-            let current = located.pinned::<crate::plugins::AudioAuthority>()?;
+            );
             let pinned = grant.located().pinned::<crate::plugins::AudioAuthority>()?;
             if !current.same_identity(pinned) {
                 return Ok(None);
             }
             let (mut audio, ticket) = provider
                 .operation
-                .audio_warm(
-                    grant.source_id(),
-                    &provider.remote,
-                    &provider.binding_id,
-                    provider.binding_revision,
-                    provider.source_generation,
-                    request,
-                    monitors,
-                )
+                .audio_warm(current.clone(), request, monitors)
                 .await?;
             let mut canceled = ticket.cancelled();
             let eligible = if *canceled.borrow() {

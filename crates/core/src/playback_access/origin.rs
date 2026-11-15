@@ -2,6 +2,8 @@ use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, PlaybackSource, 
 use futures_util::future::BoxFuture;
 use std::{any::Any, sync::Arc};
 
+pub(super) type WarmAudio = (OpenedAudio, Arc<crate::plugins::WarmTicket>);
+
 #[derive(Clone)]
 pub(crate) struct Located(Arc<dyn Any + Send + Sync>);
 
@@ -70,7 +72,7 @@ pub(crate) trait AudioOrigin: Send + Sync {
         _grant: &'a PlaybackSource,
         _request: AudioRequest,
         _monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
-    ) -> BoxFuture<'a, Result<Option<(OpenedAudio, Arc<crate::plugins::WarmTicket>)>>> {
+    ) -> BoxFuture<'a, Result<Option<WarmAudio>>> {
         Box::pin(async { Ok(None) })
     }
 }

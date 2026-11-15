@@ -1,6 +1,5 @@
-mod authority;
 mod admission;
-pub(crate) use admission::WarmTicket;
+mod authority;
 use crate::{
     AudioRequest, AudioStream, Error, OpenedAudio, PlaybackFailureReason, Result,
     admission::Accounts,
@@ -9,8 +8,12 @@ use crate::{
         remote::{Authority as StreamAuthority, Permits, RemoteAudio},
     },
 };
+pub(crate) use admission::WarmTicket;
 pub(crate) use authority::Authority;
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::sync::Semaphore;
 
 const ACCOUNT_ADMISSION_WAIT: Duration = Duration::from_millis(500);
@@ -90,8 +93,19 @@ impl MediaClient {
             }
         };
         drop(active);
-        self.open_admitted(base_url, token, request, authority, account, global, None, None)
-            .await
+        self.open_admitted(
+            base_url,
+            token,
+            request,
+            authority,
+            Permits {
+                _account: account,
+                _global: global,
+                _warm: None,
+            },
+            None,
+        )
+        .await
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -103,11 +117,9 @@ impl MediaClient {
         authority: Authority,
         monitors: Arc<crate::playback_access::relay::MonitorRegistry>,
     ) -> Result<(OpenedAudio, Arc<WarmTicket>)> {
-        let (ticket, account, global) = self.admission.warm_resources(
-            &authority.account,
-            &self.accounts,
-            &self.slots,
-        )?;
+        let (ticket, account, global) =
+            self.admission
+                .warm_resources(&authority.account, &self.accounts, &self.slots)?;
         let mut canceled = ticket.cancelled();
         if *canceled.borrow() {
             return Err(Error::Conflict("Audio streams are busy. Try again.".into()));
@@ -120,9 +132,11 @@ impl MediaClient {
                 token,
                 request,
                 authority,
-                account,
-                global,
-                Some(ticket.clone()),
+                Permits {
+                    _account: account,
+                    _global: global,
+                    _warm: Some(ticket.clone()),
+                },
                 Some(monitors),
             ) => opened?,
         };
@@ -135,9 +149,7 @@ impl MediaClient {
         token: Option<&str>,
         request: AudioRequest,
         authority: Authority,
-        account: tokio::sync::OwnedSemaphorePermit,
-        global: tokio::sync::OwnedSemaphorePermit,
-        warm: Option<Arc<WarmTicket>>,
+        permits: Permits,
         warm_monitors: Option<Arc<crate::playback_access::relay::MonitorRegistry>>,
     ) -> Result<OpenedAudio> {
         let mut endpoint = super::offers::endpoint(base_url)?
@@ -219,11 +231,7 @@ impl MediaClient {
                 RemoteAudio::new(
                     response,
                     StreamAuthority::new(authority),
-                    Some(Permits {
-                        _account: account,
-                        _global: global,
-                    _warm: warm,
-                    }),
+                    Some(permits),
                     self.pace,
                     warm_monitors,
                 )?,

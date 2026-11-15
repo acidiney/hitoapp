@@ -9,7 +9,7 @@ enum Body {
     Lease(Box<crate::playback_access::leases::owner::LeaseBody>),
     Prepared {
         prefix: Option<Bytes>,
-        continuation: super::super::warm::WarmBody,
+        continuation: Box<super::super::warm::WarmBody>,
         _reservation: Arc<super::super::warm::Reservation>,
     },
 }
@@ -79,7 +79,7 @@ impl AudioStream {
         Self::new(
             Body::Prepared {
                 prefix,
-                continuation,
+                continuation: Box::new(continuation),
                 _reservation: reservation,
             },
             expected,
