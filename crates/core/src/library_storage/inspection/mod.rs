@@ -184,7 +184,9 @@ impl FileInspector {
                 title,
                 artist,
                 album_artist,
-                album: probe.tag("album").unwrap_or_else(|| "Unknown album".into()),
+                album: probe
+                    .tag("album")
+                    .unwrap_or_else(|| crate::library_storage::UNKNOWN_ALBUM.into()),
                 duration_ms: probe.duration_ms(),
                 disc_number: probe.number("disc"),
                 track_number: probe.number("track"),

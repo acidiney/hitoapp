@@ -111,6 +111,9 @@
 .library-filters > .sort-control {
   margin-left: auto;
 }
+.library-filters > .sort-control + .sort-control {
+  margin-left: 0;
+}
 .library-filters > .view-toggle {
   margin-left: 0;
   padding: 0;
@@ -791,6 +794,16 @@ main#main:has(> .playlist-header) {
   border-radius: 50%;
   background: transparent;
   color: var(--ink);
+}
+.sheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sheet-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 .sheet-group {
   display: flex;

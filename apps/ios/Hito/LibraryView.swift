@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var tracks = Feed<Track>()
     @State private var albums = Feed<Album>()
     @State private var artists = Feed<Artist>()
+    @State private var chosen = Feed<ArtistGroup>()
     @State private var playlists: [Playlist]?
     @State private var shown = TrackShown.all
     @State private var filters = false
@@ -78,7 +79,8 @@ struct LibraryView: View {
                 case .albums:
                     AlbumGrid(feed: albums)
                 case .artists:
-                    ArtistRows(feed: artists)
+                    ReviewQueueButton { reload() }
+                    ArtistRows(feed: artists, chosen: chosen)
                 case .playlists:
                     Button { newName = ""; naming = true } label: {
                         HStack(spacing: 12) {
@@ -171,6 +173,7 @@ struct LibraryView: View {
         reloadTracks()
         albums.reset { try await library.albums(offset: $0) }
         artists.reset { try await library.artists(offset: $0) }
+        chosen.reset { try await ArtistGroups(api: api).chosen(offset: $0) }
         Task { await loadPlaylists() }
     }
 
@@ -256,33 +259,50 @@ struct LibraryView: View {
 
 struct ArtistRows: View {
     let feed: Feed<Artist>
+    let chosen: Feed<ArtistGroup>
 
     var body: some View {
-        if feed.isEmpty {
+        if feed.isEmpty && chosen.isEmpty {
             Text("No artists yet.").font(Theme.small).foregroundStyle(Theme.soft).padding(.vertical, 12)
         }
         ForEach(feed.items) { artist in
             NavigationLink(value: artist) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Theme.tile
-                        Icon("person", size: 20).foregroundStyle(Theme.coverMark)
-                    }
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(artist.name).lineLimit(1)
-                        Text(counts(artist)).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
-                    }
-                    Spacer(minLength: 8)
-                    Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
-                }
-                .frame(minHeight: 60)
-                .contentShape(Rectangle())
+                row(artist.name, counts(artist))
             }
             .buttonStyle(.plain)
         }
         FeedFooter(feed: feed)
+        if !feed.hasMore {
+            if !chosen.items.isEmpty {
+                Text("Chosen artists").font(Theme.section).padding(.top, 16).accessibilityAddTraits(.isHeader)
+            }
+            ForEach(chosen.items) { group in
+                NavigationLink(value: group) {
+                    row(group.name, ArtistPage.counts(tracks: group.recordingCount, albums: group.releaseCount, featured: 0))
+                }
+                .buttonStyle(.plain)
+            }
+            FeedFooter(feed: chosen)
+        }
+    }
+
+    private func row(_ name: String, _ detail: String) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Theme.tile
+                Icon("person", size: 20).foregroundStyle(Theme.coverMark)
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 0) {
+                Text(name).lineLimit(1)
+                Text(detail).font(Theme.small).foregroundStyle(Theme.quiet).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Icon("chevron-right", size: 16).foregroundStyle(Theme.quiet)
+        }
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
     }
 
     private func counts(_ artist: Artist) -> String {
@@ -508,6 +528,7 @@ struct TrackMenu: View {
         if let player = model.player {
             Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
         }
+        ArtworkRetryButton(path: track.artworkPath)
     }
 }
 
@@ -599,6 +620,7 @@ struct AlbumView: View {
     @State private var choosing: EditionOption?
     @State private var unsaved: PendingChoice?
     @State private var editionNote: String?
+    @State private var choosingArtist = false
 
     struct PendingChoice {
         let option: EditionOption
@@ -657,6 +679,8 @@ struct AlbumView: View {
                     if !tracks.isEmpty {
                         Menu {
                             Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
+                            Button("Choose the artist") { choosingArtist = true }
+                            ArtworkRetryButton(path: album.artworkPath)
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
@@ -726,6 +750,19 @@ struct AlbumView: View {
         }
         .scrollIndicators(.hidden)
         .task { if detail == nil { await load() } }
+        .fullScreenCover(isPresented: $choosingArtist) {
+            if let first = tracks.first {
+                ArtistSheet(recording: first.id, credit: (detail?.album ?? album).credit) {
+                    Task {
+                        options = nil
+                        optionsNote = nil
+                        await load()
+                        editionNote = "Artist saved. Choose the album's edition."
+                    }
+                }
+                .presentationBackground(.clear)
+            }
+        }
         .onDisappear { adder?.cancel() }
     }
 
