@@ -45,7 +45,8 @@ final class Player {
     private var itemStatus: NSKeyValueObservation?
     private var artworkTask: Task<Void, Never>?
     private var warm: (trackId: String, audio: AudioRequest)?
-    private var warming: Task<Void, Never>?
+    private var warming: (task: Task<Void, Never>, id: UUID)?
+    private var warmMissed: String?
     private static let warmLead: Double = 30
 
     init(api: HitoAPI) {
@@ -301,8 +302,9 @@ final class Player {
     }
 
     private func dropWarm() {
-        warming?.cancel()
+        warming?.task.cancel()
         warming = nil
+        warmMissed = nil
         guard let warm else { return }
         self.warm = nil
         Task { [playback] in await playback.release(warm.audio.leaseId) }
@@ -311,19 +313,27 @@ final class Player {
     private func prewarm(remaining: Double) {
         if let warm, warm.trackId != queue.following?.id { dropWarm() }
         guard state == .playing, remaining <= Self.warmLead, warming == nil, warm == nil,
-              let next = queue.following, next.id != queue.current?.id else { return }
-        warming = Task { [weak self, playback] in
+              let next = queue.following, next.id != queue.current?.id, warmMissed != next.id else { return }
+        let id = UUID()
+        let task = Task { [weak self, playback] in
             let audio = try? await playback.acquire(next.id)
-            guard let self else { return }
+            guard let self, self.warming?.id == id else {
+                if let audio { Task { await playback.release(audio.leaseId) } }
+                return
+            }
             self.warming = nil
-            guard let audio else { return }
+            guard let audio else {
+                self.warmMissed = next.id
+                return
+            }
             guard !Task.isCancelled, self.queue.following?.id == next.id else {
-                await playback.release(audio.leaseId)
+                Task { await playback.release(audio.leaseId) }
                 return
             }
             self.warm = (next.id, audio)
             self.log.info("player.prewarmed")
         }
+        warming = (task, id)
     }
 
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
