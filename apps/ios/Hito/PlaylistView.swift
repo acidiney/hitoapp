@@ -58,17 +58,25 @@ struct PlaylistView: View {
                     } else if tracks.isEmpty {
                         Text("No tracks in this playlist yet.").font(Theme.small).foregroundStyle(Theme.soft)
                     } else {
-                        chips
+                        if let editProblem {
+                            Text(editProblem).font(Theme.small).foregroundStyle(Theme.warning)
+                        }
+                        chips.padding(.bottom, -8)
                         VStack(spacing: 0) {
                             ForEach(shown) { track in
-                                HStack(spacing: 0) {
+                                HStack(spacing: 12) {
                                     Button {
                                         model.player?.play(shown, at: shown.firstIndex(of: track) ?? 0, from: playlist.name)
                                     } label: {
-                                        LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false)
+                                        LibraryRow(track: track, isCurrent: model.player?.current?.id == track.id, showsTime: false, gap: 12, dimsUnavailable: true)
                                     }
                                     .buttonStyle(.plain)
-                                    Menu { TrackMenu(track: track) } label: {
+                                    Menu {
+                                        TrackMenu(track: track)
+                                        if playlist.kind == .local, let entry = entry(for: track) {
+                                            Button("Remove from playlist", role: .destructive) { Task { await remove(entry) } }
+                                        }
+                                    } label: {
                                         Icon("more-vertical").foregroundStyle(Theme.quiet).frame(width: 44, height: 44).contentShape(Circle())
                                     }
                                     .accessibilityLabel("More actions for \(track.title)")
@@ -79,7 +87,7 @@ struct PlaylistView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 12)
                 .padding(.bottom, 16)
             }
         }
@@ -99,22 +107,22 @@ struct PlaylistView: View {
                 PlaylistCover(playlist: playlist, cover: detail?.cover ?? .playlist, size: 96)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(detail?.origin ?? (playlist.kind == .followed ? "Followed playlist" : "Your playlist"))
-                        .font(Theme.smallStrong)
+                        .font(Theme.label)
                         .foregroundStyle(Theme.soft)
-                        .lineLimit(2)
+                        .lineLimit(1)
                     Text(detail?.playlist.name ?? playlist.name)
-                        .font(Theme.title)
+                        .font(Theme.display).tracking(Theme.titleTracking)
                         .lineLimit(3)
                         .accessibilityAddTraits(.isHeader)
                     if detail != nil {
-                        Text("\(ready.count) of \(tracks.count) ready").foregroundStyle(Theme.soft)
+                        Text("\(ready.count) of \(tracks.count) ready").font(Theme.small).foregroundStyle(Theme.text)
                     }
                 }
             }
             if !tracks.isEmpty {
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.rest)
+                        Capsule().fill(Theme.text.opacity(0.2))
                         Capsule().fill(Theme.text).frame(width: proxy.size.width * CGFloat(ready.count) / CGFloat(tracks.count))
                     }
                 }
@@ -150,7 +158,7 @@ struct PlaylistView: View {
         .padding(.top, 8)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.raised.ignoresSafeArea(edges: .top))
+        .background(Theme.header.ignoresSafeArea(edges: .top))
     }
 
     @ViewBuilder private var moreMenu: some View {
@@ -241,6 +249,22 @@ struct PlaylistView: View {
         }
     }
 
+    private func entry(for track: Track) -> String? {
+        guard let entries = detail?.entries, let index = tracks.firstIndex(where: { $0.id == track.id }), entries.indices.contains(index) else { return nil }
+        return entries[index].id
+    }
+
+    private func remove(_ entry: String) async {
+        guard let api = model.api else { return }
+        do {
+            try await Playlists(api: api).apply([.remove(entry)], to: playlist.id, device: Player.device)
+            await load()
+        } catch {
+            editProblem = "The track wasn't removed. Try again."
+            model.handle(error)
+        }
+    }
+
     private func shift(_ entry: String, by delta: Int) {
         if draft?.move(entry, by: delta) == false {
             editProblem = "This playlist's order can't be changed here. Try again later."
@@ -316,12 +340,12 @@ struct OutlineAction: View {
                 } else {
                     Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 10, height: 10)
                 }
-                Text(title).font(Theme.bodyStrong).lineLimit(1).minimumScaleFactor(0.8)
+                Text(title).font(Theme.bodyMedium).lineLimit(1).minimumScaleFactor(0.8)
             }
             .foregroundStyle(Theme.text)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 48)
-            .overlay(Capsule().strokeBorder(Theme.line))
+            .overlay(Capsule().strokeBorder(Theme.text.opacity(0.4)))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -336,7 +360,7 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(Theme.bodyMedium)
+                .font(Theme.smallMedium)
                 .lineLimit(1)
                 .fixedSize()
                 .foregroundStyle(on ? Theme.ground : Theme.text)

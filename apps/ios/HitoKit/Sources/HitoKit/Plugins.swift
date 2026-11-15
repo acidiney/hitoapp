@@ -12,10 +12,33 @@ public struct PluginConnection: Equatable, Hashable, Identifiable, Sendable {
     public let health: Health
     public let revision: Int
     public let checkedAt: Date?
+    public var healthReason: String?
     public var signsIn = false
+    public var signedIn = false
+
+    public struct Notice: Equatable, Sendable {
+        public let title: String
+        public let hint: String
+    }
 
     public var summary: String {
         PluginState.named(capabilities).joined(separator: " · ")
+    }
+
+    public var needsSignIn: Bool { signsIn && !signedIn }
+
+    public var notice: Notice? {
+        switch health {
+        case .ok: nil
+        case .unreachable: Notice(title: "\(name) is not responding right now.", hint: "Try again in a moment.")
+        case .credentialsRequired: Notice(title: "\(name) needs its credentials updated.", hint: "Open the plugin and sign in again.")
+        case .degraded:
+            switch healthReason {
+            case "network": Notice(title: "Hito cannot reach \(name).", hint: "Check the server's internet connection or DNS.")
+            case "refused": Notice(title: "\(name) is refusing requests right now.", hint: "Try again later.")
+            default: Notice(title: "\(name) is having problems right now.", hint: "Try again later.")
+            }
+        }
     }
 }
 
@@ -115,7 +138,10 @@ public struct Plugins: Sendable {
         let authorization: Authorization?
     }
 
-    struct Health: Decodable { let state: PluginConnection.Health }
+    struct Health: Decodable {
+        let state: PluginConnection.Health
+        let reason: String?
+    }
 
     struct Installation: Decodable {
         let id: String
@@ -124,11 +150,13 @@ public struct Plugins: Sendable {
         let health: Health?
         let revision: Int
         let checkedAt: Int?
+        let credentialSet: Bool?
 
         enum CodingKeys: String, CodingKey {
             case id, manifest, health, revision
             case serviceId = "service_id"
             case checkedAt = "checked_at"
+            case credentialSet = "credential_set"
         }
 
         var connection: PluginConnection {
@@ -139,7 +167,9 @@ public struct Plugins: Sendable {
                 health: health?.state ?? .ok,
                 revision: revision,
                 checkedAt: checkedAt.flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0)) : nil },
-                signsIn: manifest.authorization != nil
+                healthReason: health?.reason,
+                signsIn: manifest.authorization != nil,
+                signedIn: credentialSet ?? false
             )
         }
     }

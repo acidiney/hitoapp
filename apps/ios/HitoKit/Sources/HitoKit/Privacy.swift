@@ -92,6 +92,13 @@ public struct Privacy: Sendable {
         return LockState(pinEnabled: lock.pinEnabled, idleMinutes: lock.idleMinutes)
     }
 
+    struct RemovePin: Encodable { let password: String }
+
+    public func removePin(password: String) async throws -> LockState {
+        let lock = try await api.post(["api", "v1", "account", "pin", "remove"], body: RemovePin(password: password), as: Lock.self)
+        return LockState(pinEnabled: lock.pinEnabled, idleMinutes: lock.idleMinutes)
+    }
+
     struct Locked: Decodable { let locked: Bool }
 
     public func lockNow() async throws -> Bool {

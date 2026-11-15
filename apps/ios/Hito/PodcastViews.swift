@@ -184,7 +184,7 @@ struct PodcastView: View {
                 Cover(path: episodes.first?.track.artworkPath ?? ["api", "v1", "podcasts", subscription.id, "artwork"], size: 96, radius: 10, mark: "podcast")
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Podcast").font(Theme.smallStrong).foregroundStyle(Theme.soft)
-                    Text(shown.name).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                    Text(shown.name).font(Theme.title).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
                     if let page { Text("\(page.total) \(page.total == 1 ? "episode" : "episodes")").foregroundStyle(Theme.soft) }
                     if let status = shown.status {
                         Text(status).font(Theme.small).foregroundStyle(shown.refreshFailed ? Theme.warning : Theme.quiet)
