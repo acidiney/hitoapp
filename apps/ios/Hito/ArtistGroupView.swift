@@ -146,7 +146,8 @@ struct ArtistGroupView: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Opens the album in your library")
         } else {
-            label
+            NavigationLink(value: CatalogRelease(group: group, release: release)) { label }
+                .buttonStyle(.plain)
         }
     }
 

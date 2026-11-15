@@ -4061,7 +4061,7 @@ export interface components {
             snapshot_id: string;
         };
         /** @enum {string} */
-        CatalogSort: "title" | "recent" | "artist" | "year";
+        CatalogSort: "title" | "recent" | "artist" | "year" | "album" | "duration";
         /** @enum {string} */
         CatalogTrackKind: "audio" | "pregap" | "data";
         CatalogTrackMatch: {
