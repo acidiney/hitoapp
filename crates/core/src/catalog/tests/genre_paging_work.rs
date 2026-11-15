@@ -235,14 +235,17 @@ async fn measure_file_tag_population(size: usize, host: &str) -> PageWork {
                 .skip(size - PAGE_SIZE as usize)
                 .cloned()
                 .collect::<Vec<_>>();
+            let expected = statements::StatementExpectations {
+                anchor_id: anchor_id.clone(),
+                anchor_title: expected_title.clone(),
+                first_candidate_ids: expected_first_ids,
+                late_candidate_ids: expected_late_ids,
+            };
             statements::collect(
                 &hito.catalog.store.pool,
                 &hito.catalog.host,
                 &actor,
-                anchor_id,
-                expected_title,
-                &expected_first_ids,
-                &expected_late_ids,
+                expected,
                 &meter,
             )
             .await

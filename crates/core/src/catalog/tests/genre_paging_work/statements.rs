@@ -11,14 +11,18 @@ use std::time::Duration;
 
 const STATEMENT_TIMEOUT: Duration = Duration::from_secs(5);
 type PlanNode = (i64, i64, i64, String);
+type StatementPlan = Result<Vec<PlanNode>, String>;
+
+pub(super) struct StatementExpectations {
+    pub(super) anchor_id: String,
+    pub(super) anchor_title: String,
+    pub(super) first_candidate_ids: Vec<String>,
+    pub(super) late_candidate_ids: Vec<String>,
+}
 
 pub(super) struct StatementOutcome<T> {
     result: Result<T, String>,
     vm_steps: u64,
-}
-
-struct StatementPlan {
-    result: Result<Vec<PlanNode>, String>,
 }
 
 pub(super) struct StatementDiagnostics {
@@ -30,9 +34,7 @@ pub(super) struct StatementDiagnostics {
     first_candidate_plan: StatementPlan,
     late_anchor_plan: StatementPlan,
     late_candidate_plan: StatementPlan,
-    expected_anchor_title: String,
-    expected_first_candidate_ids: Vec<String>,
-    expected_late_candidate_ids: Vec<String>,
+    expected: StatementExpectations,
     transaction: Result<(), String>,
 }
 
@@ -80,10 +82,7 @@ pub(super) async fn collect(
     pool: &SqlitePool,
     host: &HostDeviceId,
     actor: &Actor,
-    anchor_id: &str,
-    expected_anchor_title: &str,
-    expected_first_candidate_ids: &[String],
-    expected_late_candidate_ids: &[String],
+    expected: StatementExpectations,
     meter: &WorkMeter,
 ) -> Result<StatementDiagnostics, String> {
     let mut transaction = tokio::time::timeout(STATEMENT_TIMEOUT, pool.begin())
@@ -91,20 +90,13 @@ pub(super) async fn collect(
         .map_err(|_| "diagnostic transaction start timed out".to_owned())?
         .map_err(|error| error.to_string())?;
 
-    let accessible_plan = StatementPlan {
-        result: explain_builder(
-            &mut transaction,
-            accessible_query(host, actor, "fado"),
-        )
-        .await,
-    };
-    let first_candidate_plan = StatementPlan {
-        result: explain_builder(
-            &mut transaction,
-            candidates_query(host, actor, "fado", super::PAGE_SIZE, None),
-        )
-        .await,
-    };
+    let accessible_plan =
+        explain_builder(&mut transaction, accessible_query(host, actor, "fado")).await;
+    let first_candidate_plan = explain_builder(
+        &mut transaction,
+        candidates_query(host, actor, "fado", super::PAGE_SIZE, None),
+    )
+    .await;
 
     let (accessible, accessible_steps) = meter
         .measure(tokio::time::timeout(STATEMENT_TIMEOUT, async {
@@ -128,23 +120,21 @@ pub(super) async fn collect(
 
     let mut anchor_query = sqlx::query(ANCHOR_TITLE_SQL)
         .bind(actor.id().to_owned())
-        .bind(anchor_id.to_owned());
+        .bind(expected.anchor_id.to_owned());
     let anchor_arguments = anchor_query.take_arguments();
-    let late_anchor_plan = StatementPlan {
-        result: match anchor_arguments {
+    let late_anchor_plan = match anchor_arguments {
             Ok(Some(arguments)) => {
                 explain_sql(&mut transaction, ANCHOR_TITLE_SQL, arguments).await
             }
             Ok(None) => Err("anchor query has no bind arguments".to_owned()),
             Err(error) => Err(error.to_string()),
-        },
     };
 
     let (late_anchor, late_anchor_steps) = meter
         .measure(tokio::time::timeout(STATEMENT_TIMEOUT, async {
             sqlx::query_scalar::<_, String>(ANCHOR_TITLE_SQL)
                 .bind(actor.id().to_owned())
-                .bind(anchor_id.to_owned())
+                .bind(expected.anchor_id.to_owned())
                 .fetch_optional(&mut *transaction)
                 .await
         }))
@@ -155,25 +145,23 @@ pub(super) async fn collect(
         .as_ref()
         .ok()
         .and_then(Option::as_deref)
-        .unwrap_or(expected_anchor_title)
+        .unwrap_or(expected.anchor_title)
         .to_owned();
     let late_position = GenrePosition {
         title: &late_title,
-        id: anchor_id,
+        id: expected.anchor_id,
     };
-    let late_candidate_plan = StatementPlan {
-        result: explain_builder(
-            &mut transaction,
-            candidates_query(
-                host,
-                actor,
-                "fado",
-                super::PAGE_SIZE,
-                Some(late_position),
-            ),
-        )
-        .await,
-    };
+    let late_candidate_plan = explain_builder(
+        &mut transaction,
+        candidates_query(
+            host,
+            actor,
+            "fado",
+            super::PAGE_SIZE,
+            Some(late_position),
+        ),
+    )
+    .await;
     let (late_candidates, late_candidate_steps) = meter
         .measure(tokio::time::timeout(STATEMENT_TIMEOUT, async {
             candidates_query(
@@ -204,9 +192,7 @@ pub(super) async fn collect(
         first_candidate_plan,
         late_anchor_plan,
         late_candidate_plan,
-        expected_anchor_title: expected_anchor_title.to_owned(),
-        expected_first_candidate_ids: expected_first_candidate_ids.to_vec(),
-        expected_late_candidate_ids: expected_late_candidate_ids.to_vec(),
+        expected,
         transaction,
     })
 }
@@ -226,12 +212,12 @@ pub(super) fn assert_and_log(size: usize, statements: &StatementDiagnostics) {
             .iter()
             .map(|(id, _)| id.clone())
             .collect::<Vec<_>>(),
-        statements.expected_first_candidate_ids
+        statements.expected.first_candidate_ids
     );
     assert!(statements.late_anchor.result.is_ok());
     assert_eq!(
         statements.late_anchor.result.as_ref().unwrap().as_deref(),
-        Some(statements.expected_anchor_title.as_str())
+        Some(statements.expected.anchor_title.as_str())
     );
     assert!(statements.late_candidates.result.is_ok());
     assert!(statements.late_candidates.vm_steps > 0);
@@ -244,7 +230,7 @@ pub(super) fn assert_and_log(size: usize, statements: &StatementDiagnostics) {
             .iter()
             .map(|(id, _)| id.clone())
             .collect::<Vec<_>>(),
-        statements.expected_late_candidate_ids
+        statements.expected.late_candidate_ids
     );
     for plan in [
         &statements.accessible_plan,
@@ -252,8 +238,8 @@ pub(super) fn assert_and_log(size: usize, statements: &StatementDiagnostics) {
         &statements.late_anchor_plan,
         &statements.late_candidate_plan,
     ] {
-        assert!(plan.result.is_ok());
-        assert!(!plan.result.as_ref().unwrap().is_empty());
+        assert!(plan.is_ok());
+        assert!(!plan.as_ref().unwrap().is_empty());
     }
 
     eprintln!(
@@ -292,7 +278,7 @@ pub(super) fn assert_and_log(size: usize, statements: &StatementDiagnostics) {
     ] {
         eprintln!(
             "genre_page_eqp case=file-tag size={size} statement={name} nodes={:?}",
-            plan.result.as_ref().unwrap()
+            plan.as_ref().unwrap()
         );
     }
 }
