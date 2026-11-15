@@ -257,6 +257,7 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         let genres: Vec<Genre> = query.build_query_as().fetch_all(&mut *tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(tiles = genres.len(), "Genre tiles read");
         Ok(genres)
     }
@@ -344,8 +345,8 @@ impl Catalog {
         let order: Vec<String> = albums.build_query_scalar().fetch_all(&mut *tx).await?;
         let mut found = releases_among_ids_on(&mut tx, actor, &order).await?;
         found.sort_by_key(|release| order.iter().position(|id| *id == release.id));
-        actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(
             tracks = tracks.len(),
             albums = found.len(),

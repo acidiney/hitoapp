@@ -197,8 +197,8 @@ impl Catalog {
             .map(|id| encode_cursor(actor.id(), &key, id))
             .transpose()?;
 
-        actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(items = items.len(), has_more, "Genre tracks read");
         Ok(GenreTracksPage { items, next_after })
     }
