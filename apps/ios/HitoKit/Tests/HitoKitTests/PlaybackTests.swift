@@ -144,5 +144,31 @@ import Testing
         #expect(requests.count == 2)
         #expect(Set(requests).count == 2)
     }
-}
+    @Test func aTrackWithNoReadySourceIsLookedUpThenPlayed() async throws {
+        let none = #"[{"id":"s0","recording_id":"r1","provider":"youtube","label":"YouTube","ready":false,"can_prepare":true}]"#
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .sequence([.json(200, none), .json(200, sources)]),
+            "POST /api/v1/recordings/r1/sources/resolve": .json(200, #"{"outcome":"ready","sources":[]}"#),
+            "POST /api/v1/playback/leases": .json(200, lease),
+        ])
+        let audio = try await playback(fake).acquire("r1")
+        #expect(audio.sourceId == "s1")
+        #expect(fake.requests.map(\.line) == [
+            "GET /api/v1/recordings/r1/playback-sources",
+            "POST /api/v1/recordings/r1/sources/resolve",
+            "GET /api/v1/recordings/r1/playback-sources",
+            "POST /api/v1/playback/leases",
+        ])
+    }
 
+    @Test func aTrackNoServiceCanFindSaysWhy() async {
+        let none = #"[{"id":"s0","recording_id":"r1","provider":"youtube","label":"YouTube","ready":false,"can_prepare":true}]"#
+        let fake = FakeServer(routes: [
+            "GET /api/v1/recordings/r1/playback-sources": .json(200, none),
+            "POST /api/v1/recordings/r1/sources/resolve": .json(200, #"{"outcome":"no_suitable_source","sources":[]}"#),
+        ])
+        await #expect(throws: Playback.Problem.notFound("No source found")) {
+            try await playback(fake).acquire("r1")
+        }
+    }
+}

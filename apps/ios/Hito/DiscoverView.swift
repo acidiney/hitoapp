@@ -185,12 +185,11 @@ struct DiscoverView: View {
             } else {
                 radio = try await Discovery(api: api).radio(artist.id)
             }
-            let ready = radio.tracks.filter(\.isPlayable)
-            guard !ready.isEmpty else {
-                problem = "\(artist.name) radio has nothing ready to play yet."
+            guard !radio.tracks.isEmpty else {
+                problem = "\(artist.name) radio has nothing to play yet."
                 return
             }
-            model.player?.play(ready, at: 0, from: "\(artist.name) radio")
+            model.player?.play(radio.tracks, at: 0, from: "\(artist.name) radio")
         } catch {
             problem = "\(artist.name) radio didn't start. Try again."
             model.handle(error)
@@ -217,13 +216,12 @@ struct DiscoverView: View {
         do {
             let id = try await Discovery(api: api).open(item)
             let detail = try await Playlists(api: api).detail(id)
-            let ready = detail.tracks.filter(\.isPlayable)
-            guard !ready.isEmpty else {
+            guard !detail.tracks.isEmpty else {
                 opened = detail.playlist
-                problem = "Nothing in \(item.title) is ready to play yet."
+                problem = "\(item.title) has nothing to play yet."
                 return
             }
-            model.player?.play(ready, at: 0, from: item.title)
+            model.player?.play(detail.tracks, at: 0, from: item.title)
         } catch {
             problem = "\(item.title) didn't play. Try again."
             model.handle(error)
