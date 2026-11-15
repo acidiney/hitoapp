@@ -114,10 +114,7 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
         "genre privacy account, grant and recording baseline setup",
         Box::pin(async {
             let (member_id, member_token) = create_member(&fixture.app, &fixture.admin).await;
-            let access = format!(
-                "/api/v1/libraries/{}/members/{member_id}",
-                fixture.library
-            );
+            let access = format!("/api/v1/libraries/{}/members/{member_id}", fixture.library);
             let (status, _) = bounded_call(
                 &fixture.app,
                 "PUT",
@@ -156,9 +153,18 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
                 assert_eq!(admin_baseline[index]["title"], title);
                 assert_eq!(member_baseline[index]["title"], title);
                 assert_eq!(admin_baseline[index]["artist"], "Owned genre access artist");
-                assert_eq!(member_baseline[index]["artist"], "Owned genre access artist");
-                assert_eq!(admin_baseline[index]["inherited_artist"], "Owned genre access artist");
-                assert_eq!(member_baseline[index]["inherited_artist"], "Owned genre access artist");
+                assert_eq!(
+                    member_baseline[index]["artist"],
+                    "Owned genre access artist"
+                );
+                assert_eq!(
+                    admin_baseline[index]["inherited_artist"],
+                    "Owned genre access artist"
+                );
+                assert_eq!(
+                    member_baseline[index]["inherited_artist"],
+                    "Owned genre access artist"
+                );
                 assert_eq!(admin_baseline[index]["liked"], false);
                 assert_eq!(member_baseline[index]["liked"], false);
             }
@@ -222,9 +228,15 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
     assert_eq!(member_projection[1]["artist"], "Member private performer");
     assert_eq!(member_projection[1]["liked"], true);
     assert_ne!(admin_projection[0]["title"], member_projection[0]["title"]);
-    assert_ne!(admin_projection[0]["artist"], member_projection[0]["artist"]);
+    assert_ne!(
+        admin_projection[0]["artist"],
+        member_projection[0]["artist"]
+    );
     assert_ne!(admin_projection[1]["title"], member_projection[1]["title"]);
-    assert_ne!(admin_projection[1]["artist"], member_projection[1]["artist"]);
+    assert_ne!(
+        admin_projection[1]["artist"],
+        member_projection[1]["artist"]
+    );
 
     let admin_pages = two_track_pages(&fixture.app, &fixture.admin).await;
     let member_pages = two_track_pages(&fixture.app, &member_token).await;
@@ -243,10 +255,7 @@ async fn deleted_member_cannot_continue_a_genre_track_cursor() {
         "genre deletion account and library grant setup",
         Box::pin(async {
             let (member_id, member_token) = create_member(&fixture.app, &fixture.admin).await;
-            let access = format!(
-                "/api/v1/libraries/{}/members/{member_id}",
-                fixture.library
-            );
+            let access = format!("/api/v1/libraries/{}/members/{member_id}", fixture.library);
             let (status, _) = bounded_call(
                 &fixture.app,
                 "PUT",

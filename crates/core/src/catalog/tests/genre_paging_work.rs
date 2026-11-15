@@ -28,7 +28,11 @@ struct PageWork {
 
 fn snapshot(page: &crate::GenreTracksPage) -> PageSnapshot {
     PageSnapshot {
-        ids: page.items.iter().map(|recording| recording.id.clone()).collect(),
+        ids: page
+            .items
+            .iter()
+            .map(|recording| recording.id.clone())
+            .collect(),
         next_after: page.next_after.clone(),
     }
 }
@@ -41,10 +45,7 @@ fn expected_recording_order(size: usize) -> Vec<String> {
                 2 => "tie".to_owned(),
                 value => format!("Song {value:02}"),
             };
-            (
-                title,
-                format!("00000000-0000-4000-8000-{index:012x}"),
-            )
+            (title, format!("00000000-0000-4000-8000-{index:012x}"))
         })
         .collect();
     recordings.sort_by(|(left_title, left_id), (right_title, right_id)| {
@@ -53,10 +54,7 @@ fn expected_recording_order(size: usize) -> Vec<String> {
             .cmp(&right_title.to_lowercase())
             .then_with(|| left_id.cmp(right_id))
     });
-    recordings
-        .into_iter()
-        .map(|(_, id)| id)
-        .collect()
+    recordings.into_iter().map(|(_, id)| id).collect()
 }
 
 async fn measure_file_tag_population(size: usize, host: &str) -> PageWork {
@@ -208,12 +206,8 @@ async fn measure_file_tag_population(size: usize, host: &str) -> PageWork {
         .measure(async {
             tokio::time::timeout(
                 PAGE_TIMEOUT,
-                hito.catalog.genre_tracks(
-                    &actor,
-                    "Fado",
-                    Some(PAGE_SIZE),
-                    Some(&late_after),
-                ),
+                hito.catalog
+                    .genre_tracks(&actor, "Fado", Some(PAGE_SIZE), Some(&late_after)),
             )
             .await
         })
