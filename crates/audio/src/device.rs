@@ -215,7 +215,7 @@ fn build<T: SizedSample + FromSample<f32>>(
 where
     f32: FromSample<T>,
 {
-    let mut render = Render::new(consumer, state.clone(), format);
+    let mut render = Render::new(consumer, state.clone(), format).with_stream(stream);
     let born_xruns = state.xruns.load(Ordering::Acquire);
     #[cfg(feature = "test-support")]
     let mut witness = crate::test_support::output_witness::attach(&state, format);

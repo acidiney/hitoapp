@@ -42,6 +42,7 @@ pub(crate) struct Render {
     scheduled_end: u64,
     next_buffer_at: Option<StreamInstant>,
     xruns: u64,
+    stream: (u64, u64),
 }
 
 impl Render {
@@ -54,7 +55,13 @@ impl Render {
             scheduled_end: 0,
             next_buffer_at: None,
             xruns: 0,
+            stream: (0, 0),
         }
+    }
+
+    pub fn with_stream(mut self, stream: (u64, u64)) -> Self {
+        self.stream = stream;
+        self
     }
 
     fn discard_before(&mut self, epoch: u64, budget: &mut usize) {
@@ -86,6 +93,8 @@ impl Render {
         if !self.presentation.push(point) {
             tracing::warn!(
                 event = "audio_output_failed",
+                audio_id = self.stream.0,
+                generation = self.stream.1,
                 reason = "presentation_overflow",
                 terminal = true,
                 "Audio output recovery could not continue"

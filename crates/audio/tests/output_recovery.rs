@@ -376,13 +376,14 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         );
         std::thread::sleep(Duration::from_millis(5));
     }
+    let snapshots = [("first", first.snapshot()), ("second", second.snapshot())];
     let failures: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
         .unwrap()
         .lines()
         .filter(|line| line.contains("\"event\":\"audio_output_failed\""))
         .map(str::to_owned)
         .collect();
-    for (name, snapshot) in [("first", first.snapshot()), ("second", second.snapshot())] {
+    for (name, snapshot) in snapshots {
         assert!(
             snapshot.error.is_none(),
             "{name} player output failed after starvation: error={:?} output_failure={:?} xruns={} underruns={} position_ns={} output_failure_events={failures:?}",
