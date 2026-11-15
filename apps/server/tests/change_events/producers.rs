@@ -81,14 +81,18 @@ async fn provider_source_changes_reach_only_accounts_that_can_read_the_recording
 
     let refresh = format!("/api/v1/recordings/{recording}/sources/refresh");
     assert_eq!(
-        call(&app, "POST", &refresh, Value::Null, Some(&owner)).await.0,
+        call(&app, "POST", &refresh, Value::Null, Some(&owner))
+            .await
+            .0,
         StatusCode::OK
     );
     assert_eq!(notice(&mut owner_changes).await, sources_notice(&recording));
 
     server.offline().await;
     assert_ne!(
-        call(&app, "POST", &refresh, Value::Null, Some(&owner)).await.0,
+        call(&app, "POST", &refresh, Value::Null, Some(&owner))
+            .await
+            .0,
         StatusCode::OK
     );
     server.online().await;
@@ -179,7 +183,10 @@ async fn attaching_a_source_to_a_shared_library_recording_notifies_every_member_
     .await;
     assert_eq!(status, StatusCode::OK, "{attached}");
     assert_eq!(notice(&mut owner_changes).await, sources_notice(&recording));
-    assert_eq!(notice(&mut member_changes).await, sources_notice(&recording));
+    assert_eq!(
+        notice(&mut member_changes).await,
+        sources_notice(&recording)
+    );
     quiet(&mut outsider_changes).await;
     quiet(&mut owner_changes).await;
     quiet(&mut member_changes).await;
@@ -195,8 +202,14 @@ async fn imported(
         "installation_revision": provider.revision,
         "playlist_reference": "https://provider.invalid/playlists/change-notices"
     });
-    let (status, receipt) =
-        call(app, "POST", &provider.import_path, body.clone(), Some(token)).await;
+    let (status, receipt) = call(
+        app,
+        "POST",
+        &provider.import_path,
+        body.clone(),
+        Some(token),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     (body, receipt["playlist_id"].as_str().unwrap().to_owned())
 }
@@ -212,7 +225,10 @@ async fn importing_a_provider_playlist_notifies_its_owner_once_after_commit() {
 
     let (body, playlist) = imported(&app, &owner, &provider).await;
     assert_eq!(notice(&mut owner_changes).await, playlist_notice(&playlist));
-    assert_eq!(notice(&mut owner_changes).await, json!({"kind":"playlists"}));
+    assert_eq!(
+        notice(&mut owner_changes).await,
+        json!({"kind":"playlists"})
+    );
 
     let (status, replay) = call(&app, "POST", &provider.import_path, body, Some(&owner)).await;
     assert_eq!(status, StatusCode::OK);
@@ -290,7 +306,10 @@ async fn following_and_refreshing_a_playlist_notify_its_owner_only_when_entries_
     let (status, followed) = call(
         &app,
         "POST",
-        &format!("/api/v1/plugins/{}/playlists/follow", provider.installation_id),
+        &format!(
+            "/api/v1/plugins/{}/playlists/follow",
+            provider.installation_id
+        ),
         json!({
             "request_id": Uuid::new_v4(),
             "installation_revision": provider.revision,
@@ -308,9 +327,15 @@ async fn following_and_refreshing_a_playlist_notify_its_owner_only_when_entries_
     let refresh = format!("/api/v1/playlists/{playlist}/follow/refresh");
     provider.server.offline().await;
     assert_eq!(
-        call(&app, "POST", &refresh, json!({"request_id": Uuid::new_v4()}), Some(&owner))
-            .await
-            .0,
+        call(
+            &app,
+            "POST",
+            &refresh,
+            json!({"request_id": Uuid::new_v4()}),
+            Some(&owner)
+        )
+        .await
+        .0,
         StatusCode::ACCEPTED
     );
     assert!(
@@ -358,9 +383,15 @@ async fn following_and_refreshing_a_playlist_notify_its_owner_only_when_entries_
         )
         .await;
     assert_eq!(
-        call(&app, "POST", &refresh, json!({"request_id": Uuid::new_v4()}), Some(&owner))
-            .await
-            .0,
+        call(
+            &app,
+            "POST",
+            &refresh,
+            json!({"request_id": Uuid::new_v4()}),
+            Some(&owner)
+        )
+        .await
+        .0,
         StatusCode::ACCEPTED
     );
     assert!(
@@ -431,7 +462,10 @@ async fn arriving_playlist_artwork_notifies_its_owner_after_the_worker_commits()
         json!({"kind":"artwork","entity":"playlist","id":playlist})
     );
     assert_eq!(notice(&mut owner_changes).await, playlist_notice(&playlist));
-    assert_eq!(notice(&mut owner_changes).await, json!({"kind":"playlists"}));
+    assert_eq!(
+        notice(&mut owner_changes).await,
+        json!({"kind":"playlists"})
+    );
 
     let (status, retained) = call(&app, "POST", &fetch, Value::Null, Some(&owner)).await;
     assert_eq!(status, StatusCode::ACCEPTED);
