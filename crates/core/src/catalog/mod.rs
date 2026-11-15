@@ -39,6 +39,9 @@ mod credit_member_work;
 #[path = "tests/genre_work.rs"]
 mod genre_work;
 #[cfg(test)]
+#[path = "tests/genre_paging_work.rs"]
+mod genre_paging_work;
+#[cfg(test)]
 #[path = "tests/group_work.rs"]
 mod group_work;
 mod playback_sources;
