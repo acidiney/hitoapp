@@ -43,6 +43,8 @@ pub(crate) struct State {
     pub callbacks: AtomicU64,
     pub output_failure: AtomicU8,
     pub notices: AtomicU64,
+    pub output_generation: AtomicU64,
+    pub rebuild_request: AtomicU64,
 }
 
 impl State {
@@ -70,6 +72,8 @@ impl State {
             callbacks: AtomicU64::new(0),
             output_failure: AtomicU8::new(0),
             notices: AtomicU64::new(0),
+            output_generation: AtomicU64::new(0),
+            rebuild_request: AtomicU64::new(0),
         }
     }
 
@@ -88,6 +92,11 @@ impl State {
         };
         self.failure.store(code, Ordering::Release);
         self.playing.store(false, Ordering::Release);
+    }
+
+    pub fn recovery_due(&self, xruns: u64, generation: u64) -> bool {
+        self.xruns.load(Ordering::Acquire) != xruns
+            || self.rebuild_request.load(Ordering::Acquire) == generation
     }
 
     pub fn error(&self) -> Option<Error> {
