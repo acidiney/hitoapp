@@ -60,12 +60,12 @@ import Testing
         #expect(queue.upNext.map(\.id) == ["b", "d"])
     }
 
-    @Test func tracksThatCannotPlayAreLeftOutOfTheList() {
+    @Test func tracksWithoutASourceStayInTheListSoThePlayerCanFindOne() {
         var queue = PlayQueue()
         var silent = track("b")
         silent = Track(id: silent.id, title: silent.title, artist: silent.artist, album: nil, releaseId: nil, durationMs: 1000, available: false, playsFromServices: false, liked: false)
         queue.start([track("a"), silent, track("c")], at: 0, from: "Fixture Album")
-        #expect(queue.upNext.map(\.id) == ["c"])
+        #expect(queue.upNext.map(\.id) == ["b", "c"])
     }
 }
 
