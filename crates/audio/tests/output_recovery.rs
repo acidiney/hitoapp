@@ -2,6 +2,8 @@
 
 #[path = "output_recovery/client_starvation.rs"]
 mod client_starvation;
+#[path = "output_recovery/presentation.rs"]
+mod presentation;
 
 use client_starvation::ClientStarvation;
 use hito_audio::{Player, test_support};
@@ -250,7 +252,7 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
     assert!(first_target >= before.position);
     assert!(first_target <= before.position + fault_elapsed + buffering_bound);
     assert_eq!(final_state.underruns, 0);
-    let mut expected_monitor = Vec::new();
+    let mut submitted = Vec::new();
     let mut previous_end = 0;
     let mut replayed_frames = 0;
     for (index, generation) in generations.iter().enumerate() {
@@ -283,24 +285,30 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
         if index + 1 == generations.len() {
             assert_eq!(start + audio.len() as u64, u64::from(FRAMES));
         }
-        expected_monitor.extend(audio);
+        submitted.push((start, audio, generation.replay_bound_frames()));
     }
     let audible = heard(&monitored);
-    assert_eq!(audible.len(), expected_monitor.len());
-    for (index, (audible, submitted)) in audible.iter().zip(&expected_monitor).enumerate() {
-        assert!(
-            (level(*audible) - level(*submitted)).abs() <= 1,
-            "backend capture diverged from submitted output at {index}"
-        );
-    }
+    let spans: Vec<presentation::Span> = submitted
+        .iter()
+        .map(|(start, samples, replay_bound)| presentation::Span {
+            start: *start,
+            samples,
+            replay_bound: *replay_bound,
+        })
+        .collect();
+    let unobserved = presentation::unobserved(&spans, &audible).unwrap_or_else(|reason| {
+        panic!("backend capture diverged from submitted output: {reason}")
+    });
+    let submitted_frames: usize = submitted.iter().map(|(_, samples, _)| samples.len()).sum();
     eprintln!(
-        "controlled_recovery recoveries={} first_target_ns={} observed_before_ns={} submitted_frames={} monitor_frames={} already_heard_replayed_frames={} submitted_not_heard_frames=0 underruns={}",
+        "controlled_recovery recoveries={} first_target_ns={} observed_before_ns={} submitted_frames={} monitor_frames={} replayed_frames={} unobserved_submitted_frames={} underruns={}",
         targets.len(),
         targets[0],
         before.position.as_nanos(),
-        expected_monitor.len(),
+        submitted_frames,
         audible.len(),
         replayed_frames,
+        unobserved,
         final_state.underruns
     );
 }
