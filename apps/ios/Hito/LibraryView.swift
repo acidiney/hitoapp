@@ -79,6 +79,7 @@ struct LibraryView: View {
                 case .albums:
                     AlbumGrid(feed: albums)
                 case .artists:
+                    ReviewQueueButton { reload() }
                     ArtistRows(feed: artists, chosen: chosen)
                 case .playlists:
                     Button { newName = ""; naming = true } label: {
