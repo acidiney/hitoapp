@@ -130,6 +130,25 @@ public struct AlbumEditions: Sendable {
             case durationMs = "duration_ms"
             case recordingId = "recording_id"
         }
+
+        struct Locator: Encodable {
+            let releaseGroupId: String
+            let editionId: String
+            let occurrenceId: String?
+
+            enum CodingKeys: String, CodingKey {
+                case releaseGroupId = "release_group_id"
+                case editionId = "edition_id"
+                case occurrenceId = "occurrence_id"
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(releaseGroupId, forKey: .releaseGroupId)
+                try container.encode(editionId, forKey: .editionId)
+                try container.encodeIfPresent(occurrenceId, forKey: .occurrenceId)
+            }
+        }
     }
 
     struct Medium: Decodable { let tracks: [Occurrence] }
@@ -171,11 +190,12 @@ public struct AlbumEditions: Sendable {
         let associationId: String?
         let edition: Edition?
         let matches: [Match]?
+        let linked: [Match]?
         let attachedOccurrences: [String]?
         let adoption: Adoption?
 
         enum CodingKeys: String, CodingKey {
-            case status, edition, matches, adoption
+            case status, edition, matches, linked, adoption
             case associationId = "association_id"
             case attachedOccurrences = "attached_occurrences"
         }
@@ -306,7 +326,7 @@ public struct AlbumEditions: Sendable {
         guard listing.status == "available", let edition = listing.edition, let associationId = listing.associationId else {
             return .unavailable(Self.explain(listing.status))
         }
-        let owned = Dictionary((listing.matches ?? []).map { ($0.occurrenceId, $0.recording) }, uniquingKeysWith: { first, _ in first })
+        let owned = Dictionary((listing.matches ?? listing.linked ?? []).map { ($0.occurrenceId, $0.recording) }, uniquingKeysWith: { first, _ in first })
         let attached = Set(listing.attachedOccurrences ?? [])
         let tracks = edition.media.flatMap(\.tracks).filter { $0.kind == "audio" }.map {
             EditionTrack(id: $0.id, number: $0.number, title: $0.title, durationMs: $0.durationMs, providerRecording: $0.recordingId, owned: owned[$0.id], attached: attached.contains($0.id) && owned[$0.id] == nil)
@@ -322,7 +342,7 @@ public struct AlbumEditions: Sendable {
     }
 
     public func options(for title: String, anchor: CatalogAnchor) async throws -> [EditionOption] {
-        let association = ["api", "v1", "recordings", anchor.recordingId, "artist-associations", anchor.associationId]
+        let association = Self.association(anchor)
         let wanted = Self.normalized(title)
         var continuation: String?
         var group: Group?
@@ -335,20 +355,38 @@ public struct AlbumEditions: Sendable {
             if group != nil || continuation == nil { break }
         }
         guard let group else { return [] }
+        return try await editions(of: group.id, anchor: anchor)
+    }
+
+    public func editions(of releaseGroupId: String, anchor: CatalogAnchor) async throws -> [EditionOption] {
         var options: [EditionOption] = []
-        continuation = nil
+        var continuation: String?
         for _ in 0..<Self.pages {
-            let listed = try await api.post(association + ["release-group-editions"], body: EditionsOf(releaseGroupId: group.id, continuation: continuation), as: Listed<Choice>.self)
+            let listed = try await api.post(Self.association(anchor) + ["release-group-editions"], body: EditionsOf(releaseGroupId: releaseGroupId, continuation: continuation), as: Listed<Choice>.self)
             guard listed.status == "available" else { throw EditionOption.Unavailable(reason: Self.explain(listed.status)) }
             options += (listed.page?.items ?? []).map {
                 let year = $0.releaseDate.map { String($0.prefix(4)) }
                 let facts = [year, $0.country].compactMap { $0 }
-                return EditionOption(id: $0.id, releaseGroupId: group.id, name: Self.named($0.disambiguation) ?? $0.title, detail: facts.isEmpty ? nil : facts.joined(separator: " · "))
+                return EditionOption(id: $0.id, releaseGroupId: releaseGroupId, name: Self.named($0.disambiguation) ?? $0.title, detail: facts.isEmpty ? nil : facts.joined(separator: " · "))
             }
             continuation = listed.continuation
             if continuation == nil { break }
         }
         return options
+    }
+
+    public func catalog(_ option: EditionOption, anchor: CatalogAnchor) async throws -> EditionRead {
+        try Self.read(try await api.post(Self.association(anchor) + ["edition-track-list"], body: Occurrence.Locator(releaseGroupId: option.releaseGroupId, editionId: option.id, occurrenceId: nil), as: Listing.self))
+    }
+
+    public func find(_ track: EditionTrack, of album: CompleteAlbum, anchor: CatalogAnchor) async throws -> TrackAudio {
+        let found = try await api.post(Self.association(anchor) + ["edition-track-audio"], body: Occurrence.Locator(releaseGroupId: album.releaseGroupId, editionId: album.editionId, occurrenceId: track.id), as: Found.self)
+        if found.status == "saved", let recording = found.recording { return .saved(recording) }
+        return .missing(Self.explainFind(found.status))
+    }
+
+    static func association(_ anchor: CatalogAnchor) -> [String] {
+        ["api", "v1", "recordings", anchor.recordingId, "artist-associations", anchor.associationId]
     }
 
     public func preview(_ option: EditionOption, release: String, anchor: CatalogAnchor) async throws -> EditionRead {
