@@ -47,6 +47,12 @@ struct PlaylistView: View {
                         .font(Theme.small)
                     } else if detail == nil {
                         ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
+                    }
+                    if playlist.kind == .followed, !failed {
+                        PlaylistFollowCard(playlist: playlist.id) { await load() }
+                    }
+                    if failed || detail == nil {
+                        EmptyView()
                     } else if let draft {
                         editor(draft)
                     } else if tracks.isEmpty {
@@ -83,7 +89,7 @@ struct PlaylistView: View {
         .confirmationDialog("Delete \(detail?.playlist.name ?? playlist.name)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete playlist", role: .destructive) { Task { await deletePlaylist() } }
         } message: {
-            Text("The playlist is removed from your account. The tracks stay in your library.")
+            Text(playlist.kind == .followed ? "The playlist and its updates are removed from your account. The tracks stay in your library." : "The playlist is removed from your account. The tracks stay in your library.")
         }
     }
 
@@ -115,7 +121,7 @@ struct PlaylistView: View {
                 .frame(height: 6)
                 .accessibilityHidden(true)
             }
-            if tracks.isEmpty, detail != nil, draft == nil, playlist.kind == .local {
+            if tracks.isEmpty, detail != nil, draft == nil {
                 moreMenu
             }
             if !tracks.isEmpty, draft == nil {
@@ -148,7 +154,7 @@ struct PlaylistView: View {
     }
 
     @ViewBuilder private var moreMenu: some View {
-        if !ready.isEmpty || playlist.kind == .local {
+        if !ready.isEmpty || detail != nil {
             Menu {
                 if !ready.isEmpty {
                     Button("Play next") { ready.forEach { model.player?.playNext($0) } }
@@ -158,6 +164,8 @@ struct PlaylistView: View {
                         draft = PlaylistDraft(name: detail.playlist.name, entries: detail.entries)
                         editProblem = nil
                     }
+                }
+                if detail != nil {
                     Button("Delete playlist", role: .destructive) { confirmingDelete = true }
                 }
             } label: {
