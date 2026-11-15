@@ -27,7 +27,7 @@ async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
     let mut playback_completed = false;
     let mut playback_bytes = Vec::new();
 
-    match tokio::time::timeout(
+    if let Ok(Ok(lease)) = tokio::time::timeout(
         Duration::from_secs(5),
         f.hito.playback.begin_lease(
             &f.actor,
@@ -39,64 +39,56 @@ async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
     )
     .await
     {
-        Ok(Ok(lease)) => {
-            lease_created = true;
-            upstream_started_before_playback =
-                tokio::time::timeout(Duration::from_secs(2), held_tail.entered())
-                    .await
-                    .is_ok();
+        lease_created = true;
+        upstream_started_before_playback =
+            tokio::time::timeout(Duration::from_secs(2), held_tail.entered())
+                .await
+                .is_ok();
 
-            match tokio::time::timeout(
-                Duration::from_secs(5),
-                f.hito
-                    .playback
-                    .open_lease_audio(&f.actor, lease.id, AudioRequest::default()),
-            )
-            .await
-            {
-                Ok(Ok(OpenedAudio::Content(mut audio))) => {
-                    if let Some(mut body) = audio.body.take() {
-                        if let Ok(Ok(prefix)) =
-                            tokio::time::timeout(Duration::from_secs(5), async {
-                                let mut prefix = Vec::new();
-                                while prefix.len() < prefix_size {
-                                    let Some(chunk) = body.chunk().await? else {
-                                        return Err(Error::NotFound);
-                                    };
-                                    prefix.extend_from_slice(&chunk);
-                                }
-                                Ok::<_, Error>(prefix)
-                            })
-                            .await
-                        {
-                            prefix_was_available_while_tail_held = prefix
-                                .get(..prefix_size)
-                                .is_some_and(|prefix| prefix == &f.original[..prefix_size])
-                                && !held_tail.released();
-                            playback_bytes.extend_from_slice(&prefix);
-                            held_tail.release();
-                            match tokio::time::timeout(Duration::from_secs(5), async {
-                                let mut remaining = Vec::new();
-                                while let Some(chunk) = body.chunk().await? {
-                                    remaining.extend_from_slice(&chunk);
-                                }
-                                Ok::<_, Error>(remaining)
-                            })
-                            .await
-                            {
-                                Ok(Ok(remaining)) => {
-                                    playback_bytes.extend_from_slice(&remaining);
-                                    playback_completed = true;
-                                }
-                                Ok(Err(_)) | Err(_) => {}
-                            }
+        match tokio::time::timeout(
+            Duration::from_secs(5),
+            f.hito
+                .playback
+                .open_lease_audio(&f.actor, lease.id, AudioRequest::default()),
+        )
+        .await
+        {
+            Ok(Ok(OpenedAudio::Content(mut audio))) => {
+                if let Some(mut body) = audio.body.take()
+                    && let Ok(Ok(prefix)) = tokio::time::timeout(Duration::from_secs(5), async {
+                        let mut prefix = Vec::new();
+                        while prefix.len() < prefix_size {
+                            let Some(chunk) = body.chunk().await? else {
+                                return Err(Error::NotFound);
+                            };
+                            prefix.extend_from_slice(&chunk);
                         }
+                        Ok::<_, Error>(prefix)
+                    })
+                    .await
+                {
+                    prefix_was_available_while_tail_held = prefix
+                        .get(..prefix_size)
+                        .is_some_and(|prefix| prefix == &f.original[..prefix_size])
+                        && !held_tail.released();
+                    playback_bytes.extend_from_slice(&prefix);
+                    held_tail.release();
+                    if let Ok(Ok(remaining)) = tokio::time::timeout(Duration::from_secs(5), async {
+                        let mut remaining = Vec::new();
+                        while let Some(chunk) = body.chunk().await? {
+                            remaining.extend_from_slice(&chunk);
+                        }
+                        Ok::<_, Error>(remaining)
+                    })
+                    .await
+                    {
+                        playback_bytes.extend_from_slice(&remaining);
+                        playback_completed = true;
                     }
                 }
-                Ok(Ok(OpenedAudio::Unsatisfiable { .. })) | Ok(Err(_)) | Err(_) => {}
             }
+            Ok(Ok(OpenedAudio::Unsatisfiable { .. })) | Ok(Err(_)) | Err(_) => {}
         }
-        Ok(Err(_)) | Err(_) => {}
     }
 
     held_tail.release();
@@ -110,7 +102,7 @@ async fn lease_opens_upstream_before_playback_and_reuses_its_response() {
     )
     .await
     .ok();
-    let source_bytes = std::fs::read(&f.music.join("original.wav"));
+    let source_bytes = std::fs::read(f.music.join("original.wav"));
 
     let playback_closed = matches!(
         tokio::time::timeout(Duration::from_secs(5), f.hito.playback.close()).await,

@@ -17,7 +17,6 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
         })
         .await;
 
-    let mut lease_id = None;
     let mut upstream_started_before_playback = false;
     let mut prefix_was_available_while_tail_held = false;
     let mut response_shape_is_expected = false;
@@ -42,7 +41,6 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
     )
     .await
     {
-        lease_id = Some(lease.id);
         if tokio::time::timeout(Duration::from_secs(2), held_tail.entered())
             .await
             .is_ok()
@@ -95,7 +93,8 @@ async fn lease_warmed_response_is_reused_by_open_audio_after_lease_release() {
                     playback_bytes.extend_from_slice(&prefix);
                 }
 
-                if let Some(id) = lease_id {
+                {
+                    let id = lease.id;
                     lease_release_completed_while_tail_held = matches!(
                         tokio::time::timeout(
                             Duration::from_secs(5),
