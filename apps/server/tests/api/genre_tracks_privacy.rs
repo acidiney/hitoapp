@@ -43,36 +43,74 @@ async fn set_personal_recording(
     title: &str,
     artist: &str,
 ) {
-    let (status, _) = bounded_call(
+    let operations = [Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()];
+    let (status, acknowledged) = bounded_call(
         app,
         "POST",
         "/api/v1/sync",
         json!({
             "device_id": device,
             "operations": [
-                {"id": Uuid::new_v4(), "action": {"kind": "recording_title_set", "recording_id": recording, "title": title}},
-                {"id": Uuid::new_v4(), "action": {"kind": "recording_artist_set", "recording_id": recording, "artist": artist}},
-                {"id": Uuid::new_v4(), "action": {"kind": "like_set", "recording_id": recording, "liked": true}}
+                {"id": operations[0], "action": {"kind": "recording_title_set", "recording_id": recording, "title": title}},
+                {"id": operations[1], "action": {"kind": "recording_artist_set", "recording_id": recording, "artist": artist}},
+                {"id": operations[2], "action": {"kind": "like_set", "recording_id": recording, "liked": true}}
             ]
         }),
         Some(token),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+    assert_eq!(acknowledged, json!({"acknowledged": operations}));
 }
 
-fn personalized(base: &Value, title: &str, artist: &str, liked: bool) -> Value {
-    let mut recording = base.clone();
-    recording["title"] = json!(title);
-    recording["artist"] = json!(artist);
-    recording["liked"] = json!(liked);
-    recording
+fn fado_recordings(recordings: &Value) -> Vec<Value> {
+    recordings["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|recording| {
+            recording["inherited_title"] == "Owned Fado A"
+                || recording["inherited_title"] == "Owned Fado B"
+        })
+        .cloned()
+        .collect()
+}
+
+fn recordings_in_id_order(recordings: &Value, baselines: &[Value]) -> Vec<Value> {
+    let items = recordings["items"].as_array().unwrap();
+    baselines
+        .iter()
+        .map(|baseline| {
+            items
+                .iter()
+                .find(|recording| recording["id"] == baseline["id"])
+                .unwrap()
+                .clone()
+        })
+        .collect()
+}
+
+async fn current_fado_recordings(
+    app: &axum::Router,
+    token: &str,
+    baselines: &[Value],
+) -> Vec<Value> {
+    let (status, recordings) = bounded_call(
+        app,
+        "GET",
+        "/api/v1/recordings?sort=title&limit=200&offset=0",
+        Value::Null,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    recordings_in_id_order(&recordings, baselines)
 }
 
 #[tokio::test]
 async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account() {
     let fixture = genre_fixture().await;
-    let (member_token, baseline) = hang_guard(
+    let (member_token, admin_baseline, member_baseline) = hang_guard(
         "genre privacy account, grant and recording baseline setup",
         Box::pin(async {
             let (member_id, member_token) = create_member(&fixture.app, &fixture.admin).await;
@@ -89,7 +127,7 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
             )
             .await;
             assert_eq!(status, StatusCode::NO_CONTENT);
-            let (status, recordings) = call(
+            let (status, admin_recordings) = call(
                 &fixture.app,
                 "GET",
                 "/api/v1/recordings?sort=title&limit=200&offset=0",
@@ -98,24 +136,38 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
             )
             .await;
             assert_eq!(status, StatusCode::OK);
-            let fado: Vec<Value> = recordings["items"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|recording| {
-                    recording["title"] == "Owned Fado A" || recording["title"] == "Owned Fado B"
-                })
-                .cloned()
-                .collect();
-            assert_eq!(fado.len(), 2);
-            assert!(fado[0]["title"] == "Owned Fado A");
-            assert!(fado[1]["title"] == "Owned Fado B");
-            (member_token, fado)
+            let (status, member_recordings) = call(
+                &fixture.app,
+                "GET",
+                "/api/v1/recordings?sort=title&limit=200&offset=0",
+                Value::Null,
+                Some(&member_token),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK);
+            let admin_baseline = fado_recordings(&admin_recordings);
+            let member_baseline = fado_recordings(&member_recordings);
+            assert_eq!(admin_baseline.len(), 2);
+            assert_eq!(member_baseline.len(), 2);
+            for (index, title) in ["Owned Fado A", "Owned Fado B"].into_iter().enumerate() {
+                assert_eq!(admin_baseline[index]["inherited_title"], title);
+                assert_eq!(member_baseline[index]["inherited_title"], title);
+                assert_eq!(admin_baseline[index]["id"], member_baseline[index]["id"]);
+                assert_eq!(admin_baseline[index]["title"], title);
+                assert_eq!(member_baseline[index]["title"], title);
+                assert_eq!(admin_baseline[index]["artist"], "Owned genre access artist");
+                assert_eq!(member_baseline[index]["artist"], "Owned genre access artist");
+                assert_eq!(admin_baseline[index]["inherited_artist"], "Owned genre access artist");
+                assert_eq!(member_baseline[index]["inherited_artist"], "Owned genre access artist");
+                assert_eq!(admin_baseline[index]["liked"], false);
+                assert_eq!(member_baseline[index]["liked"], false);
+            }
+            (member_token, admin_baseline, member_baseline)
         }),
     )
     .await;
-    let first_id = baseline[0]["id"].as_str().unwrap();
-    let second_id = baseline[1]["id"].as_str().unwrap();
+    let first_id = admin_baseline[0]["id"].as_str().unwrap();
+    let second_id = admin_baseline[1]["id"].as_str().unwrap();
     set_personal_recording(
         &fixture.app,
         &fixture.admin,
@@ -135,46 +187,53 @@ async fn genre_track_pages_hydrate_private_metadata_and_likes_for_each_account()
     )
     .await;
 
+    let admin_projection =
+        current_fado_recordings(&fixture.app, &fixture.admin, &admin_baseline).await;
+    let member_projection =
+        current_fado_recordings(&fixture.app, &member_token, &member_baseline).await;
+    assert_eq!(admin_projection[0]["title"], "Admin private Fado title");
+    assert_eq!(admin_projection[0]["artist"], "Admin private performer");
+    assert_eq!(admin_projection[0]["liked"], true);
+    for index in 0..2 {
+        assert_eq!(
+            admin_projection[index]["inherited_title"],
+            admin_baseline[index]["inherited_title"]
+        );
+        assert_eq!(
+            admin_projection[index]["inherited_artist"],
+            admin_baseline[index]["inherited_artist"]
+        );
+        assert_eq!(
+            member_projection[index]["inherited_title"],
+            member_baseline[index]["inherited_title"]
+        );
+        assert_eq!(
+            member_projection[index]["inherited_artist"],
+            member_baseline[index]["inherited_artist"]
+        );
+    }
+    assert_eq!(admin_projection[1]["title"], admin_baseline[1]["title"]);
+    assert_eq!(admin_projection[1]["artist"], admin_baseline[1]["artist"]);
+    assert_eq!(admin_projection[1]["liked"], false);
+    assert_eq!(member_projection[0]["title"], member_baseline[0]["title"]);
+    assert_eq!(member_projection[0]["artist"], member_baseline[0]["artist"]);
+    assert_eq!(member_projection[0]["liked"], false);
+    assert_eq!(member_projection[1]["title"], "Member private Fado title");
+    assert_eq!(member_projection[1]["artist"], "Member private performer");
+    assert_eq!(member_projection[1]["liked"], true);
+    assert_ne!(admin_projection[0]["title"], member_projection[0]["title"]);
+    assert_ne!(admin_projection[0]["artist"], member_projection[0]["artist"]);
+    assert_ne!(admin_projection[1]["title"], member_projection[1]["title"]);
+    assert_ne!(admin_projection[1]["artist"], member_projection[1]["artist"]);
+
     let admin_pages = two_track_pages(&fixture.app, &fixture.admin).await;
     let member_pages = two_track_pages(&fixture.app, &member_token).await;
-    assert_eq!(admin_pages[0]["id"], baseline[0]["id"]);
-    assert_eq!(admin_pages[1]["id"], baseline[1]["id"]);
-    assert_eq!(member_pages[0]["id"], baseline[0]["id"]);
-    assert_eq!(member_pages[1]["id"], baseline[1]["id"]);
-    assert_eq!(
-        admin_pages,
-        vec![
-            personalized(
-                &baseline[0],
-                "Admin private Fado title",
-                "Admin private performer",
-                true,
-            ),
-            personalized(
-                &baseline[1],
-                "Owned Fado B",
-                "Owned genre access artist",
-                false,
-            ),
-        ]
-    );
-    assert_eq!(
-        member_pages,
-        vec![
-            personalized(
-                &baseline[0],
-                "Owned Fado A",
-                "Owned genre access artist",
-                false,
-            ),
-            personalized(
-                &baseline[1],
-                "Member private Fado title",
-                "Member private performer",
-                true,
-            ),
-        ]
-    );
+    assert_eq!(admin_pages, admin_projection);
+    assert_eq!(member_pages, member_projection);
+    assert_eq!(admin_pages[0]["id"], admin_baseline[0]["id"]);
+    assert_eq!(admin_pages[1]["id"], admin_baseline[1]["id"]);
+    assert_eq!(member_pages[0]["id"], member_baseline[0]["id"]);
+    assert_eq!(member_pages[1]["id"], member_baseline[1]["id"]);
 }
 
 #[tokio::test]
@@ -224,6 +283,8 @@ async fn deleted_member_cannot_continue_a_genre_track_cursor() {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     let denied: Value = serde_json::from_slice(&denied_bytes).unwrap();
+    assert_eq!(hito_core::Error::Unauthorized.code(), "unauthorized");
+    assert_eq!(denied["error"], hito_core::Error::Unauthorized.to_string());
     assert!(denied.get("items").is_none());
 
     let (admin_first, admin_cursor) = one_track_page(&fixture.app, &fixture.admin, None).await;
