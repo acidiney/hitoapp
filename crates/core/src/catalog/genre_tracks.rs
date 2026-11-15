@@ -14,6 +14,9 @@ const DEFAULT_LIMIT: i64 = 100;
 const MAX_LIMIT: i64 = 200;
 const CURSOR_VERSION: u8 = 1;
 const MAX_CURSOR_LENGTH: usize = 1_024;
+pub(super) const ANCHOR_TITLE_SQL: &str = "SELECT r.title FROM recordings r
+                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ?
+                WHERE r.id = ?";
 
 #[derive(Serialize, ToSchema)]
 pub struct GenreTracksPage {
@@ -74,6 +77,50 @@ fn encode_cursor(account: &str, key: &str, last_recording: Uuid) -> Result<Strin
     Ok(cursor)
 }
 
+pub(super) fn accessible_query(
+    host: &crate::HostDeviceId,
+    actor: &Actor,
+    key: &str,
+) -> QueryBuilder<'static, Sqlite> {
+    let mut query = QueryBuilder::<Sqlite>::new("SELECT id FROM (");
+    genre_recordings(
+        &mut query,
+        host,
+        actor,
+        &Key::Bound(key),
+        "r.id AS id",
+        GenreWindow::Preview { limit: 1 },
+    );
+    query.push(") LIMIT 1");
+    query
+}
+
+pub(super) fn candidates_query(
+    host: &crate::HostDeviceId,
+    actor: &Actor,
+    key: &str,
+    limit: i64,
+    after: Option<GenrePosition<'_>>,
+) -> QueryBuilder<'static, Sqlite> {
+    let window_limit = limit + 1;
+    let mut query = QueryBuilder::<Sqlite>::new("SELECT id, title FROM (");
+    genre_recordings(
+        &mut query,
+        host,
+        actor,
+        &Key::Bound(key),
+        "r.id AS id, r.title AS title",
+        GenreWindow::Page {
+            limit: window_limit,
+            after,
+        },
+    );
+    query
+        .push(") GROUP BY id ORDER BY title COLLATE NOCASE, id LIMIT ")
+        .push_bind(window_limit);
+    query
+}
+
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn genre_tracks(
@@ -92,17 +139,7 @@ impl Catalog {
             .map(|cursor| decode_cursor(cursor, actor.id(), &key))
             .transpose()?;
 
-        let mut accessible = QueryBuilder::new("SELECT id FROM (");
-        genre_recordings(
-            &mut accessible,
-            &self.host,
-            actor,
-            &Key::Bound(&key),
-            "r.id AS id",
-            GenreWindow::Preview { limit: 1 },
-        );
-        accessible.push(") LIMIT 1");
-        let accessible: Option<String> = accessible
+        let accessible: Option<String> = accessible_query(&self.host, actor, &key)
             .build_query_scalar()
             .fetch_optional(&mut *tx)
             .await?;
@@ -111,15 +148,11 @@ impl Catalog {
         }
 
         let (anchor_id, anchor_title) = if let Some(anchor) = anchor {
-            let title: Option<String> = sqlx::query_scalar(
-                "SELECT r.title FROM recordings r
-                JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ?
-                WHERE r.id = ?",
-            )
-            .bind(actor.id().to_owned())
-            .bind(anchor.to_string())
-            .fetch_optional(&mut *tx)
-            .await?;
+            let title: Option<String> = sqlx::query_scalar(ANCHOR_TITLE_SQL)
+                .bind(actor.id().to_owned())
+                .bind(anchor.to_string())
+                .fetch_optional(&mut *tx)
+                .await?;
             (
                 Some(anchor.to_string()),
                 Some(title.ok_or_else(invalid_cursor)?),
@@ -132,22 +165,16 @@ impl Catalog {
             .zip(anchor_id.as_deref())
             .map(|(title, id)| GenrePosition { title, id });
 
-        let mut query = QueryBuilder::<Sqlite>::new("SELECT id, title FROM (");
-        genre_recordings(
-            &mut query,
+        let candidates: Vec<(String, String)> = candidates_query(
             &self.host,
             actor,
-            &Key::Bound(&key),
-            "r.id AS id, r.title AS title",
-            GenreWindow::Page {
-                limit: limit + 1,
-                after: after_position,
-            },
-        );
-        query
-            .push(") GROUP BY id ORDER BY title COLLATE NOCASE, id LIMIT ")
-            .push_bind(limit + 1);
-        let candidates: Vec<(String, String)> = query.build_query_as().fetch_all(&mut *tx).await?;
+            &key,
+            limit,
+            after_position,
+        )
+        .build_query_as()
+        .fetch_all(&mut *tx)
+        .await?;
         let has_more = candidates.len() > limit as usize;
         let candidates: Vec<(String, String)> =
             candidates.into_iter().take(limit as usize).collect();
