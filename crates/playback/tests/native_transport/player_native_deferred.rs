@@ -3,7 +3,7 @@
 mod fixture;
 use fixture::{Deferred, Mode, RATE, Run};
 use hito_audio::test_support::continuity::{audit, counter, dump, heard, longest_run};
-use hito_playback::PlayerAction;
+use hito_playback::{PlayerAction, PlayerPhase};
 use std::time::Duration;
 
 fn seconds(count: u32) -> u32 {
@@ -296,6 +296,7 @@ async fn logging_out_during_preparation_cancels_it_and_leaves_no_work() {
 async fn a_paused_boundary_timeout_leaves_the_next_entry_its_full_retries_on_resume() {
     let f = Deferred::start(seconds(4), seconds(3), Mode::Never).await;
     let mut run = Run::start(f, true, pair).await;
+    let entries = run.entries(2).await;
     run.send(PlayerAction::Resume {}).await;
     run.until("the boundary hold", || {
         run.events.count("player_boundary_wait_started") >= 1
@@ -308,11 +309,21 @@ async fn a_paused_boundary_timeout_leaves_the_next_entry_its_full_retries_on_res
             .contains("\"event\":\"player_boundary_wait_finished\",\"reason\":\"timeout\"")
     })
     .await;
-    let settled = run.events.count("source_resolution_finished");
-    run.until("the paused discovery", || {
-        run.events.count("source_resolution_finished") > settled
-    })
-    .await;
+    tokio::time::timeout(
+        Duration::from_secs(30),
+        run.state.wait_for(|state| {
+            state
+                .current
+                .as_ref()
+                .is_some_and(|current| current.id == entries[1])
+                && state.phase == PlayerPhase::Failed
+                && !state.playing
+                && !state.desired_playing
+        }),
+    )
+    .await
+    .expect("the paused next entry must settle as failed")
+    .unwrap();
     let mark = run.events.text().len();
     run.send(PlayerAction::Resume {}).await;
     run.queue_finishes(40).await;
