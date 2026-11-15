@@ -170,7 +170,18 @@ impl Output {
             ),
             _ => return Err(Error::OutputUnavailable),
         }?;
-        stream.play().map_err(|_| Error::Output)?;
+        if let Err(error) = stream.play() {
+            tracing::warn!(
+                event = "audio_output_failed",
+                audio_id,
+                generation,
+                reason = "play_start",
+                kind = failure_kind(error.kind()),
+                terminal = true,
+                "Audio output could not start"
+            );
+            return Err(Error::Output);
+        }
         let deadline = Instant::now() + Duration::from_secs(2);
         while state.callbacks.load(Ordering::Acquire) < 2 {
             if let Some(error) = state.error() {
@@ -236,6 +247,15 @@ where
         .map_err(|_| Error::OutputUnavailable)
 }
 
+fn failure_kind(kind: cpal::ErrorKind) -> &'static str {
+    match kind {
+        cpal::ErrorKind::BackendError => "backend",
+        cpal::ErrorKind::DeviceNotAvailable => "device",
+        cpal::ErrorKind::StreamInvalidated => "invalidated",
+        _ => "other",
+    }
+}
+
 struct Origin {
     stream: (u64, u64),
     dispatch: tracing::Dispatch,
@@ -259,11 +279,12 @@ fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind
     } else if kind == cpal::ErrorKind::Xrun {
         state.xruns.fetch_add(1, Ordering::Release);
     } else {
-        let (code, reason) = match kind {
-            cpal::ErrorKind::BackendError => (1, "backend"),
-            cpal::ErrorKind::DeviceNotAvailable => (2, "device"),
-            cpal::ErrorKind::StreamInvalidated => (3, "invalidated"),
-            _ => (4, "other"),
+        let reason = failure_kind(kind);
+        let code = match kind {
+            cpal::ErrorKind::BackendError => 1,
+            cpal::ErrorKind::DeviceNotAvailable => 2,
+            cpal::ErrorKind::StreamInvalidated => 3,
+            _ => 4,
         };
         state.output_failure.store(code, Ordering::Release);
         let current_xruns = state.xruns.load(Ordering::Acquire);
