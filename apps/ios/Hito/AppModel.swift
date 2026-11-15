@@ -149,12 +149,14 @@ final class AppModel {
 
     private func follow(_ step: Step) {
         switch step {
-        case let .signedIn(address, _), let .locked(address, _):
+        case let .signedIn(address, user), let .locked(address, user):
             guard api?.address != address, let token = store.token(for: address) else { return }
             player?.stop()
             let api = HitoAPI(address: address, token: token)
             self.api = api
-            player = Player(api: api)
+            let player = Player(api: api, account: "\(address.origin.absoluteString)|\(user.id)")
+            self.player = player
+            Task { await player.restore() }
         default:
             player?.stop()
             player = nil

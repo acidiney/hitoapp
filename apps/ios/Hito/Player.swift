@@ -27,6 +27,12 @@ final class Player {
     private(set) var unliked: Set<String> = []
     private(set) var retrying: RetryPasses.Pass?
     private var passes = RetryPasses()
+    private let memory: QueueMemory
+    private let listening: ListeningProgress
+    private var heardId: String?
+    private var checkpoint = ProgressCheckpoint()
+    private var resumeAt: Double?
+    private var remembered: Double = 0
 
     private let playback: Playback
     private let likes: Likes
@@ -49,10 +55,12 @@ final class Player {
     private var warmMissed: String?
     private static let warmLead: Double = 30
 
-    init(api: HitoAPI) {
+    init(api: HitoAPI, account: String) {
         self.api = api
+        memory = QueueMemory(account: account)
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
+        listening = ListeningProgress(api: api, device: Self.device)
         if let left = UserDefaults.standard.string(forKey: Self.leaseKey) {
             UserDefaults.standard.removeObject(forKey: Self.leaseKey)
             log.info("player.leftover_lease_released")
@@ -75,12 +83,52 @@ final class Player {
             let ended = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.ended.rawValue
             MainActor.assumeIsolated { self?.interrupted(ended: ended, resume: shouldResume) }
         })
+        observers.append(NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.remember() }
+        })
         connectRemote()
+    }
+
+    func restore() async {
+        guard queue.current == nil, let stored = memory.load() else { return }
+        guard let found = try? await Library(api: api).lookup(Array(Set(stored.ids))),
+              let restored = stored.restore(found), queue.current == nil else { return }
+        queue.start(restored.tracks, at: restored.index, from: restored.context)
+        position = restored.position
+        duration = Double(restored.tracks[restored.index].durationMs) / 1000
+        resumeAt = restored.position > 0 ? restored.position : nil
+        log.info("player.queue_restored")
+    }
+
+    private func settle() {
+        guard let id = heardId, let at = checkpoint.settle(position) else { return }
+        report(id, at)
+    }
+
+    private func report(_ id: String, _ position: Double) {
+        Task { [listening, log] in
+            do {
+                try await listening.save(id, position: position, speed: 1)
+            } catch {
+                log.info("player.progress_failed")
+            }
+        }
+    }
+
+    private func remember() {
+        guard let current = queue.current else { return memory.forget() }
+        var ids = queue.list.prefix(queue.position + 1).map(\.id)
+        if ids.last != current.id { ids.append(current.id) }
+        let index = ids.count - 1
+        ids += queue.queued.map(\.id) + queue.upNext.map(\.id)
+        memory.save(ids: ids, index: index, position: position, context: queue.context ?? "")
+        remembered = position
     }
 
     var current: Track? { queue.current }
 
     func play(_ tracks: [Track], at index: Int, from context: String) {
+        resumeAt = nil
         queue.start(tracks, at: index, from: context)
         load(queue.current)
     }
@@ -90,6 +138,7 @@ final class Player {
         case .playing:
             engine.pause()
             state = .paused
+            settle()
         case .paused:
             activate()
             engine.play()
@@ -107,11 +156,13 @@ final class Player {
     }
 
     func next() {
+        resumeAt = nil
         guard let track = queue.advance() else { return }
         load(track)
     }
 
     func previous() {
+        resumeAt = nil
         if position > 3 || queue.back() == nil {
             seek(to: 0)
             return
@@ -229,6 +280,7 @@ final class Player {
     }
 
     func stop() {
+        settle()
         loading?.cancel()
         dropWarm()
         engine.replaceCurrentItem(with: nil)
@@ -239,6 +291,8 @@ final class Player {
     }
 
     private func load(_ track: Track?) {
+        settle()
+        defer { remember() }
         loading?.cancel()
         tried = []
         passes = RetryPasses()
@@ -339,6 +393,10 @@ final class Player {
     private func attach(_ audio: AudioRequest, picked: Bool = false) {
         releaseLease()
         retrying = nil
+        if heardId != audio.recordingId {
+            heardId = audio.recordingId
+            checkpoint = ProgressCheckpoint()
+        }
         leaseId = audio.leaseId
         tried.insert(audio.sourceId)
         sourceLabel = audio.sourceLabel
@@ -353,6 +411,11 @@ final class Player {
         }
         activate()
         engine.replaceCurrentItem(with: item)
+        if let resumeAt {
+            self.resumeAt = nil
+            position = resumeAt
+            engine.seek(to: CMTime(seconds: resumeAt, preferredTimescale: 600))
+        }
         engine.play()
         state = .playing
         log.info("player.started")
@@ -386,6 +449,7 @@ final class Player {
 
     private func skip(_ track: Track, because reason: String) {
         notice = reason
+        resumeAt = nil
         passes = RetryPasses()
         retrying = nil
         engine.replaceCurrentItem(with: nil)
@@ -413,6 +477,7 @@ final class Player {
     private func interrupted(ended: Bool, resume: Bool) {
         if !ended, state == .playing {
             state = .paused
+            settle()
         } else if ended, resume, state == .paused {
             engine.play()
             state = .playing
@@ -426,6 +491,8 @@ final class Player {
         guard let stream = engine.currentItem?.duration.seconds, stream.isFinite, stream > 0 else { return }
         duration = PlaybackClock.length(stream: stream, listed: listed)
         prewarm(remaining: duration - seconds)
+        if abs(seconds - remembered) >= 5 { remember() }
+        if state == .playing, let id = heardId, let at = checkpoint.observe(seconds) { report(id, at) }
         if state == .playing, PlaybackClock.pastTheEnd(at: seconds, length: duration, stream: stream) {
             log.info("player.ended_at_real_length")
             ended(currentIdentity)
