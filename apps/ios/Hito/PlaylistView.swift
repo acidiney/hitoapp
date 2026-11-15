@@ -173,6 +173,7 @@ struct PlaylistView: View {
                         editProblem = nil
                     }
                 }
+                ArtworkRetryButton(path: playlist.artworkPath)
                 if detail != nil {
                     Button("Delete playlist", role: .destructive) { confirmingDelete = true }
                 }

@@ -527,6 +527,7 @@ struct TrackMenu: View {
         if let player = model.player {
             Button(player.isLiked(track) ? "Remove from Liked tracks" : "Like") { player.toggleLike(track) }
         }
+        ArtworkRetryButton(path: track.artworkPath)
     }
 }
 
@@ -678,6 +679,7 @@ struct AlbumView: View {
                         Menu {
                             Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
                             Button("Choose the artist") { choosingArtist = true }
+                            ArtworkRetryButton(path: album.artworkPath)
                         } label: {
                             Icon("more").foregroundStyle(Theme.text).frame(width: 48, height: 48).contentShape(Circle())
                         }
