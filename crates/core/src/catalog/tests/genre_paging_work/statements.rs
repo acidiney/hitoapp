@@ -143,11 +143,11 @@ pub(super) async fn collect(
         .as_ref()
         .ok()
         .and_then(Option::as_deref)
-        .unwrap_or(expected.anchor_title)
+        .unwrap_or(expected.anchor_title.as_str())
         .to_owned();
     let late_position = GenrePosition {
         title: &late_title,
-        id: expected.anchor_id,
+        id: expected.anchor_id.as_str(),
     };
     let late_candidate_plan = explain_builder(
         &mut transaction,
