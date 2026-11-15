@@ -112,6 +112,7 @@ struct FindAudioCard: View {
             service = found.first
             query = "\(track.title) \(track.artist)"
             problem = nil
+        } catch is CancellationError {
         } catch {
             problem = PluginTrouble.message(error, otherwise: "Your services couldn't load. Try again.")
         }
@@ -141,6 +142,7 @@ struct FindAudioCard: View {
             problem = nil
         } catch let refused as SourceAttachment.Problem {
             problem = refused.message
+        } catch is CancellationError {
         } catch {
             problem = PluginTrouble.message(error, otherwise: "This match couldn't be reviewed. Try another one.")
         }

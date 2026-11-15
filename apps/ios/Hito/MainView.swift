@@ -48,6 +48,9 @@ struct MainView: View {
             }
             .frame(maxHeight: .infinity)
             .scrollDismissesKeyboard(.immediately)
+            if model.serverUnreachable {
+                Unreachable()
+            }
             if !typing {
                 if let player = model.player, player.current != nil {
                     MiniPlayer(player: player) { showingNowPlaying = true }
@@ -294,3 +297,39 @@ extension Player {
     }
 }
 
+
+struct Unreachable: View {
+    @Environment(AppModel.self) private var model
+    @State private var checking = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().strokeBorder(Theme.warning, lineWidth: 1.5).frame(width: 10, height: 10)
+            Text("Can't reach your server. Changes may not be saved yet.")
+                .font(Theme.small)
+                .foregroundStyle(Theme.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            TextAction(title: checking ? "Checking…" : "Try again", inset: 8) {
+                Task {
+                    checking = true
+                    await model.checkLock()
+                    checking = false
+                }
+            }
+            .disabled(checking)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.field))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.barLine))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .contain)
+        .task {
+            while !Task.isCancelled, model.serverUnreachable {
+                try? await Task.sleep(for: .seconds(10))
+                await model.checkLock()
+            }
+        }
+    }
+}
