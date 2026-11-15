@@ -71,6 +71,11 @@ test("with a filter the sheet becomes filter and sort and applies the availabili
     }),
   );
   expect(screen.getByRole("heading", { name: "Filter and sort" })).toBeTruthy();
+  expect(
+    [...document.querySelectorAll(".sheet-label")].map(
+      (node) => node.textContent,
+    ),
+  ).toEqual(["Availability", "Sort"]);
   const availability = screen.getByRole("group", { name: "Availability" });
   expect(
     within(availability)

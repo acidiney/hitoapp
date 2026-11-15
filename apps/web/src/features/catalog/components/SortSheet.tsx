@@ -9,8 +9,16 @@ type Choice = {
   onChange: (value: string) => void;
 };
 
-function Chips({ label, choice }: { label: string; choice: Choice }) {
-  return (
+function Chips({
+  label,
+  title,
+  choice,
+}: {
+  label: string;
+  title?: string;
+  choice: Choice;
+}) {
+  const group = (
     <div className="sheet-group" role="group" aria-label={label}>
       {choice.options.map((option) => (
         <button
@@ -24,6 +32,15 @@ function Chips({ label, choice }: { label: string; choice: Choice }) {
         </button>
       ))}
     </div>
+  );
+  if (!title) return group;
+  return (
+    <section className="sheet-section">
+      <p className="sheet-label" aria-hidden="true">
+        {title}
+      </p>
+      {group}
+    </section>
   );
 }
 
@@ -67,8 +84,14 @@ export default function SortSheet({
           >
             <X size={18} aria-hidden="true" />
           </button>
-          {filter && <Chips label="Availability" choice={filter} />}
-          <Chips label="Sort by" choice={{ options, value, onChange }} />
+          {filter && (
+            <Chips label="Availability" title="Availability" choice={filter} />
+          )}
+          <Chips
+            label="Sort by"
+            title={filter ? "Sort" : undefined}
+            choice={{ options, value, onChange }}
+          />
           <button
             type="button"
             className="button primary sheet-done"
