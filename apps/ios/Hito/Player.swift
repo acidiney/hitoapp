@@ -34,6 +34,7 @@ final class Player {
     private var checkpoint = ProgressCheckpoint()
     private var fallbackEnabled = true
     private var resumeAt: Double?
+    private var chapters: [String: AudiobookAnchor] = [:]
     private var remembered: Double = 0
 
     private let playback: Playback
@@ -56,8 +57,11 @@ final class Player {
     private var warming: Task<Void, Never>?
     private static let warmLead: Double = 30
 
+    let account: String
+
     init(api: HitoAPI, account: String) {
         self.api = api
+        self.account = account
         memory = QueueMemory(account: account)
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
@@ -115,9 +119,10 @@ final class Player {
     }
 
     private func report(_ id: String, _ position: Double) {
+        let chapter = chapters[id]
         Task { [listening, log, speed] in
             do {
-                try await listening.save(id, position: position, speed: speed)
+                try await listening.save(id, position: position, speed: speed, chapter: chapter)
             } catch {
                 log.info("player.progress_failed")
             }
@@ -136,8 +141,14 @@ final class Player {
 
     var current: Track? { queue.current }
 
-    func play(_ tracks: [Track], at index: Int, from context: String) {
-        resumeAt = nil
+    func playAudiobook(_ tracks: [Track], anchors: [AudiobookAnchor], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        play(tracks, at: index, from: context, startingAt: seconds)
+        chapters = Dictionary(anchors.map { ($0.recordingId, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func play(_ tracks: [Track], at index: Int, from context: String, startingAt seconds: Double = 0) {
+        chapters = [:]
+        resumeAt = seconds > 0 ? seconds : nil
         queue.start(tracks, at: index, from: context)
         load(queue.current)
     }
@@ -289,6 +300,28 @@ final class Player {
             } catch {
                 guard let self, !Task.isCancelled else { return }
                 self.notice = "That source didn't play. Still playing from \(self.sourceLabel ?? "the last source")."
+                self.state = self.engine.currentItem == nil ? .idle : .playing
+            }
+        }
+    }
+
+    func useAutomaticSource() {
+        guard let track = queue.current, pickedSource else { return }
+        loading?.cancel()
+        notice = nil
+        state = .loading
+        let resume = position
+        loading = Task { [weak self, playback] in
+            do {
+                let audio = try await playback.acquire(track.id, skipping: [])
+                guard let self, !Task.isCancelled else { return }
+                self.tried = []
+                self.attach(audio)
+                self.seek(to: resume)
+            } catch is CancellationError {
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.notice = "The automatic source didn't play. Still playing from \(self.sourceLabel ?? "the last source")."
                 self.state = self.engine.currentItem == nil ? .idle : .playing
             }
         }

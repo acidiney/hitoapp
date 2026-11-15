@@ -8,6 +8,9 @@ public struct HitoAPI: Sendable {
         case certificate
         case refused(Int)
         case unexpected(Int)
+        case credentialsRequired
+
+        public static let credentialsMessage = "This music service connection needs its credentials updated."
     }
 
     public let address: ServerAddress
@@ -81,6 +84,10 @@ public struct HitoAPI: Sendable {
         let error: String
     }
 
+    struct Coded: Decodable {
+        let code: String?
+    }
+
     func postExplained<Body: Encodable, Value: Decodable>(_ path: [String], body: Body, as type: Value.Type) async throws -> Value {
         var request = request(path)
         request.httpMethod = "POST"
@@ -123,6 +130,8 @@ public struct HitoAPI: Sendable {
             return (value, response)
         case 401: throw Problem.signedOut
         case 423: throw Problem.locked
+        case 400..<500 where (try? JSONDecoder().decode(Coded.self, from: data))?.code == "plugin_credentials_required":
+            throw Problem.credentialsRequired
         case 400..<500 where explained:
             throw Refusal(status: response.statusCode, reason: try? JSONDecoder().decode(Reason.self, from: data).error)
         case 400..<500: throw Problem.refused(response.statusCode)

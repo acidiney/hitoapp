@@ -69,7 +69,9 @@ public struct Privacy: Sendable {
         }
     }
 
-    struct Cleared: Decodable {}
+    struct Cleared: Decodable {
+        struct Body: Encodable {}
+    }
 
     let api: HitoAPI
 
@@ -88,6 +90,19 @@ public struct Privacy: Sendable {
     public func saveLock(pin: String?, idleMinutes: Int, password: String) async throws -> LockState {
         let lock = try await api.put(["api", "v1", "account", "pin"], body: SetLock(pin: pin, idleMinutes: idleMinutes, password: password), as: Lock.self)
         return LockState(pinEnabled: lock.pinEnabled, idleMinutes: lock.idleMinutes)
+    }
+
+    struct RemovePin: Encodable { let password: String }
+
+    public func removePin(password: String) async throws -> LockState {
+        let lock = try await api.post(["api", "v1", "account", "pin", "remove"], body: RemovePin(password: password), as: Lock.self)
+        return LockState(pinEnabled: lock.pinEnabled, idleMinutes: lock.idleMinutes)
+    }
+
+    struct Locked: Decodable { let locked: Bool }
+
+    public func lockNow() async throws -> Bool {
+        try await api.post(["api", "v1", "account", "lock"], body: Cleared.Body(), as: Locked.self).locked
     }
 
     public func saveHistory(_ enabled: Bool) async throws -> Bool {

@@ -29,6 +29,12 @@ import Testing
         #expect(fake.requests.map(\.line) == ["DELETE /api/v1/account/sessions/s2"])
     }
 
+    @Test func everyOtherDeviceCanBeSignedOutAtOnce() async throws {
+        let fake = FakeServer(routes: ["DELETE /api/v1/account/sessions": .json(200, #"{"revoked":3}"#)])
+        #expect(try await Profile(api: api(fake)).signOutOthers() == 3)
+        #expect(fake.requests.first?.line == "DELETE /api/v1/account/sessions")
+    }
+
     @Test func aBlankNameClearsTheDisplayName() async throws {
         let fake = FakeServer(routes: ["PUT /api/v1/account/display-name": .json(200, #"{"id":"u1","username":"tester","display_name":null,"admin":true}"#)])
         _ = try await Profile(api: api(fake)).rename("   ")
