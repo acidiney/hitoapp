@@ -967,6 +967,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/host/folders": {
         parameters: {
             query?: never;
@@ -5758,6 +5774,8 @@ export interface components {
             creators: string[];
             provider_label: string;
         };
+        /** @enum {string} */
+        RecordingAvailability: "available_or_service" | "no_source";
         RecordingCopies: {
             canonical_id: string;
             copies: components["schemas"]["RecordingCopy"][];
@@ -11084,6 +11102,59 @@ export interface operations {
             };
         };
     };
+    home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     offer: {
         parameters: {
             query?: never;
@@ -15780,6 +15851,7 @@ export interface operations {
                 limit?: number;
                 library?: string;
                 sort?: components["schemas"]["CatalogSort"];
+                availability?: components["schemas"]["RecordingAvailability"];
             };
             header?: never;
             path?: never;
@@ -15789,6 +15861,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The applied availability filter: all, available_or_service or no_source */
+                    "Hito-Recordings-Availability"?: string;
                     [name: string]: unknown;
                 };
                 content: {

@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 use test_support::{
-    capture::{Capture, wait},
+    capture::{Capture, reached, wait},
     continuity::{counter, dump, heard, level},
     output_witness::OutputWitness,
 };
@@ -191,7 +191,32 @@ fn an_interrupted_backend_recovers_from_the_observed_source_position_and_joins()
     std::thread::sleep(Duration::from_millis(200));
     backend.resume();
     let fault_elapsed = fault_started.elapsed();
-    wait(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    let signalled =
+        reached(|| player.snapshot().xruns > before.xruns || player.snapshot().error.is_some());
+    if !signalled {
+        let stalled = player.snapshot();
+        let events: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
+            .unwrap()
+            .lines()
+            .filter(|line| line.contains("\"event\":\"audio_output"))
+            .map(str::to_owned)
+            .collect();
+        panic!(
+            "backend interruption produced no xrun or error: fault_ms={} playing={} ended={} buffer_ready={} notices={} xruns_before={} xruns={} underruns={} error={:?} output_failure={:?} position_before_ns={} position_ns={} output_events={events:?}",
+            fault_elapsed.as_millis(),
+            stalled.playing,
+            stalled.ended,
+            stalled.buffer_ready,
+            stalled.notices,
+            before.xruns,
+            stalled.xruns,
+            stalled.underruns,
+            stalled.error,
+            stalled.output_failure,
+            before.position.as_nanos(),
+            stalled.position.as_nanos()
+        );
+    }
     assert!(player.snapshot().error.is_none());
     wait(|| player.snapshot().ended || player.snapshot().error.is_some());
     let final_state = player.snapshot();
@@ -376,8 +401,24 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         );
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert!(first.snapshot().error.is_none());
-    assert!(second.snapshot().error.is_none());
+    let snapshots = [("first", first.snapshot()), ("second", second.snapshot())];
+    let failures: Vec<String> = std::str::from_utf8(&logs.0.lock().unwrap())
+        .unwrap()
+        .lines()
+        .filter(|line| line.contains("\"event\":\"audio_output_failed\""))
+        .map(str::to_owned)
+        .collect();
+    for (name, snapshot) in snapshots {
+        assert!(
+            snapshot.error.is_none(),
+            "{name} player output failed after starvation: error={:?} output_failure={:?} xruns={} underruns={} position_ns={} output_failure_events={failures:?}",
+            snapshot.error,
+            snapshot.output_failure,
+            snapshot.xruns,
+            snapshot.underruns,
+            snapshot.position.as_nanos()
+        );
+    }
     first.close().unwrap();
     second.close().unwrap();
     let bytes = logs.0.lock().unwrap();

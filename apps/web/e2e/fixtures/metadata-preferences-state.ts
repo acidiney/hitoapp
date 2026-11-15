@@ -156,6 +156,14 @@ export async function seedPreferencesLibrary(
   user: Schema<"User">,
 ) {
   await addMusicFolders(page, ["Music", "Archive"]);
+  return seedPreferencesChanges(page, read, user);
+}
+
+export async function seedPreferencesChanges(
+  page: Page,
+  read: Reader,
+  user: Schema<"User">,
+) {
   const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
   expect(catalog.total === 2 && catalog.items.length === 2).toBe(true);
   const ids = catalog.items.map((recording) => recording.id);
@@ -248,7 +256,7 @@ async function sharedOriginalSourceChoice(
 export async function preferencesLibraryState(
   page: Page,
   read: Reader,
-  saved: Awaited<ReturnType<typeof seedPreferencesLibrary>>,
+  saved: Awaited<ReturnType<typeof seedPreferencesChanges>>,
 ) {
   const progress = await page.request.post("/api/v1/recordings/progress", {
     headers: { "x-hito-request": "1", Origin: new URL(page.url()).origin },
