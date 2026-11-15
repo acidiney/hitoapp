@@ -236,6 +236,7 @@ struct ProfileView: View {
 struct PlaybackSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var automaticLyrics: Bool?
+    @State private var streaming: StreamingQuality?
     @State private var order: SourceOrder.Order?
     @State private var names: [String: String] = [:]
     @State private var problem: String?
@@ -275,6 +276,28 @@ struct PlaybackSettingsView: View {
                     ProgressView().tint(Theme.soft).frame(maxWidth: .infinity, minHeight: 60)
                 }
                 if let player = model.player {
+                    let quality = streaming ?? StreamingQuality.preferred(account: player.account)
+                    SettingsGroup(title: "Streaming") {
+                        SettingRow(title: "Streaming quality", detail: "High and Data saver convert on the server. Tracks that can't convert play at original quality.") {
+                            Menu {
+                                ForEach(StreamingQuality.allCases, id: \.self) { choice in
+                                    Button {
+                                        StreamingQuality.setPreferred(choice, account: player.account)
+                                        streaming = choice
+                                    } label: {
+                                        if choice == quality {
+                                            Label(choice.title, systemImage: "checkmark")
+                                        } else {
+                                            Text(choice.title)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Text(quality.title).font(Theme.small).foregroundStyle(Theme.text)
+                            }
+                            .accessibilityLabel("Streaming quality, \(quality.title)")
+                        }
+                    }
                     SettingsGroup(title: "Lyrics") {
                         SettingRow(title: "Load lyrics automatically", detail: "Opening Lyrics asks your first lyrics provider for the playing track.") {
                             Switch(on: automaticLyrics ?? LyricChoices.automaticEnabled(account: player.account), label: "Load lyrics automatically") { on in
