@@ -376,8 +376,17 @@ fn concurrent_players_identify_recoveries_when_debug_spans_are_disabled() {
         );
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert!(first.snapshot().error.is_none());
-    assert!(second.snapshot().error.is_none());
+    for (name, snapshot) in [("first", first.snapshot()), ("second", second.snapshot())] {
+        assert!(
+            snapshot.error.is_none(),
+            "{name} player output failed after starvation: error={:?} output_failure={:?} xruns={} underruns={} position_ns={}",
+            snapshot.error,
+            snapshot.output_failure,
+            snapshot.xruns,
+            snapshot.underruns,
+            snapshot.position.as_nanos()
+        );
+    }
     first.close().unwrap();
     second.close().unwrap();
     let bytes = logs.0.lock().unwrap();
