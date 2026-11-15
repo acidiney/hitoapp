@@ -270,6 +270,10 @@ test("a populated version54 library upgrades and plays through truthful provider
     const logs = await evidence.serverLogCheck();
     phase = "evidence";
     await writeFile(
+      "/evidence/observer-counts.json",
+      JSON.stringify({ ...evidence.counts }),
+    );
+    await writeFile(
       "/evidence/provider-outage.json",
       JSON.stringify({
         event: "provider_outage_packaged_verified",
