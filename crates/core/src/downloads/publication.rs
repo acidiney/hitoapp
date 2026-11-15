@@ -82,7 +82,7 @@ impl Downloads {
             ("queued", "queued", None, true, STORAGE_RETRY_SECONDS)
         } else if lease.attempts < 3
             && matches!(
-                &error,
+                error.as_ref().map(crate::Error::without_playback_reason),
                 Some(crate::Error::Upstream(_) | crate::Error::StreamTooSlow)
             )
         {

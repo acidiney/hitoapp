@@ -64,6 +64,13 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
+    pub(crate) fn without_playback_reason(&self) -> &Self {
+        match self {
+            Self::PlaybackProvider { original, .. } => original.without_playback_reason(),
+            error => error,
+        }
+    }
+
     pub(crate) fn is_storage_full(&self) -> bool {
         match self {
             Self::InsufficientStorage => true,
