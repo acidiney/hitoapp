@@ -56,6 +56,7 @@ pub(crate) struct Native {
     crossed: Option<Key>,
     tail: Option<(Duration, Option<Duration>)>,
     boundary: Boundary,
+    held_out: Option<Key>,
 }
 impl Native {
     pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
@@ -67,6 +68,7 @@ impl Native {
             crossed: None,
             tail: None,
             boundary: Boundary::Open,
+            held_out: None,
             sources: Sources::new(catalog, playback),
             acquisition: None,
             acquired: None,
@@ -103,13 +105,11 @@ impl Native {
             return;
         }
         self.deadline_pending = None;
-        self.acquisition = Some(Acquisition::start(
-            key,
-            demand,
-            play_revision,
-            seek_id,
-            restoration_id,
-        ));
+        let mut run = Acquisition::start(key, demand, play_revision, seek_id, restoration_id);
+        if self.held_out.take() == Some(key) {
+            run.attempts = 3;
+        }
+        self.acquisition = Some(run);
     }
     fn spawn_finalization<D, A>(&mut self, id: FinalizationId, drain: D, access: A)
     where
@@ -728,6 +728,7 @@ impl Native {
                 _ = async {
                     if let Boundary::Holding(timer, _) = &mut self.boundary { timer.as_mut().await }
                 }, if matches!(self.boundary, Boundary::Holding(..)) => {
+                    self.held_out = self.target.as_ref().and_then(|target| target.next).map(|next| next.key);
                     return self.release("timeout");
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
