@@ -29,6 +29,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
     components(schemas(
         PageComponent,
         hito_core::CatalogSort,
+        hito_core::RecordingAvailability,
         hito_core::StreamQuality,
         SharedPageProps,
         LoginPageProps,
@@ -115,6 +116,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(podcasts::refresh))
         .routes(routes!(podcasts::unsubscribe))
         .routes(routes!(catalog::libraries))
+        .routes(routes!(api::home::home))
         .routes(routes!(api::catalog_snapshots::begin))
         .routes(routes!(api::catalog_snapshots::page))
         .routes(routes!(api::catalog_snapshots::release))
