@@ -14,7 +14,7 @@ struct SignInView: View {
     @FocusState private var focus: AccountField?
 
     var body: some View {
-        Screen {
+        Screen(gap: 56) {
             let remembered = anotherAccount ? nil : model.remembered(on: address)
             Heading(
                 title: remembered == nil ? "Sign in" : "Welcome back",

@@ -23,7 +23,7 @@ struct ServerAddressView: View {
                 focused: focused,
                 hint: fieldProblem ?? "The address you open in a browser. You can leave out http:// or https://."
             ) {
-                TextField("", text: $input, prompt: Text("hito.home:8080").foregroundStyle(Theme.quiet))
+                TextField("", text: $input, prompt: Text("hito.home:8080").foregroundStyle(Theme.missing))
                     .accessibilityLabel("Server address")
                     .keyboardType(.URL)
                     .textContentType(.URL)
