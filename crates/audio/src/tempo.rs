@@ -73,6 +73,8 @@ pub(crate) struct Tempo {
     track: u64,
     #[cfg(feature = "test-support")]
     service: TempoService,
+    #[cfg(feature = "test-support")]
+    prior_conversion_service: crate::convert::ConversionService,
 }
 
 #[cfg(feature = "test-support")]
@@ -109,6 +111,8 @@ impl Tempo {
             track: 0,
             #[cfg(feature = "test-support")]
             service: TempoService::default(),
+            #[cfg(feature = "test-support")]
+            prior_conversion_service: crate::convert::ConversionService::default(),
         }
     }
 
@@ -125,6 +129,22 @@ impl Tempo {
     }
 
     fn join(&mut self, next: Converter) {
+        #[cfg(feature = "test-support")]
+        {
+            let service = self.decoder.conversion_service();
+            self.prior_conversion_service.elapsed_ns = self
+                .prior_conversion_service
+                .elapsed_ns
+                .saturating_add(service.elapsed_ns);
+            self.prior_conversion_service.input_frames = self
+                .prior_conversion_service
+                .input_frames
+                .saturating_add(service.input_frames);
+            self.prior_conversion_service.output_frames = self
+                .prior_conversion_service
+                .output_frames
+                .saturating_add(service.output_frames);
+        }
         self.decoder = next;
         if self.stretch.is_some() {
             self.joins.push_back(Join {
@@ -210,7 +230,21 @@ impl Tempo {
 
     #[cfg(feature = "test-support")]
     pub(crate) fn conversion_service(&self) -> crate::convert::ConversionService {
-        self.decoder.conversion_service()
+        let current = self.decoder.conversion_service();
+        crate::convert::ConversionService {
+            elapsed_ns: self
+                .prior_conversion_service
+                .elapsed_ns
+                .saturating_add(current.elapsed_ns),
+            input_frames: self
+                .prior_conversion_service
+                .input_frames
+                .saturating_add(current.input_frames),
+            output_frames: self
+                .prior_conversion_service
+                .output_frames
+                .saturating_add(current.output_frames),
+        }
     }
 
     fn flush_stretch(&mut self) -> Result<()> {
