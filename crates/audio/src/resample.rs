@@ -60,16 +60,30 @@ impl Decimator {
             }
             let base = first as usize * self.channels;
             let frame = &self.window[base..base + width * self.channels];
-            for channel in 0..self.channels {
-                let mut sum = f64::from(self.taps[self.half])
-                    * f64::from(frame[self.half * self.channels + channel]);
+            if self.channels == 2 {
+                let mut left = f64::from(self.taps[self.half]) * f64::from(frame[self.half * 2]);
+                let mut right =
+                    f64::from(self.taps[self.half]) * f64::from(frame[self.half * 2 + 1]);
                 for (tap, weight) in self.taps[..self.half].iter().enumerate() {
-                    let outer = (width - 1 - tap) * self.channels + channel;
-                    sum += f64::from(*weight)
-                        * (f64::from(frame[tap * self.channels + channel])
-                            + f64::from(frame[outer]));
+                    let outer = (width - 1 - tap) * 2;
+                    left +=
+                        f64::from(*weight) * (f64::from(frame[tap * 2]) + f64::from(frame[outer]));
+                    right += f64::from(*weight)
+                        * (f64::from(frame[tap * 2 + 1]) + f64::from(frame[outer + 1]));
                 }
-                output.push(sum as f32);
+                output.extend_from_slice(&[left as f32, right as f32]);
+            } else {
+                for channel in 0..self.channels {
+                    let mut sum = f64::from(self.taps[self.half])
+                        * f64::from(frame[self.half * self.channels + channel]);
+                    for (tap, weight) in self.taps[..self.half].iter().enumerate() {
+                        let outer = (width - 1 - tap) * self.channels + channel;
+                        sum += f64::from(*weight)
+                            * (f64::from(frame[tap * self.channels + channel])
+                                + f64::from(frame[outer]));
+                    }
+                    output.push(sum as f32);
+                }
             }
             self.next += 1;
         }
@@ -195,15 +209,25 @@ impl Resampler {
             }
             let weights = &self.taps[phase * width..(phase + 1) * width];
             let frame = &self.window[first as usize * self.channels..];
-            for channel in 0..self.channels {
-                let sum: f64 = weights
-                    .iter()
-                    .enumerate()
-                    .map(|(tap, weight)| {
-                        f64::from(*weight) * f64::from(frame[tap * self.channels + channel])
-                    })
-                    .sum();
-                output.push(sum as f32);
+            if self.channels == 2 {
+                let mut left = -0.0_f64;
+                let mut right = -0.0_f64;
+                for (tap, weight) in weights.iter().enumerate() {
+                    left += f64::from(*weight) * f64::from(frame[tap * 2]);
+                    right += f64::from(*weight) * f64::from(frame[tap * 2 + 1]);
+                }
+                output.extend_from_slice(&[left as f32, right as f32]);
+            } else {
+                for channel in 0..self.channels {
+                    let sum: f64 = weights
+                        .iter()
+                        .enumerate()
+                        .map(|(tap, weight)| {
+                            f64::from(*weight) * f64::from(frame[tap * self.channels + channel])
+                        })
+                        .sum();
+                    output.push(sum as f32);
+                }
             }
             self.next += 1;
         }
