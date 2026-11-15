@@ -182,6 +182,9 @@ public enum PlaylistLink {
     }
 
     public static func problem(_ error: Error, service: String, following: Bool) -> String {
+        if case HitoAPI.Problem.credentialsRequired = error {
+            return "The \(service) connection needs its credentials updated. Open Plugins to sign in again. Nothing was saved."
+        }
         let status: Int? = switch error as? HitoAPI.Problem {
         case let .refused(code), let .unexpected(code): code
         default: nil

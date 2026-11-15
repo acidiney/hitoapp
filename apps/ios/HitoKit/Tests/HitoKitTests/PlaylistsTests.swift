@@ -125,6 +125,7 @@ import Testing
         #expect(PlaylistLink.problem(HitoAPI.Problem.refused(404), service: "Spotify", following: true) == "Spotify didn't return this playlist. It may be private, a personal mix, or deleted. Nothing was saved.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.refused(429), service: "Spotify", following: true) == "Hito can't follow more playlists right now. You can still copy this one.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.refused(429), service: "Spotify", following: false) == "Hito can't import more playlists right now. Try again later.")
+        #expect(PlaylistLink.problem(HitoAPI.Problem.credentialsRequired, service: "Spotify", following: true) == "The Spotify connection needs its credentials updated. Open Plugins to sign in again. Nothing was saved.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.refused(403), service: "Spotify", following: false) == "Spotify refused. Its connection may need your review. Nothing was saved.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.unexpected(503), service: "Spotify", following: false) == "The Spotify plugin is busy. Nothing was saved. Try again in a moment.")
         #expect(PlaylistLink.problem(HitoAPI.Problem.noAnswer, service: "Spotify", following: false) == "Hito didn't get an answer. Trying again won't import it twice.")
