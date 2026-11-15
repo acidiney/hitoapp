@@ -1,6 +1,6 @@
 use hito_audio::test_support as support;
 use hito_audio::{AudioFormat, Converter, Decoder, Error, SpeedCapability};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const RANGE: SpeedCapability = SpeedCapability::Range { min: 0.5, max: 3. };
 
@@ -409,10 +409,14 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
             (u64::from(frames) * u64::from(target) / u64::from(source)) as usize;
         let mut stereo = device_converter(source, 2, frames, (target, 2), asymmetric_stereo_sample);
         assert_eq!(stereo.format().channels, 2, "{source}->{target}");
+        assert_eq!(stereo.format().sample_rate, target, "{source}->{target}");
+        let started = Instant::now();
         let stereo = drain(&mut stereo);
+        let stereo_elapsed_ns = started.elapsed().as_nanos();
         assert_eq!(stereo.frames, expected_frames, "{source}->{target} stereo");
         assert_eq!(stereo.samples.len(), stereo.frames * 2, "{source}->{target}");
 
+        let mut mono_pair_elapsed_ns = 0;
         for channel_index in 0..2_usize {
             let mut mono = device_converter(source, 1, frames, (target, 1), |frame, _| {
                 asymmetric_stereo_sample(frame, channel_index as u16)
@@ -422,7 +426,10 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
                 1,
                 "{source}->{target} channel {channel_index}"
             );
+            assert_eq!(mono.format().sample_rate, target, "{source}->{target}");
+            let started = Instant::now();
             let mono = drain(&mut mono);
+            mono_pair_elapsed_ns += started.elapsed().as_nanos();
             assert_eq!(mono.frames, expected_frames, "{source}->{target} mono");
 
             let stereo_channel = stereo
@@ -443,6 +450,9 @@ fn stereo_device_conversion_matches_independent_mono_channels_bit_exact() {
                 "{source}->{target} channel {channel_index}"
             );
         }
+        println!(
+            "stereo_conversion_service_contrast source_rate={source} target_rate={target} frames={frames} stereo_elapsed_ns={stereo_elapsed_ns} mono_pair_elapsed_ns={mono_pair_elapsed_ns}"
+        );
     }
 }
 
