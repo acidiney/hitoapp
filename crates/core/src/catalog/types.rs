@@ -42,9 +42,17 @@ pub enum CatalogSort {
     Year,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingAvailability {
+    AvailableOrService,
+    NoSource,
+}
+
 #[derive(Clone, Deserialize, Default, ToSchema)]
 pub struct Search {
     pub sort: Option<CatalogSort>,
+    pub availability: Option<RecordingAvailability>,
     pub artist: Option<String>,
     #[serde(skip)]
     pub featured_artist: Option<String>,
