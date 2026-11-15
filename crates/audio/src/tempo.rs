@@ -1,4 +1,6 @@
 use crate::{AudioFormat, Converter, Error, Result, processor::Processor};
+#[cfg(feature = "test-support")]
+use std::time::Instant;
 use std::{
     collections::VecDeque,
     sync::{
@@ -69,6 +71,18 @@ pub(crate) struct Tempo {
     fed: u64,
     emitted: u64,
     track: u64,
+    #[cfg(feature = "test-support")]
+    service: TempoService,
+    #[cfg(feature = "test-support")]
+    prior_conversion_service: crate::convert::ConversionService,
+}
+
+#[cfg(feature = "test-support")]
+#[derive(Clone, Copy, Default)]
+pub(crate) struct TempoService {
+    pub elapsed_ns: u64,
+    pub input_frames: u64,
+    pub output_frames: u64,
 }
 
 impl Tempo {
@@ -95,6 +109,10 @@ impl Tempo {
             fed: 0,
             emitted: 0,
             track: 0,
+            #[cfg(feature = "test-support")]
+            service: TempoService::default(),
+            #[cfg(feature = "test-support")]
+            prior_conversion_service: crate::convert::ConversionService::default(),
         }
     }
 
@@ -111,6 +129,22 @@ impl Tempo {
     }
 
     fn join(&mut self, next: Converter) {
+        #[cfg(feature = "test-support")]
+        {
+            let service = self.decoder.conversion_service();
+            self.prior_conversion_service.elapsed_ns = self
+                .prior_conversion_service
+                .elapsed_ns
+                .saturating_add(service.elapsed_ns);
+            self.prior_conversion_service.input_frames = self
+                .prior_conversion_service
+                .input_frames
+                .saturating_add(service.input_frames);
+            self.prior_conversion_service.output_frames = self
+                .prior_conversion_service
+                .output_frames
+                .saturating_add(service.output_frames);
+        }
         self.decoder = next;
         if self.stretch.is_some() {
             self.joins.push_back(Join {
@@ -152,11 +186,18 @@ impl Tempo {
         self.fed = 0;
         self.emitted = 0;
         self.joins.clear();
-        self.stretch = if speed == 1. {
+        #[cfg(feature = "test-support")]
+        let started = Instant::now();
+        let stretch = if speed == 1. {
             None
         } else {
             Some(Processor::new(self.format(), speed)?)
         };
+        #[cfg(feature = "test-support")]
+        {
+            self.service.elapsed_ns = self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+        }
+        self.stretch = stretch;
         Ok(())
     }
 
@@ -182,6 +223,44 @@ impl Tempo {
         self.consumed
     }
 
+    #[cfg(feature = "test-support")]
+    pub(crate) fn service(&self) -> TempoService {
+        self.service
+    }
+
+    #[cfg(feature = "test-support")]
+    pub(crate) fn conversion_service(&self) -> crate::convert::ConversionService {
+        let current = self.decoder.conversion_service();
+        crate::convert::ConversionService {
+            elapsed_ns: self
+                .prior_conversion_service
+                .elapsed_ns
+                .saturating_add(current.elapsed_ns),
+            input_frames: self
+                .prior_conversion_service
+                .input_frames
+                .saturating_add(current.input_frames),
+            output_frames: self
+                .prior_conversion_service
+                .output_frames
+                .saturating_add(current.output_frames),
+        }
+    }
+
+    fn flush_stretch(&mut self) -> Result<()> {
+        let Some(stretch) = &mut self.stretch else {
+            return Ok(());
+        };
+        #[cfg(feature = "test-support")]
+        let started = Instant::now();
+        let result = stretch.flush();
+        #[cfg(feature = "test-support")]
+        {
+            self.service.elapsed_ns = self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+        }
+        result
+    }
+
     pub fn read_until(
         &mut self,
         mut interrupted: impl FnMut() -> bool,
@@ -196,9 +275,7 @@ impl Tempo {
                 self.requested = None;
             }
             if self.requested.is_some() && !self.flushed {
-                if let Some(stretch) = &mut self.stretch {
-                    stretch.flush()?;
-                }
+                self.flush_stretch()?;
                 self.flushed = true;
                 tracing::debug!(
                     event = "audio_tempo_segment_draining",
@@ -220,11 +297,20 @@ impl Tempo {
                 let capacity = limit.map_or(self.output.len() / channels, |limit| {
                     (self.output.len() / channels).min(limit.min(usize::MAX as u64) as usize)
                 });
+                #[cfg(feature = "test-support")]
+                let started = Instant::now();
                 let frames = self
                     .stretch
                     .as_mut()
                     .unwrap()
                     .receive(&mut self.output[..capacity * channels])?;
+                #[cfg(feature = "test-support")]
+                {
+                    self.service.elapsed_ns =
+                        self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+                    self.service.output_frames =
+                        self.service.output_frames.saturating_add(frames as u64);
+                }
                 if frames > 0 {
                     let position = self.position;
                     let end = self
@@ -259,9 +345,7 @@ impl Tempo {
                         continue;
                     }
                     self.handoff.0.ended.store(true, Ordering::Release);
-                    if let Some(stretch) = &mut self.stretch {
-                        stretch.flush()?;
-                    }
+                    self.flush_stretch()?;
                     self.flushed = true;
                     continue;
                 };
@@ -279,8 +363,19 @@ impl Tempo {
                     self.input_offset as f64 / channels as f64 / f64::from(format.sample_rate),
                 );
             if let Some(stretch) = &mut self.stretch {
+                #[cfg(feature = "test-support")]
+                let started = Instant::now();
+                #[cfg(feature = "test-support")]
+                let input_frames = ((self.input_offset - start) / channels) as u64;
                 stretch.put(&self.input[start..self.input_offset])?;
                 self.fed += ((self.input_offset - start) / channels) as u64;
+                #[cfg(feature = "test-support")]
+                {
+                    self.service.elapsed_ns =
+                        self.service.elapsed_ns.saturating_add(elapsed_ns(started));
+                    self.service.input_frames =
+                        self.service.input_frames.saturating_add(input_frames);
+                }
             } else {
                 self.position = self.consumed;
                 return Ok(Some(Block {
@@ -295,6 +390,11 @@ impl Tempo {
             }
         }
     }
+}
+
+#[cfg(feature = "test-support")]
+fn elapsed_ns(started: Instant) -> u64 {
+    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }
 
 #[cfg(test)]
