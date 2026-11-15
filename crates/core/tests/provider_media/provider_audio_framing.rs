@@ -1,7 +1,9 @@
 #[path = "../fixtures/raw_audio.rs"]
 mod fixture;
 use hito_core::test_support::support;
-use hito_core::{AdoptProviderRecording, InstallPlugin, OfferPluginService, OpenedAudio};
+use hito_core::{
+    AdoptProviderRecording, InstallPlugin, OfferPluginService, OpenedAudio, PlaybackFailureReason,
+};
 
 #[tokio::test]
 async fn raw_chunked_audio_rejects_unsupported_and_ambiguous_transfer_framing() {
@@ -63,7 +65,13 @@ async fn raw_chunked_audio_rejects_unsupported_and_ambiguous_transfer_framing() 
             .await;
         if !valid {
             assert!(
-                matches!(opened, Err(hito_core::Error::Upstream(_))),
+                matches!(
+                    opened,
+                    Err(hito_core::Error::PlaybackProvider {
+                        reason: PlaybackFailureReason::InvalidProviderResponse,
+                        original,
+                    }) if matches!(*original, hito_core::Error::Upstream(_))
+                ),
                 "unsupported or ambiguous transfer framing must fail"
             );
             continue;
