@@ -27,7 +27,11 @@ struct FinalizationArm {
 
 enum Boundary {
     Open,
-    Holding(Pin<Box<tokio::time::Sleep>>, tokio::time::Instant, Key),
+    Holding(
+        Pin<Box<tokio::time::Sleep>>,
+        tokio::time::Instant,
+        Option<Key>,
+    ),
     Released,
 }
 
@@ -283,6 +287,15 @@ impl Native {
         Some(self.status(PlayerPhase::Failed, Some(PlayerError::Playback)))
     }
     pub fn sync(&mut self, target: Option<Target>) {
+        let next = target
+            .as_ref()
+            .and_then(|target| target.next)
+            .map(|next| next.key);
+        if let Boundary::Holding(.., held) = &mut self.boundary
+            && *held != next
+        {
+            *held = None;
+        }
         let key = target.as_ref().map(|target| target.key);
         let crossed = self.crossed.take();
         let mut suspended_now = false;
@@ -733,7 +746,7 @@ impl Native {
                 }, if matches!(self.boundary, Boundary::Holding(..)) => {
                     let next = self.target.as_ref().and_then(|target| target.next).map(|next| next.key);
                     self.held_out = match self.boundary {
-                        Boundary::Holding(.., held) if next == Some(held) => Some(held),
+                        Boundary::Holding(.., Some(held)) if next == Some(held) => Some(held),
                         _ => None,
                     };
                     return self.release("timeout");
@@ -768,7 +781,7 @@ impl Native {
             self.boundary = Boundary::Holding(
                 Box::pin(tokio::time::sleep(BOUNDARY_WAIT)),
                 tokio::time::Instant::now(),
-                next.key,
+                Some(next.key),
             );
             tracing::info!(
                 event = "player_boundary_wait_started",

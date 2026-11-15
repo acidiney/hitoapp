@@ -348,3 +348,41 @@ async fn an_entry_that_becomes_next_during_a_boundary_hold_keeps_its_full_retrie
     let (_, events, _) = run.heard().await;
     assert_eq!(attempts_after(&events.text(), mark), [1, 2, 3]);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_next_entry_moved_away_and_back_during_a_boundary_hold_keeps_its_full_retries() {
+    let f = Deferred::start(seconds(4), seconds(3), Mode::Never).await;
+    let mut run = Run::start(f, true, second_twice).await;
+    let entries = run.entries(3).await;
+    run.send(PlayerAction::Resume {}).await;
+    run.until("the boundary hold", || {
+        run.events.count("player_boundary_wait_started") >= 1
+    })
+    .await;
+    let deferred = run.events.count("player_deferral_started");
+    run.send(PlayerAction::Move {
+        entry: entries[1],
+        before: None,
+    })
+    .await;
+    run.until("the other entry's deferral", || {
+        run.events.count("player_deferral_started") > deferred
+    })
+    .await;
+    let deferred = run.events.count("player_deferral_started");
+    run.send(PlayerAction::Move {
+        entry: entries[1],
+        before: Some(entries[2]),
+    })
+    .await;
+    run.until("the restored entry's deferral", || {
+        run.events.count("player_deferral_started") > deferred
+    })
+    .await;
+    run.send(PlayerAction::Remove { entry: entries[2] }).await;
+    let mark = run.events.text().len();
+    run.queue_finishes(40).await;
+    let (_, events, _) = run.heard().await;
+    assert_eq!(attempts_after(&events.text(), mark), [1, 2, 3]);
+}
