@@ -21,6 +21,7 @@ import Testing
         #expect(loaded.entries.map(\.state) == ["Ready", "Not prepared"])
         #expect(loaded.entries.map(\.pinned) == [true, false])
         #expect(loaded.entries.map(\.bestGuess) == [false, true])
+        #expect(loaded.entries.map(\.canPrepare) == [false, true])
         #expect(loaded.modeLabel == "Manual source selection")
     }
 

@@ -66,6 +66,7 @@ struct AccountPicture: View {
     var size: CGFloat = 44
     var fill = Theme.avatar
     var font = Theme.bodyBold
+    var ink = Theme.text
     @State private var image: UIImage?
 
     var body: some View {
@@ -74,7 +75,7 @@ struct AccountPicture: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Text(String(name.prefix(1)).uppercased()).font(font)
+                Text(String(name.prefix(1)).uppercased()).font(font).foregroundStyle(ink)
             }
         }
         .frame(width: size, height: size)
@@ -91,8 +92,8 @@ struct AccountPicture: View {
 }
 
 extension AccountPicture {
-    init(user: User, size: CGFloat = 44, fill: Color = Theme.avatar, font: Font = Theme.bodyBold) {
-        self.init(id: user.id, name: user.displayName ?? user.username, version: user.avatarVersion, size: size, fill: fill, font: font)
+    init(user: User, size: CGFloat = 44, fill: Color = Theme.avatar, font: Font = Theme.bodyBold, ink: Color = Theme.text) {
+        self.init(id: user.id, name: user.displayName ?? user.username, version: user.avatarVersion, size: size, fill: fill, font: font, ink: ink)
     }
 }
 
@@ -131,13 +132,15 @@ struct LibraryRow: View {
     let track: Track
     var isCurrent = false
     var showsTime = true
+    var gap: CGFloat = 8
+    var dimsUnavailable = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: gap) {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
+                    .foregroundStyle(isCurrent ? Theme.focus : dimsUnavailable && !track.available ? Theme.soft : Theme.text)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 Group {
                     if typeSize.isAccessibilitySize {
@@ -182,7 +185,7 @@ struct SearchRow: View {
             Cover(path: track.artworkPath, size: 44)
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .foregroundStyle(isCurrent ? Theme.focus : Theme.text)
+                    .foregroundStyle(isCurrent ? Theme.focus : track.available ? Theme.text : Theme.soft)
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
@@ -207,7 +210,7 @@ struct AlbumTrackRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(track.title)
-                .foregroundStyle(isCurrent ? Theme.focus : track.isPlayable ? Theme.text : Theme.soft)
+                .foregroundStyle(isCurrent ? Theme.focus : track.available ? Theme.text : Theme.soft)
                 .lineLimit(1)
             HStack(spacing: 6) {
                 StatusDot(track: track, size: 9)

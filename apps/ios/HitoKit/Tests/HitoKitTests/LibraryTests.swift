@@ -80,6 +80,12 @@ import Testing
         #expect(fake.requests.first?.query == "offset=0&limit=50&sort=recent")
     }
 
+    @Test func albumsCanBeSearched() async throws {
+        let fake = FakeServer(routes: ["GET /api/v1/releases": .json(200, #"{"items":[],"total":0,"offset":0,"limit":50}"#)])
+        _ = try await library(fake).albums(offset: 0, search: "Fixture")
+        #expect(fake.requests.first?.query == "offset=0&limit=50&q=Fixture")
+    }
+
     @Test func anAlbumIsCreditedLikeTheWeb() async throws {
         func release(_ artist: String, _ inferred: String) -> String {
             #"{"id":"a1","library_id":"l1","title":"T","artist":\#(artist),"artist_id":null,"track_count":1,"duration_ms":1,"inferred_artist":\#(inferred),"year":null}"#
