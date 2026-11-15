@@ -85,6 +85,26 @@ export async function providerOutageEvidence(
     invalidAudio: 0,
     progressWrites: 0,
   };
+  const rejections: Record<string, number> = {};
+  const writeRoute = (pathname: string) => {
+    if (/^\/api\/v1\/recordings\/[0-9a-f-]+\/sources\/resolve$/.test(pathname))
+      return "resolve";
+    if (/^\/api\/v1\/recordings\/[0-9a-f-]+\/sources\/refresh$/.test(pathname))
+      return "refresh";
+    if (pathname === "/api/v1/sync") return "sync";
+    if (/^\/api\/v1\/sources\/[^/]+\/successful-playback$/.test(pathname))
+      return "successful_playback";
+    if (pathname === "/api/v1/recordings/lookup") return "recordings_lookup";
+    return "other";
+  };
+  const reject = (
+    pathname: string,
+    stage: "query" | "envelope" | "shape" | "route",
+  ) => {
+    counts.unexpectedWrites++;
+    const key = `${writeRoute(pathname)}.${stage}`;
+    rejections[key] = (rejections[key] ?? 0) + 1;
+  };
   const inspect = (text: string) => {
     if ([...privateValues].some((value) => text.includes(value)))
       counts.privateConsole++;
@@ -131,7 +151,7 @@ export async function providerOutageEvidence(
       }
       if (!armed || ["GET", "HEAD"].includes(request.method())) return;
       if (url.search || url.hash) {
-        counts.unexpectedWrites++;
+        reject(url.pathname, "query");
         return;
       }
       if (/\/download(?:\/|$)/.test(url.pathname)) {
@@ -146,7 +166,7 @@ export async function providerOutageEvidence(
         request.headers()["x-hito-request"] !== "1" ||
         request.headers()["x-hito-account"] !== account
       ) {
-        counts.unexpectedWrites++;
+        reject(url.pathname, "envelope");
         return;
       }
       const data = JSON.parse(raw) as Record<string, unknown>;
@@ -161,7 +181,7 @@ export async function providerOutageEvidence(
           !uuid.test(data.request_id) ||
           requests.length >= 8
         )
-          counts.unexpectedWrites++;
+          reject(url.pathname, "shape");
         else requests.push({ recording: resolve[1], body: raw });
       } else if (
         /^\/api\/v1\/recordings\/[0-9a-f-]+\/sources\/refresh$/.test(
@@ -183,9 +203,20 @@ export async function providerOutageEvidence(
               heard.has(operation.action.recording_id),
           )
         )
-          counts.unexpectedWrites++;
+          reject(url.pathname, "shape");
         else counts.progressWrites++;
-      } else counts.unexpectedWrites++;
+      } else if (url.pathname === "/api/v1/recordings/lookup") {
+        const ids = (data as Partial<Schema<"RecordingLookupRequest">>)
+          .recording_ids;
+        if (
+          Object.keys(data).join() !== "recording_ids" ||
+          !Array.isArray(ids) ||
+          !ids.length ||
+          ids.length > 64 ||
+          !ids.every((id) => typeof id === "string" && uuid.test(id))
+        )
+          reject(url.pathname, "shape");
+      } else reject(url.pathname, "route");
     } catch {
       counts.callbacks++;
     }
@@ -236,6 +267,7 @@ export async function providerOutageEvidence(
   });
   return {
     counts,
+    rejections,
     requests,
     receipts,
     completions,
@@ -284,10 +316,17 @@ export async function providerOutageEvidence(
         "logs_checked",
         30_000,
       );
+      const resolutions = new Set(
+        receipts.map((receipt) => receipt.resolution_id),
+      );
+      expect(resolutions.size).toBe(receipts.length);
+      const committed = (outcome: Schema<"SourceResolution">["outcome"]) =>
+        receipts.filter((receipt) => receipt.outcome === outcome).length;
       expect(
         result.private_matches === 0 &&
           result.malformed === 0 &&
-          result.unavailable_commits === 2 &&
+          result.unavailable_commits === committed("provider_unavailable") &&
+          result.ready_commits === committed("ready") &&
           result.ready_commits === 1,
       ).toBe(true);
       return result;

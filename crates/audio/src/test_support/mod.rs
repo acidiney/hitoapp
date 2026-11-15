@@ -11,6 +11,20 @@ use std::{
 };
 
 static OUTPUT_RATES: Mutex<Option<Vec<u32>>> = Mutex::new(None);
+static BYSTANDERS: std::sync::OnceLock<[tracing::Dispatch; 2]> = std::sync::OnceLock::new();
+
+pub fn register_bystanders() {
+    BYSTANDERS.get_or_init(|| {
+        [(), ()].map(|()| tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()))
+    });
+}
+
+pub fn scoped_dispatch(
+    subscriber: impl tracing::Subscriber + Send + Sync + 'static,
+) -> tracing::Dispatch {
+    register_bystanders();
+    tracing::Dispatch::new(subscriber)
+}
 static HOLDERS: Mutex<()> = Mutex::new(());
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

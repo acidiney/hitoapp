@@ -594,7 +594,22 @@ struct AlbumView: View {
     @State private var addProblem: String?
     @State private var editionFailed = false
 
+    @State private var options: [EditionOption]?
+    @State private var optionsNote: String?
+    @State private var choosing: EditionOption?
+    @State private var unsaved: PendingChoice?
+    @State private var editionNote: String?
+
+    struct PendingChoice {
+        let option: EditionOption
+        let request: UUID
+    }
+
     var tracks: [Track] { detail?.tracks ?? [] }
+
+    private var anchor: CatalogAnchor? {
+        detail?.anchor ?? detail?.savedEdition.map { CatalogAnchor(recordingId: $0.recordingId, associationId: $0.associationId) }
+    }
 
     private var complete: CompleteAlbum? {
         if case let .available(album) = edition { return album }
@@ -625,40 +640,21 @@ struct AlbumView: View {
                     }
                 }
                 if let complete {
-                    HStack(spacing: 12) {
-                        GeometryReader { box in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Theme.line)
-                                Capsule().fill(Theme.text).frame(width: complete.tracks.isEmpty ? 0 : box.size.width * CGFloat(complete.ownedCount) / CGFloat(complete.tracks.count))
-                            }
-                        }
-                        .frame(width: 160, height: 4)
-                        .accessibilityHidden(true)
-                        Text(complete.summary).font(Theme.small).foregroundStyle(Theme.soft)
-                    }
+                    ProgressLine(owned: complete.ownedCount, total: complete.tracks.count)
                 }
                 HStack(spacing: 8) {
-                    if !tracks.isEmpty {
+                    if !playable.isEmpty {
                         PlayAllButton(label: "Play") {
                             model.player?.play(playable, at: 0, from: album.title)
                         }
-                        if let complete {
-                            let missing = complete.addable.filter { notes[$0.id] == nil }
-                            if !missing.isEmpty {
-                                Button { adder = Task { await addAll(missing, in: complete) } } label: {
-                                    HStack(spacing: 8) {
-                                        Icon("plus", size: 16)
-                                        Text(adding.isEmpty ? "Add the other \(missing.count)" : "Adding…").font(Theme.bodyMedium).lineLimit(1)
-                                    }
-                                    .foregroundStyle(Theme.text)
-                                    .padding(.horizontal, 18)
-                                    .frame(minHeight: 48)
-                                    .overlay(Capsule().strokeBorder(Theme.line))
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!adding.isEmpty)
-                            }
+                    }
+                    if let complete {
+                        let missing = complete.addable.filter { notes[$0.id] == nil }
+                        if !missing.isEmpty {
+                            AddOthers(count: missing.count, busy: !adding.isEmpty) { adder = Task { await addAll(missing, in: complete) } }
                         }
+                    }
+                    if !tracks.isEmpty {
                         Menu {
                             Button("Play next") { tracks.forEach { model.player?.playNext($0) } }
                         } label: {
@@ -687,7 +683,22 @@ struct AlbumView: View {
                     Text(addProblem).font(Theme.small).foregroundStyle(Theme.warning)
                 }
                 if let complete {
-                    editionHeader(complete)
+                    HStack(spacing: 8) {
+                        FilterChip(title: "All \(complete.tracks.count)", on: !onlyMine) { onlyMine = false }
+                        FilterChip(title: "In my library \(complete.ownedCount)", on: onlyMine) { onlyMine = true }
+                    }
+                }
+                if anchor != nil || detail?.needsChoice == true {
+                    editionPicker
+                }
+                if let editionNote {
+                    Text(editionNote).font(Theme.small).foregroundStyle(Theme.quiet)
+                }
+                if let unsaved {
+                    TextAction(title: "Try saving again") { Task { await choose(unsaved.option, request: unsaved.request) } }
+                        .font(Theme.small)
+                }
+                if let complete {
                     VStack(spacing: 0) {
                         ForEach(complete.tracks) { track in
                             if let owned = track.owned {
@@ -718,21 +729,52 @@ struct AlbumView: View {
         .onDisappear { adder?.cancel() }
     }
 
-    private func editionHeader(_ complete: CompleteAlbum) -> some View {
-        Wrap(spacing: 8) {
-            FilterChip(title: "All \(complete.tracks.count)", on: !onlyMine) { onlyMine = false }
-            FilterChip(title: "In my library \(complete.ownedCount)", on: onlyMine) { onlyMine = true }
+    private var editionPicker: some View {
+        Menu {
+            if let options {
+                if options.isEmpty {
+                    Text(optionsNote ?? "No editions found for this album")
+                }
+                ForEach(options) { option in
+                    Button { Task { await choose(option, request: UUID()) } } label: {
+                        if option.id == complete?.editionId {
+                            Label(option.label, systemImage: "checkmark")
+                        } else {
+                            Text(option.label)
+                        }
+                    }
+                }
+            } else {
+                Text("Looking for editions…")
+            }
+            if detail?.savedEdition != nil {
+                Divider()
+                Button("Forget edition", role: .destructive) { Task { await forget() } }
+            }
+        } label: {
             HStack(spacing: 8) {
                 Text("Edition").foregroundStyle(Theme.quiet)
-                Text(complete.editionName).fontWeight(.medium).lineLimit(1)
+                Text(choosing?.name ?? chosenName ?? "Choose").font(Theme.bodyMedium).lineLimit(1)
+                if choosing != nil {
+                    ProgressView().tint(Theme.soft).controlSize(.small)
+                } else {
+                    Icon("chevron-down", size: 14)
+                }
             }
             .font(Theme.small)
             .foregroundStyle(Theme.text)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
             .overlay(Capsule().strokeBorder(Theme.line))
-            .accessibilityElement(children: .combine)
+            .contentShape(Capsule())
         }
+        .disabled(choosing != nil)
+        .accessibilityLabel("Edition, \(chosenName ?? "not chosen")")
+    }
+
+    private var chosenName: String? {
+        guard let complete else { return nil }
+        return options?.first { $0.id == complete.editionId }?.name ?? complete.editionName
     }
 
     private func ownedRow(_ track: Track) -> some View {
@@ -836,14 +878,121 @@ struct AlbumView: View {
             model.handle(error)
             return
         }
-        guard detail?.savedEdition != nil else { return }
         editionFailed = false
+        if detail?.savedEdition != nil {
+            do {
+                edition = try await AlbumEditions(api: api).read(album.id)
+            } catch {
+                editionFailed = true
+                model.handle(error)
+            }
+        } else {
+            edition = nil
+        }
+        if detail?.needsChoice == true {
+            editionNote = "The saved edition can't be used any more. Choose the edition again."
+        }
+        guard options == nil, let anchor else { return }
         do {
-            edition = try await AlbumEditions(api: api).read(album.id)
+            options = try await AlbumEditions(api: api).options(for: (detail?.album ?? album).title, anchor: anchor)
+        } catch let unavailable as EditionOption.Unavailable {
+            options = []
+            optionsNote = unavailable.reason
         } catch {
-            editionFailed = true
+            options = []
+            optionsNote = "Editions didn't load. Open the album again to retry."
+        }
+    }
+
+    private func choose(_ option: EditionOption, request: UUID) async {
+        guard let api = model.api, let anchor, let revision = detail?.choiceRevision else { return }
+        let editions = AlbumEditions(api: api)
+        choosing = option
+        editionNote = nil
+        unsaved = nil
+        defer { choosing = nil }
+        do {
+            let read = try await editions.preview(option, release: album.id, anchor: anchor)
+            guard case .available = read else {
+                if case let .unavailable(reason) = read { editionNote = reason }
+                return
+            }
+            _ = try await editions.choose(option, release: album.id, anchor: anchor, revision: revision, request: request)
+            edition = read
+            notes = [:]
+            detail = try await Library(api: api).album(album.id)
+        } catch is EditionOption.Changed {
+            editionNote = "This album's edition changed somewhere else. Choose again."
+            await load()
+        } catch HitoAPI.Problem.noAnswer {
+            editionNote = "Hito didn't answer, so the edition may not be saved."
+            unsaved = PendingChoice(option: option, request: request)
+        } catch {
+            editionNote = "The edition wasn't saved."
             model.handle(error)
         }
+    }
+
+    private func forget() async {
+        guard let api = model.api, let revision = detail?.choiceRevision else { return }
+        do {
+            _ = try await AlbumEditions(api: api).forget(release: album.id, revision: revision, request: UUID())
+            edition = nil
+            notes = [:]
+            onlyMine = false
+            detail = try await Library(api: api).album(album.id)
+        } catch is EditionOption.Changed {
+            editionNote = "This album's edition changed somewhere else."
+            await load()
+        } catch {
+            editionNote = "The edition wasn't forgotten."
+            model.handle(error)
+        }
+    }
+}
+
+struct ProgressLine: View {
+    let owned: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Capsule()
+                .fill(Theme.line)
+                .frame(width: 140, height: 4)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(Theme.text).frame(width: total == 0 ? 0 : 140 * CGFloat(owned) / CGFloat(total), height: 4)
+                }
+                .accessibilityHidden(true)
+            Text("\(owned) of \(total) in your library").font(Theme.small).foregroundStyle(Theme.soft)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct AddOthers: View {
+    let count: Int
+    let busy: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView().tint(Theme.soft).controlSize(.small)
+                } else {
+                    Icon("plus", size: 16)
+                }
+                Text(busy ? "Adding…" : "Add the other \(count)").font(Theme.bodyStrong).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 18)
+            .frame(minHeight: 48)
+            .overlay(Capsule().strokeBorder(Theme.line))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
     }
 }
 
