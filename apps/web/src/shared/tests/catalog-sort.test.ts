@@ -44,6 +44,8 @@ test("tracks, albums and artists offer their own sort choices, newest first by d
     "Recently added",
     "Title",
     "Artist",
+    "Album",
+    "Duration",
   ]);
   expect(ALBUM_SORTS.map((option) => option.value)).toEqual([
     "recent",
@@ -65,6 +67,13 @@ test("an unknown or unsupported sort in the address falls back to recently added
   visit("?sort=year");
   expect(chosenSort(ARTIST_SORTS)).toBe("recent");
   expect(chosenSort(ALBUM_SORTS)).toBe("year");
+  visit("?sort=duration");
+  expect(chosenSort(TRACK_SORTS)).toBe("duration");
+  expect(chosenSort(ALBUM_SORTS)).toBe("recent");
+  expect(chosenSort(ARTIST_SORTS)).toBe("recent");
+  visit("?sort=album");
+  expect(chosenSort(TRACK_SORTS)).toBe("album");
+  expect(chosenSort(ALBUM_SORTS)).toBe("recent");
 });
 
 test("the sort control is a labelled listbox that shows the chosen sort", () => {

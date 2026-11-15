@@ -6,6 +6,7 @@ struct ArtistView: View {
     let artist: Artist
     @State private var detail: ArtistPage.Detail?
     @State private var problem: String?
+    @State private var identities: [ArtistGroup] = []
 
     var body: some View {
         ScrollView {
@@ -28,6 +29,17 @@ struct ArtistView: View {
                                 NavigationLink(value: album) { AlbumCard(album: album) }.buttonStyle(.plain)
                             }
                         }
+                    }
+                    ForEach(identities) { identity in
+                        NavigationLink(value: identity) {
+                            HStack(spacing: 8) {
+                                Text("Discography").font(Theme.smallStrong).foregroundStyle(Theme.focus)
+                                Icon("chevron-right", size: 14).foregroundStyle(Theme.focus)
+                            }
+                            .frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Discography of \(identity.name)")
                     }
                     if !detail.appearances.isEmpty {
                         section("Appears on", detail.appearances, from: "\(detail.name) appearances", note: "Recordings that credit this artist as a guest")
@@ -103,6 +115,7 @@ struct ArtistView: View {
         do {
             detail = try await ArtistPage(api: api).load(artist.id)
             problem = nil
+            identities = (try? await ArtistGroups(api: api).named(artist.name)) ?? []
         } catch {
             problem = "This artist couldn't load. Pull to try again."
         }

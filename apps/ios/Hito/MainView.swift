@@ -96,6 +96,8 @@ extension View {
             .navigationDestination(for: Track.self) { TrackView(track: $0).pushed() }
             .navigationDestination(for: Artist.self) { ArtistView(artist: $0).pushed() }
             .navigationDestination(for: Genre.self) { GenreView(genre: $0).pushed() }
+            .navigationDestination(for: ArtistGroup.self) { ArtistGroupView(group: $0).pushed() }
+            .navigationDestination(for: CatalogRelease.self) { CatalogAlbumView(route: $0).pushed() }
             .navigationDestination(for: Playlist.self) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
             .navigationDestination(for: Podcasts.Subscription.self) { PodcastView(subscription: $0).pushed() }
             .navigationDestination(for: AudiobookRoute.self) { AudiobookView(route: $0).pushed() }
