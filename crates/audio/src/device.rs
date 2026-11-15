@@ -144,9 +144,30 @@ impl Output {
             "Audio output quantum requested"
         );
         let stream = match supported.sample_format() {
-            SampleFormat::F32 => build::<f32>(&device, config, consumer, state.clone(), format),
-            SampleFormat::I16 => build::<i16>(&device, config, consumer, state.clone(), format),
-            SampleFormat::U16 => build::<u16>(&device, config, consumer, state.clone(), format),
+            SampleFormat::F32 => build::<f32>(
+                &device,
+                config,
+                consumer,
+                state.clone(),
+                format,
+                (audio_id, generation),
+            ),
+            SampleFormat::I16 => build::<i16>(
+                &device,
+                config,
+                consumer,
+                state.clone(),
+                format,
+                (audio_id, generation),
+            ),
+            SampleFormat::U16 => build::<u16>(
+                &device,
+                config,
+                consumer,
+                state.clone(),
+                format,
+                (audio_id, generation),
+            ),
             _ => return Err(Error::OutputUnavailable),
         }?;
         stream.play().map_err(|_| Error::Output)?;
@@ -189,6 +210,7 @@ fn build<T: SizedSample + FromSample<f32>>(
     consumer: Consumer<Frame>,
     state: Arc<State>,
     format: AudioFormat,
+    stream: (u64, u64),
 ) -> Result<cpal::Stream>
 where
     f32: FromSample<T>,
@@ -207,13 +229,13 @@ where
                     witness.record(data, info);
                 }
             },
-            move |error| report(&state, born_xruns, error.kind()),
+            move |error| report(&state, stream, born_xruns, error.kind()),
             Some(Duration::from_secs(2)),
         )
         .map_err(|_| Error::OutputUnavailable)
 }
 
-fn report(state: &State, born_xruns: u64, kind: cpal::ErrorKind) {
+fn report(state: &State, stream: (u64, u64), born_xruns: u64, kind: cpal::ErrorKind) {
     if matches!(
         kind,
         cpal::ErrorKind::DeviceChanged | cpal::ErrorKind::RealtimeDenied
@@ -222,14 +244,26 @@ fn report(state: &State, born_xruns: u64, kind: cpal::ErrorKind) {
     } else if kind == cpal::ErrorKind::Xrun {
         state.xruns.fetch_add(1, Ordering::Release);
     } else {
-        let code = match kind {
-            cpal::ErrorKind::BackendError => 1,
-            cpal::ErrorKind::DeviceNotAvailable => 2,
-            cpal::ErrorKind::StreamInvalidated => 3,
-            _ => 4,
+        let (code, reason) = match kind {
+            cpal::ErrorKind::BackendError => (1, "backend"),
+            cpal::ErrorKind::DeviceNotAvailable => (2, "device"),
+            cpal::ErrorKind::StreamInvalidated => (3, "invalidated"),
+            _ => (4, "other"),
         };
         state.output_failure.store(code, Ordering::Release);
-        if state.xruns.load(Ordering::Acquire) == born_xruns {
+        let current_xruns = state.xruns.load(Ordering::Acquire);
+        let terminal = current_xruns == born_xruns;
+        tracing::warn!(
+            event = "audio_output_failed",
+            audio_id = stream.0,
+            generation = stream.1,
+            reason,
+            born_xruns,
+            current_xruns,
+            terminal,
+            "Audio output reported a failure"
+        );
+        if terminal {
             state.fail(Error::Output);
         }
     }
@@ -255,7 +289,7 @@ mod tests {
     fn a_replacement_failure_is_terminal_before_recovery_is_acknowledged() {
         let state = State::new();
         state.xruns.store(1, Ordering::Release);
-        report(&state, 1, cpal::ErrorKind::BackendError);
+        report(&state, (1, 1), 1, cpal::ErrorKind::BackendError);
         assert_eq!(state.error(), Some(Error::Output));
         assert_eq!(
             state
@@ -272,8 +306,8 @@ mod tests {
     #[test]
     fn follow_on_failure_of_the_old_stream_does_not_stop_its_replacement() {
         let state = State::new();
-        report(&state, 0, cpal::ErrorKind::Xrun);
-        report(&state, 0, cpal::ErrorKind::BackendError);
+        report(&state, (1, 1), 0, cpal::ErrorKind::Xrun);
+        report(&state, (1, 1), 0, cpal::ErrorKind::BackendError);
         assert_eq!(state.xruns.load(Ordering::Acquire), 1);
         assert_eq!(state.error(), None);
     }
@@ -285,7 +319,7 @@ mod tests {
             cpal::ErrorKind::RealtimeDenied,
         ] {
             let state = State::new();
-            report(&state, 0, kind);
+            report(&state, (1, 1), 0, kind);
             assert_eq!(state.error(), None);
         }
     }

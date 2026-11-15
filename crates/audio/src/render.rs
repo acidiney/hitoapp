@@ -84,6 +84,12 @@ impl Render {
 
     fn schedule(&mut self, point: Point) {
         if !self.presentation.push(point) {
+            tracing::warn!(
+                event = "audio_output_failed",
+                reason = "presentation_overflow",
+                terminal = true,
+                "Audio output recovery could not continue"
+            );
             self.state.fail(Error::Output);
         }
     }

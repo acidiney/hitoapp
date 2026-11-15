@@ -134,6 +134,15 @@ pub(crate) fn run(
             xruns = reported;
             let observed = state.snapshot(format);
             if observed.track != decoder.track() {
+                tracing::warn!(
+                    event = "audio_output_failed",
+                    audio_id,
+                    generation = output_generation,
+                    reason = "track_mismatch",
+                    current_xruns = reported,
+                    terminal = true,
+                    "Audio output recovery could not continue"
+                );
                 return Err(Error::Output);
             }
             let target = observed.position;
@@ -142,6 +151,17 @@ pub(crate) fn run(
             }
             resets += 1;
             if resets > 3 {
+                tracing::warn!(
+                    event = "audio_output_failed",
+                    audio_id,
+                    generation = output_generation,
+                    reason = "reset_budget",
+                    resets,
+                    current_xruns = reported,
+                    since_last_reset_ms = target.saturating_sub(last_reset).as_millis() as u64,
+                    terminal = true,
+                    "Audio output recovery could not continue"
+                );
                 return Err(Error::Output);
             }
             last_reset = target;
