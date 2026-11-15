@@ -305,6 +305,28 @@ final class Player {
         }
     }
 
+    func useAutomaticSource() {
+        guard let track = queue.current, pickedSource else { return }
+        loading?.cancel()
+        notice = nil
+        state = .loading
+        let resume = position
+        loading = Task { [weak self, playback] in
+            do {
+                let audio = try await playback.acquire(track.id, skipping: [])
+                guard let self, !Task.isCancelled else { return }
+                self.tried = []
+                self.attach(audio)
+                self.seek(to: resume)
+            } catch is CancellationError {
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.notice = "The automatic source didn't play. Still playing from \(self.sourceLabel ?? "the last source")."
+                self.state = self.engine.currentItem == nil ? .idle : .playing
+            }
+        }
+    }
+
     static var device: String {
         let key = "app.hito.device"
         if let saved = UserDefaults.standard.string(forKey: key) { return saved }

@@ -56,7 +56,7 @@ struct ArtistView: View {
             .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
                 Text("Artist").font(Theme.label).foregroundStyle(Theme.quiet)
-                Text(detail?.name ?? artist.name).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                Text(detail?.name ?? artist.name).font(Theme.title).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
                 Text(detail?.stats ?? ArtistPage.counts(tracks: artist.trackCount, albums: artist.albumCount, featured: 0))
                     .font(Theme.small).foregroundStyle(Theme.soft)
                 if let tracks = detail?.tracks, !tracks.isEmpty {

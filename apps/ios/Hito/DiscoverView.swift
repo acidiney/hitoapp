@@ -16,7 +16,7 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text("Discover").font(Theme.title).accessibilityAddTraits(.isHeader)
+                Text("Discover").font(Theme.title).tracking(Theme.titleTracking).accessibilityAddTraits(.isHeader)
                 if let problem {
                     Text(problem).font(Theme.small).foregroundStyle(Theme.warning)
                 }
@@ -44,7 +44,7 @@ struct DiscoverView: View {
         .page()
         .refreshable { await load() }
         .task { if artists == nil { await load() } }
-        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.raised) }
+        .navigationDestination(item: $opened) { PlaylistView(playlist: $0).pushed(tint: Theme.header) }
     }
 
     private func heroCard(_ artist: RadioArtist) -> some View {

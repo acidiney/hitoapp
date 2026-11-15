@@ -32,6 +32,7 @@ struct TrackView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(Theme.field))
                 TrackDetailsCard(track: track, details: $details)
                 CopiesCard(track: track)
+                SourceHistoryCard(track: track)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -46,7 +47,7 @@ struct TrackView: View {
         HStack(alignment: .top, spacing: 14) {
             Cover(path: track.artworkPath, size: 96, radius: 10)
             VStack(alignment: .leading, spacing: 4) {
-                Text(details?.title.value ?? track.title).font(Theme.title).lineLimit(3).accessibilityAddTraits(.isHeader)
+                Text(details?.title.value ?? track.title).font(Theme.title).tracking(Theme.titleTracking).lineLimit(3).accessibilityAddTraits(.isHeader)
                 Text(details?.artist.value ?? track.artist).foregroundStyle(Theme.soft).lineLimit(2)
                 HStack(spacing: 6) {
                     StatusDot(track: track)
