@@ -332,17 +332,24 @@ fn parse_byte_range(value: &str) -> Option<crate::ByteRange> {
     let (first, last) = value.split_once('-')?;
     if first.is_empty() {
         return Some(crate::ByteRange::Suffix {
-            length: last.parse().ok()?,
+            length: parse_range_number(last)?,
         });
     }
     Some(crate::ByteRange::From {
-        first: first.parse().ok()?,
+        first: parse_range_number(first)?,
         last: if last.is_empty() {
             None
         } else {
-            Some(last.parse().ok()?)
+            Some(parse_range_number(last)?)
         },
     })
+}
+
+fn parse_range_number(value: &str) -> Option<u64> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse().ok()
 }
 
 struct BrokenTail(tokio::io::DuplexStream);
