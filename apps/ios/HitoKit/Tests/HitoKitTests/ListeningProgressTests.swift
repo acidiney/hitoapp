@@ -18,6 +18,18 @@ import Testing
         #expect(action["speed"] as? Double == 1)
     }
 
+    @Test func anAudiobookChapterIsSavedWithItsProgress() async throws {
+        let fake = FakeServer(routes: ["POST /api/v1/sync": .acknowledging])
+        let progress = ListeningProgress(api: HitoAPI(address: try ServerAddressInput(parsing: "http://192.168.1.20:8080").candidates[0], token: "session-token-1", session: fake.session), device: "d1")
+        try await progress.save("r2", position: 12.5, speed: 1, chapter: AudiobookAnchor(audiobookId: "b1", entryId: "e2", recordingId: "r2"))
+        let actions = try #require((fake.requests.first?.object?["operations"] as? [[String: Any]])?.compactMap { $0["action"] as? [String: Any] })
+        #expect(actions.map { $0["kind"] as? String } == ["progress_set", "audiobook_chapter_set"])
+        let chapter = try #require(actions[1]["chapter"] as? [String: Any])
+        #expect(chapter["audiobook_id"] as? String == "b1")
+        #expect(chapter["entry_id"] as? String == "e2")
+        #expect(chapter["recording_id"] as? String == "r2")
+    }
+
     @Test func aCheckpointIsTakenEveryTenSecondsOfListening() {
         var checkpoint = ProgressCheckpoint()
         #expect(checkpoint.observe(0) == nil)

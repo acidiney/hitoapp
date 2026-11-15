@@ -48,12 +48,17 @@ public enum QuickTile: Equatable, Identifiable, Sendable {
 }
 
 public struct HomeSummary: Equatable, Sendable {
+    public var hasMusic = true
     public let likedCount: Int
     public let recentAlbums: [Album]
     public let unheard: [UnheardAlbum]
 
     public func tiles(playlists: [Playlist]) -> [QuickTile] {
         QuickTile.mixed(albums: recentAlbums, playlists: playlists, liked: likedCount > 0 ? likedCount : nil)
+    }
+
+    public func isEmpty(playlists: [Playlist]) -> Bool {
+        !hasMusic && tiles(playlists: playlists).isEmpty
     }
 }
 
@@ -91,12 +96,14 @@ public struct HomeFeed: Sendable {
     }
 
     struct Body: Decodable {
+        let hasMusic: Bool
         let likedCount: Int
         let recentAlbums: [Recent]
         let unheard: [Unheard]
 
         enum CodingKeys: String, CodingKey {
             case unheard
+            case hasMusic = "has_music"
             case likedCount = "liked_count"
             case recentAlbums = "recent_albums"
         }
@@ -116,6 +123,7 @@ public struct HomeFeed: Sendable {
             return nil
         }
         return HomeSummary(
+            hasMusic: body.hasMusic,
             likedCount: body.likedCount,
             recentAlbums: body.recentAlbums.map { Album(id: $0.id, title: $0.title, artist: $0.credit, trackCount: 0, year: nil, durationMs: nil) },
             unheard: body.unheard.map { UnheardAlbum(id: $0.releaseId, title: $0.title, artist: $0.credit, played: $0.played, remaining: $0.remaining, tracks: $0.tracks) }
