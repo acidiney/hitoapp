@@ -3,13 +3,13 @@ use hito_core::test_support::{
     musicbrainz::{FakeMusicBrainz, Reply},
     support,
 };
-use hito_core::{Actor, Credentials, Genre, Services, UpdateAutomaticLookups};
+use hito_core::{Actor, Credentials, Genre, Recording, Services, UpdateAutomaticLookups};
 use lofty::{
     prelude::{Accessor, ItemKey, TagExt},
     tag::{Tag, TagType},
 };
 use sqlx::Connection;
-use std::{path::PathBuf, time::Duration};
+use std::{collections::HashSet, path::PathBuf, time::Duration};
 use tracing::instrument::WithSubscriber;
 
 const A: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -190,6 +190,53 @@ async fn two_artists() -> World {
     world
 }
 
+async fn paged_tracks(world: &World, key: &str) -> Vec<Recording> {
+    let mut tracks = Vec::new();
+    let mut recording_ids = HashSet::new();
+    let mut cursors = HashSet::new();
+    let mut after = None;
+    for _ in 0..16 {
+        let page = tokio::time::timeout(
+            Duration::from_secs(5),
+            world
+                .hito
+                .catalog
+                .genre_tracks(&world.actor, key, Some(1), after.as_deref()),
+        )
+        .await
+        .expect("genre track page finishes within 5 seconds")
+        .unwrap();
+        assert!(page.items.len() <= 1);
+        for track in page.items {
+            assert!(recording_ids.insert(track.id.clone()));
+            tracks.push(track);
+        }
+        let Some(next_after) = page.next_after else {
+            return tracks;
+        };
+        assert!(!tracks.is_empty());
+        assert!(cursors.insert(next_after.clone()));
+        after = Some(next_after);
+    }
+    panic!("genre track pages reached the fixture bound without a terminal cursor")
+}
+
+async fn paged_tracks_match_preview(world: &World, key: &str) -> Vec<Recording> {
+    let preview = tokio::time::timeout(
+        Duration::from_secs(5),
+        world.hito.catalog.genre(&world.actor, key),
+    )
+    .await
+    .expect("genre preview finishes within 5 seconds")
+    .unwrap();
+    let tracks = paged_tracks(world, key).await;
+    assert_eq!(
+        serde_json::to_value(&tracks).unwrap(),
+        serde_json::to_value(&preview.tracks).unwrap()
+    );
+    tracks
+}
+
 #[tokio::test]
 async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
     let world = two_artists().await;
@@ -226,6 +273,10 @@ async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
         "{:?}",
         world.genre_requests()
     );
+    let genre_requests = world.genre_requests();
+    let paged = paged_tracks_match_preview(&world, "fado").await;
+    assert_eq!(paged.len(), 2);
+    assert_eq!(world.genre_requests(), genre_requests);
 
     assert_eq!(world.walk().await, 0, "a finished walk leaves no work");
     assert_eq!(
@@ -276,6 +327,16 @@ async fn artist_genres_fill_tiles_and_pages_for_tracks_without_a_genre_tag() {
             .unwrap()
             .is_empty()
     );
+    let outsider_page = tokio::time::timeout(
+        Duration::from_secs(5),
+        world
+            .hito
+            .catalog
+            .genre_tracks(&outsider, "fado", Some(1), None),
+    )
+    .await
+    .expect("outsider genre lookup finishes within 5 seconds");
+    assert!(matches!(outsider_page, Err(hito_core::Error::NotFound)));
 }
 
 #[tokio::test]
@@ -311,6 +372,84 @@ async fn file_tag_genres_win_for_their_recording_and_other_tracks_still_use_musi
         .await
         .unwrap();
     assert_eq!(rock.tracks.len(), 1);
+    let genre_requests = world.genre_requests();
+    let fado_tracks = paged_tracks_match_preview(&world, "fado").await;
+    assert_eq!(fado_tracks.len(), 2);
+    assert!(fado_tracks.iter().all(|track| track.title != "tagged"));
+    let rock_tracks = paged_tracks_match_preview(&world, "rock").await;
+    assert_eq!(rock_tracks.len(), 1);
+    assert_eq!(rock_tracks[0].title, "tagged");
+    assert_eq!(world.genre_requests(), genre_requests);
+}
+
+#[tokio::test]
+async fn genre_track_pages_deduplicate_local_sources_and_keep_file_genre_precedence() {
+    hito_core::test_support::hang_guard::hang_guard(
+        "genre track duplicate source pages",
+        Box::pin(async {
+            let world = two_artists().await;
+            let duplicate = world.music.join("a1-copy.wav");
+            std::fs::copy(world.music.join("a1.wav"), &duplicate).unwrap();
+            world.track(
+                5,
+                "tagged-rock",
+                Ids {
+                    artist: Some(A),
+                    genre: Some("Rock"),
+                    ..Ids::default()
+                },
+            );
+            world.track(
+                6,
+                "second-rock",
+                Ids {
+                    genre: Some("Rock"),
+                    ..Ids::default()
+                },
+            );
+            world.scan().await;
+            world.walk().await;
+
+            assert_eq!(
+                world.tiles().await,
+                pairs(&[("fado", 2), ("folk", 2), ("jazz", 1), ("rock", 2)])
+            );
+            let genre_requests = world.genre_requests();
+            let fado = paged_tracks_match_preview(&world, "fado").await;
+            assert_eq!(
+                fado.iter()
+                    .map(|track| track.title.as_str())
+                    .collect::<Vec<_>>(),
+                ["a1", "a2"]
+            );
+            assert!(fado.iter().all(|track| track.title != "tagged-rock"));
+            let duplicate_recording = fado.iter().find(|track| track.title == "a1").unwrap();
+            let sources = tokio::time::timeout(
+                Duration::from_secs(5),
+                world
+                    .hito
+                    .catalog
+                    .sources(&world.actor, &duplicate_recording.id),
+            )
+            .await
+            .expect("recording sources finish within 5 seconds")
+            .unwrap();
+            assert_eq!(sources.len(), 2);
+            assert!(sources.iter().all(|source| source.provider == "local"));
+            assert_ne!(sources[0].id, sources[1].id);
+
+            let rock = paged_tracks_match_preview(&world, "rock").await;
+            assert_eq!(rock.len(), 2);
+            assert_eq!(
+                rock.iter()
+                    .map(|track| track.title.as_str())
+                    .collect::<Vec<_>>(),
+                ["second-rock", "tagged-rock"]
+            );
+            assert_eq!(world.genre_requests(), genre_requests);
+        }),
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -347,6 +486,60 @@ async fn release_group_and_recording_genres_cover_tracks_with_no_artist_identity
             .any(|r| r.starts_with("/ws/2/release-group/"))
     );
     assert!(requests.iter().any(|r| r.starts_with("/ws/2/recording/")));
+    let genre_requests = world.genre_requests();
+    let ambient = paged_tracks_match_preview(&world, "ambient").await;
+    assert_eq!(ambient.len(), 1);
+    assert_eq!(ambient[0].title, "grouped");
+    let drone = paged_tracks_match_preview(&world, "drone").await;
+    assert_eq!(drone.len(), 1);
+    assert_eq!(drone[0].title, "recorded");
+    assert_eq!(world.genre_requests(), genre_requests);
+}
+
+#[tokio::test]
+async fn artist_and_release_group_genres_page_the_same_recording() {
+    hito_core::test_support::hang_guard::hang_guard(
+        "genre track cross-identity pages",
+        Box::pin(async {
+            let world = World::new("mb-genre-cross-identity").await;
+            world.track(
+                1,
+                "artist-and-group",
+                Ids {
+                    artist: Some(A),
+                    group: Some(GROUP),
+                    ..Ids::default()
+                },
+            );
+            world.artist_genres(A, &[("fado", 1)]);
+            world.fake.genres_of(
+                "release-group",
+                GROUP,
+                Reply::Genres(vec![("ambient".into(), 1)]),
+            );
+            world.scan().await;
+            world.walk().await;
+
+            let requests = world.genre_requests();
+            assert!(
+                requests
+                    .iter()
+                    .any(|request| request.starts_with("/ws/2/artist/"))
+            );
+            assert!(
+                requests
+                    .iter()
+                    .any(|request| request.starts_with("/ws/2/release-group/"))
+            );
+            let fado = paged_tracks_match_preview(&world, "fado").await;
+            let ambient = paged_tracks_match_preview(&world, "ambient").await;
+            assert_eq!(fado.len(), 1);
+            assert_eq!(ambient.len(), 1);
+            assert_eq!(fado[0].id, ambient[0].id);
+            assert_eq!(world.genre_requests(), requests);
+        }),
+    )
+    .await;
 }
 
 #[tokio::test]
