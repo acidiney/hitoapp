@@ -13,6 +13,8 @@ struct SearchView: View {
     @State private var service: PluginConnection?
     @State private var remote: [PluginResult] = []
     @State private var remoteState = RemoteState.idle
+    @State private var searchFailed = false
+    @State private var attempt = 0
     @State private var adopting: String?
     @State private var adoptNote: String?
     @State private var importing: String?
@@ -128,6 +130,14 @@ struct SearchView: View {
                             Text("Search your library and connected services").font(Theme.bodyStrong)
                             Text("Find an artist, album or track.").font(Theme.small).foregroundStyle(Theme.soft)
                         }
+                    } else if searchFailed && tracks.isEmpty && artists.isEmpty && albums.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your library couldn't be searched").font(Theme.bodyStrong)
+                            HStack(spacing: 8) {
+                                Text("Hito didn't get an answer.").font(Theme.small).foregroundStyle(Theme.soft)
+                                TextAction(title: "Try again") { attempt += 1 }
+                            }
+                        }
                     } else if tracks.isEmpty && artists.isEmpty && albums.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Nothing in your library matches “\(query)”").font(Theme.bodyStrong)
@@ -145,7 +155,8 @@ struct SearchView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .task(id: query) {
+        .task(id: "\(query)|\(attempt)") {
+            searchFailed = false
             guard !query.isEmpty, let api = model.api else {
                 artists = []
                 albums = []
@@ -163,6 +174,7 @@ struct SearchView: View {
             guard !Task.isCancelled else { return }
             artists = matchedArtists ?? []
             albums = matchedAlbums ?? []
+            searchFailed = matchedArtists == nil || matchedAlbums == nil || tracks.failed
         }
         .task(id: "\(query)|\(service?.id ?? "")") { await searchRemote() }
         .task { await loadSearchable() }
