@@ -56,8 +56,11 @@ final class Player {
     private var warming: Task<Void, Never>?
     private static let warmLead: Double = 30
 
+    let account: String
+
     init(api: HitoAPI, account: String) {
         self.api = api
+        self.account = account
         memory = QueueMemory(account: account)
         playback = Playback(api: api)
         likes = Likes(api: api, device: Self.device)
