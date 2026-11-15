@@ -3,7 +3,7 @@
 mod fixture;
 use fixture::{Deferred, Mode, RATE, Run};
 use hito_audio::test_support::continuity::{audit, counter, dump, heard, longest_run};
-use hito_playback::PlayerAction;
+use hito_playback::{PlayerAction, PlayerPhase};
 use std::time::Duration;
 
 fn seconds(count: u32) -> u32 {
@@ -16,6 +16,19 @@ fn pair(f: &Deferred) -> Vec<&str> {
 
 fn first_twice(f: &Deferred) -> Vec<&str> {
     vec![&f.first, &f.second, &f.first]
+}
+
+fn second_twice(f: &Deferred) -> Vec<&str> {
+    vec![&f.first, &f.second, &f.second]
+}
+
+fn attempts_after(text: &str, mark: usize) -> Vec<u64> {
+    text[mark..]
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|line| line["fields"]["event"] == "player_source_discovery_attempt_started")
+        .filter_map(|line| line["fields"]["attempt"].as_u64())
+        .collect()
 }
 
 fn repeat_four(frame: u64) -> i16 {
@@ -276,4 +289,100 @@ async fn logging_out_during_preparation_cancels_it_and_leaves_no_work() {
     let events = run.events.clone();
     let (_, _, f) = run.heard().await;
     leaves_nothing_behind(&events, &f).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_paused_boundary_timeout_leaves_the_next_entry_its_full_retries_on_resume() {
+    let f = Deferred::start(seconds(4), seconds(3), Mode::Never).await;
+    let mut run = Run::start(f, true, pair).await;
+    let entries = run.entries(2).await;
+    run.send(PlayerAction::Resume {}).await;
+    run.until("the boundary hold", || {
+        run.events.count("player_boundary_wait_started") >= 1
+    })
+    .await;
+    run.send(PlayerAction::Pause {}).await;
+    run.until("the boundary timeout", || {
+        run.events
+            .text()
+            .contains("\"event\":\"player_boundary_wait_finished\",\"reason\":\"timeout\"")
+    })
+    .await;
+    tokio::time::timeout(
+        Duration::from_secs(30),
+        run.state.wait_for(|state| {
+            state
+                .current
+                .as_ref()
+                .is_some_and(|current| current.id == entries[1])
+                && state.phase == PlayerPhase::Failed
+                && !state.playing
+                && !state.desired_playing
+        }),
+    )
+    .await
+    .expect("the paused next entry must settle as failed")
+    .unwrap();
+    let mark = run.events.text().len();
+    run.send(PlayerAction::Resume {}).await;
+    run.queue_finishes(40).await;
+    let (_, events, _) = run.heard().await;
+    assert_eq!(attempts_after(&events.text(), mark), [1, 2, 3]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn an_entry_that_becomes_next_during_a_boundary_hold_keeps_its_full_retries() {
+    let f = Deferred::start(seconds(4), seconds(3), Mode::Never).await;
+    let mut run = Run::start(f, true, second_twice).await;
+    let entries = run.entries(3).await;
+    run.send(PlayerAction::Resume {}).await;
+    run.until("the boundary hold", || {
+        run.events.count("player_boundary_wait_started") >= 1
+    })
+    .await;
+    let mark = run.events.text().len();
+    run.send(PlayerAction::Remove { entry: entries[1] }).await;
+    run.queue_finishes(40).await;
+    let (_, events, _) = run.heard().await;
+    assert_eq!(attempts_after(&events.text(), mark), [1, 2, 3]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_next_entry_moved_away_and_back_during_a_boundary_hold_keeps_its_full_retries() {
+    let f = Deferred::start(seconds(4), seconds(3), Mode::Never).await;
+    let mut run = Run::start(f, true, second_twice).await;
+    let entries = run.entries(3).await;
+    run.send(PlayerAction::Resume {}).await;
+    run.until("the boundary hold", || {
+        run.events.count("player_boundary_wait_started") >= 1
+    })
+    .await;
+    let deferred = run.events.count("player_deferral_started");
+    run.send(PlayerAction::Move {
+        entry: entries[1],
+        before: None,
+    })
+    .await;
+    run.until("the other entry's deferral", || {
+        run.events.count("player_deferral_started") > deferred
+    })
+    .await;
+    let deferred = run.events.count("player_deferral_started");
+    run.send(PlayerAction::Move {
+        entry: entries[1],
+        before: Some(entries[2]),
+    })
+    .await;
+    run.until("the restored entry's deferral", || {
+        run.events.count("player_deferral_started") > deferred
+    })
+    .await;
+    run.send(PlayerAction::Remove { entry: entries[2] }).await;
+    let mark = run.events.text().len();
+    run.queue_finishes(40).await;
+    let (_, events, _) = run.heard().await;
+    assert_eq!(attempts_after(&events.text(), mark), [1, 2, 3]);
 }

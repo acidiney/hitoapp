@@ -1,6 +1,6 @@
 use hito_core::test_support::support;
 
-use hito_core::Browse;
+use hito_core::{Browse, RecordingAvailability, Search};
 use sqlx::sqlite::SqliteConnectOptions;
 use std::time::Duration;
 use support::library;
@@ -103,5 +103,36 @@ async fn compilation_heavy_catalog_reads_do_not_multiply_artists_by_every_album(
         assert_eq!(detail.recordings.total, 10);
         assert_eq!(detail.recordings.offset, 1);
         assert_eq!(detail.recordings.items.len(), 1);
+
+        let mut totals = Vec::new();
+        for availability in [
+            None,
+            Some(RecordingAvailability::AvailableOrService),
+            Some(RecordingAvailability::NoSource),
+        ] {
+            let started = std::time::Instant::now();
+            let page = tokio::time::timeout(
+                Duration::from_secs(5),
+                hito.catalog.recordings(
+                    &actor,
+                    Search {
+                        availability,
+                        offset: Some(50_000),
+                        ..Default::default()
+                    },
+                ),
+            )
+            .await
+            .expect("Recording reads exceeded the smoke-test deadline")
+            .unwrap();
+            eprintln!(
+                "recordings_scale analyzed={analyzed} availability={availability:?} total={} elapsed={:?}",
+                page.total,
+                started.elapsed()
+            );
+            totals.push(page.total);
+        }
+        assert_eq!(totals[0], 100_000);
+        assert_eq!(totals[1] + totals[2], totals[0]);
     }
 }
