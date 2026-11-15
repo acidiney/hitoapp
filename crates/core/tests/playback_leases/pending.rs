@@ -52,7 +52,7 @@ impl<S: Subscriber> Layer<S> for TicketSnapshot {
 }
 
 #[tokio::test]
-async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback() {
+async fn opening_a_lease_while_provider_headers_are_pending_reuses_its_response() {
     let (f, header_gate, held_tail, requests_before_lease) =
         hang_guard("owned pending provider audio setup", async {
             let f = AudioLibrary::start().await;
@@ -65,9 +65,12 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
         .await;
 
     let ticket_snapshot_absent = Arc::new(Notify::new());
-    let subscriber =
-        tracing_subscriber::registry().with(TicketSnapshot(ticket_snapshot_absent.clone()));
+    let dispatch = hito_testkit::logs::anchored_dispatch(
+        tracing_subscriber::registry().with(TicketSnapshot(ticket_snapshot_absent.clone())),
+    );
     let mut open_task: Option<JoinHandle<hito_core::Result<OpenedAudio>>> = None;
+    let mut open_task_joined = true;
+    let mut open_task_join_failed = false;
     let mut lease_created = false;
     let mut header_request_started = false;
     let mut ticket_was_absent = false;
@@ -93,7 +96,7 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
                         source_id: f.source.id.clone(),
                     },
                 )
-                .with_subscriber(subscriber.clone()),
+                .with_subscriber(dispatch.clone()),
         )
         .await
         {
@@ -106,13 +109,14 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
             if header_request_started {
                 let playback = f.hito.playback.clone();
                 let actor = f.actor.clone();
+                open_task_joined = false;
                 open_task = Some(tokio::spawn(
                     async move {
                         playback
                             .open_lease_audio(&actor, lease.id, AudioRequest::default())
                             .await
                     }
-                    .with_subscriber(subscriber.clone()),
+                    .with_subscriber(dispatch.clone()),
                 ));
                 ticket_was_absent =
                     tokio::time::timeout(Duration::from_secs(2), ticket_snapshot_absent.notified())
@@ -120,51 +124,52 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
                         .is_ok();
 
                 if ticket_was_absent {
-                    header_gate.release();
-                    header_gate.release();
+                    header_gate.open();
                     let opened = tokio::time::timeout(
                         Duration::from_secs(5),
                         open_task.as_mut().expect("owned open task"),
                     )
                     .await;
-                    if opened.is_ok() {
+                    if let Ok(joined) = opened {
+                        open_task_joined = true;
+                        open_task_join_failed = joined.is_err();
                         open_task = None;
-                    }
-                    if let Ok(Ok(Ok(OpenedAudio::Content(mut audio)))) = opened {
-                        response_shape_is_expected = audio.content_type == "audio/wav"
-                            && audio.length == Some(f.original.len() as u64)
-                            && audio.total_length == Some(f.original.len() as u64);
-                        if let Some(mut body) = audio.body.take() {
-                            let prefix = tokio::time::timeout(Duration::from_secs(5), async {
-                                let mut prefix = Vec::new();
-                                while prefix.len() < 128 {
-                                    match body.chunk().await? {
-                                        Some(bytes) => prefix.extend_from_slice(&bytes),
-                                        None => return Err(Error::NotFound),
-                                    }
-                                }
-                                Ok::<_, Error>(prefix)
-                            })
-                            .await;
-                            if let Ok(Ok(prefix)) = prefix {
-                                prefix_was_available_while_tail_held = prefix
-                                    .get(..128)
-                                    .is_some_and(|bytes| bytes == &f.original[..128])
-                                    && !held_tail.released();
-                                playback_bytes.extend_from_slice(&prefix);
-                                held_tail.release();
-                                let remaining =
-                                    tokio::time::timeout(Duration::from_secs(5), async {
-                                        let mut remaining = Vec::new();
-                                        while let Some(bytes) = body.chunk().await? {
-                                            remaining.extend_from_slice(&bytes);
+                        if let Ok(Ok(OpenedAudio::Content(mut audio))) = joined {
+                            response_shape_is_expected = audio.content_type == "audio/wav"
+                                && audio.length == Some(f.original.len() as u64)
+                                && audio.total_length == Some(f.original.len() as u64);
+                            if let Some(mut body) = audio.body.take() {
+                                let prefix = tokio::time::timeout(Duration::from_secs(5), async {
+                                    let mut prefix = Vec::new();
+                                    while prefix.len() < 128 {
+                                        match body.chunk().await? {
+                                            Some(bytes) => prefix.extend_from_slice(&bytes),
+                                            None => return Err(Error::NotFound),
                                         }
-                                        Ok::<_, Error>(remaining)
-                                    })
-                                    .await;
-                                if let Ok(Ok(remaining)) = remaining {
-                                    playback_bytes.extend_from_slice(&remaining);
-                                    playback_completed = true;
+                                    }
+                                    Ok::<_, Error>(prefix)
+                                })
+                                .await;
+                                if let Ok(Ok(prefix)) = prefix {
+                                    prefix_was_available_while_tail_held = prefix
+                                        .get(..128)
+                                        .is_some_and(|bytes| bytes == &f.original[..128])
+                                        && !held_tail.released();
+                                    playback_bytes.extend_from_slice(&prefix);
+                                    held_tail.release();
+                                    let remaining =
+                                        tokio::time::timeout(Duration::from_secs(5), async {
+                                            let mut remaining = Vec::new();
+                                            while let Some(bytes) = body.chunk().await? {
+                                                remaining.extend_from_slice(&bytes);
+                                            }
+                                            Ok::<_, Error>(remaining)
+                                        })
+                                        .await;
+                                    if let Ok(Ok(remaining)) = remaining {
+                                        playback_bytes.extend_from_slice(&remaining);
+                                        playback_completed = true;
+                                    }
                                 }
                             }
                         }
@@ -198,16 +203,25 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
     .catch_unwind()
     .await;
 
-    header_gate.release();
-    header_gate.release();
+    header_gate.open();
     held_tail.release();
-    if let Some(mut task) = open_task.take()
-        && tokio::time::timeout(Duration::from_secs(5), &mut task)
-            .await
-            .is_err()
-    {
-        task.abort();
-        let _ = tokio::time::timeout(Duration::from_secs(5), task).await;
+    if let Some(mut task) = open_task.take() {
+        match tokio::time::timeout(Duration::from_secs(5), &mut task).await {
+            Ok(joined) => {
+                open_task_joined = true;
+                open_task_join_failed = joined.is_err();
+            }
+            Err(_) => {
+                task.abort();
+                match tokio::time::timeout(Duration::from_secs(5), task).await {
+                    Ok(joined) => {
+                        open_task_joined = true;
+                        open_task_join_failed = joined.is_err();
+                    }
+                    Err(_) => open_task_joined = false,
+                }
+            }
+        }
     }
     let playback_closed = matches!(
         tokio::time::timeout(Duration::from_secs(5), f.hito.playback.close()).await,
@@ -240,6 +254,7 @@ async fn pending_provider_headers_report_a_missing_ticket_before_remote_fallback
         playback_completed
     );
     assert!(playback_closed && replicas_closed && replication_closed && server_closed);
+    assert!(open_task_joined && !open_task_join_failed);
     assert!(lease_created);
     assert!(header_request_started);
     assert!(ticket_was_absent);
