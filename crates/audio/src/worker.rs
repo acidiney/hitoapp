@@ -296,7 +296,10 @@ fn restart<T>(
         match attempt(*generation) {
             Ok(started) => return Ok(Some(started)),
             Err(_) if state.stopped.load(Ordering::Acquire) => return Ok(None),
-            Err(error) if state.rebuild_request.load(Ordering::Acquire) == *generation => {
+            Err(error)
+                if state.error().is_none()
+                    && state.rebuild_request.load(Ordering::Acquire) == *generation =>
+            {
                 *resets += 1;
                 if *resets > 3 {
                     tracing::warn!(
@@ -566,5 +569,17 @@ mod tests {
         let (result, seen, _) = attempts(&state, 1, |_, _| Ok(()));
         assert!(matches!(result, Ok(None)));
         assert!(seen.is_empty());
+    }
+
+    #[test]
+    fn a_terminal_failure_wins_over_a_pending_rebuild_of_the_same_generation() {
+        let state = State::new();
+        let (result, seen, _) = attempts(&state, 1, |state, generation| {
+            let _ = requested(state, generation);
+            state.fail(Error::Output);
+            Err(Error::Output)
+        });
+        assert!(matches!(result, Err(Error::Output)));
+        assert_eq!(seen, [2]);
     }
 }
