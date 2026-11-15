@@ -43,6 +43,8 @@ pub(crate) struct State {
     pub callbacks: AtomicU64,
     pub output_failure: AtomicU8,
     pub notices: AtomicU64,
+    pub output_generation: AtomicU64,
+    pub rebuild_request: AtomicU64,
 }
 
 impl State {
@@ -70,6 +72,8 @@ impl State {
             callbacks: AtomicU64::new(0),
             output_failure: AtomicU8::new(0),
             notices: AtomicU64::new(0),
+            output_generation: AtomicU64::new(0),
+            rebuild_request: AtomicU64::new(0),
         }
     }
 

@@ -87,6 +87,8 @@ impl Output {
         generation: u64,
     ) -> Result<(rtrb::Producer<Frame>, Self)> {
         state.callbacks.store(0, Ordering::Release);
+        state.rebuild_request.store(0, Ordering::Release);
+        state.output_generation.store(generation, Ordering::Release);
         let (producer, consumer) = rtrb::RingBuffer::new((format.sample_rate / 10) as usize);
         let output = Self::open(format, consumer, state, audio_id, generation)?;
         Ok((producer, output))
@@ -271,39 +273,66 @@ impl Origin {
 }
 
 fn report(state: &State, origin: &Origin, born_xruns: u64, kind: cpal::ErrorKind) {
+    let (audio_id, generation) = origin.stream;
+    let emit = |reason: &'static str, current_xruns: u64, action: &'static str, terminal: bool| {
+        tracing::dispatcher::with_default(&origin.dispatch, || {
+            tracing::warn!(
+                event = "audio_output_failed",
+                audio_id,
+                generation,
+                reason,
+                born_xruns,
+                current_xruns,
+                action,
+                terminal,
+                "Audio output reported a failure"
+            )
+        });
+    };
     if matches!(
         kind,
         cpal::ErrorKind::DeviceChanged | cpal::ErrorKind::RealtimeDenied
     ) {
         state.notices.fetch_add(1, Ordering::Release);
-    } else if kind == cpal::ErrorKind::Xrun {
-        state.xruns.fetch_add(1, Ordering::Release);
-    } else {
-        let reason = failure_kind(kind);
-        let code = match kind {
-            cpal::ErrorKind::BackendError => 1,
-            cpal::ErrorKind::DeviceNotAvailable => 2,
-            cpal::ErrorKind::StreamInvalidated => 3,
-            _ => 4,
-        };
-        state.output_failure.store(code, Ordering::Release);
-        let current_xruns = state.xruns.load(Ordering::Acquire);
-        let terminal = current_xruns == born_xruns;
-        tracing::dispatcher::with_default(&origin.dispatch, || {
-            tracing::warn!(
-                event = "audio_output_failed",
-                audio_id = origin.stream.0,
-                generation = origin.stream.1,
-                reason,
-                born_xruns,
-                current_xruns,
-                terminal,
-                "Audio output reported a failure"
-            )
-        });
-        if terminal {
-            state.fail(Error::Output);
+        return;
+    }
+    if state.output_generation.load(Ordering::Acquire) != generation {
+        if kind != cpal::ErrorKind::Xrun {
+            emit(
+                failure_kind(kind),
+                state.xruns.load(Ordering::Acquire),
+                "retired",
+                false,
+            );
         }
+        return;
+    }
+    if kind == cpal::ErrorKind::Xrun {
+        state.xruns.fetch_add(1, Ordering::Release);
+        return;
+    }
+    let reason = failure_kind(kind);
+    let code = match kind {
+        cpal::ErrorKind::BackendError => 1,
+        cpal::ErrorKind::DeviceNotAvailable => 2,
+        cpal::ErrorKind::StreamInvalidated => 3,
+        _ => 4,
+    };
+    state.output_failure.store(code, Ordering::Release);
+    let current_xruns = state.xruns.load(Ordering::Acquire);
+    if current_xruns != born_xruns {
+        emit(reason, current_xruns, "recovering", false);
+    } else if generation > 1 && kind == cpal::ErrorKind::BackendError {
+        if state
+            .rebuild_request
+            .compare_exchange(0, generation, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            emit(reason, current_xruns, "rebuild", false);
+        }
+    } else {
+        emit(reason, current_xruns, "stop", true);
+        state.fail(Error::Output);
     }
 }
 
@@ -352,10 +381,10 @@ mod tests {
     #[test]
     fn a_backend_failure_on_a_callback_thread_reaches_its_owners_subscriber() {
         let sink = Sink::default();
-        let state = Arc::new(State::new());
+        let state = Arc::new(active(1, 0));
         tracing::dispatcher::with_default(&owner(&sink), || {
             let callback_state = state.clone();
-            let origin = Origin::capture((7, 3));
+            let origin = Origin::capture((7, 1));
             std::thread::spawn(move || {
                 report(&callback_state, &origin, 0, cpal::ErrorKind::BackendError)
             })
@@ -370,17 +399,69 @@ mod tests {
         for field in [
             "\"reason\":\"backend\"",
             "\"audio_id\":7",
-            "\"generation\":3",
+            "\"generation\":1",
             "\"terminal\":true",
         ] {
             assert!(event.contains(field), "{field} missing from {event}");
         }
     }
 
+    fn active(generation: u64, xruns: u64) -> State {
+        let state = State::new();
+        state.output_generation.store(generation, Ordering::Release);
+        state.xruns.store(xruns, Ordering::Release);
+        state
+    }
+
+    #[test]
+    fn a_backend_failure_of_a_starting_replacement_requests_one_rebuild_instead_of_stopping() {
+        let state = active(2, 1);
+        let replacement = Origin::capture((1, 2));
+        for _ in 0..6 {
+            report(&state, &replacement, 1, cpal::ErrorKind::BackendError);
+        }
+        assert_eq!(state.error(), None);
+        assert_eq!(state.rebuild_request.load(Ordering::Acquire), 2);
+        assert_eq!(state.xruns.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn the_first_output_and_other_replacement_failures_stay_terminal() {
+        let initial = active(1, 0);
+        report(
+            &initial,
+            &Origin::capture((1, 1)),
+            0,
+            cpal::ErrorKind::BackendError,
+        );
+        assert_eq!(initial.error(), Some(Error::Output));
+        assert_eq!(initial.rebuild_request.load(Ordering::Acquire), 0);
+        for kind in [
+            cpal::ErrorKind::DeviceNotAvailable,
+            cpal::ErrorKind::StreamInvalidated,
+        ] {
+            let replacement = active(2, 1);
+            report(&replacement, &Origin::capture((1, 2)), 1, kind);
+            assert_eq!(replacement.error(), Some(Error::Output));
+            assert_eq!(replacement.rebuild_request.load(Ordering::Acquire), 0);
+        }
+    }
+
+    #[test]
+    fn a_retired_output_cannot_stop_rebuild_or_count_against_its_replacement() {
+        let state = active(3, 1);
+        let retired = Origin::capture((1, 2));
+        report(&state, &retired, 1, cpal::ErrorKind::BackendError);
+        report(&state, &retired, 1, cpal::ErrorKind::Xrun);
+        report(&state, &retired, 1, cpal::ErrorKind::DeviceNotAvailable);
+        assert_eq!(state.error(), None);
+        assert_eq!(state.rebuild_request.load(Ordering::Acquire), 0);
+        assert_eq!(state.xruns.load(Ordering::Acquire), 1);
+    }
+
     #[test]
     fn a_replacement_failure_is_terminal_before_recovery_is_acknowledged() {
-        let state = State::new();
-        state.xruns.store(1, Ordering::Release);
+        let state = active(1, 1);
         report(
             &state,
             &Origin::capture((1, 1)),
@@ -402,7 +483,7 @@ mod tests {
 
     #[test]
     fn follow_on_failure_of_the_old_stream_does_not_stop_its_replacement() {
-        let state = State::new();
+        let state = active(1, 0);
         report(&state, &Origin::capture((1, 1)), 0, cpal::ErrorKind::Xrun);
         report(
             &state,

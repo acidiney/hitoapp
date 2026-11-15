@@ -130,7 +130,8 @@ pub(crate) fn run(
             }
         }
         let reported = state.xruns.load(Ordering::Acquire);
-        if reported != xruns {
+        let requested = state.rebuild_request.load(Ordering::Acquire) == output_generation;
+        if reported != xruns || requested {
             xruns = reported;
             let observed = state.snapshot(format);
             if observed.track != decoder.track() {
@@ -184,6 +185,11 @@ pub(crate) fn run(
                 target_position_ns = nanos(target),
                 track = observed.track,
                 recovery_attempt = resets,
+                trigger = if requested {
+                    "replacement_failure"
+                } else {
+                    "xrun"
+                },
                 previous_callbacks,
                 "Audio output underrun recovered at the last presented position"
             );
