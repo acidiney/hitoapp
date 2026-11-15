@@ -69,6 +69,9 @@ pub(super) async fn probe(
     cancel: &mut watch::Receiver<bool>,
 ) -> Result<(SourceProfile, ConversionSlot)> {
     authority.check().await?;
+    if *cancel.borrow() {
+        return Err(unfinished());
+    }
     let mut arguments = media_command::audio_input(Path::new("/dev/stdin"));
     arguments.extend(
         [
@@ -91,7 +94,7 @@ pub(super) async fn probe(
         playback_grant = authority.correlation_id()
     );
     let mut output = Vec::new();
-    let (result, _) = fed(feeder, async {
+    let (result, fed) = fed(feeder, async {
         let read = async {
             stdout
                 .ok_or_else(unfinished)?
@@ -119,6 +122,7 @@ pub(super) async fn probe(
     .instrument(span)
     .await;
     result
+        .and(fed)
         .and_then(|()| parse(&output))
         .map(|profile| (profile, slot))
 }

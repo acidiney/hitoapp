@@ -122,6 +122,9 @@ pub(super) async fn negotiate(
         .quality
         .target_bitrate()
         .ok_or_else(|| Error::Invalid("Choose a converted quality".into()))?;
+    if *cancel.borrow() {
+        return Err(process::unfinished());
+    }
     let slot = limits.acquire(actor.id())?;
     let started = Instant::now();
     let unchanged = |reason: &'static str| {
@@ -176,6 +179,14 @@ pub(super) async fn negotiate(
     }
 }
 
+struct CancelOnDrop(watch::Sender<bool>);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        let _ = self.0.send(true);
+    }
+}
+
 pub(super) async fn convert(
     limits: &ConversionLimits,
     tools: &MediaTools,
@@ -185,18 +196,27 @@ pub(super) async fn convert(
     request: QualityRequest,
     target: u32,
 ) -> Result<QualityAudio> {
-    let (_never, mut cancel) = watch::channel(false);
-    match negotiate(
-        limits,
-        tools,
-        actor,
-        &grant,
-        Input::Descriptor(&file),
-        request,
-        &mut cancel,
-    )
-    .await?
-    {
+    let (cancel, mut cancelled) = watch::channel(false);
+    let _cancel = CancelOnDrop(cancel);
+    let (done, negotiated) = tokio::sync::oneshot::channel();
+    let owned = (limits.clone(), tools.clone(), actor.clone(), grant.clone());
+    tokio::spawn(async move {
+        let (limits, tools, actor, grant) = owned;
+        let result = negotiate(
+            &limits,
+            &tools,
+            &actor,
+            &grant,
+            Input::Descriptor(&file),
+            request,
+            &mut cancelled,
+        )
+        .await;
+        if let Err(Ok(Negotiated::Converted(Some(stream)))) = done.send(result) {
+            (*stream).close().await;
+        }
+    });
+    match negotiated.await.map_err(|_| process::unfinished())?? {
         Negotiated::Converted(stream) => Ok(converted(
             request,
             target,

@@ -140,6 +140,9 @@ pub(super) async fn start(
     let quality = request.quality;
     let target = quality.target_bitrate().ok_or_else(unfinished)?;
     authority.check().await?;
+    if *cancel.borrow() {
+        return Err(unfinished());
+    }
     let mut arguments = media_command::audio_input_at(Path::new("/dev/stdin"), request.start);
     arguments.extend(
         [
