@@ -100,7 +100,8 @@ async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_
                 .playback
                 .open_audio(&f.actor, &f.source.id, AudioRequest { head: false, range })
                 .await,
-            Err(hito_core::Error::Upstream(_))
+            Err(hito_core::Error::PlaybackProvider { original, .. })
+                if matches!(original.as_ref(), hito_core::Error::Upstream(_))
         ));
     }
     f.ready().await;

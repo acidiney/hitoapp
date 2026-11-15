@@ -63,7 +63,11 @@ async fn raw_chunked_audio_rejects_unsupported_and_ambiguous_transfer_framing() 
             .await;
         if !valid {
             assert!(
-                matches!(opened, Err(hito_core::Error::Upstream(_))),
+                matches!(
+                    opened,
+                    Err(hito_core::Error::PlaybackProvider { original, .. })
+                        if matches!(original.as_ref(), hito_core::Error::Upstream(_))
+                ),
                 "unsupported or ambiguous transfer framing must fail"
             );
             continue;
