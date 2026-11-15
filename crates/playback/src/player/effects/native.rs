@@ -380,6 +380,15 @@ impl Native {
                 tracing::debug!(event = "player_failed_seek_retry", command_id = %seek.id, "Retrying authorized input after an explicit seek");
             }
             self.controls.request_seek(seek.position_ms);
+            if self.suspended && target.as_ref().is_some_and(|target| !target.playing) {
+                self.suspended = false;
+                tracing::debug!(
+                    event = "player_acquisition_restarted",
+                    command_id = %seek.id,
+                    outcome = "paused_seek",
+                    "Restarting native acquisition for an explicit paused seek"
+                );
+            }
         } else if target.as_ref().is_some_and(|next| {
             self.target
                 .as_ref()
