@@ -108,6 +108,7 @@ test("a populated version54 library upgrades and plays through truthful provider
   > = {};
   const queueRequests: OutageQueueRequest[] = [];
   let queueScreen: OutageQueueScreen | null = null;
+  let observerCounts: Record<string, number> | null = null;
   const started = performance.now();
   try {
     if (
@@ -269,10 +270,7 @@ test("a populated version54 library upgrades and plays through truthful provider
     phase = "runtime_logs";
     const logs = await evidence.serverLogCheck();
     phase = "evidence";
-    await writeFile(
-      "/evidence/observer-counts.json",
-      JSON.stringify({ ...evidence.counts }),
-    );
+    observerCounts = { ...evidence.counts };
     await writeFile(
       "/evidence/provider-outage.json",
       JSON.stringify({
@@ -321,6 +319,7 @@ test("a populated version54 library upgrades and plays through truthful provider
         resolutions,
         queue_requests: queueRequests,
         queue_screen: queueScreen,
+        observer_counts: observerCounts,
         provider: provider?.counts ?? null,
         elapsed_ms: Math.round(performance.now() - started),
       }),
